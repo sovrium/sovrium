@@ -11,8 +11,28 @@ import { chainRecordRoutesMethods } from './record-routes'
 import { chainTableRoutesMethods } from './table-routes'
 import { chainViewRoutesMethods } from './view-routes'
 import type { App } from '@/domain/models/app'
-import type { Hono } from 'hono'
-import type { Context, Next } from 'hono'
+import type { Context, Hono, Next } from 'hono'
+
+/**
+ * Guest context middleware handler
+ *
+ * Creates a minimal guest session for apps without auth configuration.
+ */
+async function guestContextHandler(c: Context, next: Next) {
+  // Create a minimal guest session for apps without auth
+  const guestSession = {
+    userId: 'guest',
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+    token: '',
+    ipAddress: '',
+    userAgent: '',
+  }
+  c.set('session', guestSession)
+  c.set('userRole', 'guest')
+
+  // eslint-disable-next-line functional/no-expression-statements -- Required for middleware to continue
+  await next()
+}
 
 /**
  * Middleware to provide guest session and role for apps without authentication
@@ -22,21 +42,7 @@ import type { Context, Next } from 'hono'
  * without actual authentication while maintaining the expected context structure.
  */
 function provideGuestContext() {
-  return async (c: Context, next: Next) => {
-    // Create a minimal guest session for apps without auth
-    const guestSession = {
-      userId: 'guest',
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
-      token: '',
-      ipAddress: '',
-      userAgent: '',
-    }
-    c.set('session', guestSession)
-    c.set('userRole', 'guest')
-
-    // eslint-disable-next-line functional/no-expression-statements -- Required for middleware to continue
-    await next()
-  }
+  return guestContextHandler
 }
 
 /**
