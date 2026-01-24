@@ -197,15 +197,18 @@ test.describe('Delete record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-005: should return 403 for viewer with read-only access',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           emailAndPassword: true,
+          admin: {
+            defaultRole: 'user',
+          },
         },
         tables: [
           {
@@ -219,13 +222,18 @@ test.describe('Delete record', () => {
           },
         ],
       })
+      const { user } = await createAuthenticatedUser()
+
+      // Set user role to viewer via direct database update
+      await executeQuery(`UPDATE auth.user SET role = 'viewer' WHERE id = $1`, [user.id])
+
       await executeQuery(`
         INSERT INTO projects (id, name, organization_id)
         VALUES (1, 'Project Alpha', 'org_456')
       `)
 
       // WHEN: Viewer attempts to delete a record
-      const response = await request.delete('/api/tables/1/records/1', {})
+      const response = await request.delete('/api/tables/5/records/1', {})
 
       // THEN: Returns 403 Forbidden error
       expect(response.status()).toBe(403)
