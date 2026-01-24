@@ -330,15 +330,17 @@ test.describe('Delete record', () => {
       expect(response.status()).toBe(204)
 
       // THEN: Record is soft deleted (deleted_at is set)
-      const result = await executeQuery(`SELECT deleted_at FROM employees WHERE id=${createdRecord.id}`)
+      const result = await executeQuery(
+        `SELECT deleted_at FROM employees WHERE id=${createdRecord.id}`
+      )
       expect(result.deleted_at).toBeTruthy()
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-008: should return 204 for owner with full access',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: An owner user with full delete permissions
       await startServerWithSchema({
         name: 'test-app',
@@ -358,19 +360,26 @@ test.describe('Delete record', () => {
           },
         ],
       })
-      await executeQuery(`
-        INSERT INTO projects (id, name, status, organization_id)
-        VALUES (1, 'Project Alpha', 'active', 'org_789')
-      `)
+      await createAuthenticatedUser()
+
+      // Create record via API so organization_id is set automatically
+      const createResponse = await request.post('/api/tables/8/records', {
+        headers: { 'Content-Type': 'application/json' },
+        data: { fields: { name: 'Project Alpha', status: 'active' } },
+      })
+      expect(createResponse.status()).toBe(201)
+      const createdRecord = await createResponse.json()
 
       // WHEN: Owner deletes a record from their organization
-      const response = await request.delete('/api/tables/1/records/1', {})
+      const response = await request.delete(`/api/tables/8/records/${createdRecord.id}`, {})
 
       // THEN: Returns 204 No Content
       expect(response.status()).toBe(204)
 
       // THEN: Record is soft deleted (deleted_at is set)
-      const result = await executeQuery(`SELECT deleted_at FROM projects WHERE id=1`)
+      const result = await executeQuery(
+        `SELECT deleted_at FROM projects WHERE id=${createdRecord.id}`
+      )
       expect(result.deleted_at).toBeTruthy()
     }
   )
