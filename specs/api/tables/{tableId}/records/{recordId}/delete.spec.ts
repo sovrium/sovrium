@@ -144,10 +144,10 @@ test.describe('Delete record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-004: should return 403 for member without delete permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: A member user without delete permission
       await startServerWithSchema({
         name: 'test-app',
@@ -163,16 +163,23 @@ test.describe('Delete record', () => {
               { id: 2, name: 'organization_id', type: 'single-line-text' },
               { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
+            permissions: {
+              delete: {
+                type: 'roles',
+                roles: ['admin', 'owner'],
+              },
+            },
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO employees (id, name, organization_id)
         VALUES (1, 'Alice Cooper', 'org_123')
       `)
 
       // WHEN: Member attempts to delete a record
-      const response = await request.delete('/api/tables/1/records/1', {})
+      const response = await request.delete('/api/tables/4/records/1', {})
 
       // THEN: Returns 403 Forbidden error
       expect(response.status()).toBe(403)
