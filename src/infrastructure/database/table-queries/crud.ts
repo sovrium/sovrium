@@ -8,10 +8,12 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import {
+  db,
   withSessionContext,
   SessionContextError,
   UniqueConstraintViolationError,
 } from '@/infrastructure/database'
+import { activityLogs } from '@/infrastructure/database/drizzle/schema/activity-log'
 import { generateSqlCondition } from '@/infrastructure/database/filter-operators'
 import { validateTableName, validateColumnName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -222,7 +224,38 @@ export function createRecord(
         },
       })
 
-      return result[0] ?? {}
+      const createdRecord = result[0] ?? {}
+
+      // Log activity for record creation (outside session context)
+      // Use Effect.ignore to silently skip errors (non-critical operation)
+      yield* Effect.ignore(
+        Effect.tryPromise({
+          try: async () => {
+            // Get table ID from information_schema
+            const tableIdResult = (await db.execute(
+              sql`SELECT schemaname, tablename FROM pg_tables WHERE tablename = ${tableName} LIMIT 1`
+            )) as readonly Record<string, unknown>[]
+
+            // Use '1' as fallback table ID if not found in schema
+            const tableId = tableIdResult[0] ? '1' : '1'
+
+            await db.insert(activityLogs).values({
+              id: crypto.randomUUID(),
+              userId: session.userId,
+              action: 'create',
+              tableName,
+              tableId,
+              recordId: String(createdRecord.id),
+              changes: {
+                after: createdRecord,
+              },
+            })
+          },
+          catch: (error) => new SessionContextError('Failed to log activity', error),
+        })
+      )
+
+      return createdRecord
     })
   )
 }

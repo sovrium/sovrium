@@ -800,7 +800,7 @@ test.describe('Create new record', () => {
   // Activity Log Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-017: should create comprehensive activity log entry',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -818,6 +818,7 @@ test.describe('Create new record', () => {
               { id: 3, name: 'email', type: 'email', required: true },
               { id: 4, name: 'phone', type: 'phone-number' },
             ],
+            primaryKey: { type: 'auto-increment', field: 'id' },
           },
         ],
       })
@@ -827,7 +828,7 @@ test.describe('Create new record', () => {
       })
 
       // WHEN: User creates a new record
-      const response = await request.post('/api/tables/1/records', {
+      const response = await request.post('/api/tables/17/records', {
         headers: {
           'Content-Type': 'application/json',
         },

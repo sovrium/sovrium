@@ -58,6 +58,20 @@ const mockLogs = [
 
 const MockActivityLogServiceLive = Layer.succeed(ActivityLogService, {
   listAll: () => Effect.succeed(mockLogs),
+  create: () =>
+    Effect.succeed({
+      id: 'log-1',
+      createdAt: new Date(),
+      userId: 'user-123',
+      sessionId: null,
+      action: 'create' as const,
+      tableName: 'users',
+      tableId: '1',
+      recordId: '1',
+      changes: null,
+      ipAddress: null,
+      userAgent: null,
+    }),
 })
 
 /**
@@ -96,6 +110,20 @@ const MockUserRoleServiceNoRole = Layer.succeed(UserRoleService, {
  */
 const MockActivityLogServiceEmpty = Layer.succeed(ActivityLogService, {
   listAll: () => Effect.succeed([]),
+  create: () =>
+    Effect.succeed({
+      id: 'log-1',
+      createdAt: new Date(),
+      userId: 'user-123',
+      sessionId: null,
+      action: 'create' as const,
+      tableName: 'users',
+      tableId: '1',
+      recordId: '1',
+      changes: null,
+      ipAddress: null,
+      userAgent: null,
+    }),
 })
 
 describe('ListActivityLogs', () => {
