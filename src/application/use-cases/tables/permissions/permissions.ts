@@ -115,6 +115,21 @@ export function hasDeletePermission(
   table: Readonly<{ permissions?: Readonly<{ delete?: unknown }> }> | undefined,
   userRole: string
 ): boolean {
+  // Viewers have read-only access by default - deny delete operations
+  if (userRole === 'viewer') {
+    // Only allow if explicitly granted via role-based permissions
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is not a Drizzle delete operation, it's accessing a property
+    const deletePermission = table?.permissions?.delete as
+      | { type: 'roles'; roles?: string[] }
+      | { type?: string }
+      | undefined
+    if (deletePermission?.type === 'roles') {
+      const allowedRoles = (deletePermission as { type: 'roles'; roles?: string[] }).roles || []
+      return allowedRoles.includes(userRole)
+    }
+    return false
+  }
+
   // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is not a Drizzle delete operation, it's accessing a property
   const deletePermission = table?.permissions?.delete as
     | { type: 'roles'; roles?: string[] }
