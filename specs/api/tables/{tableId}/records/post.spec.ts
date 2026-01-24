@@ -748,7 +748,7 @@ test.describe('Create new record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-016: should use database defaults',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
@@ -769,7 +769,7 @@ test.describe('Create new record', () => {
       })
 
       // WHEN: Some fields are omitted due to write restrictions
-      const response = await request.post('/api/tables/1/records', {
+      const response = await request.post('/api/tables/16/records', {
         headers: {
           'Content-Type': 'application/json',
         },
