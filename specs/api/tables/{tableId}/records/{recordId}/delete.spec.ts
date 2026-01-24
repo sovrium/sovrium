@@ -330,15 +330,17 @@ test.describe('Delete record', () => {
       expect(response.status()).toBe(204)
 
       // THEN: Record is soft deleted (deleted_at is set)
-      const result = await executeQuery(`SELECT deleted_at FROM employees WHERE id=${createdRecord.id}`)
+      const result = await executeQuery(
+        `SELECT deleted_at FROM employees WHERE id=${createdRecord.id}`
+      )
       expect(result.deleted_at).toBeTruthy()
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-008: should return 204 for owner with full access',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: An owner user with full delete permissions
       await startServerWithSchema({
         name: 'test-app',
@@ -358,27 +360,34 @@ test.describe('Delete record', () => {
           },
         ],
       })
-      await executeQuery(`
-        INSERT INTO projects (id, name, status, organization_id)
-        VALUES (1, 'Project Alpha', 'active', 'org_789')
-      `)
+      await createAuthenticatedUser()
+
+      // Create record via API so organization_id is set automatically
+      const createResponse = await request.post('/api/tables/8/records', {
+        headers: { 'Content-Type': 'application/json' },
+        data: { fields: { name: 'Project Alpha', status: 'active' } },
+      })
+      expect(createResponse.status()).toBe(201)
+      const createdRecord = await createResponse.json()
 
       // WHEN: Owner deletes a record from their organization
-      const response = await request.delete('/api/tables/1/records/1', {})
+      const response = await request.delete(`/api/tables/8/records/${createdRecord.id}`, {})
 
       // THEN: Returns 204 No Content
       expect(response.status()).toBe(204)
 
       // THEN: Record is soft deleted (deleted_at is set)
-      const result = await executeQuery(`SELECT deleted_at FROM projects WHERE id=1`)
+      const result = await executeQuery(
+        `SELECT deleted_at FROM projects WHERE id=${createdRecord.id}`
+      )
       expect(result.deleted_at).toBeTruthy()
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-009: should return 404 to prevent org enumeration',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: A record with organization_id='org_456' and admin from org_123
       await startServerWithSchema({
         name: 'test-app',
@@ -398,13 +407,16 @@ test.describe('Delete record', () => {
           },
         ],
       })
+      // Create authenticated user from org_123 (default organization)
+      await createAuthenticatedUser()
+
       await executeQuery(`
         INSERT INTO employees (id, name, email, organization_id)
         VALUES (1, 'Bob Smith', 'bob@example.com', 'org_456')
       `)
 
       // WHEN: Admin attempts to delete record from different organization
-      const response = await request.delete('/api/tables/1/records/1', {})
+      const response = await request.delete('/api/tables/9/records/1', {})
 
       // THEN: Returns 404 Not Found (not 403 - prevents org enumeration)
       expect(response.status()).toBe(404)

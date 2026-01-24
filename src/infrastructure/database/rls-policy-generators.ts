@@ -404,19 +404,30 @@ const generateRecordLevelPolicies = (table: Table): readonly string[] => {
  * @param tableName - Name of the table
  * @returns Array of SQL statements to enable RLS and allow app_user role
  */
-const generateDefaultDenyPolicies = (tableName: string): readonly string[] => {
+const generateDefaultDenyPolicies = (table: Table): readonly string[] => {
+  const tableName = table.name
   const enableRLS = generateEnableRLS(tableName)
+
+  // Check if table has organization_id field for multi-tenant isolation
+  const hasOrgField = table.fields?.some((f) => f.name === 'organization_id') ?? false
 
   // Allow authenticated users (identified by app.user_id session variable)
   // This enables authenticated API access while blocking direct database access
   // Note: We use session variables instead of current_user because SET ROLE may not work reliably in all environments
   const authenticatedCheck = `current_setting('app.user_id', true) IS NOT NULL AND current_setting('app.user_id', true) != ''`
 
+  // For tables with organization_id, add organization isolation to SELECT/UPDATE/DELETE
+  // to prevent cross-org access (returns 404, not 403)
+  // INSERT doesn't need organization check because organization_id is auto-injected by createRecord
+  const orgIsolationCheck = hasOrgField
+    ? `current_setting('app.user_id', true) IS NOT NULL AND current_setting('app.user_id', true) != '' AND organization_id = current_setting('app.organization_id', true)`
+    : authenticatedCheck
+
   const selectPolicies = generatePolicyStatements(
     tableName,
     `${tableName}_authenticated_select`,
     'SELECT',
-    authenticatedCheck
+    orgIsolationCheck
   )
   const insertPolicies = generatePolicyStatements(
     tableName,
@@ -428,13 +439,13 @@ const generateDefaultDenyPolicies = (tableName: string): readonly string[] => {
     tableName,
     `${tableName}_authenticated_update`,
     'UPDATE',
-    authenticatedCheck
+    orgIsolationCheck
   )
   const deletePolicies = generatePolicyStatements(
     tableName,
     `${tableName}_authenticated_delete`,
     'DELETE',
-    authenticatedCheck
+    orgIsolationCheck
   )
 
   return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
@@ -549,7 +560,7 @@ const selectFieldPermissionGenerator = (
   if (shouldSkipRLSForFieldPermissions(table)) {
     return returnEmptyPolicies
   }
-  return () => generateDefaultDenyPolicies(table.name)
+  return () => generateDefaultDenyPolicies(table)
 }
 
 /**
@@ -570,7 +581,7 @@ const selectPolicyGenerator = (
   // Priority 1-3: Special cases
   if (hasOnlyPublicPermissions(table)) return returnEmptyPolicies
   if (hasExplicitEmptyPermissions(table)) return () => generateEnableRLS(table.name)
-  if (hasNoPermissions(table)) return () => generateDefaultDenyPolicies(table.name)
+  if (hasNoPermissions(table)) return () => generateDefaultDenyPolicies(table)
 
   // Priority 4-5: Record-level and mixed permissions
   if (hasRecordLevelPermissions(table)) return generateRecordLevelPolicies
