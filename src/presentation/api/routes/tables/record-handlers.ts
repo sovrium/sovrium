@@ -189,7 +189,7 @@ export async function handleCreateRecord(c: Context, app: App) {
   console.log('[DEBUG] About to call runEffect with fields:', allowedData)
   return await runEffect(
     c,
-    createRecordProgram(session, tableName, allowedData),
+    createRecordProgram(session, tableName, allowedData, app, userRole),
     createRecordResponseSchema,
     201
   )

@@ -693,13 +693,14 @@ test.describe('Create new record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-015: should return 201 with filtered fields',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Field write restrictions and table permission all apply
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 15,
@@ -709,12 +710,24 @@ test.describe('Create new record', () => {
               { id: 2, name: 'email', type: 'email' },
               { id: 3, name: 'salary', type: 'decimal' },
             ],
+            permissions: {
+              fields: [
+                {
+                  field: 'salary',
+                  read: { type: 'roles', roles: ['admin'] }, // Only admin can read salary
+                  write: { type: 'roles', roles: ['admin'] }, // Only admin can write salary
+                },
+              ],
+            },
           },
         ],
       })
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: Member creates record with only permitted fields
-      const response = await request.post('/api/tables/1/records', {
+      const response = await request.post('/api/tables/15/records', {
         headers: {
           'Content-Type': 'application/json',
         },
