@@ -33,6 +33,20 @@ export class ActivityLogService extends Context.Tag('ActivityLogService')<
   ActivityLogService,
   {
     readonly listAll: () => Effect.Effect<readonly ActivityLog[], ActivityLogDatabaseError>
+    readonly create: (log: {
+      readonly userId: string
+      readonly action: 'create' | 'update' | 'delete' | 'restore'
+      readonly tableName: string
+      readonly tableId: string
+      readonly recordId: string
+      readonly changes: {
+        readonly before?: Record<string, unknown>
+        readonly after?: Record<string, unknown>
+      }
+      readonly sessionId?: string
+      readonly ipAddress?: string
+      readonly userAgent?: string
+    }) => Effect.Effect<ActivityLog, ActivityLogDatabaseError>
   }
 >() {}
 
@@ -48,6 +62,33 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
   listAll: () =>
     Effect.tryPromise({
       try: () => db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt)),
+      catch: (error) => new ActivityLogDatabaseError({ cause: error }),
+    }),
+
+  /**
+   * Create activity log entry
+   */
+  create: (log) =>
+    Effect.tryPromise({
+      try: async () => {
+        const result = await db
+          .insert(activityLogs)
+          .values({
+            id: crypto.randomUUID(),
+            userId: log.userId,
+            action: log.action,
+            tableName: log.tableName,
+            tableId: log.tableId,
+            recordId: log.recordId,
+            changes: log.changes,
+            sessionId: log.sessionId,
+            ipAddress: log.ipAddress,
+            userAgent: log.userAgent,
+          })
+          .returning()
+
+        return result[0]!
+      },
       catch: (error) => new ActivityLogDatabaseError({ cause: error }),
     }),
 })
