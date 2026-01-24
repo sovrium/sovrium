@@ -112,24 +112,14 @@ export function validateTable(app: App) {
 async function enrichUserRoleHandler(c: Context, next: Next) {
   const { session } = (c as ContextWithSession).var
 
-  // If session exists, enrich context with user role
-  // If session doesn't exist, set default 'guest' role (for apps without auth)
-  if (session) {
-    const userRole = await getUserRole(session.userId)
-    c.set('userRole', userRole)
-  } else {
-    // For apps without authentication, create a minimal guest session
-    // This allows database operations to work with RLS policies
-    const guestSession = {
-      userId: 'guest',
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
-      token: '',
-      ipAddress: '',
-      userAgent: '',
-    }
-    c.set('session', guestSession)
-    c.set('userRole', 'guest')
+  // Defensive check (should not happen if requireAuth() used before)
+  if (!session) {
+    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
   }
+
+  const userRole = await getUserRole(session.userId)
+
+  c.set('userRole', userRole)
 
   // eslint-disable-next-line functional/no-expression-statements -- Required for middleware to continue
   await next()
