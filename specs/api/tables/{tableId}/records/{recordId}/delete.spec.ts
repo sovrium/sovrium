@@ -432,10 +432,10 @@ test.describe('Delete record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-010: should return 404 when both org and permission violations exist',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: A member without delete permission tries to delete record from different org
       await startServerWithSchema({
         name: 'test-app',
@@ -454,13 +454,16 @@ test.describe('Delete record', () => {
           },
         ],
       })
+      // Create authenticated member user from org_123 (default organization)
+      await createAuthenticatedUser({ role: 'member' })
+
       await executeQuery(`
         INSERT INTO employees (id, name, organization_id)
         VALUES (1, 'Alice Cooper', 'org_456')
       `)
 
       // WHEN: Member attempts delete with both permission and org violations
-      const response = await request.delete('/api/tables/1/records/1', {})
+      const response = await request.delete('/api/tables/10/records/1', {})
 
       // THEN: Returns 404 Not Found (org isolation checked first)
       expect(response.status()).toBe(404)

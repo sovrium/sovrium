@@ -14,6 +14,7 @@ import {
   updateRecord,
   deleteRecord,
   restoreRecord,
+  recordBelongsToOrganization,
   batchCreateRecords,
   batchRestoreRecords,
   batchUpdateRecords,
@@ -557,4 +558,23 @@ export function getViewRecordsProgram() {
       hasPreviousPage: false,
     },
   })
+}
+
+/**
+ * Check if a record belongs to the user's organization
+ *
+ * Application layer wrapper for infrastructure recordBelongsToOrganization function.
+ * Used for authorization checks to prevent organization enumeration attacks.
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordId - Record ID
+ * @returns Effect resolving to true if record exists in user's org, false otherwise
+ */
+export function checkRecordOrganization(
+  session: Readonly<Session>,
+  tableName: string,
+  recordId: string
+): Effect.Effect<boolean, SessionContextError> {
+  return recordBelongsToOrganization(session, tableName, recordId)
 }

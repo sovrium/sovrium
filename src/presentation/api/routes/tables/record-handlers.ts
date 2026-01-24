@@ -16,6 +16,7 @@ import {
   createRecordProgram,
   restoreRecordProgram,
   deleteRecordProgram,
+  checkRecordOrganization,
 } from '@/application/use-cases/tables/programs'
 import {
   createRecordRequestSchema,
@@ -254,8 +255,27 @@ export async function handleUpdateRecord(c: Context, app: App) {
 export async function handleDeleteRecord(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
   const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
+  const recordId = c.req.param('recordId')
 
+  // Find table configuration
   const table = app.tables?.find((t) => t.name === tableName)
+
+  // SECURITY: Only check organization ownership if table has explicit permissions configured
+  // This prevents enumeration attacks while allowing tables without permissions to be accessed cross-org
+  if (table?.permissions && Object.keys(table.permissions).length > 0) {
+    // Table has permissions - check organization ownership to prevent enumeration
+    const belongsToOrg = await Effect.runPromise(
+      checkRecordOrganization(session, tableName, recordId).pipe(Effect.either)
+    )
+
+    // If record doesn't belong to organization (or doesn't exist), return 404
+    if (belongsToOrg._tag === 'Left' || !belongsToOrg.right) {
+      // Record not found OR belongs to different organization
+      return c.json({ error: 'Record not found' }, 404)
+    }
+  }
+
+  // Check delete permissions
   if (!hasDeletePermission(table, userRole)) {
     return c.json(
       {
@@ -266,7 +286,7 @@ export async function handleDeleteRecord(c: Context, app: App) {
     )
   }
 
-  const recordId = c.req.param('recordId')
+  // Perform deletion
   const deleteResult = await Effect.runPromise(deleteRecordProgram(session, tableName, recordId))
 
   if (!deleteResult) {
