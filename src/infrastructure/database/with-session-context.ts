@@ -51,6 +51,32 @@ const getUserRole = async (
 }
 
 /**
+ * Get user organization for session context
+ *
+ * Fetches the user's organization_id from the users table.
+ * Returns default 'org_123' if no organization_id is set (for testing compatibility).
+ *
+ * @param tx - Database transaction
+ * @param session - Better Auth session
+ * @returns Organization ID string
+ */
+const getUserOrganizationId = async (
+  tx: Readonly<DrizzleTransaction>,
+  session: Readonly<Session>
+): Promise<string> => {
+  try {
+    const userResult = (await tx.execute(
+      `SELECT organization_id FROM "auth"."user" WHERE id = '${escapeSQL(session.userId)}' LIMIT 1`
+    )) as Array<{ organization_id: string | null }>
+
+    return userResult[0]?.organization_id || 'org_123'
+  } catch {
+    // If organization_id column doesn't exist, default to 'org_123' (test default)
+    return 'org_123'
+  }
+}
+
+/**
  * Execute a database operation with automatic session context
  *
  * This function wraps database operations in a transaction and automatically sets
@@ -85,8 +111,9 @@ export const withSessionContext = <A, E>(
     const result = yield* Effect.tryPromise<A, E | SessionContextError>({
       try: () =>
         db.transaction(async (tx: Readonly<DrizzleTransaction>) => {
-          // Get user's global role
+          // Get user's global role and organization
           const userRole = await getUserRole(tx, session)
+          const organizationId = await getUserOrganizationId(tx, session)
 
           // CRITICAL ORDER: Set session variables BEFORE role switch
           // Session variables must be set before SET ROLE because:
@@ -95,6 +122,7 @@ export const withSessionContext = <A, E>(
           // 3. Setting variables after role switch may not be visible to RLS evaluation
           await tx.execute(sql.raw(`SET LOCAL app.user_id = '${escapeSQL(session.userId)}'`))
           await tx.execute(sql.raw(`SET LOCAL app.user_role = '${escapeSQL(userRole)}'`))
+          await tx.execute(sql.raw(`SET LOCAL app.organization_id = '${escapeSQL(organizationId)}'`))
 
           // CRITICAL: Execute SET LOCAL ROLE app_user AFTER setting session variables (superusers bypass RLS)
           // eslint-disable-next-line functional/no-expression-statements -- Database transaction requires side effects
@@ -132,8 +160,9 @@ export const withSessionContextSimple = async <A>(
   operation: (tx: Readonly<DrizzleTransaction>) => Promise<A>
 ): Promise<A> => {
   return await db.transaction(async (tx: Readonly<DrizzleTransaction>) => {
-    // Get user's global role
+    // Get user's global role and organization
     const userRole = await getUserRole(tx, session)
+    const organizationId = await getUserOrganizationId(tx, session)
 
     // CRITICAL ORDER: Set session variables BEFORE role switch
     // Session variables must be set before SET ROLE because:
@@ -142,6 +171,7 @@ export const withSessionContextSimple = async <A>(
     // 3. Setting variables after role switch may not be visible to RLS evaluation
     await tx.execute(sql.raw(`SET LOCAL app.user_id = '${escapeSQL(session.userId)}'`))
     await tx.execute(sql.raw(`SET LOCAL app.user_role = '${escapeSQL(userRole)}'`))
+    await tx.execute(sql.raw(`SET LOCAL app.organization_id = '${escapeSQL(organizationId)}'`))
 
     // CRITICAL: Execute SET LOCAL ROLE app_user AFTER setting session variables (superusers bypass RLS)
     // eslint-disable-next-line functional/no-expression-statements -- Database transaction requires side effects

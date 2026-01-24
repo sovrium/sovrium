@@ -341,28 +341,39 @@ export function deleteRecord(
         validateTableName(tableName)
         const tableIdent = sql.identifier(tableName)
 
-        // Check if table has deleted_at column for soft delete
+        // Check if table has deleted_at and organization_id columns
         const columnCheck = (await tx.execute(
-          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name IN ('deleted_at', 'organization_id')`
         )) as readonly Record<string, unknown>[]
 
-        if (columnCheck.length > 0) {
-          // Soft delete: set deleted_at timestamp (parameterized)
-          // Use RETURNING to check if update affected any rows (RLS may block access)
-          const result = (await tx.execute(
-            sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} RETURNING id`
-          )) as readonly Record<string, unknown>[]
+        const hasDeletedAt = columnCheck.some((row) => row.column_name === 'deleted_at')
+        const hasOrgId = columnCheck.some((row) => row.column_name === 'organization_id')
 
-          // If RLS blocked the update, result will be empty
+        if (hasDeletedAt) {
+          // Soft delete: set deleted_at timestamp (parameterized)
+          // Use RETURNING to check if update affected any rows (RLS or organization filter may block access)
+          const result = hasOrgId
+            ? ((await tx.execute(
+                sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} AND organization_id = current_setting('app.organization_id', true) RETURNING id`
+              )) as readonly Record<string, unknown>[])
+            : ((await tx.execute(
+                sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} RETURNING id`
+              )) as readonly Record<string, unknown>[])
+
+          // If organization filter or RLS blocked the update, result will be empty
           return result.length > 0
         } else {
           // Hard delete: remove record (parameterized)
-          // Use RETURNING to check if delete affected any rows (RLS may block access)
-          const result = (await tx.execute(
-            sql`DELETE FROM ${tableIdent} WHERE id = ${recordId} RETURNING id`
-          )) as readonly Record<string, unknown>[]
+          // Use RETURNING to check if delete affected any rows (RLS or organization filter may block access)
+          const result = hasOrgId
+            ? ((await tx.execute(
+                sql`DELETE FROM ${tableIdent} WHERE id = ${recordId} AND organization_id = current_setting('app.organization_id', true) RETURNING id`
+              )) as readonly Record<string, unknown>[])
+            : ((await tx.execute(
+                sql`DELETE FROM ${tableIdent} WHERE id = ${recordId} RETURNING id`
+              )) as readonly Record<string, unknown>[])
 
-          // If RLS blocked the delete, result will be empty
+          // If organization filter or RLS blocked the delete, result will be empty
           return result.length > 0
         }
       },
