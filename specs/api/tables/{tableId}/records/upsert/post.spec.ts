@@ -24,13 +24,14 @@ test.describe('Upsert records (create or update)', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-001: should return 200 with created=1, updated=1',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' with existing record (email='john@example.com', name='John')
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -43,6 +44,8 @@ test.describe('Upsert records (create or update)', () => {
           },
         ],
       })
+
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO users (email, name, status)
         VALUES ('john@example.com', 'John', 'active')
@@ -90,13 +93,14 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-002: should return 200 with created=2, updated=0',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' with 0 records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -108,6 +112,8 @@ test.describe('Upsert records (create or update)', () => {
           },
         ],
       })
+
+      await createAuthenticatedUser()
 
       // WHEN: Upsert with fieldsToMergeOn=['email'] - both records are new
       const response = await request.post('/api/tables/1/records/upsert', {
@@ -146,13 +152,14 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-003: should return 400 with rollback on validation error',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' with email NOT NULL constraint
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,
@@ -164,6 +171,8 @@ test.describe('Upsert records (create or update)', () => {
           },
         ],
       })
+
+      await createAuthenticatedUser()
 
       // WHEN: Upsert with 1 valid record and 1 missing email (validation error)
       const response = await request.post('/api/tables/1/records/upsert', {
@@ -250,13 +259,14 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-005: should return 403 when member lacks create permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
       // GIVEN: A member user without create permission
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 5,
@@ -268,6 +278,8 @@ test.describe('Upsert records (create or update)', () => {
           },
         ],
       })
+
+      await createAuthenticatedViewer()
 
       // WHEN: Member attempts upsert with new records
       const response = await request.post('/api/tables/1/records/upsert', {
@@ -290,13 +302,14 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-006: should return 403 when member lacks update permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
       // GIVEN: A member user without update permission
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 6,
@@ -308,6 +321,8 @@ test.describe('Upsert records (create or update)', () => {
           },
         ],
       })
+
+      await createAuthenticatedViewer()
       await executeQuery(`
         INSERT INTO employees (email, name)
         VALUES ('alice@example.com', 'Alice Cooper')
@@ -334,13 +349,14 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-007: should return 403 for viewer',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 7,
@@ -349,6 +365,8 @@ test.describe('Upsert records (create or update)', () => {
           },
         ],
       })
+
+      await createAuthenticatedViewer()
 
       // WHEN: Viewer attempts upsert
       const response = await request.post('/api/tables/1/records/upsert', {
@@ -370,13 +388,14 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-008: should return 403 when creating with protected field',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 9,
@@ -389,6 +408,8 @@ test.describe('Upsert records (create or update)', () => {
           },
         ],
       })
+
+      await createAuthenticatedMember()
 
       // WHEN: Member attempts upsert creating record with protected field
       const response = await request.post('/api/tables/1/records/upsert', {
@@ -411,13 +432,14 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-009: should return 403 when updating with protected field',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 10,
@@ -430,6 +452,8 @@ test.describe('Upsert records (create or update)', () => {
           },
         ],
       })
+
+      await createAuthenticatedMember()
       await executeQuery(`
         INSERT INTO employees (email, name, salary)
         VALUES ('alice@example.com', 'Alice Cooper', 75000)
@@ -456,13 +480,14 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-010: should return 403 for readonly fields',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedAdmin }) => {
       // GIVEN: An admin user attempting to set readonly fields
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 11,
@@ -475,6 +500,8 @@ test.describe('Upsert records (create or update)', () => {
           },
         ],
       })
+
+      await createAuthenticatedAdmin()
 
       // WHEN: Admin upserts with id or created_at in payload
       const response = await request.post('/api/tables/1/records/upsert', {
@@ -497,13 +524,14 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-011: should filter protected fields from response',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: A member user with field-level read restrictions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 13,
@@ -516,6 +544,8 @@ test.describe('Upsert records (create or update)', () => {
           },
         ],
       })
+
+      await createAuthenticatedMember()
       await executeQuery(`
         INSERT INTO employees (email, name, salary)
         VALUES ('alice@example.com', 'Alice', 75000)
@@ -552,13 +582,14 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-012: should return 200 with all fields for admin',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: An admin user with full permissions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 14,
@@ -571,6 +602,8 @@ test.describe('Upsert records (create or update)', () => {
           },
         ],
       })
+
+      await createAuthenticatedAdmin()
       await executeQuery(`
         INSERT INTO employees (email, name, salary)
         VALUES ('charlie@example.com', 'Charlie', 120000)
@@ -604,13 +637,14 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-013: should enforce combined permissions',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: A member with create/update permission but field restrictions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 15,
@@ -623,6 +657,8 @@ test.describe('Upsert records (create or update)', () => {
           },
         ],
       })
+
+      await createAuthenticatedMember()
       await executeQuery(`
         INSERT INTO employees (email, name, salary) VALUES
           ('alice@example.com', 'Alice', 75000),
@@ -664,13 +700,22 @@ test.describe('Upsert records (create or update)', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-REGRESSION: validates complete upsert workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({
+      request,
+      startServerWithSchema,
+      executeQuery,
+      createAuthenticatedUser,
+      createAuthenticatedAdmin,
+      createAuthenticatedMember,
+      createAuthenticatedViewer,
+    }) => {
       await test.step('Setup: Creates employees table with field-level permissions', async () => {
         await startServerWithSchema({
           name: 'test-app',
+          auth: { emailAndPassword: true },
           tables: [
             {
               id: 16,
@@ -683,6 +728,9 @@ test.describe('Upsert records (create or update)', () => {
             },
           ],
         })
+
+        // Create authenticated user for basic operations
+        await createAuthenticatedUser()
         await executeQuery(`
           INSERT INTO employees (email, name, salary)
           VALUES ('existing@example.com', 'Existing User', 75000)

@@ -31,13 +31,14 @@ test.describe('Batch Restore records', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-001: should return 200 with restored count',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with multiple soft-deleted records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -49,6 +50,7 @@ test.describe('Batch Restore records', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title, deleted_at) VALUES
           (1, 'Task 1', NOW()),
@@ -82,13 +84,14 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-002: should rollback on partial failure (404)',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with some soft-deleted records (but one ID doesn't exist)
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -100,6 +103,7 @@ test.describe('Batch Restore records', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title, deleted_at) VALUES
           (1, 'Task 1', NOW()),
@@ -126,13 +130,14 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-003: should return 400 for non-deleted records in batch',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with mix of deleted and active records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,
@@ -144,6 +149,7 @@ test.describe('Batch Restore records', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title, deleted_at) VALUES
           (1, 'Deleted Task', NOW()),
@@ -258,10 +264,18 @@ test.describe('Batch Restore records', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-REGRESSION: user can complete full batch restore workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+    async ({
+      request,
+      startServerWithSchema,
+      executeQuery,
+      createAuthenticatedUser,
+      createAuthenticatedAdmin,
+      createAuthenticatedMember,
+      createAuthenticatedViewer,
+    }) => {
       await test.step('Setup: Start server with tasks table', async () => {
         await startServerWithSchema({
           name: 'test-app',

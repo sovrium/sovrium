@@ -30,13 +30,14 @@ test.describe('Restore record', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-001: should return 200 OK and clear deleted_at',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with a soft-deleted record
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -48,6 +49,8 @@ test.describe('Restore record', () => {
           },
         ],
       })
+
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title, deleted_at) VALUES (1, 'Deleted Task', NOW())
       `)
@@ -73,13 +76,14 @@ test.describe('Restore record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-002: should return 404 for non-existent record',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Table exists but record ID=9999 does not
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -92,6 +96,8 @@ test.describe('Restore record', () => {
         ],
       })
 
+      await createAuthenticatedUser()
+
       // WHEN: User attempts to restore non-existent record
       const response = await request.post('/api/tables/1/records/9999/restore', {})
 
@@ -103,13 +109,14 @@ test.describe('Restore record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-003: should return 400 for non-deleted record',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with an active (non-deleted) record
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,
@@ -121,6 +128,8 @@ test.describe('Restore record', () => {
           },
         ],
       })
+
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Active Task')
       `)
@@ -174,13 +183,14 @@ test.describe('Restore record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-005: should return 403 for viewer (read-only)',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 5,
@@ -192,6 +202,8 @@ test.describe('Restore record', () => {
           },
         ],
       })
+
+      await createAuthenticatedViewer()
       await executeQuery(`
         INSERT INTO projects (id, name, deleted_at) VALUES (1, 'Deleted Project', NOW())
       `)
@@ -208,13 +220,14 @@ test.describe('Restore record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-006: should return 200 for member with delete permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: A member user with delete permission (same permissions as delete)
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 6,
@@ -226,6 +239,8 @@ test.describe('Restore record', () => {
           },
         ],
       })
+
+      await createAuthenticatedMember()
       await executeQuery(`
         INSERT INTO items (id, name, deleted_at)
         VALUES (1, 'Deleted Item', NOW())
@@ -250,7 +265,7 @@ test.describe('Restore record', () => {
   // Activity Log Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-007: should create activity log entry when record is restored',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -308,7 +323,7 @@ test.describe('Restore record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-008: should capture user_id who restored the record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
@@ -361,7 +376,7 @@ test.describe('Restore record', () => {
   // Generated from 8 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-REGRESSION: user can complete full record restore workflow',
     { tag: '@regression' },
     async ({

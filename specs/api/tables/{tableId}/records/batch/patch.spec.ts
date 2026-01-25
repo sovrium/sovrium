@@ -24,13 +24,14 @@ test.describe('Batch update records', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-001: should return 200 with updated=2 and records array',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' with records ID=1 and ID=2
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -49,6 +50,7 @@ test.describe('Batch update records', () => {
           (1, 'john@example.com', 'John', 'active'),
           (2, 'jane@example.com', 'Jane', 'active')
       `)
+      await createAuthenticatedUser()
 
       // WHEN: Batch update both records with returnRecords=true
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -90,13 +92,14 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-002: should return 200 with updated=2 and no records array',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' with records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -113,6 +116,7 @@ test.describe('Batch update records', () => {
           (1, 'User One', 'active'),
           (2, 'User Two', 'active')
       `)
+      await createAuthenticatedUser()
 
       // WHEN: Batch update with returnRecords=false
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -139,13 +143,14 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-003: should return 400 with rollback on validation error',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with NOT NULL constraint
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,
@@ -162,6 +167,7 @@ test.describe('Batch update records', () => {
           (1, 'user1@example.com', 'User One'),
           (2, 'user2@example.com', 'User Two')
       `)
+      await createAuthenticatedUser()
 
       // WHEN: Batch update with invalid data (setting email to NULL)
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -235,13 +241,14 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-005: should return 403 for member without update permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: A member user without update permission
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 5,
@@ -253,6 +260,7 @@ test.describe('Batch update records', () => {
       await executeQuery(`
         INSERT INTO projects (id, name) VALUES (1, 'Project Alpha')
       `)
+      await createAuthenticatedMember()
 
       // WHEN: Member attempts batch update
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -276,13 +284,14 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-006: should return 403 for viewer',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 6,
@@ -294,6 +303,7 @@ test.describe('Batch update records', () => {
       await executeQuery(`
         INSERT INTO documents (id, title) VALUES (1, 'Doc 1')
       `)
+      await createAuthenticatedViewer()
 
       // WHEN: Viewer attempts batch update
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -315,13 +325,14 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-007: should return 403 when updating protected field',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: A member user with field-level write restrictions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 8,
@@ -338,6 +349,7 @@ test.describe('Batch update records', () => {
           (1, 'Alice', 75000),
           (2, 'Bob', 80000)
       `)
+      await createAuthenticatedMember()
 
       // WHEN: Member attempts batch update with protected field
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -364,13 +376,14 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-008: should return 403 for readonly fields',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: Table with readonly fields
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 9,
@@ -385,6 +398,7 @@ test.describe('Batch update records', () => {
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task 1')
       `)
+      await createAuthenticatedAdmin()
 
       // WHEN: Admin attempts to update readonly field
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -408,13 +422,14 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-009: should filter protected fields from response',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: A member user with field-level read restrictions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 11,
@@ -432,6 +447,7 @@ test.describe('Batch update records', () => {
           (1, 'Alice', 'alice@example.com', 75000),
           (2, 'Bob', 'bob@example.com', 80000)
       `)
+      await createAuthenticatedMember()
 
       // WHEN: Member batch updates successfully
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -463,13 +479,14 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-010: should return 200 with all fields for admin',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: An admin user with full permissions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 12,
@@ -486,6 +503,7 @@ test.describe('Batch update records', () => {
           (1, 'Charlie', 120000),
           (2, 'Diana', 95000)
       `)
+      await createAuthenticatedAdmin()
 
       // WHEN: Admin batch updates with all fields
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -512,13 +530,14 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-011: should enforce combined permissions',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: A member with update permission but field restrictions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 13,
@@ -536,6 +555,7 @@ test.describe('Batch update records', () => {
           (1, 'Alice', 'alice@example.com', 75000),
           (2, 'Bob', 'bob@example.com', 80000)
       `)
+      await createAuthenticatedMember()
 
       // WHEN: Member batch updates with only permitted fields
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -565,13 +585,14 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-012: should update only found records',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Some records exist, others don't
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 14,
@@ -583,6 +604,7 @@ test.describe('Batch update records', () => {
       await executeQuery(`
         INSERT INTO users (id, name) VALUES (1, 'User One')
       `)
+      await createAuthenticatedUser()
 
       // WHEN: Batch update includes existing and non-existing IDs
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -612,13 +634,14 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-013: should exclude unreadable fields from response',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: Member updates with field-level read restrictions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 15,
@@ -633,6 +656,7 @@ test.describe('Batch update records', () => {
       await executeQuery(`
         INSERT INTO employees (id, name, salary) VALUES (1, 'David', 72000)
       `)
+      await createAuthenticatedMember()
 
       // WHEN: Update is successful
       const response = await request.patch('/api/tables/1/records/batch', {
@@ -660,13 +684,22 @@ test.describe('Batch update records', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-REGRESSION: user can complete full batch update workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({
+      request,
+      startServerWithSchema,
+      executeQuery,
+      createAuthenticatedUser,
+      createAuthenticatedAdmin,
+      createAuthenticatedMember,
+      createAuthenticatedViewer,
+    }) => {
       await test.step('Setup: Start server with employees table', async () => {
         await startServerWithSchema({
           name: 'test-app',
+          auth: { emailAndPassword: true },
           tables: [
             {
               id: 16,
@@ -691,6 +724,10 @@ test.describe('Batch update records', () => {
             (3, 'Bob Johnson', 'bob@example.com', 70000, 'active'),
             (4, 'Alice Brown', 'alice@example.com', 85000, 'active')
         `)
+      })
+
+      await test.step('Setup: Authenticate user', async () => {
+        await createAuthenticatedUser()
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-001: Returns 200 with updated=2 and records array', async () => {

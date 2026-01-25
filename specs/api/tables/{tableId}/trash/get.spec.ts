@@ -31,13 +31,14 @@ test.describe('GET /trash endpoint', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-TRASH-001: should return 200 with only soft-deleted records',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with mix of active and deleted records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -51,6 +52,7 @@ test.describe('GET /trash endpoint', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
 
       await executeQuery(`
         INSERT INTO contacts (id, name) VALUES
@@ -112,13 +114,14 @@ test.describe('GET /trash endpoint', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-TRASH-003: should return 403 Forbidden for viewer without read access',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
       // GIVEN: Viewer user with no read permission on table
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,
@@ -133,6 +136,7 @@ test.describe('GET /trash endpoint', () => {
           },
         ],
       })
+      await createAuthenticatedViewer()
 
       await executeQuery(`
         INSERT INTO projects (id, name, deleted_at) VALUES (1, 'Deleted Project', NOW())
@@ -149,13 +153,14 @@ test.describe('GET /trash endpoint', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-TRASH-004: should support pagination, filters, and sorting',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with multiple deleted records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 5,
@@ -168,6 +173,7 @@ test.describe('GET /trash endpoint', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
 
       await executeQuery(`
         INSERT INTO notes (id, title, status, deleted_at) VALUES
@@ -232,13 +238,22 @@ test.describe('GET /trash endpoint', () => {
   // Consolidates 4 @spec tests into workflow steps
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-TRASH-REGRESSION: user can complete full trash workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({
+      request,
+      startServerWithSchema,
+      executeQuery,
+      createAuthenticatedUser,
+      createAuthenticatedAdmin,
+      createAuthenticatedMember,
+      createAuthenticatedViewer,
+    }) => {
       await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
+          auth: { emailAndPassword: true },
           tables: [
             {
               id: 1,
@@ -267,6 +282,10 @@ test.describe('GET /trash endpoint', () => {
 
         // Soft delete records 2 and 3
         await executeQuery('UPDATE contacts SET deleted_at = NOW() WHERE id IN (2, 3)')
+      })
+
+      await test.step('Authenticate as user for basic operations', async () => {
+        await createAuthenticatedUser()
       })
 
       await test.step('API-TABLES-TRASH-001: Return only soft-deleted records', async () => {

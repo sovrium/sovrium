@@ -24,13 +24,14 @@ test.describe('Batch create records', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-001: should return 201 with created=3 and records array',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' exists with 0 records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -43,6 +44,7 @@ test.describe('Batch create records', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
 
       // WHEN: Batch create 3 valid records with returnRecords=true
       const response = await request.post('/api/tables/1/records/batch', {
@@ -85,13 +87,14 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-002: should return 201 with created=2 and no records array',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' exists
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -103,6 +106,7 @@ test.describe('Batch create records', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
 
       // WHEN: Batch create 2 records with returnRecords=false
       const response = await request.post('/api/tables/1/records/batch', {
@@ -135,13 +139,14 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-003: should return 400 with rollback on validation error',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' with email NOT NULL constraint
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,
@@ -153,6 +158,7 @@ test.describe('Batch create records', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
 
       // WHEN: Batch create with 1 valid record and 1 missing email
       const response = await request.post('/api/tables/1/records/batch', {
@@ -223,13 +229,14 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-005: should return 403 for member without create permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
       // GIVEN: A member user without create permission
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 5,
@@ -238,6 +245,7 @@ test.describe('Batch create records', () => {
           },
         ],
       })
+      await createAuthenticatedMember()
 
       // WHEN: Member attempts batch create
       const response = await request.post('/api/tables/1/records/batch', {
@@ -261,13 +269,14 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-006: should return 403 for viewer',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 6,
@@ -276,6 +285,7 @@ test.describe('Batch create records', () => {
           },
         ],
       })
+      await createAuthenticatedViewer()
 
       // WHEN: Viewer attempts batch create
       const response = await request.post('/api/tables/1/records/batch', {
@@ -297,13 +307,14 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-007: should return 403 when creating with protected field',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 8,
@@ -315,6 +326,7 @@ test.describe('Batch create records', () => {
           },
         ],
       })
+      await createAuthenticatedMember()
 
       // WHEN: Member attempts batch create with protected field
       const response = await request.post('/api/tables/1/records/batch', {
@@ -341,13 +353,14 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-008: should return 403 for readonly fields',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedAdmin }) => {
       // GIVEN: An admin user attempting to set readonly fields
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 9,
@@ -359,6 +372,7 @@ test.describe('Batch create records', () => {
           },
         ],
       })
+      await createAuthenticatedAdmin()
 
       // WHEN: Admin batch creates with id in payload
       const response = await request.post('/api/tables/1/records/batch', {
@@ -382,13 +396,14 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-009: should filter protected fields from response',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
       // GIVEN: A member user with field-level read restrictions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 11,
@@ -401,6 +416,7 @@ test.describe('Batch create records', () => {
           },
         ],
       })
+      await createAuthenticatedMember()
 
       // WHEN: Member batch creates records successfully
       const response = await request.post('/api/tables/1/records/batch', {
@@ -432,13 +448,14 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-010: should return 201 with all fields for admin',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedAdmin }) => {
       // GIVEN: An admin user with full permissions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 12,
@@ -450,6 +467,7 @@ test.describe('Batch create records', () => {
           },
         ],
       })
+      await createAuthenticatedAdmin()
 
       // WHEN: Admin batch creates records with all fields
       const response = await request.post('/api/tables/1/records/batch', {
@@ -478,13 +496,14 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-011: should enforce combined permissions',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
       // GIVEN: A member with create permission but field restrictions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 13,
@@ -497,6 +516,7 @@ test.describe('Batch create records', () => {
           },
         ],
       })
+      await createAuthenticatedMember()
 
       // WHEN: Member batch creates with only permitted fields
       const response = await request.post('/api/tables/1/records/batch', {
@@ -528,13 +548,14 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-012: should return 400 for duplicate unique field values',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with unique email constraint
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 14,
@@ -546,6 +567,7 @@ test.describe('Batch create records', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
 
       // WHEN: Batch create with duplicate email values
       const response = await request.post('/api/tables/1/records/batch', {
@@ -575,13 +597,14 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-013: should return 413 when exceeding 1000 record limit',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Table exists
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 15,
@@ -590,6 +613,7 @@ test.describe('Batch create records', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
 
       // WHEN: Batch create with 1001 records
       const records = Array.from({ length: 1001 }, (_, i) => ({
@@ -621,13 +645,22 @@ test.describe('Batch create records', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-REGRESSION: user can complete full batch create workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({
+      request,
+      startServerWithSchema,
+      executeQuery,
+      createAuthenticatedUser,
+      createAuthenticatedAdmin,
+      createAuthenticatedMember,
+      createAuthenticatedViewer,
+    }) => {
       // GIVEN: Consolidated configuration for all @spec tests
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -640,6 +673,10 @@ test.describe('Batch create records', () => {
             ],
           },
         ],
+      })
+
+      await test.step('Authenticate as user for basic operations', async () => {
+        await createAuthenticatedUser()
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-POST-001: should return 201 with created=3 and records array', async () => {

@@ -30,13 +30,14 @@ test.describe('Batch delete records', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-001: should return 200 with soft deleted count',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' with 3 records (ID=1, ID=2, ID=3)
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -49,6 +50,7 @@ test.describe('Batch delete records', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO users (id, email, name) VALUES
           (1, 'user1@example.com', 'User One'),
@@ -86,13 +88,14 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-002: should return 404 and rollback transaction',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' with record ID=1 only
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -105,6 +108,7 @@ test.describe('Batch delete records', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO users (id, email, name) VALUES (1, 'john@example.com', 'John')
       `)
@@ -133,13 +137,14 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-003: should return 413 Payload Too Large',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' exists
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,
@@ -151,6 +156,7 @@ test.describe('Batch delete records', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
 
       // WHEN: Batch delete request exceeds 1000 ID limit
       const ids = Array.from({ length: 1001 }, (_, i) => i + 1)
@@ -216,13 +222,14 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-005: should return 403 for member without delete permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: A member user without delete permission
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 5,
@@ -234,6 +241,7 @@ test.describe('Batch delete records', () => {
           },
         ],
       })
+      await createAuthenticatedMember()
       await executeQuery(`
         INSERT INTO employees (id, name) VALUES
           (1, 'Alice Cooper'),
@@ -265,13 +273,14 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-006: should return 403 for viewer',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 6,
@@ -283,6 +292,7 @@ test.describe('Batch delete records', () => {
           },
         ],
       })
+      await createAuthenticatedViewer()
       await executeQuery(`
         INSERT INTO projects (id, name) VALUES
           (1, 'Project Alpha'),
@@ -308,13 +318,14 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-007: should return 200 for admin with full access',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: An admin user with full delete permissions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 8,
@@ -327,6 +338,7 @@ test.describe('Batch delete records', () => {
           },
         ],
       })
+      await createAuthenticatedAdmin()
       await executeQuery(`
         INSERT INTO employees (id, name, email) VALUES
           (1, 'Alice Cooper', 'alice@example.com'),
@@ -364,13 +376,14 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-008: should return 200 for owner',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: An owner user with full delete permissions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 9,
@@ -383,6 +396,7 @@ test.describe('Batch delete records', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO projects (id, name, status) VALUES
           (1, 'Project Alpha', 'active'),
@@ -418,13 +432,14 @@ test.describe('Batch delete records', () => {
   // Soft Delete Specific Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-009: should skip already soft-deleted records in batch',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Mix of active and soft-deleted records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 12,
@@ -436,6 +451,7 @@ test.describe('Batch delete records', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title, deleted_at) VALUES
           (1, 'Active Task', NULL),
@@ -468,13 +484,14 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-010: should hard delete batch with permanent=true (admin only)',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: An admin user and active records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 13,
@@ -486,6 +503,7 @@ test.describe('Batch delete records', () => {
           },
         ],
       })
+      await createAuthenticatedAdmin()
       await executeQuery(`
         INSERT INTO logs (id, message) VALUES
           (1, 'Log entry 1'),
@@ -525,13 +543,22 @@ test.describe('Batch delete records', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-REGRESSION: user can complete full batch soft delete workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({
+      request,
+      startServerWithSchema,
+      executeQuery,
+      createAuthenticatedUser,
+      createAuthenticatedAdmin,
+      createAuthenticatedMember,
+      createAuthenticatedViewer,
+    }) => {
       await test.step('Setup: Start server with users table and test records', async () => {
         await startServerWithSchema({
           name: 'test-app',
+          auth: { emailAndPassword: true },
           tables: [
             {
               id: 1,
@@ -544,6 +571,7 @@ test.describe('Batch delete records', () => {
             },
           ],
         })
+        await createAuthenticatedUser()
         await executeQuery(`
           INSERT INTO users (id, email, name, deleted_at) VALUES
             (1, 'user1@example.com', 'User One', NULL),

@@ -30,13 +30,14 @@ test.describe('Include Deleted query parameter', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-INCLUDE-DELETED-001: should exclude deleted records by default',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with mix of active and soft-deleted records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -49,6 +50,7 @@ test.describe('Include Deleted query parameter', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO documents (id, title, content, deleted_at) VALUES
           (1, 'Active Doc 1', 'Content 1', NULL),
@@ -77,13 +79,14 @@ test.describe('Include Deleted query parameter', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-INCLUDE-DELETED-002: should include deleted with includeDeleted=true',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with mix of active and soft-deleted records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -95,6 +98,7 @@ test.describe('Include Deleted query parameter', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO notes (id, title, deleted_at) VALUES
           (1, 'Note 1', NULL),
@@ -124,13 +128,14 @@ test.describe('Include Deleted query parameter', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-INCLUDE-DELETED-003: should allow member to use includeDeleted',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: Member user accessing records with includeDeleted
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,
@@ -142,6 +147,7 @@ test.describe('Include Deleted query parameter', () => {
           },
         ],
       })
+      await createAuthenticatedMember()
       await executeQuery(`
         INSERT INTO items (id, name, deleted_at) VALUES
           (1, 'Active Item', NULL),
@@ -168,13 +174,14 @@ test.describe('Include Deleted query parameter', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-INCLUDE-DELETED-004: should correctly count deleted vs active in pagination',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with large dataset including deleted records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 4,
@@ -186,6 +193,7 @@ test.describe('Include Deleted query parameter', () => {
           },
         ],
       })
+      await createAuthenticatedUser()
 
       // Insert 30 active records and 20 deleted records
       const activeInserts = Array.from(
@@ -233,13 +241,22 @@ test.describe('Include Deleted query parameter', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-INCLUDE-DELETED-REGRESSION: user can complete include-deleted workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({
+      request,
+      startServerWithSchema,
+      executeQuery,
+      createAuthenticatedUser,
+      createAuthenticatedAdmin,
+      createAuthenticatedMember,
+      createAuthenticatedViewer,
+    }) => {
       await test.step('Setup: Start server with table and mixed records', async () => {
         await startServerWithSchema({
           name: 'test-app',
+          auth: { emailAndPassword: true },
           tables: [
             {
               id: 1,
@@ -269,6 +286,10 @@ test.describe('Include Deleted query parameter', () => {
         await executeQuery(
           `INSERT INTO documents (id, title, content, deleted_at) VALUES ${deletedInserts}`
         )
+      })
+
+      await test.step('Authenticate as user for basic operations', async () => {
+        await createAuthenticatedUser()
       })
 
       await test.step('API-TABLES-RECORDS-INCLUDE-DELETED-001: Excludes deleted records by default', async () => {
