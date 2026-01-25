@@ -703,15 +703,7 @@ test.describe('Upsert records (create or update)', () => {
   test.fixme(
     'API-TABLES-RECORDS-UPSERT-REGRESSION: validates complete upsert workflow',
     { tag: '@regression' },
-    async ({
-      request,
-      startServerWithSchema,
-      executeQuery,
-      createAuthenticatedUser,
-      createAuthenticatedAdmin,
-      createAuthenticatedMember,
-      createAuthenticatedViewer,
-    }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       await test.step('Setup: Creates employees table with field-level permissions', async () => {
         await startServerWithSchema({
           name: 'test-app',

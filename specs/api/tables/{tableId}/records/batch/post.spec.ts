@@ -648,15 +648,7 @@ test.describe('Batch create records', () => {
   test.fixme(
     'API-TABLES-RECORDS-BATCH-POST-REGRESSION: user can complete full batch create workflow',
     { tag: '@regression' },
-    async ({
-      request,
-      startServerWithSchema,
-      executeQuery,
-      createAuthenticatedUser,
-      createAuthenticatedAdmin,
-      createAuthenticatedMember,
-      createAuthenticatedViewer,
-    }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Consolidated configuration for all @spec tests
       await startServerWithSchema({
         name: 'test-app',

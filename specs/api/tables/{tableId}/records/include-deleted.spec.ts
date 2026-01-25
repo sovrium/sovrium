@@ -244,15 +244,7 @@ test.describe('Include Deleted query parameter', () => {
   test.fixme(
     'API-TABLES-RECORDS-INCLUDE-DELETED-REGRESSION: user can complete include-deleted workflow',
     { tag: '@regression' },
-    async ({
-      request,
-      startServerWithSchema,
-      executeQuery,
-      createAuthenticatedUser,
-      createAuthenticatedAdmin,
-      createAuthenticatedMember,
-      createAuthenticatedViewer,
-    }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       await test.step('Setup: Start server with table and mixed records', async () => {
         await startServerWithSchema({
           name: 'test-app',

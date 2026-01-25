@@ -241,15 +241,7 @@ test.describe('GET /trash endpoint', () => {
   test.fixme(
     'API-TABLES-TRASH-REGRESSION: user can complete full trash workflow',
     { tag: '@regression' },
-    async ({
-      request,
-      startServerWithSchema,
-      executeQuery,
-      createAuthenticatedUser,
-      createAuthenticatedAdmin,
-      createAuthenticatedMember,
-      createAuthenticatedViewer,
-    }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
