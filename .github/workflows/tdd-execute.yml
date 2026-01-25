@@ -102,16 +102,26 @@ jobs:
                           date -u -v-${COOLDOWN_MINUTES}M +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
                           echo "1970-01-01T00:00:00Z")
 
-            # Check for ANY recent @claude comments (unified pattern)
-            RECENT_CLAUDE_COMMENTS=$(gh api "/repos/${{ github.repository }}/issues/${ISSUE_NUM}/comments" \
-              --jq "[.[] | select(.created_at > \"${CUTOFF_TIME}\") | select(.body | test(\"@claude|Automatic Retry|Failed PR Recovery|Regression Auto-Fix|Code Quality.*Auto-Fix\"; \"i\"))] | length" \
+            # Check for recent MANUAL @claude comments (not automated retries)
+            # NOTE: Automated retries (Automatic Retry, Failed PR Recovery, etc.) are EXCLUDED
+            # from cooldown because they ARE the retry mechanism and need to be able to run
+            RECENT_MANUAL_CLAUDE=$(gh api "/repos/${{ github.repository }}/issues/${ISSUE_NUM}/comments" \
+              --jq "[.[] | select(.created_at > \"${CUTOFF_TIME}\") | select(.body | test(\"@claude\"; \"i\")) | select(.body | test(\"Automatic Retry|Failed PR Recovery|Regression Auto-Fix|Code Quality.*Auto-Fix|workflow dispatch fallback\"; \"i\") | not)] | length" \
               2>/dev/null || echo "0")
 
-            # Subtract 1 for the current comment that triggered this workflow
-            RECENT_CLAUDE_COMMENTS=$((RECENT_CLAUDE_COMMENTS - 1))
+            # Subtract 1 for the current comment that triggered this workflow (if it's manual)
+            CURRENT_IS_MANUAL="false"
+            if [[ ! "$EVENT_COMMENT_BODY" =~ "Automatic Retry" ]] && \
+               [[ ! "$EVENT_COMMENT_BODY" =~ "Failed PR Recovery" ]] && \
+               [[ ! "$EVENT_COMMENT_BODY" =~ "Regression Auto-Fix" ]] && \
+               [[ ! "$EVENT_COMMENT_BODY" =~ "Code Quality" ]] && \
+               [[ ! "$EVENT_COMMENT_BODY" =~ "workflow dispatch fallback" ]]; then
+              CURRENT_IS_MANUAL="true"
+              RECENT_MANUAL_CLAUDE=$((RECENT_MANUAL_CLAUDE - 1))
+            fi
 
-            if [ "$RECENT_CLAUDE_COMMENTS" -gt 0 ]; then
-              echo "⏳ Global cooldown active: Found ${RECENT_CLAUDE_COMMENTS} recent @claude comment(s) in last ${COOLDOWN_MINUTES} minutes"
+            if [ "$RECENT_MANUAL_CLAUDE" -gt 0 ]; then
+              echo "⏳ Global cooldown active: Found ${RECENT_MANUAL_CLAUDE} recent manual @claude comment(s) in last ${COOLDOWN_MINUTES} minutes"
               echo "Skipping to prevent loop - another Claude run is likely in progress or recently completed"
               echo "has_context=false" >> $GITHUB_OUTPUT
               echo "issue_number=" >> $GITHUB_OUTPUT
@@ -119,7 +129,7 @@ jobs:
               echo "EOF" >> $GITHUB_OUTPUT
               exit 0
             fi
-            echo "✅ Global cooldown check passed - no recent @claude activity"
+            echo "✅ Global cooldown check passed (manual: ${CURRENT_IS_MANUAL}, recent_manual: ${RECENT_MANUAL_CLAUDE})"
           fi
 
           # workflow_dispatch: Must have valid issue number
