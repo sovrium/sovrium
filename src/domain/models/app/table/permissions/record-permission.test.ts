@@ -38,34 +38,34 @@ describe('RecordPermissionSchema', () => {
     test('should accept create permission', () => {
       const input = {
         action: 'create' as const,
-        condition: '{organizationId} = organization_id',
+        condition: "'admin' = ANY({roles})",
       }
       const result = Schema.decodeUnknownSync(RecordPermissionSchema)(input)
       expect(result).toEqual({
         action: 'create',
-        condition: '{organizationId} = organization_id',
+        condition: "'admin' = ANY({roles})",
       })
     })
 
     test('should accept delete permission', () => {
       const input = {
         action: 'delete' as const,
-        condition: "{userId} = owner_id AND {roles} && ARRAY['admin']",
+        condition: "{userId} = owner_id AND 'admin' = ANY({roles})",
       }
       const result = Schema.decodeUnknownSync(RecordPermissionSchema)(input)
       expect(result.action).toBe('delete')
       expect(result.condition).toContain('{userId}')
     })
 
-    test('should accept organization-scoped access', () => {
+    test('should accept role-based access', () => {
       const input = {
         action: 'read' as const,
-        condition: '{organizationId} = organization_id',
+        condition: "'admin' = ANY({roles})",
       }
       const result = Schema.decodeUnknownSync(RecordPermissionSchema)(input)
       expect(result).toEqual({
         action: 'read',
-        condition: '{organizationId} = organization_id',
+        condition: "'admin' = ANY({roles})",
       })
     })
   })

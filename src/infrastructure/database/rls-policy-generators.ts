@@ -408,26 +408,16 @@ const generateDefaultDenyPolicies = (table: Table): readonly string[] => {
   const tableName = table.name
   const enableRLS = generateEnableRLS(tableName)
 
-  // Check if table has organization_id field for multi-tenant isolation
-  const hasOrgField = table.fields?.some((f) => f.name === 'organization_id') ?? false
-
   // Allow authenticated users (identified by app.user_id session variable)
   // This enables authenticated API access while blocking direct database access
   // Note: We use session variables instead of current_user because SET ROLE may not work reliably in all environments
   const authenticatedCheck = `current_setting('app.user_id', true) IS NOT NULL AND current_setting('app.user_id', true) != ''`
 
-  // For tables with organization_id, add organization isolation to SELECT/UPDATE/DELETE
-  // to prevent cross-org access (returns 404, not 403)
-  // INSERT doesn't need organization check because organization_id is auto-injected by createRecord
-  const orgIsolationCheck = hasOrgField
-    ? `current_setting('app.user_id', true) IS NOT NULL AND current_setting('app.user_id', true) != '' AND organization_id = current_setting('app.organization_id', true)`
-    : authenticatedCheck
-
   const selectPolicies = generatePolicyStatements(
     tableName,
     `${tableName}_authenticated_select`,
     'SELECT',
-    orgIsolationCheck
+    authenticatedCheck
   )
   const insertPolicies = generatePolicyStatements(
     tableName,
@@ -439,13 +429,13 @@ const generateDefaultDenyPolicies = (table: Table): readonly string[] => {
     tableName,
     `${tableName}_authenticated_update`,
     'UPDATE',
-    orgIsolationCheck
+    authenticatedCheck
   )
   const deletePolicies = generatePolicyStatements(
     tableName,
     `${tableName}_authenticated_delete`,
     'DELETE',
-    orgIsolationCheck
+    authenticatedCheck
   )
 
   return [...enableRLS, ...selectPolicies, ...insertPolicies, ...updatePolicies, ...deletePolicies]
@@ -540,18 +530,6 @@ const hasOnlyFieldPermissions = (table: Table): boolean => {
  */
 
 /**
- * Select policy generator based on table permissions - non-organization-scoped cases
- */
-const selectNonOrgPolicyGenerator = (
-  table: Table
-): ((table: Table) => readonly string[]) | (() => readonly string[]) | undefined => {
-  if (hasOwnerPermissions(table)) return generateOwnerBasedPolicies
-  if (hasAuthenticatedPermissions(table)) return generateAuthenticatedBasedPolicies
-  if (hasRolePermissions(table)) return generateRoleBasedPolicies
-  return undefined
-}
-
-/**
  * Select policy generator for field-only permissions
  */
 const selectFieldPermissionGenerator = (
@@ -588,8 +566,9 @@ const selectPolicyGenerator = (
   if (hasMixedPermissions(table)) return generateMixedPermissionPolicies
 
   // Priority 6: Permission types
-  const generator = selectNonOrgPolicyGenerator(table)
-  if (generator) return generator
+  if (hasOwnerPermissions(table)) return generateOwnerBasedPolicies
+  if (hasAuthenticatedPermissions(table)) return generateAuthenticatedBasedPolicies
+  if (hasRolePermissions(table)) return generateRoleBasedPolicies
 
   // Priority 7: Field-only permissions
   if (hasOnlyFieldPermissions(table)) {

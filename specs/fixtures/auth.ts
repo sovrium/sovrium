@@ -11,14 +11,14 @@
  * Provides reusable assertion functions for common authorization test patterns:
  * - 401 Unauthorized: Unauthenticated requests
  * - 403 Forbidden: Insufficient permissions
- * - 404 Not Found: Cross-org access (security - prevents enumeration)
+ * - 404 Not Found: Access denied (security - prevents enumeration)
  *
  * These helpers reduce boilerplate in authorization tests while maintaining
  * clear, explicit test logic.
  *
  * @example
  * ```ts
- * import { expect401Unauthorized, expect403Forbidden, expect404CrossOrg } from '@/specs/fixtures/auth'
+ * import { expect401Unauthorized, expect403Forbidden, expect404AccessDenied } from '@/specs/fixtures/auth'
  *
  * test('should return 401 Unauthorized', async ({ request, startServerWithSchema }) => {
  *   await startServerWithSchema({ ... })
@@ -110,19 +110,19 @@ export async function expect403Forbidden(
 }
 
 /**
- * Assert that response is 404 Not Found (for cross-org access)
+ * Assert that response is 404 Not Found (for access control)
  *
- * Use when testing organization isolation. Returns 404 instead of 403
- * to prevent organization enumeration attacks.
+ * Use when testing access control. Returns 404 instead of 403
+ * to prevent enumeration attacks.
  *
  * @example
  * ```ts
- * // User from org_123 trying to access record from org_456
+ * // User trying to access record they don't have permission for
  * const response = await request.get('/api/tables/1/records/1', {})
- * await expect404CrossOrg(response)
+ * await expect404AccessDenied(response)
  * ```
  */
-export async function expect404CrossOrg(
+export async function expect404AccessDenied(
   response: APIResponse,
   options?: {
     /** Expected error message (default: 'Record not found') */
@@ -204,33 +204,30 @@ export function getTablePermissionError(
 
 /**
  * Standard table schema for authorization tests
- * Includes organization_id field for multi-tenant scenarios
  */
 export const STANDARD_AUTH_TEST_SCHEMA = {
   employees: {
     fields: [
       { id: 1, name: 'name', type: 'single-line-text' as const },
       { id: 2, name: 'email', type: 'email' as const, required: true },
-      { id: 3, name: 'organization_id', type: 'single-line-text' as const },
     ],
   },
   projects: {
     fields: [
       { id: 1, name: 'name', type: 'single-line-text' as const },
       { id: 2, name: 'status', type: 'single-line-text' as const },
-      { id: 3, name: 'organization_id', type: 'single-line-text' as const },
     ],
   },
 } as const
 
 /**
- * Generate INSERT SQL for test data with organization isolation
+ * Generate INSERT SQL for test data
  *
  * @example
  * ```ts
  * const sql = generateInsertSql('employees', [
- *   { id: 1, name: 'Alice', email: 'alice@example.com', organization_id: 'org_123' },
- *   { id: 2, name: 'Bob', email: 'bob@example.com', organization_id: 'org_456' },
+ *   { id: 1, name: 'Alice', email: 'alice@example.com' },
+ *   { id: 2, name: 'Bob', email: 'bob@example.com' },
  * ])
  * await executeQuery(sql)
  * ```
@@ -265,7 +262,7 @@ export function generateInsertSql(table: string, records: Record<string, unknown
 
 /**
  * Build app schema for authorization tests
- * Creates a table with the given name and includes organization_id field
+ * Creates a table with the given name
  *
  * @example
  * ```ts
@@ -289,21 +286,12 @@ export function buildAuthTestAppSchema(
   options?: {
     /** Table ID (default: 1) */
     tableId?: number
-    /** Include organization_id field (default: true) */
-    includeOrgIdField?: boolean
     /** App name (default: 'test-app') */
     appName?: string
   }
 ) {
   const tableId = options?.tableId ?? 1
-  const includeOrgIdField = options?.includeOrgIdField ?? true
   const appName = options?.appName ?? 'test-app'
-
-  // Add organization_id field if not present
-  const allFields =
-    includeOrgIdField && !fields.some((f) => f.name === 'organization_id')
-      ? [...fields, { id: fields.length + 1, name: 'organization_id', type: 'single-line-text' }]
-      : fields
 
   return {
     name: appName,
@@ -311,7 +299,7 @@ export function buildAuthTestAppSchema(
       {
         id: tableId,
         name: tableName,
-        fields: allFields,
+        fields,
       },
     ],
   }

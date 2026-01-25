@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/activity/get.spec.ts
  * Domain: api
- * Spec Count: 20
+ * Spec Count: 19
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (20 tests) - Exhaustive coverage
+ * 1. @spec tests - One per acceptance criterion (19 tests) - Exhaustive coverage
  * 2. @regression test - ONE optimized integration test - Critical workflow validation
  */
 
@@ -443,53 +443,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   )
 
   test.fixme(
-    'API-ACTIVITY-LIST-012: should return 403 when user tries to access cross-org activities',
-    { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
-      // GIVEN: Multi-tenant application with activities in different organizations
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text', required: true },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
-      })
-
-      const user1 = await createAuthenticatedUser({ email: 'user1@org1.com' })
-      const user2 = await createAuthenticatedUser({ email: 'user2@org2.com' })
-
-      // Create activities in different orgs (simulated via organization_id)
-      await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, organization_id, created_at)
-        VALUES
-          ('${user1.user.id}', 'create', 'tasks', 1, '{"title": "Org1 Task"}', 'org1', NOW()),
-          ('${user2.user.id}', 'create', 'tasks', 2, '{"title": "Org2 Task"}', 'org2', NOW())
-      `)
-
-      // WHEN: User1 requests activities with organizationId filter for org2
-      const response = await page.request.get('/api/activity?organizationId=org2')
-
-      // THEN: Returns 403 Forbidden or empty results (organization isolation)
-      expect([200, 403]).toContain(response.status())
-
-      if (response.status() === 200) {
-        const data = await response.json()
-        // If 200, should return empty array (no cross-org access)
-        expect(data.activities).toHaveLength(0)
-      }
-    }
-  )
-
-  test.fixme(
-    'API-ACTIVITY-LIST-013: should include user metadata in activity logs',
+    'API-ACTIVITY-LIST-012: should include user metadata in activity logs',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Application with activities and user information
@@ -531,7 +485,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   )
 
   test.fixme(
-    'API-ACTIVITY-LIST-014: should exclude activities older than 1 year (retention policy)',
+    'API-ACTIVITY-LIST-013: should exclude activities older than 1 year (retention policy)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Application with activities older and newer than 1 year
@@ -574,7 +528,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   )
 
   test.fixme(
-    'API-ACTIVITY-LIST-015: should return 400 when action filter has invalid value',
+    'API-ACTIVITY-LIST-014: should return 400 when action filter has invalid value',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Application with authenticated user
@@ -597,7 +551,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   )
 
   test(
-    'API-ACTIVITY-LIST-016: should return 401 Unauthorized when auth is not configured',
+    'API-ACTIVITY-LIST-015: should return 401 Unauthorized when auth is not configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application WITHOUT auth configured
@@ -626,7 +580,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   )
 
   test.fixme(
-    'API-ACTIVITY-LIST-017: should include null user metadata for system-logged activities',
+    'API-ACTIVITY-LIST-016: should include null user metadata for system-logged activities',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Application with auth enabled and system-logged activities
@@ -650,10 +604,10 @@ test.describe('GET /api/activity - List Activity Logs', () => {
 
       // System-logged activities (e.g., automated background processes) have null user_id
       await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, organization_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES
-          (NULL, NULL, 'create', 'tasks', 1, '{"title": "System-created Task"}', NOW() - INTERVAL '5 minutes'),
-          ('${user.id}', NULL, 'update', 'tasks', 1, '{"title": {"old": "System-created Task", "new": "User-updated Task"}}', NOW())
+          (NULL, 'create', 'tasks', 1, '{"title": "System-created Task"}', NOW() - INTERVAL '5 minutes'),
+          ('${user.id}', 'update', 'tasks', 1, '{"title": {"old": "System-created Task", "new": "User-updated Task"}}', NOW())
       `)
 
       // WHEN: Authenticated user requests activity logs
@@ -671,7 +625,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   )
 
   test.fixme(
-    'API-ACTIVITY-LIST-018: should allow non-admin user to filter by their own userId',
+    'API-ACTIVITY-LIST-017: should allow non-admin user to filter by their own userId',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Regular user with their own activities
@@ -713,7 +667,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   )
 
   test.fixme(
-    'API-ACTIVITY-LIST-019: should return 403 when non-admin filters by another users userId',
+    'API-ACTIVITY-LIST-018: should return 403 when non-admin filters by another users userId',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Two regular users with separate activities
@@ -758,7 +712,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   )
 
   test.fixme(
-    'API-ACTIVITY-LIST-020: should allow admin to filter by any userId',
+    'API-ACTIVITY-LIST-019: should allow admin to filter by any userId',
     { tag: '@spec' },
     async ({
       page,
@@ -895,7 +849,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
         expect(data.activities.every((a: any) => a.tableName === 'tasks')).toBe(true)
       })
 
-      await test.step('API-ACTIVITY-LIST-013: Includes user metadata in activity logs', async () => {
+      await test.step('API-ACTIVITY-LIST-012: Includes user metadata in activity logs', async () => {
         // WHEN: User requests activity logs
         const response = await page.request.get('/api/activity')
 

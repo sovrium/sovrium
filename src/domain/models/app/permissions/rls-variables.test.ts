@@ -13,17 +13,13 @@ describe('RLS_VARIABLES', () => {
     expect(RLS_VARIABLES.USER_ID).toBe('{userId}')
   })
 
-  test('should have ORGANIZATION_ID placeholder', () => {
-    expect(RLS_VARIABLES.ORGANIZATION_ID).toBe('{organizationId}')
-  })
-
   test('should have ROLES placeholder', () => {
     expect(RLS_VARIABLES.ROLES).toBe('{roles}')
   })
 
   test('should be readonly (const assertion)', () => {
     // TypeScript ensures this at compile time, but we verify the values are correct
-    expect(Object.keys(RLS_VARIABLES)).toEqual(['USER_ID', 'ORGANIZATION_ID', 'ROLES'])
+    expect(Object.keys(RLS_VARIABLES)).toEqual(['USER_ID', 'ROLES'])
   })
 })
 
@@ -44,26 +40,6 @@ describe('RLS_VARIABLE_DOCS', () => {
     test('should have examples', () => {
       expect(RLS_VARIABLE_DOCS.userId.examples).toContain('{userId} = created_by')
       expect(RLS_VARIABLE_DOCS.userId.examples).toContain('{userId} = owner_id')
-    })
-  })
-
-  describe('organizationId', () => {
-    test('should have correct placeholder', () => {
-      expect(RLS_VARIABLE_DOCS.organizationId.placeholder).toBe('{organizationId}')
-    })
-
-    test('should have description', () => {
-      expect(RLS_VARIABLE_DOCS.organizationId.description).toBe("Current user's organization ID")
-    })
-
-    test('should have SQL function', () => {
-      expect(RLS_VARIABLE_DOCS.organizationId.sqlFunction).toBe('auth.organization_id()')
-    })
-
-    test('should have examples', () => {
-      expect(RLS_VARIABLE_DOCS.organizationId.examples).toContain(
-        '{organizationId} = organization_id'
-      )
     })
   })
 
@@ -96,21 +72,19 @@ describe('buildRlsVariablesDoc', () => {
   test('should include all variable placeholders', () => {
     const doc = buildRlsVariablesDoc()
     expect(doc).toContain('{userId}')
-    expect(doc).toContain('{organizationId}')
     expect(doc).toContain('{roles}')
   })
 
   test('should include descriptions', () => {
     const doc = buildRlsVariablesDoc()
     expect(doc).toContain("Current authenticated user's ID")
-    expect(doc).toContain("Current user's organization ID")
     expect(doc).toContain("Array of current user's roles")
   })
 
   test('should format each variable on a new line', () => {
     const doc = buildRlsVariablesDoc()
     const lines = doc.split('\n')
-    expect(lines.length).toBe(3) // One line per variable
+    expect(lines.length).toBe(2) // One line per variable
   })
 
   test('should use markdown list format', () => {

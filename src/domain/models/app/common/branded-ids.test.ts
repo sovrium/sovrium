@@ -12,7 +12,6 @@ import {
   FieldIdSchema,
   RecordIdSchema,
   UserIdSchema,
-  OrganizationIdSchema,
   WorkspaceIdSchema,
   BlockIdSchema,
   BrandedViewIdSchema,
@@ -78,17 +77,6 @@ describe('Branded IDs', () => {
 
     test('should reject empty string', () => {
       expect(() => Schema.decodeUnknownSync(UserIdSchema)('')).toThrow()
-    })
-  })
-
-  describe('OrganizationIdSchema', () => {
-    test('should accept valid organization ID', () => {
-      const result = Schema.decodeUnknownSync(OrganizationIdSchema)('org_acme')
-      expect(result as string).toBe('org_acme')
-    })
-
-    test('should reject empty string', () => {
-      expect(() => Schema.decodeUnknownSync(OrganizationIdSchema)('')).toThrow()
     })
   })
 

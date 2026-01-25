@@ -18,9 +18,9 @@ import { Schema } from 'effect'
  * { type: 'custom', condition: '{userId} = owner_id' }
  * ```
  *
- * @example Custom condition with organization
+ * @example Custom condition with roles
  * ```typescript
- * { type: 'custom', condition: '{organizationId} = org_id AND status = \'active\'' }
+ * { type: 'custom', condition: '{userId} = owner_id AND \'admin\' = ANY({roles})' }
  * ```
  */
 export const CustomPermissionSchema = Schema.Struct({
@@ -31,7 +31,6 @@ export const CustomPermissionSchema = Schema.Struct({
    *
    * Supports variable substitution (see `@/domain/models/app/permissions/rls-variables.ts`):
    * - `{userId}`: Current authenticated user's ID
-   * - `{organizationId}`: Current user's organization ID
    * - `{roles}`: Array of user's roles
    */
   condition: Schema.String,
@@ -41,7 +40,7 @@ export const CustomPermissionSchema = Schema.Struct({
     description: 'Custom RLS condition with PostgreSQL expression.',
     examples: [
       { type: 'custom' as const, condition: '{userId} = owner_id' },
-      { type: 'custom' as const, condition: '{organizationId} = organization_id' },
+      { type: 'custom' as const, condition: "'{userId} = owner_id AND 'admin' = ANY({roles})" },
     ],
   })
 )

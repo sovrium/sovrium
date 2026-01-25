@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/{recordId}/patch.json
  * Domain: api
- * Spec Count: 17
+ * Spec Count: 15
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (17 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (16 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -240,50 +240,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-006: should return 404 for cross-org access',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A user from organization A attempting to update record from organization B
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 6,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-      await executeQuery(`
-        INSERT INTO employees (id, name, organization_id)
-        VALUES (1, 'Alice', 'org_456')
-      `)
-
-      // WHEN: User attempts to update record in different organization
-      const response = await request.patch('/api/tables/1/records/1', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          name: 'Bob',
-        },
-      })
-
-      // THEN: Returns 404 Not Found (don't leak existence)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toBe('Record not found')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-UPDATE-007: should allow admin to update sensitive fields',
+    'API-TABLES-RECORDS-UPDATE-006: should allow admin to update sensitive fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user with write access to all fields including sensitive
@@ -332,7 +289,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-008: should return 403 when updating protected field',
+    'API-TABLES-RECORDS-UPDATE-007: should return 403 when updating protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user attempting to update write-protected field
@@ -386,7 +343,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-009: should return 403 for readonly fields',
+    'API-TABLES-RECORDS-UPDATE-008: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User attempts to update system-managed readonly fields
@@ -432,7 +389,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-010: should update only permitted fields',
+    'API-TABLES-RECORDS-UPDATE-009: should update only permitted fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member user updates only permitted fields
@@ -490,61 +447,10 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-011: should return 403 when changing organization_id',
+    'API-TABLES-RECORDS-UPDATE-010: should enforce combined permissions',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: User attempts to change record's organization_id
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 11,
-            name: 'projects',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-      await executeQuery(`
-        INSERT INTO projects (id, name, organization_id)
-        VALUES (1, 'Alpha', 'org_123')
-      `)
-
-      // WHEN: Update body includes organization_id different from user's org
-      const response = await request.patch('/api/tables/1/records/1', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          name: 'Beta',
-          organization_id: 'org_456',
-        },
-      })
-
-      // THEN: Returns 403 Forbidden (cannot change organization ownership)
-      expect(response.status()).toBe(403)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data).toHaveProperty('message')
-      expect(data.error).toBe('Forbidden')
-      expect(data.message).toBe('Cannot change record ownership to a different organization')
-
-      // Verify organization ID unchanged in database
-      const result = await executeQuery(`SELECT organization_id FROM projects WHERE id=1`)
-      // THEN: assertion
-      expect(result.rows[0].organization_id).toBe('org_123')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-UPDATE-012: should enforce combined permissions',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Organization isolation, field write restrictions, and table permission all apply
+      // GIVEN: Field write restrictions and table permission apply
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -555,17 +461,16 @@ test.describe('Update record', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'email', type: 'email', required: true },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO employees (id, name, email, salary, organization_id)
-        VALUES (1, 'Bob Wilson', 'bob@example.com', 65000, 'org_123')
+        INSERT INTO employees (id, name, email, salary)
+        VALUES (1, 'Bob Wilson', 'bob@example.com', 65000)
       `)
 
-      // WHEN: Member updates record with only permitted fields in their org
+      // WHEN: Member updates record with only permitted fields
       const response = await request.patch('/api/tables/1/records/1', {
         headers: {
           'Content-Type': 'application/json',
@@ -576,7 +481,7 @@ test.describe('Update record', () => {
         },
       })
 
-      // THEN: Returns 200 with updated permitted fields, org_id unchanged
+      // THEN: Returns 200 with updated permitted fields
       expect(response.status()).toBe(200)
 
       const data = await response.json()
@@ -584,11 +489,9 @@ test.describe('Update record', () => {
       expect(data).toHaveProperty('id')
       expect(data.fields).toHaveProperty('name')
       expect(data.fields).toHaveProperty('email')
-      expect(data.fields).toHaveProperty('organization_id')
       expect(data.id).toBe(1)
       expect(data.fields.name).toBe('Bob Updated')
       expect(data.fields.email).toBe('bob.updated@example.com')
-      expect(data.fields.organization_id).toBe('org_123')
 
       // Salary field not in response
       // THEN: assertion
@@ -597,7 +500,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-013: should return 403 for first forbidden field',
+    'API-TABLES-RECORDS-UPDATE-011: should return 403 for first forbidden field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Multiple fields with different write permission levels
@@ -654,7 +557,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-014: should exclude unreadable fields from response',
+    'API-TABLES-RECORDS-UPDATE-012: should exclude unreadable fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member updates record and has field-level read restrictions
@@ -713,7 +616,7 @@ test.describe('Update record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-015: should create activity log entry when record is updated',
+    'API-TABLES-RECORDS-UPDATE-013: should create activity log entry when record is updated',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Application with auth and activity logging configured
@@ -778,7 +681,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-016: should only log changed fields in activity log',
+    'API-TABLES-RECORDS-UPDATE-014: should only log changed fields in activity log',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Record with multiple fields
@@ -837,7 +740,7 @@ test.describe('Update record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPDATE-017: should capture user_id who made the update',
+    'API-TABLES-RECORDS-UPDATE-015: should capture user_id who made the update',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Two different users in the system
@@ -926,16 +829,12 @@ test.describe('Update record', () => {
               { id: 2, name: 'email', type: 'email', required: true },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
               { id: 4, name: 'phone', type: 'phone-number' },
-              { id: 5, name: 'organization_id', type: 'single-line-text' },
             ],
           },
           {
             id: 4,
             name: 'projects',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
           },
           {
             id: 5,
@@ -952,17 +851,17 @@ test.describe('Update record', () => {
       await executeQuery(`
         INSERT INTO users (id, email, name) VALUES (1, 'old@example.com', 'Old Name');
         INSERT INTO tasks (id, title) VALUES (1, 'Important Task'), (2, 'Original Title');
-        INSERT INTO employees (id, name, email, salary, phone, organization_id) VALUES
-          (1, 'John Doe', 'john@example.com', 75000, '555-0100', 'org_123'),
-          (2, 'Jane Smith', 'jane@example.com', 75000, NULL, 'org_123'),
-          (3, 'Alice Cooper', 'alice@example.com', 75000, NULL, 'org_123'),
-          (4, 'Bob Wilson', 'bob@example.com', 65000, NULL, 'org_123'),
-          (5, 'Carol Davis', 'carol@example.com', 70000, '555-0100', 'org_123'),
-          (6, 'David Lee', 'david@example.com', 72000, NULL, 'org_123'),
-          (7, 'Alice Org B', 'alice.b@example.com', 60000, NULL, 'org_456');
-        INSERT INTO projects (id, name, organization_id) VALUES
-          (1, 'Alpha', 'org_123'),
-          (2, 'Alpha Project', 'org_123');
+        INSERT INTO employees (id, name, email, salary, phone) VALUES
+          (1, 'John Doe', 'john@example.com', 75000, '555-0100'),
+          (2, 'Jane Smith', 'jane@example.com', 75000, NULL),
+          (3, 'Alice Cooper', 'alice@example.com', 75000, NULL),
+          (4, 'Bob Wilson', 'bob@example.com', 65000, NULL),
+          (5, 'Carol Davis', 'carol@example.com', 70000, '555-0100'),
+          (6, 'David Lee', 'david@example.com', 72000, NULL),
+          (7, 'Alice B', 'alice.b@example.com', 60000, NULL);
+        INSERT INTO projects (id, name) VALUES
+          (1, 'Alpha'),
+          (2, 'Alpha Project');
         INSERT INTO documents (id, title, content) VALUES (1, 'Doc 1', 'Content');
       `)
 
@@ -1030,19 +929,7 @@ test.describe('Update record', () => {
         expect(data.error).toBe('Forbidden')
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-006: should return 404 for cross-org access', async () => {
-        const response = await request.patch('/api/tables/3/records/7', {
-          headers: { 'Content-Type': 'application/json' },
-          data: { name: 'Bob' },
-        })
-
-        expect(response.status()).toBe(404)
-        const data = await response.json()
-        expect(data).toHaveProperty('error')
-        expect(data.error).toBe('Record not found')
-      })
-
-      await test.step('API-TABLES-RECORDS-UPDATE-007: should allow admin to update sensitive fields', async () => {
+      await test.step('API-TABLES-RECORDS-UPDATE-006: should allow admin to update sensitive fields', async () => {
         const response = await request.patch('/api/tables/3/records/1', {
           headers: { 'Content-Type': 'application/json' },
           data: { salary: 85_000 },
@@ -1059,7 +946,7 @@ test.describe('Update record', () => {
         expect(result.rows[0].salary).toBe(85_000)
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-008: should return 403 when updating protected field', async () => {
+      await test.step('API-TABLES-RECORDS-UPDATE-007: should return 403 when updating protected field', async () => {
         const response = await request.patch('/api/tables/3/records/2', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'Jane Updated', salary: 95_000 },
@@ -1078,7 +965,7 @@ test.describe('Update record', () => {
         expect(result.rows[0].salary).toBe(75_000)
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-009: should return 403 for readonly fields', async () => {
+      await test.step('API-TABLES-RECORDS-UPDATE-008: should return 403 for readonly fields', async () => {
         const response = await request.patch('/api/tables/2/records/1', {
           headers: { 'Content-Type': 'application/json' },
           data: { id: 999, title: 'Modified Task', created_at: '2025-01-01T00:00:00Z' },
@@ -1092,7 +979,7 @@ test.describe('Update record', () => {
         expect(data.message).toBe("Cannot write to readonly field 'id'")
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-010: should update only permitted fields', async () => {
+      await test.step('API-TABLES-RECORDS-UPDATE-009: should update only permitted fields', async () => {
         const response = await request.patch('/api/tables/3/records/3', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'Alice Updated', email: 'alice.updated@example.com' },
@@ -1112,24 +999,7 @@ test.describe('Update record', () => {
         expect(result.rows[0].salary).toBe(75_000)
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-011: should return 403 when changing organization_id', async () => {
-        const response = await request.patch('/api/tables/4/records/1', {
-          headers: { 'Content-Type': 'application/json' },
-          data: { name: 'Beta', organization_id: 'org_456' },
-        })
-
-        expect(response.status()).toBe(403)
-        const data = await response.json()
-        expect(data).toHaveProperty('error')
-        expect(data).toHaveProperty('message')
-        expect(data.error).toBe('Forbidden')
-        expect(data.message).toBe('Cannot change record ownership to a different organization')
-
-        const result = await executeQuery(`SELECT organization_id FROM projects WHERE id=1`)
-        expect(result.rows[0].organization_id).toBe('org_123')
-      })
-
-      await test.step('API-TABLES-RECORDS-UPDATE-012: should enforce combined permissions', async () => {
+      await test.step('API-TABLES-RECORDS-UPDATE-010: should enforce combined permissions', async () => {
         const response = await request.patch('/api/tables/3/records/4', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'Bob Updated', email: 'bob.updated@example.com' },
@@ -1140,15 +1010,13 @@ test.describe('Update record', () => {
         expect(data).toHaveProperty('id')
         expect(data.fields).toHaveProperty('name')
         expect(data.fields).toHaveProperty('email')
-        expect(data.fields).toHaveProperty('organization_id')
         expect(data.id).toBe(4)
         expect(data.fields.name).toBe('Bob Updated')
         expect(data.fields.email).toBe('bob.updated@example.com')
-        expect(data.fields.organization_id).toBe('org_123')
         expect(data.fields).not.toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-013: should return 403 for first forbidden field', async () => {
+      await test.step('API-TABLES-RECORDS-UPDATE-011: should return 403 for first forbidden field', async () => {
         const response = await request.patch('/api/tables/3/records/5', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'Carol Updated', phone: '555-9999', salary: 80_000 },
@@ -1166,7 +1034,7 @@ test.describe('Update record', () => {
         expect(result.rows[0].salary).toBe(70_000)
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-014: should exclude unreadable fields from response', async () => {
+      await test.step('API-TABLES-RECORDS-UPDATE-012: should exclude unreadable fields from response', async () => {
         const response = await request.patch('/api/tables/3/records/6', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'David Updated' },
@@ -1187,7 +1055,7 @@ test.describe('Update record', () => {
       // Activity Log Tests (015-017) require authenticated user context
       const { user } = await createAuthenticatedUser({ email: 'logger@example.com' })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-015: should create activity log entry when record is updated', async () => {
+      await test.step('API-TABLES-RECORDS-UPDATE-013: should create activity log entry when record is updated', async () => {
         const response = await request.patch('/api/tables/2/records/2', {
           headers: { 'Content-Type': 'application/json' },
           data: { title: 'Updated Title' },
@@ -1214,11 +1082,11 @@ test.describe('Update record', () => {
         expect(changes.after.title).toBe('Updated Title')
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-016: should only log changed fields in activity log', async () => {
+      await test.step('API-TABLES-RECORDS-UPDATE-014: should only log changed fields in activity log', async () => {
         // Reset data for this test
         await executeQuery(`
-          INSERT INTO employees (id, name, email, phone, salary, organization_id)
-          VALUES (100, 'John Doe', 'john.log@example.com', '555-1234', 50000, 'org_123')
+          INSERT INTO employees (id, name, email, phone, salary)
+          VALUES (100, 'John Doe', 'john.log@example.com', '555-1234', 50000)
           ON CONFLICT (id) DO UPDATE SET name = 'John Doe', email = 'john.log@example.com', phone = '555-1234'
         `)
 
@@ -1243,7 +1111,7 @@ test.describe('Update record', () => {
         expect(changes.after.phone).toBe('555-1234')
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-017: should capture user_id who made the update', async () => {
+      await test.step('API-TABLES-RECORDS-UPDATE-015: should capture user_id who made the update', async () => {
         await executeQuery(`
           INSERT INTO tasks (id, title) VALUES (100, 'Item A')
           ON CONFLICT (id) DO UPDATE SET title = 'Item A'

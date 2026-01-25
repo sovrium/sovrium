@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/{recordId}/delete.json
  * Domain: api
- * Spec Count: 18
+ * Spec Count: 15
  *
  * Soft Delete Behavior:
  * - DELETE sets deleted_at timestamp (soft delete by default)
@@ -21,7 +21,7 @@ import { test, expect } from '@/specs/fixtures'
  * - Soft-deleted records can be restored via POST /restore endpoint
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (18 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (15 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -116,15 +116,14 @@ test.describe('Delete record', () => {
             name: 'employees',
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO employees (id, name, organization_id)
-        VALUES (1, 'Alice Cooper', 'org_123')
+        INSERT INTO employees (id, name)
+        VALUES (1, 'Alice Cooper')
       `)
 
       // WHEN: User attempts to delete a record without auth token
@@ -160,8 +159,7 @@ test.describe('Delete record', () => {
             name: 'employees',
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
             permissions: {
               delete: {
@@ -174,8 +172,8 @@ test.describe('Delete record', () => {
       })
       await createAuthenticatedUser()
       await executeQuery(`
-        INSERT INTO employees (id, name, organization_id)
-        VALUES (1, 'Alice Cooper', 'org_123')
+        INSERT INTO employees (id, name)
+        VALUES (1, 'Alice Cooper')
       `)
 
       // WHEN: Member attempts to delete a record
@@ -216,8 +214,7 @@ test.describe('Delete record', () => {
             name: 'projects',
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -228,8 +225,8 @@ test.describe('Delete record', () => {
       await executeQuery(`UPDATE auth.user SET role = 'viewer' WHERE id = $1`, [user.id])
 
       await executeQuery(`
-        INSERT INTO projects (id, name, organization_id)
-        VALUES (1, 'Project Alpha', 'org_456')
+        INSERT INTO projects (id, name)
+        VALUES (1, 'Project Alpha')
       `)
 
       // WHEN: Viewer attempts to delete a record
@@ -244,50 +241,6 @@ test.describe('Delete record', () => {
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to delete records in this table')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-DELETE-006: should return 404 for cross-org access',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: An admin user from organization org_123
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 6,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
-            ],
-          },
-        ],
-      })
-      await executeQuery(`
-        INSERT INTO employees (id, name, organization_id)
-        VALUES (1, 'Alice Cooper', 'org_456')
-      `)
-
-      // WHEN: Admin attempts to delete record from organization org_456
-      const response = await request.delete('/api/tables/1/records/1', {})
-
-      // THEN: Returns 404 Not Found (organization isolation)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toBe('Record not found')
-
-      // Verify record remains active (deleted_at is NULL)
-      const result = await executeQuery(`SELECT deleted_at FROM employees WHERE id=1`)
-      expect(result.deleted_at).toBeNull()
     }
   )
 
@@ -307,15 +260,14 @@ test.describe('Delete record', () => {
             name: 'employees',
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
       })
       await createAuthenticatedUser()
 
-      // Create record via API so organization_id is set automatically
+      // Create record via API
       const createResponse = await request.post('/api/tables/7/records', {
         headers: { 'Content-Type': 'application/json' },
         data: { fields: { name: 'Alice Cooper' } },
@@ -323,7 +275,7 @@ test.describe('Delete record', () => {
       expect(createResponse.status()).toBe(201)
       const createdRecord = await createResponse.json()
 
-      // WHEN: Admin deletes a record from their organization
+      // WHEN: Admin deletes a record
       const response = await request.delete(`/api/tables/7/records/${createdRecord.id}`, {})
 
       // THEN: Returns 204 No Content
@@ -354,15 +306,14 @@ test.describe('Delete record', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'status', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
-              { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
       })
       await createAuthenticatedUser()
 
-      // Create record via API so organization_id is set automatically
+      // Create record via API
       const createResponse = await request.post('/api/tables/8/records', {
         headers: { 'Content-Type': 'application/json' },
         data: { fields: { name: 'Project Alpha', status: 'active' } },
@@ -370,7 +321,7 @@ test.describe('Delete record', () => {
       expect(createResponse.status()).toBe(201)
       const createdRecord = await createResponse.json()
 
-      // WHEN: Owner deletes a record from their organization
+      // WHEN: Owner deletes a record
       const response = await request.delete(`/api/tables/8/records/${createdRecord.id}`, {})
 
       // THEN: Returns 204 No Content
@@ -384,100 +335,12 @@ test.describe('Delete record', () => {
     }
   )
 
-  test(
-    'API-TABLES-RECORDS-DELETE-009: should return 404 to prevent org enumeration',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: A record with organization_id='org_456' and admin from org_123
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 9,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'email', type: 'email', required: true },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
-              { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
-            ],
-          },
-        ],
-      })
-      // Create authenticated user from org_123 (default organization)
-      await createAuthenticatedUser()
-
-      await executeQuery(`
-        INSERT INTO employees (id, name, email, organization_id)
-        VALUES (1, 'Bob Smith', 'bob@example.com', 'org_456')
-      `)
-
-      // WHEN: Admin attempts to delete record from different organization
-      const response = await request.delete('/api/tables/9/records/1', {})
-
-      // THEN: Returns 404 Not Found (not 403 - prevents org enumeration)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toBe('Record not found')
-
-      // Verify record remains active (deleted_at is NULL)
-      const result = await executeQuery(`SELECT deleted_at FROM employees WHERE id=1`)
-      expect(result.deleted_at).toBeNull()
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-DELETE-010: should return 404 when both org and permission violations exist',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A member without delete permission tries to delete record from different org
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: {
-          emailAndPassword: true,
-        },
-        tables: [
-          {
-            id: 10,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
-            ],
-          },
-        ],
-      })
-      await executeQuery(`
-        INSERT INTO employees (id, name, organization_id)
-        VALUES (1, 'Alice Cooper', 'org_456')
-      `)
-
-      // WHEN: Member attempts delete with both permission and org violations
-      const response = await request.delete('/api/tables/1/records/1', {})
-
-      // THEN: Returns 404 Not Found (org isolation checked first)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toBe('Record not found')
-    }
-  )
-
   // ============================================================================
   // Soft Delete Specific Tests
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-011: should return 404 when deleting already soft-deleted record',
+    'API-TABLES-RECORDS-DELETE-009: should return 404 when deleting already soft-deleted record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A soft-deleted record exists
@@ -905,8 +768,7 @@ test.describe('Delete record', () => {
             name: 'employees',
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
@@ -915,8 +777,8 @@ test.describe('Delete record', () => {
       // Setup: Insert test records for all scenarios
       await executeQuery(`INSERT INTO contacts (id, email) VALUES (1, 'test@example.com')`)
       await executeQuery(`
-        INSERT INTO employees (id, name, organization_id)
-        VALUES (1, 'Alice Cooper', 'org_123')
+        INSERT INTO employees (id, name)
+        VALUES (1, 'Alice Cooper')
       `)
 
       // API-TABLES-RECORDS-DELETE-003: should return 401 Unauthorized

@@ -120,33 +120,9 @@ export const UserIdSchema = Schema.String.pipe(
 export type UserId = Schema.Schema.Type<typeof UserIdSchema>
 
 /**
- * Organization ID - Branded type for organization identifiers
- *
- * Unique identifier for organizations in multi-tenant systems.
- * Used for data isolation and access control.
- *
- * @example
- * ```typescript
- * const orgId: OrganizationId = 'org_acme' as OrganizationId
- * ```
- */
-export const OrganizationIdSchema = Schema.String.pipe(
-  Schema.minLength(1),
-  Schema.brand('OrganizationId'),
-  Schema.annotations({
-    identifier: 'OrganizationId',
-    title: 'Organization ID',
-    description:
-      'Unique identifier for an organization (branded type). Examples: org_acme, org-123, acme-corp',
-  })
-)
-
-export type OrganizationId = Schema.Schema.Type<typeof OrganizationIdSchema>
-
-/**
  * Workspace ID - Branded type for workspace identifiers
  *
- * Unique identifier for workspaces within an organization.
+ * Unique identifier for workspaces.
  * Workspaces provide logical separation of data.
  *
  * @example

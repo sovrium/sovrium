@@ -139,17 +139,11 @@ export const setDatabaseSessionContext = (
     const userId = escapeSQL(session.userId)
     const role = yield* getGlobalUserRole(tx, session.userId)
 
-    // TODO: Get organization_id from Better Auth organization plugin when implemented
-    // For now, use default organization 'org_123' for all users
-    // This enables RLS policies to enforce organization isolation
-    const organizationId = 'org_123'
-
     yield* Effect.tryPromise({
       try: () =>
         tx.unsafe(`
         SET LOCAL app.user_id = '${userId}';
         SET LOCAL app.user_role = '${escapeSQL(role)}';
-        SET LOCAL app.organization_id = '${escapeSQL(organizationId)}';
       `),
       catch: (error) => new SessionContextError('Failed to set session context', error),
     })

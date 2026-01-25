@@ -7,22 +7,60 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import {
-  db,
-  withSessionContext,
-  SessionContextError,
-  UniqueConstraintViolationError,
-} from '@/infrastructure/database'
+import { db, withSessionContext, SessionContextError } from '@/infrastructure/database'
 import { activityLogs } from '@/infrastructure/database/drizzle/schema/activity-log'
 import { generateSqlCondition } from '@/infrastructure/database/filter-operators'
+import {
+  checkTableColumns,
+  sanitizeFields,
+  buildInsertClauses,
+  executeInsert,
+} from './create-record-helpers'
 import { validateTableName, validateColumnName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { UniqueConstraintViolationError } from '@/infrastructure/database'
+
+/**
+ * Log record creation activity (non-critical operation)
+ */
+function logRecordCreation(
+  session: Readonly<Session>,
+  tableName: string,
+  createdRecord: Record<string, unknown>
+): Effect.Effect<void, never> {
+  return Effect.ignore(
+    Effect.tryPromise({
+      try: async () => {
+        // Get table ID from information_schema
+        const tableIdResult = (await db.execute(
+          sql`SELECT schemaname, tablename FROM pg_tables WHERE tablename = ${tableName} LIMIT 1`
+        )) as readonly Record<string, unknown>[]
+
+        // Use '1' as fallback table ID if not found in schema
+        const tableId = tableIdResult[0] ? '1' : '1'
+
+        // eslint-disable-next-line functional/no-expression-statements -- Database insert for logging is an acceptable side effect
+        await db.insert(activityLogs).values({
+          id: crypto.randomUUID(),
+          userId: session.userId,
+          action: 'create',
+          tableName,
+          tableId,
+          recordId: String(createdRecord.id),
+          changes: {
+            after: createdRecord,
+          },
+        })
+      },
+      catch: (error) => new SessionContextError('Failed to log activity', error),
+    })
+  )
+}
 
 /**
  * List all records from a table with session context
  *
  * Returns all accessible records (RLS policies apply automatically via session context).
- * Organization-scoped filtering has been removed.
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table to query
@@ -115,9 +153,8 @@ export function getRecord(
 /**
  * Create a new record with session context
  *
- * Automatically sets organization_id and owner_id from session.
- * Security: Silently overrides any user-provided organization_id to prevent
- * cross-organization data injection attacks.
+ * Automatically sets owner_id from session.
+ * Security: Silently overrides any user-provided owner_id to prevent unauthorized ownership.
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
@@ -133,127 +170,32 @@ export function createRecord(
     Effect.gen(function* () {
       yield* Effect.sync(() => validateTableName(tableName))
 
-      // Check if table has organization_id or owner_id columns
-      const columnCheck = yield* Effect.tryPromise({
-        try: () =>
-          tx.execute(
-            sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name IN ('organization_id', 'owner_id')`
-          ) as Promise<readonly Record<string, unknown>[]>,
-        catch: (error) => new SessionContextError('Failed to check table columns', error),
-      })
+      // Check if table has owner_id column
+      const { hasOwnerId } = yield* checkTableColumns(tableName, tx)
 
-      const hasOrgId = columnCheck.some((row) => row.column_name === 'organization_id')
-      const hasOwnerId = columnCheck.some((row) => row.column_name === 'owner_id')
+      // Security: Filter out any user-provided owner_id
+      const sanitizedFields = sanitizeFields(fields, false, hasOwnerId)
 
-      // Security: Filter out any user-provided organization_id or owner_id if table has those columns
-      // This prevents malicious users from injecting data into other organizations or impersonating other users
-      const sanitizedFields = Object.fromEntries(
-        Object.entries(fields).filter(
-          ([key]) => !(hasOrgId && key === 'organization_id') && !(hasOwnerId && key === 'owner_id')
-        )
-      )
-
-      // Build base entries from sanitized user fields
-      const baseEntries = Object.entries(sanitizedFields)
-      if (baseEntries.length === 0 && !hasOrgId && !hasOwnerId) {
+      // Validate we have fields to insert
+      if (Object.keys(sanitizedFields).length === 0 && !hasOwnerId) {
         return yield* Effect.fail(
           new SessionContextError('Cannot create record with no fields', undefined)
         )
       }
 
-      // Build column identifiers and values
-      const baseColumnIdentifiers = baseEntries.map(([key]) => {
-        validateColumnName(key)
-        return sql.identifier(key)
-      })
-      const baseValueParams = baseEntries.map(([, value]) => sql`${value}`)
+      // Build INSERT query
+      const { columnsClause, valuesClause } = buildInsertClauses(
+        sanitizedFields,
+        false,
+        hasOwnerId,
+        session
+      )
 
-      // Add organization_id column and value from session (immutable)
-      const withOrgColumn = hasOrgId
-        ? [...baseColumnIdentifiers, sql.identifier('organization_id')]
-        : baseColumnIdentifiers
-      const withOrgValue = hasOrgId
-        ? [...baseValueParams, sql.raw(`current_setting('app.organization_id', true)`)]
-        : baseValueParams
-
-      // Add owner_id column and value from session (immutable)
-      const columnIdentifiers = hasOwnerId
-        ? [...withOrgColumn, sql.identifier('owner_id')]
-        : withOrgColumn
-      const valueParams = hasOwnerId ? [...withOrgValue, sql`${session.userId}`] : withOrgValue
-
-      // Build INSERT query using sql.join for columns and values
-      const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
-      const valuesClause = sql.join(valueParams, sql.raw(', '))
-
-      const result = yield* Effect.tryPromise({
-        try: async () => {
-          const insertResult = (await tx.execute(
-            sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
-          )) as readonly Record<string, unknown>[]
-          return insertResult
-        },
-        catch: (error) => {
-          // Check for PostgreSQL unique constraint violation
-          // The error is wrapped in DrizzleQueryError with the actual error in the cause
-          const cause =
-            error && typeof error === 'object' && 'cause' in error ? error.cause : undefined
-          const causeCode =
-            cause && typeof cause === 'object' && 'code' in cause ? cause.code : undefined
-          const causeConstraint =
-            cause && typeof cause === 'object' && 'constraint' in cause
-              ? cause.constraint
-              : undefined
-
-          // Detect unique constraint violation:
-          // - Check for PostgreSQL error code 23505
-          // - Check for 'constraint' property (Bun SQL driver includes this)
-          // - Check for 'unique constraint' in error message
-          if (
-            causeCode === '23505' ||
-            (causeConstraint && typeof causeConstraint === 'string') ||
-            (cause &&
-              typeof cause === 'object' &&
-              'message' in cause &&
-              typeof cause.message === 'string' &&
-              cause.message.includes('unique constraint'))
-          ) {
-            return new UniqueConstraintViolationError('Unique constraint violation', error)
-          }
-          return new SessionContextError(`Failed to create record in ${tableName}`, error)
-        },
-      })
-
-      const createdRecord = result[0] ?? {}
+      // Execute INSERT and get created record
+      const createdRecord = yield* executeInsert(tableName, columnsClause, valuesClause, tx)
 
       // Log activity for record creation (outside session context)
-      // Use Effect.ignore to silently skip errors (non-critical operation)
-      yield* Effect.ignore(
-        Effect.tryPromise({
-          try: async () => {
-            // Get table ID from information_schema
-            const tableIdResult = (await db.execute(
-              sql`SELECT schemaname, tablename FROM pg_tables WHERE tablename = ${tableName} LIMIT 1`
-            )) as readonly Record<string, unknown>[]
-
-            // Use '1' as fallback table ID if not found in schema
-            const tableId = tableIdResult[0] ? '1' : '1'
-
-            await db.insert(activityLogs).values({
-              id: crypto.randomUUID(),
-              userId: session.userId,
-              action: 'create',
-              tableName,
-              tableId,
-              recordId: String(createdRecord.id),
-              changes: {
-                after: createdRecord,
-              },
-            })
-          },
-          catch: (error) => new SessionContextError('Failed to log activity', error),
-        })
-      )
+      yield* logRecordCreation(session, tableName, createdRecord)
 
       return createdRecord
     })

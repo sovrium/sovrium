@@ -34,6 +34,59 @@ function isNotFoundError(error: unknown): boolean {
 }
 
 /**
+ * Handle error response generation
+ */
+function handleErrorResponse(c: Context, error: unknown) {
+  // Check if this is a unique constraint violation - return 409
+  if (isUniqueConstraintError(error)) {
+    return c.json({ error: 'Unique constraint violation' }, 409)
+  }
+
+  // Check if this is a SessionContextError indicating "not found" - return 404
+  if (isNotFoundError(error)) {
+    return c.json({ error: 'Record not found' }, 404)
+  }
+
+  // Return generic error for other cases
+  const { message, cause } = getErrorDetails(error)
+
+  return c.json(
+    errorResponseSchema.parse({
+      success: false,
+      message: `${message} | Cause: ${cause}`,
+      code: 'INTERNAL_ERROR',
+    }),
+    500
+  )
+}
+
+/**
+ * Check if error is a unique constraint violation
+ */
+function isUniqueConstraintError(error: unknown): boolean {
+  const errorMessage = error instanceof Error ? error.message : String(error)
+  const errorName = error instanceof Error ? error.name : ''
+
+  return (
+    errorName === 'UniqueConstraintViolationError' ||
+    errorMessage.toLowerCase().includes('unique constraint')
+  )
+}
+
+/**
+ * Get error details for logging
+ */
+function getErrorDetails(error: unknown): { message: string; cause: string } {
+  const errorDetails = error instanceof Error ? error.message : 'Internal server error'
+  const causeDetails =
+    error && typeof error === 'object' && 'cause' in error
+      ? String(error.cause)
+      : 'No cause details'
+
+  return { message: errorDetails, cause: causeDetails }
+}
+
+/**
  * Run an Effect program and return a Hono JSON response
  *
  * This utility handles:
@@ -68,36 +121,6 @@ export async function runEffect<T, S>(
     const validated = schema.parse(result)
     return c.json(validated, successStatus as ContentfulStatusCode)
   } catch (error) {
-    // Check if this is a unique constraint violation - return 409
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    const errorName = error instanceof Error ? error.name : ''
-
-    if (
-      errorName === 'UniqueConstraintViolationError' ||
-      errorMessage.toLowerCase().includes('unique constraint')
-    ) {
-      return c.json({ error: 'Unique constraint violation' }, 409)
-    }
-
-    // Check if this is a SessionContextError indicating "not found" - return 404
-    if (isNotFoundError(error)) {
-      return c.json({ error: 'Record not found' }, 404)
-    }
-
-    // Return generic error for other cases
-    const errorDetails = error instanceof Error ? error.message : 'Internal server error'
-    const causeDetails =
-      error && typeof error === 'object' && 'cause' in error
-        ? String(error.cause)
-        : 'No cause details'
-
-    return c.json(
-      errorResponseSchema.parse({
-        success: false,
-        message: `${errorDetails} | Cause: ${causeDetails}`,
-        code: 'INTERNAL_ERROR',
-      }),
-      500
-    )
+    return handleErrorResponse(c, error)
   }
 }

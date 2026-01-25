@@ -7,69 +7,11 @@
 
 import { describe, expect, test } from 'bun:test'
 import {
-  validateOrganizationScoped,
   validateOwnerPermissions,
   validateFieldPermissions,
   validateRecordPermissions,
   validateTablePermissions,
 } from './table-permissions-validation'
-
-describe('validateOrganizationScoped', () => {
-  describe('When organizationScoped is not enabled', () => {
-    test('Then returns undefined for no permissions', () => {
-      const result = validateOrganizationScoped({
-        fields: [{ name: 'name', type: 'single-line-text' }],
-      })
-      expect(result).toBeUndefined()
-    })
-
-    test('Then returns undefined for organizationScoped false', () => {
-      const result = validateOrganizationScoped({
-        fields: [{ name: 'name', type: 'single-line-text' }],
-        permissions: { organizationScoped: false },
-      })
-      expect(result).toBeUndefined()
-    })
-  })
-
-  describe('When organizationScoped is enabled', () => {
-    test('Then returns error if organization_id field is missing', () => {
-      const result = validateOrganizationScoped({
-        fields: [{ name: 'name', type: 'single-line-text' }],
-        permissions: { organizationScoped: true },
-      })
-      expect(result).toEqual({
-        message: 'organizationScoped requires organization_id field',
-        path: ['permissions', 'organizationScoped'],
-      })
-    })
-
-    test('Then returns error if organization_id has wrong type', () => {
-      const result = validateOrganizationScoped({
-        fields: [{ name: 'organization_id', type: 'integer' }],
-        permissions: { organizationScoped: true },
-      })
-      expect(result?.message).toContain('must be a text type')
-      expect(result?.path).toEqual(['fields'])
-    })
-
-    test('Then allows single-line-text type', () => {
-      const result = validateOrganizationScoped({
-        fields: [{ name: 'organization_id', type: 'single-line-text' }],
-        permissions: { organizationScoped: true },
-      })
-      expect(result).toBeUndefined()
-    })
-
-    test('Then allows long-text type', () => {
-      const result = validateOrganizationScoped({
-        fields: [{ name: 'organization_id', type: 'long-text' }],
-        permissions: { organizationScoped: true },
-      })
-      expect(result).toBeUndefined()
-    })
-  })
-})
 
 describe('validateOwnerPermissions', () => {
   const fields = [
@@ -245,14 +187,6 @@ describe('validateRecordPermissions', () => {
       expect(result).toBeUndefined()
     })
 
-    test('Then allows {organizationId} variable', () => {
-      const result = validateRecordPermissions(
-        [{ action: 'read', condition: 'department = {organizationId}' }],
-        fieldNames
-      )
-      expect(result).toBeUndefined()
-    })
-
     test('Then allows {user.property} syntax', () => {
       const result = validateRecordPermissions(
         [{ action: 'read', condition: 'department = {user.department}' }],
@@ -267,9 +201,8 @@ describe('validateTablePermissions', () => {
   const fields = [
     { name: 'name', type: 'single-line-text' },
     { name: 'user_id', type: 'user' },
-    { name: 'organization_id', type: 'single-line-text' },
   ]
-  const fieldNames = new Set(['name', 'user_id', 'organization_id'])
+  const fieldNames = new Set(['name', 'user_id'])
 
   test('returns undefined for valid permissions', () => {
     const result = validateTablePermissions(
@@ -281,15 +214,6 @@ describe('validateTablePermissions', () => {
       fieldNames
     )
     expect(result).toBeUndefined()
-  })
-
-  test('validates organizationScoped first', () => {
-    const result = validateTablePermissions(
-      { organizationScoped: true },
-      [{ name: 'name', type: 'single-line-text' }],
-      new Set(['name'])
-    )
-    expect(result?.message).toContain('organizationScoped requires organization_id field')
   })
 
   test('validates owner permissions', () => {

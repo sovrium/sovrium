@@ -753,7 +753,7 @@ export async function expectQueryToReturnZeroRows(
  * const exists = await verifyRecordExists(
  *   executeQuery,
  *   'employees',
- *   { id: 1, organization_id: 'org_123' }
+ *   { id: 1, name: 'John Doe' }
  * )
  * expect(exists).toBe(true)
  * ```

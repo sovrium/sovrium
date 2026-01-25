@@ -12,14 +12,14 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/{recordId}/get.json
  * Domain: api
- * Spec Count: 12
+ * Spec Count: 10
  *
  * Soft Delete Behavior:
  * - By default, soft-deleted records (deleted_at IS NOT NULL) return 404
  * - Use includeDeleted=true query param to fetch soft-deleted records
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (12 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (11 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -111,14 +111,13 @@ test.describe('Get record by ID', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'email', type: 'email', required: true },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO employees (id, name, email, organization_id)
-        VALUES (1, 'Alice Cooper', 'alice@example.com', 'org_123')
+        INSERT INTO employees (id, name, email)
+        VALUES (1, 'Alice Cooper', 'alice@example.com')
       `)
 
       // WHEN: User attempts to fetch a record without auth token
@@ -162,44 +161,7 @@ test.describe('Get record by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-005: should return 404 Not Found',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: User from different organization
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 5,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-      await executeQuery(`
-        INSERT INTO employees (id, name, organization_id)
-        VALUES (1, 'John Doe', 'org_456')
-      `)
-
-      // WHEN: User from org_123 attempts to fetch record from org_456
-      const response = await request.get('/api/tables/1/records/1', {
-        headers: {},
-      })
-
-      // THEN: Returns 404 Not Found (don't leak existence)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data.error).toBe('Record not found')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-GET-006: should return all fields for admin',
+    'API-TABLES-RECORDS-GET-005: should return all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Admin user with full field access
@@ -239,7 +201,7 @@ test.describe('Get record by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-007: should exclude salary field for member',
+    'API-TABLES-RECORDS-GET-006: should exclude salary field for member',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member user without salary field read permission
@@ -278,7 +240,7 @@ test.describe('Get record by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-008: should return minimal fields for viewer',
+    'API-TABLES-RECORDS-GET-007: should return minimal fields for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Viewer with limited field access
@@ -319,52 +281,7 @@ test.describe('Get record by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-009: should apply both org and field filtering',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Multi-tenant table with field permissions
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 9,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'email', type: 'email', required: true },
-              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-      await executeQuery(`
-        INSERT INTO employees (id, name, email, salary, organization_id)
-        VALUES
-          (1, 'Alice Cooper', 'alice@example.com', 75000, 'org_123'),
-          (2, 'Bob Smith', 'bob@example.com', 85000, 'org_456')
-      `)
-
-      // WHEN: Member from org_123 requests their org's record
-      const response = await request.get('/api/tables/1/records/1', {
-        headers: {},
-      })
-
-      // THEN: Returns org_123 record without salary field
-      expect(response.status()).toBe(200)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data.id).toBe(1)
-      expect(data.fields.name).toBe('Alice Cooper')
-      expect(data.fields.email).toBe('alice@example.com')
-      expect(data.fields.organization_id).toBe('org_123')
-      expect(data.fields).not.toHaveProperty('salary')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-GET-010: should include readonly fields in response',
+    'API-TABLES-RECORDS-GET-008: should include readonly fields in response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with readonly system fields
@@ -407,7 +324,7 @@ test.describe('Get record by ID', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-011: should return 404 for soft-deleted record',
+    'API-TABLES-RECORDS-GET-009: should return 404 for soft-deleted record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with a soft-deleted record
@@ -440,7 +357,7 @@ test.describe('Get record by ID', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-GET-012: should return soft-deleted record with includeDeleted=true',
+    'API-TABLES-RECORDS-GET-010: should return soft-deleted record with includeDeleted=true',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with a soft-deleted record
@@ -513,7 +430,6 @@ test.describe('Get record by ID', () => {
               { id: 2, name: 'email', type: 'email', required: true },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
               { id: 4, name: 'phone', type: 'phone-number' },
-              { id: 5, name: 'organization_id', type: 'single-line-text' },
             ],
           },
           {
@@ -541,11 +457,11 @@ test.describe('Get record by ID', () => {
         VALUES (1, 'john.doe@example.com', 'John Doe', '555-0100')
       `)
       await executeQuery(`
-        INSERT INTO employees (id, name, email, salary, phone, organization_id)
+        INSERT INTO employees (id, name, email, salary, phone)
         VALUES
-          (1, 'Alice Cooper', 'alice@example.com', 75000, '555-0200', 'org_123'),
-          (2, 'Bob Smith', 'bob@example.com', 85000, '555-0300', 'org_456'),
-          (3, 'Jane Smith', 'jane@example.com', 85000, '555-0400', 'org_123')
+          (1, 'Alice Cooper', 'alice@example.com', 75000, '555-0200'),
+          (2, 'Bob Smith', 'bob@example.com', 85000, '555-0300'),
+          (3, 'Jane Smith', 'jane@example.com', 85000, '555-0400')
       `)
       await executeQuery(`
         INSERT INTO tasks (id, title, status)
@@ -599,19 +515,7 @@ test.describe('Get record by ID', () => {
         expect(data.error).toBe('Forbidden')
       })
 
-      await test.step('API-TABLES-RECORDS-GET-005: should return 404 for cross-org record', async () => {
-        // User from org_123 attempts to fetch record from org_456
-        const response = await request.get('/api/tables/2/records/2', {
-          headers: {},
-        })
-
-        expect(response.status()).toBe(404)
-
-        const data = await response.json()
-        expect(data.error).toBe('Record not found')
-      })
-
-      await test.step('API-TABLES-RECORDS-GET-006: should return all fields for admin', async () => {
+      await test.step('API-TABLES-RECORDS-GET-005: should return all fields for admin', async () => {
         // Admin user with full field access
         const response = await request.get('/api/tables/2/records/1', {})
 
@@ -625,7 +529,7 @@ test.describe('Get record by ID', () => {
         expect(data.fields.salary).toBe(75_000)
       })
 
-      await test.step('API-TABLES-RECORDS-GET-007: should exclude salary field for member', async () => {
+      await test.step('API-TABLES-RECORDS-GET-006: should exclude salary field for member', async () => {
         // Member user without salary field read permission
         const response = await request.get('/api/tables/2/records/3', {})
 
@@ -638,7 +542,7 @@ test.describe('Get record by ID', () => {
         expect(data).not.toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-GET-008: should return minimal fields for viewer', async () => {
+      await test.step('API-TABLES-RECORDS-GET-007: should return minimal fields for viewer', async () => {
         // Viewer with limited field access
         const response = await request.get('/api/tables/2/records/1', {})
 
@@ -652,23 +556,7 @@ test.describe('Get record by ID', () => {
         expect(data).not.toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-GET-009: should apply both org and field filtering', async () => {
-        // Member from org_123 requests their org's record
-        const response = await request.get('/api/tables/2/records/1', {
-          headers: {},
-        })
-
-        expect(response.status()).toBe(200)
-
-        const data = await response.json()
-        expect(data.id).toBe(1)
-        expect(data.fields.name).toBe('Alice Cooper')
-        expect(data.fields.email).toBe('alice@example.com')
-        expect(data.fields.organization_id).toBe('org_123')
-        expect(data.fields).not.toHaveProperty('salary')
-      })
-
-      await test.step('API-TABLES-RECORDS-GET-010: should include readonly fields in response', async () => {
+      await test.step('API-TABLES-RECORDS-GET-008: should include readonly fields in response', async () => {
         // Table with readonly system fields
         const response = await request.get('/api/tables/3/records/1', {})
 
@@ -681,7 +569,7 @@ test.describe('Get record by ID', () => {
         expect(data).toHaveProperty('updated_at')
       })
 
-      await test.step('API-TABLES-RECORDS-GET-011: should return 404 for soft-deleted record', async () => {
+      await test.step('API-TABLES-RECORDS-GET-009: should return 404 for soft-deleted record', async () => {
         // Soft-deleted record without includeDeleted param
         const response = await request.get('/api/tables/3/records/2', {})
 
@@ -691,7 +579,7 @@ test.describe('Get record by ID', () => {
         expect(data.error).toBe('Record not found')
       })
 
-      await test.step('API-TABLES-RECORDS-GET-012: should return soft-deleted record with includeDeleted=true', async () => {
+      await test.step('API-TABLES-RECORDS-GET-010: should return soft-deleted record with includeDeleted=true', async () => {
         // Soft-deleted record with includeDeleted=true
         const response = await request.get('/api/tables/3/records/2', {
           params: {

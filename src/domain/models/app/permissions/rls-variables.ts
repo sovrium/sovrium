@@ -32,14 +32,6 @@ export const RLS_VARIABLES = {
   USER_ID: '{userId}',
 
   /**
-   * Current user's organization ID.
-   *
-   * @example Condition: `{organizationId} = organization_id`
-   * @sql_equivalent `auth.organization_id()`
-   */
-  ORGANIZATION_ID: '{organizationId}',
-
-  /**
    * Array of current user's roles.
    *
    * @example Condition: `'admin' = ANY({roles})`
@@ -62,12 +54,6 @@ export const RLS_VARIABLE_DOCS = {
     description: "Current authenticated user's ID",
     sqlFunction: 'auth.user_id()',
     examples: ['{userId} = created_by', '{userId} = owner_id', '{userId} = assigned_to'],
-  },
-  organizationId: {
-    placeholder: RLS_VARIABLES.ORGANIZATION_ID,
-    description: "Current user's organization ID",
-    sqlFunction: 'auth.organization_id()',
-    examples: ['{organizationId} = organization_id', '{organizationId} = org_id'],
   },
   roles: {
     placeholder: RLS_VARIABLES.ROLES,

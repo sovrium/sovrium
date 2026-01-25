@@ -27,6 +27,12 @@ import {
   createRecordResponseSchema,
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
+import {
+  validateRequiredFields,
+  checkReadonlyIdField,
+  checkDefaultFields,
+  checkFieldWritePermissions,
+} from './create-record-helpers'
 import { handleGetRecordError, handleRestoreRecordError } from './error-handlers'
 import { parseFilterParameter } from './filter-parser'
 import {
@@ -65,55 +71,6 @@ export async function handleListRecords(c: Context, app: App) {
   )
 }
 
-/**
- * Validate required fields for record creation
- * Returns error response if required fields are missing, undefined otherwise
- */
-function validateRequiredFields(
-  table:
-    | {
-        readonly name: string
-        readonly fields: ReadonlyArray<{
-          readonly name: string
-          readonly required?: boolean
-        }>
-        readonly primaryKey?: {
-          readonly type: string
-          readonly fields?: ReadonlyArray<string>
-          readonly field?: string
-        }
-      }
-    | undefined,
-  fields: Record<string, unknown>,
-  c: Context
-) {
-  if (!table) return undefined
-
-  // Get primary key field names to exclude from validation
-  const primaryKeyFields = new Set(
-    table.primaryKey?.fields ?? (table.primaryKey?.field ? [table.primaryKey.field] : [])
-  )
-
-  // Auto-injected fields that should be excluded from required field validation
-  const autoInjectedFields = new Set(['owner_id', 'organization_id'])
-
-  const missingRequiredFields = table.fields
-    .filter(
-      (field) =>
-        field.required &&
-        !(field.name in fields) &&
-        !primaryKeyFields.has(field.name) && // Skip primary key fields
-        !autoInjectedFields.has(field.name) // Skip auto-injected fields
-    )
-    .map((field) => field.name)
-
-  if (missingRequiredFields.length > 0) {
-    return c.json({ error: 'Validation error' }, 400)
-  }
-
-  return undefined
-}
-
 export async function handleCreateRecord(c: Context, app: App) {
   console.log('[DEBUG] handleCreateRecord called - method:', c.req.method, 'path:', c.req.path)
   // Session, tableName, and userRole are guaranteed by middleware chain
@@ -137,31 +94,13 @@ export async function handleCreateRecord(c: Context, app: App) {
   // Check for readonly system fields (id, fields with defaults)
   const requestedFields = result.data.fields
 
-  // Check if user is trying to set 'id' field
-  if ('id' in requestedFields) {
-    return c.json(
-      {
-        error: 'Forbidden',
-        message: "Cannot write to readonly field 'id'",
-      },
-      403
-    )
-  }
+  // Check readonly 'id' field
+  const idError = checkReadonlyIdField(requestedFields, c)
+  if (idError) return idError
 
-  // Check if user is trying to set fields with default values (system-managed)
-  const fieldsWithDefaults =
-    table?.fields?.filter((f) => 'default' in f && f.default !== undefined) ?? []
-  const attemptedDefaultField = fieldsWithDefaults.find((f) => f.name in requestedFields)
-
-  if (attemptedDefaultField) {
-    return c.json(
-      {
-        error: 'Forbidden',
-        message: `Cannot write to readonly field '${attemptedDefaultField.name}'`,
-      },
-      403
-    )
-  }
+  // Check fields with default values
+  const defaultFieldError = checkDefaultFields(table, requestedFields, c)
+  if (defaultFieldError) return defaultFieldError
 
   // Check field-level write permissions
   const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
@@ -171,18 +110,9 @@ export async function handleCreateRecord(c: Context, app: App) {
     result.data.fields
   )
 
-  // If user tried to write to forbidden fields, return 403 with specific error
-  if (forbiddenFields.length > 0) {
-    const firstForbiddenField = forbiddenFields[0]
-    return c.json(
-      {
-        error: 'Forbidden',
-        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
-        field: firstForbiddenField,
-      },
-      403
-    )
-  }
+  // Check for forbidden fields
+  const permissionError = checkFieldWritePermissions(forbiddenFields, c)
+  if (permissionError) return permissionError
 
   // Validate required fields
   const validationError = validateRequiredFields(table, allowedData, c)
@@ -191,7 +121,7 @@ export async function handleCreateRecord(c: Context, app: App) {
   console.log('[DEBUG] About to call runEffect with fields:', allowedData)
   return await runEffect(
     c,
-    createRecordProgram(session, tableName, allowedData, app, userRole),
+    createRecordProgram({ session, tableName, fields: allowedData, app, userRole }),
     createRecordResponseSchema,
     201
   )

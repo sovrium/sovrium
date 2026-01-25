@@ -9,40 +9,6 @@ import { findDuplicate } from './field-types/validation-utils'
 import { extractFieldReferences } from './table-formula-validation'
 
 /**
- * Validate organizationScoped configuration requires organization_id field with correct type.
- *
- * @param table - Table to validate
- * @returns Error object if invalid, undefined if valid
- */
-export const validateOrganizationScoped = (table: {
-  readonly fields: ReadonlyArray<{ readonly name: string; readonly type: string }>
-  readonly permissions?: { readonly organizationScoped?: boolean }
-}): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
-  if (table.permissions?.organizationScoped !== true) {
-    return undefined
-  }
-
-  const organizationIdField = table.fields.find((field) => field.name === 'organization_id')
-  if (!organizationIdField) {
-    return {
-      message: 'organizationScoped requires organization_id field',
-      path: ['permissions', 'organizationScoped'],
-    }
-  }
-
-  // Validate organization_id field type (must be text-based for Better Auth compatibility)
-  const validTypes = ['single-line-text', 'long-text', 'email', 'url', 'phone-number']
-  if (!validTypes.includes(organizationIdField.type)) {
-    return {
-      message: `organization_id field must be a text type (single-line-text, long-text, email, url, or phone-number), got: ${organizationIdField.type}`,
-      path: ['fields'],
-    }
-  }
-
-  return undefined
-}
-
-/**
  * Validate owner permissions reference existing fields in the table.
  *
  * @param permissions - Table permissions to validate
@@ -224,9 +190,9 @@ export const validateRecordPermissions = (
 
   // Variable keywords that are allowed in conditions (RLS variables)
   // Supports:
-  // - {userId}, {organizationId}, {roles}
+  // - {userId}, {roles}
   // - {user.property} for custom user properties (e.g., {user.department})
-  const variableKeywords = new Set(['userid', 'organizationid', 'roles', 'user'])
+  const variableKeywords = new Set(['userid', 'roles', 'user'])
 
   const invalidPermission = recordPermissions.find((permission) => {
     const fieldRefs = extractFieldReferencesFromCondition(permission.condition)
@@ -274,7 +240,6 @@ export const validateRecordPermissions = (
  */
 export const validateTablePermissions = (
   permissions: {
-    readonly organizationScoped?: boolean
     readonly read?: {
       readonly type: string
       readonly roles?: ReadonlyArray<string>
@@ -305,14 +270,6 @@ export const validateTablePermissions = (
   fields: ReadonlyArray<{ readonly name: string; readonly type: string }>,
   fieldNames: ReadonlySet<string>
 ): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
-  // Validate organizationScoped requires organization_id field
-  if (permissions.organizationScoped === true) {
-    const orgValidationError = validateOrganizationScoped({ fields, permissions })
-    if (orgValidationError) {
-      return orgValidationError
-    }
-  }
-
   // Validate owner permissions reference existing fields
   const ownerPermissionsError = validateOwnerPermissions(permissions, fields, fieldNames)
   if (ownerPermissionsError) {

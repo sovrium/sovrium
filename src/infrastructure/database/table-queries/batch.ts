@@ -13,7 +13,6 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
  * Helper to create a single record within a transaction
- * Automatically adds organization_id from current_setting if table has organization_id column
  */
 async function createSingleRecord(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
@@ -21,32 +20,16 @@ async function createSingleRecord(
   tableName: string,
   fields: Record<string, unknown>
 ): Promise<Record<string, unknown> | undefined> {
-  // Check if table has organization_id column
-  const columnCheck = (await tx.execute(
-    sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'organization_id'`
-  )) as readonly Record<string, unknown>[]
-
-  const hasOrgId = columnCheck.length > 0
-  const needsOrgId = hasOrgId && !('organization_id' in fields)
-
-  // Build base entries from user fields
-  const baseEntries = Object.entries(fields)
-  if (baseEntries.length === 0 && !needsOrgId) return undefined
+  // Build entries from user fields
+  const entries = Object.entries(fields)
+  if (entries.length === 0) return undefined
 
   // Build column identifiers and values
-  const baseColumnIdentifiers = baseEntries.map(([key]) => {
+  const columnIdentifiers = entries.map(([key]) => {
     validateColumnName(key)
     return sql.identifier(key)
   })
-  const baseValueParams = baseEntries.map(([, value]) => sql`${value}`)
-
-  // Add organization_id column and value if needed (immutable)
-  const columnIdentifiers = needsOrgId
-    ? [...baseColumnIdentifiers, sql.identifier('organization_id')]
-    : baseColumnIdentifiers
-  const valueParams = needsOrgId
-    ? [...baseValueParams, sql.raw(`current_setting('app.organization_id', true)`)]
-    : baseValueParams
+  const valueParams = entries.map(([, value]) => sql`${value}`)
 
   const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
   const valuesClause = sql.join(valueParams, sql.raw(', '))
@@ -62,7 +45,6 @@ async function createSingleRecord(
  * Batch create records with session context
  *
  * Creates multiple records in a single transaction.
- * Automatically sets organization_id and owner_id from session for each record.
  * RLS policies automatically applied via session context.
  *
  * @param session - Better Auth session
@@ -121,35 +103,18 @@ async function checkRestorePermission(
 }
 
 /**
- * Build organization ID filter condition if applicable
- *
- * Note: Organization filtering removed - function kept for backward compatibility
- * but always returns empty SQL (no filtering).
- */
-async function buildOrgIdCondition(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  _tx: any,
-  _tableName: string,
-  _session: Readonly<Session>
-): Promise<ReturnType<typeof sql.raw>> {
-  // Organization filtering removed - return empty SQL
-  return sql``
-}
-
-/**
  * Validate records exist and are soft-deleted
  */
 async function validateRecordsForRestore(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
   tx: any,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
-  recordIds: readonly string[],
-  orgIdCondition: Readonly<ReturnType<typeof sql.raw>>
+  recordIds: readonly string[]
 ): Promise<void> {
   const validationResults = await Promise.all(
     recordIds.map(async (recordId) => {
       const checkResult = (await tx.execute(
-        sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId}${orgIdCondition} LIMIT 1`
+        sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
       )) as readonly Record<string, unknown>[]
 
       if (checkResult.length === 0) {
@@ -202,9 +167,8 @@ export function batchRestoreRecords(
 
         // eslint-disable-next-line functional/no-expression-statements -- Permission check with side effects
         await checkRestorePermission(tx)
-        const orgIdCondition = await buildOrgIdCondition(tx, tableName, session)
         // eslint-disable-next-line functional/no-expression-statements -- Validation function with side effects
-        await validateRecordsForRestore(tx, tableIdent, recordIds, orgIdCondition)
+        await validateRecordsForRestore(tx, tableIdent, recordIds)
 
         // All records validated - restore them all using parameterized IN clause
         const idParams = sql.join(
@@ -212,7 +176,7 @@ export function batchRestoreRecords(
           sql.raw(', ')
         )
         const result = (await tx.execute(
-          sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id IN (${idParams})${orgIdCondition} RETURNING id`
+          sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id IN (${idParams}) RETURNING id`
         )) as readonly Record<string, unknown>[]
 
         return result.length
@@ -308,8 +272,7 @@ export function batchUpdateRecords(
  * Batch delete records with session context
  *
  * Deletes multiple records (soft or hard delete based on deleted_at field).
- * Organization isolation automatically enforced via RLS policies.
- * Only records in the user's organization will be deleted.
+ * RLS policies automatically enforced via session context.
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
@@ -340,7 +303,6 @@ export function batchDeleteRecords(
 
         if (columnCheck.length > 0) {
           // Soft delete: set deleted_at timestamp
-          // RLS policies automatically filter to user's organization
           const result = (await tx.execute(
             sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) RETURNING id`
           )) as readonly Record<string, unknown>[]
@@ -348,7 +310,6 @@ export function batchDeleteRecords(
           return result.length
         } else {
           // Hard delete: remove records
-          // RLS policies automatically filter to user's organization
           const result = (await tx.execute(
             sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
           )) as readonly Record<string, unknown>[]

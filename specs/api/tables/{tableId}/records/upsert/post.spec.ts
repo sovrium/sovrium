@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/upsert/post.json
  * Domain: api
- * Spec Count: 15
+ * Spec Count: 13
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (15 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (13 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -213,14 +213,13 @@ test.describe('Upsert records (create or update)', () => {
             fields: [
               { id: 1, name: 'email', type: 'email', unique: true },
               { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO employees (email, name, organization_id)
-        VALUES ('alice@example.com', 'Alice Cooper', 'org_123')
+        INSERT INTO employees (email, name)
+        VALUES ('alice@example.com', 'Alice Cooper')
       `)
 
       // WHEN: User attempts upsert without auth token
@@ -265,7 +264,6 @@ test.describe('Upsert records (create or update)', () => {
             fields: [
               { id: 1, name: 'email', type: 'email', unique: true },
               { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -306,14 +304,13 @@ test.describe('Upsert records (create or update)', () => {
             fields: [
               { id: 1, name: 'email', type: 'email', unique: true },
               { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO employees (email, name, organization_id)
-        VALUES ('alice@example.com', 'Alice Cooper', 'org_123')
+        INSERT INTO employees (email, name)
+        VALUES ('alice@example.com', 'Alice Cooper')
       `)
 
       // WHEN: Member attempts upsert with existing records
@@ -348,10 +345,7 @@ test.describe('Upsert records (create or update)', () => {
           {
             id: 7,
             name: 'projects',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text', unique: true },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
+            fields: [{ id: 1, name: 'name', type: 'single-line-text', unique: true }],
           },
         ],
       })
@@ -377,57 +371,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPSERT-008: should auto-inject organization_id',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: An admin user from org_123 upserting records
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 8,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'email', type: 'email', unique: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-      await executeQuery(`
-        INSERT INTO employees (email, name, organization_id)
-        VALUES ('alice@example.com', 'Alice', 'org_123')
-      `)
-
-      // WHEN: Admin upserts records without specifying organization_id
-      const response = await request.post('/api/tables/1/records/upsert', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [
-            { email: 'alice@example.com', name: 'Updated Alice' },
-            { email: 'bob@example.com', name: 'Bob Smith' },
-          ],
-          fieldsToMergeOn: ['email'],
-        },
-      })
-
-      // THEN: Returns 200 with organization_id auto-injected for all records
-      expect(response.status()).toBe(200)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data.created).toBe(1)
-      expect(data.updated).toBe(1)
-      expect(data.records[0].fields.organization_id).toBe('org_123')
-      expect(data.records[1].fields.organization_id).toBe('org_123')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-UPSERT-009: should return 403 when creating with protected field',
+    'API-TABLES-RECORDS-UPSERT-008: should return 403 when creating with protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
@@ -441,7 +385,6 @@ test.describe('Upsert records (create or update)', () => {
               { id: 1, name: 'email', type: 'email', unique: true },
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -469,7 +412,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPSERT-010: should return 403 when updating with protected field',
+    'API-TABLES-RECORDS-UPSERT-009: should return 403 when updating with protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
@@ -483,14 +426,13 @@ test.describe('Upsert records (create or update)', () => {
               { id: 1, name: 'email', type: 'email', unique: true },
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO employees (email, name, salary, organization_id)
-        VALUES ('alice@example.com', 'Alice Cooper', 75000, 'org_123')
+        INSERT INTO employees (email, name, salary)
+        VALUES ('alice@example.com', 'Alice Cooper', 75000)
       `)
 
       // WHEN: Member attempts upsert updating record with protected field
@@ -515,7 +457,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPSERT-011: should return 403 for readonly fields',
+    'API-TABLES-RECORDS-UPSERT-010: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: An admin user attempting to set readonly fields
@@ -529,7 +471,6 @@ test.describe('Upsert records (create or update)', () => {
               { id: 1, name: 'email', type: 'email', unique: true },
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'created_at', type: 'created-at' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -557,54 +498,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPSERT-012: should return 403 when setting different organization_id',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
-      // GIVEN: A member user attempting to set different organization_id
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 12,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'email', type: 'email', unique: true },
-              { id: 2, name: 'name', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-
-      // WHEN: Member upserts with organization_id='org_456' in payload
-      const response = await request.post('/api/tables/1/records/upsert', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [
-            {
-              email: 'alice@example.com',
-              name: 'Alice Cooper',
-              organization_id: 'org_456',
-            },
-          ],
-          fieldsToMergeOn: ['email'],
-        },
-      })
-
-      // THEN: Returns 403 Forbidden error
-      expect(response.status()).toBe(403)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data.error).toBe('Forbidden')
-      expect(data.message).toBe('Cannot create records for different organization')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-UPSERT-013: should filter protected fields from response',
+    'API-TABLES-RECORDS-UPSERT-011: should filter protected fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member user with field-level read restrictions
@@ -618,14 +512,13 @@ test.describe('Upsert records (create or update)', () => {
               { id: 1, name: 'email', type: 'email', unique: true },
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO employees (email, name, salary, organization_id)
-        VALUES ('alice@example.com', 'Alice', 75000, 'org_123')
+        INSERT INTO employees (email, name, salary)
+        VALUES ('alice@example.com', 'Alice', 75000)
       `)
 
       // WHEN: Member upserts records successfully
@@ -660,7 +553,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPSERT-014: should return 200 with all fields for admin',
+    'API-TABLES-RECORDS-UPSERT-012: should return 200 with all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user with full permissions
@@ -674,14 +567,13 @@ test.describe('Upsert records (create or update)', () => {
               { id: 1, name: 'email', type: 'email', unique: true },
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO employees (email, name, salary, organization_id)
-        VALUES ('charlie@example.com', 'Charlie', 120000, 'org_789')
+        INSERT INTO employees (email, name, salary)
+        VALUES ('charlie@example.com', 'Charlie', 120000)
       `)
 
       // WHEN: Admin upserts records with all fields
@@ -713,7 +605,7 @@ test.describe('Upsert records (create or update)', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-UPSERT-015: should enforce combined permissions',
+    'API-TABLES-RECORDS-UPSERT-013: should enforce combined permissions',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: A member with create/update permission but field restrictions
@@ -727,15 +619,14 @@ test.describe('Upsert records (create or update)', () => {
               { id: 1, name: 'email', type: 'email', unique: true },
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO employees (email, name, salary, organization_id) VALUES
-          ('alice@example.com', 'Alice', 75000, 'org_123'),
-          ('bob@example.com', 'Bob', 85000, 'org_123')
+        INSERT INTO employees (email, name, salary) VALUES
+          ('alice@example.com', 'Alice', 75000),
+          ('bob@example.com', 'Bob', 85000)
       `)
 
       // WHEN: Member upserts mixed creates/updates with only permitted fields
@@ -788,14 +679,13 @@ test.describe('Upsert records (create or update)', () => {
                 { id: 1, name: 'email', type: 'email', required: true, unique: true },
                 { id: 2, name: 'name', type: 'single-line-text' },
                 { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-                { id: 4, name: 'organization_id', type: 'single-line-text' },
               ],
             },
           ],
         })
         await executeQuery(`
-          INSERT INTO employees (email, name, salary, organization_id)
-          VALUES ('existing@example.com', 'Existing User', 75000, 'org_123')
+          INSERT INTO employees (email, name, salary)
+          VALUES ('existing@example.com', 'Existing User', 75000)
         `)
       })
 
@@ -913,26 +803,7 @@ test.describe('Upsert records (create or update)', () => {
         expect(data.error).toBe('Forbidden')
       })
 
-      await test.step('API-TABLES-RECORDS-UPSERT-008: Auto-injects organization_id for all upserted records', async () => {
-        const response = await request.post('/api/tables/1/records/upsert', {
-          headers: { 'Content-Type': 'application/json' },
-          data: {
-            records: [
-              { email: 'existing@example.com', name: 'Updated' },
-              { email: 'charlie@example.com', name: 'Charlie' },
-            ],
-            fieldsToMergeOn: ['email'],
-          },
-        })
-        expect(response.status()).toBe(200)
-        const data = await response.json()
-        expect(data.created).toBe(1)
-        expect(data.updated).toBe(1)
-        expect(data.records[0].fields.organization_id).toBe('org_123')
-        expect(data.records[1].fields.organization_id).toBe('org_123')
-      })
-
-      await test.step('API-TABLES-RECORDS-UPSERT-009: Returns 403 when creating record with protected field', async () => {
+      await test.step('API-TABLES-RECORDS-UPSERT-008: Returns 403 when creating record with protected field', async () => {
         const response = await request.post('/api/tables/1/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -946,7 +817,7 @@ test.describe('Upsert records (create or update)', () => {
         expect(data.message).toBe('You do not have permission to write to field: salary')
       })
 
-      await test.step('API-TABLES-RECORDS-UPSERT-010: Returns 403 when updating record with protected field', async () => {
+      await test.step('API-TABLES-RECORDS-UPSERT-009: Returns 403 when updating record with protected field', async () => {
         const response = await request.post('/api/tables/1/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -960,7 +831,7 @@ test.describe('Upsert records (create or update)', () => {
         expect(data.message).toBe('You do not have permission to write to field: salary')
       })
 
-      await test.step('API-TABLES-RECORDS-UPSERT-011: Returns 403 when attempting to set readonly fields', async () => {
+      await test.step('API-TABLES-RECORDS-UPSERT-010: Returns 403 when attempting to set readonly fields', async () => {
         const response = await request.post('/api/tables/1/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -974,27 +845,7 @@ test.describe('Upsert records (create or update)', () => {
         expect(data.message).toBe('Cannot set readonly field: id')
       })
 
-      await test.step('API-TABLES-RECORDS-UPSERT-012: Returns 403 when setting different organization_id', async () => {
-        const response = await request.post('/api/tables/1/records/upsert', {
-          headers: { 'Content-Type': 'application/json' },
-          data: {
-            records: [
-              {
-                email: 'crossorg@example.com',
-                name: 'Cross Org',
-                organization_id: 'org_456',
-              },
-            ],
-            fieldsToMergeOn: ['email'],
-          },
-        })
-        expect(response.status()).toBe(403)
-        const data = await response.json()
-        expect(data.error).toBe('Forbidden')
-        expect(data.message).toBe('Cannot create records for different organization')
-      })
-
-      await test.step('API-TABLES-RECORDS-UPSERT-013: Filters protected fields from response for member', async () => {
+      await test.step('API-TABLES-RECORDS-UPSERT-011: Filters protected fields from response for member', async () => {
         const response = await request.post('/api/tables/1/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1015,7 +866,7 @@ test.describe('Upsert records (create or update)', () => {
         expect(data.records[1].fields).not.toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-UPSERT-014: Returns 200 with all fields visible for admin', async () => {
+      await test.step('API-TABLES-RECORDS-UPSERT-012: Returns 200 with all fields visible for admin', async () => {
         const response = await request.post('/api/tables/1/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1036,7 +887,7 @@ test.describe('Upsert records (create or update)', () => {
         expect(data.records[1].fields.salary).toBe(110_000)
       })
 
-      await test.step('API-TABLES-RECORDS-UPSERT-015: Enforces combined permissions across create/update operations', async () => {
+      await test.step('API-TABLES-RECORDS-UPSERT-013: Enforces combined permissions across create/update operations', async () => {
         const response = await request.post('/api/tables/1/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {

@@ -137,16 +137,15 @@ test.describe('Include Deleted query parameter', () => {
             name: 'items',
             fields: [
               { id: 1, name: 'name', type: 'single-line-text', required: true },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO items (id, name, organization_id, deleted_at) VALUES
-          (1, 'Active Item', 'org_123', NULL),
-          (2, 'Deleted Item', 'org_123', NOW())
+        INSERT INTO items (id, name, deleted_at) VALUES
+          (1, 'Active Item', NULL),
+          (2, 'Deleted Item', NOW())
       `)
 
       // WHEN: Member requests records with includeDeleted=true
@@ -248,8 +247,7 @@ test.describe('Include Deleted query parameter', () => {
               fields: [
                 { id: 1, name: 'title', type: 'single-line-text', required: true },
                 { id: 2, name: 'content', type: 'long-text' },
-                { id: 3, name: 'organization_id', type: 'single-line-text' },
-                { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
+                { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
               ],
             },
           ],
@@ -258,18 +256,18 @@ test.describe('Include Deleted query parameter', () => {
         // Insert 30 active records and 20 deleted records for comprehensive testing
         const activeInserts = Array.from(
           { length: 30 },
-          (_, i) => `(${i + 1}, 'Active Doc ${i + 1}', 'Content ${i + 1}', 'org_123', NULL)`
+          (_, i) => `(${i + 1}, 'Active Doc ${i + 1}', 'Content ${i + 1}', NULL)`
         ).join(',')
         const deletedInserts = Array.from(
           { length: 20 },
-          (_, i) => `(${i + 31}, 'Deleted Doc ${i + 1}', 'Content ${i + 31}', 'org_123', NOW())`
+          (_, i) => `(${i + 31}, 'Deleted Doc ${i + 1}', 'Content ${i + 31}', NOW())`
         ).join(',')
 
         await executeQuery(
-          `INSERT INTO documents (id, title, content, organization_id, deleted_at) VALUES ${activeInserts}`
+          `INSERT INTO documents (id, title, content, deleted_at) VALUES ${activeInserts}`
         )
         await executeQuery(
-          `INSERT INTO documents (id, title, content, organization_id, deleted_at) VALUES ${deletedInserts}`
+          `INSERT INTO documents (id, title, content, deleted_at) VALUES ${deletedInserts}`
         )
       })
 

@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/activity/{activityId}/get.spec.ts
  * Domain: api
- * Spec Count: 8
+ * Spec Count: 7
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (8 tests) - Exhaustive coverage
+ * 1. @spec tests - One per acceptance criterion (7 tests) - Exhaustive coverage
  * 2. @regression test - ONE optimized integration test - Critical workflow validation
  */
 
@@ -117,50 +117,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   )
 
   test.fixme(
-    'API-ACTIVITY-DETAILS-004: should return 403 when user tries to access cross-org activity',
-    { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
-      // GIVEN: Multi-tenant application with activities in different organizations
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text', required: true },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
-      })
-
-      await createAuthenticatedUser({ email: 'user1@org1.com' })
-      const user2 = await createAuthenticatedUser({ email: 'user2@org2.com' })
-
-      // Create activity in org2
-      const activityResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, organization_id, created_at)
-        VALUES ('${user2.user.id}', 'create', 'tasks', 1, '{"title": "Org2 Task"}', 'org2', NOW())
-        RETURNING id
-      `)
-      const activityId = activityResult.id
-
-      // Sign in as user1 (org1)
-      // Note: createAuthenticatedUser already signs in the user
-
-      // WHEN: User1 (org1) tries to access org2 activity
-      const response = await page.request.get(`/api/activity/${activityId}`)
-
-      // THEN: Returns 403 Forbidden or 404 (organization isolation)
-      expect([403, 404]).toContain(response.status())
-    }
-  )
-
-  test.fixme(
-    'API-ACTIVITY-DETAILS-005: should include user metadata in activity details',
+    'API-ACTIVITY-DETAILS-004: should include user metadata in activity details',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Application with activity log and user information
@@ -203,7 +160,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   )
 
   test.fixme(
-    'API-ACTIVITY-DETAILS-006: should return activity with null changes for delete action',
+    'API-ACTIVITY-DETAILS-005: should return activity with null changes for delete action',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Application with delete activity log
@@ -245,7 +202,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   )
 
   test.fixme(
-    'API-ACTIVITY-DETAILS-007: should return 400 when activityId is invalid format',
+    'API-ACTIVITY-DETAILS-006: should return 400 when activityId is invalid format',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Application with authenticated user
@@ -268,7 +225,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   )
 
   test.fixme(
-    'API-ACTIVITY-DETAILS-008: should return 401 Unauthorized when auth is not configured',
+    'API-ACTIVITY-DETAILS-007: should return 401 Unauthorized when auth is not configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application WITHOUT auth configured
@@ -370,7 +327,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
         expect(data).toHaveProperty('createdAt')
       })
 
-      await test.step('API-ACTIVITY-DETAILS-005: Includes user metadata in activity details', async () => {
+      await test.step('API-ACTIVITY-DETAILS-004: Includes user metadata in activity details', async () => {
         // WHEN: User requests activity details
         const response = await page.request.get(`/api/activity/${activityId}`)
 
@@ -394,7 +351,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
         expect(data).toHaveProperty('error')
       })
 
-      await test.step('API-ACTIVITY-DETAILS-007: Returns 400 when activityId is invalid format', async () => {
+      await test.step('API-ACTIVITY-DETAILS-006: Returns 400 when activityId is invalid format', async () => {
         // WHEN: User requests activity with invalid ID format
         const response = await page.request.get('/api/activity/invalid-id')
 

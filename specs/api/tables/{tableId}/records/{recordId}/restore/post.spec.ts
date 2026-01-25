@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/{recordId}/restore/post.json
  * Domain: api
- * Spec Count: 9
+ * Spec Count: 8
  *
  * Restore Behavior:
  * - POST /restore clears deleted_at timestamp on soft-deleted records
@@ -221,18 +221,17 @@ test.describe('Restore record', () => {
             name: 'items',
             fields: [
               { id: 1, name: 'name', type: 'single-line-text', required: true },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO items (id, name, organization_id, deleted_at)
-        VALUES (1, 'Deleted Item', 'org_123', NOW())
+        INSERT INTO items (id, name, deleted_at)
+        VALUES (1, 'Deleted Item', NOW())
       `)
 
-      // WHEN: Member restores a record in their organization
+      // WHEN: Member restores a record
       const response = await request.post('/api/tables/1/records/1/restore', {})
 
       // THEN: Returns 200 OK
@@ -247,60 +246,12 @@ test.describe('Restore record', () => {
     }
   )
 
-  test.fixme(
-    'API-TABLES-RECORDS-RESTORE-007: should return 404 for cross-org access',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: Two users in different organizations
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true },
-        tables: [
-          {
-            id: 1,
-            name: 'items',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text', required: true },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
-            ],
-          },
-        ],
-      })
-
-      // Create User A
-      const userA = await createAuthenticatedUser()
-
-      // Create a record for User A and soft-delete it
-      await executeQuery(`
-        INSERT INTO items (id, name, organization_id, deleted_at)
-        VALUES (1, 'User A Item', '${userA.user.id}', NOW())
-      `)
-
-      // Create User B - sets up isolation context for the test
-      await createAuthenticatedUser()
-
-      // WHEN: User B attempts to restore User A's soft-deleted record
-      const response = await request.post('/api/tables/1/records/1/restore', {})
-
-      // THEN: Returns 404 Not Found (organization isolation prevents access)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      expect(data.error).toBe('Record not found')
-
-      // THEN: Record remains soft-deleted in User A's organization
-      const result = await executeQuery(`SELECT deleted_at FROM items WHERE id=1`)
-      expect(result.deleted_at).toBeTruthy()
-    }
-  )
-
   // ============================================================================
   // Activity Log Tests
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-RESTORE-008: should create activity log entry when record is restored',
+    'API-TABLES-RECORDS-RESTORE-007: should create activity log entry when record is restored',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Application with auth and activity logging configured
@@ -358,7 +309,7 @@ test.describe('Restore record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-RESTORE-009: should capture user_id who restored the record',
+    'API-TABLES-RECORDS-RESTORE-008: should capture user_id who restored the record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: Two users with different roles
@@ -407,7 +358,7 @@ test.describe('Restore record', () => {
   // ============================================================================
   // REGRESSION TEST (@regression)
   // ONE OPTIMIZED test verifying components work together efficiently
-  // Generated from 9 @spec tests - see individual @spec tests for exhaustive criteria
+  // Generated from 8 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
   test.fixme(
@@ -432,8 +383,7 @@ test.describe('Restore record', () => {
                 { id: 1, name: 'id', type: 'autonumber', required: true },
                 { id: 2, name: 'title', type: 'single-line-text', required: true },
                 { id: 3, name: 'status', type: 'single-line-text' },
-                { id: 4, name: 'organization_id', type: 'single-line-text' },
-                { id: 5, name: 'deleted_at', type: 'deleted-at', indexed: true },
+                { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
               ],
             },
           ],
@@ -523,12 +473,12 @@ test.describe('Restore record', () => {
 
       await test.step('API-TABLES-RECORDS-RESTORE-006: Return 200 for member with delete permission', async () => {
         // Create authenticated user (member role)
-        const { user } = await createAuthenticatedUser()
+        const { user: _user } = await createAuthenticatedUser()
 
         // Insert soft-deleted record for user
         await executeQuery(`
-          INSERT INTO tasks (id, title, organization_id, deleted_at)
-          VALUES (5, 'Deleted Item', '${user.id}', NOW())
+          INSERT INTO tasks (id, title, deleted_at)
+          VALUES (5, 'Deleted Item', NOW())
         `)
 
         // Member restores record
@@ -543,9 +493,7 @@ test.describe('Restore record', () => {
         expect(result.deleted_at).toBeNull()
       })
 
-      // NOTE: API-TABLES-RECORDS-RESTORE-007 (cross-org access) removed - organization feature removed
-
-      await test.step('API-TABLES-RECORDS-RESTORE-008: Create activity log entry when record is restored', async () => {
+      await test.step('API-TABLES-RECORDS-RESTORE-007: Create activity log entry when record is restored', async () => {
         // Create authenticated user
         const { user } = await createAuthenticatedUser({ email: 'user@example.com' })
 
@@ -579,7 +527,7 @@ test.describe('Restore record', () => {
         expect(changes.after.deleted_at).toBeNull()
       })
 
-      await test.step('API-TABLES-RECORDS-RESTORE-009: Capture user_id who restored the record', async () => {
+      await test.step('API-TABLES-RECORDS-RESTORE-008: Capture user_id who restored the record', async () => {
         // Create admin user
         const { user: adminUser } = await createAuthenticatedAdmin({
           email: 'admin@example.com',

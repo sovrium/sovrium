@@ -15,7 +15,6 @@ import { Schema } from 'effect'
  *
  * Available RLS variables (see `@/domain/models/app/permissions/rls-variables.ts`):
  * - `{userId}`: Current authenticated user's ID
- * - `{organizationId}`: Current user's organization ID
  * - `{roles}`: Array of user's roles
  *
  * @example User can only read their own records
@@ -34,11 +33,11 @@ import { Schema } from 'effect'
  * }
  * ```
  *
- * @example Organization-scoped access
+ * @example Role-based access
  * ```typescript
  * {
  *   action: 'read',
- *   condition: '{organizationId} = organization_id',
+ *   condition: '\'admin\' = ANY({roles})',
  * }
  * ```
  */
@@ -50,7 +49,7 @@ export const RecordPermissionSchema = Schema.Struct({
 
   /**
    * PostgreSQL RLS condition expression.
-   * Supports variable substitution with {userId}, {organizationId}, {roles}.
+   * Supports variable substitution with {userId}, {roles}.
    */
   condition: Schema.String,
 }).pipe(
@@ -68,7 +67,7 @@ export const RecordPermissionSchema = Schema.Struct({
       },
       {
         action: 'read' as const,
-        condition: '{organizationId} = organization_id',
+        condition: "'admin' = ANY({roles})",
       },
     ],
   })

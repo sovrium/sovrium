@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/batch/post.json
  * Domain: api
- * Spec Count: 16
+ * Spec Count: 13
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (17 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (13 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -198,10 +198,7 @@ test.describe('Batch create records', () => {
           {
             id: 4,
             name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
           },
         ],
       })
@@ -237,10 +234,7 @@ test.describe('Batch create records', () => {
           {
             id: 5,
             name: 'projects',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
           },
         ],
       })
@@ -278,10 +272,7 @@ test.describe('Batch create records', () => {
           {
             id: 6,
             name: 'documents',
-            fields: [
-              { id: 1, name: 'title', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
+            fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
           },
         ],
       })
@@ -307,52 +298,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-POST-007: should auto-inject organization_id for all records',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
-      // GIVEN: An admin user from org_123
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 7,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'email', type: 'email' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-
-      // WHEN: Admin batch creates records without specifying organization_id
-      const response = await request.post('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [
-            { name: 'Alice Cooper', email: 'alice@example.com' },
-            { name: 'Bob Smith', email: 'bob@example.com' },
-          ],
-          returnRecords: true,
-        },
-      })
-
-      // THEN: Returns 201 with organization_id auto-injected for all records
-      expect(response.status()).toBe(201)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data.created).toBe(2)
-      expect(data.records[0].fields.organization_id).toBe('org_123')
-      expect(data.records[1].fields.organization_id).toBe('org_123')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-BATCH-POST-008: should return 403 when creating with protected field',
+    'API-TABLES-RECORDS-BATCH-POST-007: should return 403 when creating with protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
@@ -365,7 +311,6 @@ test.describe('Batch create records', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -397,7 +342,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-POST-009: should return 403 for readonly fields',
+    'API-TABLES-RECORDS-BATCH-POST-008: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: An admin user attempting to set readonly fields
@@ -410,7 +355,6 @@ test.describe('Batch create records', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'created_at', type: 'created-at' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -439,48 +383,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-POST-010: should return 403 when setting different organization_id',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
-      // GIVEN: A member user attempting to set different organization_id
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 10,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-
-      // WHEN: Member batch creates with organization_id='org_456' in payload
-      const response = await request.post('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [{ name: 'Alice Cooper', organization_id: 'org_456' }],
-        },
-      })
-
-      // THEN: Returns 403 Forbidden error
-      expect(response.status()).toBe(403)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data).toHaveProperty('message')
-      expect(data.error).toBe('Forbidden')
-      expect(data.message).toBe('Cannot create records for different organization')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-BATCH-POST-011: should filter protected fields from response',
+    'API-TABLES-RECORDS-BATCH-POST-009: should filter protected fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A member user with field-level read restrictions
@@ -494,7 +397,6 @@ test.describe('Batch create records', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'email', type: 'email' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -531,7 +433,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-POST-012: should return 201 with all fields for admin',
+    'API-TABLES-RECORDS-BATCH-POST-010: should return 201 with all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: An admin user with full permissions
@@ -544,7 +446,6 @@ test.describe('Batch create records', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -578,7 +479,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-POST-013: should enforce combined permissions',
+    'API-TABLES-RECORDS-BATCH-POST-011: should enforce combined permissions',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: A member with create permission but field restrictions
@@ -592,7 +493,6 @@ test.describe('Batch create records', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'email', type: 'email' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 4, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -629,7 +529,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-POST-014: should return 400 for duplicate unique field values',
+    'API-TABLES-RECORDS-BATCH-POST-012: should return 400 for duplicate unique field values',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with unique email constraint
@@ -676,7 +576,7 @@ test.describe('Batch create records', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-POST-015: should return 413 when exceeding 1000 record limit',
+    'API-TABLES-RECORDS-BATCH-POST-013: should return 413 when exceeding 1000 record limit',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Table exists
@@ -717,45 +617,6 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
-    'API-TABLES-RECORDS-BATCH-POST-016: should return 404 for cross-org batch create',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
-      // GIVEN: User from organization org_123
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 17,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-
-      // WHEN: User attempts batch create in table belonging to org_456
-      const response = await request.post('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          records: [{ name: 'Alice Cooper' }, { name: 'Bob Smith' }],
-        },
-      })
-
-      // THEN: Returns 404 Not Found (prevent org enumeration)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toBe('Table not found')
-    }
-  )
-
   // ============================================================================
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
@@ -776,7 +637,6 @@ test.describe('Batch create records', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'created_at', type: 'created-at' },
               { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 5, name: 'organization_id', type: 'single-line-text' },
             ],
           },
         ],
@@ -903,27 +763,7 @@ test.describe('Batch create records', () => {
         expect(data.error).toBe('Forbidden')
       })
 
-      await test.step('API-TABLES-RECORDS-BATCH-POST-007: should auto-inject organization_id for all records', async () => {
-        // Note: Requires admin user from org_123
-        const response = await request.post('/api/tables/1/records/batch', {
-          headers: { 'Content-Type': 'application/json' },
-          data: {
-            records: [
-              { name: 'Alice Cooper', email: 'alice_org@example.com' },
-              { name: 'Bob Smith', email: 'bob_org@example.com' },
-            ],
-            returnRecords: true,
-          },
-        })
-
-        expect(response.status()).toBe(201)
-        const data = await response.json()
-        expect(data.created).toBe(2)
-        expect(data.records[0].fields.organization_id).toBe('org_123')
-        expect(data.records[1].fields.organization_id).toBe('org_123')
-      })
-
-      await test.step('API-TABLES-RECORDS-BATCH-POST-008: should return 403 when creating with protected field', async () => {
+      await test.step('API-TABLES-RECORDS-BATCH-POST-007: should return 403 when creating with protected field', async () => {
         // Note: Requires member user with field-level write restrictions (salary protected)
         const response = await request.post('/api/tables/1/records/batch', {
           headers: { 'Content-Type': 'application/json' },
@@ -943,7 +783,7 @@ test.describe('Batch create records', () => {
         expect(data.message).toBe('You do not have permission to write to field: salary')
       })
 
-      await test.step('API-TABLES-RECORDS-BATCH-POST-009: should return 403 for readonly fields', async () => {
+      await test.step('API-TABLES-RECORDS-BATCH-POST-008: should return 403 for readonly fields', async () => {
         // Note: Requires admin user attempting to set readonly fields
         const response = await request.post('/api/tables/1/records/batch', {
           headers: { 'Content-Type': 'application/json' },
@@ -960,26 +800,7 @@ test.describe('Batch create records', () => {
         expect(data.message).toBe('Cannot set readonly field: id')
       })
 
-      await test.step('API-TABLES-RECORDS-BATCH-POST-010: should return 403 when setting different organization_id', async () => {
-        // Note: Requires member user attempting to set different organization_id
-        const response = await request.post('/api/tables/1/records/batch', {
-          headers: { 'Content-Type': 'application/json' },
-          data: {
-            records: [
-              { name: 'Alice Cooper', email: 'alice_diff@example.com', organization_id: 'org_456' },
-            ],
-          },
-        })
-
-        expect(response.status()).toBe(403)
-        const data = await response.json()
-        expect(data).toHaveProperty('error')
-        expect(data).toHaveProperty('message')
-        expect(data.error).toBe('Forbidden')
-        expect(data.message).toBe('Cannot create records for different organization')
-      })
-
-      await test.step('API-TABLES-RECORDS-BATCH-POST-011: should filter protected fields from response', async () => {
+      await test.step('API-TABLES-RECORDS-BATCH-POST-009: should filter protected fields from response', async () => {
         // Note: Requires member user with field-level read restrictions
         const response = await request.post('/api/tables/1/records/batch', {
           headers: { 'Content-Type': 'application/json' },
@@ -1002,7 +823,7 @@ test.describe('Batch create records', () => {
         expect(data.records[1].fields).not.toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-BATCH-POST-012: should return 201 with all fields for admin', async () => {
+      await test.step('API-TABLES-RECORDS-BATCH-POST-010: should return 201 with all fields for admin', async () => {
         // Note: Requires admin user with full permissions
         const response = await request.post('/api/tables/1/records/batch', {
           headers: { 'Content-Type': 'application/json' },
@@ -1024,7 +845,7 @@ test.describe('Batch create records', () => {
         expect(data.records[1].fields.salary).toBe(95_000)
       })
 
-      await test.step('API-TABLES-RECORDS-BATCH-POST-013: should enforce combined permissions', async () => {
+      await test.step('API-TABLES-RECORDS-BATCH-POST-011: should enforce combined permissions', async () => {
         // Note: Requires member with create permission but field restrictions
         const response = await request.post('/api/tables/1/records/batch', {
           headers: { 'Content-Type': 'application/json' },
@@ -1047,7 +868,7 @@ test.describe('Batch create records', () => {
         expect(data.records[2]).not.toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-BATCH-POST-014: should return 400 for duplicate unique field values', async () => {
+      await test.step('API-TABLES-RECORDS-BATCH-POST-012: should return 400 for duplicate unique field values', async () => {
         // Get current count before attempting duplicate batch
         const beforeResult = await executeQuery(`SELECT COUNT(*) as count FROM users`)
         const countBefore = beforeResult.rows[0].count
@@ -1072,7 +893,7 @@ test.describe('Batch create records', () => {
         expect(afterResult.rows[0].count).toBe(countBefore)
       })
 
-      await test.step('API-TABLES-RECORDS-BATCH-POST-015: should return 413 when exceeding 1000 record limit', async () => {
+      await test.step('API-TABLES-RECORDS-BATCH-POST-013: should return 413 when exceeding 1000 record limit', async () => {
         const records = Array.from({ length: 1001 }, (_, i) => ({
           email: `user${i}@batch.com`,
         }))
@@ -1088,24 +909,6 @@ test.describe('Batch create records', () => {
         expect(data).toHaveProperty('message')
         expect(data.error).toBe('PayloadTooLarge')
         expect(data.message).toBe('Batch size exceeds maximum of 1000 records')
-      })
-
-      await test.step('API-TABLES-RECORDS-BATCH-POST-016: should return 404 for cross-org batch create', async () => {
-        // Note: User from org_123 attempting to access table belonging to org_456
-        const response = await request.post('/api/tables/1/records/batch', {
-          headers: { 'Content-Type': 'application/json' },
-          data: {
-            records: [
-              { email: 'crossorg1@example.com', name: 'Alice Cooper' },
-              { email: 'crossorg2@example.com', name: 'Bob Smith' },
-            ],
-          },
-        })
-
-        expect(response.status()).toBe(404)
-        const data = await response.json()
-        expect(data).toHaveProperty('error')
-        expect(data.error).toBe('Table not found')
       })
     }
   )

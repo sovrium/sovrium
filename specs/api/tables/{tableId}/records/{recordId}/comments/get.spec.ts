@@ -11,13 +11,12 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for List comments on a record
  *
  * Domain: api
- * Spec Count: 11
+ * Spec Count: 10
  *
  * Comments Feature:
  * - Flat comments (no threading) similar to Airtable
  * - Chronological order (newest first by default)
  * - Authentication required (no anonymous comments)
- * - Organization-scoped (multi-tenant)
  * - Supports @mentions stored as @[user_id]
  *
  * Test Organization:
@@ -167,48 +166,7 @@ test.describe('List comments on a record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-COMMENTS-LIST-005: should return 404 Not Found',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: User from different organization
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true },
-        tables: [
-          {
-            id: 5,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'title', type: 'single-line-text', required: true },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-      await createAuthenticatedUser()
-      await executeQuery(`
-        INSERT INTO tasks (id, title, organization_id) VALUES (1, 'Task in Org 456', 'org_456')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_456', 'user_2', 'Comment in org 456')
-      `)
-
-      // WHEN: User from org_123 attempts to list comments from org_456's record
-      const response = await request.get('/api/tables/1/records/1/comments', {
-        headers: {},
-      })
-
-      // THEN: Returns 404 Not Found (don't leak existence across orgs)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      expect(data.error).toBe('Record not found')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-COMMENTS-LIST-006: should exclude soft-deleted comments by default',
+    'API-TABLES-RECORDS-COMMENTS-LIST-005: should exclude soft-deleted comments by default',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Record with active and soft-deleted comments
@@ -248,7 +206,7 @@ test.describe('List comments on a record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-COMMENTS-LIST-007: should include user metadata with each comment',
+    'API-TABLES-RECORDS-COMMENTS-LIST-006: should include user metadata with each comment',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Record with comments from different users
@@ -301,7 +259,7 @@ test.describe('List comments on a record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-COMMENTS-LIST-008: should support pagination with limit and offset',
+    'API-TABLES-RECORDS-COMMENTS-LIST-007: should support pagination with limit and offset',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Record with many comments (15 comments)
@@ -354,7 +312,7 @@ test.describe('List comments on a record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-COMMENTS-LIST-009: should support sorting by createdAt',
+    'API-TABLES-RECORDS-COMMENTS-LIST-008: should support sorting by createdAt',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Record with comments at different times
@@ -403,7 +361,7 @@ test.describe('List comments on a record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-COMMENTS-LIST-010: should include timestamps for each comment',
+    'API-TABLES-RECORDS-COMMENTS-LIST-009: should include timestamps for each comment',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Record with a comment that was edited
@@ -445,7 +403,7 @@ test.describe('List comments on a record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-COMMENTS-LIST-011: should return 403 Forbidden',
+    'API-TABLES-RECORDS-COMMENTS-LIST-010: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User without read permission for the table
@@ -499,7 +457,6 @@ test.describe('List comments on a record', () => {
               fields: [
                 { id: 1, name: 'title', type: 'single-line-text', required: true },
                 { id: 2, name: 'status', type: 'single-line-text' },
-                { id: 3, name: 'organization_id', type: 'single-line-text' },
               ],
             },
             {
@@ -573,25 +530,7 @@ test.describe('List comments on a record', () => {
         expect(data.error).toBe('Record not found')
       })
 
-      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-005: Returns 404 Not Found for cross-organization access', async () => {
-        await executeQuery(`
-          INSERT INTO tasks (id, title, organization_id) VALUES (4, 'Task in Org 456', 'org_456')
-        `)
-        await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-          VALUES ('comment_org456', '4', '1', 'org_456', 'user_2', 'Comment in org 456')
-        `)
-
-        const response = await request.get('/api/tables/1/records/4/comments', {
-          headers: {},
-        })
-
-        expect(response.status()).toBe(404)
-        const data = await response.json()
-        expect(data.error).toBe('Record not found')
-      })
-
-      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-006: Excludes soft-deleted comments by default', async () => {
+      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-005: Excludes soft-deleted comments by default', async () => {
         await executeQuery(`
           INSERT INTO tasks (id, title) VALUES (5, 'Task with deleted comments')
         `)
@@ -611,7 +550,7 @@ test.describe('List comments on a record', () => {
         expect(data.comments[0].content).toBe('Active comment')
       })
 
-      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-007: Includes user metadata with each comment', async () => {
+      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-006: Includes user metadata with each comment', async () => {
         await executeQuery(`
           INSERT INTO tasks (id, title) VALUES (6, 'Collaborative Task')
         `)
@@ -639,7 +578,7 @@ test.describe('List comments on a record', () => {
         })
       })
 
-      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-008: Supports pagination with limit and offset', async () => {
+      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-007: Supports pagination with limit and offset', async () => {
         await executeQuery(`
           INSERT INTO tasks (id, title) VALUES (7, 'Popular Task')
         `)
@@ -672,7 +611,7 @@ test.describe('List comments on a record', () => {
         })
       })
 
-      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-009: Supports sorting by createdAt', async () => {
+      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-008: Supports sorting by createdAt', async () => {
         await executeQuery(`
           INSERT INTO tasks (id, title) VALUES (8, 'Task with sorted comments')
         `)
@@ -701,7 +640,7 @@ test.describe('List comments on a record', () => {
         expect(data.comments[2].content).toBe('Newest')
       })
 
-      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-010: Includes timestamps for each comment', async () => {
+      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-009: Includes timestamps for each comment', async () => {
         await executeQuery(`
           INSERT INTO tasks (id, title) VALUES (9, 'Task with edited comment')
         `)
@@ -722,7 +661,7 @@ test.describe('List comments on a record', () => {
         )
       })
 
-      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-011: Returns 403 Forbidden for users without read permission', async () => {
+      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-010: Returns 403 Forbidden for users without read permission', async () => {
         await executeQuery(`
           INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
         `)

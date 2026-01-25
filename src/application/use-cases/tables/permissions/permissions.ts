@@ -109,34 +109,64 @@ export function hasCreatePermission(
 }
 
 /**
+ * Extract delete permission configuration from table
+ */
+function getDeletePermission(
+  table: Readonly<{ permissions?: Readonly<{ delete?: unknown }> }> | undefined
+):
+  | Readonly<{ type: 'roles'; roles?: readonly string[] }>
+  | Readonly<{ type?: string }>
+  | undefined {
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is not a Drizzle delete operation, it's accessing a property
+  return table?.permissions?.delete as
+    | { type: 'roles'; roles?: string[] }
+    | { type?: string }
+    | undefined
+}
+
+/**
+ * Check if role is allowed in role-based permission
+ */
+function isRoleAllowed(
+  permission:
+    | Readonly<{ type: 'roles'; roles?: readonly string[] }>
+    | Readonly<{ type?: string }>
+    | undefined,
+  userRole: string
+): boolean {
+  if (permission?.type !== 'roles') return false
+  const allowedRoles = (permission as { type: 'roles'; roles?: string[] }).roles || []
+  return allowedRoles.includes(userRole)
+}
+
+/**
+ * Check viewer-specific delete permission
+ */
+function checkViewerDeletePermission(
+  deletePermission:
+    | Readonly<{ type: 'roles'; roles?: readonly string[] }>
+    | Readonly<{ type?: string }>
+    | undefined,
+  userRole: string
+): boolean {
+  return deletePermission?.type === 'roles' && isRoleAllowed(deletePermission, userRole)
+}
+
+/**
  * Check if user has delete permission for the table
  */
 export function hasDeletePermission(
   table: Readonly<{ permissions?: Readonly<{ delete?: unknown }> }> | undefined,
   userRole: string
 ): boolean {
+  const deletePermission = getDeletePermission(table)
+
   // Viewers have read-only access by default - deny delete operations
   if (userRole === 'viewer') {
-    // Only allow if explicitly granted via role-based permissions
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is not a Drizzle delete operation, it's accessing a property
-    const deletePermission = table?.permissions?.delete as
-      | { type: 'roles'; roles?: string[] }
-      | { type?: string }
-      | undefined
-    if (deletePermission?.type === 'roles') {
-      const allowedRoles = (deletePermission as { type: 'roles'; roles?: string[] }).roles || []
-      return allowedRoles.includes(userRole)
-    }
-    return false
+    return checkViewerDeletePermission(deletePermission, userRole)
   }
 
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is not a Drizzle delete operation, it's accessing a property
-  const deletePermission = table?.permissions?.delete as
-    | { type: 'roles'; roles?: string[] }
-    | { type?: string }
-    | undefined
+  // For non-viewers, allow if no role-based restrictions or role is in allowed list
   if (deletePermission?.type !== 'roles') return true
-  // Type narrowing: we know it's the 'roles' type here
-  const allowedRoles = (deletePermission as { type: 'roles'; roles?: string[] }).roles || []
-  return allowedRoles.includes(userRole)
+  return isRoleAllowed(deletePermission, userRole)
 }

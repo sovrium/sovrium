@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/post.json
  * Domain: api
- * Spec Count: 17
+ * Spec Count: 16
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (17 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (16 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -338,46 +338,7 @@ test.describe('Create new record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-008: should return 404 Not Found',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
-      // GIVEN: A user from organization A attempting to create in organization B's table
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true },
-        tables: [
-          {
-            id: 7,
-            name: 'employees',
-            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
-          },
-        ],
-      })
-
-      // Create authenticated user
-      await createAuthenticatedUser()
-
-      // WHEN: User attempts to create record in different organization's table
-      const response = await request.post('/api/tables/1/records', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          name: 'John Doe',
-        },
-      })
-
-      // THEN: Returns 404 Not Found (don't leak existence)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data.error).toBe('Table not found')
-    }
-  )
-
-  test(
-    'API-TABLES-RECORDS-CREATE-009: should return 201 Created with all fields',
+    'API-TABLES-RECORDS-CREATE-008: should return 201 Created with all fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: An admin user with write access to all fields including sensitive
@@ -426,7 +387,7 @@ test.describe('Create new record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-010: should return 403 Forbidden',
+    'API-TABLES-RECORDS-CREATE-009: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: A member user attempting to create with write-protected field
@@ -481,7 +442,7 @@ test.describe('Create new record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-011: should return 403 Forbidden',
+    'API-TABLES-RECORDS-CREATE-010: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: A viewer user with very limited write permissions
@@ -533,7 +494,7 @@ test.describe('Create new record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-012: should return 403 Forbidden',
+    'API-TABLES-RECORDS-CREATE-011: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: User attempts to set system-managed readonly fields
@@ -578,7 +539,7 @@ test.describe('Create new record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-013: should return 403 for first forbidden field',
+    'API-TABLES-RECORDS-CREATE-012: should return 403 for first forbidden field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Multiple fields with different write permission levels
@@ -640,7 +601,7 @@ test.describe('Create new record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-014: should auto-inject owner_id',
+    'API-TABLES-RECORDS-CREATE-013: should auto-inject owner_id',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User creates record in table with owner_id field
@@ -694,7 +655,7 @@ test.describe('Create new record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-015: should return 201 with filtered fields',
+    'API-TABLES-RECORDS-CREATE-014: should return 201 with filtered fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Field write restrictions and table permission all apply
@@ -749,7 +710,7 @@ test.describe('Create new record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-016: should use database defaults',
+    'API-TABLES-RECORDS-CREATE-015: should use database defaults',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User creates record with only permitted fields
@@ -801,7 +762,7 @@ test.describe('Create new record', () => {
   // ============================================================================
 
   test(
-    'API-TABLES-RECORDS-CREATE-017: should create comprehensive activity log entry',
+    'API-TABLES-RECORDS-CREATE-016: should create comprehensive activity log entry',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Application with auth and activity logging
@@ -1041,19 +1002,7 @@ test.describe('Create new record', () => {
         expect(data.message).toBe('You do not have permission to create records in this table')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-008: should return 404 Not Found for cross-org access', async () => {
-        const response = await request.post('/api/tables/1/records', {
-          headers: { 'Content-Type': 'application/json' },
-          data: { name: 'John Doe' },
-        })
-
-        expect(response.status()).toBe(404)
-
-        const data = await response.json()
-        expect(data.error).toBe('Table not found')
-      })
-
-      await test.step('API-TABLES-RECORDS-CREATE-009: should return 201 Created with all fields for admin', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-008: should return 201 Created with all fields for admin', async () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1072,7 +1021,7 @@ test.describe('Create new record', () => {
         expect(data.fields.salary).toBe(75_000)
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-010: should return 403 Forbidden for write-protected field', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-009: should return 403 Forbidden for write-protected field', async () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1090,7 +1039,7 @@ test.describe('Create new record', () => {
         expect(data.field).toBe('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-011: should return 403 Forbidden for viewer with limited write permissions', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-010: should return 403 Forbidden for viewer with limited write permissions', async () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1106,7 +1055,7 @@ test.describe('Create new record', () => {
         expect(data.field).toBe('email')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-012: should return 403 Forbidden for readonly fields', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-011: should return 403 Forbidden for readonly fields', async () => {
         const response = await request.post('/api/tables/4/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1123,7 +1072,7 @@ test.describe('Create new record', () => {
         expect(data.message).toBe("Cannot write to readonly field 'id'")
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-013: should return 403 for first forbidden field', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-012: should return 403 for first forbidden field', async () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1140,7 +1089,7 @@ test.describe('Create new record', () => {
         expect(data).toHaveProperty('field')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-014: should auto-inject owner_id', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-013: should auto-inject owner_id', async () => {
         const { user } = await createAuthenticatedUser({ email: 'owner@example.com' })
 
         const response = await request.post('/api/tables/2/records', {
@@ -1160,7 +1109,7 @@ test.describe('Create new record', () => {
         expect(result.rows[0].owner_id).toBe(user.id)
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-015: should return 201 with filtered fields', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-014: should return 201 with filtered fields', async () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1177,7 +1126,7 @@ test.describe('Create new record', () => {
         expect(data.fields).not.toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-016: should use database defaults', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-015: should use database defaults', async () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1198,7 +1147,7 @@ test.describe('Create new record', () => {
         expect(result.rows[0].salary).toBe('50000')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-017: should create comprehensive activity log entry', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-016: should create comprehensive activity log entry', async () => {
         const { user } = await createAuthenticatedUser({
           email: 'user@example.com',
         })

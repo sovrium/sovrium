@@ -213,7 +213,6 @@ test.describe('Database Session Context Integration', () => {
               fields: [
                 { id: 1, name: 'id', type: 'integer', required: true },
                 { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'organization_id', type: 'single-line-text' },
               ],
               permissions: {
                 read: { type: 'authenticated' },

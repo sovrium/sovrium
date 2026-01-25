@@ -12,14 +12,14 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/get.json
  * Domain: api
- * Spec Count: 28
+ * Spec Count: 25
  *
  * Soft Delete Behavior:
  * - By default, soft-deleted records (deleted_at IS NOT NULL) are excluded
  * - Use includeDeleted=true query param to include soft-deleted records
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (28 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (25 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -578,33 +578,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-015: should return 404 Not Found',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
-      // GIVEN: User from different organization
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 14,
-            name: 'employees',
-            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
-          },
-        ],
-      })
-
-      // WHEN: User attempts to list records from different org's table
-      const response = await request.get('/api/tables/1/records', {
-        headers: {},
-      })
-
-      // THEN: Returns 404 Not Found (don't leak existence)
-      expect(response.status()).toBe(404)
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-LIST-016: should return all fields for admin',
+    'API-TABLES-RECORDS-LIST-015: should return all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Admin user with full field access
@@ -640,7 +614,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-017: should exclude salary field for member',
+    'API-TABLES-RECORDS-LIST-016: should exclude salary field for member',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member user without salary field read permission
@@ -678,7 +652,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-018: should return minimal fields for viewer',
+    'API-TABLES-RECORDS-LIST-017: should return minimal fields for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Viewer with limited field access
@@ -718,89 +692,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-019: should auto-filter by organization',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Multi-tenant table with records from different orgs
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 18,
-            name: 'projects',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-      await executeQuery(`
-        INSERT INTO projects (name, organization_id)
-        VALUES
-          ('Org1 Project', 'org_123'),
-          ('Org2 Project', 'org_456')
-      `)
-
-      // WHEN: User from org_123 requests records
-      const response = await request.get('/api/tables/1/records', {
-        headers: {},
-      })
-
-      // THEN: Returns only org_123 records
-      expect(response.status()).toBe(200)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data.records).toHaveLength(1)
-      expect(data.records[0].fields.organization_id).toBe('org_123')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-LIST-020: should apply both org and field filtering',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: Multi-tenant table with field permissions
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 19,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'salary', type: 'currency', currency: 'USD' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
-            ],
-          },
-        ],
-      })
-      await executeQuery(`
-        INSERT INTO employees (name, salary, organization_id)
-        VALUES
-          ('John Doe', 75000, 'org_123'),
-          ('Jane Smith', 85000, 'org_456')
-      `)
-
-      // WHEN: Member from org_123 requests records
-      const response = await request.get('/api/tables/1/records', {
-        headers: {},
-      })
-
-      // THEN: Returns org_123 records without salary field
-      expect(response.status()).toBe(200)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data.records).toHaveLength(1)
-      expect(data.records[0].fields.name).toBe('John Doe')
-      expect(data.records[0].fields).not.toHaveProperty('salary')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-LIST-021: should return empty array with 200',
+    'API-TABLES-RECORDS-LIST-018: should return empty array with 200',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: User with valid permissions but no matching records
@@ -810,15 +702,12 @@ test.describe('List records in table', () => {
           {
             id: 20,
             name: 'projects',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-            ],
+            fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
           },
         ],
       })
 
-      // WHEN: User requests records (no data in their org)
+      // WHEN: User requests records (empty table)
       const response = await request.get('/api/tables/1/records', {})
 
       // THEN: Returns 200 with empty array
@@ -832,7 +721,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-022: should paginate with field filtering',
+    'API-TABLES-RECORDS-LIST-019: should paginate with field filtering',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Member with field restrictions and large dataset
@@ -878,7 +767,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-023: should return 403 when sorting by inaccessible field',
+    'API-TABLES-RECORDS-LIST-020: should return 403 when sorting by inaccessible field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: User attempts to sort by restricted field
@@ -914,7 +803,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-024: should return 403 when filtering by inaccessible field',
+    'API-TABLES-RECORDS-LIST-021: should return 403 when filtering by inaccessible field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: User attempts to filter by restricted field
@@ -952,7 +841,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-025: should return 403 when aggregating inaccessible field',
+    'API-TABLES-RECORDS-LIST-022: should return 403 when aggregating inaccessible field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: User attempts to aggregate restricted field
@@ -991,7 +880,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-026: should return aggregations for accessible fields',
+    'API-TABLES-RECORDS-LIST-023: should return aggregations for accessible fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User aggregates only accessible fields
@@ -1043,7 +932,7 @@ test.describe('List records in table', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-027: should exclude soft-deleted records by default',
+    'API-TABLES-RECORDS-LIST-024: should exclude soft-deleted records by default',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with mix of active and soft-deleted records
@@ -1090,7 +979,7 @@ test.describe('List records in table', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-LIST-028: should include deleted with includeDeleted=true',
+    'API-TABLES-RECORDS-LIST-025: should include deleted with includeDeleted=true',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Table with mix of active and soft-deleted records
@@ -1161,8 +1050,7 @@ test.describe('List records in table', () => {
               { id: 3, name: 'priority', type: 'integer', default: 1 },
               { id: 4, name: 'budget', type: 'currency', currency: 'USD' },
               { id: 5, name: 'created_at', type: 'created-at' },
-              { id: 6, name: 'organization_id', type: 'single-line-text' },
-              { id: 7, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              { id: 6, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
           {
@@ -1428,14 +1316,7 @@ test.describe('List records in table', () => {
         expect(response.status()).toBe(403)
       })
 
-      await test.step('API-TABLES-RECORDS-LIST-015: Returns 404 for cross-org table access', async () => {
-        const response = await request.get('/api/tables/1/records', {
-          headers: {},
-        })
-        expect(response.status()).toBe(404)
-      })
-
-      await test.step('API-TABLES-RECORDS-LIST-016: Returns all fields for admin user', async () => {
+      await test.step('API-TABLES-RECORDS-LIST-015: Returns all fields for admin user', async () => {
         // Clear and setup employee data
         await executeQuery(`DELETE FROM users`)
         await executeQuery(`
@@ -1450,7 +1331,7 @@ test.describe('List records in table', () => {
         expect(data.records[0]).toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-LIST-017: Excludes salary field for member user', async () => {
+      await test.step('API-TABLES-RECORDS-LIST-016: Excludes salary field for member user', async () => {
         const response = await request.get('/api/tables/2/records', {})
         expect(response.status()).toBe(200)
 
@@ -1460,7 +1341,7 @@ test.describe('List records in table', () => {
         expect(data.records[0]).not.toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-LIST-018: Returns minimal fields for viewer', async () => {
+      await test.step('API-TABLES-RECORDS-LIST-017: Returns minimal fields for viewer', async () => {
         await executeQuery(`DELETE FROM users`)
         await executeQuery(`
           INSERT INTO users (name, email, phone, salary)
@@ -1477,49 +1358,7 @@ test.describe('List records in table', () => {
         expect(data.records[0]).not.toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-LIST-019: Auto-filters by organization', async () => {
-        // Clear and setup org-specific data
-        await executeQuery(`DELETE FROM projects`)
-        await executeQuery(`
-          INSERT INTO projects (name, organization_id)
-          VALUES
-            ('Org1 Project', 'org_123'),
-            ('Org2 Project', 'org_456')
-        `)
-
-        const response = await request.get('/api/tables/1/records', {
-          headers: {},
-        })
-
-        expect(response.status()).toBe(200)
-
-        const data = await response.json()
-        expect(data.records).toHaveLength(1)
-        expect(data.records[0].fields.organization_id).toBe('org_123')
-      })
-
-      await test.step('API-TABLES-RECORDS-LIST-020: Applies both org and field filtering', async () => {
-        await executeQuery(`DELETE FROM users`)
-        await executeQuery(`
-          INSERT INTO users (name, salary)
-          VALUES
-            ('John Doe', 75000),
-            ('Jane Smith', 85000)
-        `)
-
-        const response = await request.get('/api/tables/2/records', {
-          headers: {},
-        })
-
-        expect(response.status()).toBe(200)
-
-        const data = await response.json()
-        expect(data.records).toHaveLength(1)
-        expect(data.records[0].fields.name).toBe('John Doe')
-        expect(data.records[0].fields).not.toHaveProperty('salary')
-      })
-
-      await test.step('API-TABLES-RECORDS-LIST-021: Returns empty array with 200 for no matching records', async () => {
+      await test.step('API-TABLES-RECORDS-LIST-018: Returns empty array with 200 for no matching records', async () => {
         await executeQuery(`DELETE FROM projects`)
 
         const response = await request.get('/api/tables/1/records', {})
@@ -1530,7 +1369,7 @@ test.describe('List records in table', () => {
         expect(data.pagination.total).toBe(0)
       })
 
-      await test.step('API-TABLES-RECORDS-LIST-022: Paginates with field filtering', async () => {
+      await test.step('API-TABLES-RECORDS-LIST-019: Paginates with field filtering', async () => {
         // Setup 50 employee records
         const insertValues = Array.from(
           { length: 50 },
@@ -1554,7 +1393,7 @@ test.describe('List records in table', () => {
         expect(data.records[0]).not.toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-LIST-023: Returns 403 when sorting by inaccessible field', async () => {
+      await test.step('API-TABLES-RECORDS-LIST-020: Returns 403 when sorting by inaccessible field', async () => {
         const response = await request.get('/api/tables/2/records', {
           params: {
             sort: 'salary:desc',
@@ -1568,7 +1407,7 @@ test.describe('List records in table', () => {
         expect(data.message).toContain('Cannot sort by field')
       })
 
-      await test.step('API-TABLES-RECORDS-LIST-024: Returns 403 when filtering by inaccessible field', async () => {
+      await test.step('API-TABLES-RECORDS-LIST-021: Returns 403 when filtering by inaccessible field', async () => {
         const response = await request.get('/api/tables/2/records', {
           params: {
             filter: JSON.stringify({
@@ -1584,7 +1423,7 @@ test.describe('List records in table', () => {
         expect(data.message).toContain('Cannot filter by field')
       })
 
-      await test.step('API-TABLES-RECORDS-LIST-025: Returns 403 when aggregating inaccessible field', async () => {
+      await test.step('API-TABLES-RECORDS-LIST-022: Returns 403 when aggregating inaccessible field', async () => {
         const response = await request.get('/api/tables/2/records', {
           params: {
             aggregate: JSON.stringify({
@@ -1601,7 +1440,7 @@ test.describe('List records in table', () => {
         expect(data.message).toContain('Cannot aggregate field')
       })
 
-      await test.step('API-TABLES-RECORDS-LIST-026: Returns aggregations for accessible fields only', async () => {
+      await test.step('API-TABLES-RECORDS-LIST-023: Returns aggregations for accessible fields only', async () => {
         await executeQuery(`DELETE FROM projects`)
         await executeQuery(`
           INSERT INTO projects (name, priority, budget)
@@ -1628,7 +1467,7 @@ test.describe('List records in table', () => {
         expect(data.aggregations.avg).not.toHaveProperty('budget')
       })
 
-      await test.step('API-TABLES-RECORDS-LIST-027: Excludes soft-deleted records by default', async () => {
+      await test.step('API-TABLES-RECORDS-LIST-024: Excludes soft-deleted records by default', async () => {
         await executeQuery(`DELETE FROM projects`)
         await executeQuery(`
           INSERT INTO projects (id, name, status, deleted_at) VALUES
@@ -1652,7 +1491,7 @@ test.describe('List records in table', () => {
         expect(titles).not.toContain('Another Deleted')
       })
 
-      await test.step('API-TABLES-RECORDS-LIST-028: Includes deleted records with includeDeleted=true', async () => {
+      await test.step('API-TABLES-RECORDS-LIST-025: Includes deleted records with includeDeleted=true', async () => {
         await executeQuery(`DELETE FROM projects`)
         await executeQuery(`
           INSERT INTO projects (id, name, status, deleted_at) VALUES

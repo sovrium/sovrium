@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/tables/{tableId}/records/{recordId}/history/get.spec.ts
  * Domain: api
- * Spec Count: 11
+ * Spec Count: 10
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (11 tests) - Exhaustive coverage
+ * 1. @spec tests - One per acceptance criterion (10 tests) - Exhaustive coverage
  * 2. @regression test - ONE optimized integration test - Critical workflow validation
  */
 
@@ -246,52 +246,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   )
 
   test.fixme(
-    'API-ACTIVITY-RECORD-HISTORY-007: should return 403 when user tries to access cross-org record history',
-    { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
-      // GIVEN: Multi-tenant application with records in different organizations
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true },
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [
-              { id: 1, name: 'id', type: 'integer', required: true },
-              { id: 2, name: 'title', type: 'single-line-text', required: true },
-            ],
-            primaryKey: { type: 'composite', fields: ['id'] },
-          },
-        ],
-      })
-
-      await createAuthenticatedUser({ email: 'user1@org1.com' })
-      const user2 = await createAuthenticatedUser({ email: 'user2@org2.com' })
-
-      // Create record in org2
-      await executeQuery(`
-        INSERT INTO tasks (id, title, organization_id)
-        VALUES (1, 'Org2 Task', 'org2')
-      `)
-      await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, organization_id, created_at)
-        VALUES ('${user2.user.id}', 'create', 'tasks', 1, '{"title": "Org2 Task"}', 'org2', NOW())
-      `)
-
-      // Sign in as user1 (org1)
-      // Note: createAuthenticatedUser already signs in
-
-      // WHEN: User1 (org1) tries to access org2 record history
-      const response = await page.request.get('/api/tables/1/records/1/history')
-
-      // THEN: Returns 403 Forbidden or 404 (organization isolation)
-      expect([403, 404]).toContain(response.status())
-    }
-  )
-
-  test.fixme(
-    'API-ACTIVITY-RECORD-HISTORY-008: should exclude activities older than 1 year (retention policy)',
+    'API-ACTIVITY-RECORD-HISTORY-007: should exclude activities older than 1 year (retention policy)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Record with activities older and newer than 1 year
@@ -335,7 +290,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   )
 
   test.fixme(
-    'API-ACTIVITY-RECORD-HISTORY-009: should support pagination for record history',
+    'API-ACTIVITY-RECORD-HISTORY-008: should support pagination for record history',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Record with many activities (30 activities)
@@ -385,7 +340,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   )
 
   test.fixme(
-    'API-ACTIVITY-RECORD-HISTORY-010: should show complete lifecycle including delete',
+    'API-ACTIVITY-RECORD-HISTORY-009: should show complete lifecycle including delete',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Record that was created, updated, and deleted
@@ -432,7 +387,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   )
 
   test(
-    'API-ACTIVITY-RECORD-HISTORY-011: should return 401 Unauthorized when auth is not configured',
+    'API-ACTIVITY-RECORD-HISTORY-010: should return 401 Unauthorized when auth is not configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: Application WITHOUT auth configured
@@ -542,7 +497,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
         expect(data.history[2].user.name).toBe('Bob')
       })
 
-      await test.step('API-ACTIVITY-RECORD-HISTORY-009: Supports pagination for record history', async () => {
+      await test.step('API-ACTIVITY-RECORD-HISTORY-008: Supports pagination for record history', async () => {
         // WHEN: User requests second page of history with pageSize 2
         const response = await page.request.get(
           '/api/tables/1/records/42/history?page=1&pageSize=2'

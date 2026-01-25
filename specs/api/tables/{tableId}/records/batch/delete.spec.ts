@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/batch/delete.json
  * Domain: api
- * Spec Count: 13
+ * Spec Count: 10
  *
  * Soft Delete Behavior:
  * - DELETE sets deleted_at timestamp for all records in batch
@@ -184,16 +184,15 @@ test.describe('Batch delete records', () => {
             name: 'employees',
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO employees (id, name, organization_id) VALUES
-          (1, 'Alice Cooper', 'org_123'),
-          (2, 'Bob Smith', 'org_123')
+        INSERT INTO employees (id, name) VALUES
+          (1, 'Alice Cooper'),
+          (2, 'Bob Smith')
       `)
 
       // WHEN: User attempts batch delete without auth token
@@ -230,16 +229,15 @@ test.describe('Batch delete records', () => {
             name: 'employees',
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO employees (id, name, organization_id) VALUES
-          (1, 'Alice Cooper', 'org_123'),
-          (2, 'Bob Smith', 'org_123')
+        INSERT INTO employees (id, name) VALUES
+          (1, 'Alice Cooper'),
+          (2, 'Bob Smith')
       `)
 
       // WHEN: Member attempts batch delete
@@ -280,16 +278,15 @@ test.describe('Batch delete records', () => {
             name: 'projects',
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO projects (id, name, organization_id) VALUES
-          (1, 'Project Alpha', 'org_456'),
-          (2, 'Project Beta', 'org_456')
+        INSERT INTO projects (id, name) VALUES
+          (1, 'Project Alpha'),
+          (2, 'Project Beta')
       `)
 
       // WHEN: Viewer attempts batch delete
@@ -312,56 +309,7 @@ test.describe('Batch delete records', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-DELETE-007: should return 404 for cross-org records',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: An admin user from org_123 with records from org_456
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 7,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
-            ],
-          },
-        ],
-      })
-      await executeQuery(`
-        INSERT INTO employees (id, name, organization_id) VALUES
-          (1, 'Alice Cooper', 'org_456'),
-          (2, 'Bob Smith', 'org_456')
-      `)
-
-      // WHEN: Admin attempts to batch delete records from different organization
-      const response = await request.delete('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          ids: [1, 2],
-        },
-      })
-
-      // THEN: Returns 404 Not Found (organization isolation)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      expect(data.error).toBe('Record not found')
-
-      // THEN: Records remain active (not soft deleted)
-      const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM employees WHERE deleted_at IS NULL
-      `)
-      expect(result.rows[0].count).toBe('2')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-BATCH-DELETE-008: should return 200 for admin with full access',
+    'API-TABLES-RECORDS-BATCH-DELETE-007: should return 200 for admin with full access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user with full delete permissions
@@ -374,20 +322,19 @@ test.describe('Batch delete records', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'email', type: 'email', required: true },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
-              { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO employees (id, name, email, organization_id) VALUES
-          (1, 'Alice Cooper', 'alice@example.com', 'org_123'),
-          (2, 'Bob Smith', 'bob@example.com', 'org_123'),
-          (3, 'Charlie Davis', 'charlie@example.com', 'org_123')
+        INSERT INTO employees (id, name, email) VALUES
+          (1, 'Alice Cooper', 'alice@example.com'),
+          (2, 'Bob Smith', 'bob@example.com'),
+          (3, 'Charlie Davis', 'charlie@example.com')
       `)
 
-      // WHEN: Admin batch deletes records from their organization
+      // WHEN: Admin batch deletes records
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
           'Content-Type': 'application/json',
@@ -418,7 +365,7 @@ test.describe('Batch delete records', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-DELETE-009: should return 200 for owner',
+    'API-TABLES-RECORDS-BATCH-DELETE-008: should return 200 for owner',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An owner user with full delete permissions
@@ -431,20 +378,19 @@ test.describe('Batch delete records', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'status', type: 'single-line-text' },
-              { id: 3, name: 'organization_id', type: 'single-line-text' },
-              { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
           },
         ],
       })
       await executeQuery(`
-        INSERT INTO projects (id, name, status, organization_id) VALUES
-          (1, 'Project Alpha', 'active', 'org_789'),
-          (2, 'Project Beta', 'active', 'org_789'),
-          (3, 'Project Gamma', 'active', 'org_789')
+        INSERT INTO projects (id, name, status) VALUES
+          (1, 'Project Alpha', 'active'),
+          (2, 'Project Beta', 'active'),
+          (3, 'Project Gamma', 'active')
       `)
 
-      // WHEN: Owner batch deletes records from their organization
+      // WHEN: Owner batch deletes records
       const response = await request.delete('/api/tables/1/records/batch', {
         headers: {
           'Content-Type': 'application/json',
@@ -468,98 +414,12 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test.fixme(
-    'API-TABLES-RECORDS-BATCH-DELETE-010: should return 404 to prevent cross-org deletes',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A member from org_123 with records from different org
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 10,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
-            ],
-          },
-        ],
-      })
-      await executeQuery(`
-        INSERT INTO employees (id, name, organization_id) VALUES
-          (1, 'Alice Cooper', 'org_456'),
-          (2, 'Bob Smith', 'org_456')
-      `)
-
-      // WHEN: Member attempts to batch delete records from org_456
-      const response = await request.delete('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          ids: [1, 2],
-        },
-      })
-
-      // THEN: Returns 404 Not Found (prevents cross-org deletes)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      expect(data.error).toBe('Record not found')
-    }
-  )
-
-  test.fixme(
-    'API-TABLES-RECORDS-BATCH-DELETE-011: should return 404 when both org and permission violations exist',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: A member without delete permission tries to delete records from different org
-      await startServerWithSchema({
-        name: 'test-app',
-        tables: [
-          {
-            id: 11,
-            name: 'employees',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
-              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
-            ],
-          },
-        ],
-      })
-      await executeQuery(`
-        INSERT INTO employees (id, name, organization_id) VALUES
-          (1, 'Alice Cooper', 'org_456'),
-          (2, 'Bob Smith', 'org_456')
-      `)
-
-      // WHEN: Member attempts batch delete with both permission and org violations
-      const response = await request.delete('/api/tables/1/records/batch', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          ids: [1, 2],
-        },
-      })
-
-      // THEN: Returns 404 Not Found (org isolation checked first)
-      expect(response.status()).toBe(404)
-
-      const data = await response.json()
-      expect(data.error).toBe('Record not found')
-    }
-  )
-
   // ============================================================================
   // Soft Delete Specific Tests
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-DELETE-012: should skip already soft-deleted records in batch',
+    'API-TABLES-RECORDS-BATCH-DELETE-009: should skip already soft-deleted records in batch',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: Mix of active and soft-deleted records
@@ -609,7 +469,7 @@ test.describe('Batch delete records', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-DELETE-013: should hard delete batch with permanent=true (admin only)',
+    'API-TABLES-RECORDS-BATCH-DELETE-010: should hard delete batch with permanent=true (admin only)',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: An admin user and active records
@@ -679,20 +539,19 @@ test.describe('Batch delete records', () => {
               fields: [
                 { id: 1, name: 'email', type: 'email', required: true },
                 { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'organization_id', type: 'single-line-text' },
-                { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
+                { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
               ],
             },
           ],
         })
         await executeQuery(`
-          INSERT INTO users (id, email, name, organization_id, deleted_at) VALUES
-            (1, 'user1@example.com', 'User One', 'org_123', NULL),
-            (2, 'user2@example.com', 'User Two', 'org_123', NULL),
-            (3, 'user3@example.com', 'User Three', 'org_123', NULL),
-            (4, 'user4@example.com', 'User Four', 'org_123', NULL),
-            (5, 'user5@example.com', 'Already Deleted', 'org_123', NOW()),
-            (6, 'user6@example.com', 'User Six', 'org_456', NULL)
+          INSERT INTO users (id, email, name, deleted_at) VALUES
+            (1, 'user1@example.com', 'User One', NULL),
+            (2, 'user2@example.com', 'User Two', NULL),
+            (3, 'user3@example.com', 'User Three', NULL),
+            (4, 'user4@example.com', 'User Four', NULL),
+            (5, 'user5@example.com', 'Already Deleted', NOW()),
+            (6, 'user6@example.com', 'User Six', NULL)
         `)
       })
 
@@ -783,9 +642,9 @@ test.describe('Batch delete records', () => {
 
       await test.step('API-TABLES-RECORDS-BATCH-DELETE-013: Admin batch deletes with permanent=true and hard deletes records', async () => {
         await executeQuery(`
-          INSERT INTO users (id, email, name, organization_id) VALUES
-            (7, 'user7@example.com', 'User Seven', 'org_123'),
-            (8, 'user8@example.com', 'User Eight', 'org_123')
+          INSERT INTO users (id, email, name) VALUES
+            (7, 'user7@example.com', 'User Seven'),
+            (8, 'user8@example.com', 'User Eight')
         `)
 
         const response = await request.delete('/api/tables/1/records/batch?permanent=true', {

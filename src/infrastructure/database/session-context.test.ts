@@ -50,7 +50,7 @@ describe('session-context', () => {
       expect(executedSql.length).toBe(2)
       // First query: user table for role
       expect(executedSql[0]).toContain('SELECT role FROM "auth.user"')
-      // Second query: SET LOCAL session variables (no organization_id)
+      // Second query: SET LOCAL session variables
       expect(executedSql[1]).toContain("SET LOCAL app.user_id = 'user_123'")
       expect(executedSql[1]).toContain("SET LOCAL app.user_role = 'admin'")
     })

@@ -143,7 +143,6 @@ export const generateRoleCheck = (permission?: TablePermission): string | undefi
  * Custom permissions allow arbitrary SQL conditions with variable substitution.
  * Variables are substituted with PostgreSQL session context values:
  * - {userId} → current_setting('app.user_id', true)::TEXT
- * - {organizationId} → current_setting('app.organization_id', true)::TEXT
  *
  * @param permission - Permission configuration
  * @returns SQL expression for custom check, or undefined if not custom permission
@@ -154,21 +153,6 @@ export const generateCustomCheck = (permission?: TablePermission): string | unde
   }
 
   return translatePermissionCondition(permission.condition)
-}
-
-/**
- * Combine organization and role checks
- *
- * @param orgIdCheck - Organization ID check expression
- * @param roleCheck - Role check expression (optional)
- * @returns Combined SQL expression
- */
-export const combineChecks = (orgIdCheck: string, roleCheck: string | undefined): string => {
-  if (!roleCheck) {
-    return orgIdCheck
-  }
-
-  return `${orgIdCheck} AND ${roleCheck}`
 }
 
 // ============================================================================
@@ -182,43 +166,11 @@ export const combineChecks = (orgIdCheck: string, roleCheck: string | undefined)
  * @returns Array of DROP POLICY statements
  */
 export const generateDropPolicies = (tableName: string): readonly string[] => [
-  `DROP POLICY IF EXISTS ${tableName}_org_select ON ${tableName}`,
-  `DROP POLICY IF EXISTS ${tableName}_org_insert ON ${tableName}`,
-  `DROP POLICY IF EXISTS ${tableName}_org_update ON ${tableName}`,
-  `DROP POLICY IF EXISTS ${tableName}_org_delete ON ${tableName}`,
+  `DROP POLICY IF EXISTS ${tableName}_select ON ${tableName}`,
+  `DROP POLICY IF EXISTS ${tableName}_insert ON ${tableName}`,
+  `DROP POLICY IF EXISTS ${tableName}_update ON ${tableName}`,
+  `DROP POLICY IF EXISTS ${tableName}_delete ON ${tableName}`,
 ]
-
-/**
- * Generate CREATE POLICY statements for a table
- *
- * @param tableName - Name of the table
- * @param orgIdCheck - Organization ID check expression
- * @param roleChecks - Role checks for each operation
- * @returns Array of CREATE POLICY statements
- */
-export const generateCreatePolicies = (
-  tableName: string,
-  orgIdCheck: string,
-  roleChecks: Readonly<{
-    read: string | undefined
-    create: string | undefined
-    update: string | undefined
-    delete: string | undefined
-  }>
-): readonly string[] => {
-  const selectCheck = combineChecks(orgIdCheck, roleChecks.read)
-  const insertCheck = combineChecks(orgIdCheck, roleChecks.create)
-  const updateCheck = combineChecks(orgIdCheck, roleChecks.update)
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- Not a Drizzle delete operation
-  const deleteCheck = combineChecks(orgIdCheck, roleChecks.delete)
-
-  return [
-    `CREATE POLICY ${tableName}_org_select ON ${tableName} FOR SELECT USING (${selectCheck})`,
-    `CREATE POLICY ${tableName}_org_insert ON ${tableName} FOR INSERT WITH CHECK (${insertCheck})`,
-    `CREATE POLICY ${tableName}_org_update ON ${tableName} FOR UPDATE USING (${updateCheck}) WITH CHECK (${updateCheck})`,
-    `CREATE POLICY ${tableName}_org_delete ON ${tableName} FOR DELETE USING (${deleteCheck})`,
-  ]
-}
 
 // ============================================================================
 // Typed Policy Statement Generators

@@ -17,34 +17,21 @@ describe('CustomPermissionSchema', () => {
       expect(result).toEqual({ type: 'custom', condition: '{userId} = owner_id' })
     })
 
-    test('should accept custom permission with organization variable', () => {
-      const input = {
-        type: 'custom' as const,
-        condition: "{organizationId} = org_id AND status = 'active'",
-      }
-      const result = Schema.decodeUnknownSync(CustomPermissionSchema)(input)
-      expect(result).toEqual({
-        type: 'custom',
-        condition: "{organizationId} = org_id AND status = 'active'",
-      })
-    })
-
     test('should accept custom permission with roles variable', () => {
-      const input = { type: 'custom' as const, condition: "'{roles}' && ARRAY['admin']" }
+      const input = { type: 'custom' as const, condition: "'admin' = ANY({roles})" }
       const result = Schema.decodeUnknownSync(CustomPermissionSchema)(input)
-      expect(result).toEqual({ type: 'custom', condition: "'{roles}' && ARRAY['admin']" })
+      expect(result).toEqual({ type: 'custom', condition: "'admin' = ANY({roles})" })
     })
 
     test('should accept complex PostgreSQL expression', () => {
       const input = {
         type: 'custom' as const,
-        condition:
-          '{userId} = created_by OR {organizationId} = organization_id AND is_public = true',
+        condition: "{userId} = created_by AND 'admin' = ANY({roles})",
       }
       const result = Schema.decodeUnknownSync(CustomPermissionSchema)(input)
       expect(result.type).toBe('custom')
       expect(result.condition).toContain('{userId}')
-      expect(result.condition).toContain('{organizationId}')
+      expect(result.condition).toContain('{roles}')
     })
   })
 
