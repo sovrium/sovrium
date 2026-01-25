@@ -5,6 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { formatFieldForDisplay } from './display-formatter'
+import type { App } from '@/domain/models/app'
+
 /**
  * Field value types supported by record transformation
  */
@@ -17,6 +20,14 @@ export type RecordFieldValue =
   | null
 
 /**
+ * Formatted field value with optional display formatting
+ */
+export interface FormattedFieldValue {
+  readonly value: RecordFieldValue
+  readonly displayValue?: string
+}
+
+/**
  * Transformed record structure for API responses (Airtable-style)
  *
  * System fields (id, createdAt, updatedAt) are at root level.
@@ -24,7 +35,7 @@ export type RecordFieldValue =
  */
 export interface TransformedRecord {
   readonly id: string
-  readonly fields: Record<string, RecordFieldValue>
+  readonly fields: Record<string, RecordFieldValue | FormattedFieldValue>
   readonly createdAt: string
   readonly updatedAt: string
 }
@@ -54,24 +65,54 @@ const toISOString = (value: unknown): string => {
  * - Keeps system fields (id, createdAt, updatedAt) at root level
  * - Normalizes created_at/updated_at to ISO strings (or current timestamp if missing)
  * - Converts Date objects in field values to ISO 8601 strings for API compliance
+ * - Optionally applies display formatting when format=display is requested
  *
  * @param record - Raw database record
+ * @param options - Transformation options
  * @returns Transformed record for API response
  */
-export const transformRecord = (record: Record<string, unknown>): TransformedRecord => {
+export const transformRecord = (
+  record: Record<string, unknown>,
+  options?: {
+    readonly format?: 'display'
+    readonly app?: App
+    readonly tableName?: string
+  }
+): TransformedRecord => {
   // Extract system fields
   const { id, created_at: createdAt, updated_at: updatedAt, ...userFields } = record
 
-  // Convert Date objects to ISO strings in user fields
-  const transformedFields = Object.entries(userFields).reduce<Record<string, RecordFieldValue>>(
-    (acc, [key, value]) => {
-      if (value instanceof Date) {
-        return { ...acc, [key]: value.toISOString() }
+  // Convert Date objects to ISO strings in user fields and optionally format for display
+  const transformedFields = Object.entries(userFields).reduce<
+    Record<string, RecordFieldValue | FormattedFieldValue>
+  >((acc, [key, value]) => {
+    const processedValue = value instanceof Date ? value.toISOString() : (value as RecordFieldValue)
+
+    // Apply display formatting if requested
+    if (options?.format === 'display' && options.app && options.tableName) {
+      // For display formatting, pass the original value (may be string or number from database)
+      const displayValue = formatFieldForDisplay(key, value, options.app, options.tableName)
+
+      if (displayValue !== undefined) {
+        // For formatted fields, use the original value (preserve number type)
+        // Convert string numbers back to numbers for numeric field types
+        const fieldValue =
+          typeof value === 'string' && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))
+            ? parseFloat(value)
+            : processedValue
+
+        return {
+          ...acc,
+          [key]: {
+            value: fieldValue,
+            displayValue,
+          },
+        }
       }
-      return { ...acc, [key]: value as RecordFieldValue }
-    },
-    {}
-  )
+    }
+
+    return { ...acc, [key]: processedValue }
+  }, {})
 
   return {
     id: String(id),
@@ -85,8 +126,14 @@ export const transformRecord = (record: Record<string, unknown>): TransformedRec
  * Transform multiple database records into API response format
  *
  * @param records - Array of raw database records
+ * @param options - Transformation options
  * @returns Array of transformed records (mutable for API response compatibility)
  */
 export const transformRecords = (
-  records: readonly Record<string, unknown>[]
-): readonly TransformedRecord[] => records.map(transformRecord)
+  records: readonly Record<string, unknown>[],
+  options?: {
+    readonly format?: 'display'
+    readonly app?: App
+    readonly tableName?: string
+  }
+): readonly TransformedRecord[] => records.map((record) => transformRecord(record, options))

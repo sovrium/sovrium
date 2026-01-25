@@ -66,6 +66,7 @@ export async function handleListRecords(c: Context, app: App) {
 
   const parsedFilter = parsedFilterResult.filter
   const includeDeleted = c.req.query('includeDeleted') === 'true'
+  const format = c.req.query('format') === 'display' ? ('display' as const) : undefined
 
   return runEffect(
     c,
@@ -76,6 +77,7 @@ export async function handleListRecords(c: Context, app: App) {
       userRole,
       filter: parsedFilter,
       includeDeleted,
+      format,
     }),
     listRecordsResponseSchema
   )

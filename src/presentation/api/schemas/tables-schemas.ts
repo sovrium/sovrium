@@ -41,6 +41,19 @@ export const fieldValueSchema = z.union([
   z.record(z.string(), z.unknown()),
 ])
 
+/**
+ * Formatted field value schema (for display formatting)
+ *
+ * When format=display is requested, fields may include both value and displayValue.
+ */
+export const formattedFieldValueSchema = z.union([
+  fieldValueSchema,
+  z.object({
+    value: fieldValueSchema,
+    displayValue: z.string().optional(),
+  }),
+])
+
 // ============================================================================
 // Table Schemas
 // ============================================================================
@@ -87,7 +100,9 @@ export const tableSummarySchema = z
 export const recordSchema = z
   .object({
     id: z.string().describe('Record identifier'),
-    fields: z.record(z.string(), fieldValueSchema).describe('User-defined field values'),
+    fields: z
+      .record(z.string(), formattedFieldValueSchema)
+      .describe('User-defined field values (may include display formatting)'),
     createdBy: z.string().optional().describe('User who created the record'),
     updatedBy: z.string().optional().describe('User who last updated the record'),
   })

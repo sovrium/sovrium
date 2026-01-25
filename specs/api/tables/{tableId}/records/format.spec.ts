@@ -33,7 +33,7 @@ test.describe('Record Display Formatting', () => {
   // Currency Formatting Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-FORMAT-001: should format currency with EUR symbol',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
