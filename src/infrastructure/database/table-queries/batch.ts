@@ -269,9 +269,41 @@ export function batchUpdateRecords(
 }
 
 /**
+ * Validate records exist for batch delete
+ */
+async function validateRecordsForDelete(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
+  tx: any,
+  tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
+  recordIds: readonly string[]
+): Promise<void> {
+  const validationResults = await Promise.all(
+    recordIds.map(async (recordId) => {
+      const checkResult = (await tx.execute(
+        sql`SELECT id FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
+      )) as readonly Record<string, unknown>[]
+
+      if (checkResult.length === 0) {
+        return { recordId, error: 'not found' }
+      }
+
+      return { recordId, error: undefined }
+    })
+  )
+
+  const firstError = validationResults.find((result) => result.error !== undefined)
+  if (firstError) {
+    // eslint-disable-next-line functional/no-throw-statements -- Required for Effect.tryPromise error handling
+    throw new Error(`Record ${firstError.recordId} not found`)
+  }
+}
+
+/**
  * Batch delete records with session context
  *
  * Deletes multiple records (soft or hard delete based on deleted_at field).
+ * Validates all records exist before deleting any.
+ * Rolls back if any record is not found.
  * RLS policies automatically enforced via session context.
  *
  * @param session - Better Auth session
@@ -289,6 +321,10 @@ export function batchDeleteRecords(
       try: async () => {
         validateTableName(tableName)
         const tableIdent = sql.identifier(tableName)
+
+        // Validate all records exist before deleting any
+        // eslint-disable-next-line functional/no-expression-statements -- Validation function with side effects
+        await validateRecordsForDelete(tx, tableIdent, recordIds)
 
         // Check if table has deleted_at column for soft delete
         const columnCheck = (await tx.execute(
@@ -317,8 +353,13 @@ export function batchDeleteRecords(
           return result.length
         }
       },
-      catch: (error) =>
-        new SessionContextError(`Failed to batch delete records in ${tableName}`, error),
+      catch: (error) => {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        return new SessionContextError(
+          `Failed to batch delete records in ${tableName}: ${errorMessage}`,
+          error
+        )
+      },
     })
   )
 }

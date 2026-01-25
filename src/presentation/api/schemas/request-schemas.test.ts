@@ -335,9 +335,10 @@ describe('batchDeleteRecordsRequestSchema', () => {
       )
     })
 
-    test('rejects non-string ids', () => {
+    test('accepts number ids and transforms to strings', () => {
       const input = { ids: [123, 456] }
-      expect(() => batchDeleteRecordsRequestSchema.parse(input)).toThrow()
+      const result = batchDeleteRecordsRequestSchema.parse(input)
+      expect(result.ids).toEqual(['123', '456'])
     })
 
     test('rejects non-array ids', () => {

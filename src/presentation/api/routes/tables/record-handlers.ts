@@ -65,10 +65,18 @@ export async function handleListRecords(c: Context, app: App) {
   }
 
   const parsedFilter = parsedFilterResult.filter
+  const includeDeleted = c.req.query('includeDeleted') === 'true'
 
   return runEffect(
     c,
-    createListRecordsProgram({ session, tableName, app, userRole, filter: parsedFilter }),
+    createListRecordsProgram({
+      session,
+      tableName,
+      app,
+      userRole,
+      filter: parsedFilter,
+      includeDeleted,
+    }),
     listRecordsResponseSchema
   )
 }

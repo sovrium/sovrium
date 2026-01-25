@@ -61,16 +61,17 @@ interface ListRecordsConfig {
       readonly value: unknown
     }[]
   }
+  readonly includeDeleted?: boolean
 }
 
 export function createListRecordsProgram(
   config: ListRecordsConfig
 ): Effect.Effect<ListRecordsResponse, SessionContextError> {
   return Effect.gen(function* () {
-    const { session, tableName, app, userRole, filter } = config
+    const { session, tableName, app, userRole, filter, includeDeleted } = config
 
     // Query records with session context (RLS policies apply automatically)
-    const records = yield* listRecords(session, tableName, undefined, filter)
+    const records = yield* listRecords({ session, tableName, filter, includeDeleted })
 
     // Apply field-level read permissions filtering
     // Note: Row-level ownership filtering is handled by RLS policies

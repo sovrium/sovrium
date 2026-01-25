@@ -105,7 +105,11 @@ export const batchUpdateRecordsRequestSchema = z.object({
  */
 export const batchDeleteRecordsRequestSchema = z.object({
   ids: z
-    .array(z.string().min(1, 'Record ID cannot be empty'))
+    .array(
+      z
+        .union([z.string().min(1, 'Record ID cannot be empty'), z.number()])
+        .transform((val) => String(val))
+    )
     .min(1, 'At least one ID is required')
     .max(100, 'Maximum 100 IDs per batch'),
 })
@@ -115,7 +119,11 @@ export const batchDeleteRecordsRequestSchema = z.object({
  */
 export const batchRestoreRecordsRequestSchema = z.object({
   ids: z
-    .array(z.string().min(1, 'Record ID cannot be empty'))
+    .array(
+      z
+        .union([z.string().min(1, 'Record ID cannot be empty'), z.number()])
+        .transform((val) => String(val))
+    )
     .min(1, 'At least one ID is required')
     .max(100, 'Maximum 100 IDs per batch'),
 })

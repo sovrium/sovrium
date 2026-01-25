@@ -62,23 +62,28 @@ function logRecordCreation(
  *
  * Returns all accessible records (RLS policies apply automatically via session context).
  *
- * @param session - Better Auth session
- * @param tableName - Name of the table to query
- * @param table - Table schema configuration (unused, kept for backward compatibility)
+ * @param config - Configuration object
+ * @param config.session - Better Auth session
+ * @param config.tableName - Name of the table to query
+ * @param config.table - Table schema configuration (unused, kept for backward compatibility)
+ * @param config.filter - Optional filter to apply to the query
+ * @param config.includeDeleted - Whether to include soft-deleted records (default: false)
  * @returns Effect resolving to array of records
  */
-export function listRecords(
-  session: Readonly<Session>,
-  tableName: string,
-  table?: { readonly permissions?: { readonly organizationScoped?: boolean } },
-  filter?: {
+export function listRecords(config: {
+  readonly session: Readonly<Session>
+  readonly tableName: string
+  readonly table?: { readonly permissions?: { readonly organizationScoped?: boolean } }
+  readonly filter?: {
     readonly and?: readonly {
       readonly field: string
       readonly operator: string
       readonly value: unknown
     }[]
   }
-): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+  readonly includeDeleted?: boolean
+}): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+  const { session, tableName, filter, includeDeleted } = config
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
@@ -107,8 +112,8 @@ export function listRecords(
               })()
             : []
 
-        // Add soft delete filter if table has deleted_at column
-        const softDeleteCondition = hasDeletedAt ? ['deleted_at IS NULL'] : []
+        // Add soft delete filter if table has deleted_at column and includeDeleted is not true
+        const softDeleteCondition = hasDeletedAt && !includeDeleted ? ['deleted_at IS NULL'] : []
 
         const conditions = [...userFilterConditions, ...softDeleteCondition]
 
