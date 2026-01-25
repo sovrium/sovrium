@@ -88,9 +88,10 @@ test.describe('GET /trash endpoint', () => {
     'API-TABLES-TRASH-002: should return 401 Unauthorized for unauthenticated requests',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: Table with deleted records
+      // GIVEN: Table with deleted records and auth enabled
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,

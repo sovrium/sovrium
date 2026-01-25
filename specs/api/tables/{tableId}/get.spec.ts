@@ -126,9 +126,10 @@ test.describe('Get table by ID', () => {
     'API-TABLES-GET-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: A running server with existing table
+      // GIVEN: A running server with existing table and auth enabled
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,

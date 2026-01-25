@@ -390,9 +390,10 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     'API-ACTIVITY-RECORD-HISTORY-010: should return 401 Unauthorized when auth is not configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Application WITHOUT auth configured
+      // GIVEN: Application with auth configured but user not authenticated
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -404,7 +405,6 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
             primaryKey: { type: 'composite', fields: ['id'] },
           },
         ],
-        // NOTE: No auth field - activity endpoints still require authentication
       })
 
       // WHEN: Unauthenticated user requests record history

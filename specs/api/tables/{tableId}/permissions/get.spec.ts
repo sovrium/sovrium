@@ -161,6 +161,7 @@ test.describe('Check table permissions', () => {
       // GIVEN: An unauthenticated user and a table exists with permissions configured
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,

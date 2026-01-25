@@ -585,9 +585,10 @@ test.describe('List records in table', () => {
     'API-TABLES-RECORDS-LIST-013: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: A valid table
+      // GIVEN: A valid table with auth enabled
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 12,

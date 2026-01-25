@@ -127,9 +127,10 @@ test.describe('Update record', () => {
     'API-TABLES-RECORDS-UPDATE-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: An unauthenticated user (no Bearer token)
+      // GIVEN: An unauthenticated user (no Bearer token) with auth enabled
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,

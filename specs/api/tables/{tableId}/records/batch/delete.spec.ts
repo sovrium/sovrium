@@ -181,9 +181,10 @@ test.describe('Batch delete records', () => {
     'API-TABLES-RECORDS-BATCH-DELETE-004: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: An unauthenticated user
+      // GIVEN: An unauthenticated user with auth enabled
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 4,

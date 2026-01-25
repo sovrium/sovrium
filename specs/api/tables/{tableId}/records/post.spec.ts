@@ -225,9 +225,10 @@ test.describe('Create new record', () => {
     'API-TABLES-RECORDS-CREATE-005: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
-      // GIVEN: A valid table
+      // GIVEN: A valid table with auth enabled
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 4,

@@ -179,9 +179,10 @@ test.describe('Batch Restore records', () => {
     'API-TABLES-RECORDS-BATCH-RESTORE-004: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
-      // GIVEN: An unauthenticated user
+      // GIVEN: An unauthenticated user with auth enabled
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 4,
