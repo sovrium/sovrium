@@ -13,6 +13,7 @@ import {
   createRecord,
   updateRecord,
   deleteRecord,
+  permanentlyDeleteRecord,
   restoreRecord,
 } from '@/infrastructure/database/table-queries'
 import { filterReadableFields } from './utils/field-read-filter'
@@ -277,4 +278,16 @@ export function deleteRecordProgram(
   recordId: string
 ): Effect.Effect<boolean, SessionContextError> {
   return deleteRecord(session, tableName, recordId)
+}
+
+/**
+ * Permanently delete record program
+ * Wraps Infrastructure permanentlyDeleteRecord for proper layer architecture
+ */
+export function permanentlyDeleteRecordProgram(
+  session: Readonly<Session>,
+  tableName: string,
+  recordId: string
+): Effect.Effect<boolean, SessionContextError> {
+  return permanentlyDeleteRecord(session, tableName, recordId)
 }

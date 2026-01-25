@@ -16,6 +16,7 @@ import {
   createRecordProgram,
   restoreRecordProgram,
   deleteRecordProgram,
+  permanentlyDeleteRecordProgram,
 } from '@/application/use-cases/tables/programs'
 import {
   createRecordRequestSchema,
@@ -197,6 +198,33 @@ export async function handleDeleteRecord(c: Context, app: App) {
   }
 
   const recordId = c.req.param('recordId')
+  const permanent = c.req.query('permanent') === 'true'
+
+  // Permanent delete requires admin or owner role
+  if (permanent) {
+    if (userRole !== 'admin' && userRole !== 'owner') {
+      return c.json(
+        {
+          error: 'Forbidden',
+          message: 'Only admins and owners can permanently delete records',
+        },
+        403
+      )
+    }
+
+    const deleteResult = await Effect.runPromise(
+      permanentlyDeleteRecordProgram(session, tableName, recordId)
+    )
+
+    if (!deleteResult) {
+      return c.json({ error: 'Record not found' }, 404)
+    }
+
+    // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
+    return c.body(null, 204)
+  }
+
+  // Regular soft delete
   const deleteResult = await Effect.runPromise(deleteRecordProgram(session, tableName, recordId))
 
   if (!deleteResult) {

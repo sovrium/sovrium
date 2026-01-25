@@ -421,10 +421,10 @@ test.describe('Delete record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-010: should hard delete with permanent=true query param (admin only)',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: An admin user and an active record
       await startServerWithSchema({
         name: 'test-app',
@@ -444,11 +444,12 @@ test.describe('Delete record', () => {
       })
       await executeQuery(`INSERT INTO logs (id, message) VALUES (1, 'Important log')`)
 
-      // Create authenticated admin (permanent delete requires admin)
-      await createAuthenticatedAdmin()
+      // Create authenticated user and set role to admin manually (permanent delete requires admin)
+      const { user } = await createAuthenticatedUser()
+      await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = $1`, [user.id])
 
       // WHEN: Admin deletes with permanent=true
-      const response = await request.delete('/api/tables/1/records/1?permanent=true', {})
+      const response = await request.delete('/api/tables/14/records/1?permanent=true', {})
 
       // THEN: Returns 204 No Content
       expect(response.status()).toBe(204)
