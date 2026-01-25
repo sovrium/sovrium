@@ -535,6 +535,7 @@ export function deleteRecord(
  * Permanently removes the record from the database, regardless of deleted_at field.
  * This operation is irreversible and should only be allowed for admin/owner roles.
  * RLS policies automatically applied via session context.
+ * Activity logging captures record state before deletion (non-blocking).
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
@@ -547,25 +548,46 @@ export function permanentlyDeleteRecord(
   recordId: string
 ): Effect.Effect<boolean, SessionContextError> {
   return withSessionContext(session, (tx) =>
-    Effect.tryPromise({
-      try: async () => {
-        validateTableName(tableName)
-        const tableIdent = sql.identifier(tableName)
+    Effect.gen(function* () {
+      validateTableName(tableName)
+      const tableIdent = sql.identifier(tableName)
 
-        // Hard delete: remove record permanently (parameterized)
-        // Use RETURNING to check if delete affected any rows (RLS may block access)
-        const result = (await tx.execute(
-          sql`DELETE FROM ${tableIdent} WHERE id = ${recordId} RETURNING id`
-        )) as readonly Record<string, unknown>[]
+      // Fetch record BEFORE deletion for activity logging
+      const recordBefore = (yield* Effect.tryPromise({
+        try: () =>
+          tx.execute(sql`SELECT * FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`) as Promise<
+            readonly Record<string, unknown>[]
+          >,
+        catch: (error) => new SessionContextError(`Failed to fetch record before deletion`, error),
+      })) as readonly Record<string, unknown>[]
 
-        // If RLS blocked the delete, result will be empty
-        return result.length > 0
-      },
-      catch: (error) =>
-        new SessionContextError(
-          `Failed to permanently delete record ${recordId} from ${tableName}`,
-          error
-        ),
+      const recordBeforeData = recordBefore[0]
+
+      // Hard delete: remove record permanently (parameterized)
+      // Use RETURNING to check if delete affected any rows (RLS may block access)
+      const result = (yield* Effect.tryPromise({
+        try: () =>
+          tx.execute(sql`DELETE FROM ${tableIdent} WHERE id = ${recordId} RETURNING id`) as Promise<
+            readonly Record<string, unknown>[]
+          >,
+        catch: (error) =>
+          new SessionContextError(
+            `Failed to permanently delete record ${recordId} from ${tableName}`,
+            error
+          ),
+      })) as readonly Record<string, unknown>[]
+
+      // If RLS blocked the delete, result will be empty
+      if (result.length === 0) {
+        return false
+      }
+
+      // Log activity for permanent delete (non-blocking, runs outside transaction)
+      if (recordBeforeData) {
+        yield* logRecordDeletion(session, tableName, recordId, recordBeforeData)
+      }
+
+      return true
     })
   )
 }
