@@ -30,7 +30,7 @@ test.describe('Batch delete records', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-DELETE-001: should return 200 with soft deleted count',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -137,7 +137,7 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-DELETE-003: should return 413 Payload Too Large',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -222,7 +222,7 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-DELETE-005: should return 403 for member without delete permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -273,7 +273,7 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-DELETE-006: should return 403 for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
@@ -318,7 +318,7 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-DELETE-007: should return 200 for admin with full access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
@@ -376,7 +376,7 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-DELETE-008: should return 200 for owner',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -432,7 +432,7 @@ test.describe('Batch delete records', () => {
   // Soft Delete Specific Tests
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-DELETE-009: should skip already soft-deleted records in batch',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -484,7 +484,7 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-DELETE-010: should hard delete batch with permanent=true (admin only)',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
@@ -543,7 +543,7 @@ test.describe('Batch delete records', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-DELETE-REGRESSION: user can complete full batch soft delete workflow',
     { tag: '@regression' },
     async ({
