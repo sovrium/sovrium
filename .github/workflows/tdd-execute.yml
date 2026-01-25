@@ -109,15 +109,34 @@ jobs:
               --jq "[.[] | select(.created_at > \"${CUTOFF_TIME}\") | select(.body | test(\"@claude\"; \"i\")) | select(.body | test(\"Automatic Retry|Failed PR Recovery|Regression Auto-Fix|Code Quality.*Auto-Fix|workflow dispatch fallback\"; \"i\") | not)] | length" \
               2>/dev/null || echo "0")
 
-            # Subtract 1 for the current comment that triggered this workflow (if it's manual)
-            CURRENT_IS_MANUAL="false"
-            if [[ ! "$EVENT_COMMENT_BODY" =~ "Automatic Retry" ]] && \
-               [[ ! "$EVENT_COMMENT_BODY" =~ "Failed PR Recovery" ]] && \
-               [[ ! "$EVENT_COMMENT_BODY" =~ "Regression Auto-Fix" ]] && \
-               [[ ! "$EVENT_COMMENT_BODY" =~ "Code Quality" ]] && \
-               [[ ! "$EVENT_COMMENT_BODY" =~ "workflow dispatch fallback" ]]; then
-              CURRENT_IS_MANUAL="true"
+            # Check if this is an automated retry workflow (current comment is automated)
+            CURRENT_IS_AUTOMATED="false"
+            if [[ "$EVENT_COMMENT_BODY" =~ "Automatic Retry" ]] || \
+               [[ "$EVENT_COMMENT_BODY" =~ "Failed PR Recovery" ]] || \
+               [[ "$EVENT_COMMENT_BODY" =~ "Regression Auto-Fix" ]] || \
+               [[ "$EVENT_COMMENT_BODY" =~ "Code Quality" ]] || \
+               [[ "$EVENT_COMMENT_BODY" =~ "workflow dispatch fallback" ]]; then
+              CURRENT_IS_AUTOMATED="true"
+            fi
+
+            # Check if there's an "Automatic Retry" comment in the recent window
+            # If so, the original manual @claude comment has already been "consumed" by a previous run
+            HAS_RECENT_RETRY=$(gh api "/repos/${{ github.repository }}/issues/${ISSUE_NUM}/comments" \
+              --jq "[.[] | select(.created_at > \"${CUTOFF_TIME}\") | select(.body | test(\"Automatic Retry\"; \"i\"))] | length" \
+              2>/dev/null || echo "0")
+
+            # Adjust the manual count based on context:
+            # 1. If current comment is manual, subtract 1 (it's the trigger, not a "previous" comment)
+            # 2. If there's an automated retry in the window, the original manual comment is "consumed"
+            #    (the retry is a continuation of the original request, not a new request)
+            if [ "$CURRENT_IS_AUTOMATED" = "false" ]; then
+              # Current is manual - subtract 1 for the triggering comment
               RECENT_MANUAL_CLAUDE=$((RECENT_MANUAL_CLAUDE - 1))
+            elif [ "$HAS_RECENT_RETRY" -gt 0 ] && [ "$RECENT_MANUAL_CLAUDE" -gt 0 ]; then
+              # Current is automated AND there's a retry comment - the original manual comment is "consumed"
+              # because the retry is a continuation of that original request
+              RECENT_MANUAL_CLAUDE=$((RECENT_MANUAL_CLAUDE - 1))
+              echo "ℹ️  Automated retry detected - excluding original manual comment from cooldown"
             fi
 
             if [ "$RECENT_MANUAL_CLAUDE" -gt 0 ]; then
@@ -129,7 +148,7 @@ jobs:
               echo "EOF" >> $GITHUB_OUTPUT
               exit 0
             fi
-            echo "✅ Global cooldown check passed (manual: ${CURRENT_IS_MANUAL}, recent_manual: ${RECENT_MANUAL_CLAUDE})"
+            echo "✅ Global cooldown check passed (automated: ${CURRENT_IS_AUTOMATED}, recent_manual: ${RECENT_MANUAL_CLAUDE}, has_retry: ${HAS_RECENT_RETRY})"
           fi
 
           # workflow_dispatch: Must have valid issue number
@@ -936,9 +955,21 @@ jobs:
 
           # Check if a branch was created (ground truth for success)
           # This is the AUTHORITATIVE check - branch existence means Claude did its job
+          # FIX 2: Use git ls-remote as primary check (more reliable than GitHub API)
+          # GitHub API can have propagation delays, git ls-remote queries Git directly
           BRANCH_PATTERN="claude/issue-${ISSUE_NUMBER}-"
-          BRANCH_NAME=$(gh api "/repos/$REPO/branches" \
-            --jq "[.[] | select(.name | startswith(\"$BRANCH_PATTERN\"))][0].name" 2>/dev/null || echo "")
+
+          # Primary check: git ls-remote (most reliable)
+          echo "Checking for branch with git ls-remote..."
+          BRANCH_NAME=$(git ls-remote --heads "https://github.com/$REPO.git" "refs/heads/$BRANCH_PATTERN*" 2>/dev/null | \
+            awk '{print $2}' | sed 's|refs/heads/||' | head -1 || echo "")
+
+          # Fallback to GitHub API if git ls-remote fails (e.g., network issues)
+          if [ -z "$BRANCH_NAME" ]; then
+            echo "git ls-remote returned empty, trying GitHub API as fallback..."
+            BRANCH_NAME=$(gh api "/repos/$REPO/branches" \
+              --jq "[.[] | select(.name | startswith(\"$BRANCH_PATTERN\"))][0].name" 2>/dev/null || echo "")
+          fi
 
           if [ -n "$BRANCH_NAME" ] && [ "$BRANCH_NAME" != "null" ]; then
             echo "has_branch=true" >> $GITHUB_OUTPUT
@@ -1760,31 +1791,36 @@ jobs:
     steps:
       # FIX 1: Check for recent retry comments (cooldown) - prevents infinite loops
       # This catches loops where @claude comments trigger this workflow repeatedly
+      # IMPORTANT: Only apply cooldown for AUTOMATED retries (github-actions[bot] author)
+      # Manual @claude comments from human users should NOT be blocked by cooldown
       - name: Check for recent retry comments (cooldown)
         id: cooldown
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           ISSUE_NUMBER: ${{ github.event.inputs.issue_number || github.event.issue.number || github.event.pull_request.number }}
         run: |
-          echo "🕐 Checking for recent retry activity (30 min cooldown)..."
+          echo "🕐 Checking for recent AUTOMATED retry activity (30 min cooldown)..."
 
           # 30 minute cooldown for retries
           CUTOFF_TIME=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
                         date -u -v-30M +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || \
                         echo "1970-01-01T00:00:00Z")
 
-          # Check for ANY retry-related comments in cooldown period
-          RECENT_RETRIES=$(gh api "/repos/${{ github.repository }}/issues/$ISSUE_NUMBER/comments" \
-            --jq "[.[] | select(.created_at > \"$CUTOFF_TIME\") | select(.body | test(\"Automatic Retry|@claude retry|Success Without Branch\"; \"i\"))] | length" \
+          # Check for AUTOMATED retry-related comments in cooldown period
+          # CRITICAL: Only match comments from automation accounts (github-actions[bot])
+          # Manual @claude comments from human users should NOT trigger cooldown
+          # This fixes issue #5666 where manual retries were blocked by automated comments
+          RECENT_AUTOMATED_RETRIES=$(gh api "/repos/${{ github.repository }}/issues/$ISSUE_NUMBER/comments" \
+            --jq "[.[] | select(.created_at > \"$CUTOFF_TIME\") | select(.user.login == \"github-actions[bot]\" or .user.type == \"Bot\") | select(.body | test(\"Automatic Retry|Success Without Branch|workflow dispatch fallback|Failed PR Recovery|Stuck Retry Recovery\"; \"i\"))] | length" \
             2>/dev/null || echo "0")
 
-          echo "  Recent retry comments in last 30 min: $RECENT_RETRIES"
+          echo "  Recent AUTOMATED retry comments in last 30 min: $RECENT_AUTOMATED_RETRIES"
 
-          if [ "$RECENT_RETRIES" -gt 0 ]; then
-            echo "⏭️  Cooldown active - skipping retry to prevent loop"
+          if [ "$RECENT_AUTOMATED_RETRIES" -gt 0 ]; then
+            echo "⏭️  Cooldown active (automated retry detected) - skipping to prevent loop"
             echo "skip=true" >> $GITHUB_OUTPUT
           else
-            echo "✅ No recent retries, proceeding"
+            echo "✅ No recent automated retries, proceeding"
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
@@ -2095,25 +2131,44 @@ jobs:
         run: |
           echo "Triggering retry workflow (attempt $NEXT_RETRY)..."
 
-          # Trigger the workflow - capture exit status to allow fallback on failure
-          # Bug fix: Previously, failure here would exit immediately due to set -e,
-          # preventing the fallback @claude comment from being posted
-          DISPATCH_FAILED=false
-          if ! gh workflow run tdd-execute.yml --repo "$REPO" \
-            --field issue_number="$ISSUE_NUMBER" \
-            --field retry_attempt="$NEXT_RETRY" 2>&1; then
-            echo "Workflow dispatch failed (likely 403 permission error) - will use fallback"
-            DISPATCH_FAILED=true
+          # FIX 4: Retry workflow_dispatch with exponential backoff (3 attempts)
+          # Backoff delays: 5s, 15s, 45s (exponential: base * 3^attempt)
+          MAX_DISPATCH_ATTEMPTS=3
+          BASE_DELAY=5
+          DISPATCH_SUCCESS=false
+
+          for DISPATCH_ATTEMPT in $(seq 1 $MAX_DISPATCH_ATTEMPTS); do
+            echo "📤 Dispatch attempt $DISPATCH_ATTEMPT of $MAX_DISPATCH_ATTEMPTS..."
+
+            if gh workflow run tdd-execute.yml --repo "$REPO" \
+              --field issue_number="$ISSUE_NUMBER" \
+              --field retry_attempt="$NEXT_RETRY" 2>&1; then
+              echo "✅ Workflow dispatch command succeeded on attempt $DISPATCH_ATTEMPT"
+              DISPATCH_SUCCESS=true
+              break
+            else
+              echo "❌ Dispatch attempt $DISPATCH_ATTEMPT failed"
+              if [ "$DISPATCH_ATTEMPT" -lt "$MAX_DISPATCH_ATTEMPTS" ]; then
+                # Calculate exponential backoff: 5s, 15s, 45s
+                BACKOFF_DELAY=$((BASE_DELAY * (3 ** (DISPATCH_ATTEMPT - 1))))
+                echo "⏳ Waiting ${BACKOFF_DELAY}s before retry (exponential backoff)..."
+                sleep "$BACKOFF_DELAY"
+              fi
+            fi
+          done
+
+          if [ "$DISPATCH_SUCCESS" != "true" ]; then
+            echo "⚠️  All $MAX_DISPATCH_ATTEMPTS dispatch attempts failed - will use comment fallback"
           fi
 
-          # Skip verification if dispatch already failed - go straight to fallback
+          # Verify workflow actually started (dispatch command can succeed but workflow may not start)
           RETRY_STARTED=false
-          if [ "$DISPATCH_FAILED" != "true" ]; then
+          if [ "$DISPATCH_SUCCESS" = "true" ]; then
             # Wait for workflow to start
             echo "Verifying retry workflow started..."
             sleep 15
 
-            # Check if workflow started in the last 20 seconds
+            # Check if workflow started in the last 30 seconds (extended window for reliability)
             NOW=$(date +%s)
 
             # Get recent runs with error handling
@@ -2125,7 +2180,7 @@ jobs:
 
             # Validate JSON before parsing
             if echo "$RECENT_RUNS" | jq empty 2>/dev/null; then
-              # Check for a workflow_dispatch run created in the last 20 seconds
+              # Check for a workflow_dispatch run created in the last 30 seconds
               # Bug fix: Use process substitution to avoid subshell variable scope issue
               while read -r run; do
                 if [ -n "$run" ]; then
@@ -2134,9 +2189,9 @@ jobs:
                     CREATED_EPOCH=$(date -d "$CREATED_AT" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$CREATED_AT" +%s 2>/dev/null || echo 0)
                     AGE=$((NOW - CREATED_EPOCH))
 
-                    if [ "$AGE" -lt 20 ]; then
+                    if [ "$AGE" -lt 30 ]; then
                       RETRY_STARTED=true
-                      echo "✅ Retry workflow started successfully"
+                      echo "✅ Retry workflow started successfully (verified in workflow list)"
                       break
                     fi
                   fi
@@ -2147,9 +2202,9 @@ jobs:
             fi
           fi
 
-          # If workflow didn't start, use issue comment as fallback
+          # If workflow didn't start after all attempts, use issue comment as fallback
           if [ "$RETRY_STARTED" != "true" ]; then
-            echo "Workflow dispatch may have failed, triggering via issue comment as fallback..."
+            echo "Workflow dispatch verification failed after $MAX_DISPATCH_ATTEMPTS attempts, triggering via issue comment as fallback..."
 
             # Get spec details from issue for context
             SPEC_ID=$(gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json title --jq '.title' | grep -oP '[A-Z]+-[A-Z]+-([0-9]+|REGRESSION)' || echo "unknown")

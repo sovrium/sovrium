@@ -527,6 +527,143 @@ jobs:
             echo "✅ No stuck specs found"
           fi
 
+      # =========================================================================
+      # FIX 3: STALE LOCK DETECTION
+      # Detects issues "locked" in in-progress state with no activity for >1 hour
+      # This catches cases where:
+      # - workflow_dispatch failed silently
+      # - GitHub Actions runner crashed
+      # - Network partition prevented workflow completion
+      # Reset these to queued state to allow re-processing
+      # =========================================================================
+      - name: Detect and reset stale locks
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          STALE_LOCK_MINUTES: 60  # 1 hour threshold for stale lock detection
+        run: |
+          echo "🔒 Checking for stale locks (>$STALE_LOCK_MINUTES min with no activity)..."
+
+          # Get issues in in-progress state
+          ISSUES=$(gh issue list \
+            --repo ${{ github.repository }} \
+            --label "tdd-spec:in-progress" \
+            --json number,title,updatedAt,labels \
+            --limit 100)
+
+          NOW=$(date +%s)
+          STALE_TIMEOUT_SECONDS=$((STALE_LOCK_MINUTES * 60))
+          RESET_COUNT=0
+
+          while read -r issue; do
+            [ -z "$issue" ] && continue
+
+            ISSUE_NUMBER=$(echo "$issue" | jq -r '.number')
+            TITLE=$(echo "$issue" | jq -r '.title')
+            UPDATED_AT=$(echo "$issue" | jq -r '.updatedAt')
+            LABELS=$(echo "$issue" | jq -r '.labels[].name' | tr '\n' ' ')
+
+            UPDATED_EPOCH=$(date -d "$UPDATED_AT" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$UPDATED_AT" +%s 2>/dev/null || echo "0")
+            AGE=$((NOW - UPDATED_EPOCH))
+            AGE_MIN=$((AGE / 60))
+
+            # Skip if not stale enough
+            if [ "$AGE" -le "$STALE_TIMEOUT_SECONDS" ]; then
+              continue
+            fi
+
+            echo ""
+            echo "🔒 Checking issue #$ISSUE_NUMBER (${AGE_MIN}m since last update)..."
+
+            # Check if there's an active workflow run for this issue
+            SPEC_ID=$(echo "$TITLE" | grep -oE '[A-Z]+-[A-Z]+-[0-9]+' | head -1 || echo "")
+
+            if [ -n "$SPEC_ID" ]; then
+              ACTIVE_RUNS=$(gh run list \
+                --repo ${{ github.repository }} \
+                --workflow "TDD - Execute (Claude Code)" \
+                --json status,displayTitle \
+                --jq "[.[] | select(.status == \"in_progress\" or .status == \"queued\") | select(.displayTitle | contains(\"$SPEC_ID\"))] | length" 2>/dev/null || echo "0")
+
+              if [ "$ACTIVE_RUNS" -gt 0 ]; then
+                echo "   ⏭️  Skipping - Active workflow run detected for $SPEC_ID"
+                continue
+              fi
+            fi
+
+            # Check if there's a recent @claude comment (within last 30 min) indicating manual intervention
+            CUTOFF_30MIN=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-30M +%Y-%m-%dT%H:%M:%SZ)
+            RECENT_CLAUDE_COMMENT=$(gh api \
+              "/repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" \
+              --jq "[.[] | select(.created_at > \"${CUTOFF_30MIN}\") | select(.body | test(\"@claude\"; \"i\"))] | length" 2>/dev/null || echo "0")
+
+            if [ "$RECENT_CLAUDE_COMMENT" -gt 0 ]; then
+              echo "   ⏭️  Skipping - Recent @claude comment detected (manual intervention in progress)"
+              continue
+            fi
+
+            # Check if there's an open PR for this issue
+            OPEN_PR=$(gh pr list \
+              --repo ${{ github.repository }} \
+              --label "tdd-automation" \
+              --state open \
+              --json number,body \
+              --jq "[.[] | select(.body | test(\"Closes #$ISSUE_NUMBER(\\\\s|$)\"))][0].number" 2>/dev/null || echo "")
+
+            if [ -n "$OPEN_PR" ] && [ "$OPEN_PR" != "null" ]; then
+              echo "   ⏭️  Skipping - Open PR #$OPEN_PR exists for this issue"
+              continue
+            fi
+
+            # This issue is truly stale-locked - reset it
+            echo "   🔓 STALE LOCK DETECTED: Issue #$ISSUE_NUMBER"
+            echo "      - Last updated: ${AGE_MIN} minutes ago"
+            echo "      - No active workflow runs"
+            echo "      - No recent @claude comments"
+            echo "      - No open PRs"
+            echo "      - Resetting to queued state..."
+
+            # Remove retry labels to give it a fresh start
+            for i in 1 2 3; do
+              gh issue edit "$ISSUE_NUMBER" --repo ${{ github.repository }} --remove-label "retry:infra:$i" 2>/dev/null || true
+              gh issue edit "$ISSUE_NUMBER" --repo ${{ github.repository }} --remove-label "retry:spec:$i" 2>/dev/null || true
+            done
+
+            # Reset to queued state
+            gh issue edit "$ISSUE_NUMBER" --repo ${{ github.repository }} \
+              --remove-label "tdd-spec:in-progress" \
+              --add-label "tdd-spec:queued"
+
+            # Post explanatory comment
+            gh issue comment "$ISSUE_NUMBER" --repo ${{ github.repository }} \
+              --body "🔓 **Stale Lock Detected and Reset**
+
+          This issue was stuck in \`tdd-spec:in-progress\` state for ${AGE_MIN} minutes with no activity:
+          - No active workflow runs
+          - No recent @claude comments
+          - No open pull requests
+
+          **Possible Causes**:
+          - workflow_dispatch failed silently
+          - GitHub Actions runner crashed during execution
+          - Network issue prevented workflow completion
+
+          **Action Taken**: Reset to \`tdd-spec:queued\` state for re-processing.
+
+          The TDD queue processor will pick this up in the next cycle.
+
+          ---
+          *🤖 TDD Monitor - Stale Lock Recovery*"
+
+            RESET_COUNT=$((RESET_COUNT + 1))
+          done < <(echo "$ISSUES" | jq -r '.[] | @json')
+
+          if [ "$RESET_COUNT" -gt 0 ]; then
+            echo ""
+            echo "✅ Reset $RESET_COUNT stale-locked issue(s)"
+          else
+            echo "✅ No stale locks found"
+          fi
+
       # FALLBACK MECHANISM: Create PRs for orphaned branches
       # This handles cases where Claude successfully pushed a branch but verify-success was skipped
       # (e.g., claude_success output detection failure)
