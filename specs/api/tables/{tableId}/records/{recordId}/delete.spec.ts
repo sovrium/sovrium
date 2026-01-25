@@ -339,7 +339,7 @@ test.describe('Delete record', () => {
   // Soft Delete Specific Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-008: should return 404 when deleting already soft-deleted record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {

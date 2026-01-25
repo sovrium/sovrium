@@ -421,8 +421,9 @@ export function deleteRecord(
         if (columnCheck.length > 0) {
           // Soft delete: set deleted_at timestamp (parameterized)
           // Use RETURNING to check if update affected any rows (RLS may block access)
+          // Only update records that are NOT already soft-deleted (deleted_at IS NULL)
           const result = (await tx.execute(
-            sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} RETURNING id`
+            sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
           )) as readonly Record<string, unknown>[]
 
           // If RLS blocked the update, result will be empty
