@@ -36,10 +36,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-001: should format currency with EUR symbol',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with currency field configured with EUR currency
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -53,6 +54,9 @@ test.describe('Record Display Formatting', () => {
         ],
       })
       await executeQuery('INSERT INTO products (id, price) VALUES (1, 99.99)')
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -68,10 +72,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-002: should format currency with symbol after amount',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with currency field configured with symbol after amount
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -86,6 +91,9 @@ test.describe('Record Display Formatting', () => {
       })
       await executeQuery('INSERT INTO invoices (id, total) VALUES (1, 99.99)')
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -99,10 +107,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-003: should format currency with specified decimal precision',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with currency field configured with 0 decimal places (JPY)
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -117,6 +126,9 @@ test.describe('Record Display Formatting', () => {
       })
       await executeQuery('INSERT INTO sales (id, amount) VALUES (1, 1000)')
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -130,10 +142,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-004: should format negative currency in parentheses',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with currency field configured to use parentheses for negatives
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -154,6 +167,9 @@ test.describe('Record Display Formatting', () => {
       })
       await executeQuery('INSERT INTO transactions (id, balance) VALUES (1, -100.00)')
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -167,10 +183,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-005: should format currency with space as thousands separator',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with currency field configured with space as thousands separator
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -191,6 +208,9 @@ test.describe('Record Display Formatting', () => {
       })
       await executeQuery('INSERT INTO assets (id, value) VALUES (1, 1000000.00)')
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -204,10 +224,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-006: should format currency with period as thousands separator',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with currency field configured with period as thousands separator
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -228,6 +249,9 @@ test.describe('Record Display Formatting', () => {
       })
       await executeQuery('INSERT INTO properties (id, value) VALUES (1, 1000000.00)')
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -245,10 +269,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-007: should format date in US format (M/D/YYYY)',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with date field configured with US format
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -263,6 +288,9 @@ test.describe('Record Display Formatting', () => {
       })
       await executeQuery("INSERT INTO events (id, event_date) VALUES (1, '2024-06-15')")
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -276,10 +304,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-008: should format date in European format (D/M/YYYY)',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with date field configured with European format
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -294,6 +323,9 @@ test.describe('Record Display Formatting', () => {
       })
       await executeQuery("INSERT INTO events (id, event_date) VALUES (1, '2024-06-15')")
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -307,10 +339,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-009: should format date in ISO format (YYYY-MM-DD)',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with date field configured with ISO format
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -325,6 +358,9 @@ test.describe('Record Display Formatting', () => {
       })
       await executeQuery("INSERT INTO events (id, event_date) VALUES (1, '2024-06-15')")
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -338,10 +374,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-010: should include time component when includeTime is true',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with date field configured to include time
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -356,6 +393,9 @@ test.describe('Record Display Formatting', () => {
       })
       await executeQuery("INSERT INTO appointments (id, scheduled_date) VALUES (1, '2024-06-15')")
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -369,10 +409,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-011: should convert date to specified timezone',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with date field configured with specific timezone
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -393,6 +434,9 @@ test.describe('Record Display Formatting', () => {
       })
       await executeQuery("INSERT INTO events (id, event_date) VALUES (1, '2024-06-15')")
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -410,10 +454,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-012: should display time in 12-hour format with AM/PM',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with datetime field configured with 12-hour time format
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -430,6 +475,9 @@ test.describe('Record Display Formatting', () => {
         "INSERT INTO appointments (id, scheduled_time) VALUES (1, '2024-06-15 14:30:00+00')"
       )
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -443,10 +491,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-013: should display time in 24-hour format',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with datetime field configured with 24-hour time format
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -463,6 +512,9 @@ test.describe('Record Display Formatting', () => {
         "INSERT INTO appointments (id, scheduled_time) VALUES (1, '2024-06-15 14:30:00+00')"
       )
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -476,10 +528,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-014: should display datetime in specified timezone',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with datetime field configured with specific timezone
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -494,6 +547,9 @@ test.describe('Record Display Formatting', () => {
       })
       await executeQuery("INSERT INTO events (id, event_time) VALUES (1, '2024-06-15 14:30:00+00')")
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -507,10 +563,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-015: should use local timezone when timeZone is set to local',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with datetime field configured to use local timezone
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -526,6 +583,9 @@ test.describe('Record Display Formatting', () => {
       await executeQuery(
         "INSERT INTO meetings (id, meeting_time) VALUES (1, '2024-06-15 14:30:00+00')"
       )
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -545,10 +605,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-016: should format duration in h:mm format',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with duration field configured with h:mm format
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -563,6 +624,9 @@ test.describe('Record Display Formatting', () => {
       })
       await executeQuery("INSERT INTO tasks (id, time_spent) VALUES (1, '1 hour 30 minutes')")
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -576,10 +640,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-017: should format duration in h:mm:ss format',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with duration field configured with h:mm:ss format
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -594,6 +659,9 @@ test.describe('Record Display Formatting', () => {
       })
       await executeQuery("INSERT INTO videos (id, length) VALUES (1, '1:30:45')")
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -607,10 +675,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-018: should format duration in decimal format',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with duration field configured with decimal format
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -626,6 +695,9 @@ test.describe('Record Display Formatting', () => {
       await executeQuery(
         "INSERT INTO timesheets (id, hours_worked) VALUES (1, '1 hour 30 minutes')"
       )
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
@@ -644,10 +716,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-019: should return attachment with MIME type restriction info',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with single-attachment field restricted to images only
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -669,6 +742,9 @@ test.describe('Record Display Formatting', () => {
         "INSERT INTO profiles (id, avatar) VALUES (1, 'https://example.com/photo.jpg')"
       )
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -686,10 +762,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-020: should return attachment with file size limit info',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with single-attachment field with 5MB max file size
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -711,6 +788,9 @@ test.describe('Record Display Formatting', () => {
         "INSERT INTO documents (id, file) VALUES (1, 'https://example.com/doc.pdf')"
       )
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -729,10 +809,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-021: should override display timezone via query parameter',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with datetime field (stored in UTC)
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -747,6 +828,9 @@ test.describe('Record Display Formatting', () => {
       })
       // Insert UTC timestamp (14:30 UTC)
       await executeQuery("INSERT INTO events (id, event_time) VALUES (1, '2024-06-15 14:30:00+00')")
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: requesting record with timezone query parameter
       const response = await request.get(
@@ -764,10 +848,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-022: should serialize raw datetime value in ISO 8601 with Z suffix',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with datetime field
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -783,6 +868,9 @@ test.describe('Record Display Formatting', () => {
       // Insert with explicit offset (will be converted to UTC)
       await executeQuery("INSERT INTO logs (id, timestamp) VALUES (1, '2024-06-15 10:30:00-04:00')")
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: requesting record with display formatting
       const response = await request.get('/api/tables/1/records?format=display')
 
@@ -797,10 +885,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-023: should reject invalid timezone in query parameter',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with datetime field
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -814,6 +903,9 @@ test.describe('Record Display Formatting', () => {
         ],
       })
       await executeQuery("INSERT INTO events (id, event_time) VALUES (1, '2024-06-15 14:30:00+00')")
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: requesting record with invalid timezone
       const response = await request.get(
@@ -830,10 +922,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-024: should apply query timezone to all datetime fields in response',
     { tag: '@spec' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // GIVEN: table with multiple datetime fields
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -853,6 +946,9 @@ test.describe('Record Display Formatting', () => {
         INSERT INTO appointments (id, start_time, end_time, reminder_time)
         VALUES (1, '2024-06-15 14:00:00+00', '2024-06-15 15:00:00+00', '2024-06-15 13:45:00+00')
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: requesting record with timezone query parameter
       const response = await request.get(
@@ -880,10 +976,11 @@ test.describe('Record Display Formatting', () => {
   test.fixme(
     'API-TABLES-RECORDS-FORMAT-REGRESSION: record display formatting works across field types',
     { tag: '@regression' },
-    async ({ startServerWithSchema, executeQuery, request }) => {
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
       // Setup: Create tables with various formatted field types
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -932,6 +1029,9 @@ test.describe('Record Display Formatting', () => {
       await executeQuery(
         "INSERT INTO tasks (id, time_spent, scheduled_time) VALUES (1, '1 hour 30 minutes', '2024-06-15 14:30:00+00')"
       )
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       await test.step('API-TABLES-RECORDS-FORMAT-001: Formats currency with EUR symbol', async () => {
         // WHEN: requesting record with display formatting

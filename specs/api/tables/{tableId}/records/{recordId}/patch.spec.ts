@@ -27,10 +27,11 @@ test.describe('Update record', () => {
   test.fixme(
     'API-TABLES-RECORDS-UPDATE-001: should return 200 with updated record data',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' with record ID=1 (email='old@example.com', name='Old Name')
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -47,6 +48,9 @@ test.describe('Update record', () => {
         INSERT INTO users (id, email, name)
         VALUES (1, 'old@example.com', 'Old Name')
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User updates record with new email and name
       const response = await request.patch('/api/tables/1/records/1', {
@@ -83,10 +87,11 @@ test.describe('Update record', () => {
   test.fixme(
     'API-TABLES-RECORDS-UPDATE-002: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' exists but record ID=9999 does not
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -95,6 +100,8 @@ test.describe('Update record', () => {
           },
         ],
       })
+
+      await createAuthenticatedUser()
 
       // WHEN: User attempts to update non-existent record
       const response = await request.patch('/api/tables/1/records/9999', {
@@ -159,10 +166,11 @@ test.describe('Update record', () => {
   test.fixme(
     'API-TABLES-RECORDS-UPDATE-004: should return 403 for member without update permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: A member user without update permission for the table
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 4,
@@ -174,6 +182,9 @@ test.describe('Update record', () => {
       await executeQuery(`
         INSERT INTO projects (id, name) VALUES (1, 'Alpha Project')
       `)
+
+      // Create authenticated member (without update permission)
+      await createAuthenticatedMember()
 
       // WHEN: Member attempts to update a record
       const response = await request.patch('/api/tables/1/records/1', {
@@ -200,10 +211,11 @@ test.describe('Update record', () => {
   test.fixme(
     'API-TABLES-RECORDS-UPDATE-005: should return 403 for viewer',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
       // GIVEN: A viewer user without update permission
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 5,
@@ -218,6 +230,9 @@ test.describe('Update record', () => {
       await executeQuery(`
         INSERT INTO documents (id, title, content) VALUES (1, 'Doc 1', 'Content')
       `)
+
+      // Create authenticated viewer (no update permission)
+      await createAuthenticatedViewer()
 
       // WHEN: Viewer attempts to update a record
       const response = await request.patch('/api/tables/1/records/1', {
@@ -242,10 +257,11 @@ test.describe('Update record', () => {
   test.fixme(
     'API-TABLES-RECORDS-UPDATE-006: should allow admin to update sensitive fields',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: An admin user with write access to all fields including sensitive
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 7,
@@ -260,6 +276,9 @@ test.describe('Update record', () => {
       await executeQuery(`
         INSERT INTO employees (id, name, salary) VALUES (1, 'John Doe', 75000)
       `)
+
+      // Create authenticated admin (full field access)
+      await createAuthenticatedAdmin()
 
       // WHEN: Admin updates record with sensitive field (salary)
       const response = await request.patch('/api/tables/1/records/1', {
@@ -291,10 +310,11 @@ test.describe('Update record', () => {
   test.fixme(
     'API-TABLES-RECORDS-UPDATE-007: should return 403 when updating protected field',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: A member user attempting to update write-protected field
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 8,
@@ -311,6 +331,9 @@ test.describe('Update record', () => {
         INSERT INTO employees (id, name, email, salary)
         VALUES (1, 'Jane Smith', 'jane@example.com', 75000)
       `)
+
+      // Create authenticated member (limited field permissions)
+      await createAuthenticatedMember()
 
       // WHEN: Member includes salary field in update request
       const response = await request.patch('/api/tables/1/records/1', {
@@ -345,10 +368,11 @@ test.describe('Update record', () => {
   test.fixme(
     'API-TABLES-RECORDS-UPDATE-008: should return 403 for readonly fields',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User attempts to update system-managed readonly fields
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 9,
@@ -363,6 +387,9 @@ test.describe('Update record', () => {
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Important Task')
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: Update request includes id or created_at fields
       const response = await request.patch('/api/tables/1/records/1', {
@@ -391,10 +418,11 @@ test.describe('Update record', () => {
   test.fixme(
     'API-TABLES-RECORDS-UPDATE-009: should update only permitted fields',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: Member user updates only permitted fields
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 10,
@@ -411,6 +439,9 @@ test.describe('Update record', () => {
         INSERT INTO employees (id, name, email, salary)
         VALUES (1, 'Alice Cooper', 'alice@example.com', 75000)
       `)
+
+      // Create authenticated member (limited permissions)
+      await createAuthenticatedMember()
 
       // WHEN: Update request includes both permitted and omitted fields
       const response = await request.patch('/api/tables/1/records/1', {
@@ -449,10 +480,11 @@ test.describe('Update record', () => {
   test.fixme(
     'API-TABLES-RECORDS-UPDATE-010: should enforce combined permissions',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: Field write restrictions and table permission apply
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 12,
@@ -469,6 +501,9 @@ test.describe('Update record', () => {
         INSERT INTO employees (id, name, email, salary)
         VALUES (1, 'Bob Wilson', 'bob@example.com', 65000)
       `)
+
+      // Create authenticated member (combined permissions test)
+      await createAuthenticatedMember()
 
       // WHEN: Member updates record with only permitted fields
       const response = await request.patch('/api/tables/1/records/1', {
@@ -502,10 +537,11 @@ test.describe('Update record', () => {
   test.fixme(
     'API-TABLES-RECORDS-UPDATE-011: should return 403 for first forbidden field',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: Multiple fields with different write permission levels
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 13,
@@ -523,6 +559,9 @@ test.describe('Update record', () => {
         INSERT INTO employees (id, name, email, phone, salary)
         VALUES (1, 'Carol Davis', 'carol@example.com', '555-0100', 70000)
       `)
+
+      // Create authenticated member (testing forbidden field access)
+      await createAuthenticatedMember()
 
       // WHEN: User updates with mix of permitted and forbidden fields
       const response = await request.patch('/api/tables/1/records/1', {
@@ -559,10 +598,11 @@ test.describe('Update record', () => {
   test.fixme(
     'API-TABLES-RECORDS-UPDATE-012: should exclude unreadable fields from response',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: Member updates record and has field-level read restrictions
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 14,
@@ -579,6 +619,9 @@ test.describe('Update record', () => {
         INSERT INTO employees (id, name, email, salary)
         VALUES (1, 'David Lee', 'david@example.com', 72000)
       `)
+
+      // Create authenticated member (testing read restrictions in response)
+      await createAuthenticatedMember()
 
       // WHEN: Update is successful
       const response = await request.patch('/api/tables/1/records/1', {

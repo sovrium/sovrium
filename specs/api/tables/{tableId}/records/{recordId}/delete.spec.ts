@@ -342,7 +342,7 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-009: should return 404 when deleting already soft-deleted record',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: A soft-deleted record exists
       await startServerWithSchema({
         name: 'test-app',
@@ -364,6 +364,9 @@ test.describe('Delete record', () => {
         INSERT INTO tasks (id, title, deleted_at) VALUES (1, 'Completed Task', NOW())
       `)
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: User attempts to delete an already soft-deleted record
       const response = await request.delete('/api/tables/1/records/1', {})
 
@@ -378,7 +381,7 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-012: should set deleted_at to current timestamp',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: An active record exists
       await startServerWithSchema({
         name: 'test-app',
@@ -399,6 +402,9 @@ test.describe('Delete record', () => {
       const beforeDelete = new Date()
       await executeQuery(`INSERT INTO items (id, name) VALUES (1, 'Test Item')`)
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: User deletes the record
       const response = await request.delete('/api/tables/1/records/1', {})
 
@@ -418,7 +424,7 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-013: should hard delete with permanent=true query param (admin only)',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: An admin user and an active record
       await startServerWithSchema({
         name: 'test-app',
@@ -438,6 +444,9 @@ test.describe('Delete record', () => {
       })
       await executeQuery(`INSERT INTO logs (id, message) VALUES (1, 'Important log')`)
 
+      // Create authenticated admin (permanent delete requires admin)
+      await createAuthenticatedAdmin()
+
       // WHEN: Admin deletes with permanent=true
       const response = await request.delete('/api/tables/1/records/1?permanent=true', {})
 
@@ -453,7 +462,7 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-014: should return 403 for member using permanent=true',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: A member user (without permanent delete permission)
       await startServerWithSchema({
         name: 'test-app',
@@ -472,6 +481,9 @@ test.describe('Delete record', () => {
         ],
       })
       await executeQuery(`INSERT INTO data (id, value) VALUES (1, 'Sensitive data')`)
+
+      // Create authenticated member (cannot permanent delete)
+      await createAuthenticatedMember()
 
       // WHEN: Member attempts to permanently delete
       const response = await request.delete('/api/tables/1/records/1?permanent=true', {})
@@ -492,7 +504,7 @@ test.describe('Delete record', () => {
   test.fixme(
     'API-TABLES-RECORDS-DELETE-015: should cascade soft delete to related records when configured',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Two tables with relationship (contacts → tasks) and cascade delete configured
       await startServerWithSchema({
         name: 'test-app',
@@ -538,6 +550,9 @@ test.describe('Delete record', () => {
         (1, 'Task 1', 1),
         (2, 'Task 2', 1)
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: Contact is soft-deleted via DELETE endpoint
       const response = await request.delete('/api/tables/16/records/1', {})

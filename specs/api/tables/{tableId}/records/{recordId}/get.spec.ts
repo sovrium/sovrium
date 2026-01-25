@@ -31,10 +31,11 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-001: should return 200 with complete record data',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' with record ID=1
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -52,6 +53,9 @@ test.describe('Get record by ID', () => {
         INSERT INTO users (email, name, phone)
         VALUES ('john.doe@example.com', 'John Doe', '555-0100')
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User requests record by ID
       const response = await request.get('/api/tables/1/records/1', {})
@@ -72,10 +76,11 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-002: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Table 'users' exists but record ID=9999 does not
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -84,6 +89,8 @@ test.describe('Get record by ID', () => {
           },
         ],
       })
+
+      await createAuthenticatedUser()
 
       // WHEN: User requests non-existent record
       const response = await request.get('/api/tables/1/records/9999', {})
@@ -131,10 +138,11 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-004: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
       // GIVEN: User without read permission
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 4,
@@ -147,6 +155,9 @@ test.describe('Get record by ID', () => {
         INSERT INTO confidential (id, data)
         VALUES (1, 'Secret Information')
       `)
+
+      // Create authenticated viewer (limited permissions)
+      await createAuthenticatedViewer()
 
       // WHEN: User without permission attempts to fetch record
       const response = await request.get('/api/tables/1/records/1', {})
@@ -163,10 +174,11 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-005: should return all fields for admin',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: Admin user with full field access
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 6,
@@ -183,6 +195,9 @@ test.describe('Get record by ID', () => {
         INSERT INTO employees (id, name, email, salary)
         VALUES (1, 'John Doe', 'john@example.com', 75000)
       `)
+
+      // Create authenticated admin with full access
+      await createAuthenticatedAdmin()
 
       // WHEN: Admin requests record
       const response = await request.get('/api/tables/1/records/1', {})
@@ -203,10 +218,11 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-006: should exclude salary field for member',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: Member user without salary field read permission
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 7,
@@ -223,6 +239,9 @@ test.describe('Get record by ID', () => {
         INSERT INTO employees (id, name, email, salary)
         VALUES (1, 'Jane Smith', 'jane@example.com', 85000)
       `)
+
+      // Create authenticated member (limited salary access)
+      await createAuthenticatedMember()
 
       // WHEN: Member requests record
       const response = await request.get('/api/tables/1/records/1', {})
@@ -242,10 +261,11 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-007: should return minimal fields for viewer',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
       // GIVEN: Viewer with limited field access
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 8,
@@ -263,6 +283,9 @@ test.describe('Get record by ID', () => {
         INSERT INTO employees (id, name, email, phone, salary)
         VALUES (1, 'Bob Wilson', 'bob@example.com', '555-0200', 95000)
       `)
+
+      // Create authenticated viewer (minimal field access)
+      await createAuthenticatedViewer()
 
       // WHEN: Viewer requests record
       const response = await request.get('/api/tables/1/records/1', {})
@@ -283,10 +306,11 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-008: should include readonly fields in response',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with readonly system fields
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 10,
@@ -303,6 +327,9 @@ test.describe('Get record by ID', () => {
         INSERT INTO tasks (id, title)
         VALUES (1, 'Important Task')
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User requests record
       const response = await request.get('/api/tables/1/records/1', {})
@@ -326,10 +353,11 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-009: should return 404 for soft-deleted record',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with a soft-deleted record
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 11,
@@ -345,6 +373,9 @@ test.describe('Get record by ID', () => {
         INSERT INTO tasks (id, title, deleted_at) VALUES (1, 'Deleted Task', NOW())
       `)
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: User requests a soft-deleted record without includeDeleted param
       const response = await request.get('/api/tables/1/records/1', {})
 
@@ -359,10 +390,11 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-010: should return soft-deleted record with includeDeleted=true',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with a soft-deleted record
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 12,
@@ -379,6 +411,9 @@ test.describe('Get record by ID', () => {
         INSERT INTO tasks (id, title, status, deleted_at)
         VALUES (1, 'Deleted Task', 'completed', NOW())
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User requests a soft-deleted record with includeDeleted=true
       const response = await request.get('/api/tables/1/records/1', {
@@ -407,10 +442,11 @@ test.describe('Get record by ID', () => {
   test.fixme(
     'API-TABLES-RECORDS-GET-REGRESSION: user can complete full get record workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // Setup: Create comprehensive schema for all test scenarios
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -475,6 +511,9 @@ test.describe('Get record by ID', () => {
         INSERT INTO confidential (id, data)
         VALUES (1, 'Secret Information')
       `)
+
+      // Create authenticated user for API requests
+      await createAuthenticatedUser()
 
       await test.step('API-TABLES-RECORDS-GET-001: should return 200 with complete record data', async () => {
         const response = await request.get('/api/tables/1/records/1', {})

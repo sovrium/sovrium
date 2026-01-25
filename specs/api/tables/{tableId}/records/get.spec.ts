@@ -31,10 +31,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-001: should return 200 with array of 3 records and pagination',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table 'projects' with 3 records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -56,6 +57,9 @@ test.describe('List records in table', () => {
           ('Project Gamma', 'active', 4)
       `)
 
+      // Create authenticated user
+      await createAuthenticatedUser()
+
       // WHEN: User requests all records
       const response = await request.get('/api/tables/1/records', {})
 
@@ -74,8 +78,16 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-002: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: A running server with no table ID 9999
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [],
+      })
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User requests records from non-existent table
       const response = await request.get('/api/tables/9999/records', {})
@@ -92,10 +104,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-003: should return 200 with only 2 active records',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with 5 records (2 active, 3 completed)
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 2,
@@ -116,6 +129,9 @@ test.describe('List records in table', () => {
           ('Task 4', 'completed'),
           ('Task 5', 'completed')
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User requests records with filter for status=active
       const response = await request.get('/api/tables/1/records', {
@@ -139,10 +155,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-004: should return 200 with records in descending priority order',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with 3 records having different priorities
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 3,
@@ -161,6 +178,9 @@ test.describe('List records in table', () => {
           ('High Priority', 5),
           ('Medium Priority', 3)
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User requests records sorted by priority descending
       const response = await request.get('/api/tables/1/records', {
@@ -184,10 +204,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-005: should return 200 with records containing only specified fields',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with multiple fields
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 4,
@@ -205,6 +226,9 @@ test.describe('List records in table', () => {
         INSERT INTO users (name, email, phone, address)
         VALUES ('John Doe', 'john@example.com', '555-0100', '123 Main St')
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User requests only specific fields
       const response = await request.get('/api/tables/1/records', {
@@ -230,10 +254,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-006: should return 200 with records 41-60 and correct pagination',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with 100 records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 5,
@@ -245,6 +270,9 @@ test.describe('List records in table', () => {
 
       const insertValues = Array.from({ length: 100 }, (_, i) => `('Item ${i + 1}')`).join(',')
       await executeQuery(`INSERT INTO items (name) VALUES ${insertValues}`)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User requests with limit=20 and offset=40
       const response = await request.get('/api/tables/1/records', {
@@ -269,10 +297,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-007: should return 200 with records filtered by view',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with records and a predefined view
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 6,
@@ -291,6 +320,9 @@ test.describe('List records in table', () => {
           ('Active Project 2', 'active'),
           ('Completed Project', 'completed')
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User requests records with view parameter
       const response = await request.get('/api/tables/1/records', {
@@ -311,10 +343,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-008: should return 200 with records grouped by status',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with records having different status values
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 7,
@@ -333,6 +366,9 @@ test.describe('List records in table', () => {
           ('Task 2', 'active'),
           ('Task 3', 'completed')
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User requests records grouped by status field
       const response = await request.get('/api/tables/1/records', {
@@ -353,10 +389,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-009: should return 200 with aggregation results',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with numeric fields
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 8,
@@ -376,6 +413,9 @@ test.describe('List records in table', () => {
           ('Project B', 20000, 3),
           ('Project C', 15000, 4)
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User requests with aggregations (count, sum, avg)
       const response = await request.get('/api/tables/1/records', {
@@ -403,10 +443,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-010: should return 200 with records matching formula',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with multiple fields
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 9,
@@ -426,6 +467,9 @@ test.describe('List records in table', () => {
           ('Low Priority Active', 'active', 1),
           ('High Priority Done', 'completed', 5)
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User filters by Airtable-style formula
       const response = await request.get('/api/tables/1/records', {
@@ -447,10 +491,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-011: should return 200 with multi-field sort applied',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with multiple sortable fields
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 10,
@@ -469,6 +514,9 @@ test.describe('List records in table', () => {
           (5, '2025-01-02'),
           (3, '2025-01-03')
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User sorts by priority desc, then created_at desc
       const response = await request.get('/api/tables/1/records', {
@@ -491,10 +539,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-012: should return 200 with both view and explicit filters',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with view and additional filter
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 11,
@@ -513,6 +562,9 @@ test.describe('List records in table', () => {
           ('High Active', 'active', 5),
           ('Low Active', 'active', 1)
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User combines view and explicit filter
       const response = await request.get('/api/tables/1/records', {
@@ -556,10 +608,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-014: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
       // GIVEN: User without read permission
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 13,
@@ -568,6 +621,9 @@ test.describe('List records in table', () => {
           },
         ],
       })
+
+      // Create authenticated viewer (without read permission)
+      await createAuthenticatedViewer()
 
       // WHEN: User without permission requests records
       const response = await request.get('/api/tables/1/records', {})
@@ -580,10 +636,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-015: should return all fields for admin',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: Admin user with full field access
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 15,
@@ -601,6 +658,9 @@ test.describe('List records in table', () => {
         VALUES ('John Doe', 'john@example.com', 75000)
       `)
 
+      // Create authenticated admin
+      await createAuthenticatedAdmin()
+
       // WHEN: Admin requests records
       const response = await request.get('/api/tables/1/records', {})
 
@@ -616,10 +676,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-016: should exclude salary field for member',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: Member user without salary field read permission
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 16,
@@ -636,6 +697,9 @@ test.describe('List records in table', () => {
         INSERT INTO employees (name, email, salary)
         VALUES ('John Doe', 'john@example.com', 75000)
       `)
+
+      // Create authenticated member
+      await createAuthenticatedMember()
 
       // WHEN: Member requests records
       const response = await request.get('/api/tables/1/records', {})
@@ -654,10 +718,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-017: should return minimal fields for viewer',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
       // GIVEN: Viewer with limited field access
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 17,
@@ -675,6 +740,9 @@ test.describe('List records in table', () => {
         INSERT INTO employees (name, email, phone, salary)
         VALUES ('John Doe', 'john@example.com', '555-0100', 75000)
       `)
+
+      // Create authenticated viewer
+      await createAuthenticatedViewer()
 
       // WHEN: Viewer requests records
       const response = await request.get('/api/tables/1/records', {})
@@ -694,10 +762,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-018: should return empty array with 200',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: User with valid permissions but no matching records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 20,
@@ -706,6 +775,9 @@ test.describe('List records in table', () => {
           },
         ],
       })
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User requests records (empty table)
       const response = await request.get('/api/tables/1/records', {})
@@ -723,10 +795,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-019: should paginate with field filtering',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Member with field restrictions and large dataset
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 21,
@@ -746,6 +819,9 @@ test.describe('List records in table', () => {
       await executeQuery(`
         INSERT INTO employees (name, salary) VALUES ${insertValues}
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: Member requests paginated records
       const response = await request.get('/api/tables/1/records', {
@@ -769,10 +845,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-020: should return 403 when sorting by inaccessible field',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
       // GIVEN: User attempts to sort by restricted field
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 22,
@@ -784,6 +861,9 @@ test.describe('List records in table', () => {
           },
         ],
       })
+
+      // Create authenticated member (cannot read salary field)
+      await createAuthenticatedMember()
 
       // WHEN: Member sorts by salary (field they cannot read)
       const response = await request.get('/api/tables/1/records', {
@@ -805,10 +885,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-021: should return 403 when filtering by inaccessible field',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
       // GIVEN: User attempts to filter by restricted field
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 23,
@@ -820,6 +901,9 @@ test.describe('List records in table', () => {
           },
         ],
       })
+
+      // Create authenticated member (cannot read salary field)
+      await createAuthenticatedMember()
 
       // WHEN: Member filters by salary (field they cannot read)
       const response = await request.get('/api/tables/1/records', {
@@ -843,10 +927,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-022: should return 403 when aggregating inaccessible field',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
       // GIVEN: User attempts to aggregate restricted field
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 24,
@@ -858,6 +943,9 @@ test.describe('List records in table', () => {
           },
         ],
       })
+
+      // Create authenticated member (cannot read salary field)
+      await createAuthenticatedMember()
 
       // WHEN: Member aggregates salary (field they cannot read)
       const response = await request.get('/api/tables/1/records', {
@@ -882,10 +970,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-023: should return aggregations for accessible fields',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: User aggregates only accessible fields
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 25,
@@ -905,6 +994,9 @@ test.describe('List records in table', () => {
           ('P2', 3, 20000),
           ('P3', 4, 15000)
       `)
+
+      // Create authenticated member
+      await createAuthenticatedMember()
 
       // WHEN: Member aggregates permitted fields only
       const response = await request.get('/api/tables/1/records', {
@@ -934,10 +1026,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-024: should exclude soft-deleted records by default',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with mix of active and soft-deleted records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 27,
@@ -957,6 +1050,9 @@ test.describe('List records in table', () => {
           (3, 'Active Task 2', 'in_progress', NULL),
           (4, 'Another Deleted', 'pending', NOW())
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User requests records without includeDeleted parameter
       const response = await request.get('/api/tables/1/records', {})
@@ -981,10 +1077,11 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-025: should include deleted with includeDeleted=true',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with mix of active and soft-deleted records
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 28,
@@ -1003,6 +1100,9 @@ test.describe('List records in table', () => {
           (2, 'Deleted Task 1', 'completed', NOW()),
           (3, 'Deleted Task 2', 'in_progress', NOW())
       `)
+
+      // Create authenticated user
+      await createAuthenticatedUser()
 
       // WHEN: User requests records with includeDeleted=true
       const response = await request.get('/api/tables/1/records', {
@@ -1034,12 +1134,13 @@ test.describe('List records in table', () => {
   test.fixme(
     'API-TABLES-RECORDS-LIST-REGRESSION: user can complete full list records workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // ========================================================================
       // SETUP: Consolidated schema with all fields needed for regression tests
       // ========================================================================
       await startServerWithSchema({
         name: 'test-app',
+        auth: { emailAndPassword: true },
         tables: [
           {
             id: 1,
@@ -1066,6 +1167,9 @@ test.describe('List records in table', () => {
           },
         ],
       })
+
+      // Create authenticated user for all test steps
+      await createAuthenticatedUser()
 
       // ========================================================================
       // TEST STEPS: Each step corresponds to a @spec test
