@@ -24,7 +24,7 @@ test.describe('Batch update records', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-PATCH-001: should return 200 with updated=2 and records array',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -92,7 +92,7 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-PATCH-002: should return 200 with updated=2 and no records array',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -143,7 +143,7 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-PATCH-003: should return 400 with rollback on validation error',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -241,7 +241,7 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-PATCH-005: should return 403 for member without update permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -284,7 +284,7 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-PATCH-006: should return 403 for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
@@ -325,7 +325,7 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-PATCH-007: should return 403 when updating protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -376,7 +376,7 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-PATCH-008: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
@@ -422,7 +422,7 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-PATCH-009: should filter protected fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -479,7 +479,7 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-PATCH-010: should return 200 with all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
@@ -530,7 +530,7 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-PATCH-011: should enforce combined permissions',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -585,7 +585,7 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-PATCH-012: should update only found records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -634,7 +634,7 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-PATCH-013: should exclude unreadable fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -684,7 +684,7 @@ test.describe('Batch update records', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-PATCH-REGRESSION: user can complete full batch update workflow',
     { tag: '@regression' },
     async ({

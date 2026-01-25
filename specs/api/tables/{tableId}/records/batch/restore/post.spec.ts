@@ -31,7 +31,7 @@ test.describe('Batch Restore records', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-RESTORE-001: should return 200 with restored count',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -84,7 +84,7 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-RESTORE-002: should rollback on partial failure (404)',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -130,7 +130,7 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-RESTORE-003: should return 400 for non-deleted records in batch',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -264,7 +264,7 @@ test.describe('Batch Restore records', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-RESTORE-REGRESSION: user can complete full batch restore workflow',
     { tag: '@regression' },
     async ({

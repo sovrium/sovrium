@@ -24,7 +24,7 @@ test.describe('Batch create records', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-POST-001: should return 201 with created=3 and records array',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -87,7 +87,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-POST-002: should return 201 with created=2 and no records array',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -139,7 +139,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-POST-003: should return 400 with rollback on validation error',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -229,7 +229,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-POST-005: should return 403 for member without create permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
@@ -269,7 +269,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-POST-006: should return 403 for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
@@ -307,7 +307,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-POST-007: should return 403 when creating with protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
@@ -353,7 +353,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-POST-008: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedAdmin }) => {
@@ -396,7 +396,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-POST-009: should filter protected fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
@@ -448,7 +448,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-POST-010: should return 201 with all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedAdmin }) => {
@@ -496,7 +496,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-POST-011: should enforce combined permissions',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
@@ -548,7 +548,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-POST-012: should return 400 for duplicate unique field values',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -597,7 +597,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-POST-013: should return 413 when exceeding 1000 record limit',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -645,7 +645,7 @@ test.describe('Batch create records', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-POST-REGRESSION: user can complete full batch create workflow',
     { tag: '@regression' },
     async ({

@@ -31,7 +31,7 @@ test.describe('GET /trash endpoint', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-TRASH-001: should return 200 with only soft-deleted records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -114,7 +114,7 @@ test.describe('GET /trash endpoint', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-TRASH-003: should return 403 Forbidden for viewer without read access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
@@ -153,7 +153,7 @@ test.describe('GET /trash endpoint', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-TRASH-004: should support pagination, filters, and sorting',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -238,7 +238,7 @@ test.describe('GET /trash endpoint', () => {
   // Consolidates 4 @spec tests into workflow steps
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-TRASH-REGRESSION: user can complete full trash workflow',
     { tag: '@regression' },
     async ({

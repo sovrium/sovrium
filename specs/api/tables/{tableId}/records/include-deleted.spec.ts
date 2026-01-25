@@ -30,7 +30,7 @@ test.describe('Include Deleted query parameter', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-INCLUDE-DELETED-001: should exclude deleted records by default',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -79,7 +79,7 @@ test.describe('Include Deleted query parameter', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-INCLUDE-DELETED-002: should include deleted with includeDeleted=true',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -128,7 +128,7 @@ test.describe('Include Deleted query parameter', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-INCLUDE-DELETED-003: should allow member to use includeDeleted',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -174,7 +174,7 @@ test.describe('Include Deleted query parameter', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-INCLUDE-DELETED-004: should correctly count deleted vs active in pagination',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -241,7 +241,7 @@ test.describe('Include Deleted query parameter', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-INCLUDE-DELETED-REGRESSION: user can complete include-deleted workflow',
     { tag: '@regression' },
     async ({

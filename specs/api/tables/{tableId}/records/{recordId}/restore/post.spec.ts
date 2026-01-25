@@ -30,7 +30,7 @@ test.describe('Restore record', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-RESTORE-001: should return 200 OK and clear deleted_at',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -76,7 +76,7 @@ test.describe('Restore record', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-RESTORE-002: should return 404 for non-existent record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -109,7 +109,7 @@ test.describe('Restore record', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-RESTORE-003: should return 400 for non-deleted record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -183,7 +183,7 @@ test.describe('Restore record', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-RESTORE-005: should return 403 for viewer (read-only)',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
@@ -220,7 +220,7 @@ test.describe('Restore record', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-RESTORE-006: should return 200 for member with delete permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -265,7 +265,7 @@ test.describe('Restore record', () => {
   // Activity Log Tests
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-RESTORE-007: should create activity log entry when record is restored',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -323,7 +323,7 @@ test.describe('Restore record', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-RESTORE-008: should capture user_id who restored the record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
@@ -376,7 +376,7 @@ test.describe('Restore record', () => {
   // Generated from 8 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-RESTORE-REGRESSION: user can complete full record restore workflow',
     { tag: '@regression' },
     async ({

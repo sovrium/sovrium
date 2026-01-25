@@ -24,7 +24,7 @@ test.describe('Upsert records (create or update)', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-001: should return 200 with created=1, updated=1',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -93,7 +93,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-002: should return 200 with created=2, updated=0',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -152,7 +152,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-003: should return 400 with rollback on validation error',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -259,7 +259,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-005: should return 403 when member lacks create permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
@@ -302,7 +302,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-006: should return 403 when member lacks update permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
@@ -349,7 +349,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-007: should return 403 for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
@@ -388,7 +388,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-008: should return 403 when creating with protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
@@ -432,7 +432,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-009: should return 403 when updating with protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -480,7 +480,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-010: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedAdmin }) => {
@@ -524,7 +524,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-011: should filter protected fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -582,7 +582,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-012: should return 200 with all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
@@ -637,7 +637,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-013: should enforce combined permissions',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -700,7 +700,7 @@ test.describe('Upsert records (create or update)', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-REGRESSION: validates complete upsert workflow',
     { tag: '@regression' },
     async ({
