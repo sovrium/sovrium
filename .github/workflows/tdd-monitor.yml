@@ -435,6 +435,18 @@ jobs:
                   fi
                 fi
 
+                # COOLDOWN CHECK: Skip if stuck retry was already triggered in last 30 minutes
+                # This prevents duplicate retries when monitor runs multiple times while Claude is processing
+                CUTOFF_TIME_STUCK=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-30M +%Y-%m-%dT%H:%M:%SZ)
+                RECENT_STUCK_RETRY=$(gh api \
+                  "/repos/${{ github.repository }}/issues/${ISSUE_NUMBER}/comments" \
+                  --jq "[.[] | select(.created_at > \"${CUTOFF_TIME_STUCK}\") | select(.body | test(\"Stuck Retry Recovery|Automatic Retry|workflow dispatch fallback\"; \"i\"))] | length" 2>/dev/null || echo "0")
+
+                if [ "$RECENT_STUCK_RETRY" -gt 0 ]; then
+                  echo "   ⏭️  Skipping - stuck retry already triggered within last 30 minutes"
+                  continue
+                fi
+
                 echo "   🔄 Triggering retry #$NEXT_RETRY (type: $RETRY_TYPE)"
 
                 gh issue edit "$ISSUE_NUMBER" --repo ${{ github.repository }} \
@@ -1152,14 +1164,16 @@ jobs:
             echo ""
             echo "⚠️  PR #$PR_NUMBER has conflicts"
 
-            # COOLDOWN CHECK: Skip if any @claude comment was posted in last 10 minutes
-            # This prevents duplicate Claude runs when multiple jobs trigger simultaneously
-            RECENT_CLAUDE_COMMENT=$(gh api \
+            # COOLDOWN CHECK: Skip if AUTOMATED conflict resolution was triggered in last 10 minutes
+            # NOTE: Only match automated conflict resolution comments, not manual @claude mentions
+            # Manual @claude comments should NOT block automated conflict resolution
+            CUTOFF_TIME_CONFLICT=$(date -u -d '10 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-10M +%Y-%m-%dT%H:%M:%SZ)
+            RECENT_CONFLICT_COMMENT=$(gh api \
               "/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
-              --jq "[.[] | select(.body | contains(\"@claude\")) | select(.created_at > \"$(date -u -d '10 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-10M +%Y-%m-%dT%H:%M:%SZ)\")] | length" 2>/dev/null || echo "0")
+              --jq "[.[] | select(.created_at > \"${CUTOFF_TIME_CONFLICT}\") | select(.body | test(\"Conflict Resolution|resolve conflicts|Automatic Retry|workflow dispatch fallback\"; \"i\"))] | length" 2>/dev/null || echo "0")
 
-            if [ "$RECENT_CLAUDE_COMMENT" -gt 0 ]; then
-              echo "   ⏭️  Skipping - @claude comment already posted within last 10 minutes"
+            if [ "$RECENT_CONFLICT_COMMENT" -gt 0 ]; then
+              echo "   ⏭️  Skipping - conflict resolution already triggered within last 10 minutes"
               continue
             fi
 
@@ -1357,12 +1371,14 @@ jobs:
               continue
             fi
 
-            # Check for recent fix comments (cooldown period)
-            # UNIFIED PATTERN: Detect ANY @claude comment from ANY workflow
-            # This prevents loops between tdd-monitor.yml and test.yml
+            # Check for recent AUTOMATED fix comments (cooldown period)
+            # NOTE: Only match AUTOMATED recovery comments, not manual @claude mentions
+            # Manual @claude comments should NOT block automated recovery
+            # Pattern matches: "Failed PR Recovery", "Regression Auto-Fix", "Code Quality Auto-Fix",
+            # or "@claude" combined with retry-related text (automated retry comments)
             RECENT_FIX_COMMENT=$(gh api \
               "/repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
-              --jq "[.[] | select(.created_at > \"${CUTOFF_TIME}\") | select(.body | test(\"@claude|Failed PR Recovery|Regression Auto-Fix|Code Quality.*Auto-Fix\"; \"i\"))] | length" 2>/dev/null || echo "0")
+              --jq "[.[] | select(.created_at > \"${CUTOFF_TIME}\") | select(.body | test(\"Failed PR Recovery|Regression Auto-Fix|Code Quality.*Auto-Fix|Automatic Retry|workflow dispatch fallback\"; \"i\"))] | length" 2>/dev/null || echo "0")
 
             if [ "$RECENT_FIX_COMMENT" -gt 0 ]; then
               echo "   ⏭️  Skipping - fix already triggered within last ${COOLDOWN_MINUTES} minutes"
