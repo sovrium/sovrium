@@ -7,55 +7,25 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { db, withSessionContext, SessionContextError } from '@/infrastructure/database'
-import { activityLogs } from '@/infrastructure/database/drizzle/schema/activity-log'
+import { withSessionContext, SessionContextError } from '@/infrastructure/database'
 import { generateSqlCondition } from '@/infrastructure/database/filter-operators'
+import { logActivity } from './activity-log-helpers'
 import {
   checkTableColumns,
   sanitizeFields,
   buildInsertClauses,
   executeInsert,
 } from './create-record-helpers'
+import {
+  cascadeSoftDelete,
+  fetchRecordBeforeDeletion,
+  executeSoftDelete,
+  executeHardDelete,
+  checkDeletedAtColumn,
+} from './delete-helpers'
 import { validateTableName, validateColumnName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { UniqueConstraintViolationError } from '@/infrastructure/database'
-
-/**
- * Log record creation activity (non-critical operation)
- */
-function logRecordCreation(
-  session: Readonly<Session>,
-  tableName: string,
-  createdRecord: Record<string, unknown>
-): Effect.Effect<void, never> {
-  return Effect.ignore(
-    Effect.tryPromise({
-      try: async () => {
-        // Get table ID from information_schema
-        const tableIdResult = (await db.execute(
-          sql`SELECT schemaname, tablename FROM pg_tables WHERE tablename = ${tableName} LIMIT 1`
-        )) as readonly Record<string, unknown>[]
-
-        // Use '1' as fallback table ID if not found in schema
-        const tableId = tableIdResult[0] ? '1' : '1'
-
-        // eslint-disable-next-line functional/no-expression-statements -- Database insert for logging is an acceptable side effect
-        await db.insert(activityLogs).values({
-          id: crypto.randomUUID(),
-          userId: session.userId,
-          action: 'create',
-          tableName,
-          tableId,
-          recordId: String(createdRecord.id),
-          changes: {
-            after: createdRecord,
-          },
-        })
-      },
-      catch: (error) => new SessionContextError('Failed to log activity', error),
-    })
-  )
-}
 
 /**
  * List all records from a table with session context
@@ -252,7 +222,13 @@ export function createRecord(
       const createdRecord = yield* executeInsert(tableName, columnsClause, valuesClause, tx)
 
       // Log activity for record creation (outside session context)
-      yield* logRecordCreation(session, tableName, createdRecord)
+      yield* logActivity({
+        session,
+        tableName,
+        action: 'create',
+        recordId: String(createdRecord.id),
+        changes: { after: createdRecord },
+      })
 
       return createdRecord
     })
@@ -317,71 +293,6 @@ export function updateRecord(
 }
 
 /**
- * Cascade soft delete to related records
- *
- * Helper function to cascade soft delete to child records based on onDelete: 'cascade' configuration
- */
-async function cascadeSoftDelete(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type is complex Drizzle type
-  tx: any,
-  tableName: string,
-  recordId: string,
-  app: {
-    readonly tables?: ReadonlyArray<{
-      readonly name: string
-      readonly fields: ReadonlyArray<{
-        readonly name: string
-        readonly type: string
-        readonly relatedTable?: string
-        readonly onDelete?: string
-      }>
-    }>
-  }
-): Promise<void> {
-  if (!app.tables) return
-
-  // Find all tables with relationship fields that reference this table with onDelete: 'cascade'
-  const relatedTables = app.tables.flatMap((table) =>
-    table.fields
-      .filter(
-        (field) =>
-          field.type === 'relationship' &&
-          field.relatedTable === tableName &&
-          field.onDelete === 'cascade'
-      )
-      .map((field) => ({
-        tableName: table.name,
-        fieldName: field.name,
-      }))
-  )
-
-  // Cascade soft delete to each related table
-  // eslint-disable-next-line functional/no-expression-statements -- Database updates for cascade delete are required side effects
-  await Promise.all(
-    relatedTables.map(async (relatedInfo) => {
-      const childTable = relatedInfo.tableName
-      const childColumn = relatedInfo.fieldName
-
-      validateTableName(childTable)
-      validateColumnName(childColumn)
-
-      // Check if child table has deleted_at column
-      const childColumnCheck = (await tx.execute(
-        sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${childTable} AND column_name = 'deleted_at'`
-      )) as readonly Record<string, unknown>[]
-
-      if (childColumnCheck.length > 0) {
-        // Cascade soft delete to related records
-        // eslint-disable-next-line functional/no-expression-statements -- Database update for cascade is required
-        await tx.execute(
-          sql`UPDATE ${sql.identifier(childTable)} SET deleted_at = NOW() WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL`
-        )
-      }
-    })
-  )
-}
-
-/**
  * Delete a record with session context (soft delete if deleted_at field exists)
  *
  * Implements soft delete pattern:
@@ -389,6 +300,7 @@ async function cascadeSoftDelete(
  * - If no deleted_at field: Performs hard delete
  * - RLS policies automatically applied via session context
  * - Cascade soft delete to related records if configured with onDelete: 'cascade'
+ * - Activity logging captures record state before deletion (non-blocking)
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
@@ -413,49 +325,48 @@ export function deleteRecord(
   }
 ): Effect.Effect<boolean, SessionContextError> {
   return withSessionContext(session, (tx) =>
-    Effect.tryPromise({
-      try: async () => {
-        validateTableName(tableName)
-        const tableIdent = sql.identifier(tableName)
+    Effect.gen(function* () {
+      validateTableName(tableName)
 
-        // Check if table has deleted_at column for soft delete
-        const columnCheck = (await tx.execute(
-          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
-        )) as readonly Record<string, unknown>[]
+      // Check if table supports soft delete
+      const hasSoftDelete = yield* checkDeletedAtColumn(tx, tableName)
 
-        if (columnCheck.length > 0) {
-          // Soft delete: set deleted_at timestamp (parameterized)
-          // Use RETURNING to check if update affected any rows (RLS may block access)
-          // Only update records that are NOT already soft-deleted (deleted_at IS NULL)
-          const result = (await tx.execute(
-            sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
-          )) as readonly Record<string, unknown>[]
+      // Fetch record before deletion for activity logging
+      const recordBeforeData = yield* fetchRecordBeforeDeletion(tx, tableName, recordId)
 
-          // If RLS blocked the update, result will be empty
-          if (result.length === 0) {
-            return false
-          }
+      if (hasSoftDelete) {
+        // Execute soft delete
+        const success = yield* executeSoftDelete(tx, tableName, recordId)
 
-          // Cascade soft delete to related records if configured and app schema is provided
-          if (app) {
-            // eslint-disable-next-line functional/no-expression-statements -- Cascade delete requires side effect
-            await cascadeSoftDelete(tx, tableName, recordId, app)
-          }
-
-          return true
-        } else {
-          // Hard delete: remove record (parameterized)
-          // Use RETURNING to check if delete affected any rows (RLS may block access)
-          const result = (await tx.execute(
-            sql`DELETE FROM ${tableIdent} WHERE id = ${recordId} RETURNING id`
-          )) as readonly Record<string, unknown>[]
-
-          // If RLS blocked the delete, result will be empty
-          return result.length > 0
+        if (!success) {
+          return false
         }
-      },
-      catch: (error) =>
-        new SessionContextError(`Failed to delete record ${recordId} from ${tableName}`, error),
+
+        // Cascade to related records if configured
+        if (app) {
+          yield* Effect.tryPromise({
+            try: () => cascadeSoftDelete(tx, tableName, recordId, app),
+            catch: (error) =>
+              new SessionContextError(`Failed to cascade delete for ${tableName}`, error),
+          })
+        }
+
+        // Log activity for soft delete
+        if (recordBeforeData) {
+          yield* logActivity({
+            session,
+            tableName,
+            action: 'delete',
+            recordId,
+            changes: { before: recordBeforeData },
+          })
+        }
+
+        return true
+      } else {
+        // Execute hard delete
+        return yield* executeHardDelete(tx, tableName, recordId)
+      }
     })
   )
 }
@@ -466,6 +377,7 @@ export function deleteRecord(
  * Permanently removes the record from the database, regardless of deleted_at field.
  * This operation is irreversible and should only be allowed for admin/owner roles.
  * RLS policies automatically applied via session context.
+ * Activity logging captures record state before deletion (non-blocking).
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
@@ -478,25 +390,31 @@ export function permanentlyDeleteRecord(
   recordId: string
 ): Effect.Effect<boolean, SessionContextError> {
   return withSessionContext(session, (tx) =>
-    Effect.tryPromise({
-      try: async () => {
-        validateTableName(tableName)
-        const tableIdent = sql.identifier(tableName)
+    Effect.gen(function* () {
+      validateTableName(tableName)
 
-        // Hard delete: remove record permanently (parameterized)
-        // Use RETURNING to check if delete affected any rows (RLS may block access)
-        const result = (await tx.execute(
-          sql`DELETE FROM ${tableIdent} WHERE id = ${recordId} RETURNING id`
-        )) as readonly Record<string, unknown>[]
+      // Fetch record before deletion for activity logging
+      const recordBeforeData = yield* fetchRecordBeforeDeletion(tx, tableName, recordId)
 
-        // If RLS blocked the delete, result will be empty
-        return result.length > 0
-      },
-      catch: (error) =>
-        new SessionContextError(
-          `Failed to permanently delete record ${recordId} from ${tableName}`,
-          error
-        ),
+      // Execute hard delete
+      const success = yield* executeHardDelete(tx, tableName, recordId)
+
+      if (!success) {
+        return false
+      }
+
+      // Log activity for permanent delete
+      if (recordBeforeData) {
+        yield* logActivity({
+          session,
+          tableName,
+          action: 'delete',
+          recordId,
+          changes: { before: recordBeforeData },
+        })
+      }
+
+      return true
     })
   )
 }

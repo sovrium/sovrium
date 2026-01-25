@@ -600,7 +600,7 @@ test.describe('Delete record', () => {
   // Activity Log Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-013: should create activity log entry when record is soft-deleted',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -657,10 +657,10 @@ test.describe('Delete record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-014: should create activity log entry when record is permanently deleted',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Admin user with permanent delete permission
       await startServerWithSchema({
         name: 'test-app',
@@ -678,9 +678,12 @@ test.describe('Delete record', () => {
         ],
       })
 
-      const { user } = await createAuthenticatedAdmin({
+      const { user } = await createAuthenticatedUser({
         email: 'admin@example.com',
       })
+
+      // Set user role to admin manually (permanent delete requires admin)
+      await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = $1`, [user.id])
 
       await executeQuery(`
         INSERT INTO logs (id, message) VALUES (1, 'Log entry')
@@ -710,10 +713,10 @@ test.describe('Delete record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-015: should capture user_id who deleted the record',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Two users with different permissions
       await startServerWithSchema({
         name: 'test-app',
@@ -731,9 +734,12 @@ test.describe('Delete record', () => {
         ],
       })
 
-      const { user: adminUser } = await createAuthenticatedAdmin({
+      const { user: adminUser } = await createAuthenticatedUser({
         email: 'admin@example.com',
       })
+
+      // Set user role to admin manually
+      await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = $1`, [adminUser.id])
 
       await executeQuery(`
         INSERT INTO items (id, name) VALUES (1, 'Item A')
