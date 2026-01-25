@@ -62,13 +62,14 @@ interface ListRecordsConfig {
     }[]
   }
   readonly includeDeleted?: boolean
+  readonly format?: 'display'
 }
 
 export function createListRecordsProgram(
   config: ListRecordsConfig
 ): Effect.Effect<ListRecordsResponse, SessionContextError> {
   return Effect.gen(function* () {
-    const { session, tableName, app, userRole, filter, includeDeleted } = config
+    const { session, tableName, app, userRole, filter, includeDeleted, format } = config
 
     // Query records with session context (RLS policies apply automatically)
     const records = yield* listRecords({ session, tableName, filter, includeDeleted })
@@ -82,7 +83,11 @@ export function createListRecordsProgram(
     )
 
     return {
-      records: transformRecords(filteredRecords) as TransformedRecord[],
+      records: transformRecords(filteredRecords, {
+        format,
+        app,
+        tableName,
+      }) as TransformedRecord[],
       pagination: {
         page: 1,
         limit: 10,
