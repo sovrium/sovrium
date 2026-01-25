@@ -460,7 +460,7 @@ test.describe('Delete record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-DELETE-011: should return 403 for member using permanent=true',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -487,7 +487,7 @@ test.describe('Delete record', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member attempts to permanently delete
-      const response = await request.delete('/api/tables/1/records/1?permanent=true', {})
+      const response = await request.delete('/api/tables/15/records/1?permanent=true', {})
 
       // THEN: Returns 403 Forbidden (only admin/owner can hard delete)
       expect(response.status()).toBe(403)
