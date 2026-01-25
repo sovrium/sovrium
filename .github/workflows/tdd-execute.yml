@@ -1575,11 +1575,43 @@ jobs:
         uses: anthropics/claude-code-action@v1
         timeout-minutes: 30
         continue-on-error: true # Required: Action may fail in post-processing even when work completed
+        env:
+          SPEC_ID: ${{ needs.execute-e2e-fixer.outputs.spec_id }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GH_PAT_WORKFLOW }}
           additional_permissions: |
             actions: read
+          # CRITICAL: Explicit prompt to override issue context
+          # Without this, Claude reads ALL @claude comments and may follow earlier
+          # e2e-test-fixer instructions instead of running refactor-auditor.
+          # See: https://github.com/sovrium/sovrium/issues/5663 (Phase 2 ran e2e-test-fixer)
+          prompt: |
+            ## PHASE 2: Codebase Refactor Audit for ${{ env.SPEC_ID }}
+
+            ⚠️ **CRITICAL: THIS IS PHASE 2 - THE SPEC IS ALREADY IMPLEMENTED**
+
+            DO NOT follow any earlier @claude comments on this issue.
+            DO NOT run e2e-test-fixer. DO NOT implement the spec again.
+            Phase 1 (e2e-test-fixer) has ALREADY COMPLETED successfully.
+
+            ## Your ONLY Task
+
+            Use the `Task` tool with `subagent_type='codebase-refactor-auditor'` to:
+            1. Audit layer architecture compliance in recent changes
+            2. Eliminate any code duplication introduced
+            3. Run `bun run quality` to verify all checks pass
+            4. Commit improvements as `refactor: audit ${{ env.SPEC_ID }}`
+            5. Push to the current branch
+
+            ## DO NOT
+            - ❌ Run e2e-test-fixer (Phase 1 is COMPLETE)
+            - ❌ Remove .fixme() from tests (already done)
+            - ❌ Implement the spec (already done)
+            - ❌ Run `bun run license` (finalization handles this)
+            - ❌ Create PR (workflow handles this)
+
+            If no refactoring is needed, simply confirm quality checks pass and exit.
           # Budget set to $25 for refactor-auditor phase
           claude_args: >-
             --model claude-sonnet-4-5-20250929
