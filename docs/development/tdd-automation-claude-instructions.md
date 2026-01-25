@@ -98,8 +98,48 @@ Skip refactor-auditor if:
 - [ ] `bun test:e2e:regression` passes
 - [ ] `bun run license` (copyright headers)
 - [ ] Committed and pushed
+- [ ] **Push verified** (see section below)
 - [ ] Pre-PR checks pass
 - [ ] **PR created** with `tdd-automation` label
+
+## Mandatory Push Verification
+
+> **CRITICAL**: Never report success without confirming the push succeeded.
+
+After committing, you MUST verify the push with this exact sequence:
+
+```bash
+# 1. Push to remote
+git push origin <branch-name>
+
+# 2. Verify push succeeded (REQUIRED)
+git ls-remote origin <branch-name>
+```
+
+**Expected Output**: If push succeeded, you'll see the commit SHA and branch ref:
+
+```
+a1b2c3d4e5f6...  refs/heads/claude/issue-1234-1234567890
+```
+
+**If No Output**: The push failed silently. Retry:
+
+```bash
+git push origin <branch-name> --verbose
+```
+
+### Common Push Errors
+
+| Error                                 | Cause                    | Fix                                             |
+| ------------------------------------- | ------------------------ | ----------------------------------------------- |
+| `fatal: remote origin already exists` | Remote misconfigured     | `git remote set-url origin https://...`         |
+| `error: failed to push some refs`     | Remote has newer commits | `git pull --rebase origin <branch> && git push` |
+| `Permission denied`                   | Token expired            | Check GH_TOKEN is valid                         |
+| No output from `git ls-remote`        | Push didn't complete     | Re-run `git push`                               |
+
+### Rule
+
+**⚠️ NEVER report "success" or "completed" without seeing the `git ls-remote` output confirming the branch exists on remote.**
 
 ## Critical Rules
 
