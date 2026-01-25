@@ -7,6 +7,7 @@
 
 import {
   handleListRecords,
+  handleListTrash,
   handleCreateRecord,
   handleGetRecord,
   handleUpdateRecord,
@@ -21,6 +22,7 @@ import type { Hono } from 'hono'
 export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
   return honoApp
     .get('/api/tables/:tableId/records', (c) => handleListRecords(c, app))
+    .get('/api/tables/:tableId/trash', (c) => handleListTrash(c, app))
     .post('/api/tables/:tableId/records', (c) => handleCreateRecord(c, app))
     .get('/api/tables/:tableId/records/:recordId', (c) => handleGetRecord(c, app))
     .patch('/api/tables/:tableId/records/:recordId', (c) => handleUpdateRecord(c, app))

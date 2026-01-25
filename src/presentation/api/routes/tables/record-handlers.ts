@@ -12,6 +12,7 @@ import {
 } from '@/application/use-cases/tables/permissions/permissions'
 import {
   createListRecordsProgram,
+  createListTrashProgram,
   createGetRecordProgram,
   createRecordProgram,
   restoreRecordProgram,
@@ -68,6 +69,17 @@ export async function handleListRecords(c: Context, app: App) {
   return runEffect(
     c,
     createListRecordsProgram({ session, tableName, app, userRole, filter: parsedFilter }),
+    listRecordsResponseSchema
+  )
+}
+
+export async function handleListTrash(c: Context, app: App) {
+  // Session, tableName, and userRole are guaranteed by middleware chain
+  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
+
+  return runEffect(
+    c,
+    createListTrashProgram({ session, tableName, app, userRole }),
     listRecordsResponseSchema
   )
 }
@@ -225,7 +237,9 @@ export async function handleDeleteRecord(c: Context, app: App) {
   }
 
   // Regular soft delete
-  const deleteResult = await Effect.runPromise(deleteRecordProgram(session, tableName, recordId))
+  const deleteResult = await Effect.runPromise(
+    deleteRecordProgram(session, tableName, recordId, app)
+  )
 
   if (!deleteResult) {
     return c.json({ error: 'Record not found' }, 404)

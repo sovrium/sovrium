@@ -84,6 +84,13 @@ export function listRecords(
       try: async () => {
         validateTableName(tableName)
 
+        // Check if table has deleted_at column to filter soft-deleted records
+        const columnCheck = (await tx.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
+        )) as readonly Record<string, unknown>[]
+
+        const hasDeletedAt = columnCheck.length > 0
+
         // Add user-provided filters (static import - no performance overhead)
         const userFilterConditions =
           filter?.and && filter.and.length > 0
@@ -100,7 +107,10 @@ export function listRecords(
               })()
             : []
 
-        const conditions = userFilterConditions
+        // Add soft delete filter if table has deleted_at column
+        const softDeleteCondition = hasDeletedAt ? ['deleted_at IS NULL'] : []
+
+        const conditions = [...userFilterConditions, ...softDeleteCondition]
 
         // Build final query
         const whereClause =
@@ -113,6 +123,48 @@ export function listRecords(
         return result as readonly Record<string, unknown>[]
       },
       catch: (error) => new SessionContextError(`Failed to list records from ${tableName}`, error),
+    })
+  )
+}
+
+/**
+ * List soft-deleted records from a table with session context
+ *
+ * Returns all accessible soft-deleted records (RLS policies apply automatically via session context).
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table to query
+ * @returns Effect resolving to array of soft-deleted records
+ */
+export function listTrash(
+  session: Readonly<Session>,
+  tableName: string
+): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+  return withSessionContext(session, (tx) =>
+    Effect.tryPromise({
+      try: async () => {
+        validateTableName(tableName)
+
+        // Check if table has deleted_at column
+        const columnCheck = (await tx.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
+        )) as readonly Record<string, unknown>[]
+
+        const hasDeletedAt = columnCheck.length > 0
+
+        if (!hasDeletedAt) {
+          // If table doesn't have deleted_at, return empty array (no soft-deleted records)
+          return []
+        }
+
+        // Only fetch soft-deleted records (deleted_at IS NOT NULL)
+        const result = await tx.execute(
+          sql`SELECT * FROM ${sql.identifier(tableName)} WHERE deleted_at IS NOT NULL`
+        )
+
+        return result as readonly Record<string, unknown>[]
+      },
+      catch: (error) => new SessionContextError(`Failed to list trash from ${tableName}`, error),
     })
   )
 }
@@ -260,22 +312,100 @@ export function updateRecord(
 }
 
 /**
+ * Cascade soft delete to related records
+ *
+ * Helper function to cascade soft delete to child records based on onDelete: 'cascade' configuration
+ */
+async function cascadeSoftDelete(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type is complex Drizzle type
+  tx: any,
+  tableName: string,
+  recordId: string,
+  app: {
+    readonly tables?: ReadonlyArray<{
+      readonly name: string
+      readonly fields: ReadonlyArray<{
+        readonly name: string
+        readonly type: string
+        readonly relatedTable?: string
+        readonly onDelete?: string
+      }>
+    }>
+  }
+): Promise<void> {
+  if (!app.tables) return
+
+  // Find all tables with relationship fields that reference this table with onDelete: 'cascade'
+  const relatedTables = app.tables.flatMap((table) =>
+    table.fields
+      .filter(
+        (field) =>
+          field.type === 'relationship' &&
+          field.relatedTable === tableName &&
+          field.onDelete === 'cascade'
+      )
+      .map((field) => ({
+        tableName: table.name,
+        fieldName: field.name,
+      }))
+  )
+
+  // Cascade soft delete to each related table
+  // eslint-disable-next-line functional/no-expression-statements -- Database updates for cascade delete are required side effects
+  await Promise.all(
+    relatedTables.map(async (relatedInfo) => {
+      const childTable = relatedInfo.tableName
+      const childColumn = relatedInfo.fieldName
+
+      validateTableName(childTable)
+      validateColumnName(childColumn)
+
+      // Check if child table has deleted_at column
+      const childColumnCheck = (await tx.execute(
+        sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${childTable} AND column_name = 'deleted_at'`
+      )) as readonly Record<string, unknown>[]
+
+      if (childColumnCheck.length > 0) {
+        // Cascade soft delete to related records
+        // eslint-disable-next-line functional/no-expression-statements -- Database update for cascade is required
+        await tx.execute(
+          sql`UPDATE ${sql.identifier(childTable)} SET deleted_at = NOW() WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL`
+        )
+      }
+    })
+  )
+}
+
+/**
  * Delete a record with session context (soft delete if deleted_at field exists)
  *
  * Implements soft delete pattern:
  * - If table has deleted_at field: Sets deleted_at to NOW() (soft delete)
  * - If no deleted_at field: Performs hard delete
  * - RLS policies automatically applied via session context
+ * - Cascade soft delete to related records if configured with onDelete: 'cascade'
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
  * @param recordId - Record ID
+ * @param app - App schema (optional, for cascade delete logic)
  * @returns Effect resolving to success boolean
  */
 export function deleteRecord(
   session: Readonly<Session>,
   tableName: string,
-  recordId: string
+  recordId: string,
+  app?: {
+    readonly tables?: ReadonlyArray<{
+      readonly name: string
+      readonly fields: ReadonlyArray<{
+        readonly name: string
+        readonly type: string
+        readonly relatedTable?: string
+        readonly onDelete?: string
+      }>
+    }>
+  }
 ): Effect.Effect<boolean, SessionContextError> {
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
@@ -296,7 +426,17 @@ export function deleteRecord(
           )) as readonly Record<string, unknown>[]
 
           // If RLS blocked the update, result will be empty
-          return result.length > 0
+          if (result.length === 0) {
+            return false
+          }
+
+          // Cascade soft delete to related records if configured and app schema is provided
+          if (app) {
+            // eslint-disable-next-line functional/no-expression-statements -- Cascade delete requires side effect
+            await cascadeSoftDelete(tx, tableName, recordId, app)
+          }
+
+          return true
         } else {
           // Hard delete: remove record (parameterized)
           // Use RETURNING to check if delete affected any rows (RLS may block access)

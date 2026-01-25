@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { SessionContextError } from '@/infrastructure/database/session-context'
 import {
   listRecords,
+  listTrash,
   getRecord,
   createRecord,
   updateRecord,
@@ -74,6 +75,42 @@ export function createListRecordsProgram(
     // Apply field-level read permissions filtering
     // Note: Row-level ownership filtering is handled by RLS policies
     // Field-level filtering is handled at application layer
+    const { userId } = session
+    const filteredRecords = records.map((record) =>
+      filterReadableFields({ app, tableName, userRole, userId, record })
+    )
+
+    return {
+      records: transformRecords(filteredRecords) as TransformedRecord[],
+      pagination: {
+        page: 1,
+        limit: 10,
+        total: filteredRecords.length,
+        totalPages: Math.ceil(filteredRecords.length / 10),
+        hasNextPage: false,
+        hasPreviousPage: false,
+      },
+    }
+  })
+}
+
+interface ListTrashConfig {
+  readonly session: Readonly<Session>
+  readonly tableName: string
+  readonly app: App
+  readonly userRole: string
+}
+
+export function createListTrashProgram(
+  config: ListTrashConfig
+): Effect.Effect<ListRecordsResponse, SessionContextError> {
+  return Effect.gen(function* () {
+    const { session, tableName, app, userRole } = config
+
+    // Query soft-deleted records with session context (RLS policies apply automatically)
+    const records = yield* listTrash(session, tableName)
+
+    // Apply field-level read permissions filtering
     const { userId } = session
     const filteredRecords = records.map((record) =>
       filterReadableFields({ app, tableName, userRole, userId, record })
@@ -275,9 +312,10 @@ export function rawGetRecordProgram(
 export function deleteRecordProgram(
   session: Readonly<Session>,
   tableName: string,
-  recordId: string
+  recordId: string,
+  app?: App
 ): Effect.Effect<boolean, SessionContextError> {
-  return deleteRecord(session, tableName, recordId)
+  return deleteRecord(session, tableName, recordId, app)
 }
 
 /**
