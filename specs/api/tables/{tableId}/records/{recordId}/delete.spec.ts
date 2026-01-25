@@ -245,7 +245,7 @@ test.describe('Delete record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-DELETE-007: should return 204 for admin with full access',
+    'API-TABLES-RECORDS-DELETE-006: should return 204 for admin with full access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: An admin user with full delete permissions
@@ -290,7 +290,7 @@ test.describe('Delete record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-DELETE-008: should return 204 for owner with full access',
+    'API-TABLES-RECORDS-DELETE-007: should return 204 for owner with full access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: An owner user with full delete permissions
@@ -340,7 +340,7 @@ test.describe('Delete record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-009: should return 404 when deleting already soft-deleted record',
+    'API-TABLES-RECORDS-DELETE-008: should return 404 when deleting already soft-deleted record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: A soft-deleted record exists
@@ -379,7 +379,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-012: should set deleted_at to current timestamp',
+    'API-TABLES-RECORDS-DELETE-009: should set deleted_at to current timestamp',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: An active record exists
@@ -422,7 +422,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-013: should hard delete with permanent=true query param (admin only)',
+    'API-TABLES-RECORDS-DELETE-010: should hard delete with permanent=true query param (admin only)',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: An admin user and an active record
@@ -460,7 +460,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-014: should return 403 for member using permanent=true',
+    'API-TABLES-RECORDS-DELETE-011: should return 403 for member using permanent=true',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: A member user (without permanent delete permission)
@@ -502,7 +502,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-015: should cascade soft delete to related records when configured',
+    'API-TABLES-RECORDS-DELETE-012: should cascade soft delete to related records when configured',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Two tables with relationship (contacts → tasks) and cascade delete configured
@@ -594,7 +594,7 @@ test.describe('Delete record', () => {
   // ============================================================================
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-016: should create activity log entry when record is soft-deleted',
+    'API-TABLES-RECORDS-DELETE-013: should create activity log entry when record is soft-deleted',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Application with auth and activity logging configured
@@ -651,7 +651,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-017: should create activity log entry when record is permanently deleted',
+    'API-TABLES-RECORDS-DELETE-014: should create activity log entry when record is permanently deleted',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: Admin user with permanent delete permission
@@ -704,7 +704,7 @@ test.describe('Delete record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-DELETE-018: should capture user_id who deleted the record',
+    'API-TABLES-RECORDS-DELETE-015: should capture user_id who deleted the record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: Two users with different permissions
