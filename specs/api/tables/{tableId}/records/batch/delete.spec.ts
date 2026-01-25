@@ -114,7 +114,7 @@ test.describe('Batch delete records', () => {
       `)
 
       // WHEN: Batch delete includes ID=1 (exists) and ID=9999 (not found)
-      const response = await request.delete('/api/tables/1/records/batch', {
+      const response = await request.delete('/api/tables/2/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -160,7 +160,7 @@ test.describe('Batch delete records', () => {
 
       // WHEN: Batch delete request exceeds 1000 ID limit
       const ids = Array.from({ length: 1001 }, (_, i) => i + 1)
-      const response = await request.delete('/api/tables/1/records/batch', {
+      const response = await request.delete('/api/tables/3/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -203,7 +203,7 @@ test.describe('Batch delete records', () => {
       `)
 
       // WHEN: User attempts batch delete without auth token
-      const response = await request.delete('/api/tables/1/records/batch', {
+      const response = await request.delete('/api/tables/4/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -250,7 +250,7 @@ test.describe('Batch delete records', () => {
       `)
 
       // WHEN: Member attempts batch delete
-      const response = await request.delete('/api/tables/1/records/batch', {
+      const response = await request.delete('/api/tables/5/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -301,7 +301,7 @@ test.describe('Batch delete records', () => {
       `)
 
       // WHEN: Viewer attempts batch delete
-      const response = await request.delete('/api/tables/1/records/batch', {
+      const response = await request.delete('/api/tables/6/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -348,7 +348,7 @@ test.describe('Batch delete records', () => {
       `)
 
       // WHEN: Admin batch deletes records
-      const response = await request.delete('/api/tables/1/records/batch', {
+      const response = await request.delete('/api/tables/8/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -406,7 +406,7 @@ test.describe('Batch delete records', () => {
       `)
 
       // WHEN: Owner batch deletes records
-      const response = await request.delete('/api/tables/1/records/batch', {
+      const response = await request.delete('/api/tables/9/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -461,7 +461,7 @@ test.describe('Batch delete records', () => {
       `)
 
       // WHEN: Batch delete includes both active and already-deleted records
-      const response = await request.delete('/api/tables/1/records/batch', {
+      const response = await request.delete('/api/tables/12/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -513,7 +513,7 @@ test.describe('Batch delete records', () => {
       `)
 
       // WHEN: Admin batch deletes with permanent=true
-      const response = await request.delete('/api/tables/1/records/batch?permanent=true', {
+      const response = await request.delete('/api/tables/13/records/batch?permanent=true', {
         headers: {
           'Content-Type': 'application/json',
         },

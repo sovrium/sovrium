@@ -96,7 +96,7 @@ test.describe('Get single comment by ID', () => {
       `)
 
       // WHEN: User requests non-existent comment
-      const response = await request.get('/api/tables/1/records/1/comments/nonexistent', {})
+      const response = await request.get('/api/tables/2/records/1/comments/nonexistent', {})
 
       // THEN: Returns 404 Not Found
       expect(response.status()).toBe(404)
@@ -131,7 +131,7 @@ test.describe('Get single comment by ID', () => {
       `)
 
       // WHEN: Unauthenticated user attempts to fetch comment
-      const response = await request.get('/api/tables/1/records/1/comments/comment_1')
+      const response = await request.get('/api/tables/3/records/1/comments/comment_1')
 
       // THEN: Returns 401 Unauthorized
       expect(response.status()).toBe(401)
@@ -167,7 +167,7 @@ test.describe('Get single comment by ID', () => {
       `)
 
       // WHEN: User from org_123 attempts to fetch comment from org_456
-      const response = await request.get('/api/tables/1/records/1/comments/comment_1', {
+      const response = await request.get('/api/tables/4/records/1/comments/comment_1', {
         headers: {},
       })
 
@@ -205,7 +205,7 @@ test.describe('Get single comment by ID', () => {
       `)
 
       // WHEN: User attempts to fetch soft-deleted comment
-      const response = await request.get('/api/tables/1/records/1/comments/comment_1', {})
+      const response = await request.get('/api/tables/5/records/1/comments/comment_1', {})
 
       // THEN: Returns 404 Not Found (soft-deleted comments are hidden)
       expect(response.status()).toBe(404)
@@ -241,7 +241,7 @@ test.describe('Get single comment by ID', () => {
       `)
 
       // WHEN: User without permission attempts to fetch comment
-      const response = await request.get('/api/tables/1/records/1/comments/comment_1', {})
+      const response = await request.get('/api/tables/6/records/1/comments/comment_1', {})
 
       // THEN: Returns 403 Forbidden
       expect(response.status()).toBe(403)
@@ -280,7 +280,7 @@ test.describe('Get single comment by ID', () => {
       `)
 
       // WHEN: User fetches the edited comment
-      const response = await request.get('/api/tables/1/records/1/comments/comment_1', {})
+      const response = await request.get('/api/tables/7/records/1/comments/comment_1', {})
 
       // THEN: updatedAt is more recent than createdAt
       expect(response.status()).toBe(200)
@@ -330,7 +330,7 @@ test.describe('Get single comment by ID', () => {
           `)
 
         // WHEN: User requests comment by ID
-        const response = await request.get('/api/tables/1/records/1/comments/comment_1', {})
+        const response = await request.get('/api/tables/8/records/1/comments/comment_1', {})
 
         // THEN: Returns 200 with complete comment data including user metadata
         expect(response.status()).toBe(200)
@@ -353,7 +353,7 @@ test.describe('Get single comment by ID', () => {
 
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-002: Returns 404 for non-existent comment', async () => {
         // WHEN: User requests non-existent comment
-        const response = await request.get('/api/tables/1/records/1/comments/nonexistent', {})
+        const response = await request.get('/api/tables/8/records/1/comments/nonexistent', {})
 
         // THEN: Returns 404 Not Found
         expect(response.status()).toBe(404)
@@ -370,7 +370,7 @@ test.describe('Get single comment by ID', () => {
           `)
 
         // WHEN: Unauthenticated user attempts to fetch comment
-        const response = await request.get('/api/tables/1/records/1/comments/comment_2')
+        const response = await request.get('/api/tables/8/records/1/comments/comment_2')
 
         // THEN: Returns 401 Unauthorized
         expect(response.status()).toBe(401)
@@ -384,7 +384,7 @@ test.describe('Get single comment by ID', () => {
           `)
 
         // WHEN: User from org_123 attempts to fetch comment from org_456
-        const response = await request.get('/api/tables/1/records/1/comments/comment_3', {
+        const response = await request.get('/api/tables/8/records/1/comments/comment_3', {
           headers: {},
         })
 
@@ -403,7 +403,7 @@ test.describe('Get single comment by ID', () => {
           `)
 
         // WHEN: User attempts to fetch soft-deleted comment
-        const response = await request.get('/api/tables/1/records/1/comments/comment_4', {})
+        const response = await request.get('/api/tables/8/records/1/comments/comment_4', {})
 
         // THEN: Returns 404 Not Found (soft-deleted comments are hidden)
         expect(response.status()).toBe(404)
@@ -420,7 +420,7 @@ test.describe('Get single comment by ID', () => {
           `)
 
         // WHEN: User without permission attempts to fetch comment
-        const response = await request.get('/api/tables/1/records/1/comments/comment_5', {})
+        const response = await request.get('/api/tables/8/records/1/comments/comment_5', {})
 
         // THEN: Returns 403 Forbidden
         expect(response.status()).toBe(403)
@@ -437,7 +437,7 @@ test.describe('Get single comment by ID', () => {
           `)
 
         // WHEN: User fetches the edited comment
-        const response = await request.get('/api/tables/1/records/1/comments/comment_6', {})
+        const response = await request.get('/api/tables/8/records/1/comments/comment_6', {})
 
         // THEN: updatedAt is more recent than createdAt
         expect(response.status()).toBe(200)

@@ -107,7 +107,7 @@ test.describe('Include Deleted query parameter', () => {
       `)
 
       // WHEN: User requests records with includeDeleted=true
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/2/records', {
         params: {
           includeDeleted: 'true',
         },
@@ -155,7 +155,7 @@ test.describe('Include Deleted query parameter', () => {
       `)
 
       // WHEN: Member requests records with includeDeleted=true
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/3/records', {
         params: {
           includeDeleted: 'true',
         },
@@ -209,7 +209,7 @@ test.describe('Include Deleted query parameter', () => {
       await executeQuery(`INSERT INTO records (id, name, deleted_at) VALUES ${deletedInserts}`)
 
       // WHEN: User requests records without includeDeleted (default behavior)
-      const defaultResponse = await request.get('/api/tables/1/records', {
+      const defaultResponse = await request.get('/api/tables/4/records', {
         params: {
           limit: '10',
         },
@@ -222,7 +222,7 @@ test.describe('Include Deleted query parameter', () => {
       expect(defaultData.pagination.total).toBe(30) // Only active records counted
 
       // WHEN: User requests records with includeDeleted=true
-      const includedResponse = await request.get('/api/tables/1/records', {
+      const includedResponse = await request.get('/api/tables/4/records', {
         params: {
           limit: '10',
           includeDeleted: 'true',

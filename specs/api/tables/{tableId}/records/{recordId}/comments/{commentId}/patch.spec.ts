@@ -117,7 +117,7 @@ test.describe('Update comment', () => {
       `)
 
       // WHEN: User updates comment with new @mention
-      const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+      const response = await request.patch('/api/tables/2/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -160,7 +160,7 @@ test.describe('Update comment', () => {
       `)
 
       // WHEN: User attempts to update with empty content
-      const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+      const response = await request.patch('/api/tables/3/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -205,7 +205,7 @@ test.describe('Update comment', () => {
 
       // WHEN: User attempts to update with content exceeding max length
       const longContent = 'a'.repeat(10_001)
-      const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+      const response = await request.patch('/api/tables/4/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -249,7 +249,7 @@ test.describe('Update comment', () => {
       `)
 
       // WHEN: Unauthenticated user attempts to update comment
-      const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+      const response = await request.patch('/api/tables/5/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -294,7 +294,7 @@ test.describe('Update comment', () => {
       `)
 
       // WHEN: Different user attempts to edit comment
-      const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+      const response = await request.patch('/api/tables/6/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -334,7 +334,7 @@ test.describe('Update comment', () => {
       `)
 
       // WHEN: User attempts to update non-existent comment
-      const response = await request.patch('/api/tables/1/records/1/comments/nonexistent', {
+      const response = await request.patch('/api/tables/7/records/1/comments/nonexistent', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -380,7 +380,7 @@ test.describe('Update comment', () => {
       `)
 
       // WHEN: User from org_123 attempts to update comment from org_456
-      const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+      const response = await request.patch('/api/tables/8/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -423,7 +423,7 @@ test.describe('Update comment', () => {
       `)
 
       // WHEN: User attempts to update soft-deleted comment
-      const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+      const response = await request.patch('/api/tables/9/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -470,7 +470,7 @@ test.describe('Update comment', () => {
       `)
 
       // WHEN: User updates their comment
-      const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+      const response = await request.patch('/api/tables/10/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -542,7 +542,7 @@ test.describe('Update comment', () => {
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-001: Return 200 with updated comment data', async () => {
-        const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+        const response = await request.patch('/api/tables/11/records/1/comments/comment_1', {
           headers: { 'Content-Type': 'application/json' },
           data: { content: 'Updated comment text' },
         })
@@ -564,7 +564,7 @@ test.describe('Update comment', () => {
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-002: Update @mentions in content', async () => {
-        const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+        const response = await request.patch('/api/tables/11/records/1/comments/comment_1', {
           headers: { 'Content-Type': 'application/json' },
           data: { content: 'Actually, @[user_3] should review this instead' },
         })
@@ -576,7 +576,7 @@ test.describe('Update comment', () => {
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-003: Return 400 Bad Request for empty content', async () => {
-        const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+        const response = await request.patch('/api/tables/11/records/1/comments/comment_1', {
           headers: { 'Content-Type': 'application/json' },
           data: { content: '' },
         })
@@ -590,7 +590,7 @@ test.describe('Update comment', () => {
 
       await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-004: Return 400 Bad Request for content too long', async () => {
         const longContent = 'a'.repeat(10_001)
-        const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+        const response = await request.patch('/api/tables/11/records/1/comments/comment_1', {
           headers: { 'Content-Type': 'application/json' },
           data: { content: longContent },
         })
@@ -606,7 +606,7 @@ test.describe('Update comment', () => {
       await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-005: Return 401 Unauthorized', async () => {
         // Create new request context without authentication
         const unauthRequest = request
-        const response = await unauthRequest.patch('/api/tables/1/records/1/comments/comment_1', {
+        const response = await unauthRequest.patch('/api/tables/11/records/1/comments/comment_1', {
           headers: { 'Content-Type': 'application/json' },
           data: { content: 'Trying to update without auth' },
         })
@@ -615,7 +615,7 @@ test.describe('Update comment', () => {
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-006: Return 403 Forbidden for different user', async () => {
-        const response = await request.patch('/api/tables/1/records/1/comments/comment_2', {
+        const response = await request.patch('/api/tables/11/records/1/comments/comment_2', {
           headers: { 'Content-Type': 'application/json' },
           data: { content: 'Alice trying to edit Bobs comment' },
         })
@@ -628,7 +628,7 @@ test.describe('Update comment', () => {
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-007: Return 404 Not Found for nonexistent comment', async () => {
-        const response = await request.patch('/api/tables/1/records/1/comments/nonexistent', {
+        const response = await request.patch('/api/tables/11/records/1/comments/nonexistent', {
           headers: { 'Content-Type': 'application/json' },
           data: { content: 'Trying to update non-existent comment' },
         })
@@ -640,7 +640,7 @@ test.describe('Update comment', () => {
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-008: Return 404 Not Found for cross-organization access', async () => {
-        const response = await request.patch('/api/tables/1/records/2/comments/comment_4', {
+        const response = await request.patch('/api/tables/11/records/2/comments/comment_4', {
           headers: { 'Content-Type': 'application/json' },
           data: { content: 'Cross-org update attempt' },
         })
@@ -652,7 +652,7 @@ test.describe('Update comment', () => {
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-009: Return 404 Not Found for soft-deleted comment', async () => {
-        const response = await request.patch('/api/tables/1/records/1/comments/comment_3', {
+        const response = await request.patch('/api/tables/11/records/1/comments/comment_3', {
           headers: { 'Content-Type': 'application/json' },
           data: { content: 'Trying to update deleted comment' },
         })
@@ -664,7 +664,7 @@ test.describe('Update comment', () => {
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-010: Include user metadata in response', async () => {
-        const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
+        const response = await request.patch('/api/tables/11/records/1/comments/comment_1', {
           headers: { 'Content-Type': 'application/json' },
           data: { content: 'Final update with metadata check' },
         })

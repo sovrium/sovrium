@@ -93,7 +93,7 @@ test.describe('Get record by ID', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests non-existent record
-      const response = await request.get('/api/tables/1/records/9999', {})
+      const response = await request.get('/api/tables/2/records/9999', {})
 
       // THEN: Returns 404 Not Found
       expect(response.status()).toBe(404)
@@ -129,7 +129,7 @@ test.describe('Get record by ID', () => {
       `)
 
       // WHEN: User attempts to fetch a record without auth token
-      const response = await request.get('/api/tables/1/records/1')
+      const response = await request.get('/api/tables/3/records/1')
 
       // THEN: Returns 401 Unauthorized error
       expect(response.status()).toBe(401)
@@ -161,7 +161,7 @@ test.describe('Get record by ID', () => {
       await createAuthenticatedViewer()
 
       // WHEN: User without permission attempts to fetch record
-      const response = await request.get('/api/tables/1/records/1', {})
+      const response = await request.get('/api/tables/4/records/1', {})
 
       // THEN: Returns 403 Forbidden
       expect(response.status()).toBe(403)
@@ -201,7 +201,7 @@ test.describe('Get record by ID', () => {
       await createAuthenticatedAdmin()
 
       // WHEN: Admin requests record
-      const response = await request.get('/api/tables/1/records/1', {})
+      const response = await request.get('/api/tables/6/records/1', {})
 
       // THEN: Returns all fields including salary
       expect(response.status()).toBe(200)
@@ -245,7 +245,7 @@ test.describe('Get record by ID', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member requests record
-      const response = await request.get('/api/tables/1/records/1', {})
+      const response = await request.get('/api/tables/7/records/1', {})
 
       // THEN: Returns record without salary field
       expect(response.status()).toBe(200)
@@ -289,7 +289,7 @@ test.describe('Get record by ID', () => {
       await createAuthenticatedViewer()
 
       // WHEN: Viewer requests record
-      const response = await request.get('/api/tables/1/records/1', {})
+      const response = await request.get('/api/tables/8/records/1', {})
 
       // THEN: Returns only permitted fields
       expect(response.status()).toBe(200)
@@ -333,7 +333,7 @@ test.describe('Get record by ID', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests record
-      const response = await request.get('/api/tables/1/records/1', {})
+      const response = await request.get('/api/tables/10/records/1', {})
 
       // THEN: Returns readonly fields in response (can read but not write)
       expect(response.status()).toBe(200)
@@ -378,7 +378,7 @@ test.describe('Get record by ID', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests a soft-deleted record without includeDeleted param
-      const response = await request.get('/api/tables/1/records/1', {})
+      const response = await request.get('/api/tables/11/records/1', {})
 
       // THEN: Returns 404 Not Found (soft-deleted records are hidden by default)
       expect(response.status()).toBe(404)
@@ -417,7 +417,7 @@ test.describe('Get record by ID', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests a soft-deleted record with includeDeleted=true
-      const response = await request.get('/api/tables/1/records/1', {
+      const response = await request.get('/api/tables/12/records/1', {
         params: {
           includeDeleted: 'true',
         },

@@ -134,7 +134,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests records with filter for status=active
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/2/records', {
         params: {
           filter: JSON.stringify({
             and: [{ field: 'status', operator: 'equals', value: 'active' }],
@@ -183,7 +183,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests records sorted by priority descending
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/3/records', {
         params: {
           sort: 'priority:desc',
         },
@@ -231,7 +231,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests only specific fields
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/4/records', {
         params: {
           fields: 'id,name,email',
         },
@@ -275,7 +275,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests with limit=20 and offset=40
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/5/records', {
         params: {
           limit: '20',
           offset: '40',
@@ -325,7 +325,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests records with view parameter
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/6/records', {
         params: {
           view: 'active_only',
         },
@@ -371,7 +371,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests records grouped by status field
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/7/records', {
         params: {
           groupBy: 'status',
         },
@@ -418,7 +418,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests with aggregations (count, sum, avg)
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/8/records', {
         params: {
           aggregate: JSON.stringify({
             count: true,
@@ -472,7 +472,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedUser()
 
       // WHEN: User filters by Airtable-style formula
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/9/records', {
         params: {
           filterByFormula: "AND({status}='active', {priority}>=3)",
         },
@@ -519,7 +519,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedUser()
 
       // WHEN: User sorts by priority desc, then created_at desc
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/10/records', {
         params: {
           sort: 'priority:desc,created_at:desc',
         },
@@ -567,7 +567,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedUser()
 
       // WHEN: User combines view and explicit filter
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/11/records', {
         params: {
           view: 'active_only',
           filter: JSON.stringify({
@@ -599,7 +599,7 @@ test.describe('List records in table', () => {
       })
 
       // WHEN: Unauthenticated user requests records
-      const response = await request.get('/api/tables/1/records')
+      const response = await request.get('/api/tables/12/records')
 
       // THEN: Returns 401 Unauthorized
       expect(response.status()).toBe(401)
@@ -627,7 +627,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedViewer()
 
       // WHEN: User without permission requests records
-      const response = await request.get('/api/tables/1/records', {})
+      const response = await request.get('/api/tables/13/records', {})
 
       // THEN: Returns 403 Forbidden
       expect(response.status()).toBe(403)
@@ -663,7 +663,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedAdmin()
 
       // WHEN: Admin requests records
-      const response = await request.get('/api/tables/1/records', {})
+      const response = await request.get('/api/tables/15/records', {})
 
       // THEN: Returns all fields including salary
       expect(response.status()).toBe(200)
@@ -703,7 +703,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member requests records
-      const response = await request.get('/api/tables/1/records', {})
+      const response = await request.get('/api/tables/16/records', {})
 
       // THEN: Returns records without salary field
       expect(response.status()).toBe(200)
@@ -746,7 +746,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedViewer()
 
       // WHEN: Viewer requests records
-      const response = await request.get('/api/tables/1/records', {})
+      const response = await request.get('/api/tables/17/records', {})
 
       // THEN: Returns only permitted fields
       expect(response.status()).toBe(200)
@@ -781,7 +781,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests records (empty table)
-      const response = await request.get('/api/tables/1/records', {})
+      const response = await request.get('/api/tables/20/records', {})
 
       // THEN: Returns 200 with empty array
       expect(response.status()).toBe(200)
@@ -825,7 +825,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedUser()
 
       // WHEN: Member requests paginated records
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/21/records', {
         params: {
           limit: '10',
           offset: '20',
@@ -867,7 +867,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member sorts by salary (field they cannot read)
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/22/records', {
         params: {
           sort: 'salary:desc',
         },
@@ -907,7 +907,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member filters by salary (field they cannot read)
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/23/records', {
         params: {
           filter: JSON.stringify({
             and: [{ field: 'salary', operator: 'greaterThan', value: 60_000 }],
@@ -949,7 +949,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member aggregates salary (field they cannot read)
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/24/records', {
         params: {
           aggregate: JSON.stringify({
             sum: ['salary'],
@@ -1000,7 +1000,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member aggregates permitted fields only
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/25/records', {
         params: {
           aggregate: JSON.stringify({
             count: true,
@@ -1056,7 +1056,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests records without includeDeleted parameter
-      const response = await request.get('/api/tables/1/records', {})
+      const response = await request.get('/api/tables/27/records', {})
 
       // THEN: Returns 200 with only active (non-deleted) records
       expect(response.status()).toBe(200)
@@ -1106,7 +1106,7 @@ test.describe('List records in table', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests records with includeDeleted=true
-      const response = await request.get('/api/tables/1/records', {
+      const response = await request.get('/api/tables/28/records', {
         params: {
           includeDeleted: 'true',
         },

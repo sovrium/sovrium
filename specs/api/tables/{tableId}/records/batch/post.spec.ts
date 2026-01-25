@@ -109,7 +109,7 @@ test.describe('Batch create records', () => {
       await createAuthenticatedUser()
 
       // WHEN: Batch create 2 records with returnRecords=false
-      const response = await request.post('/api/tables/1/records/batch', {
+      const response = await request.post('/api/tables/2/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -161,7 +161,7 @@ test.describe('Batch create records', () => {
       await createAuthenticatedUser()
 
       // WHEN: Batch create with 1 valid record and 1 missing email
-      const response = await request.post('/api/tables/1/records/batch', {
+      const response = await request.post('/api/tables/3/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -211,7 +211,7 @@ test.describe('Batch create records', () => {
       })
 
       // WHEN: User attempts batch create without auth token
-      const response = await request.post('/api/tables/1/records/batch', {
+      const response = await request.post('/api/tables/4/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -249,7 +249,7 @@ test.describe('Batch create records', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member attempts batch create
-      const response = await request.post('/api/tables/1/records/batch', {
+      const response = await request.post('/api/tables/5/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -289,7 +289,7 @@ test.describe('Batch create records', () => {
       await createAuthenticatedViewer()
 
       // WHEN: Viewer attempts batch create
-      const response = await request.post('/api/tables/1/records/batch', {
+      const response = await request.post('/api/tables/6/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -330,7 +330,7 @@ test.describe('Batch create records', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member attempts batch create with protected field
-      const response = await request.post('/api/tables/1/records/batch', {
+      const response = await request.post('/api/tables/8/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -376,7 +376,7 @@ test.describe('Batch create records', () => {
       await createAuthenticatedAdmin()
 
       // WHEN: Admin batch creates with id in payload
-      const response = await request.post('/api/tables/1/records/batch', {
+      const response = await request.post('/api/tables/9/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -420,7 +420,7 @@ test.describe('Batch create records', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member batch creates records successfully
-      const response = await request.post('/api/tables/1/records/batch', {
+      const response = await request.post('/api/tables/11/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -471,7 +471,7 @@ test.describe('Batch create records', () => {
       await createAuthenticatedAdmin()
 
       // WHEN: Admin batch creates records with all fields
-      const response = await request.post('/api/tables/1/records/batch', {
+      const response = await request.post('/api/tables/12/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -520,7 +520,7 @@ test.describe('Batch create records', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member batch creates with only permitted fields
-      const response = await request.post('/api/tables/1/records/batch', {
+      const response = await request.post('/api/tables/13/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -571,7 +571,7 @@ test.describe('Batch create records', () => {
       await createAuthenticatedUser()
 
       // WHEN: Batch create with duplicate email values
-      const response = await request.post('/api/tables/1/records/batch', {
+      const response = await request.post('/api/tables/14/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -621,7 +621,7 @@ test.describe('Batch create records', () => {
         email: `user${i}@example.com`,
       }))
 
-      const response = await request.post('/api/tables/1/records/batch', {
+      const response = await request.post('/api/tables/15/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },

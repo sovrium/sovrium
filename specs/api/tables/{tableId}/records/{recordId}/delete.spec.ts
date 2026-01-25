@@ -127,7 +127,7 @@ test.describe('Delete record', () => {
       `)
 
       // WHEN: User attempts to delete a record without auth token
-      const response = await request.delete('/api/tables/1/records/1')
+      const response = await request.delete('/api/tables/3/records/1')
 
       // THEN: Returns 401 Unauthorized error
       expect(response.status()).toBe(401)
@@ -368,7 +368,7 @@ test.describe('Delete record', () => {
       await createAuthenticatedUser()
 
       // WHEN: User attempts to delete an already soft-deleted record
-      const response = await request.delete('/api/tables/1/records/1', {})
+      const response = await request.delete('/api/tables/12/records/1', {})
 
       // THEN: Returns 404 Not Found (soft-deleted records are not visible)
       expect(response.status()).toBe(404)
@@ -406,7 +406,7 @@ test.describe('Delete record', () => {
       await createAuthenticatedUser()
 
       // WHEN: User deletes the record
-      const response = await request.delete('/api/tables/1/records/1', {})
+      const response = await request.delete('/api/tables/13/records/1', {})
 
       // THEN: Returns 204 No Content
       expect(response.status()).toBe(204)
@@ -487,7 +487,7 @@ test.describe('Delete record', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member attempts to permanently delete
-      const response = await request.delete('/api/tables/1/records/1?permanent=true', {})
+      const response = await request.delete('/api/tables/15/records/1?permanent=true', {})
 
       // THEN: Returns 403 Forbidden (only admin/owner can hard delete)
       expect(response.status()).toBe(403)
@@ -624,7 +624,7 @@ test.describe('Delete record', () => {
       `)
 
       // WHEN: User soft-deletes the record
-      const response = await request.delete('/api/tables/1/records/1', {})
+      const response = await request.delete('/api/tables/18/records/1', {})
 
       expect(response.status()).toBe(204)
 
@@ -681,7 +681,7 @@ test.describe('Delete record', () => {
       `)
 
       // WHEN: Admin permanently deletes the record
-      const response = await request.delete('/api/tables/1/records/1?permanent=true', {})
+      const response = await request.delete('/api/tables/19/records/1?permanent=true', {})
 
       expect(response.status()).toBe(204)
 
@@ -734,7 +734,7 @@ test.describe('Delete record', () => {
       `)
 
       // WHEN: Admin deletes the record
-      const response = await request.delete('/api/tables/1/records/1', {})
+      const response = await request.delete('/api/tables/20/records/1', {})
 
       expect(response.status()).toBe(204)
 

@@ -104,7 +104,7 @@ test.describe('Update record', () => {
       await createAuthenticatedUser()
 
       // WHEN: User attempts to update non-existent record
-      const response = await request.patch('/api/tables/1/records/9999', {
+      const response = await request.patch('/api/tables/2/records/9999', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -144,7 +144,7 @@ test.describe('Update record', () => {
       `)
 
       // WHEN: User attempts to update a record without auth token
-      const response = await request.patch('/api/tables/1/records/1', {
+      const response = await request.patch('/api/tables/3/records/1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -188,7 +188,7 @@ test.describe('Update record', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member attempts to update a record
-      const response = await request.patch('/api/tables/1/records/1', {
+      const response = await request.patch('/api/tables/4/records/1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -236,7 +236,7 @@ test.describe('Update record', () => {
       await createAuthenticatedViewer()
 
       // WHEN: Viewer attempts to update a record
-      const response = await request.patch('/api/tables/1/records/1', {
+      const response = await request.patch('/api/tables/5/records/1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -282,7 +282,7 @@ test.describe('Update record', () => {
       await createAuthenticatedAdmin()
 
       // WHEN: Admin updates record with sensitive field (salary)
-      const response = await request.patch('/api/tables/1/records/1', {
+      const response = await request.patch('/api/tables/7/records/1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -337,7 +337,7 @@ test.describe('Update record', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member includes salary field in update request
-      const response = await request.patch('/api/tables/1/records/1', {
+      const response = await request.patch('/api/tables/8/records/1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -393,7 +393,7 @@ test.describe('Update record', () => {
       await createAuthenticatedUser()
 
       // WHEN: Update request includes id or created_at fields
-      const response = await request.patch('/api/tables/1/records/1', {
+      const response = await request.patch('/api/tables/9/records/1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -445,7 +445,7 @@ test.describe('Update record', () => {
       await createAuthenticatedMember()
 
       // WHEN: Update request includes both permitted and omitted fields
-      const response = await request.patch('/api/tables/1/records/1', {
+      const response = await request.patch('/api/tables/10/records/1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -507,7 +507,7 @@ test.describe('Update record', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member updates record with only permitted fields
-      const response = await request.patch('/api/tables/1/records/1', {
+      const response = await request.patch('/api/tables/12/records/1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -565,7 +565,7 @@ test.describe('Update record', () => {
       await createAuthenticatedMember()
 
       // WHEN: User updates with mix of permitted and forbidden fields
-      const response = await request.patch('/api/tables/1/records/1', {
+      const response = await request.patch('/api/tables/13/records/1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -625,7 +625,7 @@ test.describe('Update record', () => {
       await createAuthenticatedMember()
 
       // WHEN: Update is successful
-      const response = await request.patch('/api/tables/1/records/1', {
+      const response = await request.patch('/api/tables/14/records/1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -688,7 +688,7 @@ test.describe('Update record', () => {
       `)
 
       // WHEN: User updates the record
-      const response = await request.patch('/api/tables/1/records/1', {
+      const response = await request.patch('/api/tables/15/records/1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -754,7 +754,7 @@ test.describe('Update record', () => {
       `)
 
       // WHEN: User updates only some fields
-      const response = await request.patch('/api/tables/1/records/1', {
+      const response = await request.patch('/api/tables/16/records/1', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -812,7 +812,7 @@ test.describe('Update record', () => {
       `)
 
       // WHEN: User1 updates the record
-      const response = await request.patch('/api/tables/1/records/1', {
+      const response = await request.patch('/api/tables/17/records/1', {
         headers: {
           'Content-Type': 'application/json',
         },

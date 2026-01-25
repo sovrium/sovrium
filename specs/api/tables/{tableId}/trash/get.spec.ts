@@ -144,7 +144,7 @@ test.describe('GET /trash endpoint', () => {
       `)
 
       // WHEN: Viewer attempts to access trash
-      const response = await request.get('/api/tables/1/trash', {})
+      const response = await request.get('/api/tables/3/trash', {})
 
       // THEN: Returns 403 Forbidden
       expect(response.status()).toBe(403)
@@ -184,7 +184,7 @@ test.describe('GET /trash endpoint', () => {
       `)
 
       // WHEN: User requests trash with sorting
-      const sortedResponse = await request.get('/api/tables/1/trash', {
+      const sortedResponse = await request.get('/api/tables/5/trash', {
         params: {
           sort: 'title:asc',
         },
@@ -198,7 +198,7 @@ test.describe('GET /trash endpoint', () => {
       expect(sortedData.records[2].fields.title).toBe('Z Note')
 
       // WHEN: User requests trash with filter
-      const filteredResponse = await request.get('/api/tables/1/trash', {
+      const filteredResponse = await request.get('/api/tables/5/trash', {
         params: {
           filter: JSON.stringify({
             and: [{ field: 'status', operator: 'equals', value: 'archived' }],
@@ -217,7 +217,7 @@ test.describe('GET /trash endpoint', () => {
       ).toBe(true)
 
       // WHEN: User requests trash with pagination
-      const paginatedResponse = await request.get('/api/tables/1/trash', {
+      const paginatedResponse = await request.get('/api/tables/5/trash', {
         params: {
           limit: '2',
           offset: '1',

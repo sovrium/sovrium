@@ -116,7 +116,7 @@ test.describe('Upsert records (create or update)', () => {
       await createAuthenticatedUser()
 
       // WHEN: Upsert with fieldsToMergeOn=['email'] - both records are new
-      const response = await request.post('/api/tables/1/records/upsert', {
+      const response = await request.post('/api/tables/2/records/upsert', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -175,7 +175,7 @@ test.describe('Upsert records (create or update)', () => {
       await createAuthenticatedUser()
 
       // WHEN: Upsert with 1 valid record and 1 missing email (validation error)
-      const response = await request.post('/api/tables/1/records/upsert', {
+      const response = await request.post('/api/tables/3/records/upsert', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -233,7 +233,7 @@ test.describe('Upsert records (create or update)', () => {
       `)
 
       // WHEN: User attempts upsert without auth token
-      const response = await request.post('/api/tables/1/records/upsert', {
+      const response = await request.post('/api/tables/4/records/upsert', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -283,7 +283,7 @@ test.describe('Upsert records (create or update)', () => {
       await createAuthenticatedViewer()
 
       // WHEN: Member attempts upsert with new records
-      const response = await request.post('/api/tables/1/records/upsert', {
+      const response = await request.post('/api/tables/5/records/upsert', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -330,7 +330,7 @@ test.describe('Upsert records (create or update)', () => {
       `)
 
       // WHEN: Member attempts upsert with existing records
-      const response = await request.post('/api/tables/1/records/upsert', {
+      const response = await request.post('/api/tables/6/records/upsert', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -370,7 +370,7 @@ test.describe('Upsert records (create or update)', () => {
       await createAuthenticatedViewer()
 
       // WHEN: Viewer attempts upsert
-      const response = await request.post('/api/tables/1/records/upsert', {
+      const response = await request.post('/api/tables/7/records/upsert', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -413,7 +413,7 @@ test.describe('Upsert records (create or update)', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member attempts upsert creating record with protected field
-      const response = await request.post('/api/tables/1/records/upsert', {
+      const response = await request.post('/api/tables/9/records/upsert', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -461,7 +461,7 @@ test.describe('Upsert records (create or update)', () => {
       `)
 
       // WHEN: Member attempts upsert updating record with protected field
-      const response = await request.post('/api/tables/1/records/upsert', {
+      const response = await request.post('/api/tables/10/records/upsert', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -505,7 +505,7 @@ test.describe('Upsert records (create or update)', () => {
       await createAuthenticatedAdmin()
 
       // WHEN: Admin upserts with id or created_at in payload
-      const response = await request.post('/api/tables/1/records/upsert', {
+      const response = await request.post('/api/tables/11/records/upsert', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -553,7 +553,7 @@ test.describe('Upsert records (create or update)', () => {
       `)
 
       // WHEN: Member upserts records successfully
-      const response = await request.post('/api/tables/1/records/upsert', {
+      const response = await request.post('/api/tables/13/records/upsert', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -611,7 +611,7 @@ test.describe('Upsert records (create or update)', () => {
       `)
 
       // WHEN: Admin upserts records with all fields
-      const response = await request.post('/api/tables/1/records/upsert', {
+      const response = await request.post('/api/tables/14/records/upsert', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -667,7 +667,7 @@ test.describe('Upsert records (create or update)', () => {
       `)
 
       // WHEN: Member upserts mixed creates/updates with only permitted fields
-      const response = await request.post('/api/tables/1/records/upsert', {
+      const response = await request.post('/api/tables/15/records/upsert', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -731,7 +731,7 @@ test.describe('Upsert records (create or update)', () => {
       })
 
       await test.step('API-TABLES-RECORDS-UPSERT-001: Returns 200 with created=1, updated=1 for mixed operation', async () => {
-        const response = await request.post('/api/tables/1/records/upsert', {
+        const response = await request.post('/api/tables/16/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
@@ -750,7 +750,7 @@ test.describe('Upsert records (create or update)', () => {
       })
 
       await test.step('API-TABLES-RECORDS-UPSERT-002: Returns 200 with created=2, updated=0 for all new records', async () => {
-        const response = await request.post('/api/tables/1/records/upsert', {
+        const response = await request.post('/api/tables/16/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
@@ -770,7 +770,7 @@ test.describe('Upsert records (create or update)', () => {
 
       await test.step('API-TABLES-RECORDS-UPSERT-003: Returns 400 with rollback on validation error', async () => {
         const countBefore = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
-        const response = await request.post('/api/tables/1/records/upsert', {
+        const response = await request.post('/api/tables/16/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
@@ -790,7 +790,7 @@ test.describe('Upsert records (create or update)', () => {
       })
 
       await test.step('API-TABLES-RECORDS-UPSERT-004: Returns 401 Unauthorized for unauthenticated request', async () => {
-        const response = await request.post('/api/tables/1/records/upsert', {
+        const response = await request.post('/api/tables/16/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [{ email: 'test@example.com', name: 'Test User' }],
@@ -804,7 +804,7 @@ test.describe('Upsert records (create or update)', () => {
       })
 
       await test.step('API-TABLES-RECORDS-UPSERT-005: Returns 403 when member lacks create permission', async () => {
-        const response = await request.post('/api/tables/1/records/upsert', {
+        const response = await request.post('/api/tables/16/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [{ email: 'newuser@example.com', name: 'New User' }],
@@ -818,7 +818,7 @@ test.describe('Upsert records (create or update)', () => {
       })
 
       await test.step('API-TABLES-RECORDS-UPSERT-006: Returns 403 when member lacks update permission', async () => {
-        const response = await request.post('/api/tables/1/records/upsert', {
+        const response = await request.post('/api/tables/16/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [{ email: 'existing@example.com', name: 'Try Update' }],
@@ -832,7 +832,7 @@ test.describe('Upsert records (create or update)', () => {
       })
 
       await test.step('API-TABLES-RECORDS-UPSERT-007: Returns 403 for viewer with read-only access', async () => {
-        const response = await request.post('/api/tables/1/records/upsert', {
+        const response = await request.post('/api/tables/16/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [{ email: 'viewer@example.com', name: 'Viewer' }],
@@ -845,7 +845,7 @@ test.describe('Upsert records (create or update)', () => {
       })
 
       await test.step('API-TABLES-RECORDS-UPSERT-008: Returns 403 when creating record with protected field', async () => {
-        const response = await request.post('/api/tables/1/records/upsert', {
+        const response = await request.post('/api/tables/16/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [{ email: 'newperson@example.com', name: 'New Person', salary: 100_000 }],
@@ -859,7 +859,7 @@ test.describe('Upsert records (create or update)', () => {
       })
 
       await test.step('API-TABLES-RECORDS-UPSERT-009: Returns 403 when updating record with protected field', async () => {
-        const response = await request.post('/api/tables/1/records/upsert', {
+        const response = await request.post('/api/tables/16/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [{ email: 'existing@example.com', name: 'Update Name', salary: 85_000 }],
@@ -873,7 +873,7 @@ test.describe('Upsert records (create or update)', () => {
       })
 
       await test.step('API-TABLES-RECORDS-UPSERT-010: Returns 403 when attempting to set readonly fields', async () => {
-        const response = await request.post('/api/tables/1/records/upsert', {
+        const response = await request.post('/api/tables/16/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [{ id: 999, email: 'test@example.com', name: 'Test' }],
@@ -887,7 +887,7 @@ test.describe('Upsert records (create or update)', () => {
       })
 
       await test.step('API-TABLES-RECORDS-UPSERT-011: Filters protected fields from response for member', async () => {
-        const response = await request.post('/api/tables/1/records/upsert', {
+        const response = await request.post('/api/tables/16/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
@@ -908,7 +908,7 @@ test.describe('Upsert records (create or update)', () => {
       })
 
       await test.step('API-TABLES-RECORDS-UPSERT-012: Returns 200 with all fields visible for admin', async () => {
-        const response = await request.post('/api/tables/1/records/upsert', {
+        const response = await request.post('/api/tables/16/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
@@ -929,7 +929,7 @@ test.describe('Upsert records (create or update)', () => {
       })
 
       await test.step('API-TABLES-RECORDS-UPSERT-013: Enforces combined permissions across create/update operations', async () => {
-        const response = await request.post('/api/tables/1/records/upsert', {
+        const response = await request.post('/api/tables/16/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [

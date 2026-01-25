@@ -53,7 +53,7 @@ test.describe('Batch update records', () => {
       await createAuthenticatedUser()
 
       // WHEN: Batch update both records with returnRecords=true
-      const response = await request.patch('/api/tables/1/records/batch', {
+      const response = await request.patch('/api/tables/16/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -119,7 +119,7 @@ test.describe('Batch update records', () => {
       await createAuthenticatedUser()
 
       // WHEN: Batch update with returnRecords=false
-      const response = await request.patch('/api/tables/1/records/batch', {
+      const response = await request.patch('/api/tables/2/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -170,7 +170,7 @@ test.describe('Batch update records', () => {
       await createAuthenticatedUser()
 
       // WHEN: Batch update with invalid data (setting email to NULL)
-      const response = await request.patch('/api/tables/1/records/batch', {
+      const response = await request.patch('/api/tables/3/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -218,7 +218,7 @@ test.describe('Batch update records', () => {
       `)
 
       // WHEN: User attempts batch update without auth token
-      const response = await request.patch('/api/tables/1/records/batch', {
+      const response = await request.patch('/api/tables/4/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -264,7 +264,7 @@ test.describe('Batch update records', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member attempts batch update
-      const response = await request.patch('/api/tables/1/records/batch', {
+      const response = await request.patch('/api/tables/5/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -307,7 +307,7 @@ test.describe('Batch update records', () => {
       await createAuthenticatedViewer()
 
       // WHEN: Viewer attempts batch update
-      const response = await request.patch('/api/tables/1/records/batch', {
+      const response = await request.patch('/api/tables/6/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -353,7 +353,7 @@ test.describe('Batch update records', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member attempts batch update with protected field
-      const response = await request.patch('/api/tables/1/records/batch', {
+      const response = await request.patch('/api/tables/8/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -402,7 +402,7 @@ test.describe('Batch update records', () => {
       await createAuthenticatedAdmin()
 
       // WHEN: Admin attempts to update readonly field
-      const response = await request.patch('/api/tables/1/records/batch', {
+      const response = await request.patch('/api/tables/9/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -451,7 +451,7 @@ test.describe('Batch update records', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member batch updates successfully
-      const response = await request.patch('/api/tables/1/records/batch', {
+      const response = await request.patch('/api/tables/11/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -507,7 +507,7 @@ test.describe('Batch update records', () => {
       await createAuthenticatedAdmin()
 
       // WHEN: Admin batch updates with all fields
-      const response = await request.patch('/api/tables/1/records/batch', {
+      const response = await request.patch('/api/tables/12/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -559,7 +559,7 @@ test.describe('Batch update records', () => {
       await createAuthenticatedMember()
 
       // WHEN: Member batch updates with only permitted fields
-      const response = await request.patch('/api/tables/1/records/batch', {
+      const response = await request.patch('/api/tables/13/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -608,7 +608,7 @@ test.describe('Batch update records', () => {
       await createAuthenticatedUser()
 
       // WHEN: Batch update includes existing and non-existing IDs
-      const response = await request.patch('/api/tables/1/records/batch', {
+      const response = await request.patch('/api/tables/14/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -660,7 +660,7 @@ test.describe('Batch update records', () => {
       await createAuthenticatedMember()
 
       // WHEN: Update is successful
-      const response = await request.patch('/api/tables/1/records/batch', {
+      const response = await request.patch('/api/tables/15/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -724,7 +724,7 @@ test.describe('Batch update records', () => {
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-001: Returns 200 with updated=2 and records array', async () => {
-        const response = await request.patch('/api/tables/1/records/batch', {
+        const response = await request.patch('/api/tables/16/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -753,7 +753,7 @@ test.describe('Batch update records', () => {
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-002: Returns 200 with updated=2 and no records array', async () => {
-        const response = await request.patch('/api/tables/1/records/batch', {
+        const response = await request.patch('/api/tables/16/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -775,7 +775,7 @@ test.describe('Batch update records', () => {
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-003: Returns 400 with rollback on validation error', async () => {
-        const response = await request.patch('/api/tables/1/records/batch', {
+        const response = await request.patch('/api/tables/16/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -798,7 +798,7 @@ test.describe('Batch update records', () => {
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-004: Returns 401 Unauthorized', async () => {
-        const response = await request.patch('/api/tables/1/records/batch', {
+        const response = await request.patch('/api/tables/16/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -818,7 +818,7 @@ test.describe('Batch update records', () => {
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-005: Returns 403 for member without update permission', async () => {
-        const response = await request.patch('/api/tables/1/records/batch', {
+        const response = await request.patch('/api/tables/16/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -837,7 +837,7 @@ test.describe('Batch update records', () => {
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-006: Returns 403 for viewer', async () => {
-        const response = await request.patch('/api/tables/1/records/batch', {
+        const response = await request.patch('/api/tables/16/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -854,7 +854,7 @@ test.describe('Batch update records', () => {
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-007: Returns 403 when updating protected field', async () => {
-        const response = await request.patch('/api/tables/1/records/batch', {
+        const response = await request.patch('/api/tables/16/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -876,7 +876,7 @@ test.describe('Batch update records', () => {
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-008: Returns 403 for readonly fields', async () => {
-        const response = await request.patch('/api/tables/1/records/batch', {
+        const response = await request.patch('/api/tables/16/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -895,7 +895,7 @@ test.describe('Batch update records', () => {
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-009: Filters protected fields from response', async () => {
-        const response = await request.patch('/api/tables/1/records/batch', {
+        const response = await request.patch('/api/tables/16/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -920,7 +920,7 @@ test.describe('Batch update records', () => {
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-010: Returns 200 with all fields for admin', async () => {
-        const response = await request.patch('/api/tables/1/records/batch', {
+        const response = await request.patch('/api/tables/16/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -942,7 +942,7 @@ test.describe('Batch update records', () => {
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-011: Enforces combined permissions', async () => {
-        const response = await request.patch('/api/tables/1/records/batch', {
+        const response = await request.patch('/api/tables/16/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -965,7 +965,7 @@ test.describe('Batch update records', () => {
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-012: Updates only found records', async () => {
-        const response = await request.patch('/api/tables/1/records/batch', {
+        const response = await request.patch('/api/tables/16/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -988,7 +988,7 @@ test.describe('Batch update records', () => {
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-013: Excludes unreadable fields from response', async () => {
-        const response = await request.patch('/api/tables/1/records/batch', {
+        const response = await request.patch('/api/tables/16/records/batch', {
           headers: {
             'Content-Type': 'application/json',
           },

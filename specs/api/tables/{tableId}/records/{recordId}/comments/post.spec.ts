@@ -116,7 +116,7 @@ test.describe('Create comment on a record', () => {
       `)
 
       // WHEN: User creates comment with @mention
-      const response = await request.post('/api/tables/1/records/1/comments', {
+      const response = await request.post('/api/tables/2/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -161,7 +161,7 @@ test.describe('Create comment on a record', () => {
       `)
 
       // WHEN: User attempts to create comment with empty content
-      const response = await request.post('/api/tables/1/records/1/comments', {
+      const response = await request.post('/api/tables/3/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -202,7 +202,7 @@ test.describe('Create comment on a record', () => {
 
       // WHEN: User attempts to create comment exceeding max length (e.g., 10,000 chars)
       const longContent = 'a'.repeat(10_001)
-      const response = await request.post('/api/tables/1/records/1/comments', {
+      const response = await request.post('/api/tables/4/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -242,7 +242,7 @@ test.describe('Create comment on a record', () => {
       `)
 
       // WHEN: Unauthenticated user attempts to create comment
-      const response = await request.post('/api/tables/1/records/1/comments', {
+      const response = await request.post('/api/tables/5/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -275,7 +275,7 @@ test.describe('Create comment on a record', () => {
       await createAuthenticatedUser()
 
       // WHEN: User attempts to comment on non-existent record
-      const response = await request.post('/api/tables/1/records/9999/comments', {
+      const response = await request.post('/api/tables/6/records/9999/comments', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -317,7 +317,7 @@ test.describe('Create comment on a record', () => {
       `)
 
       // WHEN: User from org_123 attempts to comment on org_456's record
-      const response = await request.post('/api/tables/1/records/1/comments', {
+      const response = await request.post('/api/tables/7/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -356,7 +356,7 @@ test.describe('Create comment on a record', () => {
       `)
 
       // WHEN: User without permission attempts to comment
-      const response = await request.post('/api/tables/1/records/1/comments', {
+      const response = await request.post('/api/tables/8/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -398,7 +398,7 @@ test.describe('Create comment on a record', () => {
       `)
 
       // WHEN: User creates comment (user_id auto-injected from session)
-      const response = await request.post('/api/tables/1/records/1/comments', {
+      const response = await request.post('/api/tables/9/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -449,7 +449,7 @@ test.describe('Create comment on a record', () => {
       `)
 
       // WHEN: User creates comment (organization_id auto-injected from session)
-      const response = await request.post('/api/tables/1/records/1/comments', {
+      const response = await request.post('/api/tables/10/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -498,7 +498,7 @@ test.describe('Create comment on a record', () => {
       `)
 
       // WHEN: User creates comment
-      const response = await request.post('/api/tables/1/records/1/comments', {
+      const response = await request.post('/api/tables/11/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
         },

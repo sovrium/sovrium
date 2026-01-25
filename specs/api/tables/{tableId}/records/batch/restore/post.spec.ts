@@ -111,7 +111,7 @@ test.describe('Batch Restore records', () => {
       `)
 
       // WHEN: User attempts to batch restore including non-existent record
-      const response = await request.post('/api/tables/1/records/batch/restore', {
+      const response = await request.post('/api/tables/2/records/batch/restore', {
         data: { ids: [1, 2, 9999] },
       })
 
@@ -157,7 +157,7 @@ test.describe('Batch Restore records', () => {
       `)
 
       // WHEN: User attempts to batch restore including an active record
-      const response = await request.post('/api/tables/1/records/batch/restore', {
+      const response = await request.post('/api/tables/3/records/batch/restore', {
         data: { ids: [1, 2] },
       })
 

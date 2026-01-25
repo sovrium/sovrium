@@ -98,7 +98,7 @@ test.describe('List comments on a record', () => {
       `)
 
       // WHEN: User requests comments for the record
-      const response = await request.get('/api/tables/1/records/1/comments', {})
+      const response = await request.get('/api/tables/2/records/1/comments', {})
 
       // THEN: Returns 200 with empty comments array
       expect(response.status()).toBe(200)
@@ -129,7 +129,7 @@ test.describe('List comments on a record', () => {
       `)
 
       // WHEN: Unauthenticated user attempts to list comments
-      const response = await request.get('/api/tables/1/records/1/comments')
+      const response = await request.get('/api/tables/3/records/1/comments')
 
       // THEN: Returns 401 Unauthorized
       expect(response.status()).toBe(401)
@@ -155,7 +155,7 @@ test.describe('List comments on a record', () => {
       await createAuthenticatedUser()
 
       // WHEN: User requests comments for non-existent record
-      const response = await request.get('/api/tables/1/records/9999/comments', {})
+      const response = await request.get('/api/tables/4/records/9999/comments', {})
 
       // THEN: Returns 404 Not Found
       expect(response.status()).toBe(404)
@@ -193,7 +193,7 @@ test.describe('List comments on a record', () => {
       `)
 
       // WHEN: User lists comments without includeDeleted parameter
-      const response = await request.get('/api/tables/1/records/1/comments', {})
+      const response = await request.get('/api/tables/6/records/1/comments', {})
 
       // THEN: Returns only active comments (soft-deleted excluded)
       expect(response.status()).toBe(200)
@@ -238,7 +238,7 @@ test.describe('List comments on a record', () => {
       `)
 
       // WHEN: User lists comments
-      const response = await request.get('/api/tables/1/records/1/comments', {})
+      const response = await request.get('/api/tables/7/records/1/comments', {})
 
       // THEN: Each comment includes user metadata (name, email, image)
       expect(response.status()).toBe(200)
@@ -289,7 +289,7 @@ test.describe('List comments on a record', () => {
       `)
 
       // WHEN: User requests page 2 with limit=5 (offset=5)
-      const response = await request.get('/api/tables/1/records/1/comments', {
+      const response = await request.get('/api/tables/8/records/1/comments', {
         params: {
           limit: '5',
           offset: '5',
@@ -340,7 +340,7 @@ test.describe('List comments on a record', () => {
       `)
 
       // WHEN: User requests comments sorted oldest first
-      const response = await request.get('/api/tables/1/records/1/comments', {
+      const response = await request.get('/api/tables/9/records/1/comments', {
         params: {
           sort: 'createdAt',
           order: 'asc',
@@ -386,7 +386,7 @@ test.describe('List comments on a record', () => {
       `)
 
       // WHEN: User lists comments
-      const response = await request.get('/api/tables/1/records/1/comments', {})
+      const response = await request.get('/api/tables/10/records/1/comments', {})
 
       // THEN: Each comment includes createdAt and updatedAt timestamps
       expect(response.status()).toBe(200)
@@ -428,7 +428,7 @@ test.describe('List comments on a record', () => {
       `)
 
       // WHEN: User without read permission attempts to list comments
-      const response = await request.get('/api/tables/1/records/1/comments', {})
+      const response = await request.get('/api/tables/11/records/1/comments', {})
 
       // THEN: Returns 403 Forbidden (no permission to read record)
       expect(response.status()).toBe(403)

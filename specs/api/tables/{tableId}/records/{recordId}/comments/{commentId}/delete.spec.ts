@@ -101,7 +101,7 @@ test.describe('Delete comment', () => {
       `)
 
       // WHEN: Admin deletes another user's comment
-      const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {
+      const response = await request.delete('/api/tables/2/records/1/comments/comment_1', {
         headers: {},
       })
 
@@ -141,7 +141,7 @@ test.describe('Delete comment', () => {
       `)
 
       // WHEN: Unauthenticated user attempts to delete comment
-      const response = await request.delete('/api/tables/1/records/1/comments/comment_1')
+      const response = await request.delete('/api/tables/3/records/1/comments/comment_1')
 
       // THEN: Returns 401 Unauthorized
       expect(response.status()).toBe(401)
@@ -179,7 +179,7 @@ test.describe('Delete comment', () => {
       `)
 
       // WHEN: Different non-admin user attempts to delete comment
-      const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {})
+      const response = await request.delete('/api/tables/4/records/1/comments/comment_1', {})
 
       // THEN: Returns 403 Forbidden (only author or admin can delete)
       expect(response.status()).toBe(403)
@@ -212,7 +212,7 @@ test.describe('Delete comment', () => {
       `)
 
       // WHEN: User attempts to delete non-existent comment
-      const response = await request.delete('/api/tables/1/records/1/comments/nonexistent', {})
+      const response = await request.delete('/api/tables/5/records/1/comments/nonexistent', {})
 
       // THEN: Returns 404 Not Found
       expect(response.status()).toBe(404)
@@ -251,7 +251,7 @@ test.describe('Delete comment', () => {
       `)
 
       // WHEN: User from org_123 attempts to delete comment from org_456
-      const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {
+      const response = await request.delete('/api/tables/6/records/1/comments/comment_1', {
         headers: {},
       })
 
@@ -289,7 +289,7 @@ test.describe('Delete comment', () => {
       `)
 
       // WHEN: User attempts to delete already-deleted comment
-      const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {})
+      const response = await request.delete('/api/tables/7/records/1/comments/comment_1', {})
 
       // THEN: Returns 404 Not Found (already deleted)
       expect(response.status()).toBe(404)
@@ -325,7 +325,7 @@ test.describe('Delete comment', () => {
       `)
 
       // WHEN: User deletes comment (default behavior)
-      const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {})
+      const response = await request.delete('/api/tables/8/records/1/comments/comment_1', {})
 
       // THEN: Comment is soft-deleted (deleted_at set, record still exists)
       expect(response.status()).toBe(204)
@@ -368,14 +368,14 @@ test.describe('Delete comment', () => {
       `)
 
       // WHEN: User deletes comment
-      await request.delete('/api/tables/1/records/1/comments/comment_1', {})
+      await request.delete('/api/tables/9/records/1/comments/comment_1', {})
 
       // THEN: Subsequent GET request returns 404
-      const getResponse = await request.get('/api/tables/1/records/1/comments/comment_1', {})
+      const getResponse = await request.get('/api/tables/9/records/1/comments/comment_1', {})
       expect(getResponse.status()).toBe(404)
 
       // THEN: List comments excludes deleted comment
-      const listResponse = await request.get('/api/tables/1/records/1/comments', {})
+      const listResponse = await request.get('/api/tables/9/records/1/comments', {})
       const listData = await listResponse.json()
       expect(listData.comments).toEqual([])
     }
@@ -432,7 +432,7 @@ test.describe('Delete comment', () => {
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-001: User deletes their own comment and returns 204 No Content', async () => {
-        const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {})
+        const response = await request.delete('/api/tables/10/records/1/comments/comment_1', {})
         expect(response.status()).toBe(204)
 
         const result = await executeQuery(`
@@ -443,7 +443,7 @@ test.describe('Delete comment', () => {
 
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-002: Admin deletes another user comment and returns 204 No Content', async () => {
         await createAuthenticatedAdmin()
-        const response = await request.delete('/api/tables/1/records/1/comments/comment_2', {})
+        const response = await request.delete('/api/tables/10/records/1/comments/comment_2', {})
         expect(response.status()).toBe(204)
 
         const result = await executeQuery(`
@@ -453,7 +453,7 @@ test.describe('Delete comment', () => {
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-003: Unauthenticated user attempts to delete comment and returns 401 Unauthorized', async () => {
-        const response = await request.delete('/api/tables/1/records/1/comments/comment_3')
+        const response = await request.delete('/api/tables/10/records/1/comments/comment_3')
         expect(response.status()).toBe(401)
       })
 
@@ -462,7 +462,7 @@ test.describe('Delete comment', () => {
         await executeQuery(`
             UPDATE system.record_comments SET user_id = 'user_2' WHERE id = 'comment_3'
           `)
-        const response = await request.delete('/api/tables/1/records/1/comments/comment_3', {})
+        const response = await request.delete('/api/tables/10/records/1/comments/comment_3', {})
         expect(response.status()).toBe(403)
 
         const data = await response.json()
@@ -471,7 +471,7 @@ test.describe('Delete comment', () => {
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-005: User attempts to delete non-existent comment and returns 404 Not Found', async () => {
-        const response = await request.delete('/api/tables/1/records/1/comments/nonexistent', {})
+        const response = await request.delete('/api/tables/10/records/1/comments/nonexistent', {})
         expect(response.status()).toBe(404)
 
         const data = await response.json()
@@ -484,7 +484,7 @@ test.describe('Delete comment', () => {
             VALUES ('comment_org_456', '1', '1', 'org_456', 'user_2', 'Comment in org 456')
           `)
         const response = await request.delete(
-          '/api/tables/1/records/1/comments/comment_org_456',
+          '/api/tables/10/records/1/comments/comment_org_456',
           {}
         )
         expect(response.status()).toBe(404)
@@ -499,7 +499,7 @@ test.describe('Delete comment', () => {
             VALUES ('comment_deleted', '1', '1', 'org_123', 'user_1', 'Already deleted comment', NOW())
           `)
         const response = await request.delete(
-          '/api/tables/1/records/1/comments/comment_deleted',
+          '/api/tables/10/records/1/comments/comment_deleted',
           {}
         )
         expect(response.status()).toBe(404)
@@ -509,7 +509,7 @@ test.describe('Delete comment', () => {
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-008: Comment is soft-deleted by default', async () => {
-        const response = await request.delete('/api/tables/1/records/1/comments/comment_4', {})
+        const response = await request.delete('/api/tables/10/records/1/comments/comment_4', {})
         expect(response.status()).toBe(204)
 
         const result = await executeQuery(`
@@ -521,12 +521,12 @@ test.describe('Delete comment', () => {
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-009: Deleted comment is hidden from GET requests', async () => {
-        await request.delete('/api/tables/1/records/1/comments/comment_5', {})
+        await request.delete('/api/tables/10/records/1/comments/comment_5', {})
 
-        const getResponse = await request.get('/api/tables/1/records/1/comments/comment_5', {})
+        const getResponse = await request.get('/api/tables/10/records/1/comments/comment_5', {})
         expect(getResponse.status()).toBe(404)
 
-        const listResponse = await request.get('/api/tables/1/records/1/comments', {})
+        const listResponse = await request.get('/api/tables/10/records/1/comments', {})
         const listData = await listResponse.json()
         expect(listData.comments.find((c: any) => c.id === 'comment_5')).toBeUndefined()
       })

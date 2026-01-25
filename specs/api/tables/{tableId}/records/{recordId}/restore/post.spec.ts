@@ -99,7 +99,7 @@ test.describe('Restore record', () => {
       await createAuthenticatedUser()
 
       // WHEN: User attempts to restore non-existent record
-      const response = await request.post('/api/tables/1/records/9999/restore', {})
+      const response = await request.post('/api/tables/2/records/9999/restore', {})
 
       // THEN: Returns 404 Not Found
       expect(response.status()).toBe(404)
@@ -135,7 +135,7 @@ test.describe('Restore record', () => {
       `)
 
       // WHEN: User attempts to restore an already-active record
-      const response = await request.post('/api/tables/1/records/1/restore', {})
+      const response = await request.post('/api/tables/3/records/1/restore', {})
 
       // THEN: Returns 400 Bad Request
       expect(response.status()).toBe(400)
@@ -170,7 +170,7 @@ test.describe('Restore record', () => {
       `)
 
       // WHEN: User attempts to restore without auth token
-      const response = await request.post('/api/tables/1/records/1/restore')
+      const response = await request.post('/api/tables/4/records/1/restore')
 
       // THEN: Returns 401 Unauthorized
       expect(response.status()).toBe(401)
@@ -210,7 +210,7 @@ test.describe('Restore record', () => {
       `)
 
       // WHEN: Viewer attempts to restore a record
-      const response = await request.post('/api/tables/1/records/1/restore', {})
+      const response = await request.post('/api/tables/5/records/1/restore', {})
 
       // THEN: Returns 403 Forbidden
       expect(response.status()).toBe(403)
@@ -248,7 +248,7 @@ test.describe('Restore record', () => {
       `)
 
       // WHEN: Member restores a record
-      const response = await request.post('/api/tables/1/records/1/restore', {})
+      const response = await request.post('/api/tables/6/records/1/restore', {})
 
       // THEN: Returns 200 OK
       expect(response.status()).toBe(200)
@@ -296,7 +296,7 @@ test.describe('Restore record', () => {
       `)
 
       // WHEN: User restores the soft-deleted record
-      const response = await request.post('/api/tables/1/records/1/restore', {})
+      const response = await request.post('/api/tables/8/records/1/restore', {})
 
       expect(response.status()).toBe(200)
 
@@ -355,7 +355,7 @@ test.describe('Restore record', () => {
       `)
 
       // WHEN: Admin restores the record
-      const response = await request.post('/api/tables/1/records/1/restore', {})
+      const response = await request.post('/api/tables/9/records/1/restore', {})
 
       expect(response.status()).toBe(200)
 
