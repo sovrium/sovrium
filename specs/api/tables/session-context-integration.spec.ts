@@ -521,7 +521,7 @@ test.describe('API Session Context Integration', () => {
 
       // NOTE: Additional scenarios (member permissions, field-level permissions, unauthenticated requests)
       // are covered in @spec tests 003, 004, 005
-      // NOTE: Step 006 (create operations with session context) is marked .fixme() in @spec tests
+      // NOTE: Step 006 (create operations with session context) is marked  in @spec tests
       // - feature is not yet implemented
     }
   )
