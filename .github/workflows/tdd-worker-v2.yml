@@ -134,7 +134,7 @@ jobs:
 
             **Spec File**: ${{ inputs.spec_file }}
             **Test Count**: ${{ inputs.test_count }}
-            **Retry Attempt**: ${{ inputs.retry_count != '0' && format('{0}/3', inputs.retry_count + 1) || 'First attempt' }}
+            **Retry Count**: ${{ inputs.retry_count }}/3 (0 = first attempt)
             ${{ inputs.retry_count != '0' && format('**Previous Errors**: {0}', inputs.previous_errors) || '' }}
 
             **Instructions**:
