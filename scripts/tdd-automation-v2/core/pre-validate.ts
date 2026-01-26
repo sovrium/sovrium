@@ -16,32 +16,38 @@ interface ValidationResult {
 const program = Effect.gen(function* () {
   // Parse arguments from command line (supports both --arg=value and --arg value)
   let file: string | undefined
+  let specId: string | undefined
+  let testName: string | undefined
   let output: string | undefined
 
-  // Parse --file argument
-  const fileArgWithEquals = process.argv.find((arg) => arg.startsWith('--file='))
-  if (fileArgWithEquals) {
-    file = fileArgWithEquals.split('=')[1]
-  } else {
-    const fileIndex = process.argv.indexOf('--file')
-    if (fileIndex !== -1 && process.argv[fileIndex + 1]) {
-      file = process.argv[fileIndex + 1]
-    }
+  // Helper to get argument value
+  const getArgValue = (argName: string): string | undefined => {
+    const withEquals = process.argv.find((arg) => arg.startsWith(`--${argName}=`))
+    if (withEquals) return withEquals.split('=')[1]
+
+    const index = process.argv.indexOf(`--${argName}`)
+    if (index !== -1 && process.argv[index + 1]) return process.argv[index + 1]
+
+    return undefined
   }
 
-  // Parse --output argument
-  const outputArgWithEquals = process.argv.find((arg) => arg.startsWith('--output='))
-  if (outputArgWithEquals) {
-    output = outputArgWithEquals.split('=')[1]
-  } else {
-    const outputIndex = process.argv.indexOf('--output')
-    if (outputIndex !== -1 && process.argv[outputIndex + 1]) {
-      output = process.argv[outputIndex + 1]
-    }
-  }
+  file = getArgValue('file')
+  specId = getArgValue('spec-id')
+  testName = getArgValue('test-name')
+  output = getArgValue('output')
 
   if (!file) {
     console.error('Error: --file argument is required')
+    process.exit(1)
+  }
+
+  if (!specId) {
+    console.error('Error: --spec-id argument is required')
+    process.exit(1)
+  }
+
+  if (!testName) {
+    console.error('Error: --test-name argument is required')
     process.exit(1)
   }
 
@@ -50,29 +56,49 @@ const program = Effect.gen(function* () {
     process.exit(1)
   }
 
-  yield* Console.log(`🔍 Pre-validating spec file: ${file}`)
+  yield* Console.log(`🔍 Pre-validating spec: ${specId}`)
+  yield* Console.log(`📁 File: ${file}`)
+  yield* Console.log(`🧪 Test: ${testName}`)
 
-  // Remove .fixme() from all tests in the file
+  // Remove .fixme() from ONLY the specified test
   const content = yield* Effect.tryPromise({
     try: () => Bun.file(file).text(),
     catch: (error) => new Error(`Failed to read file: ${error}`),
   })
 
-  const cleanedContent = content.replace(/\.fixme\(\)/g, '')
+  // Escape special regex characters in test name
+  const escapedTestName = testName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+  // Match: test.fixme('TEST-NAME', ... or test.fixme("TEST-NAME", ...
+  // and remove the .fixme() part
+  const fixmePattern = new RegExp(
+    `test\\.fixme\\((['"])${escapedTestName}\\1`,
+    'g'
+  )
+
+  const cleanedContent = content.replace(fixmePattern, (match) => {
+    // Replace test.fixme( with test(
+    return match.replace('test.fixme(', 'test(')
+  })
+
+  if (cleanedContent === content) {
+    yield* Console.warn(`⚠️ No .fixme() found for test: ${testName}`)
+    yield* Console.warn('This test may have already been implemented')
+  }
 
   yield* Effect.tryPromise({
     try: () => Bun.write(file, cleanedContent),
     catch: (error) => new Error(`Failed to write file: ${error}`),
   })
 
-  yield* Console.log(`✅ Removed .fixme() from ${file}`)
+  yield* Console.log(`✅ Removed .fixme() from ${specId}`)
 
-  // Run tests for this file
-  yield* Console.log(`🧪 Running tests for ${file}`)
+  // Run ONLY the specific test using --grep
+  yield* Console.log(`🧪 Running test: ${specId}`)
 
   const testResult = yield* Effect.tryPromise({
     try: async () => {
-      const proc = await $`bun test ${file} --reporter=json`.nothrow().quiet()
+      const proc = await $`bun test ${file} --grep ${testName} --reporter=json`.nothrow().quiet()
       return {
         exitCode: proc.exitCode,
         stdout: proc.stdout.toString(),
@@ -108,7 +134,7 @@ const program = Effect.gen(function* () {
 
   const validationResult: ValidationResult = { passed, failed }
 
-  yield* Console.log(`📊 Pre-validation results: ${passed} passed, ${failed} failed`)
+  yield* Console.log(`📊 Pre-validation results for ${specId}: ${passed} passed, ${failed} failed`)
 
   // Write results to output file
   yield* Effect.tryPromise({
@@ -118,10 +144,12 @@ const program = Effect.gen(function* () {
 
   yield* Console.log(`✅ Results written to ${output}`)
 
-  if (failed === 0) {
-    yield* Console.log(`🎉 All tests pass without implementation!`)
+  if (failed === 0 && passed > 0) {
+    yield* Console.log(`🎉 Spec ${specId} passes without implementation!`)
+  } else if (failed > 0) {
+    yield* Console.log(`❌ Spec ${specId} failing, implementation needed`)
   } else {
-    yield* Console.log(`❌ ${failed} test(s) still failing, implementation needed`)
+    yield* Console.warn(`⚠️ No tests matched for ${specId}`)
   }
 })
 
