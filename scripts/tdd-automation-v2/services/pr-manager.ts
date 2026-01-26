@@ -33,7 +33,6 @@ function parseArgs() {
     branch: getOption('branch'),
     specId: getOption('spec-id'),
     retryCount: getOption('retry-count') ? parseInt(getOption('retry-count')!) : undefined,
-    testCount: getOption('test-count') ? parseInt(getOption('test-count')!) : undefined,
     fastPath: hasFlag('fast-path'),
     pr: getOption('pr') ? parseInt(getOption('pr')!) : undefined,
   }
@@ -44,32 +43,30 @@ const createPR = ({
   branch: _branch,
   specId,
   retryCount,
-  testCount,
   fastPath,
 }: {
   file: string
   branch: string
   specId?: string
   retryCount?: number
-  testCount?: number
   fastPath: boolean
 }) =>
   Effect.gen(function* () {
     const specName = specId ?? file.split('/').pop()?.replace('.spec.ts', '')
 
-    if (fastPath && testCount !== undefined) {
-      yield* Console.log(`🚀 Creating fast-path PR: ${testCount} tests pass without implementation`)
+    if (fastPath) {
+      yield* Console.log(`🚀 Creating fast-path PR: ${specName} passes without implementation`)
 
-      const title = `test: remove .fixme() from ${file}`
+      const title = `test: remove .fixme() from ${specName}`
       const body = `## Fast Path ⚡
 
-All ${testCount} test(s) in \`${file}\` pass without implementation.
+Spec \`${specName}\` in \`${file}\` passes without implementation.
 
 ### Changes
-- Removed \`.fixme()\` from all tests
+- Removed \`.fixme()\` from ${specName}
 
 ### Summary
-Tests were already passing, no implementation needed.
+Test was already passing, no implementation needed.
 
 Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>`
 
@@ -185,7 +182,6 @@ const program = Effect.gen(function* () {
       branch: parsedArgs.branch,
       specId: parsedArgs.specId,
       retryCount: parsedArgs.retryCount,
-      testCount: parsedArgs.testCount,
       fastPath: parsedArgs.fastPath,
     })
   } else if (parsedArgs.command === 'merge') {
