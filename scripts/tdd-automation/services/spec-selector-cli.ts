@@ -42,6 +42,12 @@ const program = Effect.gen(function* () {
   // Select next specs using priority queue
   const selectedSpecs = yield* specSelector.selectNext(availableSlots, state)
 
+  if (selectedSpecs.length === 0) {
+    console.error(`📊 No eligible specs to process`)
+    console.log('[]')
+    return []
+  }
+
   console.error(`📊 Selected ${selectedSpecs.length} spec(s):`)
 
   for (const spec of selectedSpecs) {
@@ -49,6 +55,27 @@ const program = Effect.gen(function* () {
       `  - ${spec.specId}: ${spec.testName} (priority: ${spec.priority}, attempts: ${spec.attempts})`
     )
   }
+
+  // CRITICAL: Transition specs to active AND lock files BEFORE returning
+  // This prevents race conditions where another orchestrator run could select the same spec
+  // before the worker has a chance to lock it
+  console.error(`🔒 Locking selected specs and files...`)
+
+  for (const spec of selectedSpecs) {
+    // Lock the file first (primary exclusivity mechanism)
+    yield* stateManager.addActiveFile(spec.filePath)
+    console.error(`  ✅ Locked file: ${spec.filePath}`)
+
+    // Lock the spec (redundant safety net)
+    yield* stateManager.addActiveSpec(spec.specId)
+    console.error(`  ✅ Locked spec: ${spec.specId}`)
+
+    // Transition spec from pending to active
+    yield* stateManager.transition(spec.specId, 'pending', 'active')
+    console.error(`  ✅ Transitioned ${spec.specId}: pending → active`)
+  }
+
+  console.error(`🔒 All ${selectedSpecs.length} spec(s) locked and transitioned to active`)
 
   // Output JSON for GitHub Actions (stdout only)
   console.log(JSON.stringify(selectedSpecs, null, 2))

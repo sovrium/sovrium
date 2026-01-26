@@ -44,6 +44,43 @@ const logStderr = (message: string) =>
     process.stderr.write(message + '\n')
   })
 
+/**
+ * Check if a PR already exists for this spec ID
+ * This provides idempotency - prevents duplicate PRs even if called multiple times
+ */
+const checkExistingPR = (specId: string) =>
+  Effect.gen(function* () {
+    yield* logStderr(`🔍 Checking for existing PR for ${specId}...`)
+
+    const result = yield* Effect.tryPromise({
+      try: async () => {
+        // Search for open PRs with this spec ID in the title
+        const proc =
+          await $`gh pr list --state open --json number,title,headRefName --jq '.[] | select(.title | contains("${specId}")) | .number'`.quiet().nothrow()
+        return {
+          exitCode: proc.exitCode,
+          stdout: proc.stdout.toString().trim(),
+          stderr: proc.stderr.toString(),
+        }
+      },
+      catch: (error) => new Error(`Failed to check existing PRs: ${error}`),
+    })
+
+    if (result.exitCode !== 0) {
+      yield* logStderr(`⚠️ Could not check for existing PRs: ${result.stderr}`)
+      return null
+    }
+
+    if (result.stdout) {
+      const prNumber = result.stdout.split('\n')[0]
+      yield* logStderr(`⚠️ Found existing open PR #${prNumber} for ${specId}`)
+      return prNumber
+    }
+
+    yield* logStderr(`✅ No existing PR found for ${specId}`)
+    return null
+  })
+
 const createPR = ({
   file,
   branch: _branch,
@@ -59,6 +96,17 @@ const createPR = ({
 }) =>
   Effect.gen(function* () {
     const specName = specId ?? file.split('/').pop()?.replace('.spec.ts', '')
+
+    // IDEMPOTENCY CHECK: Prevent duplicate PRs
+    // If a PR already exists for this spec ID, return its number instead of creating a new one
+    if (specId) {
+      const existingPR = yield* checkExistingPR(specId)
+      if (existingPR) {
+        yield* logStderr(`🔄 Reusing existing PR #${existingPR} for ${specId}`)
+        yield* Console.log(existingPR)
+        return existingPR
+      }
+    }
 
     if (fastPath) {
       yield* logStderr(`🚀 Creating fast-path PR: ${specName} passes without implementation`)

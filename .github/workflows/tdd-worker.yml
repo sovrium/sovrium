@@ -65,18 +65,32 @@ jobs:
           git checkout -b "$BRANCH_NAME"
           echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
-      # STRICT FILE-LEVEL EXCLUSIVITY: This file lock is the PRIMARY concurrency control
-      # It prevents ANY other spec from the same file from being processed concurrently
-      - name: Lock file in state
+      # NOTE: File and spec locks are now acquired by the orchestrator's spec-selector-cli.ts
+      # BEFORE dispatching workers. This prevents race conditions where another orchestrator
+      # run could select the same spec before the worker has a chance to lock it.
+      #
+      # The locks are released in the cleanup step at the end of this workflow.
+      - name: Verify locks acquired by orchestrator
         run: |
-          bun run scripts/tdd-automation/core/lock-file.ts \
-            --file "${{ inputs.file_path }}"
+          echo "🔒 Verifying file/spec locks (acquired by orchestrator)..."
 
-      # Spec lock is a redundant safety net (file lock provides full exclusivity)
-      - name: Lock spec in state
-        run: |
-          bun run scripts/tdd-automation/core/lock-spec.ts \
-            --spec-id "${{ inputs.spec_id }}"
+          # Verify file is locked
+          FILE_LOCKED=$(jq --arg file "${{ inputs.file_path }}" '.activeFiles | index($file) != null' .github/tdd-state.json)
+          if [ "$FILE_LOCKED" != "true" ]; then
+            echo "⚠️  Warning: File ${{ inputs.file_path }} is not locked. This may indicate a race condition."
+            echo "   The orchestrator should have locked this file before dispatching this worker."
+          else
+            echo "✅ File lock verified: ${{ inputs.file_path }}"
+          fi
+
+          # Verify spec is locked
+          SPEC_LOCKED=$(jq --arg spec "${{ inputs.spec_id }}" '.activeSpecs | index($spec) != null' .github/tdd-state.json)
+          if [ "$SPEC_LOCKED" != "true" ]; then
+            echo "⚠️  Warning: Spec ${{ inputs.spec_id }} is not locked. This may indicate a race condition."
+            echo "   The orchestrator should have locked this spec before dispatching this worker."
+          else
+            echo "✅ Spec lock verified: ${{ inputs.spec_id }}"
+          fi
 
       - name: Run pre-validation (validate-specs)
         id: prevalidate
