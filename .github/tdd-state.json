@@ -1,20 +1,9 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T16:02:39.700Z",
+  "lastUpdated": "2026-01-26T16:02:41.170Z",
   "queue": {
     "pending": [],
-    "active": [
-      {
-        "id": "TEST-SPEC-3",
-        "filePath": "specs/test-concurrency/spec3.spec.ts",
-        "priority": 50,
-        "status": "active",
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T16:02:30.787Z",
-        "startedAt": "2026-01-26T16:02:36.309Z"
-      }
-    ],
+    "active": [],
     "completed": [
       {
         "id": "TEST-SPEC-1",
@@ -37,6 +26,17 @@
         "queuedAt": "2026-01-26T16:02:30.787Z",
         "startedAt": "2026-01-26T16:02:34.923Z",
         "completedAt": "2026-01-26T16:02:39.323Z"
+      },
+      {
+        "id": "TEST-SPEC-3",
+        "filePath": "specs/test-concurrency/spec3.spec.ts",
+        "priority": 50,
+        "status": "completed",
+        "attempts": 0,
+        "errors": [],
+        "queuedAt": "2026-01-26T16:02:30.787Z",
+        "startedAt": "2026-01-26T16:02:36.309Z",
+        "completedAt": "2026-01-26T16:02:40.787Z"
       }
     ],
     "failed": []
