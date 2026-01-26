@@ -5,72 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { readFile } from 'node:fs/promises'
 import { Command } from '@effect/cli'
 import { BunContext, BunRuntime } from '@effect/platform-bun'
 import { Effect, Console, Layer } from 'effect'
-import { glob } from 'glob'
 import { StateManager, StateManagerLive } from '../core/state-manager'
-import type { SpecFileItem } from '../types'
+import { extractAllSpecs } from './spec-extractor'
+import type { SpecQueueItem } from '../types'
 
 const QueueInitializerCommand = Command.make('queue-initializer', {}, () =>
   Effect.gen(function* () {
-    yield* Console.log('🔍 Scanning for spec files with .fixme() tests...')
-
     const stateManager = yield* StateManager
 
-    // Find all .spec.ts files
-    const specFiles = yield* Effect.tryPromise({
-      try: () => glob('specs/**/*.spec.ts'),
-      catch: (error) => new Error(`Failed to scan spec files: ${error}`),
-    })
+    // Extract all spec IDs from spec files
+    const allSpecs = yield* extractAllSpecs()
 
-    yield* Console.log(`📁 Found ${specFiles.length} spec file(s)`)
-
-    // Scan each file for .fixme() tests
-    const specsWithFixme: SpecFileItem[] = []
-
-    for (const filePath of specFiles) {
-      const content = yield* Effect.tryPromise({
-        try: () => readFile(filePath, 'utf-8'),
-        catch: (error) => new Error(`Failed to read ${filePath}: ${error}`),
-      })
-
-      // Count .fixme() occurrences
-      const fixmeMatches = content.match(/\.fixme\(/g)
-      const fixmeCount = fixmeMatches ? fixmeMatches.length : 0
-
-      if (fixmeCount > 0) {
-        // Calculate path depth for priority
-        const pathDepth = filePath.split('/').length
-
-        const specItem: SpecFileItem = {
-          id: filePath,
-          filePath,
-          priority: 50, // Base priority, will be calculated by selector
-          status: 'pending',
-          testCount: fixmeCount,
-          attempts: 0,
-          errors: [],
-          queuedAt: new Date().toISOString(),
-        }
-
-        specsWithFixme.push(specItem)
-
-        yield* Console.log(
-          `  ✓ ${filePath}: ${fixmeCount} test(s) with .fixme() (depth: ${pathDepth})`
-        )
-      }
-    }
-
-    yield* Console.log(`\n📊 Summary:`)
-    yield* Console.log(`  Total spec files scanned: ${specFiles.length}`)
-    yield* Console.log(`  Specs with .fixme() tests: ${specsWithFixme.length}`)
-    yield* Console.log(
-      `  Total .fixme() tests: ${specsWithFixme.reduce((sum, spec) => sum + spec.testCount, 0)}`
-    )
-
-    if (specsWithFixme.length === 0) {
+    if (allSpecs.length === 0) {
       yield* Console.log(`\n✅ No specs with .fixme() found. Queue is already empty!`)
       return
     }
@@ -78,18 +27,23 @@ const QueueInitializerCommand = Command.make('queue-initializer', {}, () =>
     // Load current state
     const state = yield* stateManager.load()
 
-    // Add new specs to pending queue (avoid duplicates)
-    const existingPaths = new Set([
-      ...state.queue.pending.map((s) => s.filePath),
-      ...state.queue.active.map((s) => s.filePath),
-      ...state.queue.completed.map((s) => s.filePath),
-      ...state.queue.failed.map((s) => s.filePath),
+    // Add new specs to pending queue (avoid duplicates by spec ID)
+    const existingSpecIds = new Set([
+      ...state.queue.pending.map((s) => s.specId),
+      ...state.queue.active.map((s) => s.specId),
+      ...state.queue.completed.map((s) => s.specId),
+      ...state.queue.failed.map((s) => s.specId),
     ])
 
-    const newSpecs = specsWithFixme.filter((spec) => !existingPaths.has(spec.filePath))
+    const newSpecs = allSpecs.filter((spec) => !existingSpecIds.has(spec.specId))
 
     if (newSpecs.length === 0) {
       yield* Console.log(`\n✅ All specs already in queue. Nothing to add.`)
+      yield* Console.log(`\n📋 Queue status:`)
+      yield* Console.log(`  Pending: ${state.queue.pending.length}`)
+      yield* Console.log(`  Active: ${state.queue.active.length}`)
+      yield* Console.log(`  Completed: ${state.queue.completed.length}`)
+      yield* Console.log(`  Failed: ${state.queue.failed.length}`)
       return
     }
 
