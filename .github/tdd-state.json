@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T15:50:43.403Z",
+  "lastUpdated": "2026-01-26T15:50:44.974Z",
   "queue": {
     "pending": [
       {
@@ -42,7 +42,8 @@
     "failed": []
   },
   "activeFiles": [
-    "specs/test-concurrency/spec1.spec.ts"
+    "specs/test-concurrency/spec1.spec.ts",
+    "specs/test-concurrency/spec2.spec.ts"
   ],
   "activeSpecs": [],
   "config": {
