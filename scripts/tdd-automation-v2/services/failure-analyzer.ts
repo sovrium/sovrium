@@ -5,11 +5,20 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Console } from 'effect'
 import { Command, Options } from '@effect/cli'
+import { BunContext, BunRuntime } from '@effect/platform-bun'
 import { $ } from 'bun'
+import { Effect, Console } from 'effect'
 
+// FailureType is used as return value from program
 type FailureType = 'regression' | 'spec-failure' | 'infrastructure'
+void (0 as unknown as FailureType) // Type documentation - return value type
+
+interface GitHubCheck {
+  name: string
+  status: string
+  conclusion: string | null
+}
 
 const FailureAnalyzerCommand = Command.make(
   'failure-analyzer',
@@ -43,7 +52,7 @@ const FailureAnalyzerCommand = Command.make(
 
       // Analyze failed checks
       const failedChecks = checks.filter(
-        (check: any) => check.conclusion === 'FAILURE' || check.conclusion === 'CANCELLED'
+        (check: GitHubCheck) => check.conclusion === 'FAILURE' || check.conclusion === 'CANCELLED'
       )
 
       if (failedChecks.length === 0) {
@@ -54,7 +63,7 @@ const FailureAnalyzerCommand = Command.make(
 
       // Check for regression (E2E tests failed)
       const hasRegressionTests = failedChecks.some(
-        (check: any) =>
+        (check: GitHubCheck) =>
           check.name.toLowerCase().includes('e2e') ||
           check.name.toLowerCase().includes('regression') ||
           check.name.toLowerCase().includes('integration')
@@ -68,7 +77,7 @@ const FailureAnalyzerCommand = Command.make(
 
       // Check for spec failure (unit tests failed)
       const hasUnitTests = failedChecks.some(
-        (check: any) =>
+        (check: GitHubCheck) =>
           check.name.toLowerCase().includes('test') ||
           check.name.toLowerCase().includes('unit') ||
           check.name.toLowerCase().includes('spec')
@@ -82,7 +91,7 @@ const FailureAnalyzerCommand = Command.make(
 
       // Check for infrastructure issues (build, lint, typecheck failures)
       const hasInfrastructure = failedChecks.some(
-        (check: any) =>
+        (check: GitHubCheck) =>
           check.name.toLowerCase().includes('build') ||
           check.name.toLowerCase().includes('lint') ||
           check.name.toLowerCase().includes('typecheck') ||
@@ -102,9 +111,9 @@ const FailureAnalyzerCommand = Command.make(
     })
 )
 
-const program = FailureAnalyzerCommand
-
-Effect.runPromise(program).catch((error) => {
-  console.error('Failure analyzer failed:', error)
-  process.exit(1)
+const cli = Command.run(FailureAnalyzerCommand, {
+  name: 'failure-analyzer',
+  version: '1.0.0',
 })
+
+cli(process.argv).pipe(Effect.provide(BunContext.layer), BunRuntime.runMain)

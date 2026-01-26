@@ -519,9 +519,9 @@ const commandPreCheck = Effect.gen(function* () {
 
   // Validate issue exists and get state
   if (issueNumber > 0) {
-    const issueBody = yield* ghClient.getIssueBody(issueNumber).pipe(
-      Effect.catchAll(() => Effect.succeed(''))
-    )
+    const issueBody = yield* ghClient
+      .getIssueBody(issueNumber)
+      .pipe(Effect.catchAll(() => Effect.succeed('')))
 
     if (!issueBody) {
       yield* logInfo(`❌ Issue #${issueNumber} not found`)
@@ -530,9 +530,9 @@ const commandPreCheck = Effect.gen(function* () {
     }
 
     // Check for duplicate PRs
-    const duplicateCheck = yield* ghClient.hasPRForBranch(`#${issueNumber}`).pipe(
-      Effect.catchAll(() => Effect.succeed(false))
-    )
+    const duplicateCheck = yield* ghClient
+      .hasPRForBranch(`#${issueNumber}`)
+      .pipe(Effect.catchAll(() => Effect.succeed(false)))
 
     if (duplicateCheck) {
       yield* logInfo(`⚠️  Found existing PR for issue #${issueNumber}`)
@@ -558,7 +558,9 @@ const commandPreCheck = Effect.gen(function* () {
   // Write JSON output for YAML consumption
   const outputPath = process.env.TDD_OUTPUT_FILE ?? '.github/tdd-output.json'
   const fs = yield* FileSystemService
-  yield* fs.writeFile(outputPath, JSON.stringify(result, null, 2)).pipe(Effect.catchAll(() => Effect.void))
+  yield* fs
+    .writeFile(outputPath, JSON.stringify(result, null, 2))
+    .pipe(Effect.catchAll(() => Effect.void))
 
   // Write to GITHUB_OUTPUT if available
   if (process.env.GITHUB_OUTPUT) {

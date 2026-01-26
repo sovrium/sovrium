@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Console } from 'effect'
 import { $ } from 'bun'
+import { Effect, Console } from 'effect'
 
 // Parse command line arguments manually
 function parseArgs() {
@@ -41,7 +41,7 @@ function parseArgs() {
 
 const createPR = ({
   file,
-  branch,
+  branch: _branch,
   specId,
   retryCount,
   testCount,

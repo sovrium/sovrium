@@ -6,14 +6,7 @@
  */
 
 import { Effect, Context, Layer } from 'effect'
-import type {
-  TDDState,
-  SpecFileItem,
-  SpecStatus,
-  SpecError,
-  RequeueOptions,
-  INITIAL_STATE,
-} from '../types'
+import type { TDDState, SpecFileItem, SpecStatus, SpecError, RequeueOptions } from '../types'
 
 /**
  * State Manager Service
@@ -33,7 +26,7 @@ export class StateManager extends Context.Tag('StateManager')<
     ) => Effect.Effect<void, Error>
     readonly addActiveFile: (filePath: string) => Effect.Effect<void, Error>
     readonly removeActiveFile: (filePath: string) => Effect.Effect<void, Error>
-    readonly isFileLocked: (filePath: string) => Effect.Effect<boolean, never, StateManager>
+    readonly isFileLocked: (filePath: string) => Effect.Effect<boolean, Error>
     readonly recordFailureAndRequeue: (
       filePath: string,
       error: SpecError
@@ -175,13 +168,13 @@ const updateStateWithRetry = (
 
 /**
  * Helper: Transform state atomically
+ * Note: Uses direct file operations to avoid circular dependency with StateManager
  */
-const updateState = (fn: (state: TDDState) => TDDState): Effect.Effect<void, Error, StateManager> =>
+const updateState = (fn: (state: TDDState) => TDDState): Effect.Effect<void, Error> =>
   Effect.gen(function* () {
-    const stateManager = yield* StateManager
-    const currentState = yield* stateManager.load()
+    const currentState = yield* readStateFile()
     const newState = fn(currentState)
-    yield* stateManager.save(newState)
+    yield* updateStateWithRetry(newState)
   })
 
 /**
@@ -199,26 +192,33 @@ export const StateManagerLive = Layer.succeed(StateManager, {
       yield* updateState((state) => {
         // Find spec in source queue
         const sourceQueue = state.queue[from]
-        const specIndex = sourceQueue.findIndex((s) => s.id === fileId)
+        const spec = sourceQueue.find((s) => s.id === fileId)
 
-        if (specIndex === -1) {
+        if (!spec) {
           throw new Error(`Spec ${fileId} not found in ${from} queue`)
         }
 
-        const spec = sourceQueue[specIndex]
-
         // Remove from source queue
-        const newSourceQueue = [
-          ...sourceQueue.slice(0, specIndex),
-          ...sourceQueue.slice(specIndex + 1),
-        ]
+        const newSourceQueue = sourceQueue.filter((s) => s.id !== fileId)
 
         // Update spec status and timestamp
         const updatedSpec: SpecFileItem = {
-          ...spec,
+          id: spec.id,
+          filePath: spec.filePath,
+          priority: spec.priority,
           status: to,
-          ...(to === 'active' && { startedAt: new Date().toISOString() }),
-          ...(to === 'completed' && { completedAt: new Date().toISOString() }),
+          testCount: spec.testCount,
+          attempts: spec.attempts,
+          errors: spec.errors,
+          queuedAt: spec.queuedAt,
+          prNumber: spec.prNumber,
+          prUrl: spec.prUrl,
+          branch: spec.branch,
+          lastAttempt: spec.lastAttempt,
+          startedAt: to === 'active' ? new Date().toISOString() : spec.startedAt,
+          completedAt: to === 'completed' ? new Date().toISOString() : spec.completedAt,
+          failureReason: spec.failureReason,
+          requiresAction: spec.requiresAction,
         }
 
         // Add to destination queue
@@ -265,8 +265,7 @@ export const StateManagerLive = Layer.succeed(StateManager, {
 
   isFileLocked: (filePath) =>
     Effect.gen(function* () {
-      const stateManager = yield* StateManager
-      const state = yield* stateManager.load()
+      const state = yield* readStateFile()
       return state.activeFiles.includes(filePath)
     }),
 
@@ -276,28 +275,34 @@ export const StateManagerLive = Layer.succeed(StateManager, {
 
       yield* updateState((state) => {
         // Find spec in active queue
-        const activeIndex = state.queue.active.findIndex((s) => s.filePath === filePath)
+        const spec = state.queue.active.find((s) => s.filePath === filePath)
 
-        if (activeIndex === -1) {
+        if (!spec) {
           throw new Error(`Spec ${filePath} not found in active queue`)
         }
 
-        const spec = state.queue.active[activeIndex]
-
         // Update spec with error and increment attempts
         const updatedSpec: SpecFileItem = {
-          ...spec,
+          id: spec.id,
+          filePath: spec.filePath,
+          priority: spec.priority,
           status: 'pending',
+          testCount: spec.testCount,
           attempts: spec.attempts + 1,
-          lastAttempt: new Date().toISOString(),
           errors: [...spec.errors, error],
+          queuedAt: spec.queuedAt,
+          prNumber: spec.prNumber,
+          prUrl: spec.prUrl,
+          branch: spec.branch,
+          lastAttempt: new Date().toISOString(),
+          startedAt: spec.startedAt,
+          completedAt: spec.completedAt,
+          failureReason: spec.failureReason,
+          requiresAction: spec.requiresAction,
         }
 
         // Remove from active, add to pending
-        const newActive = [
-          ...state.queue.active.slice(0, activeIndex),
-          ...state.queue.active.slice(activeIndex + 1),
-        ]
+        const newActive = state.queue.active.filter((s) => s.filePath !== filePath)
 
         return {
           ...state,
@@ -316,28 +321,34 @@ export const StateManagerLive = Layer.succeed(StateManager, {
 
       yield* updateState((state) => {
         // Find spec in active queue
-        const activeIndex = state.queue.active.findIndex((s) => s.filePath === filePath)
+        const spec = state.queue.active.find((s) => s.filePath === filePath)
 
-        if (activeIndex === -1) {
+        if (!spec) {
           throw new Error(`Spec ${filePath} not found in active queue`)
         }
 
-        const spec = state.queue.active[activeIndex]
-
         // Update spec with failure details
         const failedSpec: SpecFileItem = {
-          ...spec,
+          id: spec.id,
+          filePath: spec.filePath,
+          priority: spec.priority,
           status: 'failed',
+          testCount: spec.testCount,
+          attempts: spec.attempts,
           errors: details.errors,
+          queuedAt: spec.queuedAt,
+          prNumber: spec.prNumber,
+          prUrl: spec.prUrl,
+          branch: spec.branch,
+          lastAttempt: spec.lastAttempt,
+          startedAt: spec.startedAt,
+          completedAt: spec.completedAt,
           failureReason: details.failureReason,
           requiresAction: details.requiresAction,
         }
 
         // Remove from active, add to failed
-        const newActive = [
-          ...state.queue.active.slice(0, activeIndex),
-          ...state.queue.active.slice(activeIndex + 1),
-        ]
+        const newActive = state.queue.active.filter((s) => s.filePath !== filePath)
 
         return {
           ...state,
@@ -360,30 +371,34 @@ export const StateManagerLive = Layer.succeed(StateManager, {
 
       yield* updateState((state) => {
         // Find spec in failed queue
-        const failedIndex = state.queue.failed.findIndex((s) => s.filePath === filePath)
+        const spec = state.queue.failed.find((s) => s.filePath === filePath)
 
-        if (failedIndex === -1) {
+        if (!spec) {
           throw new Error(`Spec ${filePath} not found in failed queue`)
         }
 
-        const spec = state.queue.failed[failedIndex]
-
         // Reset spec
         const requeuedSpec: SpecFileItem = {
-          ...spec,
+          id: spec.id,
+          filePath: spec.filePath,
+          priority: spec.priority,
           status: 'pending',
+          testCount: spec.testCount,
           attempts: options.resetRetries ? 0 : spec.attempts,
           errors: options.clearErrors ? [] : spec.errors,
+          queuedAt: spec.queuedAt,
+          prNumber: spec.prNumber,
+          prUrl: spec.prUrl,
+          branch: spec.branch,
           lastAttempt: undefined,
+          startedAt: spec.startedAt,
+          completedAt: spec.completedAt,
           failureReason: undefined,
           requiresAction: undefined,
         }
 
         // Remove from failed, add to pending
-        const newFailed = [
-          ...state.queue.failed.slice(0, failedIndex),
-          ...state.queue.failed.slice(failedIndex + 1),
-        ]
+        const newFailed = state.queue.failed.filter((s) => s.filePath !== filePath)
 
         return {
           ...state,

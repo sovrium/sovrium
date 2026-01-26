@@ -14,7 +14,7 @@ import { SpecSelector, SpecSelectorLive, PriorityCalculatorLive } from './spec-s
 const program = Effect.gen(function* () {
   // Parse count from command line args (default: 3)
   const countArg = process.argv.find((arg) => arg.startsWith('--count='))
-  const count = countArg ? parseInt(countArg.split('=')[1], 10) : 3
+  const count = countArg ? parseInt(countArg.split('=')[1] ?? '3', 10) : 3
 
   // Log to stderr so it doesn't interfere with JSON output on stdout
   console.error(`📋 Selecting up to ${count} spec(s) to process...`)

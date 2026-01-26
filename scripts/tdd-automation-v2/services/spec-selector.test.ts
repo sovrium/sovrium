@@ -7,6 +7,7 @@
 
 import { test, expect, describe } from 'bun:test'
 import { Effect } from 'effect'
+import { INITIAL_STATE } from '../types'
 import {
   PriorityCalculator,
   PriorityCalculatorLive,
@@ -14,7 +15,6 @@ import {
   SpecSelectorLive,
 } from './spec-selector'
 import type { TDDState, SpecFileItem } from '../types'
-import { INITIAL_STATE } from '../types'
 
 // Helper function to create mock spec file
 const createMockSpec = (overrides: Partial<SpecFileItem>): SpecFileItem => ({
@@ -295,7 +295,7 @@ describe('SpecSelector', () => {
       const selected = yield* selector.selectNext(10, state)
 
       expect(selected).toHaveLength(1)
-      expect(selected[0].filePath).toBe('specs/api/test1.spec.ts')
+      expect(selected[0]?.filePath).toBe('specs/api/test1.spec.ts')
     }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
 
     await Effect.runPromise(program)
@@ -328,7 +328,7 @@ describe('SpecSelector', () => {
       const selected = yield* selector.selectNext(10, state)
 
       expect(selected).toHaveLength(1)
-      expect(selected[0].filePath).toBe('specs/api/test2.spec.ts')
+      expect(selected[0]?.filePath).toBe('specs/api/test2.spec.ts')
     }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
 
     await Effect.runPromise(program)
@@ -372,7 +372,7 @@ describe('SpecSelector', () => {
       const selected = yield* selector.selectNext(10, state)
 
       expect(selected).toHaveLength(1)
-      expect(selected[0].filePath).toBe('specs/api/test2.spec.ts')
+      expect(selected[0]?.filePath).toBe('specs/api/test2.spec.ts')
     }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
 
     await Effect.runPromise(program)
@@ -414,8 +414,8 @@ describe('SpecSelector', () => {
       const selected = yield* selector.selectNext(2, state)
 
       expect(selected).toHaveLength(2)
-      expect(selected[0].filePath).toBe('specs/api/test2.spec.ts') // Highest priority
-      expect(selected[1].filePath).toBe('specs/api/test3.spec.ts') // Second highest
+      expect(selected[0]?.filePath).toBe('specs/api/test2.spec.ts') // Highest priority
+      expect(selected[1]?.filePath).toBe('specs/api/test3.spec.ts') // Second highest
     }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
 
     await Effect.runPromise(program)

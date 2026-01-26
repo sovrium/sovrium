@@ -5,17 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { $ } from 'bun'
 import { test, expect, beforeAll, afterAll } from 'bun:test'
 import { Effect } from 'effect'
 import { StateManager, StateManagerLive } from './core/state-manager'
-import type { SpecFileItem } from './types'
-import { $ } from 'bun'
 
 const TEST_SPEC_FILES = [
   'specs/test-concurrency/spec1.spec.ts',
   'specs/test-concurrency/spec2.spec.ts',
   'specs/test-concurrency/spec3.spec.ts',
-]
+] as const
+
+// Type-safe constants for array access (avoids string | undefined in strict mode)
+const SPEC_FILE_1 = TEST_SPEC_FILES[0]
+const SPEC_FILE_2 = TEST_SPEC_FILES[1]
+const SPEC_FILE_3 = TEST_SPEC_FILES[2]
 
 const TEST_STATE_FILE = '.github/tdd-state.json'
 
@@ -57,7 +61,7 @@ test.fixme('test in ${filePath}', () => {
     version: '2.0.0',
     lastUpdated: new Date().toISOString(),
     queue: {
-      pending: TEST_SPEC_FILES.map((filePath, index) => ({
+      pending: TEST_SPEC_FILES.map((filePath) => ({
         id: filePath,
         filePath,
         priority: 50,
@@ -108,9 +112,9 @@ test('Concurrency: 3 workers can lock different files simultaneously', async () 
     // Simulate 3 workers locking files in parallel
     yield* Effect.all(
       [
-        stateManager.addActiveFile(TEST_SPEC_FILES[0]),
-        stateManager.addActiveFile(TEST_SPEC_FILES[1]),
-        stateManager.addActiveFile(TEST_SPEC_FILES[2]),
+        stateManager.addActiveFile(SPEC_FILE_1),
+        stateManager.addActiveFile(SPEC_FILE_2),
+        stateManager.addActiveFile(SPEC_FILE_3),
       ],
       { concurrency: 'unbounded' }
     )
@@ -118,14 +122,14 @@ test('Concurrency: 3 workers can lock different files simultaneously', async () 
     // Verify all 3 files are locked
     const state = yield* stateManager.load()
     expect(state.activeFiles).toHaveLength(3)
-    expect(state.activeFiles).toContain(TEST_SPEC_FILES[0])
-    expect(state.activeFiles).toContain(TEST_SPEC_FILES[1])
-    expect(state.activeFiles).toContain(TEST_SPEC_FILES[2])
+    expect(state.activeFiles).toContain(SPEC_FILE_1)
+    expect(state.activeFiles).toContain(SPEC_FILE_2)
+    expect(state.activeFiles).toContain(SPEC_FILE_3)
 
     // Verify all are marked as locked
-    const locked1 = yield* stateManager.isFileLocked(TEST_SPEC_FILES[0])
-    const locked2 = yield* stateManager.isFileLocked(TEST_SPEC_FILES[1])
-    const locked3 = yield* stateManager.isFileLocked(TEST_SPEC_FILES[2])
+    const locked1 = yield* stateManager.isFileLocked(SPEC_FILE_1)
+    const locked2 = yield* stateManager.isFileLocked(SPEC_FILE_2)
+    const locked3 = yield* stateManager.isFileLocked(SPEC_FILE_3)
 
     expect(locked1).toBe(true)
     expect(locked2).toBe(true)
@@ -134,9 +138,9 @@ test('Concurrency: 3 workers can lock different files simultaneously', async () 
     // Cleanup: unlock all
     yield* Effect.all(
       [
-        stateManager.removeActiveFile(TEST_SPEC_FILES[0]),
-        stateManager.removeActiveFile(TEST_SPEC_FILES[1]),
-        stateManager.removeActiveFile(TEST_SPEC_FILES[2]),
+        stateManager.removeActiveFile(SPEC_FILE_1),
+        stateManager.removeActiveFile(SPEC_FILE_2),
+        stateManager.removeActiveFile(SPEC_FILE_3),
       ],
       { concurrency: 'unbounded' }
     )
@@ -153,22 +157,22 @@ test('Concurrency: Cannot lock same file twice', async () => {
     const stateManager = yield* StateManager
 
     // Lock file once
-    yield* stateManager.addActiveFile(TEST_SPEC_FILES[0])
+    yield* stateManager.addActiveFile(SPEC_FILE_1)
 
     const stateAfterFirst = yield* stateManager.load()
     expect(stateAfterFirst.activeFiles).toHaveLength(1)
-    expect(stateAfterFirst.activeFiles).toContain(TEST_SPEC_FILES[0])
+    expect(stateAfterFirst.activeFiles).toContain(SPEC_FILE_1)
 
     // Try to lock same file again (should be idempotent)
-    yield* stateManager.addActiveFile(TEST_SPEC_FILES[0])
+    yield* stateManager.addActiveFile(SPEC_FILE_1)
 
     const stateAfterSecond = yield* stateManager.load()
     // Should still only have 1 entry (idempotent)
     expect(stateAfterSecond.activeFiles).toHaveLength(1)
-    expect(stateAfterSecond.activeFiles).toContain(TEST_SPEC_FILES[0])
+    expect(stateAfterSecond.activeFiles).toContain(SPEC_FILE_1)
 
     // Cleanup
-    yield* stateManager.removeActiveFile(TEST_SPEC_FILES[0])
+    yield* stateManager.removeActiveFile(SPEC_FILE_1)
   }).pipe(Effect.provide(StateManagerLive))
 
   await Effect.runPromise(program)
@@ -186,9 +190,9 @@ test('Concurrency: State transitions for 3 specs simultaneously', async () => {
     // Transition all 3 specs to active simultaneously
     yield* Effect.all(
       [
-        stateManager.transition(TEST_SPEC_FILES[0], 'pending', 'active'),
-        stateManager.transition(TEST_SPEC_FILES[1], 'pending', 'active'),
-        stateManager.transition(TEST_SPEC_FILES[2], 'pending', 'active'),
+        stateManager.transition(SPEC_FILE_1, 'pending', 'active'),
+        stateManager.transition(SPEC_FILE_2, 'pending', 'active'),
+        stateManager.transition(SPEC_FILE_3, 'pending', 'active'),
       ],
       { concurrency: 'unbounded' }
     )
@@ -198,9 +202,9 @@ test('Concurrency: State transitions for 3 specs simultaneously', async () => {
     expect(activeState.queue.active).toHaveLength(3)
 
     // Verify each spec is in active queue with correct status
-    const activeSpec1 = activeState.queue.active.find((s) => s.filePath === TEST_SPEC_FILES[0])
-    const activeSpec2 = activeState.queue.active.find((s) => s.filePath === TEST_SPEC_FILES[1])
-    const activeSpec3 = activeState.queue.active.find((s) => s.filePath === TEST_SPEC_FILES[2])
+    const activeSpec1 = activeState.queue.active.find((s) => s.filePath === SPEC_FILE_1)
+    const activeSpec2 = activeState.queue.active.find((s) => s.filePath === SPEC_FILE_2)
+    const activeSpec3 = activeState.queue.active.find((s) => s.filePath === SPEC_FILE_3)
 
     expect(activeSpec1).toBeDefined()
     expect(activeSpec1?.status).toBe('active')
@@ -212,9 +216,9 @@ test('Concurrency: State transitions for 3 specs simultaneously', async () => {
     // Transition all to completed
     yield* Effect.all(
       [
-        stateManager.transition(TEST_SPEC_FILES[0], 'active', 'completed'),
-        stateManager.transition(TEST_SPEC_FILES[1], 'active', 'completed'),
-        stateManager.transition(TEST_SPEC_FILES[2], 'active', 'completed'),
+        stateManager.transition(SPEC_FILE_1, 'active', 'completed'),
+        stateManager.transition(SPEC_FILE_2, 'active', 'completed'),
+        stateManager.transition(SPEC_FILE_3, 'active', 'completed'),
       ],
       { concurrency: 'unbounded' }
     )
@@ -233,24 +237,24 @@ test('Concurrency: Spec selector respects file locks', async () => {
 
     // Reset to initial state
     const initialState = {
-      version: '2.0.0',
+      version: '2.0.0' as const,
       lastUpdated: new Date().toISOString(),
       queue: {
         pending: TEST_SPEC_FILES.map((filePath) => ({
           id: filePath,
           filePath,
           priority: 50,
-          status: 'pending',
+          status: 'pending' as const,
           testCount: 1,
           attempts: 0,
-          errors: [],
+          errors: [] as never[],
           queuedAt: new Date().toISOString(),
         })),
-        active: [],
-        completed: [],
-        failed: [],
+        active: [] as never[],
+        completed: [] as never[],
+        failed: [] as never[],
       },
-      activeFiles: [TEST_SPEC_FILES[0]], // File 1 already locked
+      activeFiles: [SPEC_FILE_1] as string[],
       config: {
         maxConcurrentPRs: 3,
         maxRetries: 3,
@@ -270,7 +274,7 @@ test('Concurrency: Spec selector respects file locks', async () => {
     yield* stateManager.save(initialState)
 
     // Verify file 1 is locked
-    const isLocked = yield* stateManager.isFileLocked(TEST_SPEC_FILES[0])
+    const isLocked = yield* stateManager.isFileLocked(SPEC_FILE_1)
     expect(isLocked).toBe(true)
 
     // Spec selector should skip locked files
@@ -283,10 +287,10 @@ test('Concurrency: Spec selector respects file locks', async () => {
     )
 
     expect(availableSpecs).toHaveLength(2)
-    expect(availableSpecs.map((s) => s.filePath)).toEqual([TEST_SPEC_FILES[1], TEST_SPEC_FILES[2]])
+    expect(availableSpecs.map((s) => s.filePath)).toEqual([SPEC_FILE_2, SPEC_FILE_3])
 
     // Cleanup
-    yield* stateManager.removeActiveFile(TEST_SPEC_FILES[0])
+    yield* stateManager.removeActiveFile(SPEC_FILE_1)
   }).pipe(Effect.provide(StateManagerLive))
 
   await Effect.runPromise(program)
@@ -309,9 +313,9 @@ test('Concurrency: maxConcurrentPRs limit enforced', async () => {
     // Transition 3 specs to active (fills all slots)
     yield* Effect.all(
       [
-        stateManager.transition(TEST_SPEC_FILES[0], 'pending', 'active'),
-        stateManager.transition(TEST_SPEC_FILES[1], 'pending', 'active'),
-        stateManager.transition(TEST_SPEC_FILES[2], 'pending', 'active'),
+        stateManager.transition(SPEC_FILE_1, 'pending', 'active'),
+        stateManager.transition(SPEC_FILE_2, 'pending', 'active'),
+        stateManager.transition(SPEC_FILE_3, 'pending', 'active'),
       ],
       { concurrency: 'unbounded' }
     )
@@ -329,9 +333,9 @@ test('Concurrency: maxConcurrentPRs limit enforced', async () => {
     // Cleanup
     yield* Effect.all(
       [
-        stateManager.transition(TEST_SPEC_FILES[0], 'active', 'completed'),
-        stateManager.transition(TEST_SPEC_FILES[1], 'active', 'completed'),
-        stateManager.transition(TEST_SPEC_FILES[2], 'active', 'completed'),
+        stateManager.transition(SPEC_FILE_1, 'active', 'completed'),
+        stateManager.transition(SPEC_FILE_2, 'active', 'completed'),
+        stateManager.transition(SPEC_FILE_3, 'active', 'completed'),
       ],
       { concurrency: 'unbounded' }
     )

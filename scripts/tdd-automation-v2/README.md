@@ -149,7 +149,6 @@ gh run list --workflow=tdd-worker-v2.yml --limit=10
 | `unlock-file.ts`       | Remove file from `activeFiles` (cleanup)                     |
 | `pre-validate.ts`      | Remove `.fixme()`, run tests, check if already pass          |
 | `pr-manager.ts`        | Create and merge PRs (fast-path and implementation modes)    |
-| `claude-invoker.ts`    | Invoke Claude Code agents (e2e-test-fixer, refactor-auditor) |
 | `ci-waiter.ts`         | Poll PR status until CI completes or timeout                 |
 | `failure-analyzer.ts`  | Classify failures (regression, spec-failure, infrastructure) |
 | `failure-handler.ts`   | Handle failures, apply 3-strikes rule                        |

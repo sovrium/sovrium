@@ -5,12 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Console } from 'effect'
+import { readFile } from 'node:fs/promises'
 import { Command } from '@effect/cli'
+import { BunContext, BunRuntime } from '@effect/platform-bun'
+import { Effect, Console, Layer } from 'effect'
+import { glob } from 'glob'
 import { StateManager, StateManagerLive } from '../core/state-manager'
 import type { SpecFileItem } from '../types'
-import { glob } from 'glob'
-import { readFile } from 'node:fs/promises'
 
 const QueueInitializerCommand = Command.make('queue-initializer', {}, () =>
   Effect.gen(function* () {
@@ -107,9 +108,11 @@ const QueueInitializerCommand = Command.make('queue-initializer', {}, () =>
   })
 )
 
-const program = QueueInitializerCommand.pipe(Effect.provide(StateManagerLive))
-
-Effect.runPromise(program).catch((error) => {
-  console.error('Queue initializer failed:', error)
-  process.exit(1)
+const cli = Command.run(QueueInitializerCommand, {
+  name: 'queue-initializer',
+  version: '1.0.0',
 })
+
+const AppLayer = Layer.mergeAll(BunContext.layer, StateManagerLive)
+
+cli(process.argv).pipe(Effect.provide(AppLayer), BunRuntime.runMain)

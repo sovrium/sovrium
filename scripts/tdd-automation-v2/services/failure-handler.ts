@@ -5,13 +5,20 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Console } from 'effect'
 import { Command, Options } from '@effect/cli'
-import { StateManager, StateManagerLive } from '../core/state-manager'
-import { SpecError } from '../types'
+import { BunContext, BunRuntime } from '@effect/platform-bun'
 import { $ } from 'bun'
+import { Effect, Console, Layer } from 'effect'
+import { StateManager, StateManagerLive } from '../core/state-manager'
+import type { SpecError } from '../types'
 
 type FailureType = 'regression' | 'spec-failure' | 'infrastructure'
+
+interface GitHubCheck {
+  name: string
+  status: string
+  conclusion: string | null
+}
 
 const FailureHandlerCommand = Command.make(
   'failure-handler',
@@ -35,14 +42,15 @@ const FailureHandlerCommand = Command.make(
         try: async () => {
           const proc = await $`gh pr view ${pr} --json statusCheckRollup`.nothrow().quiet()
           const data = JSON.parse(proc.stdout.toString())
-          const checks = data.statusCheckRollup || []
+          const checks = (data.statusCheckRollup || []) as GitHubCheck[]
           const failedChecks = checks.filter(
-            (check: any) => check.conclusion === 'FAILURE' || check.conclusion === 'CANCELLED'
+            (check: GitHubCheck) =>
+              check.conclusion === 'FAILURE' || check.conclusion === 'CANCELLED'
           )
 
           return {
             message: failedChecks
-              .map((check: any) => `${check.name}: ${check.conclusion}`)
+              .map((check: GitHubCheck) => `${check.name}: ${check.conclusion}`)
               .join(', '),
             details: JSON.stringify(failedChecks, null, 2),
           }
@@ -116,12 +124,23 @@ function generateFailureComment(
 
 `
 
-  if (failureType === 'regression') {
-    comment += `This implementation caused other tests to fail. The changes will be reverted and the spec will be retried with additional context about the regression.`
-  } else if (failureType === 'spec-failure') {
-    comment += `The implemented code did not make all tests pass. The spec will be retried with additional context about what failed.`
-  } else if (failureType === 'infrastructure') {
-    comment += `Infrastructure or build checks failed. This is not a code issue. The spec will be retried once infrastructure is stable.`
+  switch (failureType) {
+    case 'regression': {
+      comment += `This implementation caused other tests to fail. The changes will be reverted and the spec will be retried with additional context about the regression.`
+
+      break
+    }
+    case 'spec-failure': {
+      comment += `The implemented code did not make all tests pass. The spec will be retried with additional context about what failed.`
+
+      break
+    }
+    case 'infrastructure': {
+      comment += `Infrastructure or build checks failed. This is not a code issue. The spec will be retried once infrastructure is stable.`
+
+      break
+    }
+    // No default
   }
 
   if (attemptNumber >= 3) {
@@ -163,9 +182,11 @@ Wait for infrastructure to stabilize, then manually re-queue this spec.`
   }
 }
 
-const program = FailureHandlerCommand.pipe(Effect.provide(StateManagerLive))
-
-Effect.runPromise(program).catch((error) => {
-  console.error('Failure handler failed:', error)
-  process.exit(1)
+const cli = Command.run(FailureHandlerCommand, {
+  name: 'failure-handler',
+  version: '1.0.0',
 })
+
+const AppLayer = Layer.mergeAll(BunContext.layer, StateManagerLive)
+
+cli(process.argv).pipe(Effect.provide(AppLayer), BunRuntime.runMain)

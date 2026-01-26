@@ -39,12 +39,23 @@ export const PriorityCalculatorLive = Layer.succeed(PriorityCalculator, {
 
     // Factor 2: Failure history (fewer failures = higher chance of success)
     // 0 failures → +15, 1 failure → +5, 2 failures → -5
-    if (spec.attempts === 0) {
-      score += 15
-    } else if (spec.attempts === 1) {
-      score += 5
-    } else if (spec.attempts === 2) {
-      score -= 5
+    switch (spec.attempts) {
+      case 0: {
+        score += 15
+
+        break
+      }
+      case 1: {
+        score += 5
+
+        break
+      }
+      case 2: {
+        score -= 5
+
+        break
+      }
+      // No default
     }
 
     // Factor 3: Path depth (shallower = more foundational)
@@ -61,11 +72,11 @@ export const PriorityCalculatorLive = Layer.succeed(PriorityCalculator, {
 
     // Factor 4: Error type from last attempt (if any)
     if (spec.errors.length > 0) {
-      const lastError = spec.errors[spec.errors.length - 1]
-      if (lastError.type === 'infrastructure') {
+      const lastError = spec.errors.at(-1)
+      if (lastError?.type === 'infrastructure') {
         // Infrastructure errors less likely to succeed immediately
         score -= 20
-      } else if (lastError.type === 'regression') {
+      } else if (lastError?.type === 'regression') {
         // Regressions need architectural thinking
         score -= 10
       }

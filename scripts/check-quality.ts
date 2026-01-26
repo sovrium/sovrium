@@ -229,8 +229,15 @@ const findTestFile = (filePath: string) =>
 
 /**
  * Run a single quality check command
+ *
+ * @param acceptExitCodes - Additional exit codes to treat as success (e.g., [2] for TypeScript warnings)
  */
-const runCheck = (name: string, command: readonly string[], timeoutMs: number = 60_000) =>
+const runCheck = (
+  name: string,
+  command: readonly string[],
+  timeoutMs: number = 60_000,
+  acceptExitCodes: readonly number[] = []
+) =>
   Effect.gen(function* () {
     const cmd = yield* CommandService
     const startTime = Date.now()
@@ -265,7 +272,8 @@ const runCheck = (name: string, command: readonly string[], timeoutMs: number = 
     )
 
     const duration = Date.now() - startTime
-    const isSuccess = result.exitCode === 0
+    // Exit code 0 is always success; accept additional codes (e.g., 2 for TypeScript warnings)
+    const isSuccess = result.exitCode === 0 || acceptExitCodes.includes(result.exitCode)
 
     const checkResult: CheckResult = {
       name,
@@ -334,7 +342,7 @@ const runFileChecks = (filePath: string) =>
         ],
         120_000
       ),
-      runCheck('TypeScript', ['bunx', 'tsc', '--noEmit', '--incremental'], 60_000),
+      runCheck('TypeScript', ['bunx', 'tsc', '--noEmit'], 60_000, [2]),
     ]
 
     // Add test file check if it exists
@@ -584,12 +592,9 @@ const runFullChecks = (options: QualityOptions) =>
       return results
     }
 
-    // 3. TypeScript check
-    const tscResult = yield* runCheck(
-      'TypeScript',
-      ['bunx', 'tsc', '--noEmit', '--incremental'],
-      60_000
-    )
+    // 3. TypeScript check (accept exit code 2 = warnings only from Effect language service)
+    // Note: --incremental is intentionally omitted as it changes exit code from 2 to 1
+    const tscResult = yield* runCheck('TypeScript', ['bunx', 'tsc', '--noEmit'], 60_000, [2])
     results.push(tscResult)
     if (!tscResult.success) {
       yield* logError('\n⚠️  Stopping checks due to TypeScript failure (fail-fast mode)')

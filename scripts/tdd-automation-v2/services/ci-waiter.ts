@@ -5,11 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Console } from 'effect'
 import { Command, Options } from '@effect/cli'
+import { BunContext, BunRuntime } from '@effect/platform-bun'
 import { $ } from 'bun'
+import { Effect, Console } from 'effect'
 
 type CheckStatus = 'success' | 'failure' | 'pending'
+
+interface GitHubCheck {
+  name: string
+  status: string
+  conclusion: string | null
+}
 
 const CIWaiterCommand = Command.make(
   'ci-waiter',
@@ -49,16 +56,16 @@ const CIWaiterCommand = Command.make(
 
         // Determine overall status
         const hasFailure = checks.some(
-          (check: any) => check.conclusion === 'FAILURE' || check.conclusion === 'CANCELLED'
+          (check: GitHubCheck) => check.conclusion === 'FAILURE' || check.conclusion === 'CANCELLED'
         )
         const hasPending = checks.some(
-          (check: any) =>
+          (check: GitHubCheck) =>
             check.status === 'IN_PROGRESS' ||
             check.status === 'QUEUED' ||
             check.status === 'PENDING'
         )
         const allSuccess =
-          checks.length > 0 && checks.every((check: any) => check.conclusion === 'SUCCESS')
+          checks.length > 0 && checks.every((check: GitHubCheck) => check.conclusion === 'SUCCESS')
 
         if (hasFailure) {
           yield* Console.log(`❌ CI checks failed`)
@@ -99,9 +106,9 @@ const CIWaiterCommand = Command.make(
     })
 )
 
-const program = CIWaiterCommand
-
-Effect.runPromise(program).catch((error) => {
-  console.error('CI waiter failed:', error)
-  process.exit(1)
+const cli = Command.run(CIWaiterCommand, {
+  name: 'ci-waiter',
+  version: '1.0.0',
 })
+
+cli(process.argv).pipe(Effect.provide(BunContext.layer), BunRuntime.runMain)

@@ -5,11 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { $ } from 'bun'
 import { test, expect, beforeAll, afterAll } from 'bun:test'
 import { Effect } from 'effect'
 import { StateManager, StateManagerLive } from './core/state-manager'
 import type { SpecFileItem } from './types'
-import { $ } from 'bun'
 
 const TEST_SPEC_FILE = 'specs/test-integration/sample.spec.ts'
 const TEST_STATE_FILE = '.github/tdd-state.json' // Use actual state file

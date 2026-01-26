@@ -75,15 +75,15 @@ The TDD automation uses a **layered architecture** with TypeScript CLI commands 
 
 **Benefits of Refactored Architecture**:
 
-| Aspect               | Before (Embedded Bash) | After (TypeScript CLI) |
-| -------------------- | ---------------------- | ---------------------- |
-| **YAML lines**       | ~5,300                 | ~700                   |
-| **Bash logic**       | ~3,500 lines           | ~100 lines             |
-| **TypeScript**       | ~1,500 lines           | ~4,000 lines           |
-| **Test coverage**    | 0%                     | 80%+                   |
-| **Local debugging**  | Impossible             | Full support           |
-| **Error patterns**   | 0 tested               | 20+ patterns           |
-| **Type safety**      | None                   | Full Effect.ts         |
+| Aspect              | Before (Embedded Bash) | After (TypeScript CLI) |
+| ------------------- | ---------------------- | ---------------------- |
+| **YAML lines**      | ~5,300                 | ~700                   |
+| **Bash logic**      | ~3,500 lines           | ~100 lines             |
+| **TypeScript**      | ~1,500 lines           | ~4,000 lines           |
+| **Test coverage**   | 0%                     | 80%+                   |
+| **Local debugging** | Impossible             | Full support           |
+| **Error patterns**  | 0 tested               | 20+ patterns           |
+| **Type safety**     | None                   | Full Effect.ts         |
 
 **Key Design Constraint**: `anthropics/claude-code-action@v1` MUST remain in YAML (requires GitHub OAuth context, secrets injection)
 
@@ -156,6 +156,7 @@ bun run scripts/tdd-automation/cli/tdd-execute.ts detect-sdk-crash
 ```
 
 **Environment Variables**: CLI commands read configuration from environment variables set by the YAML workflow:
+
 - `GH_TOKEN` - GitHub token for API calls
 - `GITHUB_REPOSITORY` - Repository in `owner/repo` format
 - `ISSUE_NUMBER` - Issue being processed
@@ -163,6 +164,7 @@ bun run scripts/tdd-automation/cli/tdd-execute.ts detect-sdk-crash
 - `STUCK_TIMEOUT_MINUTES` - Timeout for stuck specs (default: 105)
 
 **Output Format**: All commands write to `$GITHUB_OUTPUT` for workflow consumption:
+
 ```bash
 echo "key=value" >> $GITHUB_OUTPUT
 ```

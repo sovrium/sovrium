@@ -20,6 +20,38 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   AUD: '$',
 }
 
+type ThousandsSeparator = 'comma' | 'period' | 'space' | 'none'
+type NegativeFormat = 'minus' | 'parentheses'
+
+/**
+ * Get the character used for thousands separation
+ */
+function getThousandsSeparatorChar(separator: ThousandsSeparator): string {
+  const separatorMap: Record<ThousandsSeparator, string> = {
+    comma: ',',
+    period: '.',
+    space: ' ',
+    none: '',
+  }
+  return separatorMap[separator]
+}
+
+/**
+ * Get the character used for decimal separation based on thousands separator
+ */
+function getDecimalSeparator(thousandsSeparator: ThousandsSeparator): string {
+  // Use comma as decimal separator when period is used for thousands (European format)
+  return thousandsSeparator === 'period' ? ',' : '.'
+}
+
+/**
+ * Apply negative formatting to a formatted amount
+ */
+function applyNegativeFormat(amount: string, isNegative: boolean, format: NegativeFormat): string {
+  if (!isNegative) return amount
+  return format === 'parentheses' ? `(${amount})` : `-${amount}`
+}
+
 /**
  * Format a currency value with the appropriate symbol and formatting options
  *
@@ -31,8 +63,8 @@ function formatCurrency(value: number, field: CurrencyField): string {
   const symbol = CURRENCY_SYMBOLS[field.currency] || field.currency
   const precision = field.precision ?? 2
   const symbolPosition = field.symbolPosition ?? 'before'
-  const negativeFormat = field.negativeFormat ?? 'minus'
-  const thousandsSeparator = field.thousandsSeparator ?? 'comma'
+  const negativeFormat = (field.negativeFormat ?? 'minus') as NegativeFormat
+  const thousandsSeparator = (field.thousandsSeparator ?? 'comma') as ThousandsSeparator
 
   // Handle negative values
   const isNegative = value < 0
@@ -40,30 +72,18 @@ function formatCurrency(value: number, field: CurrencyField): string {
 
   // Format the number with precision
   const formattedNumber = absoluteValue.toFixed(precision)
-
-  // Apply thousands separator
   const [integerPartRaw, decimalPart] = formattedNumber.split('.')
   const integerPartBase = integerPartRaw ?? '0'
 
+  // Apply thousands separator
+  const separatorChar = getThousandsSeparatorChar(thousandsSeparator)
   const integerPart =
-    thousandsSeparator !== 'none'
-      ? (() => {
-          const separator =
-            thousandsSeparator === 'comma'
-              ? ','
-              : thousandsSeparator === 'period'
-                ? '.'
-                : thousandsSeparator === 'space'
-                  ? ' '
-                  : ''
-
-          return integerPartBase.replace(/\B(?=(\d{3})+(?!\d))/g, separator)
-        })()
+    separatorChar !== ''
+      ? integerPartBase.replace(/\B(?=(\d{3})+(?!\d))/g, separatorChar)
       : integerPartBase
 
   // Reconstruct number with decimal separator
-  const decimalSeparator =
-    thousandsSeparator === 'period' ? ',' : thousandsSeparator === 'comma' ? '.' : '.'
+  const decimalSeparator = getDecimalSeparator(thousandsSeparator)
   const reconstructedNumber =
     precision > 0 ? `${integerPart}${decimalSeparator}${decimalPart}` : integerPart
 
@@ -73,15 +93,7 @@ function formatCurrency(value: number, field: CurrencyField): string {
       ? `${symbol}${reconstructedNumber}`
       : `${reconstructedNumber}${symbol}`
 
-  // Apply negative format
-  if (isNegative) {
-    if (negativeFormat === 'parentheses') {
-      return `(${amountWithSymbol})`
-    }
-    return `-${amountWithSymbol}`
-  }
-
-  return amountWithSymbol
+  return applyNegativeFormat(amountWithSymbol, isNegative, negativeFormat)
 }
 
 /**

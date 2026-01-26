@@ -20,10 +20,10 @@
  *   bun run scripts/tdd-automation-v2/initialize-queue.ts --reset  # Reset state file
  */
 
+import { existsSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { Effect, Console } from 'effect'
 import { glob } from 'glob'
-import { readFile } from 'node:fs/promises'
-import { existsSync } from 'node:fs'
 import type { TDDState, SpecFileItem } from './types'
 
 const STATE_FILE = '.github/tdd-state.json'
