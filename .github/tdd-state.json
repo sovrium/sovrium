@@ -1,14 +1,16 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T09:57:48.694Z",
+  "lastUpdated": "2026-01-26T09:57:49.961Z",
   "queue": {
     "pending": [],
-    "active": [
+    "active": [],
+    "completed": [],
+    "failed": [
       {
         "id": "specs/test-integration/sample.spec.ts",
         "filePath": "specs/test-integration/sample.spec.ts",
         "priority": 50,
-        "status": "active",
+        "status": "failed",
         "testCount": 2,
         "attempts": 2,
         "errors": [
@@ -21,13 +23,18 @@
             "timestamp": "2026-01-26T09:57:48.361Z",
             "type": "spec-failure",
             "message": "Second failure"
+          },
+          {
+            "timestamp": "2026-01-26T09:57:49.639Z",
+            "type": "spec-failure",
+            "message": "Third failure"
           }
         ],
-        "queuedAt": "2026-01-26T09:57:48.361Z"
+        "queuedAt": "2026-01-26T09:57:48.361Z",
+        "failureReason": "Failed 3 times due to spec-failure",
+        "requiresAction": "Manual review required"
       }
-    ],
-    "completed": [],
-    "failed": []
+    ]
   },
   "activeFiles": [],
   "config": {
@@ -42,6 +49,6 @@
     "averageProcessingTime": 0,
     "claudeInvocations": 0,
     "costSavingsFromSkips": 0,
-    "manualInterventionCount": 0
+    "manualInterventionCount": 1
   }
 }
