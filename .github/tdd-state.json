@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T10:15:41.124Z",
+  "lastUpdated": "2026-01-26T14:19:59.365Z",
   "queue": {
     "pending": [
       {
@@ -328,7 +328,9 @@
     "completed": [],
     "failed": []
   },
-  "activeFiles": [],
+  "activeFiles": [
+    "specs/api/tables/session-context-integration.spec.ts"
+  ],
   "config": {
     "maxConcurrentPRs": 3,
     "maxRetries": 3,
