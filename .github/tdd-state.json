@@ -1,9 +1,31 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T09:57:47.415Z",
+  "lastUpdated": "2026-01-26T09:57:48.694Z",
   "queue": {
     "pending": [],
-    "active": [],
+    "active": [
+      {
+        "id": "specs/test-integration/sample.spec.ts",
+        "filePath": "specs/test-integration/sample.spec.ts",
+        "priority": 50,
+        "status": "active",
+        "testCount": 2,
+        "attempts": 2,
+        "errors": [
+          {
+            "timestamp": "2026-01-26T09:57:48.361Z",
+            "type": "spec-failure",
+            "message": "First failure"
+          },
+          {
+            "timestamp": "2026-01-26T09:57:48.361Z",
+            "type": "spec-failure",
+            "message": "Second failure"
+          }
+        ],
+        "queuedAt": "2026-01-26T09:57:48.361Z"
+      }
+    ],
     "completed": [],
     "failed": []
   },
