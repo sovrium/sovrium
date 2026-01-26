@@ -209,6 +209,9 @@ const writeStateFileViaGitHub = (
       const { owner, repo, token } = getRepoInfo()
       const url = `https://api.github.com/repos/${owner}/${repo}/contents/${STATE_FILE_PATH}`
 
+      console.log(`📤 GitHub API PUT request to: ${url}`)
+      console.log(`📋 SHA for update: ${sha ? sha.slice(0, 7) : '(new file)'}`)
+
       const updatedState: TDDState = {
         ...state,
         lastUpdated: new Date().toISOString(),
@@ -238,19 +241,25 @@ const writeStateFileViaGitHub = (
         body: JSON.stringify(body),
       })
 
+      console.log(`📥 GitHub API response status: ${response.status}`)
+
       if (!response.ok) {
         const errorText = await response.text()
+        console.error(`❌ GitHub API error response: ${errorText}`)
         throw new GitHubAPIError({
           status: response.status,
-          message: `Failed to write state file: ${errorText}`,
+          message: `Failed to write state file (HTTP ${response.status}): ${errorText}`,
           cause: new Error(errorText),
         })
       }
+
+      console.log('✅ GitHub API PUT request successful')
     },
     catch: (error) => {
       if (error instanceof GitHubAPIError) {
         return error
       }
+      console.error(`❌ Unexpected error in writeStateFileViaGitHub: ${error}`)
       return new GitHubAPIError({
         status: 0,
         message: `Unexpected error writing state file: ${error}`,
@@ -290,6 +299,7 @@ const updateStateWithRetry = (
 ): Effect.Effect<void, Error> =>
   Effect.gen(function* () {
     if (retriesLeft <= 0) {
+      yield* Effect.logError(`❌ Max retries (${MAX_RETRIES}) exceeded for state update`)
       return yield* new MaxRetriesExceededError({ maxRetries: MAX_RETRIES })
     }
 
@@ -300,20 +310,30 @@ const updateStateWithRetry = (
     }
 
     // CI environment: use GitHub API
+    yield* Effect.log(`📝 Attempting state update via GitHub API (attempt ${MAX_RETRIES - retriesLeft + 1}/${MAX_RETRIES}, sha: ${sha.slice(0, 7) || 'new'})...`)
+
     return yield* writeStateFileViaGitHub(newState, sha).pipe(
+      Effect.tapBoth({
+        onSuccess: () => Effect.log('✅ State file updated successfully via GitHub API'),
+        onFailure: (error) => Effect.logError(`❌ GitHub API error: ${JSON.stringify(error)}`),
+      }),
       Effect.catchAll((error) => {
         const errorMessage = String(error)
+        const errorJson = JSON.stringify(error, null, 2)
+
+        yield* Effect.logWarning(`GitHub API error details:\n${errorJson}`)
 
         // Check if error is due to concurrent update (SHA mismatch)
         if (
           errorMessage.includes('409') ||
           errorMessage.includes('conflict') ||
-          errorMessage.includes('SHA')
+          errorMessage.includes('SHA') ||
+          errorMessage.includes('does not match')
         ) {
           // Retry after delay with fresh state
           return Effect.gen(function* () {
             yield* Effect.log(
-              `State update conflict, retrying (${retriesLeft - 1} attempts remaining)...`
+              `🔄 State update conflict detected, retrying (${retriesLeft - 1} attempts remaining)...`
             )
             yield* sleep(RETRY_DELAY_MS)
 
@@ -326,7 +346,8 @@ const updateStateWithRetry = (
           })
         }
 
-        // Other error - fail immediately
+        // Other error - fail immediately with detailed message
+        yield* Effect.logError(`❌ Non-retryable error: ${errorMessage}`)
         return Effect.fail(error as Error)
       })
     )
