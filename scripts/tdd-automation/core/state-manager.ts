@@ -163,8 +163,13 @@ const writeStateFile = (state: TDDState): Effect.Effect<void, StateFileWriteErro
 /**
  * Helper: Atomic state update with git retry
  *
- * Uses git pull → modify → commit → push cycle with retry on conflict.
+ * Uses git fetch → reset → modify → commit → push cycle with retry on conflict.
  * This ensures atomic updates even with concurrent workflow runs.
+ *
+ * IMPORTANT: We use fetch + reset instead of pull --rebase because:
+ * 1. CI environments may have unstaged changes from bun install (bun.lock updates)
+ * 2. git pull --rebase fails if there are any unstaged changes in the working directory
+ * 3. We only care about the state file, so we can safely reset other changes
  */
 const updateStateWithRetry = (
   newState: TDDState,
@@ -179,18 +184,30 @@ const updateStateWithRetry = (
     }
 
     return yield* Effect.gen(function* () {
-      // 1. Pull latest from main
-      yield* exec('git pull origin main --rebase')
+      // 1. Fetch latest from remote (doesn't modify working directory)
+      yield* exec('git fetch origin main')
 
-      // 2. Write new state
+      // 2. Stash any uncommitted changes (including bun.lock from bun install)
+      // Use --include-untracked to also handle new files
+      // The || true ensures this doesn't fail if there's nothing to stash
+      yield* exec('git stash --include-untracked || true')
+
+      // 3. Reset to origin/main to get latest state
+      yield* exec('git reset --hard origin/main')
+
+      // 4. Write new state (this creates the only change we want to commit)
       yield* writeStateFile(newState)
 
-      // 3. Commit changes
+      // 5. Commit changes
       yield* exec('git add .github/tdd-state.json')
       yield* exec('git commit -m "chore(tdd): update state [skip ci]"')
 
-      // 4. Push (may fail due to concurrent update)
+      // 6. Push (may fail due to concurrent update)
       yield* exec('git push origin main')
+
+      // 7. Pop stash to restore working directory state (if anything was stashed)
+      // This ensures bun install changes are preserved for subsequent steps
+      yield* exec('git stash pop || true')
     }).pipe(
       Effect.catchAll((error) => {
         const errorMessage = String(error)
