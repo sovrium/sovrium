@@ -317,21 +317,21 @@ const updateStateWithRetry = (
         onSuccess: () => Effect.log('✅ State file updated successfully via GitHub API'),
         onFailure: (error) => Effect.logError(`❌ GitHub API error: ${JSON.stringify(error)}`),
       }),
-      Effect.catchAll((error) => {
-        const errorMessage = String(error)
-        const errorJson = JSON.stringify(error, null, 2)
+      Effect.catchAll((error) =>
+        Effect.gen(function* () {
+          const errorMessage = String(error)
+          const errorJson = JSON.stringify(error, null, 2)
 
-        yield* Effect.logWarning(`GitHub API error details:\n${errorJson}`)
+          yield* Effect.logWarning(`GitHub API error details:\n${errorJson}`)
 
-        // Check if error is due to concurrent update (SHA mismatch)
-        if (
-          errorMessage.includes('409') ||
-          errorMessage.includes('conflict') ||
-          errorMessage.includes('SHA') ||
-          errorMessage.includes('does not match')
-        ) {
-          // Retry after delay with fresh state
-          return Effect.gen(function* () {
+          // Check if error is due to concurrent update (SHA mismatch)
+          if (
+            errorMessage.includes('409') ||
+            errorMessage.includes('conflict') ||
+            errorMessage.includes('SHA') ||
+            errorMessage.includes('does not match')
+          ) {
+            // Retry after delay with fresh state
             yield* Effect.log(
               `🔄 State update conflict detected, retrying (${retriesLeft - 1} attempts remaining)...`
             )
@@ -343,13 +343,13 @@ const updateStateWithRetry = (
             // Retry with the fresh SHA
             // Note: We use the same newState as it represents our desired final state
             return yield* updateStateWithRetry(newState, freshSha, retriesLeft - 1)
-          })
-        }
+          }
 
-        // Other error - fail immediately with detailed message
-        yield* Effect.logError(`❌ Non-retryable error: ${errorMessage}`)
-        return Effect.fail(error as Error)
-      })
+          // Other error - fail immediately with detailed message
+          yield* Effect.logError(`❌ Non-retryable error: ${errorMessage}`)
+          return yield* Effect.fail(error as Error)
+        })
+      )
     )
   })
 
