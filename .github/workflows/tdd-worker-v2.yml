@@ -169,9 +169,7 @@ jobs:
           git add .
 
           SPEC_ID=$(basename "${{ inputs.spec_file }}" .spec.ts)
-          git commit -m "feat: implement ${SPEC_ID}
-
-Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
+          git commit -m "feat: implement ${SPEC_ID}" -m "Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
 
           git push origin ${{ steps.branch.outputs.branch }}
 
