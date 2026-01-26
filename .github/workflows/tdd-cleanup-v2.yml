@@ -37,22 +37,23 @@ jobs:
 
       - name: Check for stale locks
         id: stale
+        shell: bash
         run: |
           echo "🔍 Checking for stale file locks..."
 
           # Check if state file exists
           if [ ! -f .github/tdd-state.json ]; then
             echo "❌ State file not found"
-            echo "has_stale=false" >> $GITHUB_OUTPUT
+            echo "has_stale=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # Get active files
-          ACTIVE_FILES=$(jq -r '.activeFiles[]' .github/tdd-state.json)
+          # Get active files (handle empty array and errors)
+          ACTIVE_FILES=$(jq -r '.activeFiles[]?' .github/tdd-state.json 2>/dev/null || echo "")
 
           if [ -z "$ACTIVE_FILES" ]; then
             echo "✅ No active file locks"
-            echo "has_stale=false" >> $GITHUB_OUTPUT
+            echo "has_stale=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -60,7 +61,7 @@ jobs:
           echo "$ACTIVE_FILES"
 
           # Get queue state to check timestamps
-          QUEUE_JSON=$(jq '.queue' .github/tdd-state.json)
+          QUEUE_JSON=$(jq '.queue // {}' .github/tdd-state.json 2>/dev/null || echo "{}")
 
           # Track stale files
           STALE_FILES=()
@@ -69,8 +70,11 @@ jobs:
 
           # Check each active file
           while IFS= read -r file; do
+            # Skip empty lines
+            [ -z "$file" ] && continue
+
             # Find the file in active queue
-            STARTED_AT=$(echo "$QUEUE_JSON" | jq -r --arg file "$file" '.active[] | select(.filePath == $file) | .startedAt')
+            STARTED_AT=$(echo "$QUEUE_JSON" | jq -r --arg file "$file" '.active[]? | select(.filePath == $file) | .startedAt // empty' 2>/dev/null || echo "")
 
             if [ -z "$STARTED_AT" ] || [ "$STARTED_AT" = "null" ]; then
               echo "⚠️  File locked but not in active queue: $file"
@@ -78,14 +82,19 @@ jobs:
               continue
             fi
 
-            # Calculate age
-            STARTED_TIMESTAMP=$(date -d "$STARTED_AT" +%s)
+            # Calculate age (using GNU date -d for ISO 8601 parsing)
+            STARTED_TIMESTAMP=$(date -d "$STARTED_AT" +%s 2>/dev/null || echo "0")
+            if [ "$STARTED_TIMESTAMP" = "0" ]; then
+              echo "⚠️  Invalid timestamp for file: $file"
+              STALE_FILES+=("$file")
+              continue
+            fi
             AGE=$((CURRENT_TIME - STARTED_TIMESTAMP))
 
             echo "  - $file: ${AGE}s old (started: $STARTED_AT)"
 
             # Check if stale (> 30 minutes)
-            if [ $AGE -gt $STALE_THRESHOLD ] || [ "${{ inputs.force }}" = "true" ]; then
+            if [ "$AGE" -gt "$STALE_THRESHOLD" ] || [ "${{ inputs.force }}" = "true" ]; then
               echo "    🔴 STALE (threshold: ${STALE_THRESHOLD}s)"
               STALE_FILES+=("$file")
             else
@@ -95,16 +104,19 @@ jobs:
 
           # Output stale files
           if [ ${#STALE_FILES[@]} -gt 0 ]; then
-            echo "has_stale=true" >> $GITHUB_OUTPUT
+            echo "has_stale=true" >> "$GITHUB_OUTPUT"
             printf '%s\n' "${STALE_FILES[@]}" > /tmp/stale-files.txt
             echo "🚨 Found ${#STALE_FILES[@]} stale lock(s)"
           else
-            echo "has_stale=false" >> $GITHUB_OUTPUT
+            echo "has_stale=false" >> "$GITHUB_OUTPUT"
             echo "✅ No stale locks found"
           fi
 
       - name: Remove stale locks
         if: steps.stale.outputs.has_stale == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "🧹 Removing stale locks..."
 
@@ -122,9 +134,10 @@ jobs:
               echo "    - Found PR #$PR_NUMBER"
 
               # Add comment explaining cleanup
-              gh pr comment "$PR_NUMBER" --body "🧹 **Cleanup**: This PR was locked for more than 30 minutes, indicating a possible workflow failure. The file lock has been released to allow retry.
+              COMMENT_BODY="🧹 **Cleanup**: This PR was locked for more than 30 minutes, indicating a possible workflow failure. The file lock has been released to allow retry.
 
-If this PR is still being processed, please check the workflow logs for errors."
+          If this PR is still being processed, please check the workflow logs for errors."
+              gh pr comment "$PR_NUMBER" --body "$COMMENT_BODY"
 
               # Close PR if it's still open and checks have failed
               PR_STATE=$(gh pr view "$PR_NUMBER" --json state -q .state)
@@ -142,11 +155,20 @@ If this PR is still being processed, please check the workflow logs for errors."
           echo "✅ Stale locks removed"
 
       - name: Check for abandoned specs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "🔍 Checking for abandoned specs in active queue..."
 
+          # Check if state file exists
+          if [ ! -f .github/tdd-state.json ]; then
+            echo "❌ State file not found"
+            exit 0
+          fi
+
           # Get specs in active queue without PR numbers
-          ABANDONED=$(jq -r '.queue.active[] | select(.prNumber == null or .prNumber == 0) | .filePath' .github/tdd-state.json)
+          ABANDONED=$(jq -r '.queue.active[] | select(.prNumber == null or .prNumber == 0) | .filePath' .github/tdd-state.json 2>/dev/null || echo "")
 
           if [ -z "$ABANDONED" ]; then
             echo "✅ No abandoned specs"
@@ -155,6 +177,10 @@ If this PR is still being processed, please check the workflow logs for errors."
 
           echo "⚠️  Found abandoned specs (active but no PR):"
           echo "$ABANDONED"
+
+          # Configure git for commits
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Move back to pending queue
           while IFS= read -r file; do
@@ -178,19 +204,26 @@ If this PR is still being processed, please check the workflow logs for errors."
 
       - name: Report cleanup summary
         if: always()
+        shell: bash
         run: |
           echo "📊 Cleanup Summary"
           echo "=================="
 
+          # Check if state file exists
+          if [ ! -f .github/tdd-state.json ]; then
+            echo "❌ State file not found - cannot generate summary"
+            exit 0
+          fi
+
           # Active files count
-          ACTIVE_COUNT=$(jq '.activeFiles | length' .github/tdd-state.json)
+          ACTIVE_COUNT=$(jq '.activeFiles | length' .github/tdd-state.json 2>/dev/null || echo "0")
           echo "Active files: $ACTIVE_COUNT"
 
           # Queue stats
-          PENDING=$(jq '.queue.pending | length' .github/tdd-state.json)
-          ACTIVE=$(jq '.queue.active | length' .github/tdd-state.json)
-          COMPLETED=$(jq '.queue.completed | length' .github/tdd-state.json)
-          FAILED=$(jq '.queue.failed | length' .github/tdd-state.json)
+          PENDING=$(jq '.queue.pending | length' .github/tdd-state.json 2>/dev/null || echo "0")
+          ACTIVE=$(jq '.queue.active | length' .github/tdd-state.json 2>/dev/null || echo "0")
+          COMPLETED=$(jq '.queue.completed | length' .github/tdd-state.json 2>/dev/null || echo "0")
+          FAILED=$(jq '.queue.failed | length' .github/tdd-state.json 2>/dev/null || echo "0")
 
           echo "Queue status:"
           echo "  - Pending: $PENDING"
@@ -199,5 +232,5 @@ If this PR is still being processed, please check the workflow logs for errors."
           echo "  - Failed: $FAILED"
 
           # Manual intervention count
-          MANUAL_COUNT=$(jq '.metrics.manualInterventionCount' .github/tdd-state.json)
+          MANUAL_COUNT=$(jq '.metrics.manualInterventionCount' .github/tdd-state.json 2>/dev/null || echo "0")
           echo "Manual interventions: $MANUAL_COUNT"
