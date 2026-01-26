@@ -115,7 +115,7 @@ jobs:
       - name: Create Pull Request
         id: pr
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           echo "🔀 Creating PR for transparency..."
 
@@ -134,7 +134,7 @@ jobs:
       - name: Fast path - All tests pass
         if: steps.parse_prevalidation.outputs.all_passed == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           echo "🎉 All tests pass without implementation! Fast path activated."
 
@@ -175,7 +175,7 @@ jobs:
             1. Use the e2e-test-fixer agent to implement the code needed to pass these tests
             2. Remove .fixme() from all tests in ${{ inputs.spec_file }}
             3. Implement minimal code to make tests pass (follow TDD best practices)
-            4. Run bun test:e2e to verify your implementation
+            4. Run bun test:e2e:regression to verify your implementation
             5. Do NOT run quality checks or add license headers (automated in next steps)
 
             **Critical Requirements**:
@@ -238,7 +238,7 @@ jobs:
             **Important Notes**:
             - Tests are already passing - your job is to improve code quality
             - Quality checks and license headers will be added automatically next
-            - Run bun test:e2e to verify tests still pass after refactoring
+            - Run bun test:e2e:regression to verify tests still pass after refactoring
           claude_args: >-
             --model claude-sonnet-4-5-20250929
             --max-budget-usd 25.00
@@ -275,7 +275,7 @@ jobs:
         if: steps.parse_prevalidation.outputs.all_passed == 'false'
         id: ci
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           echo "⏳ Waiting for CI checks..."
 
@@ -288,7 +288,7 @@ jobs:
       - name: Auto-merge on success
         if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.ci.outputs.result == 'success'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           echo "✅ CI passed! Auto-merging PR..."
 
@@ -299,7 +299,7 @@ jobs:
         if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.ci.outputs.result == 'failure'
         id: analyze
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           echo "❌ CI failed. Analyzing failure type..."
 
@@ -311,7 +311,7 @@ jobs:
       - name: Handle regression failure
         if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.analyze.outputs.type == 'regression'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           echo "🔄 Regression detected. Closing PR and re-queuing..."
 
@@ -324,7 +324,7 @@ jobs:
       - name: Handle spec failure
         if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.analyze.outputs.type == 'spec-failure'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           echo "❌ Spec failure. Recording and re-queuing..."
 
@@ -337,7 +337,7 @@ jobs:
       - name: Handle infrastructure failure
         if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.analyze.outputs.type == 'infrastructure'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           echo "⚙️ Infrastructure failure. Recording and re-queuing..."
 
