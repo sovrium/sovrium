@@ -96,21 +96,49 @@ jobs:
             echo "failed=${{ inputs.test_count }}" >> $GITHUB_OUTPUT
           fi
 
+      - name: Commit and push pre-validation changes
+        run: |
+          echo "📝 Committing .fixme() removal..."
+
+          git add .
+
+          SPEC_ID=$(basename "${{ inputs.spec_file }}" .spec.ts)
+          git commit -m "test: remove .fixme() from ${SPEC_ID} (${{ inputs.test_count }} tests)" -m "Pre-validation: ${{ steps.parse_prevalidation.outputs.passed }} passed, ${{ steps.parse_prevalidation.outputs.failed }} failed"
+
+          git push origin ${{ steps.branch.outputs.branch }}
+
+      - name: Create Pull Request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "🔀 Creating PR for transparency..."
+
+          SPEC_ID=$(basename "${{ inputs.spec_file }}" .spec.ts)
+
+          PR_NUMBER=$(bun run scripts/tdd-automation-v2/services/pr-manager.ts create \
+            --file "${{ inputs.spec_file }}" \
+            --branch "${{ steps.branch.outputs.branch }}" \
+            --spec-id "$SPEC_ID" \
+            --test-count "${{ inputs.test_count }}" \
+            --retry-count "${{ inputs.retry_count }}")
+
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "✅ PR #${PR_NUMBER} created - Claude's work will be visible here"
+
       - name: Fast path - All tests pass
         if: steps.parse_prevalidation.outputs.all_passed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "🎉 All tests pass without implementation! Fast path activated."
 
-          git add .
-          git commit -m "test: remove .fixme() from ${{ inputs.spec_file }} (${{ inputs.test_count }} tests pass)"
-          git push origin ${{ steps.branch.outputs.branch }}
+          # Update PR with fast-path label
+          gh pr edit ${{ steps.pr.outputs.pr_number }} --add-label "tdd:fast-path"
 
-          # Create PR
-          bun run scripts/tdd-automation-v2/services/pr-manager.ts create \
-            --file "${{ inputs.spec_file }}" \
-            --branch "${{ steps.branch.outputs.branch }}" \
-            --test-count "${{ inputs.test_count }}" \
-            --fast-path
+          # Auto-merge immediately (no need for Claude)
+          bun run scripts/tdd-automation-v2/services/pr-manager.ts merge \
+            --pr ${{ steps.pr.outputs.pr_number }}
 
           # Unlock file and exit
           bun run scripts/tdd-automation-v2/core/unlock-file.ts \
@@ -227,6 +255,8 @@ jobs:
       - name: Commit and push changes
         if: steps.parse_prevalidation.outputs.all_passed == 'false'
         run: |
+          echo "📦 Committing Claude's implementation..."
+
           git add .
 
           SPEC_ID=$(basename "${{ inputs.spec_file }}" .spec.ts)
@@ -234,21 +264,7 @@ jobs:
 
           git push origin ${{ steps.branch.outputs.branch }}
 
-      - name: Create Pull Request
-        if: steps.parse_prevalidation.outputs.all_passed == 'false'
-        id: pr
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          SPEC_ID=$(basename "${{ inputs.spec_file }}" .spec.ts)
-
-          PR_NUMBER=$(bun run scripts/tdd-automation-v2/services/pr-manager.ts create \
-            --file "${{ inputs.spec_file }}" \
-            --branch "${{ steps.branch.outputs.branch }}" \
-            --spec-id "$SPEC_ID" \
-            --retry-count "${{ inputs.retry_count }}")
-
-          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "✅ Changes pushed to PR #${{ steps.pr.outputs.pr_number }}"
 
       - name: Wait for CI checks
         if: steps.parse_prevalidation.outputs.all_passed == 'false'
