@@ -104,6 +104,9 @@ jobs:
 
       - name: Select next specs
         id: select
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           echo "📋 Selecting next specs to process..."
 
