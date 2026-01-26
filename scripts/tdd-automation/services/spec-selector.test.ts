@@ -523,4 +523,163 @@ describe('SpecSelector', () => {
 
     await Effect.runPromise(program)
   })
+
+  test('STRICT FILE-LEVEL EXCLUSIVITY: selects only ONE spec per file', async () => {
+    const program = Effect.gen(function* () {
+      const selector = yield* SpecSelector
+
+      // Multiple specs from the SAME file - only ONE should be selected
+      const state: TDDState = {
+        ...INITIAL_STATE,
+        queue: {
+          pending: [
+            createMockSpec({
+              id: 'API-TABLES-001',
+              specId: 'API-TABLES-001',
+              filePath: 'specs/api/tables.spec.ts', // Same file
+              priority: 70,
+              attempts: 0,
+            }),
+            createMockSpec({
+              id: 'API-TABLES-002',
+              specId: 'API-TABLES-002',
+              filePath: 'specs/api/tables.spec.ts', // Same file
+              priority: 60,
+              attempts: 0,
+            }),
+            createMockSpec({
+              id: 'API-TABLES-003',
+              specId: 'API-TABLES-003',
+              filePath: 'specs/api/tables.spec.ts', // Same file
+              priority: 50,
+              attempts: 0,
+            }),
+          ],
+          active: [],
+          completed: [],
+          failed: [],
+        },
+      }
+
+      // Request 3 specs - but should only get 1 (all from same file)
+      const selected = yield* selector.selectNext(3, state)
+
+      // STRICT FILE-LEVEL EXCLUSIVITY: Only ONE spec from this file
+      expect(selected).toHaveLength(1)
+      expect(selected[0]?.specId).toBe('API-TABLES-001') // Highest priority
+    }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
+
+    await Effect.runPromise(program)
+  })
+
+  test('STRICT FILE-LEVEL EXCLUSIVITY: selects specs from different files concurrently', async () => {
+    const program = Effect.gen(function* () {
+      const selector = yield* SpecSelector
+
+      // Specs from DIFFERENT files can be selected concurrently
+      const state: TDDState = {
+        ...INITIAL_STATE,
+        queue: {
+          pending: [
+            createMockSpec({
+              id: 'API-TABLES-001',
+              specId: 'API-TABLES-001',
+              filePath: 'specs/api/tables.spec.ts', // File A
+              priority: 70,
+              attempts: 0,
+            }),
+            createMockSpec({
+              id: 'API-TABLES-002',
+              specId: 'API-TABLES-002',
+              filePath: 'specs/api/tables.spec.ts', // File A (same)
+              priority: 60,
+              attempts: 0,
+            }),
+            createMockSpec({
+              id: 'API-USERS-001',
+              specId: 'API-USERS-001',
+              filePath: 'specs/api/users.spec.ts', // File B (different)
+              priority: 50,
+              attempts: 0,
+            }),
+            createMockSpec({
+              id: 'API-FIELDS-001',
+              specId: 'API-FIELDS-001',
+              filePath: 'specs/api/fields.spec.ts', // File C (different)
+              priority: 40,
+              attempts: 0,
+            }),
+          ],
+          active: [],
+          completed: [],
+          failed: [],
+        },
+      }
+
+      // Request 3 specs - should get ONE from each of 3 different files
+      const selected = yield* selector.selectNext(3, state)
+
+      expect(selected).toHaveLength(3)
+
+      // Verify each spec is from a different file
+      const filePaths = selected.map((s) => s.filePath)
+      const uniqueFilePaths = new Set(filePaths)
+      expect(uniqueFilePaths.size).toBe(3)
+
+      // Verify the highest priority spec from each file is selected
+      expect(selected.map((s) => s.specId)).toContain('API-TABLES-001') // Highest from tables.spec.ts
+      expect(selected.map((s) => s.specId)).toContain('API-USERS-001') // Only from users.spec.ts
+      expect(selected.map((s) => s.specId)).toContain('API-FIELDS-001') // Only from fields.spec.ts
+    }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
+
+    await Effect.runPromise(program)
+  })
+
+  test('STRICT FILE-LEVEL EXCLUSIVITY: locked file blocks ALL specs from that file', async () => {
+    const program = Effect.gen(function* () {
+      const selector = yield* SpecSelector
+
+      const state: TDDState = {
+        ...INITIAL_STATE,
+        queue: {
+          pending: [
+            createMockSpec({
+              id: 'API-TABLES-001',
+              specId: 'API-TABLES-001',
+              filePath: 'specs/api/tables.spec.ts', // File is locked
+              priority: 90,
+              attempts: 0,
+            }),
+            createMockSpec({
+              id: 'API-TABLES-002',
+              specId: 'API-TABLES-002',
+              filePath: 'specs/api/tables.spec.ts', // File is locked
+              priority: 80,
+              attempts: 0,
+            }),
+            createMockSpec({
+              id: 'API-USERS-001',
+              specId: 'API-USERS-001',
+              filePath: 'specs/api/users.spec.ts', // Different file, NOT locked
+              priority: 50,
+              attempts: 0,
+            }),
+          ],
+          active: [],
+          completed: [],
+          failed: [],
+        },
+        activeFiles: ['specs/api/tables.spec.ts'], // File is locked
+      }
+
+      const selected = yield* selector.selectNext(3, state)
+
+      // Only the spec from unlocked file should be selected
+      expect(selected).toHaveLength(1)
+      expect(selected[0]?.specId).toBe('API-USERS-001')
+      expect(selected[0]?.filePath).toBe('specs/api/users.spec.ts')
+    }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
+
+    await Effect.runPromise(program)
+  })
 })

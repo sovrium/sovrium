@@ -86,7 +86,7 @@ export const PriorityCalculatorLive = Layer.succeed(PriorityCalculator, {
  * Spec Selector Service
  *
  * Selects next spec IDs to process based on:
- * - Eligibility (not at max retries, not in cooldown, file not locked, spec not active)
+ * - Eligibility (not at max retries, not in cooldown, file not locked)
  * - File-grouping priority (all specs in fileA before fileB)
  * - Priority score within same file (calculated by PriorityCalculator)
  *
@@ -94,7 +94,9 @@ export const PriorityCalculatorLive = Layer.succeed(PriorityCalculator, {
  * - Groups specs by file path
  * - Processes all specs from fileA before moving to fileB
  * - Within same file, sorts by priority score
- * - Respects file-level locking (workers can't process same file concurrently)
+ * - **STRICT FILE-LEVEL EXCLUSIVITY**: Workers can NEVER process specs from the same file concurrently
+ * - Only ONE spec per file can be selected at a time (even if multiple workers available)
+ * - This prevents race conditions and merge conflicts within a single spec file
  */
 export class SpecSelector extends Context.Tag('SpecSelector')<
   SpecSelector,
@@ -112,23 +114,21 @@ export const SpecSelectorLive = Layer.succeed(SpecSelector, {
       const calculator = yield* PriorityCalculator
 
       // Filter eligible specs
+      // NOTE: We enforce STRICT FILE-LEVEL EXCLUSIVITY - no concurrent processing of specs from the same file
       const eligible = state.queue.pending.filter((spec) => {
         // 1. Skip if already attempted max times (3 strikes rule)
         if (spec.attempts >= state.config.maxRetries) {
           return false
         }
 
-        // 2. Skip if file is currently being processed (file-level locking)
+        // 2. STRICT FILE-LEVEL EXCLUSIVITY: Skip ALL specs from files currently being processed
+        // This prevents race conditions and merge conflicts within a single spec file
+        // Workers can NEVER work on different specs from the same file concurrently
         if (state.activeFiles.includes(spec.filePath)) {
           return false
         }
 
-        // 3. Skip if spec is currently active (spec-level tracking)
-        if (state.activeSpecs.includes(spec.specId)) {
-          return false
-        }
-
-        // 4. Skip if in cooldown (last attempt < configured delay ago)
+        // 3. Skip if in cooldown (last attempt < configured delay ago)
         if (spec.lastAttempt) {
           const lastAttemptTime = new Date(spec.lastAttempt).getTime()
           const cooldownMs = state.config.retryDelayMinutes * 60 * 1000
@@ -179,23 +179,26 @@ export const SpecSelectorLive = Layer.succeed(SpecSelector, {
         })
         .sort((a, b) => b.priority - a.priority) // Sort files by priority (highest first)
 
-      // Select specs respecting file-grouping priority
+      // Select specs respecting STRICT FILE-LEVEL EXCLUSIVITY
+      // Only ONE spec per file is selected at a time - workers can NEVER process
+      // different specs from the same file concurrently
       const selected: SpecQueueItem[] = []
       let remaining = count
 
       for (const { filePath, specs } of filesByPriority) {
         if (remaining === 0) break
 
-        // Take specs from this file (up to remaining count)
-        const toTake = Math.min(remaining, specs.length)
-        const selectedFromFile = specs.slice(0, toTake).map((item) => item.spec)
+        // STRICT FILE-LEVEL EXCLUSIVITY: Take only ONE spec per file
+        // This ensures no concurrent processing within the same file
+        const selectedSpec = specs[0]?.spec
+        if (selectedSpec) {
+          selected.push(selectedSpec)
+          remaining -= 1
 
-        selected.push(...selectedFromFile)
-        remaining -= toTake
-
-        yield* Effect.log(
-          `Selected ${selectedFromFile.length} spec(s) from ${filePath} (priority: ${specs[0]?.priority})`
-        )
+          yield* Effect.log(
+            `Selected 1 spec from ${filePath}: ${selectedSpec.specId} (priority: ${specs[0]?.priority})`
+          )
+        }
       }
 
       // Log detailed selection

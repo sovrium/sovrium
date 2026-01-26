@@ -12,7 +12,13 @@
  * continuously with file-level locking and intelligent retry logic.
  *
  * Work granularity: Spec-ID-based (e.g., "API-TABLES-001")
- * File locking: Workers cannot process different specs from the same file concurrently
+ *
+ * **STRICT FILE-LEVEL EXCLUSIVITY**:
+ * - Workers can NEVER process specs from the same file concurrently
+ * - Only ONE spec per file can be selected at a time
+ * - File locking prevents race conditions and merge conflicts
+ * - Complete one spec from fileA before starting another spec from fileA
+ *
  * Priority: Complete all spec IDs in fileA before moving to fileB
  */
 
@@ -32,9 +38,10 @@ export interface TDDState {
     failed: SpecQueueItem[] // Needs manual intervention (3+ failures)
   }
 
-  // File-level locking to prevent concurrent work on same file
-  activeFiles: string[] // List of file paths currently being processed
-  activeSpecs: string[] // List of spec IDs currently being processed
+  // STRICT FILE-LEVEL EXCLUSIVITY: Prevents concurrent work on same file
+  // Workers can NEVER process different specs from the same file concurrently
+  activeFiles: string[] // List of file paths currently being processed (PRIMARY lock)
+  activeSpecs: string[] // List of spec IDs currently being processed (redundant safety net)
 
   config: {
     maxConcurrentPRs: number // Default: 3

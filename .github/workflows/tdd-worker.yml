@@ -65,11 +65,14 @@ jobs:
           git checkout -b "$BRANCH_NAME"
           echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
+      # STRICT FILE-LEVEL EXCLUSIVITY: This file lock is the PRIMARY concurrency control
+      # It prevents ANY other spec from the same file from being processed concurrently
       - name: Lock file in state
         run: |
           bun run scripts/tdd-automation/core/lock-file.ts \
             --file "${{ inputs.file_path }}"
 
+      # Spec lock is a redundant safety net (file lock provides full exclusivity)
       - name: Lock spec in state
         run: |
           bun run scripts/tdd-automation/core/lock-spec.ts \
