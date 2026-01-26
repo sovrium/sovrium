@@ -9,14 +9,23 @@ import { Effect, Console } from 'effect'
 import { StateManager, StateManagerLive } from './state-manager'
 
 const program = Effect.gen(function* () {
-  // Parse file argument from command line
-  const fileArg = process.argv.find((arg) => arg.startsWith('--file='))
-  if (!fileArg) {
+  // Parse file argument from command line (supports both --file=value and --file value)
+  let file: string | undefined
+
+  const fileArgWithEquals = process.argv.find((arg) => arg.startsWith('--file='))
+  if (fileArgWithEquals) {
+    file = fileArgWithEquals.split('=')[1]
+  } else {
+    const fileIndex = process.argv.indexOf('--file')
+    if (fileIndex !== -1 && process.argv[fileIndex + 1]) {
+      file = process.argv[fileIndex + 1]
+    }
+  }
+
+  if (!file) {
     console.error('Error: --file argument is required')
     process.exit(1)
   }
-
-  const file = fileArg.split('=')[1]
 
   const stateManager = yield* StateManager
 
