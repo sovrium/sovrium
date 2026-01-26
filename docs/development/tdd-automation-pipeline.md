@@ -8,6 +8,8 @@ The TDD Automation Queue System is a GitHub Actions-based pipeline that automati
 
 ## Architecture
 
+### System Overview
+
 ```mermaid
 graph TD
     A[Push with new tests] --> B[Queue Populate]
@@ -31,6 +33,138 @@ graph TD
     R -->|No| U[Comment Failure]
     U --> O
     T --> V[Next Iteration]
+```
+
+### Refactored Architecture (v2 Workflows)
+
+The TDD automation uses a **layered architecture** with TypeScript CLI commands replacing embedded bash logic:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              YAML WORKFLOWS (~700 lines total)              │
+│  - Trigger conditions (workflow_dispatch, schedule)         │
+│  - Environment setup (checkout, bun)                        │
+│  - Claude Code Action invocation (REQUIRED in YAML)         │
+│  - Job orchestration (needs:, if:)                          │
+│  - Call TypeScript CLI commands                             │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│           TYPESCRIPT CLI LAYER (Entry Points)               │
+│  scripts/tdd-automation/cli/                                │
+│  ├── tdd-dispatch.ts    (check-paused, validate, etc.)      │
+│  ├── tdd-monitor.ts     (health-check, recover, cleanup)    │
+│  └── tdd-execute.ts     (pre-check, analyze, verify)        │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│           TYPESCRIPT SERVICES (~4,000 lines)                │
+│  scripts/tdd-automation/services/                           │
+│  ├── error-classifier.ts      (Error pattern detection)     │
+│  ├── retry-manager.ts         (Retry logic + labels)        │
+│  ├── label-state-machine.ts   (Spec state transitions)      │
+│  ├── health-metrics.ts        (Queue health + circuit)      │
+│  ├── time-utils.ts            (Date/time operations)        │
+│  ├── branch-verifier.ts       (Git branch operations)       │
+│  ├── github-api-client.ts     (GitHub API wrapper)          │
+│  └── pr-manager.ts            (PR lifecycle management)     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Benefits of Refactored Architecture**:
+
+| Aspect               | Before (Embedded Bash) | After (TypeScript CLI) |
+| -------------------- | ---------------------- | ---------------------- |
+| **YAML lines**       | ~5,300                 | ~700                   |
+| **Bash logic**       | ~3,500 lines           | ~100 lines             |
+| **TypeScript**       | ~1,500 lines           | ~4,000 lines           |
+| **Test coverage**    | 0%                     | 80%+                   |
+| **Local debugging**  | Impossible             | Full support           |
+| **Error patterns**   | 0 tested               | 20+ patterns           |
+| **Type safety**      | None                   | Full Effect.ts         |
+
+**Key Design Constraint**: `anthropics/claude-code-action@v1` MUST remain in YAML (requires GitHub OAuth context, secrets injection)
+
+### TypeScript CLI Commands (v2 Architecture)
+
+The refactored workflows call TypeScript CLI commands instead of embedding bash logic. Each CLI entry point provides multiple subcommands:
+
+#### tdd-dispatch.ts (Queue Processing)
+
+```bash
+# Check if queue is paused (credit exhaustion)
+bun run scripts/tdd-automation/cli/tdd-dispatch.ts check-paused
+# Outputs: paused=true|false, pause_issue=<number>
+
+# Validate issue state before processing
+bun run scripts/tdd-automation/cli/tdd-dispatch.ts validate-issue
+# Outputs: should_process=true|false, reason=<string>
+
+# Check if spec is superseded (already implemented)
+bun run scripts/tdd-automation/cli/tdd-dispatch.ts check-superseded
+# Outputs: is_superseded=true|false
+
+# Check cooldown period
+bun run scripts/tdd-automation/cli/tdd-dispatch.ts check-cooldown
+# Outputs: in_cooldown=true|false
+```
+
+#### tdd-monitor.ts (Health & Recovery)
+
+```bash
+# Calculate queue health metrics and circuit breaker state
+bun run scripts/tdd-automation/cli/tdd-monitor.ts health-check
+# Outputs: status, failure_rate, should_open_circuit, should_close_circuit, queue_size, in_progress
+
+# Recover specs stuck in-progress
+bun run scripts/tdd-automation/cli/tdd-monitor.ts recover-stuck [--force]
+# Outputs: recovered_count, recovered_issues
+
+# Monitor PR states and enable auto-merge
+bun run scripts/tdd-automation/cli/tdd-monitor.ts monitor-prs
+# Outputs: processed, auto_merge_enabled, conflicts
+
+# Cleanup orphaned TDD branches
+bun run scripts/tdd-automation/cli/tdd-monitor.ts cleanup-branches
+# Outputs: deleted_count, deleted_branches
+```
+
+#### tdd-execute.ts (Claude Code Execution)
+
+```bash
+# Pre-check validation (trigger, cooldown, context)
+bun run scripts/tdd-automation/cli/tdd-execute.ts pre-check
+# Outputs: has_context=true|false, issue_number, skip_reason
+
+# Extract context from issue
+bun run scripts/tdd-automation/cli/tdd-execute.ts extract-context
+# Outputs: spec_id
+
+# Analyze Claude Code result
+bun run scripts/tdd-automation/cli/tdd-execute.ts analyze-result
+# Outputs: claude_success, error_type, is_retryable
+
+# Verify branch creation
+bun run scripts/tdd-automation/cli/tdd-execute.ts verify-branch
+# Outputs: has_branch, branch_name
+
+# Detect SDK crashes
+bun run scripts/tdd-automation/cli/tdd-execute.ts detect-sdk-crash
+# Outputs: sdk_crash_detected
+```
+
+**Environment Variables**: CLI commands read configuration from environment variables set by the YAML workflow:
+- `GH_TOKEN` - GitHub token for API calls
+- `GITHUB_REPOSITORY` - Repository in `owner/repo` format
+- `ISSUE_NUMBER` - Issue being processed
+- `COOLDOWN_MINUTES` - Cooldown period (default: 30)
+- `STUCK_TIMEOUT_MINUTES` - Timeout for stuck specs (default: 105)
+
+**Output Format**: All commands write to `$GITHUB_OUTPUT` for workflow consumption:
+```bash
+echo "key=value" >> $GITHUB_OUTPUT
 ```
 
 > **Priority Order**: APP → MIG → STATIC → API → ADMIN. Within each domain, specs are sorted alphabetically by feature, then by test number (001 before 002, REGRESSION last).
@@ -1677,12 +1811,28 @@ gh issue comment {ISSUE_NUMBER} \
 
 ---
 
-**Last Updated**: 2025-12-18
-**Version**: 2.5.4 (Queue System + Immediate Regression Triggering)
+**Last Updated**: 2026-01-26
+**Version**: 2.6.0 (TypeScript CLI Refactoring)
 **Status**: Active
 
 **Changelog**:
 
+- **2026-01-26 (v2.6.0)**: Phase 6 - TypeScript CLI Refactoring (MAJOR):
+  - **Architecture shift**: Moved ~3,500 lines of embedded bash from YAML to testable TypeScript services
+  - **New CLI entry points**: Created `tdd-dispatch.ts`, `tdd-monitor.ts`, `tdd-execute.ts` CLI commands
+  - **Effect.ts services**: New services with 80%+ test coverage:
+    - `error-classifier.ts` - Error pattern detection (SDK crash, rate limits, infrastructure errors)
+    - `retry-manager.ts` - Exponential backoff and retry label management
+    - `label-state-machine.ts` - Centralized spec state transitions
+    - `health-metrics.ts` - Queue health and circuit breaker state
+    - `time-utils.ts` - Cross-platform date/time operations
+    - `branch-verifier.ts` - Git branch operations
+    - `github-api-client.ts` - Extended GitHub API operations
+    - `pr-manager.ts` - PR lifecycle management
+  - **Refactored workflows**: Created v2 workflow files (`tdd-*-refactored.yml`)
+  - **YAML reduction**: From ~5,300 lines to ~700 lines (thin orchestration only)
+  - **Benefits**: Local debugging, unit testing, type safety, maintainability
+  - **Constraint preserved**: Claude Code Action remains in YAML (requires GitHub OAuth context)
 - **2025-12-18 (v2.5.4)**: Immediate regression triggering for faster feedback:
   - **test.yml handle-regressions**: Now posts `@claude` comment with PAT token for immediate Claude Code trigger
   - **Comment format**: Changed from "Regression Analysis (Informational)" to "Regression Auto-Fix Required (Immediate)"

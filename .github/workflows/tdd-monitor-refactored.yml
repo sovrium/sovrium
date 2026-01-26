@@ -1,0 +1,248 @@
+# TDD - Monitor (Health & Recovery) - Refactored Version
+#
+# This workflow monitors TDD pipeline health and performs recovery operations.
+# Runs on schedule (every 2 hours) and can be triggered manually.
+#
+# REFACTORED: Uses TypeScript CLI commands instead of inline bash
+# See: scripts/tdd-automation/cli/tdd-monitor.ts
+
+name: TDD - Monitor (Health & Recovery) v2
+
+on:
+  schedule:
+    # Run every 2 hours
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      force_recovery:
+        description: 'Force recovery of stuck specs (ignore timeout)'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  STUCK_TIMEOUT_MINUTES: 105
+
+jobs:
+  # Job 1: Health Check - Calculate queue metrics and circuit breaker state
+  health-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: read
+      actions: read
+    outputs:
+      status: ${{ steps.health.outputs.status }}
+      failure_rate: ${{ steps.health.outputs.failure_rate }}
+      should_open_circuit: ${{ steps.health.outputs.should_open_circuit }}
+      should_close_circuit: ${{ steps.health.outputs.should_close_circuit }}
+      queue_size: ${{ steps.health.outputs.queue_size }}
+      in_progress: ${{ steps.health.outputs.in_progress }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run health check
+        id: health
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bun run scripts/tdd-automation/cli/tdd-monitor.ts health-check
+
+  # Job 2: Stuck Spec Recovery - Reset specs stuck in-progress
+  stuck-spec-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [health-check]
+    permissions:
+      issues: write
+    outputs:
+      recovered_count: ${{ steps.recover.outputs.recovered_count }}
+      recovered_issues: ${{ steps.recover.outputs.recovered_issues }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Recover stuck specs
+        id: recover
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          STUCK_TIMEOUT_MINUTES: ${{ env.STUCK_TIMEOUT_MINUTES }}
+        run: |
+          if [ "${{ github.event.inputs.force_recovery }}" = "true" ]; then
+            bun run scripts/tdd-automation/cli/tdd-monitor.ts recover-stuck --force
+          else
+            bun run scripts/tdd-automation/cli/tdd-monitor.ts recover-stuck
+          fi
+
+  # Job 3: PR Monitoring - Check PR states and enable auto-merge
+  pr-monitoring:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [health-check]
+    permissions:
+      pull-requests: write
+      contents: read
+    outputs:
+      processed: ${{ steps.monitor.outputs.processed }}
+      auto_merge_enabled: ${{ steps.monitor.outputs.auto_merge_enabled }}
+      conflicts: ${{ steps.monitor.outputs.conflicts }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Monitor PRs
+        id: monitor
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bun run scripts/tdd-automation/cli/tdd-monitor.ts monitor-prs
+
+  # Job 4: Branch Cleanup - Delete orphaned TDD branches
+  branch-cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [health-check]
+    permissions:
+      contents: write
+    outputs:
+      deleted_count: ${{ steps.cleanup.outputs.deleted_count }}
+      deleted_branches: ${{ steps.cleanup.outputs.deleted_branches }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Cleanup orphaned branches
+        id: cleanup
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ORPHAN_BRANCH_AGE_MINUTES: '30'
+        run: bun run scripts/tdd-automation/cli/tdd-monitor.ts cleanup-branches
+
+  # Job 5: Circuit Breaker Management
+  circuit-breaker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [health-check]
+    if: |
+      needs.health-check.outputs.should_open_circuit == 'true' ||
+      needs.health-check.outputs.should_close_circuit == 'true'
+    permissions:
+      issues: write
+    steps:
+      - name: Open circuit breaker (pause queue)
+        if: needs.health-check.outputs.should_open_circuit == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "🚨 Opening circuit breaker - failure rate: ${{ needs.health-check.outputs.failure_rate }}%"
+
+          # Check if pause issue already exists
+          EXISTING=$(gh issue list --label "tdd-queue-status,tdd-queue:paused" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [ -z "$EXISTING" ] || [ "$EXISTING" = "null" ]; then
+            gh issue create \
+              --title "🚨 TDD Queue Paused - High Failure Rate" \
+              --body "**Circuit Breaker Triggered**
+
+          The TDD automation queue has been paused due to high failure rate.
+
+          **Metrics:**
+          - Failure Rate: ${{ needs.health-check.outputs.failure_rate }}%
+          - Queue Size: ${{ needs.health-check.outputs.queue_size }}
+          - In Progress: ${{ needs.health-check.outputs.in_progress }}
+
+          **Auto-Resume:**
+          The queue will automatically resume when failure rate drops below 20%.
+
+          ---
+          *TDD Monitor*" \
+              --label "tdd-queue-status,tdd-queue:paused"
+          else
+            echo "Pause issue #$EXISTING already exists"
+          fi
+
+      - name: Close circuit breaker (resume queue)
+        if: needs.health-check.outputs.should_close_circuit == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "✅ Closing circuit breaker - health restored"
+
+          # Find and close pause issue
+          PAUSE_ISSUE=$(gh issue list --label "tdd-queue-status,tdd-queue:paused" --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [ -n "$PAUSE_ISSUE" ] && [ "$PAUSE_ISSUE" != "null" ]; then
+            gh issue close "$PAUSE_ISSUE" --comment "**Queue Resumed**
+
+          Pipeline health has been restored. Queue processing will resume.
+
+          **Current Metrics:**
+          - Failure Rate: ${{ needs.health-check.outputs.failure_rate }}%
+          - Status: ${{ needs.health-check.outputs.status }}
+
+          ---
+          *TDD Monitor*"
+          else
+            echo "No pause issue found to close"
+          fi
+
+  # Job 6: Summary Report
+  summary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [health-check, stuck-spec-recovery, pr-monitoring, branch-cleanup]
+    if: always()
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 📊 TDD Monitor Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Health Status" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ needs.health-check.outputs.status }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Failure Rate | ${{ needs.health-check.outputs.failure_rate }}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Queue Size | ${{ needs.health-check.outputs.queue_size }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| In Progress | ${{ needs.health-check.outputs.in_progress }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Recovery Actions" >> $GITHUB_STEP_SUMMARY
+          echo "| Action | Count |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Stuck Specs Recovered | ${{ needs.stuck-spec-recovery.outputs.recovered_count || '0' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| PRs Processed | ${{ needs.pr-monitoring.outputs.processed || '0' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Auto-Merge Enabled | ${{ needs.pr-monitoring.outputs.auto_merge_enabled || '0' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| PR Conflicts | ${{ needs.pr-monitoring.outputs.conflicts || '0' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branches Cleaned | ${{ needs.branch-cleanup.outputs.deleted_count || '0' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*Generated by TDD Monitor v2*" >> $GITHUB_STEP_SUMMARY
