@@ -6,7 +6,6 @@
  */
 
 import { Effect, Console } from 'effect'
-import { Command, Args } from '@effect/cli'
 import { $ } from 'bun'
 
 interface ValidationResult {
@@ -14,91 +13,117 @@ interface ValidationResult {
   failed: number
 }
 
-const PreValidateCommand = Command.make(
-  'pre-validate',
-  {
-    file: Args.text({ name: 'file' }),
-    output: Args.text({ name: 'output' }),
-  },
-  ({ file, output }) =>
-    Effect.gen(function* () {
-      yield* Console.log(`🔍 Pre-validating spec file: ${file}`)
+const program = Effect.gen(function* () {
+  // Parse arguments from command line (supports both --arg=value and --arg value)
+  let file: string | undefined
+  let output: string | undefined
 
-      // Remove .fixme() from all tests in the file
-      const content = yield* Effect.tryPromise({
-        try: () => Bun.file(file).text(),
-        catch: (error) => new Error(`Failed to read file: ${error}`),
-      })
+  // Parse --file argument
+  const fileArgWithEquals = process.argv.find((arg) => arg.startsWith('--file='))
+  if (fileArgWithEquals) {
+    file = fileArgWithEquals.split('=')[1]
+  } else {
+    const fileIndex = process.argv.indexOf('--file')
+    if (fileIndex !== -1 && process.argv[fileIndex + 1]) {
+      file = process.argv[fileIndex + 1]
+    }
+  }
 
-      const cleanedContent = content.replace(/\.fixme\(\)/g, '')
+  // Parse --output argument
+  const outputArgWithEquals = process.argv.find((arg) => arg.startsWith('--output='))
+  if (outputArgWithEquals) {
+    output = outputArgWithEquals.split('=')[1]
+  } else {
+    const outputIndex = process.argv.indexOf('--output')
+    if (outputIndex !== -1 && process.argv[outputIndex + 1]) {
+      output = process.argv[outputIndex + 1]
+    }
+  }
 
-      yield* Effect.tryPromise({
-        try: () => Bun.write(file, cleanedContent),
-        catch: (error) => new Error(`Failed to write file: ${error}`),
-      })
+  if (!file) {
+    console.error('Error: --file argument is required')
+    process.exit(1)
+  }
 
-      yield* Console.log(`✅ Removed .fixme() from ${file}`)
+  if (!output) {
+    console.error('Error: --output argument is required')
+    process.exit(1)
+  }
 
-      // Run tests for this file
-      yield* Console.log(`🧪 Running tests for ${file}`)
+  yield* Console.log(`🔍 Pre-validating spec file: ${file}`)
 
-      const testResult = yield* Effect.tryPromise({
-        try: async () => {
-          const proc = await $`bun test ${file} --reporter=json`.nothrow().quiet()
-          return {
-            exitCode: proc.exitCode,
-            stdout: proc.stdout.toString(),
-            stderr: proc.stderr.toString(),
-          }
-        },
-        catch: (error) => new Error(`Failed to run tests: ${error}`),
-      })
+  // Remove .fixme() from all tests in the file
+  const content = yield* Effect.tryPromise({
+    try: () => Bun.file(file).text(),
+    catch: (error) => new Error(`Failed to read file: ${error}`),
+  })
 
-      // Parse test results
-      let passed = 0
-      let failed = 0
+  const cleanedContent = content.replace(/\.fixme\(\)/g, '')
 
+  yield* Effect.tryPromise({
+    try: () => Bun.write(file, cleanedContent),
+    catch: (error) => new Error(`Failed to write file: ${error}`),
+  })
+
+  yield* Console.log(`✅ Removed .fixme() from ${file}`)
+
+  // Run tests for this file
+  yield* Console.log(`🧪 Running tests for ${file}`)
+
+  const testResult = yield* Effect.tryPromise({
+    try: async () => {
+      const proc = await $`bun test ${file} --reporter=json`.nothrow().quiet()
+      return {
+        exitCode: proc.exitCode,
+        stdout: proc.stdout.toString(),
+        stderr: proc.stderr.toString(),
+      }
+    },
+    catch: (error) => new Error(`Failed to run tests: ${error}`),
+  })
+
+  // Parse test results
+  let passed = 0
+  let failed = 0
+
+  try {
+    const lines = testResult.stdout.split('\n').filter((line) => line.trim())
+    for (const line of lines) {
       try {
-        const lines = testResult.stdout.split('\n').filter((line) => line.trim())
-        for (const line of lines) {
-          try {
-            const result = JSON.parse(line)
-            if (result.kind === 'test-result') {
-              if (result.status === 'pass') {
-                passed++
-              } else if (result.status === 'fail') {
-                failed++
-              }
-            }
-          } catch {
-            // Ignore lines that aren't JSON
+        const result = JSON.parse(line)
+        if (result.kind === 'test-result') {
+          if (result.status === 'pass') {
+            passed++
+          } else if (result.status === 'fail') {
+            failed++
           }
         }
-      } catch (error) {
-        yield* Console.error(`Failed to parse test results: ${error}`)
+      } catch {
+        // Ignore lines that aren't JSON
       }
+    }
+  } catch (error) {
+    yield* Console.error(`Failed to parse test results: ${error}`)
+  }
 
-      const validationResult: ValidationResult = { passed, failed }
+  const validationResult: ValidationResult = { passed, failed }
 
-      yield* Console.log(`📊 Pre-validation results: ${passed} passed, ${failed} failed`)
+  yield* Console.log(`📊 Pre-validation results: ${passed} passed, ${failed} failed`)
 
-      // Write results to output file
-      yield* Effect.tryPromise({
-        try: () => Bun.write(output, JSON.stringify(validationResult, null, 2)),
-        catch: (error) => new Error(`Failed to write output file: ${error}`),
-      })
+  // Write results to output file
+  yield* Effect.tryPromise({
+    try: () => Bun.write(output, JSON.stringify(validationResult, null, 2)),
+    catch: (error) => new Error(`Failed to write output file: ${error}`),
+  })
 
-      yield* Console.log(`✅ Results written to ${output}`)
+  yield* Console.log(`✅ Results written to ${output}`)
 
-      if (failed === 0) {
-        yield* Console.log(`🎉 All tests pass without implementation!`)
-      } else {
-        yield* Console.log(`❌ ${failed} test(s) still failing, implementation needed`)
-      }
-    })
-)
-
-const program = PreValidateCommand
+  if (failed === 0) {
+    yield* Console.log(`🎉 All tests pass without implementation!`)
+  } else {
+    yield* Console.log(`❌ ${failed} test(s) still failing, implementation needed`)
+  }
+})
 
 Effect.runPromise(program).catch((error) => {
   console.error('Pre-validation failed:', error)

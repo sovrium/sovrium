@@ -102,10 +102,15 @@ jobs:
 
           git add .
 
-          SPEC_ID=$(basename "${{ inputs.spec_file }}" .spec.ts)
-          git commit -m "test: remove .fixme() from ${SPEC_ID} (${{ inputs.test_count }} tests)" -m "Pre-validation: ${{ steps.parse_prevalidation.outputs.passed }} passed, ${{ steps.parse_prevalidation.outputs.failed }} failed"
-
-          git push origin ${{ steps.branch.outputs.branch }}
+          # Only commit if there are changes
+          if git diff --staged --quiet; then
+            echo "⚠️  No changes to commit (pre-validation may have failed)"
+          else
+            SPEC_ID=$(basename "${{ inputs.spec_file }}" .spec.ts)
+            git commit -m "test: remove .fixme() from ${SPEC_ID} (${{ inputs.test_count }} tests)" -m "Pre-validation: ${{ steps.parse_prevalidation.outputs.passed }} passed, ${{ steps.parse_prevalidation.outputs.failed }} failed"
+            git push origin ${{ steps.branch.outputs.branch }}
+            echo "✅ Changes committed and pushed"
+          fi
 
       - name: Create Pull Request
         id: pr
