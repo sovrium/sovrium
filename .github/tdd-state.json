@@ -1,19 +1,8 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T16:37:18.468Z",
+  "lastUpdated": "2026-01-26T16:37:18.952Z",
   "queue": {
     "pending": [
-      {
-        "id": "TEST-SPEC-1",
-        "specId": "TEST-SPEC-1",
-        "filePath": "specs/test-concurrency/spec1.spec.ts",
-        "testName": "test in specs/test-concurrency/spec1.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T16:37:18.468Z"
-      },
       {
         "id": "TEST-SPEC-2",
         "specId": "TEST-SPEC-2",
@@ -37,7 +26,18 @@
         "queuedAt": "2026-01-26T16:37:18.468Z"
       }
     ],
-    "active": [],
+    "active": [
+      {
+        "id": "TEST-SPEC-1",
+        "filePath": "specs/test-concurrency/spec1.spec.ts",
+        "priority": 50,
+        "status": "active",
+        "attempts": 0,
+        "errors": [],
+        "queuedAt": "2026-01-26T16:37:18.468Z",
+        "startedAt": "2026-01-26T16:37:18.499Z"
+      }
+    ],
     "completed": [],
     "failed": []
   },
