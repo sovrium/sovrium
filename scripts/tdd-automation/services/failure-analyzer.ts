@@ -55,7 +55,7 @@ const FailureAnalyzerCommand = Command.make(
         return 'infrastructure'
       }
 
-      // @ts-expect-error effect(preferSchemaOverJson) - JSON.parse appropriate for parsing trusted gh CLI output
+      // NOTE: JSON.parse appropriate for parsing trusted gh CLI output (Effect Schema not needed)
       const data = JSON.parse(result.stdout)
       const checks = data.statusCheckRollup || []
 

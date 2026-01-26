@@ -1127,7 +1127,7 @@ Alternative (direct):
 
   // Output results
   if (args.json) {
-    // @ts-expect-error effect(preferSchemaOverJson) - JSON.stringify appropriate for CLI --json flag output
+    // NOTE: JSON.stringify appropriate for CLI --json flag output (Effect Schema not needed)
     console.log(JSON.stringify(batchResult, null, 2))
   } else {
     console.log('')

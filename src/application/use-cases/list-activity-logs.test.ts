@@ -102,7 +102,6 @@ const MockUserRoleServiceViewer = Layer.succeed(UserRoleService, {
  * Effect.void would return `void` which breaks the type contract
  */
 const MockUserRoleServiceNoRole = Layer.succeed(UserRoleService, {
-  // @ts-expect-error effect(effectSucceedWithVoid) - Effect.succeed(undefined) required for type contract (string | undefined)
   getUserRole: () => Effect.succeed(undefined),
 })
 

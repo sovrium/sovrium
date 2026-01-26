@@ -22,17 +22,17 @@
         "dompurify": "^3.3.1",
         "drizzle-orm": "^0.45.1",
         "effect": "^3.19.15",
-        "hono": "^4.11.5",
+        "hono": "^4.11.6",
         "jiti": "^2.6.1",
         "js-yaml": "^4.1.1",
-        "lucide-react": "^0.562.0",
+        "lucide-react": "^0.563.0",
         "nanoid": "^5.1.6",
         "nodemailer": "^7.0.12",
         "postcss": "^8.5.6",
         "postgres": "^3.4.8",
         "prettier": "^3.8.1",
-        "react": "^19.2.3",
-        "react-dom": "^19.2.3",
+        "react": "^19.2.4",
+        "react-dom": "^19.2.4",
         "react-hook-form": "^7.71.1",
         "tailwind-merge": "^3.4.0",
         "tailwindcss": "^4.1.18",
@@ -54,7 +54,7 @@
         "@types/dompurify": "^3.2.0",
         "@types/js-yaml": "^4.0.9",
         "@types/node": "^25.0.10",
-        "@types/nodemailer": "^7.0.5",
+        "@types/nodemailer": "^7.0.6",
         "@types/pg": "^8.16.0",
         "@types/react-dom": "^19.2.3",
         "drizzle-kit": "^0.31.8",
@@ -65,7 +65,7 @@
         "eslint-plugin-drizzle": "^0.2.3",
         "eslint-plugin-functional": "^9.0.2",
         "eslint-plugin-import": "^2.32.0",
-        "eslint-plugin-playwright": "^2.5.0",
+        "eslint-plugin-playwright": "^2.5.1",
         "eslint-plugin-react": "^7.37.5",
         "eslint-plugin-react-hooks": "^7.0.1",
         "eslint-plugin-react-refresh": "^0.4.26",
@@ -73,13 +73,13 @@
         "glob": "^13.0.0",
         "globals": "^17.1.0",
         "knip": "^5.82.1",
-        "otplib": "^13.1.1",
+        "otplib": "^13.2.1",
         "pg": "^8.17.2",
         "playwright": "^1.58.0",
         "prettier-plugin-tailwindcss": "^0.7.2",
         "semantic-release": "^25.0.2",
         "typescript": "^5.9.3",
-        "typescript-eslint": "^8.53.1",
+        "typescript-eslint": "^8.54.0",
       },
       "peerDependencies": {
         "typescript": "^5.9.3",
@@ -559,7 +559,7 @@
 
     "@types/node": ["@types/node@25.0.10", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-zWW5KPngR/yvakJgGOmZ5vTBemDoSqF3AcV/LrO5u5wTWyEAVVh+IT39G4gtyAkh3CtTZs8aX/yRM82OfzHJRg=="],
 
-    "@types/nodemailer": ["@types/nodemailer@7.0.6", "", { "dependencies": { "@types/node": "*" } }, "sha512-+aRevAyUOCUjvCpq+KSJOjxRNxNRqw7jp8AvT2H4As1BfQA6hBTJ2x65DYu7Cre3h5PQZhMky3bc9zsBCXdvGA=="],
+    "@types/nodemailer": ["@types/nodemailer@7.0.9", "", { "dependencies": { "@types/node": "*" } }, "sha512-vI8oF1M+8JvQhsId0Pc38BdUP2evenIIys7c7p+9OZXSPOH5c1dyINP1jT8xQ2xPuBUXmIC87s+91IZMDjH8Ow=="],
 
     "@types/normalize-package-data": ["@types/normalize-package-data@2.4.4", "", {}, "sha512-37i+OaWTh9qeK4LSHPsyRC7NahnGotNuZvjLSgcPzblpHB3rrCJxAOgI5gCdKm7coonsaX1Of0ILiTcnZjbfxA=="],
 
@@ -1283,7 +1283,7 @@
 
     "lru-cache": ["lru-cache@11.2.4", "", {}, "sha512-B5Y16Jr9LB9dHVkh6ZevG+vAbOsNOYCX+sXvFWFu7B3Iz5mijW3zdbMyhsh8ANd2mSWBYdJgnqi+mL7/LrOPYg=="],
 
-    "lucide-react": ["lucide-react@0.562.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-82hOAu7y0dbVuFfmO4bYF1XEwYk/mEbM5E+b1jgci/udUBEE/R7LF5Ip0CCEmXe8AybRM8L+04eP+LGZeDvkiw=="],
+    "lucide-react": ["lucide-react@0.563.0", "", { "peerDependencies": { "react": "^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0" } }, "sha512-8dXPB2GI4dI8jV4MgUDGBeLdGk8ekfqVZ0BdLcrRzocGgG75ltNEmWS+gE7uokKF/0oSUuczNDT+g9hFJ23FkA=="],
 
     "magic-string": ["magic-string@0.30.21", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="],
 

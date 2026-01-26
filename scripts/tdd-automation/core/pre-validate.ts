@@ -130,7 +130,7 @@ const program = Effect.gen(function* () {
   const lines = testResult.stdout.split('\n').filter((line) => line.trim())
   for (const line of lines) {
     const parseResult = yield* Effect.try({
-      // @ts-expect-error effect(preferSchemaOverJson) - JSON.parse appropriate for parsing trusted Playwright test output
+      // NOTE: JSON.parse appropriate for parsing trusted Playwright test output (Effect Schema not needed)
       try: () => JSON.parse(line),
       catch: () => null, // Ignore lines that aren't JSON
     })
