@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T20:27:03.908Z",
+  "lastUpdated": "2026-01-26T20:27:04.561Z",
   "queue": {
     "pending": [
       {
@@ -2552,7 +2552,9 @@
   "activeFiles": [
     "specs/api/tables/{tableId}/records/{recordId}/comments/{commentId}/patch.spec.ts"
   ],
-  "activeSpecs": [],
+  "activeSpecs": [
+    "API-TABLES-RECORDS-COMMENTS-UPDATE-001"
+  ],
   "config": {
     "maxConcurrentPRs": 3,
     "maxRetries": 3,
