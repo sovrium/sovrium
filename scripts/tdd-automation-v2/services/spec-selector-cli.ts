@@ -46,7 +46,7 @@ const program = Effect.gen(function* () {
 
   for (const spec of selectedSpecs) {
     console.error(
-      `  - ${spec.filePath} (priority: ${spec.priority}, tests: ${spec.testCount}, attempts: ${spec.attempts})`
+      `  - ${spec.specId}: ${spec.testName} (priority: ${spec.priority}, attempts: ${spec.attempts})`
     )
   }
 

@@ -10,7 +10,7 @@ import { Effect } from 'effect'
 import { INITIAL_STATE } from '../types'
 import { StateManager } from './state-manager'
 import { createTestStateManager } from './state-manager-test-helper'
-import type { TDDState, SpecFileItem, SpecError } from '../types'
+import type { TDDState, SpecQueueItem, SpecError } from '../types'
 
 const TEST_STATE_FILE = `.github/tdd-state-test-state-manager-${process.pid}-${Date.now()}-${Math.random().toString(36).substring(2)}.json`
 let TestStateManagerLayer: ReturnType<typeof createTestStateManager>
@@ -30,21 +30,23 @@ function createMockState(): TDDState {
     queue: {
       pending: [
         {
-          id: 'specs/api/test1.spec.ts',
+          id: 'TEST-SPEC-001',
+          specId: 'TEST-SPEC-001',
           filePath: 'specs/api/test1.spec.ts',
+          testName: 'should handle test case 1',
           priority: 50,
           status: 'pending',
-          testCount: 5,
           attempts: 0,
           errors: [],
           queuedAt: '2025-01-26T00:00:00.000Z',
         },
         {
-          id: 'specs/api/test2.spec.ts',
+          id: 'TEST-SPEC-002',
+          specId: 'TEST-SPEC-002',
           filePath: 'specs/api/test2.spec.ts',
+          testName: 'should handle test case 2',
           priority: 70,
           status: 'pending',
-          testCount: 10,
           attempts: 1,
           errors: [],
           queuedAt: '2025-01-26T00:00:00.000Z',
@@ -161,11 +163,12 @@ test('StateManager - transition moves spec between queues', async () => {
       queue: {
         pending: [
           {
-            id: 'specs/api/test1.spec.ts',
+            id: 'TEST-SPEC-003',
+            specId: 'TEST-SPEC-003',
             filePath: 'specs/api/test1.spec.ts',
+            testName: 'should handle test case 3',
             priority: 50,
             status: 'pending',
-            testCount: 5,
             attempts: 0,
             errors: [],
             queuedAt: '2025-01-26T00:00:00.000Z',
@@ -179,7 +182,7 @@ test('StateManager - transition moves spec between queues', async () => {
 
     // Manually set initial state (in real test, would use test database)
     // For now, verify the transition logic works correctly
-    const specId = 'specs/api/test1.spec.ts'
+    const specId = 'TEST-SPEC-003' // Use spec ID not file path
 
     // Verify transition would move spec from pending to active
     const spec = initialState.queue.pending.find((s) => s.id === specId)
@@ -203,12 +206,13 @@ test('StateManager - recordFailureAndRequeue increments attempts', async () => {
     }
     void error // Structure validation only
 
-    const initialSpec: SpecFileItem = {
-      id: 'specs/api/test1.spec.ts',
+    const initialSpec: SpecQueueItem = {
+      id: 'TEST-SPEC-004',
+      specId: 'TEST-SPEC-004',
       filePath: 'specs/api/test1.spec.ts',
+      testName: 'should handle test case 4',
       priority: 50,
       status: 'active',
-      testCount: 5,
       attempts: 1,
       errors: [],
       queuedAt: '2025-01-26T00:00:00.000Z',

@@ -6,7 +6,7 @@
  */
 
 import { Effect, Context, Layer } from 'effect'
-import type { TDDState, SpecFileItem, SpecStatus, SpecError, RequeueOptions } from '../types'
+import type { TDDState, SpecQueueItem, SpecStatus, SpecError, RequeueOptions } from '../types'
 
 /**
  * State Manager Service
@@ -202,12 +202,13 @@ export const StateManagerLive = Layer.succeed(StateManager, {
         const newSourceQueue = sourceQueue.filter((s) => s.id !== fileId)
 
         // Update spec status and timestamp
-        const updatedSpec: SpecFileItem = {
+        const updatedSpec: SpecQueueItem = {
           id: spec.id,
+          specId: spec.specId,
           filePath: spec.filePath,
+          testName: spec.testName,
           priority: spec.priority,
           status: to,
-          testCount: spec.testCount,
           attempts: spec.attempts,
           errors: spec.errors,
           queuedAt: spec.queuedAt,
@@ -282,12 +283,13 @@ export const StateManagerLive = Layer.succeed(StateManager, {
         }
 
         // Update spec with error and increment attempts
-        const updatedSpec: SpecFileItem = {
+        const updatedSpec: SpecQueueItem = {
           id: spec.id,
+          specId: spec.specId,
           filePath: spec.filePath,
+          testName: spec.testName,
           priority: spec.priority,
           status: 'pending',
-          testCount: spec.testCount,
           attempts: spec.attempts + 1,
           errors: [...spec.errors, error],
           queuedAt: spec.queuedAt,
@@ -328,12 +330,13 @@ export const StateManagerLive = Layer.succeed(StateManager, {
         }
 
         // Update spec with failure details
-        const failedSpec: SpecFileItem = {
+        const failedSpec: SpecQueueItem = {
           id: spec.id,
+          specId: spec.specId,
           filePath: spec.filePath,
+          testName: spec.testName,
           priority: spec.priority,
           status: 'failed',
-          testCount: spec.testCount,
           attempts: spec.attempts,
           errors: details.errors,
           queuedAt: spec.queuedAt,
@@ -378,12 +381,13 @@ export const StateManagerLive = Layer.succeed(StateManager, {
         }
 
         // Reset spec
-        const requeuedSpec: SpecFileItem = {
+        const requeuedSpec: SpecQueueItem = {
           id: spec.id,
+          specId: spec.specId,
           filePath: spec.filePath,
+          testName: spec.testName,
           priority: spec.priority,
           status: 'pending',
-          testCount: spec.testCount,
           attempts: options.resetRetries ? 0 : spec.attempts,
           errors: options.clearErrors ? [] : spec.errors,
           queuedAt: spec.queuedAt,

@@ -10,7 +10,7 @@ import { test, expect, beforeAll, afterAll } from 'bun:test'
 import { Effect } from 'effect'
 import { StateManager } from './core/state-manager'
 import { createTestStateManager } from './core/state-manager-test-helper'
-import type { SpecFileItem } from './types'
+import type { SpecQueueItem } from './types'
 
 const TEST_SPEC_FILE = 'specs/test-integration/sample.spec.ts'
 const TEST_STATE_FILE = `.github/tdd-state-test-worker-integration-${process.pid}-${Date.now()}-${Math.random().toString(36).substring(2)}.json`
@@ -53,11 +53,12 @@ test.fixme('another passing test', () => {
     queue: {
       pending: [
         {
-          id: TEST_SPEC_FILE,
+          id: 'TEST-WORKER-001',
+          specId: 'TEST-WORKER-001',
           filePath: TEST_SPEC_FILE,
+          testName: 'should handle worker integration test',
           priority: 50,
           status: 'pending',
-          testCount: 2,
           attempts: 0,
           errors: [],
           queuedAt: new Date().toISOString(),
@@ -150,16 +151,16 @@ test('Integration: State transitions (pending → active → completed)', async 
     expect(spec).toBeDefined()
     expect(spec?.status).toBe('pending')
 
-    // Transition to active (simulates worker picking up spec)
-    yield* stateManager.transition(TEST_SPEC_FILE, 'pending', 'active')
+    // Transition to active (simulates worker picking up spec) - use spec ID not file path
+    yield* stateManager.transition('TEST-WORKER-001', 'pending', 'active')
 
     const activeState = yield* stateManager.load()
     const activeSpec = activeState.queue.active.find((s) => s.filePath === TEST_SPEC_FILE)
     expect(activeSpec).toBeDefined()
     expect(activeSpec?.status).toBe('active')
 
-    // Transition to completed (simulates successful PR merge)
-    yield* stateManager.transition(TEST_SPEC_FILE, 'active', 'completed')
+    // Transition to completed (simulates successful PR merge) - use spec ID not file path
+    yield* stateManager.transition('TEST-WORKER-001', 'active', 'completed')
 
     const completedState = yield* stateManager.load()
     const completedSpec = completedState.queue.completed.find((s) => s.filePath === TEST_SPEC_FILE)
@@ -175,12 +176,13 @@ test('Integration: 3-strikes rule moves spec to manual intervention', async () =
     const stateManager = yield* StateManager
 
     // Create a spec with 2 previous failures
-    const specWith2Failures: SpecFileItem = {
-      id: TEST_SPEC_FILE,
+    const specWith2Failures: SpecQueueItem = {
+      id: 'TEST-WORKER-002',
+      specId: 'TEST-WORKER-002',
       filePath: TEST_SPEC_FILE,
+      testName: 'should test 3-strikes rule',
       priority: 50,
       status: 'active',
-      testCount: 2,
       attempts: 2,
       errors: [
         {
@@ -209,7 +211,7 @@ test('Integration: 3-strikes rule moves spec to manual intervention', async () =
       message: 'Third failure',
     }
 
-    // This should trigger manual intervention
+    // This should trigger manual intervention - use file path (method searches by filePath)
     yield* stateManager.moveToManualIntervention(TEST_SPEC_FILE, {
       errors: [...specWith2Failures.errors, thirdError],
       failureReason: 'Failed 3 times due to spec-failure',

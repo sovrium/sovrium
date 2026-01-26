@@ -17,7 +17,6 @@ function createAppWithCurrencyField(fieldConfig: Partial<CurrencyField>): App {
     tables: [
       {
         name: 'products',
-        pluralName: 'products',
         fields: [
           {
             name: 'price',
@@ -30,13 +29,9 @@ function createAppWithCurrencyField(fieldConfig: Partial<CurrencyField>): App {
             ...fieldConfig,
           } as CurrencyField,
         ],
-        metadata: {
-          icon: 'shopping-cart',
-          description: 'Test table',
-        },
       },
     ],
-  } as App
+  } as unknown as App
 }
 
 describe('formatFieldForDisplay', () => {
@@ -280,20 +275,15 @@ describe('formatFieldForDisplay', () => {
         tables: [
           {
             name: 'products',
-            pluralName: 'products',
             fields: [
               {
                 name: 'name',
                 type: 'text',
               },
             ],
-            metadata: {
-              icon: 'shopping-cart',
-              description: 'Test table',
-            },
           },
         ],
-      } as App
+      } as unknown as App
 
       const result = formatFieldForDisplay('name', 'Product Name', app, 'products')
       expect(result).toBeUndefined()

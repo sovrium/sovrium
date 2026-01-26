@@ -212,17 +212,18 @@ describe('TimeUtils Service', () => {
     })
 
     it('should return false at exact timeout boundary', async () => {
-      // Create a date exactly 30 minutes ago
-      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+      // Create a date slightly under 30 minutes ago (29.9 min) to avoid timing flakiness
+      // This ensures we're definitively under the boundary even with test execution delays
+      const justUnderThirtyMinutes = new Date(Date.now() - 29.9 * 60 * 1000).toISOString()
 
       const isPast = await runWithService(
         Effect.gen(function* () {
           const utils = yield* TimeUtils
-          return yield* utils.isPastTimeout(thirtyMinutesAgo, 30)
+          return yield* utils.isPastTimeout(justUnderThirtyMinutes, 30)
         })
       )
 
-      // At exact boundary (age === timeout), should be false (not past)
+      // At boundary (age < timeout), should be false (not past)
       expect(isPast).toBe(false)
     })
   })

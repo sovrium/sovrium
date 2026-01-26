@@ -7,7 +7,7 @@
 
 import { Effect, Layer } from 'effect'
 import { StateManager } from './state-manager'
-import type { TDDState, SpecFileItem } from '../types'
+import type { TDDState, SpecQueueItem } from '../types'
 
 /**
  * Create a test-specific StateManager that uses a temporary file
@@ -82,12 +82,13 @@ export function createTestStateManager(testFilePath: string) {
           const newSourceQueue = sourceQueue.filter((s) => s.id !== fileId)
 
           // Update spec status and timestamp
-          const updatedSpec: SpecFileItem = {
+          const updatedSpec: SpecQueueItem = {
             id: spec.id,
+          specId: spec.specId,
             filePath: spec.filePath,
+          testName: spec.testName,
             priority: spec.priority,
             status: to,
-            testCount: spec.testCount,
             attempts: spec.attempts,
             errors: spec.errors,
             queuedAt: spec.queuedAt,
@@ -162,12 +163,13 @@ export function createTestStateManager(testFilePath: string) {
           }
 
           // Update spec with error and increment attempts
-          const updatedSpec: SpecFileItem = {
+          const updatedSpec: SpecQueueItem = {
             id: spec.id,
+          specId: spec.specId,
             filePath: spec.filePath,
+          testName: spec.testName,
             priority: spec.priority,
             status: 'pending',
-            testCount: spec.testCount,
             attempts: spec.attempts + 1,
             errors: [...spec.errors, error],
             queuedAt: spec.queuedAt,
@@ -208,12 +210,13 @@ export function createTestStateManager(testFilePath: string) {
           }
 
           // Update spec with failure details
-          const failedSpec: SpecFileItem = {
+          const failedSpec: SpecQueueItem = {
             id: spec.id,
+          specId: spec.specId,
             filePath: spec.filePath,
+          testName: spec.testName,
             priority: spec.priority,
             status: 'failed',
-            testCount: spec.testCount,
             attempts: spec.attempts,
             errors: details.errors,
             queuedAt: spec.queuedAt,
@@ -258,12 +261,13 @@ export function createTestStateManager(testFilePath: string) {
           }
 
           // Reset spec
-          const requeuedSpec: SpecFileItem = {
+          const requeuedSpec: SpecQueueItem = {
             id: spec.id,
+          specId: spec.specId,
             filePath: spec.filePath,
+          testName: spec.testName,
             priority: spec.priority,
             status: 'pending',
-            testCount: spec.testCount,
             attempts: options.resetRetries ? 0 : spec.attempts,
             errors: options.clearErrors ? [] : spec.errors,
             queuedAt: spec.queuedAt,

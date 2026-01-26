@@ -22,8 +22,8 @@
 
 import { existsSync } from 'node:fs'
 import { Effect, Console } from 'effect'
-import type { TDDState } from './types'
 import { extractAllSpecs } from './services/spec-extractor'
+import type { TDDState } from './types'
 
 const STATE_FILE = '.github/tdd-state.json'
 
