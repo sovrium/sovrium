@@ -127,6 +127,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GH_PAT_WORKFLOW }}
+          allowed_bots: '*'
           additional_permissions: |
             actions: read
           prompt: |
@@ -179,6 +180,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ secrets.GH_PAT_WORKFLOW }}
+          allowed_bots: '*'
           additional_permissions: |
             actions: read
           prompt: |
