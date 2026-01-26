@@ -8,8 +8,12 @@
 /**
  * TDD Automation V2 - Type Definitions
  *
- * Core types for the simplified TDD workflow that processes spec files
+ * Core types for the simplified TDD workflow that processes individual spec IDs
  * continuously with file-level locking and intelligent retry logic.
+ *
+ * Work granularity: Spec-ID-based (e.g., "API-TABLES-001")
+ * File locking: Workers cannot process different specs from the same file concurrently
+ * Priority: Complete all spec IDs in fileA before moving to fileB
  */
 
 /**
@@ -22,14 +26,15 @@ export interface TDDState {
   lastUpdated: string // ISO 8601 timestamp
 
   queue: {
-    pending: SpecFileItem[] // Not yet started
-    active: SpecFileItem[] // PR currently in progress
-    completed: SpecFileItem[] // Successfully merged (last 100)
-    failed: SpecFileItem[] // Needs manual intervention (3+ failures)
+    pending: SpecQueueItem[] // Not yet started
+    active: SpecQueueItem[] // PR currently in progress
+    completed: SpecQueueItem[] // Successfully merged (last 100)
+    failed: SpecQueueItem[] // Needs manual intervention (3+ failures)
   }
 
   // File-level locking to prevent concurrent work on same file
   activeFiles: string[] // List of file paths currently being processed
+  activeSpecs: string[] // List of spec IDs currently being processed
 
   config: {
     maxConcurrentPRs: number // Default: 3
@@ -49,17 +54,18 @@ export interface TDDState {
 }
 
 /**
- * Represents a single spec file in the queue
+ * Represents a single spec ID in the queue
  *
- * Work granularity is file-level: all tests in a file are processed atomically
+ * Work granularity is spec-ID-level: one test per queue item
+ * File locking ensures no two workers process different specs from the same file
  */
-export interface SpecFileItem {
-  id: string // File path (e.g., "specs/api/tables/create.spec.ts")
-  filePath: string // Same as id (for clarity)
+export interface SpecQueueItem {
+  id: string // Spec ID (e.g., "API-TABLES-001")
+  specId: string // Same as id (for clarity)
+  filePath: string // File path (e.g., "specs/api/tables/create.spec.ts")
+  testName: string // Full test description for grep matching
   priority: number // 0-100 (higher = more important)
   status: 'pending' | 'active' | 'completed' | 'failed'
-
-  testCount: number // Total tests in file (from .fixme() count)
 
   // Active/Failed status only
   prNumber?: number
@@ -106,11 +112,12 @@ export type ErrorType = 'spec-failure' | 'regression' | 'infrastructure' | 'unkn
  * Worker dispatch input
  */
 export interface WorkerInput {
-  spec_file: string
+  spec_id: string // Spec ID (e.g., "API-TABLES-001")
+  file_path: string // File path (e.g., "specs/api/tables/create.spec.ts")
+  test_name: string // Full test description for grep matching
   priority: number
   retry_count: number
   previous_errors: string // JSON stringified SpecError[]
-  test_count: number
 }
 
 /**
@@ -119,7 +126,7 @@ export interface WorkerInput {
 export interface OrchestrationResult {
   dispatched: number
   reason?: 'no-credits' | 'max-concurrency' | 'empty-queue'
-  files?: string[]
+  specIds?: string[] // Spec IDs dispatched (e.g., ["API-TABLES-001", "API-TABLES-002"])
 }
 
 /**
@@ -136,7 +143,8 @@ export interface PreValidationResult {
  * Manual intervention issue data
  */
 export interface ManualInterventionIssue {
-  filePath: string
+  specId: string // Spec ID (e.g., "API-TABLES-001")
+  filePath: string // File path for context
   attempts: number
   lastError: SpecError
   actionGuide: string
@@ -173,6 +181,7 @@ export const INITIAL_STATE: TDDState = {
     failed: [],
   },
   activeFiles: [],
+  activeSpecs: [],
   config: DEFAULT_CONFIG,
   metrics: {
     totalProcessed: 0,
