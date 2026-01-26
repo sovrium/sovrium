@@ -1,47 +1,49 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T16:02:29.795Z",
+  "lastUpdated": "2026-01-26T16:02:31.148Z",
   "queue": {
-    "pending": [],
-    "active": [],
-    "completed": [
+    "pending": [
       {
         "id": "TEST-SPEC-1",
+        "specId": "TEST-SPEC-1",
         "filePath": "specs/test-concurrency/spec1.spec.ts",
+        "testName": "test in specs/test-concurrency/spec1.spec.ts",
         "priority": 50,
-        "status": "completed",
+        "status": "pending",
         "attempts": 0,
         "errors": [],
-        "queuedAt": "2026-01-26T16:02:09.595Z",
-        "startedAt": "2026-01-26T16:02:22.434Z",
-        "completedAt": "2026-01-26T16:02:26.599Z"
+        "queuedAt": "2026-01-26T16:02:30.787Z"
       },
       {
         "id": "TEST-SPEC-2",
+        "specId": "TEST-SPEC-2",
         "filePath": "specs/test-concurrency/spec2.spec.ts",
+        "testName": "test in specs/test-concurrency/spec2.spec.ts",
         "priority": 50,
-        "status": "completed",
+        "status": "pending",
         "attempts": 0,
         "errors": [],
-        "queuedAt": "2026-01-26T16:02:09.595Z",
-        "startedAt": "2026-01-26T16:02:23.833Z",
-        "completedAt": "2026-01-26T16:02:28.113Z"
+        "queuedAt": "2026-01-26T16:02:30.787Z"
       },
       {
         "id": "TEST-SPEC-3",
+        "specId": "TEST-SPEC-3",
         "filePath": "specs/test-concurrency/spec3.spec.ts",
+        "testName": "test in specs/test-concurrency/spec3.spec.ts",
         "priority": 50,
-        "status": "completed",
+        "status": "pending",
         "attempts": 0,
         "errors": [],
-        "queuedAt": "2026-01-26T16:02:09.595Z",
-        "startedAt": "2026-01-26T16:02:25.244Z",
-        "completedAt": "2026-01-26T16:02:29.439Z"
+        "queuedAt": "2026-01-26T16:02:30.787Z"
       }
     ],
+    "active": [],
+    "completed": [],
     "failed": []
   },
-  "activeFiles": [],
+  "activeFiles": [
+    "specs/test-concurrency/spec1.spec.ts"
+  ],
   "activeSpecs": [],
   "config": {
     "maxConcurrentPRs": 3,
