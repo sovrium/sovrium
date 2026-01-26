@@ -1,327 +1,40 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T10:15:41.124Z",
+  "lastUpdated": "2026-01-26T15:43:37.430Z",
   "queue": {
     "pending": [
       {
-        "id": "specs/api/tables/session-context-integration.spec.ts",
-        "filePath": "specs/api/tables/session-context-integration.spec.ts",
+        "id": "TEST-SPEC-1",
+        "specId": "TEST-SPEC-1",
+        "filePath": "specs/test-concurrency/spec1.spec.ts",
+        "testName": "test in specs/test-concurrency/spec1.spec.ts",
         "priority": 50,
         "status": "pending",
-        "testCount": 1,
         "attempts": 0,
         "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.137Z"
+        "queuedAt": "2026-01-26T15:43:37.430Z"
       },
       {
-        "id": "specs/api/activity/get.spec.ts",
-        "filePath": "specs/api/activity/get.spec.ts",
+        "id": "TEST-SPEC-2",
+        "specId": "TEST-SPEC-2",
+        "filePath": "specs/test-concurrency/spec2.spec.ts",
+        "testName": "test in specs/test-concurrency/spec2.spec.ts",
         "priority": 50,
         "status": "pending",
-        "testCount": 18,
         "attempts": 0,
         "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.138Z"
+        "queuedAt": "2026-01-26T15:43:37.430Z"
       },
       {
-        "id": "specs/api/activity/{activityId}/get.spec.ts",
-        "filePath": "specs/api/activity/{activityId}/get.spec.ts",
+        "id": "TEST-SPEC-3",
+        "specId": "TEST-SPEC-3",
+        "filePath": "specs/test-concurrency/spec3.spec.ts",
+        "testName": "test in specs/test-concurrency/spec3.spec.ts",
         "priority": 50,
         "status": "pending",
-        "testCount": 8,
         "attempts": 0,
         "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.140Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/include-deleted.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/include-deleted.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 5,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.144Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/get.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/get.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 17,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.144Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/post.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/post.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 1,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.144Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/format.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/format.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 24,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.144Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/views/get.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/views/get.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 5,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.144Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/trash/get.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/trash/get.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 4,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.145Z"
-      },
-      {
-        "id": "specs/api/auth/admin/get-user/get.spec.ts",
-        "filePath": "specs/api/auth/admin/get-user/get.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 1,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.145Z"
-      },
-      {
-        "id": "specs/api/auth/admin/set-role/post.spec.ts",
-        "filePath": "specs/api/auth/admin/set-role/post.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 1,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.145Z"
-      },
-      {
-        "id": "specs/api/auth/admin/create-user/post.spec.ts",
-        "filePath": "specs/api/auth/admin/create-user/post.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 1,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.145Z"
-      },
-      {
-        "id": "specs/api/auth/admin/set-user-password/post.spec.ts",
-        "filePath": "specs/api/auth/admin/set-user-password/post.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 1,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.145Z"
-      },
-      {
-        "id": "specs/api/auth/admin/revoke-user-session/post.spec.ts",
-        "filePath": "specs/api/auth/admin/revoke-user-session/post.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 1,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.145Z"
-      },
-      {
-        "id": "specs/api/auth/admin/list-user-sessions/get.spec.ts",
-        "filePath": "specs/api/auth/admin/list-user-sessions/get.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 1,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.145Z"
-      },
-      {
-        "id": "specs/api/auth/admin/impersonate-user/post.spec.ts",
-        "filePath": "specs/api/auth/admin/impersonate-user/post.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 1,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.145Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/{recordId}/get.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/{recordId}/get.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 9,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.146Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/{recordId}/patch.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/{recordId}/patch.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 14,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.146Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/views/{viewId}/get.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/views/{viewId}/get.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 6,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.147Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/batch/delete.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/batch/delete.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 9,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.147Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/batch/post.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/batch/post.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 13,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.147Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/batch/patch.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/batch/patch.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 13,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.147Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/upsert/post.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/upsert/post.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 13,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.147Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/{recordId}/comments/get.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/{recordId}/comments/get.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 10,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.147Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/{recordId}/comments/post.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/{recordId}/comments/post.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 11,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.147Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/{recordId}/history/get.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/{recordId}/history/get.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 8,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.147Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/{recordId}/comments/{commentId}/get.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/{recordId}/comments/{commentId}/get.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 8,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.147Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/{recordId}/comments/{commentId}/delete.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/{recordId}/comments/{commentId}/delete.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 10,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.147Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/{recordId}/comments/{commentId}/patch.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/{recordId}/comments/{commentId}/patch.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 11,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.147Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/views/{viewId}/records/get.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/views/{viewId}/records/get.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 5,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.147Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/{recordId}/restore/post.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/{recordId}/restore/post.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 5,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.147Z"
-      },
-      {
-        "id": "specs/api/tables/{tableId}/records/batch/restore/post.spec.ts",
-        "filePath": "specs/api/tables/{tableId}/records/batch/restore/post.spec.ts",
-        "priority": 50,
-        "status": "pending",
-        "testCount": 4,
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T10:15:41.147Z"
+        "queuedAt": "2026-01-26T15:43:37.430Z"
       }
     ],
     "active": [],
@@ -329,6 +42,7 @@
     "failed": []
   },
   "activeFiles": [],
+  "activeSpecs": [],
   "config": {
     "maxConcurrentPRs": 3,
     "maxRetries": 3,
