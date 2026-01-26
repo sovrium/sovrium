@@ -12,7 +12,7 @@ import { StateManager } from './state-manager'
 import { createTestStateManager } from './state-manager-test-helper'
 import type { TDDState, SpecFileItem, SpecError } from '../types'
 
-const TEST_STATE_FILE = `.github/tdd-state-test-state-manager-${Date.now()}.json`
+const TEST_STATE_FILE = `.github/tdd-state-test-state-manager-${process.pid}-${Date.now()}-${Math.random().toString(36).substring(2)}.json`
 let TestStateManagerLayer: ReturnType<typeof createTestStateManager>
 
 beforeAll(() => {

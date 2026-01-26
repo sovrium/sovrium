@@ -621,7 +621,7 @@ const runFullChecks = (options: QualityOptions) =>
     // 5. Unit tests
     const unitResult = yield* runCheck(
       'Unit Tests',
-      ['bun', 'test', '--concurrent', '.test.ts', '.test.tsx'],
+      ['bun', 'test', '.test.ts', '.test.tsx'],
       60_000
     )
     results.push(unitResult)

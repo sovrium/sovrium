@@ -27,7 +27,7 @@ const SPEC_ID_1 = 'TEST-SPEC-1'
 const SPEC_ID_2 = 'TEST-SPEC-2'
 const SPEC_ID_3 = 'TEST-SPEC-3'
 
-const TEST_STATE_FILE = `.github/tdd-state-test-${Date.now()}.json`
+const TEST_STATE_FILE = `.github/tdd-state-test-${process.pid}-${Date.now()}-${Math.random().toString(36).substring(2)}.json`
 
 let TestStateManagerLayer: ReturnType<typeof createTestStateManager>
 

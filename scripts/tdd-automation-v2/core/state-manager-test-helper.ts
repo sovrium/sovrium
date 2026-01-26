@@ -5,9 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Context, Layer } from 'effect'
-import type { TDDState, SpecFileItem, SpecStatus, SpecError, RequeueOptions } from '../types'
+import { Effect, Layer } from 'effect'
 import { StateManager } from './state-manager'
+import type { TDDState, SpecFileItem } from '../types'
 
 /**
  * Create a test-specific StateManager that uses a temporary file

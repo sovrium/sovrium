@@ -13,7 +13,7 @@ import { createTestStateManager } from './core/state-manager-test-helper'
 import type { SpecFileItem } from './types'
 
 const TEST_SPEC_FILE = 'specs/test-integration/sample.spec.ts'
-const TEST_STATE_FILE = `.github/tdd-state-test-worker-integration-${Date.now()}.json`
+const TEST_STATE_FILE = `.github/tdd-state-test-worker-integration-${process.pid}-${Date.now()}-${Math.random().toString(36).substring(2)}.json`
 
 let TestStateManagerLayer: ReturnType<typeof createTestStateManager>
 
