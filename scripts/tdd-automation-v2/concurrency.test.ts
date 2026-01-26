@@ -21,6 +21,11 @@ const SPEC_FILE_1 = TEST_SPEC_FILES[0]
 const SPEC_FILE_2 = TEST_SPEC_FILES[1]
 const SPEC_FILE_3 = TEST_SPEC_FILES[2]
 
+// Spec ID constants (after refactoring to spec-ID-based processing)
+const SPEC_ID_1 = 'TEST-SPEC-1'
+const SPEC_ID_2 = 'TEST-SPEC-2'
+const SPEC_ID_3 = 'TEST-SPEC-3'
+
 const TEST_STATE_FILE = '.github/tdd-state.json'
 
 let originalStateBackup: string | null = null
@@ -216,9 +221,9 @@ test(
       // Transition all 3 specs to active sequentially (git operations must be sequential)
       yield* Effect.all(
         [
-          stateManager.transition(SPEC_FILE_1, 'pending', 'active'),
-          stateManager.transition(SPEC_FILE_2, 'pending', 'active'),
-          stateManager.transition(SPEC_FILE_3, 'pending', 'active'),
+          stateManager.transition(SPEC_ID_1, 'pending', 'active'),
+          stateManager.transition(SPEC_ID_2, 'pending', 'active'),
+          stateManager.transition(SPEC_ID_3, 'pending', 'active'),
         ],
         { concurrency: 1 }
       )
@@ -242,9 +247,9 @@ test(
       // Transition all to completed (sequential to avoid git race conditions)
       yield* Effect.all(
         [
-          stateManager.transition(SPEC_FILE_1, 'active', 'completed'),
-          stateManager.transition(SPEC_FILE_2, 'active', 'completed'),
-          stateManager.transition(SPEC_FILE_3, 'active', 'completed'),
+          stateManager.transition(SPEC_ID_1, 'active', 'completed'),
+          stateManager.transition(SPEC_ID_2, 'active', 'completed'),
+          stateManager.transition(SPEC_ID_3, 'active', 'completed'),
         ],
         { concurrency: 1 }
       )
@@ -349,9 +354,9 @@ test(
       // Transition 3 specs to active (fills all slots) - sequential to avoid git race conditions
       yield* Effect.all(
         [
-          stateManager.transition(SPEC_FILE_1, 'pending', 'active'),
-          stateManager.transition(SPEC_FILE_2, 'pending', 'active'),
-          stateManager.transition(SPEC_FILE_3, 'pending', 'active'),
+          stateManager.transition(SPEC_ID_1, 'pending', 'active'),
+          stateManager.transition(SPEC_ID_2, 'pending', 'active'),
+          stateManager.transition(SPEC_ID_3, 'pending', 'active'),
         ],
         { concurrency: 1 }
       )
@@ -369,9 +374,9 @@ test(
       // Cleanup (sequential to avoid git race conditions)
       yield* Effect.all(
         [
-          stateManager.transition(SPEC_FILE_1, 'active', 'completed'),
-          stateManager.transition(SPEC_FILE_2, 'active', 'completed'),
-          stateManager.transition(SPEC_FILE_3, 'active', 'completed'),
+          stateManager.transition(SPEC_ID_1, 'active', 'completed'),
+          stateManager.transition(SPEC_ID_2, 'active', 'completed'),
+          stateManager.transition(SPEC_ID_3, 'active', 'completed'),
         ],
         { concurrency: 1 }
       )
