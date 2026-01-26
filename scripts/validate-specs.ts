@@ -222,21 +222,17 @@ const findSpecFile = (specId: string) =>
         }
 
         // Spec ID found but not with .fixme - might already be passing
-        return yield* Effect.fail(
-          new SpecNotFoundError({
-            specId,
-            message: `Spec ${specId} found in ${file} but not marked with .fixme() - may already be passing`,
-          })
-        )
+        return yield* new SpecNotFoundError({
+          specId,
+          message: `Spec ${specId} found in ${file} but not marked with .fixme() - may already be passing`,
+        })
       }
     }
 
-    return yield* Effect.fail(
-      new SpecNotFoundError({
-        specId,
-        message: `Spec ${specId} not found in any spec file`,
-      })
-    )
+    return yield* new SpecNotFoundError({
+      specId,
+      message: `Spec ${specId} not found in any spec file`,
+    })
   })
 
 /**
@@ -292,12 +288,10 @@ const removeFixme = (
     }
 
     if (!found) {
-      return yield* Effect.fail(
-        new ValidationError({
-          specId,
-          message: `Could not find test.fixme() or it.fixme() for ${specId} in ${file}`,
-        })
-      )
+      return yield* new ValidationError({
+        specId,
+        message: `Could not find test.fixme() or it.fixme() for ${specId} in ${file}`,
+      })
     }
 
     const modifiedContent = modifiedLines.join('\n')
@@ -489,27 +483,30 @@ const runBatchTests = (
       )
 
     // Parse JSON output - extract JSON from stdout (may have non-JSON prefix)
-    try {
-      // Playwright stdout may contain non-JSON output before the JSON report
-      // (e.g., "Starting test environment..." from global-setup.ts)
-      // Find the first '{' to locate the start of JSON
-      const jsonStart = result.stdout.indexOf('{')
-      if (jsonStart === -1) {
-        throw new Error('No JSON found in stdout')
-      }
-      const jsonString = result.stdout.substring(jsonStart)
-      const report = JSON.parse(jsonString) as PlaywrightJsonReport
-      const results = extractTestResults(report.suites)
+    const results = yield* Effect.try({
+      try: () => {
+        // Playwright stdout may contain non-JSON output before the JSON report
+        // (e.g., "Starting test environment..." from global-setup.ts)
+        // Find the first '{' to locate the start of JSON
+        const jsonStart = result.stdout.indexOf('{')
+        if (jsonStart === -1) {
+          throw new Error('No JSON found in stdout')
+        }
+        const jsonString = result.stdout.substring(jsonStart)
+        const report = JSON.parse(jsonString) as PlaywrightJsonReport
+        return extractTestResults(report.suites)
+      },
+      catch: () => {
+        // If JSON parsing fails, assume all tests failed
+        const failedResults = new Map<string, 'passed' | 'failed'>()
+        for (const specId of specIds) {
+          failedResults.set(specId, 'failed')
+        }
+        return failedResults
+      },
+    })
 
-      return results
-    } catch {
-      // If JSON parsing fails, assume all tests failed
-      const failedResults = new Map<string, 'passed' | 'failed'>()
-      for (const specId of specIds) {
-        failedResults.set(specId, 'failed')
-      }
-      return failedResults
-    }
+    return results
   })
 
 /**
@@ -712,9 +709,7 @@ const validateSpec = (
     if (!testResult.passed) {
       // 4a. Test failed - restore .fixme()
       yield* logInfo(`  Test failed (exit code ${testResult.exitCode}), restoring .fixme()`)
-      yield* restoreFile(file, originalContent, specId).pipe(
-        Effect.catchAll(() => Effect.succeed(undefined))
-      )
+      yield* restoreFile(file, originalContent, specId).pipe(Effect.catchAll(() => Effect.void))
 
       return {
         status: 'failed' as const,
@@ -922,9 +917,7 @@ const restoreFixmeForSpecs = (
 
     const modifiedContent = modifiedLines.join('\n')
 
-    yield* fs
-      .writeFile(file, modifiedContent)
-      .pipe(Effect.catchAll(() => Effect.succeed(undefined)))
+    yield* fs.writeFile(file, modifiedContent).pipe(Effect.catchAll(() => Effect.void))
   })
 
 /**

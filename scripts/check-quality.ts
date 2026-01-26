@@ -305,7 +305,7 @@ const runFileChecks = (filePath: string) =>
     const exists = yield* fs.exists(filePath)
     if (!exists) {
       yield* logError(`File not found: ${filePath}`)
-      return yield* Effect.fail(new QualityCheckFailedError({ checks: [] }))
+      return yield* new QualityCheckFailedError({ checks: [] })
     }
 
     if (!isTypeScriptFile(filePath)) {
@@ -765,7 +765,7 @@ const printSummary = (results: readonly CheckResult[], overallDuration: number) 
       }
       if (failedNames.has('E2E Regression Tests')) yield* Effect.log('  bun test:e2e:regression')
 
-      return yield* Effect.fail(new QualityCheckFailedError({ checks: results }))
+      return yield* new QualityCheckFailedError({ checks: results })
     }
   })
 

@@ -184,12 +184,10 @@ export const CoverageServiceLive = Layer.effect(
         for (const result of results) {
           const layerConfig = layers.find((l) => l.name === result.layer)
           if (layerConfig?.enabled && result.missingTests.length > 0) {
-            return yield* Effect.fail(
-              new CoverageCheckError({
-                missingTests: result.missingTests,
-                layer: result.layer,
-              })
-            )
+            return yield* new CoverageCheckError({
+              missingTests: result.missingTests,
+              layer: result.layer,
+            })
           }
         }
       })

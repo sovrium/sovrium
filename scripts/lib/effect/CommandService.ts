@@ -218,14 +218,12 @@ export const CommandServiceLive = Layer.succeed(
 
         // Check exit code
         if (opts.throwOnError && result.exitCode !== 0) {
-          return yield* Effect.fail(
-            new CommandFailedError({
-              command: command.join(' '),
-              exitCode: result.exitCode,
-              stderr: result.stderr,
-              stdout: result.stdout,
-            })
-          )
+          return yield* new CommandFailedError({
+            command: command.join(' '),
+            exitCode: result.exitCode,
+            stderr: result.stderr,
+            stdout: result.stdout,
+          })
         }
 
         if (opts.verbose) {
@@ -334,14 +332,12 @@ export const CommandServiceLive = Layer.succeed(
 
         // Check exit code
         if (opts.throwOnError && result.exitCode !== 0) {
-          return yield* Effect.fail(
-            new CommandFailedError({
-              command: command.join(' '),
-              exitCode: result.exitCode,
-              stderr: result.stderr,
-              stdout: result.stdout,
-            })
-          )
+          return yield* new CommandFailedError({
+            command: command.join(' '),
+            exitCode: result.exitCode,
+            stderr: result.stderr,
+            stdout: result.stdout,
+          })
         }
 
         // Write to GITHUB_OUTPUT if in GitHub Actions

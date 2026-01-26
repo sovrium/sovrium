@@ -130,7 +130,7 @@ const updateStateWithRetry = (
       return yield* Effect.fail(new Error('Failed to update state after maximum retries'))
     }
 
-    try {
+    return yield* Effect.gen(function* () {
       // 1. Pull latest from main
       yield* exec('git pull origin main --rebase')
 
@@ -143,29 +143,30 @@ const updateStateWithRetry = (
 
       // 4. Push (may fail due to concurrent update)
       yield* exec('git push origin main')
+    }).pipe(
+      Effect.catchAll((error) => {
+        const errorMessage = String(error)
 
-      // Success!
-      return
-    } catch (error) {
-      const errorMessage = String(error)
+        // Check if error is due to concurrent update
+        if (
+          errorMessage.includes('rejected') ||
+          errorMessage.includes('conflict') ||
+          errorMessage.includes('non-fast-forward')
+        ) {
+          // Retry after delay
+          return Effect.gen(function* () {
+            yield* Effect.log(
+              `State update conflict, retrying (${retriesLeft - 1} attempts remaining)...`
+            )
+            yield* sleep(RETRY_DELAY_MS)
+            return yield* updateStateWithRetry(newState, retriesLeft - 1)
+          })
+        }
 
-      // Check if error is due to concurrent update
-      if (
-        errorMessage.includes('rejected') ||
-        errorMessage.includes('conflict') ||
-        errorMessage.includes('non-fast-forward')
-      ) {
-        // Retry after delay
-        yield* Effect.log(
-          `State update conflict, retrying (${retriesLeft - 1} attempts remaining)...`
-        )
-        yield* sleep(RETRY_DELAY_MS)
-        return yield* updateStateWithRetry(newState, retriesLeft - 1)
-      }
-
-      // Other error - fail immediately
-      return yield* Effect.fail(error as Error)
-    }
+        // Other error - fail immediately
+        return Effect.fail(error as Error)
+      })
+    )
   })
 
 /**

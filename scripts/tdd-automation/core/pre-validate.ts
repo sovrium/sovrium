@@ -104,24 +104,20 @@ const program = Effect.gen(function* () {
   let passed = 0
   let failed = 0
 
-  try {
-    const lines = testResult.stdout.split('\n').filter((line) => line.trim())
-    for (const line of lines) {
-      try {
-        const result = JSON.parse(line)
-        if (result.kind === 'test-result') {
-          if (result.status === 'pass') {
-            passed++
-          } else if (result.status === 'fail') {
-            failed++
-          }
-        }
-      } catch {
-        // Ignore lines that aren't JSON
+  const lines = testResult.stdout.split('\n').filter((line) => line.trim())
+  for (const line of lines) {
+    const parseResult = yield* Effect.try({
+      try: () => JSON.parse(line),
+      catch: () => null, // Ignore lines that aren't JSON
+    })
+
+    if (parseResult && parseResult.kind === 'test-result') {
+      if (parseResult.status === 'pass') {
+        passed++
+      } else if (parseResult.status === 'fail') {
+        failed++
       }
     }
-  } catch (error) {
-    yield* Console.error(`Failed to parse test results: ${error}`)
   }
 
   const validationResult: ValidationResult = { passed, failed }
