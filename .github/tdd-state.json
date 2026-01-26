@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T15:58:27.214Z",
+  "lastUpdated": "2026-01-26T15:58:28.574Z",
   "queue": {
     "pending": [
       {
@@ -41,9 +41,7 @@
     "completed": [],
     "failed": []
   },
-  "activeFiles": [
-    "specs/test-concurrency/spec3.spec.ts"
-  ],
+  "activeFiles": [],
   "activeSpecs": [],
   "config": {
     "maxConcurrentPRs": 3,
