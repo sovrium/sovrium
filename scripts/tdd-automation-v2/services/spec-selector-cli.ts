@@ -7,7 +7,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Effect, Logger, LogLevel } from 'effect'
 import { StateManager, StateManagerLive } from '../core/state-manager'
 import { SpecSelector, SpecSelectorLive, PriorityCalculatorLive } from './spec-selector'
 
@@ -60,8 +60,8 @@ const program = Effect.gen(function* () {
   Effect.provide(SpecSelectorLive)
 )
 
-// Run the program
-Effect.runPromise(program).catch((error) => {
+// Run the program with Effect logging disabled (to keep stdout clean for JSON output)
+Effect.runPromise(program.pipe(Logger.withMinimumLogLevel(LogLevel.None))).catch((error) => {
   console.error('Spec selector failed:', error)
   process.exit(1)
 })
