@@ -34,8 +34,10 @@ const parseSpecFile = (
 
     // Regex to match test.fixme() calls with spec IDs
     // Matches: test.fixme('API-TABLES-001: description', ...)
+    // OR:      test.fixme(\n  'API-TABLES-001: description', ...)
     // Captures: spec ID and full test description
-    const testFixmeRegex = /test\.fixme\(['"](([A-Z]+-[A-Z]+-[A-Z0-9-]+):[^'"]*)['"]/g
+    // \s* allows optional whitespace/newlines between ( and opening quote
+    const testFixmeRegex = /test\.fixme\(\s*['"](([A-Z]+-[A-Z]+-[A-Z0-9-]+):[^'"]*)['"]/g
 
     let match: RegExpExecArray | null
     while ((match = testFixmeRegex.exec(content)) !== null) {

@@ -21,10 +21,9 @@
  */
 
 import { existsSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
 import { Effect, Console } from 'effect'
-import { glob } from 'glob'
-import type { TDDState, SpecFileItem } from './types'
+import type { TDDState } from './types'
+import { extractAllSpecs } from './services/spec-extractor'
 
 const STATE_FILE = '.github/tdd-state.json'
 
@@ -63,6 +62,7 @@ const program = Effect.gen(function* () {
       failed: [],
     },
     activeFiles: [],
+    activeSpecs: [],
     config: {
       maxConcurrentPRs: 3,
       maxRetries: 3,
@@ -79,62 +79,25 @@ const program = Effect.gen(function* () {
     },
   }
 
-  // Scan for spec files
-  yield* Console.log('🔍 Scanning for spec files with .fixme() tests...')
-
-  const specFiles = yield* Effect.tryPromise({
-    try: () => glob('specs/**/*.spec.ts'),
-    catch: (error) => new Error(`Failed to scan spec files: ${error}`),
-  })
-
-  yield* Console.log(`📁 Found ${specFiles.length} spec file(s)`)
-
-  // Scan each file for .fixme() tests
-  const specsWithFixme: SpecFileItem[] = []
-
-  for (const filePath of specFiles) {
-    const content = yield* Effect.tryPromise({
-      try: () => readFile(filePath, 'utf-8'),
-      catch: (error) => new Error(`Failed to read ${filePath}: ${error}`),
-    })
-
-    // Count .fixme( occurrences (not .fixme() to match actual usage)
-    const fixmeMatches = content.match(/\.fixme\(/g)
-    const fixmeCount = fixmeMatches ? fixmeMatches.length : 0
-
-    if (fixmeCount > 0) {
-      // Calculate path depth for priority
-      const pathDepth = filePath.split('/').length
-
-      const specItem: SpecFileItem = {
-        id: filePath,
-        filePath,
-        priority: 50, // Base priority, will be calculated by selector
-        status: 'pending',
-        testCount: fixmeCount,
-        attempts: 0,
-        errors: [],
-        queuedAt: new Date().toISOString(),
-      }
-
-      specsWithFixme.push(specItem)
-
-      yield* Console.log(
-        `  ✓ ${filePath}: ${fixmeCount} test(s) with .fixme() (depth: ${pathDepth})`
-      )
-    }
-  }
+  // Extract all specs with spec IDs from spec files
+  const allSpecs = yield* extractAllSpecs()
 
   // Add specs to initial state
-  initialState.queue.pending = specsWithFixme
+  initialState.queue.pending = allSpecs
 
   // Write state file
   yield* Console.log(`\n📊 Summary:`)
-  yield* Console.log(`  Total spec files scanned: ${specFiles.length}`)
-  yield* Console.log(`  Specs with .fixme() tests: ${specsWithFixme.length}`)
-  yield* Console.log(
-    `  Total .fixme() tests: ${specsWithFixme.reduce((sum, spec) => sum + spec.testCount, 0)}`
-  )
+  const uniqueFiles = new Set(allSpecs.map((s) => s.filePath))
+  yield* Console.log(`  Total spec files with .fixme() tests: ${uniqueFiles.size}`)
+  yield* Console.log(`  Total individual spec IDs: ${allSpecs.length}`)
+  yield* Console.log(`  Spec ID format example: ${allSpecs[0]?.specId ?? 'N/A'}`)
+  if (allSpecs.length > 0) {
+    yield* Console.log(`\n📝 Sample specs queued:`)
+    for (const spec of allSpecs.slice(0, 3)) {
+      yield* Console.log(`  • ${spec.specId} (${spec.filePath})`)
+      yield* Console.log(`    "${spec.testName}"`)
+    }
+  }
 
   yield* Console.log(`\n💾 Writing state file to ${STATE_FILE}...`)
 
