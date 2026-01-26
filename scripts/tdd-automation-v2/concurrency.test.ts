@@ -120,8 +120,10 @@ afterAll(async () => {
   }
 })
 
-test('Concurrency: 3 workers can lock different files simultaneously', async () => {
-  const program = Effect.gen(function* () {
+test(
+  'Concurrency: 3 workers can lock different files simultaneously',
+  async () => {
+    const program = Effect.gen(function* () {
     const stateManager = yield* StateManager
 
     // Simulate 3 workers locking files sequentially (git operations must be sequential)
@@ -165,199 +167,217 @@ test('Concurrency: 3 workers can lock different files simultaneously', async () 
     expect(finalState.activeFiles).toHaveLength(0)
   }).pipe(Effect.provide(StateManagerLive))
 
-  await Effect.runPromise(program)
-})
+    await Effect.runPromise(program)
+  },
+  15000 // 15 second timeout for git operations
+)
 
-test('Concurrency: Cannot lock same file twice', async () => {
-  const program = Effect.gen(function* () {
-    const stateManager = yield* StateManager
+test(
+  'Concurrency: Cannot lock same file twice',
+  async () => {
+    const program = Effect.gen(function* () {
+      const stateManager = yield* StateManager
 
-    // Lock file once
-    yield* stateManager.addActiveFile(SPEC_FILE_1)
+      // Lock file once
+      yield* stateManager.addActiveFile(SPEC_FILE_1)
 
-    const stateAfterFirst = yield* stateManager.load()
-    expect(stateAfterFirst.activeFiles).toHaveLength(1)
-    expect(stateAfterFirst.activeFiles).toContain(SPEC_FILE_1)
+      const stateAfterFirst = yield* stateManager.load()
+      expect(stateAfterFirst.activeFiles).toHaveLength(1)
+      expect(stateAfterFirst.activeFiles).toContain(SPEC_FILE_1)
 
-    // Try to lock same file again (should be idempotent)
-    yield* stateManager.addActiveFile(SPEC_FILE_1)
+      // Try to lock same file again (should be idempotent)
+      yield* stateManager.addActiveFile(SPEC_FILE_1)
 
-    const stateAfterSecond = yield* stateManager.load()
-    // Should still only have 1 entry (idempotent)
-    expect(stateAfterSecond.activeFiles).toHaveLength(1)
-    expect(stateAfterSecond.activeFiles).toContain(SPEC_FILE_1)
+      const stateAfterSecond = yield* stateManager.load()
+      // Should still only have 1 entry (idempotent)
+      expect(stateAfterSecond.activeFiles).toHaveLength(1)
+      expect(stateAfterSecond.activeFiles).toContain(SPEC_FILE_1)
 
-    // Cleanup
-    yield* stateManager.removeActiveFile(SPEC_FILE_1)
-  }).pipe(Effect.provide(StateManagerLive))
+      // Cleanup
+      yield* stateManager.removeActiveFile(SPEC_FILE_1)
+    }).pipe(Effect.provide(StateManagerLive))
 
-  await Effect.runPromise(program)
-})
+    await Effect.runPromise(program)
+  },
+  10000 // 10 second timeout for git operations
+)
 
-test('Concurrency: State transitions for 3 specs simultaneously', async () => {
-  const program = Effect.gen(function* () {
-    const stateManager = yield* StateManager
+test(
+  'Concurrency: State transitions for 3 specs simultaneously',
+  async () => {
+    const program = Effect.gen(function* () {
+      const stateManager = yield* StateManager
 
-    // Load initial state
-    const initialState = yield* stateManager.load()
-    expect(initialState.queue.pending).toHaveLength(3)
-    expect(initialState.queue.active).toHaveLength(0)
+      // Load initial state
+      const initialState = yield* stateManager.load()
+      expect(initialState.queue.pending).toHaveLength(3)
+      expect(initialState.queue.active).toHaveLength(0)
 
-    // Transition all 3 specs to active sequentially (git operations must be sequential)
-    yield* Effect.all(
-      [
-        stateManager.transition(SPEC_FILE_1, 'pending', 'active'),
-        stateManager.transition(SPEC_FILE_2, 'pending', 'active'),
-        stateManager.transition(SPEC_FILE_3, 'pending', 'active'),
-      ],
-      { concurrency: 1 }
-    )
+      // Transition all 3 specs to active sequentially (git operations must be sequential)
+      yield* Effect.all(
+        [
+          stateManager.transition(SPEC_FILE_1, 'pending', 'active'),
+          stateManager.transition(SPEC_FILE_2, 'pending', 'active'),
+          stateManager.transition(SPEC_FILE_3, 'pending', 'active'),
+        ],
+        { concurrency: 1 }
+      )
 
-    const activeState = yield* stateManager.load()
-    expect(activeState.queue.pending).toHaveLength(0)
-    expect(activeState.queue.active).toHaveLength(3)
+      const activeState = yield* stateManager.load()
+      expect(activeState.queue.pending).toHaveLength(0)
+      expect(activeState.queue.active).toHaveLength(3)
 
-    // Verify each spec is in active queue with correct status
-    const activeSpec1 = activeState.queue.active.find((s) => s.filePath === SPEC_FILE_1)
-    const activeSpec2 = activeState.queue.active.find((s) => s.filePath === SPEC_FILE_2)
-    const activeSpec3 = activeState.queue.active.find((s) => s.filePath === SPEC_FILE_3)
+      // Verify each spec is in active queue with correct status
+      const activeSpec1 = activeState.queue.active.find((s) => s.filePath === SPEC_FILE_1)
+      const activeSpec2 = activeState.queue.active.find((s) => s.filePath === SPEC_FILE_2)
+      const activeSpec3 = activeState.queue.active.find((s) => s.filePath === SPEC_FILE_3)
 
-    expect(activeSpec1).toBeDefined()
-    expect(activeSpec1?.status).toBe('active')
-    expect(activeSpec2).toBeDefined()
-    expect(activeSpec2?.status).toBe('active')
-    expect(activeSpec3).toBeDefined()
-    expect(activeSpec3?.status).toBe('active')
+      expect(activeSpec1).toBeDefined()
+      expect(activeSpec1?.status).toBe('active')
+      expect(activeSpec2).toBeDefined()
+      expect(activeSpec2?.status).toBe('active')
+      expect(activeSpec3).toBeDefined()
+      expect(activeSpec3?.status).toBe('active')
 
-    // Transition all to completed (sequential to avoid git race conditions)
-    yield* Effect.all(
-      [
-        stateManager.transition(SPEC_FILE_1, 'active', 'completed'),
-        stateManager.transition(SPEC_FILE_2, 'active', 'completed'),
-        stateManager.transition(SPEC_FILE_3, 'active', 'completed'),
-      ],
-      { concurrency: 1 }
-    )
+      // Transition all to completed (sequential to avoid git race conditions)
+      yield* Effect.all(
+        [
+          stateManager.transition(SPEC_FILE_1, 'active', 'completed'),
+          stateManager.transition(SPEC_FILE_2, 'active', 'completed'),
+          stateManager.transition(SPEC_FILE_3, 'active', 'completed'),
+        ],
+        { concurrency: 1 }
+      )
 
-    const completedState = yield* stateManager.load()
-    expect(completedState.queue.active).toHaveLength(0)
-    expect(completedState.queue.completed).toHaveLength(3)
-  }).pipe(Effect.provide(StateManagerLive))
+      const completedState = yield* stateManager.load()
+      expect(completedState.queue.active).toHaveLength(0)
+      expect(completedState.queue.completed).toHaveLength(3)
+    }).pipe(Effect.provide(StateManagerLive))
 
-  await Effect.runPromise(program)
-})
+    await Effect.runPromise(program)
+  },
+  15000 // 15 second timeout for git operations
+)
 
-test('Concurrency: Spec selector respects file locks', async () => {
-  const program = Effect.gen(function* () {
-    const stateManager = yield* StateManager
+test(
+  'Concurrency: Spec selector respects file locks',
+  async () => {
+    const program = Effect.gen(function* () {
+      const stateManager = yield* StateManager
 
-    // Reset to initial state
-    const initialState = {
-      version: '2.0.0' as const,
-      lastUpdated: new Date().toISOString(),
-      queue: {
-        pending: TEST_SPEC_FILES.map((filePath, index) => ({
-          id: `TEST-SPEC-${index + 1}`,
-          specId: `TEST-SPEC-${index + 1}`,
-          filePath,
-          testName: `test in ${filePath}`,
-          priority: 50,
-          status: 'pending' as const,
-          attempts: 0,
-          errors: [] as never[],
-          queuedAt: new Date().toISOString(),
-        })),
-        active: [] as never[],
-        completed: [] as never[],
-        failed: [] as never[],
-      },
-      activeFiles: [SPEC_FILE_1] as string[],
-      activeSpecs: [] as string[],
-      config: {
-        maxConcurrentPRs: 3,
-        maxRetries: 3,
-        retryDelayMinutes: 5,
-        autoMergeEnabled: true,
-      },
-      metrics: {
-        totalProcessed: 0,
-        successRate: 0,
-        averageProcessingTime: 0,
-        claudeInvocations: 0,
-        costSavingsFromSkips: 0,
-        manualInterventionCount: 0,
-      },
-    }
+      // Reset to initial state
+      const initialState = {
+        version: '2.0.0' as const,
+        lastUpdated: new Date().toISOString(),
+        queue: {
+          pending: TEST_SPEC_FILES.map((filePath, index) => ({
+            id: `TEST-SPEC-${index + 1}`,
+            specId: `TEST-SPEC-${index + 1}`,
+            filePath,
+            testName: `test in ${filePath}`,
+            priority: 50,
+            status: 'pending' as const,
+            attempts: 0,
+            errors: [] as never[],
+            queuedAt: new Date().toISOString(),
+          })),
+          active: [] as never[],
+          completed: [] as never[],
+          failed: [] as never[],
+        },
+        activeFiles: [SPEC_FILE_1] as string[],
+        activeSpecs: [] as string[],
+        config: {
+          maxConcurrentPRs: 3,
+          maxRetries: 3,
+          retryDelayMinutes: 5,
+          autoMergeEnabled: true,
+        },
+        metrics: {
+          totalProcessed: 0,
+          successRate: 0,
+          averageProcessingTime: 0,
+          claudeInvocations: 0,
+          costSavingsFromSkips: 0,
+          manualInterventionCount: 0,
+        },
+      }
 
-    yield* stateManager.save(initialState)
+      yield* stateManager.save(initialState)
 
-    // Verify file 1 is locked
-    const isLocked = yield* stateManager.isFileLocked(SPEC_FILE_1)
-    expect(isLocked).toBe(true)
+      // Verify file 1 is locked
+      const isLocked = yield* stateManager.isFileLocked(SPEC_FILE_1)
+      expect(isLocked).toBe(true)
 
-    // Spec selector should skip locked files
-    // In a real scenario, SpecSelector.selectNext() would filter out locked files
-    const state = yield* stateManager.load()
+      // Spec selector should skip locked files
+      // In a real scenario, SpecSelector.selectNext() would filter out locked files
+      const state = yield* stateManager.load()
 
-    // Filter pending specs by non-locked files
-    const availableSpecs = state.queue.pending.filter(
-      (spec) => !state.activeFiles.includes(spec.filePath)
-    )
+      // Filter pending specs by non-locked files
+      const availableSpecs = state.queue.pending.filter(
+        (spec) => !state.activeFiles.includes(spec.filePath)
+      )
 
-    expect(availableSpecs).toHaveLength(2)
-    expect(availableSpecs.map((s) => s.filePath)).toEqual([SPEC_FILE_2, SPEC_FILE_3])
+      expect(availableSpecs).toHaveLength(2)
+      expect(availableSpecs.map((s) => s.filePath)).toEqual([SPEC_FILE_2, SPEC_FILE_3])
 
-    // Cleanup
-    yield* stateManager.removeActiveFile(SPEC_FILE_1)
-  }).pipe(Effect.provide(StateManagerLive))
+      // Cleanup
+      yield* stateManager.removeActiveFile(SPEC_FILE_1)
+    }).pipe(Effect.provide(StateManagerLive))
 
-  await Effect.runPromise(program)
-})
+    await Effect.runPromise(program)
+  },
+  10000 // 10 second timeout for git operations
+)
 
-test('Concurrency: maxConcurrentPRs limit enforced', async () => {
-  const program = Effect.gen(function* () {
-    const stateManager = yield* StateManager
+test(
+  'Concurrency: maxConcurrentPRs limit enforced',
+  async () => {
+    const program = Effect.gen(function* () {
+      const stateManager = yield* StateManager
 
-    // Load state
-    const state = yield* stateManager.load()
+      // Load state
+      const state = yield* stateManager.load()
 
-    // Calculate available slots
-    const activeCount = state.queue.active.length // Should be 0 after cleanup
-    const maxConcurrent = state.config.maxConcurrentPRs // 3
-    const availableSlots = maxConcurrent - activeCount
+      // Calculate available slots
+      const activeCount = state.queue.active.length // Should be 0 after cleanup
+      const maxConcurrent = state.config.maxConcurrentPRs // 3
+      const availableSlots = maxConcurrent - activeCount
 
-    expect(availableSlots).toBe(3)
+      expect(availableSlots).toBe(3)
 
-    // Transition 3 specs to active (fills all slots) - sequential to avoid git race conditions
-    yield* Effect.all(
-      [
-        stateManager.transition(SPEC_FILE_1, 'pending', 'active'),
-        stateManager.transition(SPEC_FILE_2, 'pending', 'active'),
-        stateManager.transition(SPEC_FILE_3, 'pending', 'active'),
-      ],
-      { concurrency: 1 }
-    )
+      // Transition 3 specs to active (fills all slots) - sequential to avoid git race conditions
+      yield* Effect.all(
+        [
+          stateManager.transition(SPEC_FILE_1, 'pending', 'active'),
+          stateManager.transition(SPEC_FILE_2, 'pending', 'active'),
+          stateManager.transition(SPEC_FILE_3, 'pending', 'active'),
+        ],
+        { concurrency: 1 }
+      )
 
-    const activeState = yield* stateManager.load()
-    const newActiveCount = activeState.queue.active.length
-    const newAvailableSlots = maxConcurrent - newActiveCount
+      const activeState = yield* stateManager.load()
+      const newActiveCount = activeState.queue.active.length
+      const newAvailableSlots = maxConcurrent - newActiveCount
 
-    expect(newActiveCount).toBe(3)
-    expect(newAvailableSlots).toBe(0)
+      expect(newActiveCount).toBe(3)
+      expect(newAvailableSlots).toBe(0)
 
-    // Verify orchestrator would not dispatch more workers
-    expect(newAvailableSlots).toBeLessThanOrEqual(0)
+      // Verify orchestrator would not dispatch more workers
+      expect(newAvailableSlots).toBeLessThanOrEqual(0)
 
-    // Cleanup (sequential to avoid git race conditions)
-    yield* Effect.all(
-      [
-        stateManager.transition(SPEC_FILE_1, 'active', 'completed'),
-        stateManager.transition(SPEC_FILE_2, 'active', 'completed'),
-        stateManager.transition(SPEC_FILE_3, 'active', 'completed'),
-      ],
-      { concurrency: 1 }
-    )
-  }).pipe(Effect.provide(StateManagerLive))
+      // Cleanup (sequential to avoid git race conditions)
+      yield* Effect.all(
+        [
+          stateManager.transition(SPEC_FILE_1, 'active', 'completed'),
+          stateManager.transition(SPEC_FILE_2, 'active', 'completed'),
+          stateManager.transition(SPEC_FILE_3, 'active', 'completed'),
+        ],
+        { concurrency: 1 }
+      )
+    }).pipe(Effect.provide(StateManagerLive))
 
-  await Effect.runPromise(program)
-})
+    await Effect.runPromise(program)
+  },
+  15000 // 15 second timeout for git operations
+)
