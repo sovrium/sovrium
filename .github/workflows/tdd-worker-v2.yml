@@ -3,8 +3,16 @@ name: TDD Worker V2
 on:
   workflow_dispatch:
     inputs:
-      spec_file:
+      spec_id:
+        description: 'Spec ID (e.g., API-TABLES-001)'
+        required: true
+        type: string
+      file_path:
         description: 'Path to spec file (e.g., specs/api/tables/create.spec.ts)'
+        required: true
+        type: string
+      test_name:
+        description: 'Full test description for grep matching (e.g., "API-TABLES-001: should create table")'
         required: true
         type: string
       priority:
@@ -20,10 +28,6 @@ on:
         required: false
         type: string
         default: '[]'
-      test_count:
-        description: 'Number of tests in file (from .fixme() count)'
-        required: true
-        type: number
 
 jobs:
   process-spec:
@@ -50,10 +54,10 @@ jobs:
       - name: Create PR branch
         id: branch
         run: |
-          # Extract spec name without path and extension
-          SPEC_NAME=$(basename "${{ inputs.spec_file }}" .spec.ts)
+          # Use spec ID for branch name
+          SPEC_ID="${{ inputs.spec_id }}"
           TIMESTAMP=$(date +%s)
-          BRANCH_NAME="tdd-v2/${SPEC_NAME}-${TIMESTAMP}"
+          BRANCH_NAME="tdd-v2/${SPEC_ID}-${TIMESTAMP}"
 
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -64,14 +68,16 @@ jobs:
       - name: Lock file in state
         run: |
           bun run scripts/tdd-automation-v2/core/lock-file.ts \
-            --file "${{ inputs.spec_file }}"
+            --file "${{ inputs.file_path }}"
 
       - name: Run pre-validation (validate-specs)
         id: prevalidate
         continue-on-error: true
         run: |
           bun run scripts/tdd-automation-v2/core/pre-validate.ts \
-            --file "${{ inputs.spec_file }}" \
+            --file "${{ inputs.file_path }}" \
+            --spec-id "${{ inputs.spec_id }}" \
+            --test-name "${{ inputs.test_name }}" \
             --output prevalidation-result.json
 
       - name: Parse pre-validation results
@@ -93,7 +99,7 @@ jobs:
           else
             echo "all_passed=false" >> $GITHUB_OUTPUT
             echo "passed=0" >> $GITHUB_OUTPUT
-            echo "failed=${{ inputs.test_count }}" >> $GITHUB_OUTPUT
+            echo "failed=1" >> $GITHUB_OUTPUT
           fi
 
       - name: Commit and push pre-validation changes
@@ -106,8 +112,8 @@ jobs:
           if git diff --staged --quiet; then
             echo "⚠️  No changes to commit (pre-validation may have failed)"
           else
-            SPEC_ID=$(basename "${{ inputs.spec_file }}" .spec.ts)
-            git commit -m "test: remove .fixme() from ${SPEC_ID} (${{ inputs.test_count }} tests)" -m "Pre-validation: ${{ steps.parse_prevalidation.outputs.passed }} passed, ${{ steps.parse_prevalidation.outputs.failed }} failed"
+            SPEC_ID="${{ inputs.spec_id }}"
+            git commit -m "test: remove .fixme() from ${SPEC_ID}" -m "Pre-validation: ${{ steps.parse_prevalidation.outputs.passed }} passed, ${{ steps.parse_prevalidation.outputs.failed }} failed"
             git push origin ${{ steps.branch.outputs.branch }}
             echo "✅ Changes committed and pushed"
           fi
@@ -119,13 +125,12 @@ jobs:
         run: |
           echo "🔀 Creating PR for transparency..."
 
-          SPEC_ID=$(basename "${{ inputs.spec_file }}" .spec.ts)
+          SPEC_ID="${{ inputs.spec_id }}"
 
           PR_NUMBER=$(bun run scripts/tdd-automation-v2/services/pr-manager.ts create \
-            --file "${{ inputs.spec_file }}" \
+            --file "${{ inputs.file_path }}" \
             --branch "${{ steps.branch.outputs.branch }}" \
             --spec-id "$SPEC_ID" \
-            --test-count "${{ inputs.test_count }}" \
             --retry-count "${{ inputs.retry_count }}")
 
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
@@ -147,7 +152,7 @@ jobs:
 
           # Unlock file and exit
           bun run scripts/tdd-automation-v2/core/unlock-file.ts \
-            --file "${{ inputs.spec_file }}"
+            --file "${{ inputs.file_path }}"
 
           exit 0
 
@@ -164,30 +169,31 @@ jobs:
           additional_permissions: |
             actions: read
           prompt: |
-            You are working on the TDD Workflow V2 automation. Your task is to implement code to make failing E2E tests pass.
+            You are working on the TDD Workflow V2 automation. Your task is to implement code to make a failing E2E test pass.
 
-            **Spec File**: ${{ inputs.spec_file }}
-            **Test Count**: ${{ inputs.test_count }}
+            **Spec ID**: ${{ inputs.spec_id }}
+            **Test Name**: ${{ inputs.test_name }}
+            **Spec File**: ${{ inputs.file_path }}
             **Retry Count**: ${{ inputs.retry_count }}/3 (0 = first attempt)
             ${{ inputs.retry_count != '0' && format('**Previous Errors**: {0}', inputs.previous_errors) || '' }}
 
             **Instructions**:
-            1. Use the e2e-test-fixer agent to implement the code needed to pass these tests
-            2. Remove .fixme() from all tests in ${{ inputs.spec_file }}
-            3. Implement minimal code to make tests pass (follow TDD best practices)
+            1. Use the e2e-test-fixer agent to implement the code needed to pass this specific test
+            2. The .fixme() has already been removed from the test: ${{ inputs.test_name }}
+            3. Implement minimal code to make this test pass (follow TDD best practices)
             4. Run bun test:e2e:regression to verify your implementation
             5. Do NOT run quality checks or add license headers (automated in next steps)
 
             **Critical Requirements**:
             - Use Effect.ts for business logic in application layer
             - Follow Sovrium layer-based architecture patterns
-            - Keep implementation minimal (just enough to pass tests)
-            - Ensure all tests in the spec file pass after removing .fixme()
+            - Keep implementation minimal (just enough to pass this specific test)
+            - Focus only on ${{ inputs.spec_id }} - do not modify other tests
 
             **Important Notes**:
             - If src/ files are modified, the codebase-refactor-auditor will run next
             - Quality checks and license headers are added automatically
-            - Focus only on making tests pass with minimal implementation
+            - Focus only on making this specific test pass with minimal implementation
           claude_args: >-
             --model claude-sonnet-4-5-20250929
             --max-budget-usd 50.00
@@ -217,7 +223,7 @@ jobs:
           additional_permissions: |
             actions: read
           prompt: |
-            You are working on the TDD Workflow V2 automation. The e2e-test-fixer agent has implemented code to pass E2E tests for ${{ inputs.spec_file }}.
+            You are working on the TDD Workflow V2 automation. The e2e-test-fixer agent has implemented code to pass E2E test ${{ inputs.spec_id }} in ${{ inputs.file_path }}.
 
             **Your Task**: Audit the implementation and refactor for code quality while maintaining test behavior.
 
@@ -264,7 +270,7 @@ jobs:
 
           git add .
 
-          SPEC_ID=$(basename "${{ inputs.spec_file }}" .spec.ts)
+          SPEC_ID="${{ inputs.spec_id }}"
           git commit -m "feat: implement ${SPEC_ID}" -m "Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
 
           git push origin ${{ steps.branch.outputs.branch }}
@@ -316,7 +322,7 @@ jobs:
           echo "🔄 Regression detected. Closing PR and re-queuing..."
 
           bun run scripts/tdd-automation-v2/services/failure-handler.ts \
-            --file "${{ inputs.spec_file }}" \
+            --file "${{ inputs.file_path }}" \
             --pr ${{ steps.pr.outputs.pr_number }} \
             --type regression \
             --retry-count "${{ inputs.retry_count }}"
@@ -329,7 +335,7 @@ jobs:
           echo "❌ Spec failure. Recording and re-queuing..."
 
           bun run scripts/tdd-automation-v2/services/failure-handler.ts \
-            --file "${{ inputs.spec_file }}" \
+            --file "${{ inputs.file_path }}" \
             --pr ${{ steps.pr.outputs.pr_number }} \
             --type spec-failure \
             --retry-count "${{ inputs.retry_count }}"
@@ -342,7 +348,7 @@ jobs:
           echo "⚙️ Infrastructure failure. Recording and re-queuing..."
 
           bun run scripts/tdd-automation-v2/services/failure-handler.ts \
-            --file "${{ inputs.spec_file }}" \
+            --file "${{ inputs.file_path }}" \
             --pr ${{ steps.pr.outputs.pr_number }} \
             --type infrastructure \
             --retry-count "${{ inputs.retry_count }}"
@@ -353,4 +359,4 @@ jobs:
           echo "🔓 Releasing file lock..."
 
           bun run scripts/tdd-automation-v2/core/unlock-file.ts \
-            --file "${{ inputs.spec_file }}" || true
+            --file "${{ inputs.file_path }}" || true
