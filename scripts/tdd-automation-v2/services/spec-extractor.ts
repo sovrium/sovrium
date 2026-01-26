@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Console } from 'effect'
 import { $ } from 'bun'
+import { Effect, Console } from 'effect'
 import type { SpecQueueItem } from '../types'
 
 /**

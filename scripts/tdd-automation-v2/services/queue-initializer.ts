@@ -10,7 +10,6 @@ import { BunContext, BunRuntime } from '@effect/platform-bun'
 import { Effect, Console, Layer } from 'effect'
 import { StateManager, StateManagerLive } from '../core/state-manager'
 import { extractAllSpecs } from './spec-extractor'
-import type { SpecQueueItem } from '../types'
 
 const QueueInitializerCommand = Command.make('queue-initializer', {}, () =>
   Effect.gen(function* () {

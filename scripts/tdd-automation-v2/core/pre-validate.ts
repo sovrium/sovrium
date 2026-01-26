@@ -13,28 +13,23 @@ interface ValidationResult {
   failed: number
 }
 
+// Helper to get argument value from command line (supports both --arg=value and --arg value)
+const getArgValue = (argName: string): string | undefined => {
+  const withEquals = process.argv.find((arg) => arg.startsWith(`--${argName}=`))
+  if (withEquals) return withEquals.split('=')[1]
+
+  const index = process.argv.indexOf(`--${argName}`)
+  if (index !== -1 && process.argv[index + 1]) return process.argv[index + 1]
+
+  return undefined
+}
+
 const program = Effect.gen(function* () {
-  // Parse arguments from command line (supports both --arg=value and --arg value)
-  let file: string | undefined
-  let specId: string | undefined
-  let testName: string | undefined
-  let output: string | undefined
-
-  // Helper to get argument value
-  const getArgValue = (argName: string): string | undefined => {
-    const withEquals = process.argv.find((arg) => arg.startsWith(`--${argName}=`))
-    if (withEquals) return withEquals.split('=')[1]
-
-    const index = process.argv.indexOf(`--${argName}`)
-    if (index !== -1 && process.argv[index + 1]) return process.argv[index + 1]
-
-    return undefined
-  }
-
-  file = getArgValue('file')
-  specId = getArgValue('spec-id')
-  testName = getArgValue('test-name')
-  output = getArgValue('output')
+  // Parse arguments from command line
+  const file = getArgValue('file')
+  const specId = getArgValue('spec-id')
+  const testName = getArgValue('test-name')
+  const output = getArgValue('output')
 
   if (!file) {
     console.error('Error: --file argument is required')
