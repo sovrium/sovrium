@@ -73,7 +73,7 @@
         "glob": "^13.0.0",
         "globals": "^17.1.0",
         "knip": "^5.82.1",
-        "otplib": "^13.1.1",
+        "otplib": "^13.2.1",
         "pg": "^8.17.2",
         "playwright": "^1.58.0",
         "prettier-plugin-tailwindcss": "^0.7.2",
@@ -411,17 +411,17 @@
 
     "@octokit/types": ["@octokit/types@16.0.0", "", { "dependencies": { "@octokit/openapi-types": "^27.0.0" } }, "sha512-sKq+9r1Mm4efXW1FCk7hFSeJo4QKreL/tTbR0rz/qx/r1Oa2VV83LTA/H/MuCOX7uCIJmQVRKBcbmWoySjAnSg=="],
 
-    "@otplib/core": ["@otplib/core@13.1.1", "", {}, "sha512-K7167w5T5fBtI7FCTrcTyqHPNEKIvyBHFACvJGXci60V30Rt4VDsRHWw/LYtOZRbUqJbPH9orn4N10dYRVi3bw=="],
+    "@otplib/core": ["@otplib/core@13.2.1", "", {}, "sha512-IyfHvYNCyipDxhmJdcUUvUeT3Hz84/GgM6G2G6BTEmnAKPzNA7U0kYGkxKZWY9h23W94RJk4qiClJRJN5zKGvg=="],
 
-    "@otplib/hotp": ["@otplib/hotp@13.1.1", "", { "dependencies": { "@otplib/core": "13.1.1", "@otplib/uri": "13.1.1" } }, "sha512-2Zht/w3kb9Cv/BPNWC/KvFspztFae38BlteW4KQOn1U+jBj02EMpO3V75OaLGFyz3ZCWzYdLoTRhMkVDCVklDw=="],
+    "@otplib/hotp": ["@otplib/hotp@13.2.1", "", { "dependencies": { "@otplib/core": "13.2.1", "@otplib/uri": "13.2.1" } }, "sha512-iRKqvj0TnemtXXtEswzBX50Z0yMNa0lH9PSdr5N4CJc1mDEuUmFFZQqnu3PfA3fPd3WeAU+mHgmK/xq18+K1QA=="],
 
-    "@otplib/plugin-base32-scure": ["@otplib/plugin-base32-scure@13.1.1", "", { "dependencies": { "@otplib/core": "13.1.1", "@scure/base": "^2.0.0" } }, "sha512-PAKmU60DOQyfwSP6VDcwP5wRO3GYCC8UgH0+J2wY2XI5OetHDPv27wNjBibE1iO7NMwCnUf1pv0rsTVE5TR9ew=="],
+    "@otplib/plugin-base32-scure": ["@otplib/plugin-base32-scure@13.2.1", "", { "dependencies": { "@otplib/core": "13.2.1", "@scure/base": "^2.0.0" } }, "sha512-vnA2qqgJ/FbFbDNGOLAS8dKfCsJFXwFsZKYklE8yl2INkCOUR0vbVdJ2TVmufzC8R1RRZHW+cDR20ACgc9XFYg=="],
 
-    "@otplib/plugin-crypto-noble": ["@otplib/plugin-crypto-noble@13.1.1", "", { "dependencies": { "@noble/hashes": "^2.0.1", "@otplib/core": "13.1.1" } }, "sha512-MbgmPWGzhlUG+Jq4sX1UHgdNVEcXqinZy9GUtu2iotHRya815oBVwkiviM/y2qorxuCOIMNTAArD6jKlVv/qiQ=="],
+    "@otplib/plugin-crypto-noble": ["@otplib/plugin-crypto-noble@13.2.1", "", { "dependencies": { "@noble/hashes": "^2.0.1", "@otplib/core": "13.2.1" } }, "sha512-Dxjmt4L+5eDWJf5EvbcMp+fxcliyKoB9N9sNQq/vuVAUvq+KiqpiiCQZ/wHyrN0ArB0NdevtK1KByyAq080ldg=="],
 
-    "@otplib/totp": ["@otplib/totp@13.1.1", "", { "dependencies": { "@otplib/core": "13.1.1", "@otplib/hotp": "13.1.1", "@otplib/uri": "13.1.1" } }, "sha512-Bbr8C3fLQeUIiAU5sBltPIvPTsGOCmTBln2TjU8wt36nnWMK1p7SsV+VeAk4VYEsGCc4W/ds4M0Pbx4gJMt88A=="],
+    "@otplib/totp": ["@otplib/totp@13.2.1", "", { "dependencies": { "@otplib/core": "13.2.1", "@otplib/hotp": "13.2.1", "@otplib/uri": "13.2.1" } }, "sha512-LzDzAAK3w8rspF3urBnWjOlxso1SCGxX9Pnu/iy+HkC0y0HgiLsW7jhkr2hJ3u4cyBdL/tOKUhhELwsjyvunwQ=="],
 
-    "@otplib/uri": ["@otplib/uri@13.1.1", "", { "dependencies": { "@otplib/core": "13.1.1" } }, "sha512-UMdz/41JIKPLw6/VeExc3MJaCHZYEZXlF5WVyhtWT5nfzQKAcgp6HI8Tar0lDN+lXXKCjbGwlyCKOWCMAISNXg=="],
+    "@otplib/uri": ["@otplib/uri@13.2.1", "", { "dependencies": { "@otplib/core": "13.2.1" } }, "sha512-ssYnfiUrFTs/rPRUW8h59m0MVLYOC+UKk7tVGYgtG15lLaLBrNBQjM2YFanuzn9Jm4iv9JxiNG7TRkwcnyR09A=="],
 
     "@oxc-resolver/binding-android-arm-eabi": ["@oxc-resolver/binding-android-arm-eabi@11.15.0", "", { "os": "android", "cpu": "arm" }, "sha512-Q+lWuFfq7whNelNJIP1dhXaVz4zO9Tu77GcQHyxDWh3MaCoO2Bisphgzmsh4ZoUe2zIchQh6OvQL99GlWHg9Tw=="],
 
@@ -1533,7 +1533,7 @@
 
     "optionator": ["optionator@0.9.4", "", { "dependencies": { "deep-is": "^0.1.3", "fast-levenshtein": "^2.0.6", "levn": "^0.4.1", "prelude-ls": "^1.2.1", "type-check": "^0.4.0", "word-wrap": "^1.2.5" } }, "sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g=="],
 
-    "otplib": ["otplib@13.1.1", "", { "dependencies": { "@otplib/core": "13.1.1", "@otplib/hotp": "13.1.1", "@otplib/plugin-base32-scure": "13.1.1", "@otplib/plugin-crypto-noble": "13.1.1", "@otplib/totp": "13.1.1", "@otplib/uri": "13.1.1" } }, "sha512-cjNU7ENJPwqNK7Qesl6P357B0WB4XmbptHCsGzy14jYcRmQyNwkvl0eT0nzUX0c1djrkOFVIHtNp3Px1vDIpfw=="],
+    "otplib": ["otplib@13.2.1", "", { "dependencies": { "@otplib/core": "13.2.1", "@otplib/hotp": "13.2.1", "@otplib/plugin-base32-scure": "13.2.1", "@otplib/plugin-crypto-noble": "13.2.1", "@otplib/totp": "13.2.1", "@otplib/uri": "13.2.1" } }, "sha512-Cft9h/m34LtvnoB2TjP1E1E6v0biwcUntl6U4e+HgWrTa0bpwmb+u/D9gLFA+U6/ztlvrult0811Bu30nUVUuA=="],
 
     "own-keys": ["own-keys@1.0.1", "", { "dependencies": { "get-intrinsic": "^1.2.6", "object-keys": "^1.1.1", "safe-push-apply": "^1.0.0" } }, "sha512-qFOyK5PjiWZd+QQIh+1jhdb9LpxTF0qs7Pm8o5QHYZ0M3vKqSqzsZaEB6oWlxZ+q2sJBMI/Ktgd2N5ZwQoRHfg=="],
 

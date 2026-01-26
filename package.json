@@ -125,7 +125,7 @@
     "glob": "^13.0.0",
     "globals": "^17.1.0",
     "knip": "^5.82.1",
-    "otplib": "^13.1.1",
+    "otplib": "^13.2.1",
     "pg": "^8.17.2",
     "playwright": "^1.58.0",
     "prettier-plugin-tailwindcss": "^0.7.2",
