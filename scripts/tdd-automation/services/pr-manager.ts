@@ -38,6 +38,12 @@ function parseArgs() {
   }
 }
 
+// Helper to log to stderr (so it doesn't interfere with stdout capture in shell)
+const logStderr = (message: string) =>
+  Effect.sync(() => {
+    process.stderr.write(message + '\n')
+  })
+
 const createPR = ({
   file,
   branch: _branch,
@@ -55,7 +61,7 @@ const createPR = ({
     const specName = specId ?? file.split('/').pop()?.replace('.spec.ts', '')
 
     if (fastPath) {
-      yield* Console.log(`🚀 Creating fast-path PR: ${specName} passes without implementation`)
+      yield* logStderr(`🚀 Creating fast-path PR: ${specName} passes without implementation`)
 
       const title = `test: remove .fixme() from ${specName}`
       const body = `## Fast Path ⚡
@@ -72,29 +78,34 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>`
 
       const result = yield* Effect.tryPromise({
         try: async () => {
-          const proc = await $`gh pr create --title ${title} --body ${body}`.nothrow()
+          const proc = await $`gh pr create --title ${title} --body ${body}`.quiet().nothrow()
           return {
             exitCode: proc.exitCode,
             stdout: proc.stdout.toString(),
+            stderr: proc.stderr.toString(),
           }
         },
         catch: (error) => new Error(`Failed to create PR: ${error}`),
       })
 
       if (result.exitCode !== 0) {
+        yield* logStderr(`❌ Failed to create PR: ${result.stderr}`)
         return yield* Effect.fail(new Error('Failed to create PR'))
       }
 
-      // Extract PR number from output
+      // Extract PR number from output (gh pr create outputs the URL)
       const prUrlMatch = result.stdout.match(/https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/)
       const prNumber = prUrlMatch ? prUrlMatch[1] : ''
 
-      yield* Console.log(`✅ PR created: #${prNumber}`)
-      yield* Console.log(prNumber) // Output PR number for GitHub Actions
+      yield* logStderr(result.stdout.trim()) // Log the URL to stderr
+      yield* logStderr(`✅ PR created: #${prNumber}`)
+
+      // Only output PR number to stdout for shell capture
+      yield* Console.log(prNumber)
 
       return prNumber
     } else {
-      yield* Console.log(`📝 Creating implementation PR for ${specName}`)
+      yield* logStderr(`📝 Creating implementation PR for ${specName}`)
 
       const retryInfo =
         retryCount !== undefined && retryCount > 0
@@ -115,25 +126,30 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>`
 
       const result = yield* Effect.tryPromise({
         try: async () => {
-          const proc = await $`gh pr create --title ${title} --body ${body}`.nothrow()
+          const proc = await $`gh pr create --title ${title} --body ${body}`.quiet().nothrow()
           return {
             exitCode: proc.exitCode,
             stdout: proc.stdout.toString(),
+            stderr: proc.stderr.toString(),
           }
         },
         catch: (error) => new Error(`Failed to create PR: ${error}`),
       })
 
       if (result.exitCode !== 0) {
+        yield* logStderr(`❌ Failed to create PR: ${result.stderr}`)
         return yield* Effect.fail(new Error('Failed to create PR'))
       }
 
-      // Extract PR number from output
+      // Extract PR number from output (gh pr create outputs the URL)
       const prUrlMatch = result.stdout.match(/https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/)
       const prNumber = prUrlMatch ? prUrlMatch[1] : ''
 
-      yield* Console.log(`✅ PR created: #${prNumber}`)
-      yield* Console.log(prNumber) // Output PR number for GitHub Actions
+      yield* logStderr(result.stdout.trim()) // Log the URL to stderr
+      yield* logStderr(`✅ PR created: #${prNumber}`)
+
+      // Only output PR number to stdout for shell capture
+      yield* Console.log(prNumber)
 
       return prNumber
     }
@@ -141,25 +157,27 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>`
 
 const mergePR = ({ pr }: { pr: number }) =>
   Effect.gen(function* () {
-    yield* Console.log(`🔀 Auto-merging PR #${pr}`)
+    yield* logStderr(`🔀 Auto-merging PR #${pr}`)
 
     const result = yield* Effect.tryPromise({
       try: async () => {
-        const proc = await $`gh pr merge ${pr} --squash --auto`.nothrow()
+        const proc = await $`gh pr merge ${pr} --squash --auto`.quiet().nothrow()
         return {
           exitCode: proc.exitCode,
           stdout: proc.stdout.toString(),
+          stderr: proc.stderr.toString(),
         }
       },
       catch: (error) => new Error(`Failed to merge PR: ${error}`),
     })
 
     if (result.exitCode !== 0) {
+      yield* logStderr(`❌ Failed to enable auto-merge: ${result.stderr}`)
       return yield* Effect.fail(new Error('Failed to enable auto-merge'))
     }
 
-    yield* Console.log(`✅ Auto-merge enabled for PR #${pr}`)
-    yield* Console.log(`PR will merge automatically when CI checks pass`)
+    yield* logStderr(`✅ Auto-merge enabled for PR #${pr}`)
+    yield* logStderr(`PR will merge automatically when CI checks pass`)
   })
 
 // Main program - parse args and run appropriate command
