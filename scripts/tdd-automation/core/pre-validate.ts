@@ -6,12 +6,35 @@
  */
 
 import { $ } from 'bun'
-import { Effect, Console } from 'effect'
+import { Effect, Console, Data } from 'effect'
 
 interface ValidationResult {
   passed: number
   failed: number
 }
+
+/**
+ * Tagged error types for pre-validation operations
+ */
+class FileReadError extends Data.TaggedError('FileReadError')<{
+  readonly path: string
+  readonly cause: unknown
+}> {}
+
+class FileWriteError extends Data.TaggedError('FileWriteError')<{
+  readonly path: string
+  readonly cause: unknown
+}> {}
+
+class TestExecutionError extends Data.TaggedError('TestExecutionError')<{
+  readonly specId: string
+  readonly cause: unknown
+}> {}
+
+class OutputWriteError extends Data.TaggedError('OutputWriteError')<{
+  readonly path: string
+  readonly cause: unknown
+}> {}
 
 // Helper to get argument value from command line (supports both --arg=value and --arg value)
 const getArgValue = (argName: string): string | undefined => {
@@ -58,7 +81,7 @@ const program = Effect.gen(function* () {
   // Remove .fixme() from ONLY the specified test
   const content = yield* Effect.tryPromise({
     try: () => Bun.file(file).text(),
-    catch: (error) => new Error(`Failed to read file: ${error}`),
+    catch: (error) => new FileReadError({ path: file, cause: error }),
   })
 
   // Escape special regex characters in test name
@@ -80,7 +103,7 @@ const program = Effect.gen(function* () {
 
   yield* Effect.tryPromise({
     try: () => Bun.write(file, cleanedContent),
-    catch: (error) => new Error(`Failed to write file: ${error}`),
+    catch: (error) => new FileWriteError({ path: file, cause: error }),
   })
 
   yield* Console.log(`✅ Removed .fixme() from ${specId}`)
@@ -97,7 +120,7 @@ const program = Effect.gen(function* () {
         stderr: proc.stderr.toString(),
       }
     },
-    catch: (error) => new Error(`Failed to run tests: ${error}`),
+    catch: (error) => new TestExecutionError({ specId, cause: error }),
   })
 
   // Parse test results
@@ -107,6 +130,7 @@ const program = Effect.gen(function* () {
   const lines = testResult.stdout.split('\n').filter((line) => line.trim())
   for (const line of lines) {
     const parseResult = yield* Effect.try({
+      // @ts-expect-error effect(preferSchemaOverJson) - JSON.parse appropriate for parsing trusted Playwright test output
       try: () => JSON.parse(line),
       catch: () => null, // Ignore lines that aren't JSON
     })
@@ -127,7 +151,7 @@ const program = Effect.gen(function* () {
   // Write results to output file
   yield* Effect.tryPromise({
     try: () => Bun.write(output, JSON.stringify(validationResult, null, 2)),
-    catch: (error) => new Error(`Failed to write output file: ${error}`),
+    catch: (error) => new OutputWriteError({ path: output, cause: error }),
   })
 
   yield* Console.log(`✅ Results written to ${output}`)

@@ -79,6 +79,7 @@ const program = Effect.gen(function* () {
   console.error(`🔒 All ${selectedSpecs.length} spec(s) locked and transitioned to active`)
 
   // Output JSON for GitHub Actions (stdout only)
+  // @ts-expect-error effect(preferSchemaOverJson) - JSON.stringify appropriate for CLI output to GitHub Actions
   console.log(JSON.stringify(selectedSpecs, null, 2))
 
   return selectedSpecs

@@ -8,7 +8,15 @@
 import { Command, Options } from '@effect/cli'
 import { BunContext, BunRuntime } from '@effect/platform-bun'
 import { $ } from 'bun'
-import { Effect, Console } from 'effect'
+import { Effect, Console, Data } from 'effect'
+
+/**
+ * Tagged error types for failure analyzer operations
+ */
+class PRDetailsError extends Data.TaggedError('PRDetailsError')<{
+  readonly pr: number
+  readonly cause: unknown
+}> {}
 
 // FailureType is used as return value from program
 type FailureType = 'regression' | 'spec-failure' | 'infrastructure'
@@ -38,7 +46,7 @@ const FailureAnalyzerCommand = Command.make(
             stdout: proc.stdout.toString(),
           }
         },
-        catch: (error) => new Error(`Failed to get PR details: ${error}`),
+        catch: (error) => new PRDetailsError({ pr, cause: error }),
       })
 
       if (result.exitCode !== 0) {
@@ -47,6 +55,7 @@ const FailureAnalyzerCommand = Command.make(
         return 'infrastructure'
       }
 
+      // @ts-expect-error effect(preferSchemaOverJson) - JSON.parse appropriate for parsing trusted gh CLI output
       const data = JSON.parse(result.stdout)
       const checks = data.statusCheckRollup || []
 

@@ -6,7 +6,7 @@
  */
 
 import { test, expect, describe } from 'bun:test'
-import { Effect } from 'effect'
+import { Effect, Layer } from 'effect'
 import { INITIAL_STATE } from '../types'
 import {
   PriorityCalculator,
@@ -15,6 +15,9 @@ import {
   SpecSelectorLive,
 } from './spec-selector'
 import type { TDDState, SpecQueueItem } from '../types'
+
+// Merge layers for single provide call in tests
+const TestLayer = Layer.mergeAll(SpecSelectorLive, PriorityCalculatorLive)
 
 // Helper function to create mock spec item
 const createMockSpec = (overrides: Partial<SpecQueueItem>): SpecQueueItem => ({
@@ -259,7 +262,7 @@ describe('SpecSelector', () => {
       const selected = yield* selector.selectNext(3, state)
 
       expect(selected).toEqual([])
-    }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
+    }).pipe(Effect.provide(TestLayer))
 
     await Effect.runPromise(program)
   })
@@ -297,7 +300,7 @@ describe('SpecSelector', () => {
 
       expect(selected).toHaveLength(1)
       expect(selected[0]?.filePath).toBe('specs/api/test1.spec.ts')
-    }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
+    }).pipe(Effect.provide(TestLayer))
 
     await Effect.runPromise(program)
   })
@@ -330,7 +333,7 @@ describe('SpecSelector', () => {
 
       expect(selected).toHaveLength(1)
       expect(selected[0]?.filePath).toBe('specs/api/test2.spec.ts')
-    }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
+    }).pipe(Effect.provide(TestLayer))
 
     await Effect.runPromise(program)
   })
@@ -374,7 +377,7 @@ describe('SpecSelector', () => {
 
       expect(selected).toHaveLength(1)
       expect(selected[0]?.filePath).toBe('specs/api/test2.spec.ts')
-    }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
+    }).pipe(Effect.provide(TestLayer))
 
     await Effect.runPromise(program)
   })
@@ -420,7 +423,7 @@ describe('SpecSelector', () => {
       expect(selected).toHaveLength(2)
       expect(selected[0]?.filePath).toBe('specs/api/test2.spec.ts') // Highest priority
       expect(selected[1]?.filePath).toBe('specs/api/test3.spec.ts') // Second highest
-    }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
+    }).pipe(Effect.provide(TestLayer))
 
     await Effect.runPromise(program)
   })
@@ -448,7 +451,7 @@ describe('SpecSelector', () => {
       const selected = yield* selector.selectNext(3, state)
 
       expect(selected).toHaveLength(3)
-    }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
+    }).pipe(Effect.provide(TestLayer))
 
     await Effect.runPromise(program)
   })
@@ -519,7 +522,7 @@ describe('SpecSelector', () => {
       // test4 has higher calculated priority than test5 due to priority field
       expect(selected.map((s) => s.filePath)).toContain('test4')
       expect(selected.map((s) => s.filePath)).toContain('test5')
-    }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
+    }).pipe(Effect.provide(TestLayer))
 
     await Effect.runPromise(program)
   })
@@ -567,7 +570,7 @@ describe('SpecSelector', () => {
       // STRICT FILE-LEVEL EXCLUSIVITY: Only ONE spec from this file
       expect(selected).toHaveLength(1)
       expect(selected[0]?.specId).toBe('API-TABLES-001') // Highest priority
-    }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
+    }).pipe(Effect.provide(TestLayer))
 
     await Effect.runPromise(program)
   })
@@ -630,7 +633,7 @@ describe('SpecSelector', () => {
       expect(selected.map((s) => s.specId)).toContain('API-TABLES-001') // Highest from tables.spec.ts
       expect(selected.map((s) => s.specId)).toContain('API-USERS-001') // Only from users.spec.ts
       expect(selected.map((s) => s.specId)).toContain('API-FIELDS-001') // Only from fields.spec.ts
-    }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
+    }).pipe(Effect.provide(TestLayer))
 
     await Effect.runPromise(program)
   })
@@ -678,7 +681,7 @@ describe('SpecSelector', () => {
       expect(selected).toHaveLength(1)
       expect(selected[0]?.specId).toBe('API-USERS-001')
       expect(selected[0]?.filePath).toBe('specs/api/users.spec.ts')
-    }).pipe(Effect.provide(SpecSelectorLive), Effect.provide(PriorityCalculatorLive))
+    }).pipe(Effect.provide(TestLayer))
 
     await Effect.runPromise(program)
   })

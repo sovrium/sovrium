@@ -6,7 +6,25 @@
  */
 
 import { $ } from 'bun'
-import { Effect, Console } from 'effect'
+import { Effect, Console, Data } from 'effect'
+
+/**
+ * Tagged error types for PR manager operations
+ */
+class PRCheckError extends Data.TaggedError('PRCheckError')<{
+  readonly specId: string
+  readonly cause: unknown
+}> {}
+
+class PRCreateError extends Data.TaggedError('PRCreateError')<{
+  readonly specName: string
+  readonly cause: unknown
+}> {}
+
+class PRMergeError extends Data.TaggedError('PRMergeError')<{
+  readonly pr: number
+  readonly cause: unknown
+}> {}
 
 // Parse command line arguments manually
 function parseArgs() {
@@ -56,14 +74,16 @@ const checkExistingPR = (specId: string) =>
       try: async () => {
         // Search for open PRs with this spec ID in the title
         const proc =
-          await $`gh pr list --state open --json number,title,headRefName --jq '.[] | select(.title | contains("${specId}")) | .number'`.quiet().nothrow()
+          await $`gh pr list --state open --json number,title,headRefName --jq '.[] | select(.title | contains("${specId}")) | .number'`
+            .quiet()
+            .nothrow()
         return {
           exitCode: proc.exitCode,
           stdout: proc.stdout.toString().trim(),
           stderr: proc.stderr.toString(),
         }
       },
-      catch: (error) => new Error(`Failed to check existing PRs: ${error}`),
+      catch: (error) => new PRCheckError({ specId, cause: error }),
     })
 
     if (result.exitCode !== 0) {
@@ -133,12 +153,12 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>`
             stderr: proc.stderr.toString(),
           }
         },
-        catch: (error) => new Error(`Failed to create PR: ${error}`),
+        catch: (error) => new PRCreateError({ specName: specName!, cause: error }),
       })
 
       if (result.exitCode !== 0) {
         yield* logStderr(`❌ Failed to create PR: ${result.stderr}`)
-        return yield* Effect.fail(new Error('Failed to create PR'))
+        return yield* new PRCreateError({ specName: specName!, cause: result.stderr })
       }
 
       // Extract PR number from output (gh pr create outputs the URL)
@@ -181,12 +201,12 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>`
             stderr: proc.stderr.toString(),
           }
         },
-        catch: (error) => new Error(`Failed to create PR: ${error}`),
+        catch: (error) => new PRCreateError({ specName: specName!, cause: error }),
       })
 
       if (result.exitCode !== 0) {
         yield* logStderr(`❌ Failed to create PR: ${result.stderr}`)
-        return yield* Effect.fail(new Error('Failed to create PR'))
+        return yield* new PRCreateError({ specName: specName!, cause: result.stderr })
       }
 
       // Extract PR number from output (gh pr create outputs the URL)
@@ -216,12 +236,12 @@ const mergePR = ({ pr }: { pr: number }) =>
           stderr: proc.stderr.toString(),
         }
       },
-      catch: (error) => new Error(`Failed to merge PR: ${error}`),
+      catch: (error) => new PRMergeError({ pr, cause: error }),
     })
 
     if (result.exitCode !== 0) {
       yield* logStderr(`❌ Failed to enable auto-merge: ${result.stderr}`)
-      return yield* Effect.fail(new Error('Failed to enable auto-merge'))
+      return yield* new PRMergeError({ pr, cause: result.stderr })
     }
 
     yield* logStderr(`✅ Auto-merge enabled for PR #${pr}`)

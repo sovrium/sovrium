@@ -8,7 +8,15 @@
 import { Command, Options } from '@effect/cli'
 import { BunContext, BunRuntime } from '@effect/platform-bun'
 import { $ } from 'bun'
-import { Effect, Console } from 'effect'
+import { Effect, Console, Data } from 'effect'
+
+/**
+ * Tagged error types for CI waiter operations
+ */
+class PRStatusError extends Data.TaggedError('PRStatusError')<{
+  readonly pr: number
+  readonly cause: unknown
+}> {}
 
 type CheckStatus = 'success' | 'failure' | 'pending'
 
@@ -42,15 +50,19 @@ const CIWaiterCommand = Command.make(
               stdout: proc.stdout.toString(),
             }
           },
-          catch: (error) => new Error(`Failed to get PR status: ${error}`),
+          catch: (error) => new PRStatusError({ pr, cause: error }),
         })
 
         if (result.exitCode !== 0) {
           yield* Console.error(`Failed to get PR status`)
-          return yield* Effect.fail(new Error('Failed to get PR status'))
+          return yield* new PRStatusError({
+            pr,
+            cause: new Error('gh command returned non-zero exit code'),
+          })
         }
 
         // Parse JSON response
+        // @ts-expect-error effect(preferSchemaOverJson) - JSON.parse appropriate for parsing trusted gh CLI output
         const data = JSON.parse(result.stdout)
         const checks = data.statusCheckRollup || []
 

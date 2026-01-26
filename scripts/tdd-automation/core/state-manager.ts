@@ -169,7 +169,10 @@ const writeStateFile = (state: TDDState): Effect.Effect<void, StateFileWriteErro
 const updateStateWithRetry = (
   newState: TDDState,
   retriesLeft: number = MAX_RETRIES
-): Effect.Effect<void, CommandExecutionError | StateFileWriteError | MaxRetriesExceededError | Error> =>
+): Effect.Effect<
+  void,
+  CommandExecutionError | StateFileWriteError | MaxRetriesExceededError | Error
+> =>
   Effect.gen(function* () {
     if (retriesLeft <= 0) {
       return yield* new MaxRetriesExceededError({ maxRetries: MAX_RETRIES })
@@ -528,7 +531,7 @@ export const StateManagerLive = Layer.succeed(StateManager, {
 
         // Transition all specs from pending to active
         let newPendingQueue = [...state.queue.pending]
-        let newActiveQueue = [...state.queue.active]
+        const newActiveQueue = [...state.queue.active]
 
         for (const { specId } of specs) {
           const spec = newPendingQueue.find((s) => s.specId === specId)

@@ -8,9 +8,17 @@
 import { Command, Options } from '@effect/cli'
 import { BunContext, BunRuntime } from '@effect/platform-bun'
 import { $ } from 'bun'
-import { Effect, Console, Layer } from 'effect'
+import { Effect, Console, Layer, Data } from 'effect'
 import { StateManager, StateManagerLive } from '../core/state-manager'
 import type { SpecError } from '../types'
+
+/**
+ * Tagged error types for failure handler operations
+ */
+class PRCloseError extends Data.TaggedError('PRCloseError')<{
+  readonly pr: number
+  readonly cause: unknown
+}> {}
 
 type FailureType = 'regression' | 'spec-failure' | 'infrastructure'
 
@@ -76,7 +84,7 @@ const FailureHandlerCommand = Command.make(
         try: async () => {
           await $`gh pr close ${pr} --comment ${comment}`.nothrow()
         },
-        catch: (err) => new Error(`Failed to close PR: ${err}`),
+        catch: (err) => new PRCloseError({ pr, cause: err }),
       })
 
       yield* Console.log(`❌ Closed PR #${pr} with failure comment`)

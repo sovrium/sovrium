@@ -21,9 +21,17 @@
  */
 
 import { existsSync } from 'node:fs'
-import { Effect, Console } from 'effect'
+import { Effect, Console, Data } from 'effect'
 import { extractAllSpecs } from './services/spec-extractor'
 import type { TDDState } from './types'
+
+/**
+ * Tagged error types for queue initialization
+ */
+class StateFileWriteError extends Data.TaggedError('StateFileWriteError')<{
+  readonly path: string
+  readonly cause: unknown
+}> {}
 
 const STATE_FILE = '.github/tdd-state.json'
 
@@ -105,7 +113,7 @@ const program = Effect.gen(function* () {
     try: async () => {
       await Bun.write(STATE_FILE, JSON.stringify(initialState, null, 2))
     },
-    catch: (error) => new Error(`Failed to write state file: ${error}`),
+    catch: (error) => new StateFileWriteError({ path: STATE_FILE, cause: error }),
   })
 
   yield* Console.log(`✅ Queue initialized successfully!`)

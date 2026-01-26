@@ -375,7 +375,7 @@ export function createTestStateManager(testFilePath: string) {
 
           // Transition all specs from pending to active
           let newPendingQueue = [...state.queue.pending]
-          let newActiveQueue = [...state.queue.active]
+          const newActiveQueue = [...state.queue.active]
 
           for (const { specId } of specs) {
             const spec = newPendingQueue.find((s) => s.specId === specId)

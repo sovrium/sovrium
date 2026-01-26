@@ -250,14 +250,13 @@ const removeFixme = (
   Effect.gen(function* () {
     const fs = yield* FileSystemService
     const originalContent = yield* fs.readFile(file).pipe(
-      Effect.catchAll((error) =>
-        Effect.fail(
+      Effect.mapError(
+        (error) =>
           new ValidationError({
             specId,
             message: `Failed to read file ${file}`,
             cause: error,
           })
-        )
       )
     )
 
@@ -298,14 +297,13 @@ const removeFixme = (
 
     // Write modified content
     yield* fs.writeFile(file, modifiedContent).pipe(
-      Effect.catchAll((error) =>
-        Effect.fail(
+      Effect.mapError(
+        (error) =>
           new ValidationError({
             specId,
             message: `Failed to write modified file ${file}`,
             cause: error,
           })
-        )
       )
     )
 
@@ -323,14 +321,13 @@ const restoreFile = (
   Effect.gen(function* () {
     const fs = yield* FileSystemService
     yield* fs.writeFile(file, originalContent).pipe(
-      Effect.catchAll((error) =>
-        Effect.fail(
+      Effect.mapError(
+        (error) =>
           new ValidationError({
             specId,
             message: `Failed to restore file ${file}`,
             cause: error,
           })
-        )
       )
     )
   })
@@ -483,8 +480,8 @@ const runBatchTests = (
       )
 
     // Parse JSON output - extract JSON from stdout (may have non-JSON prefix)
-    const results = yield* Effect.try({
-      try: () => {
+    const results = yield* Effect.sync(() => {
+      try {
         // Playwright stdout may contain non-JSON output before the JSON report
         // (e.g., "Starting test environment..." from global-setup.ts)
         // Find the first '{' to locate the start of JSON
@@ -495,15 +492,14 @@ const runBatchTests = (
         const jsonString = result.stdout.substring(jsonStart)
         const report = JSON.parse(jsonString) as PlaywrightJsonReport
         return extractTestResults(report.suites)
-      },
-      catch: () => {
+      } catch {
         // If JSON parsing fails, assume all tests failed
         const failedResults = new Map<string, 'passed' | 'failed'>()
         for (const specId of specIds) {
           failedResults.set(specId, 'failed')
         }
         return failedResults
-      },
+      }
     })
 
     return results
@@ -537,14 +533,13 @@ const commitSpec = (
 
     // Stage the file
     yield* cmd.spawn(['git', 'add', file], { throwOnError: true }).pipe(
-      Effect.catchAll((error) =>
-        Effect.fail(
+      Effect.mapError(
+        (error) =>
           new ValidationError({
             specId,
             message: `Failed to stage ${file}`,
             cause: error,
           })
-        )
       )
     )
 
@@ -552,14 +547,13 @@ const commitSpec = (
     const message = `fix: implement ${specId}\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>`
 
     yield* cmd.spawn(['git', 'commit', '-m', message], { throwOnError: true }).pipe(
-      Effect.catchAll((error) =>
-        Effect.fail(
+      Effect.mapError(
+        (error) =>
           new ValidationError({
             specId,
             message: `Failed to commit ${specId}`,
             cause: error,
           })
-        )
       )
     )
   })
@@ -819,14 +813,13 @@ const removeFixmeForSpecs = (
     const fs = yield* FileSystemService
 
     const originalContent = yield* fs.readFile(file).pipe(
-      Effect.catchAll((error) =>
-        Effect.fail(
+      Effect.mapError(
+        (error) =>
           new ValidationError({
             specId: specIds[0] ?? 'unknown',
             message: `Failed to read file ${file}`,
             cause: error,
           })
-        )
       )
     )
 
@@ -859,14 +852,13 @@ const removeFixmeForSpecs = (
     const modifiedContent = modifiedLines.join('\n')
 
     yield* fs.writeFile(file, modifiedContent).pipe(
-      Effect.catchAll((error) =>
-        Effect.fail(
+      Effect.mapError(
+        (error) =>
           new ValidationError({
             specId: specIds[0] ?? 'unknown',
             message: `Failed to write modified file ${file}`,
             cause: error,
           })
-        )
       )
     )
 
@@ -1135,6 +1127,7 @@ Alternative (direct):
 
   // Output results
   if (args.json) {
+    // @ts-expect-error effect(preferSchemaOverJson) - JSON.stringify appropriate for CLI --json flag output
     console.log(JSON.stringify(batchResult, null, 2))
   } else {
     console.log('')
