@@ -39,7 +39,14 @@ function parseArgs() {
   }
 }
 
-const createPR = ({ file, branch, specId, retryCount, testCount, fastPath }: {
+const createPR = ({
+  file,
+  branch,
+  specId,
+  retryCount,
+  testCount,
+  fastPath,
+}: {
   file: string
   branch: string
   specId?: string
@@ -47,16 +54,14 @@ const createPR = ({ file, branch, specId, retryCount, testCount, fastPath }: {
   testCount?: number
   fastPath: boolean
 }) =>
-    Effect.gen(function* () {
-      const specName = specId ?? file.split('/').pop()?.replace('.spec.ts', '')
+  Effect.gen(function* () {
+    const specName = specId ?? file.split('/').pop()?.replace('.spec.ts', '')
 
-      if (fastPath && testCount !== undefined) {
-        yield* Console.log(
-          `🚀 Creating fast-path PR: ${testCount} tests pass without implementation`
-        )
+    if (fastPath && testCount !== undefined) {
+      yield* Console.log(`🚀 Creating fast-path PR: ${testCount} tests pass without implementation`)
 
-        const title = `test: remove .fixme() from ${file}`
-        const body = `## Fast Path ⚡
+      const title = `test: remove .fixme() from ${file}`
+      const body = `## Fast Path ⚡
 
 All ${testCount} test(s) in \`${file}\` pass without implementation.
 
@@ -68,40 +73,39 @@ Tests were already passing, no implementation needed.
 
 Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>`
 
-        const result = yield* Effect.tryPromise({
-          try: async () => {
-            const proc =
-              await $`gh pr create --title ${title} --body ${body} --label tdd-automation-v2 --label fast-path`.nothrow()
-            return {
-              exitCode: proc.exitCode,
-              stdout: proc.stdout.toString(),
-            }
-          },
-          catch: (error) => new Error(`Failed to create PR: ${error}`),
-        })
+      const result = yield* Effect.tryPromise({
+        try: async () => {
+          const proc = await $`gh pr create --title ${title} --body ${body}`.nothrow()
+          return {
+            exitCode: proc.exitCode,
+            stdout: proc.stdout.toString(),
+          }
+        },
+        catch: (error) => new Error(`Failed to create PR: ${error}`),
+      })
 
-        if (result.exitCode !== 0) {
-          return yield* Effect.fail(new Error('Failed to create PR'))
-        }
+      if (result.exitCode !== 0) {
+        return yield* Effect.fail(new Error('Failed to create PR'))
+      }
 
-        // Extract PR number from output
-        const prUrlMatch = result.stdout.match(/https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/)
-        const prNumber = prUrlMatch ? prUrlMatch[1] : ''
+      // Extract PR number from output
+      const prUrlMatch = result.stdout.match(/https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/)
+      const prNumber = prUrlMatch ? prUrlMatch[1] : ''
 
-        yield* Console.log(`✅ PR created: #${prNumber}`)
-        yield* Console.log(prNumber) // Output PR number for GitHub Actions
+      yield* Console.log(`✅ PR created: #${prNumber}`)
+      yield* Console.log(prNumber) // Output PR number for GitHub Actions
 
-        return prNumber
-      } else {
-        yield* Console.log(`📝 Creating implementation PR for ${specName}`)
+      return prNumber
+    } else {
+      yield* Console.log(`📝 Creating implementation PR for ${specName}`)
 
-        const retryInfo =
-          retryCount !== undefined && retryCount > 0
-            ? `\n\n**Retry**: Attempt ${retryCount + 1}/3`
-            : ''
+      const retryInfo =
+        retryCount !== undefined && retryCount > 0
+          ? `\n\n**Retry**: Attempt ${retryCount + 1}/3`
+          : ''
 
-        const title = `feat: implement ${specName}`
-        const body = `## Implementation
+      const title = `feat: implement ${specName}`
+      const body = `## Implementation
 
 Implements tests from \`${file}\`.${retryInfo}
 
@@ -112,55 +116,54 @@ Implements tests from \`${file}\`.${retryInfo}
 
 Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>`
 
-        const result = yield* Effect.tryPromise({
-          try: async () => {
-            const proc =
-              await $`gh pr create --title ${title} --body ${body} --label tdd-automation-v2`.nothrow()
-            return {
-              exitCode: proc.exitCode,
-              stdout: proc.stdout.toString(),
-            }
-          },
-          catch: (error) => new Error(`Failed to create PR: ${error}`),
-        })
-
-        if (result.exitCode !== 0) {
-          return yield* Effect.fail(new Error('Failed to create PR'))
-        }
-
-        // Extract PR number from output
-        const prUrlMatch = result.stdout.match(/https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/)
-        const prNumber = prUrlMatch ? prUrlMatch[1] : ''
-
-        yield* Console.log(`✅ PR created: #${prNumber}`)
-        yield* Console.log(prNumber) // Output PR number for GitHub Actions
-
-        return prNumber
-      }
-    })
-
-const mergePR = ({ pr }: { pr: number }) =>
-    Effect.gen(function* () {
-      yield* Console.log(`🔀 Auto-merging PR #${pr}`)
-
       const result = yield* Effect.tryPromise({
         try: async () => {
-          const proc = await $`gh pr merge ${pr} --squash --auto`.nothrow()
+          const proc = await $`gh pr create --title ${title} --body ${body}`.nothrow()
           return {
             exitCode: proc.exitCode,
             stdout: proc.stdout.toString(),
           }
         },
-        catch: (error) => new Error(`Failed to merge PR: ${error}`),
+        catch: (error) => new Error(`Failed to create PR: ${error}`),
       })
 
       if (result.exitCode !== 0) {
-        return yield* Effect.fail(new Error('Failed to enable auto-merge'))
+        return yield* Effect.fail(new Error('Failed to create PR'))
       }
 
-      yield* Console.log(`✅ Auto-merge enabled for PR #${pr}`)
-      yield* Console.log(`PR will merge automatically when CI checks pass`)
+      // Extract PR number from output
+      const prUrlMatch = result.stdout.match(/https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/(\d+)/)
+      const prNumber = prUrlMatch ? prUrlMatch[1] : ''
+
+      yield* Console.log(`✅ PR created: #${prNumber}`)
+      yield* Console.log(prNumber) // Output PR number for GitHub Actions
+
+      return prNumber
+    }
+  })
+
+const mergePR = ({ pr }: { pr: number }) =>
+  Effect.gen(function* () {
+    yield* Console.log(`🔀 Auto-merging PR #${pr}`)
+
+    const result = yield* Effect.tryPromise({
+      try: async () => {
+        const proc = await $`gh pr merge ${pr} --squash --auto`.nothrow()
+        return {
+          exitCode: proc.exitCode,
+          stdout: proc.stdout.toString(),
+        }
+      },
+      catch: (error) => new Error(`Failed to merge PR: ${error}`),
     })
+
+    if (result.exitCode !== 0) {
+      return yield* Effect.fail(new Error('Failed to enable auto-merge'))
+    }
+
+    yield* Console.log(`✅ Auto-merge enabled for PR #${pr}`)
+    yield* Console.log(`PR will merge automatically when CI checks pass`)
+  })
 
 // Main program - parse args and run appropriate command
 const program = Effect.gen(function* () {
