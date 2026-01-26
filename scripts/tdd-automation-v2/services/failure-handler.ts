@@ -23,18 +23,18 @@ interface GitHubCheck {
 const FailureHandlerCommand = Command.make(
   'failure-handler',
   {
-    file: Options.text('file'),
+    specId: Options.text('spec-id'),
     pr: Options.integer('pr'),
     type: Options.text('type'),
     retryCount: Options.integer('retry-count'),
   },
-  ({ file, pr, type, retryCount }) =>
+  ({ specId, pr, type, retryCount }) =>
     Effect.gen(function* () {
       const failureType = type as FailureType
       const nextAttempt = retryCount + 1
 
       yield* Console.log(
-        `🔄 Handling ${failureType} failure for ${file} (attempt ${nextAttempt}/3)`
+        `🔄 Handling ${failureType} failure for ${specId} (attempt ${nextAttempt}/3)`
       )
 
       // Get error details from PR
@@ -86,7 +86,7 @@ const FailureHandlerCommand = Command.make(
 
       if (nextAttempt >= 3) {
         // 3rd failure → manual intervention
-        yield* Console.log(`⚠️  Moving ${file} to manual intervention (3 failures)`)
+        yield* Console.log(`⚠️  Moving ${specId} to manual intervention (3 failures)`)
 
         const manualInterventionDetails = {
           errors: [error],
@@ -94,13 +94,13 @@ const FailureHandlerCommand = Command.make(
           requiresAction: generateActionGuide(failureType, errorDetails),
         }
 
-        yield* stateManager.moveToManualIntervention(file, manualInterventionDetails)
+        yield* stateManager.moveToManualIntervention(specId, manualInterventionDetails)
 
         yield* Console.log(`📋 Spec moved to failed queue, requires manual review`)
       } else {
         // Record failure and re-queue
         yield* Console.log(`📝 Recording failure ${nextAttempt}/3, re-queuing for retry`)
-        yield* stateManager.recordFailureAndRequeue(file, error)
+        yield* stateManager.recordFailureAndRequeue(specId, error)
 
         yield* Console.log(`✅ Spec will be retried after cooldown period`)
       }

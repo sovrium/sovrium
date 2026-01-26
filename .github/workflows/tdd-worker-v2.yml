@@ -70,6 +70,11 @@ jobs:
           bun run scripts/tdd-automation-v2/core/lock-file.ts \
             --file "${{ inputs.file_path }}"
 
+      - name: Lock spec in state
+        run: |
+          bun run scripts/tdd-automation-v2/core/lock-spec.ts \
+            --spec-id "${{ inputs.spec_id }}"
+
       - name: Run pre-validation (validate-specs)
         id: prevalidate
         continue-on-error: true
@@ -322,7 +327,7 @@ jobs:
           echo "🔄 Regression detected. Closing PR and re-queuing..."
 
           bun run scripts/tdd-automation-v2/services/failure-handler.ts \
-            --file "${{ inputs.file_path }}" \
+            --spec-id "${{ inputs.spec_id }}" \
             --pr ${{ steps.pr.outputs.pr_number }} \
             --type regression \
             --retry-count "${{ inputs.retry_count }}"
@@ -335,7 +340,7 @@ jobs:
           echo "❌ Spec failure. Recording and re-queuing..."
 
           bun run scripts/tdd-automation-v2/services/failure-handler.ts \
-            --file "${{ inputs.file_path }}" \
+            --spec-id "${{ inputs.spec_id }}" \
             --pr ${{ steps.pr.outputs.pr_number }} \
             --type spec-failure \
             --retry-count "${{ inputs.retry_count }}"
@@ -348,15 +353,18 @@ jobs:
           echo "⚙️ Infrastructure failure. Recording and re-queuing..."
 
           bun run scripts/tdd-automation-v2/services/failure-handler.ts \
-            --file "${{ inputs.file_path }}" \
+            --spec-id "${{ inputs.spec_id }}" \
             --pr ${{ steps.pr.outputs.pr_number }} \
             --type infrastructure \
             --retry-count "${{ inputs.retry_count }}"
 
-      - name: Cleanup - Release file lock
+      - name: Cleanup - Release locks
         if: always()
         run: |
-          echo "🔓 Releasing file lock..."
+          echo "🔓 Releasing spec and file locks..."
+
+          bun run scripts/tdd-automation-v2/core/unlock-spec.ts \
+            --spec-id "${{ inputs.spec_id }}" || true
 
           bun run scripts/tdd-automation-v2/core/unlock-file.ts \
             --file "${{ inputs.file_path }}" || true

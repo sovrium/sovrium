@@ -20,19 +20,21 @@ export class StateManager extends Context.Tag('StateManager')<
     readonly load: () => Effect.Effect<TDDState, Error>
     readonly save: (state: TDDState) => Effect.Effect<void, Error>
     readonly transition: (
-      fileId: string,
+      specId: string,
       from: SpecStatus,
       to: SpecStatus
     ) => Effect.Effect<void, Error>
     readonly addActiveFile: (filePath: string) => Effect.Effect<void, Error>
     readonly removeActiveFile: (filePath: string) => Effect.Effect<void, Error>
+    readonly addActiveSpec: (specId: string) => Effect.Effect<void, Error>
+    readonly removeActiveSpec: (specId: string) => Effect.Effect<void, Error>
     readonly isFileLocked: (filePath: string) => Effect.Effect<boolean, Error>
     readonly recordFailureAndRequeue: (
-      filePath: string,
+      specId: string,
       error: SpecError
     ) => Effect.Effect<void, Error>
     readonly moveToManualIntervention: (
-      filePath: string,
+      specId: string,
       details: {
         errors: SpecError[]
         failureReason: string
@@ -40,7 +42,7 @@ export class StateManager extends Context.Tag('StateManager')<
       }
     ) => Effect.Effect<void, Error>
     readonly requeueFromFailed: (
-      filePath: string,
+      specId: string,
       options: RequeueOptions
     ) => Effect.Effect<void, Error>
   }
@@ -185,21 +187,21 @@ export const StateManagerLive = Layer.succeed(StateManager, {
 
   save: (state) => updateStateWithRetry(state),
 
-  transition: (fileId, from, to) =>
+  transition: (specId, from, to) =>
     Effect.gen(function* () {
-      yield* Effect.log(`Transitioning ${fileId}: ${from} → ${to}`)
+      yield* Effect.log(`Transitioning ${specId}: ${from} → ${to}`)
 
       yield* updateState((state) => {
         // Find spec in source queue
         const sourceQueue = state.queue[from]
-        const spec = sourceQueue.find((s) => s.id === fileId)
+        const spec = sourceQueue.find((s) => s.specId === specId)
 
         if (!spec) {
-          throw new Error(`Spec ${fileId} not found in ${from} queue`)
+          throw new Error(`Spec ${specId} not found in ${from} queue`)
         }
 
         // Remove from source queue
-        const newSourceQueue = sourceQueue.filter((s) => s.id !== fileId)
+        const newSourceQueue = sourceQueue.filter((s) => s.specId !== specId)
 
         // Update spec status and timestamp
         const updatedSpec: SpecQueueItem = {
@@ -270,16 +272,43 @@ export const StateManagerLive = Layer.succeed(StateManager, {
       return state.activeFiles.includes(filePath)
     }),
 
-  recordFailureAndRequeue: (filePath, error) =>
+  addActiveSpec: (specId) =>
     Effect.gen(function* () {
-      yield* Effect.log(`Recording failure for ${filePath}: ${error.type}`)
+      yield* Effect.log(`🔒 Locking spec: ${specId}`)
+
+      yield* updateState((state) => {
+        // Idempotent: don't add if already present
+        if (state.activeSpecs.includes(specId)) {
+          return state
+        }
+
+        return {
+          ...state,
+          activeSpecs: [...state.activeSpecs, specId],
+        }
+      })
+    }),
+
+  removeActiveSpec: (specId) =>
+    Effect.gen(function* () {
+      yield* Effect.log(`🔓 Unlocking spec: ${specId}`)
+
+      yield* updateState((state) => ({
+        ...state,
+        activeSpecs: state.activeSpecs.filter((id) => id !== specId),
+      }))
+    }),
+
+  recordFailureAndRequeue: (specId, error) =>
+    Effect.gen(function* () {
+      yield* Effect.log(`Recording failure for ${specId}: ${error.type}`)
 
       yield* updateState((state) => {
         // Find spec in active queue
-        const spec = state.queue.active.find((s) => s.filePath === filePath)
+        const spec = state.queue.active.find((s) => s.specId === specId)
 
         if (!spec) {
-          throw new Error(`Spec ${filePath} not found in active queue`)
+          throw new Error(`Spec ${specId} not found in active queue`)
         }
 
         // Update spec with error and increment attempts
@@ -304,7 +333,7 @@ export const StateManagerLive = Layer.succeed(StateManager, {
         }
 
         // Remove from active, add to pending
-        const newActive = state.queue.active.filter((s) => s.filePath !== filePath)
+        const newActive = state.queue.active.filter((s) => s.specId !== specId)
 
         return {
           ...state,
@@ -317,16 +346,16 @@ export const StateManagerLive = Layer.succeed(StateManager, {
       })
     }),
 
-  moveToManualIntervention: (filePath, details) =>
+  moveToManualIntervention: (specId, details) =>
     Effect.gen(function* () {
-      yield* Effect.log(`Moving ${filePath} to manual intervention: ${details.failureReason}`)
+      yield* Effect.log(`Moving ${specId} to manual intervention: ${details.failureReason}`)
 
       yield* updateState((state) => {
         // Find spec in active queue
-        const spec = state.queue.active.find((s) => s.filePath === filePath)
+        const spec = state.queue.active.find((s) => s.specId === specId)
 
         if (!spec) {
-          throw new Error(`Spec ${filePath} not found in active queue`)
+          throw new Error(`Spec ${specId} not found in active queue`)
         }
 
         // Update spec with failure details
@@ -351,7 +380,7 @@ export const StateManagerLive = Layer.succeed(StateManager, {
         }
 
         // Remove from active, add to failed
-        const newActive = state.queue.active.filter((s) => s.filePath !== filePath)
+        const newActive = state.queue.active.filter((s) => s.specId !== specId)
 
         return {
           ...state,
@@ -368,16 +397,16 @@ export const StateManagerLive = Layer.succeed(StateManager, {
       })
     }),
 
-  requeueFromFailed: (filePath, options) =>
+  requeueFromFailed: (specId, options) =>
     Effect.gen(function* () {
-      yield* Effect.log(`Re-queuing ${filePath} from failed status`)
+      yield* Effect.log(`Re-queuing ${specId} from failed status`)
 
       yield* updateState((state) => {
         // Find spec in failed queue
-        const spec = state.queue.failed.find((s) => s.filePath === filePath)
+        const spec = state.queue.failed.find((s) => s.specId === specId)
 
         if (!spec) {
-          throw new Error(`Spec ${filePath} not found in failed queue`)
+          throw new Error(`Spec ${specId} not found in failed queue`)
         }
 
         // Reset spec
@@ -402,7 +431,7 @@ export const StateManagerLive = Layer.succeed(StateManager, {
         }
 
         // Remove from failed, add to pending
-        const newFailed = state.queue.failed.filter((s) => s.filePath !== filePath)
+        const newFailed = state.queue.failed.filter((s) => s.specId !== specId)
 
         return {
           ...state,
