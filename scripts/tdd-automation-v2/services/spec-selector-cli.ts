@@ -7,7 +7,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Console } from 'effect'
+import { Effect } from 'effect'
 import { StateManager, StateManagerLive } from '../core/state-manager'
 import { SpecSelector, SpecSelectorLive, PriorityCalculatorLive } from './spec-selector'
 
@@ -16,7 +16,8 @@ const program = Effect.gen(function* () {
   const countArg = process.argv.find((arg) => arg.startsWith('--count='))
   const count = countArg ? parseInt(countArg.split('=')[1], 10) : 3
 
-  yield* Console.log(`📋 Selecting up to ${count} spec(s) to process...`)
+  // Log to stderr so it doesn't interfere with JSON output on stdout
+  console.error(`📋 Selecting up to ${count} spec(s) to process...`)
 
   const stateManager = yield* StateManager
   const specSelector = yield* SpecSelector
@@ -30,26 +31,26 @@ const program = Effect.gen(function* () {
   const availableSlots = Math.min(count, maxConcurrent - activeCount)
 
   if (availableSlots <= 0) {
-    yield* Console.log(`⚠️  No available slots (active: ${activeCount}/${maxConcurrent})`)
+    console.error(`⚠️  No available slots (active: ${activeCount}/${maxConcurrent})`)
     // Output empty array for GitHub Actions
     console.log('[]')
     return []
   }
 
-  yield* Console.log(`✅ Available slots: ${availableSlots}`)
+  console.error(`✅ Available slots: ${availableSlots}`)
 
   // Select next specs using priority queue
   const selectedSpecs = yield* specSelector.selectNext(availableSlots, state)
 
-  yield* Console.log(`📊 Selected ${selectedSpecs.length} spec(s):`)
+  console.error(`📊 Selected ${selectedSpecs.length} spec(s):`)
 
   for (const spec of selectedSpecs) {
-    yield* Console.log(
+    console.error(
       `  - ${spec.filePath} (priority: ${spec.priority}, tests: ${spec.testCount}, attempts: ${spec.attempts})`
     )
   }
 
-  // Output JSON for GitHub Actions
+  // Output JSON for GitHub Actions (stdout only)
   console.log(JSON.stringify(selectedSpecs, null, 2))
 
   return selectedSpecs
