@@ -199,7 +199,9 @@ export const SpecSelectorLive = Layer.succeed(SpecSelector, {
       }
 
       // Log detailed selection
-      yield* Effect.log(`Selected ${selected.length} specs total (from ${eligible.length} eligible):`)
+      yield* Effect.log(
+        `Selected ${selected.length} specs total (from ${eligible.length} eligible):`
+      )
       for (const spec of selected) {
         const priority = calculator.calculate(spec)
         yield* Effect.log(

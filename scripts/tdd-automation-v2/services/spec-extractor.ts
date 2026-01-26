@@ -43,9 +43,7 @@ const parseSpecFile = (
       const specId = match[2] // Extracted spec ID
 
       if (!specId || !testName) {
-        yield* Console.warn(
-          `Skipping test without valid spec ID in ${filePath}: ${match[0]}`
-        )
+        yield* Console.warn(`Skipping test without valid spec ID in ${filePath}: ${match[0]}`)
         continue
       }
 
@@ -73,8 +71,7 @@ const parseSpecFile = (
 const findAllSpecFiles = (): Effect.Effect<string[], Error> =>
   Effect.tryPromise({
     try: async () => {
-      const result =
-        await $`find specs -name "*.spec.ts" -type f`.nothrow().quiet()
+      const result = await $`find specs -name "*.spec.ts" -type f`.nothrow().quiet()
 
       if (result.exitCode !== 0) {
         throw new Error(`Failed to find spec files: ${result.stderr}`)
@@ -88,8 +85,7 @@ const findAllSpecFiles = (): Effect.Effect<string[], Error> =>
 
       return files
     },
-    catch: (error) =>
-      new Error(`Failed to find spec files: ${String(error)}`),
+    catch: (error) => new Error(`Failed to find spec files: ${String(error)}`),
   })
 
 /**
@@ -100,11 +96,7 @@ const findAllSpecFiles = (): Effect.Effect<string[], Error> =>
  * - Spec ID prefix (TABLES > FIELDS > etc.)
  * - Position in file (earlier specs = higher priority)
  */
-const calculatePriority = (
-  filePath: string,
-  specId: string,
-  position: number
-): number => {
+const calculatePriority = (filePath: string, specId: string, position: number): number => {
   let priority = 50 // Base priority
 
   // File path priority
@@ -146,8 +138,7 @@ export const extractAllSpecs = (): Effect.Effect<SpecQueueItem[], Error> =>
       // Read file content
       const content = yield* Effect.tryPromise({
         try: () => Bun.file(filePath).text(),
-        catch: (error) =>
-          new Error(`Failed to read ${filePath}: ${String(error)}`),
+        catch: (error) => new Error(`Failed to read ${filePath}: ${String(error)}`),
       })
 
       // Base priority from file characteristics
@@ -175,9 +166,7 @@ export const extractAllSpecs = (): Effect.Effect<SpecQueueItem[], Error> =>
     })
 
     yield* Console.log(`\n✅ Extracted ${allSpecs.length} total specs`)
-    yield* Console.log(
-      `📁 Files with specs: ${new Set(allSpecs.map((s) => s.filePath)).size}`
-    )
+    yield* Console.log(`📁 Files with specs: ${new Set(allSpecs.map((s) => s.filePath)).size}`)
 
     return allSpecs
   })
@@ -187,17 +176,14 @@ export const extractAllSpecs = (): Effect.Effect<SpecQueueItem[], Error> =>
  *
  * Useful for re-queuing a single file after manual fixes.
  */
-export const extractSpecsFromFile = (
-  filePath: string
-): Effect.Effect<SpecQueueItem[], Error> =>
+export const extractSpecsFromFile = (filePath: string): Effect.Effect<SpecQueueItem[], Error> =>
   Effect.gen(function* () {
     yield* Console.log(`🔍 Extracting specs from ${filePath}...`)
 
     // Read file content
     const content = yield* Effect.tryPromise({
       try: () => Bun.file(filePath).text(),
-      catch: (error) =>
-        new Error(`Failed to read ${filePath}: ${String(error)}`),
+      catch: (error) => new Error(`Failed to read ${filePath}: ${String(error)}`),
     })
 
     // Base priority from file characteristics

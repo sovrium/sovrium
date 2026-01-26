@@ -26,6 +26,10 @@ const TEST_STATE_FILE = '.github/tdd-state.json'
 let originalStateBackup: string | null = null
 
 beforeAll(async () => {
+  // Ensure clean git state for tests (state-manager uses git operations)
+  await $`git restore .github/tdd-state.json`.nothrow()
+  await $`rm -rf specs/test-concurrency`.nothrow()
+
   // Create test directories
   await $`mkdir -p specs/test-concurrency`.nothrow()
   await $`mkdir -p .github`.nothrow()
@@ -56,17 +60,18 @@ test.fixme('test in ${filePath}', () => {
     await Bun.write(filePath, mockSpecContent)
   }
 
-  // Initialize test state file with 3 pending specs
+  // Initialize test state file with 3 pending specs (spec-ID-based)
   const initialState = {
     version: '2.0.0',
     lastUpdated: new Date().toISOString(),
     queue: {
-      pending: TEST_SPEC_FILES.map((filePath) => ({
-        id: filePath,
+      pending: TEST_SPEC_FILES.map((filePath, index) => ({
+        id: `TEST-SPEC-${index + 1}`,
+        specId: `TEST-SPEC-${index + 1}`,
         filePath,
+        testName: `test in ${filePath}`,
         priority: 50,
         status: 'pending',
-        testCount: 1,
         attempts: 0,
         errors: [],
         queuedAt: new Date().toISOString(),
@@ -76,6 +81,7 @@ test.fixme('test in ${filePath}', () => {
       failed: [],
     },
     activeFiles: [],
+    activeSpecs: [],
     config: {
       maxConcurrentPRs: 3,
       maxRetries: 3,
@@ -93,15 +99,24 @@ test.fixme('test in ${filePath}', () => {
   }
 
   await Bun.write(TEST_STATE_FILE, JSON.stringify(initialState, null, 2))
+
+  // Commit test files to avoid git conflicts during state operations
+  await $`git add specs/test-concurrency .github/tdd-state.json`.nothrow()
+  await $`git commit -m "test: setup concurrency test files [skip ci]"`.nothrow()
 })
 
 afterAll(async () => {
-  // Cleanup test files
+  // Reset git to remove test commits
+  await $`git reset --hard HEAD~1`.nothrow()
+
+  // Cleanup test files (in case reset didn't remove them)
   await $`rm -rf specs/test-concurrency`.nothrow()
 
   // Restore original state file
   if (originalStateBackup) {
     await Bun.write(TEST_STATE_FILE, originalStateBackup)
+  } else {
+    await $`git restore .github/tdd-state.json`.nothrow()
   }
 })
 
@@ -240,12 +255,13 @@ test('Concurrency: Spec selector respects file locks', async () => {
       version: '2.0.0' as const,
       lastUpdated: new Date().toISOString(),
       queue: {
-        pending: TEST_SPEC_FILES.map((filePath) => ({
-          id: filePath,
+        pending: TEST_SPEC_FILES.map((filePath, index) => ({
+          id: `TEST-SPEC-${index + 1}`,
+          specId: `TEST-SPEC-${index + 1}`,
           filePath,
+          testName: `test in ${filePath}`,
           priority: 50,
           status: 'pending' as const,
-          testCount: 1,
           attempts: 0,
           errors: [] as never[],
           queuedAt: new Date().toISOString(),
@@ -255,6 +271,7 @@ test('Concurrency: Spec selector respects file locks', async () => {
         failed: [] as never[],
       },
       activeFiles: [SPEC_FILE_1] as string[],
+      activeSpecs: [] as string[],
       config: {
         maxConcurrentPRs: 3,
         maxRetries: 3,

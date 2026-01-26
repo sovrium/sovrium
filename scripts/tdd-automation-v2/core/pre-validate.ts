@@ -71,10 +71,7 @@ const program = Effect.gen(function* () {
 
   // Match: test.fixme('TEST-NAME', ... or test.fixme("TEST-NAME", ...
   // and remove the .fixme() part
-  const fixmePattern = new RegExp(
-    `test\\.fixme\\((['"])${escapedTestName}\\1`,
-    'g'
-  )
+  const fixmePattern = new RegExp(`test\\.fixme\\((['"])${escapedTestName}\\1`, 'g')
 
   const cleanedContent = content.replace(fixmePattern, (match) => {
     // Replace test.fixme( with test(
