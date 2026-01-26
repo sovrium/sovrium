@@ -1,15 +1,13 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T09:57:46.130Z",
+  "lastUpdated": "2026-01-26T09:57:47.415Z",
   "queue": {
     "pending": [],
     "active": [],
     "completed": [],
     "failed": []
   },
-  "activeFiles": [
-    "specs/test-integration/sample.spec.ts"
-  ],
+  "activeFiles": [],
   "config": {
     "maxConcurrentPRs": 3,
     "maxRetries": 3,
