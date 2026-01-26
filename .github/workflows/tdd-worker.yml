@@ -71,11 +71,17 @@ jobs:
       #
       # The locks are released in the cleanup step at the end of this workflow.
       - name: Verify locks acquired by orchestrator
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           echo "🔒 Verifying file/spec locks (acquired by orchestrator)..."
 
+          # Fetch state from tdd-state branch
+          STATE_JSON=$(gh api repos/${{ github.repository }}/contents/.github/tdd-state.json?ref=tdd-state \
+            --jq '.content' | base64 -d 2>/dev/null || echo '{"activeFiles":[],"activeSpecs":[]}')
+
           # Verify file is locked
-          FILE_LOCKED=$(jq --arg file "${{ inputs.file_path }}" '.activeFiles | index($file) != null' .github/tdd-state.json)
+          FILE_LOCKED=$(echo "$STATE_JSON" | jq --arg file "${{ inputs.file_path }}" '.activeFiles | index($file) != null')
           if [ "$FILE_LOCKED" != "true" ]; then
             echo "⚠️  Warning: File ${{ inputs.file_path }} is not locked. This may indicate a race condition."
             echo "   The orchestrator should have locked this file before dispatching this worker."
@@ -84,7 +90,7 @@ jobs:
           fi
 
           # Verify spec is locked
-          SPEC_LOCKED=$(jq --arg spec "${{ inputs.spec_id }}" '.activeSpecs | index($spec) != null' .github/tdd-state.json)
+          SPEC_LOCKED=$(echo "$STATE_JSON" | jq --arg spec "${{ inputs.spec_id }}" '.activeSpecs | index($spec) != null')
           if [ "$SPEC_LOCKED" != "true" ]; then
             echo "⚠️  Warning: Spec ${{ inputs.spec_id }} is not locked. This may indicate a race condition."
             echo "   The orchestrator should have locked this spec before dispatching this worker."
@@ -377,6 +383,8 @@ jobs:
 
       - name: Cleanup - Release locks
         if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           echo "🔓 Releasing spec and file locks..."
 
