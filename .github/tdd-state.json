@@ -1,44 +1,44 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T16:02:39.700Z",
+  "lastUpdated": "2026-01-26T15:58:32.674Z",
   "queue": {
-    "pending": [],
-    "active": [
-      {
-        "id": "TEST-SPEC-3",
-        "filePath": "specs/test-concurrency/spec3.spec.ts",
-        "priority": 50,
-        "status": "active",
-        "attempts": 0,
-        "errors": [],
-        "queuedAt": "2026-01-26T16:02:30.787Z",
-        "startedAt": "2026-01-26T16:02:36.309Z"
-      }
-    ],
-    "completed": [
+    "pending": [
       {
         "id": "TEST-SPEC-1",
+        "specId": "TEST-SPEC-1",
         "filePath": "specs/test-concurrency/spec1.spec.ts",
+        "testName": "test in specs/test-concurrency/spec1.spec.ts",
         "priority": 50,
-        "status": "completed",
+        "status": "pending",
         "attempts": 0,
         "errors": [],
-        "queuedAt": "2026-01-26T16:02:30.787Z",
-        "startedAt": "2026-01-26T16:02:33.543Z",
-        "completedAt": "2026-01-26T16:02:37.875Z"
+        "queuedAt": "2026-01-26T15:58:21.259Z"
       },
       {
         "id": "TEST-SPEC-2",
+        "specId": "TEST-SPEC-2",
         "filePath": "specs/test-concurrency/spec2.spec.ts",
+        "testName": "test in specs/test-concurrency/spec2.spec.ts",
         "priority": 50,
-        "status": "completed",
+        "status": "pending",
         "attempts": 0,
         "errors": [],
-        "queuedAt": "2026-01-26T16:02:30.787Z",
-        "startedAt": "2026-01-26T16:02:34.923Z",
-        "completedAt": "2026-01-26T16:02:39.323Z"
+        "queuedAt": "2026-01-26T15:58:21.259Z"
+      },
+      {
+        "id": "TEST-SPEC-3",
+        "specId": "TEST-SPEC-3",
+        "filePath": "specs/test-concurrency/spec3.spec.ts",
+        "testName": "test in specs/test-concurrency/spec3.spec.ts",
+        "priority": 50,
+        "status": "pending",
+        "attempts": 0,
+        "errors": [],
+        "queuedAt": "2026-01-26T15:58:21.259Z"
       }
     ],
+    "active": [],
+    "completed": [],
     "failed": []
   },
   "activeFiles": [],
