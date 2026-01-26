@@ -14,7 +14,7 @@
     "scripts/**/*.ts",
     "specs/fixtures/**/*.ts"
   ],
-  "ignore": ["**/*.test.ts", "**/*.spec.ts"],
+  "ignore": ["**/*.test.ts", "**/*.spec.ts", "scripts/tdd-automation-v2/core/pre-validate.ts"],
   "ignoreDependencies": [
     "tailwindcss",
     "tw-animate-css",
@@ -29,6 +29,6 @@
     "@hono/zod-validator",
     "nanoid"
   ],
-  "ignoreBinaries": ["pull_with_retry", "actionlint"],
+  "ignoreBinaries": ["pull_with_retry", "actionlint", "gh"],
   "ignoreExportsUsedInFile": true
 }
