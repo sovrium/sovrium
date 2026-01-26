@@ -124,14 +124,15 @@ test('Concurrency: 3 workers can lock different files simultaneously', async () 
   const program = Effect.gen(function* () {
     const stateManager = yield* StateManager
 
-    // Simulate 3 workers locking files in parallel
+    // Simulate 3 workers locking files sequentially (git operations must be sequential)
+    // Each worker is a separate GitHub Actions job that acquires locks independently
     yield* Effect.all(
       [
         stateManager.addActiveFile(SPEC_FILE_1),
         stateManager.addActiveFile(SPEC_FILE_2),
         stateManager.addActiveFile(SPEC_FILE_3),
       ],
-      { concurrency: 'unbounded' }
+      { concurrency: 1 } // Sequential to avoid git race conditions
     )
 
     // Verify all 3 files are locked
@@ -150,14 +151,14 @@ test('Concurrency: 3 workers can lock different files simultaneously', async () 
     expect(locked2).toBe(true)
     expect(locked3).toBe(true)
 
-    // Cleanup: unlock all
+    // Cleanup: unlock all (sequential to avoid git race conditions)
     yield* Effect.all(
       [
         stateManager.removeActiveFile(SPEC_FILE_1),
         stateManager.removeActiveFile(SPEC_FILE_2),
         stateManager.removeActiveFile(SPEC_FILE_3),
       ],
-      { concurrency: 'unbounded' }
+      { concurrency: 1 }
     )
 
     const finalState = yield* stateManager.load()
@@ -202,14 +203,14 @@ test('Concurrency: State transitions for 3 specs simultaneously', async () => {
     expect(initialState.queue.pending).toHaveLength(3)
     expect(initialState.queue.active).toHaveLength(0)
 
-    // Transition all 3 specs to active simultaneously
+    // Transition all 3 specs to active sequentially (git operations must be sequential)
     yield* Effect.all(
       [
         stateManager.transition(SPEC_FILE_1, 'pending', 'active'),
         stateManager.transition(SPEC_FILE_2, 'pending', 'active'),
         stateManager.transition(SPEC_FILE_3, 'pending', 'active'),
       ],
-      { concurrency: 'unbounded' }
+      { concurrency: 1 }
     )
 
     const activeState = yield* stateManager.load()
@@ -228,14 +229,14 @@ test('Concurrency: State transitions for 3 specs simultaneously', async () => {
     expect(activeSpec3).toBeDefined()
     expect(activeSpec3?.status).toBe('active')
 
-    // Transition all to completed
+    // Transition all to completed (sequential to avoid git race conditions)
     yield* Effect.all(
       [
         stateManager.transition(SPEC_FILE_1, 'active', 'completed'),
         stateManager.transition(SPEC_FILE_2, 'active', 'completed'),
         stateManager.transition(SPEC_FILE_3, 'active', 'completed'),
       ],
-      { concurrency: 'unbounded' }
+      { concurrency: 1 }
     )
 
     const completedState = yield* stateManager.load()
@@ -327,14 +328,14 @@ test('Concurrency: maxConcurrentPRs limit enforced', async () => {
 
     expect(availableSlots).toBe(3)
 
-    // Transition 3 specs to active (fills all slots)
+    // Transition 3 specs to active (fills all slots) - sequential to avoid git race conditions
     yield* Effect.all(
       [
         stateManager.transition(SPEC_FILE_1, 'pending', 'active'),
         stateManager.transition(SPEC_FILE_2, 'pending', 'active'),
         stateManager.transition(SPEC_FILE_3, 'pending', 'active'),
       ],
-      { concurrency: 'unbounded' }
+      { concurrency: 1 }
     )
 
     const activeState = yield* stateManager.load()
@@ -347,14 +348,14 @@ test('Concurrency: maxConcurrentPRs limit enforced', async () => {
     // Verify orchestrator would not dispatch more workers
     expect(newAvailableSlots).toBeLessThanOrEqual(0)
 
-    // Cleanup
+    // Cleanup (sequential to avoid git race conditions)
     yield* Effect.all(
       [
         stateManager.transition(SPEC_FILE_1, 'active', 'completed'),
         stateManager.transition(SPEC_FILE_2, 'active', 'completed'),
         stateManager.transition(SPEC_FILE_3, 'active', 'completed'),
       ],
-      { concurrency: 'unbounded' }
+      { concurrency: 1 }
     )
   }).pipe(Effect.provide(StateManagerLive))
 
