@@ -1,13 +1,15 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T16:02:41.170Z",
+  "lastUpdated": "2026-01-26T16:20:15.749Z",
   "queue": {
     "pending": [],
     "active": [],
     "completed": [],
     "failed": []
   },
-  "activeFiles": [],
+  "activeFiles": [
+    "specs/api/test1.spec.ts"
+  ],
   "activeSpecs": [],
   "config": {
     "maxConcurrentPRs": 3,
