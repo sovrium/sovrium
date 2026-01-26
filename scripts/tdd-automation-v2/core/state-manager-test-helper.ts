@@ -84,9 +84,9 @@ export function createTestStateManager(testFilePath: string) {
           // Update spec status and timestamp
           const updatedSpec: SpecQueueItem = {
             id: spec.id,
-          specId: spec.specId,
+            specId: spec.specId,
             filePath: spec.filePath,
-          testName: spec.testName,
+            testName: spec.testName,
             priority: spec.priority,
             status: to,
             attempts: spec.attempts,
@@ -165,9 +165,9 @@ export function createTestStateManager(testFilePath: string) {
           // Update spec with error and increment attempts
           const updatedSpec: SpecQueueItem = {
             id: spec.id,
-          specId: spec.specId,
+            specId: spec.specId,
             filePath: spec.filePath,
-          testName: spec.testName,
+            testName: spec.testName,
             priority: spec.priority,
             status: 'pending',
             attempts: spec.attempts + 1,
@@ -212,9 +212,9 @@ export function createTestStateManager(testFilePath: string) {
           // Update spec with failure details
           const failedSpec: SpecQueueItem = {
             id: spec.id,
-          specId: spec.specId,
+            specId: spec.specId,
             filePath: spec.filePath,
-          testName: spec.testName,
+            testName: spec.testName,
             priority: spec.priority,
             status: 'failed',
             attempts: spec.attempts,
@@ -263,9 +263,9 @@ export function createTestStateManager(testFilePath: string) {
           // Reset spec
           const requeuedSpec: SpecQueueItem = {
             id: spec.id,
-          specId: spec.specId,
+            specId: spec.specId,
             filePath: spec.filePath,
-          testName: spec.testName,
+            testName: spec.testName,
             priority: spec.priority,
             status: 'pending',
             attempts: options.resetRetries ? 0 : spec.attempts,
