@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T18:12:00.464Z",
+  "lastUpdated": "2026-01-26T20:16:12.476Z",
   "queue": {
     "pending": [
       {
@@ -2549,7 +2549,9 @@
     "completed": [],
     "failed": []
   },
-  "activeFiles": [],
+  "activeFiles": [
+    "specs/api/tables/{tableId}/records/{recordId}/comments/{commentId}/delete.spec.ts"
+  ],
   "activeSpecs": [],
   "config": {
     "maxConcurrentPRs": 3,
