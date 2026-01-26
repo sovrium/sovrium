@@ -7,24 +7,23 @@
 
 import { Effect, Console } from 'effect'
 import { StateManager, StateManagerLive } from './state-manager'
-import { Command, Args } from '@effect/cli'
 
-const UnlockFileCommand = Command.make(
-  'unlock-file',
-  {
-    file: Args.text({ name: 'file' }),
-  },
-  ({ file }) =>
-    Effect.gen(function* () {
-      const stateManager = yield* StateManager
+const program = Effect.gen(function* () {
+  // Parse file argument from command line
+  const fileArg = process.argv.find((arg) => arg.startsWith('--file='))
+  if (!fileArg) {
+    console.error('Error: --file argument is required')
+    process.exit(1)
+  }
 
-      yield* Console.log(`🔓 Unlocking file: ${file}`)
-      yield* stateManager.removeActiveFile(file)
-      yield* Console.log(`✅ File unlocked successfully`)
-    })
-)
+  const file = fileArg.split('=')[1]
 
-const program = UnlockFileCommand.pipe(Effect.provide(StateManagerLive))
+  const stateManager = yield* StateManager
+
+  yield* Console.log(`🔓 Unlocking file: ${file}`)
+  yield* stateManager.removeActiveFile(file)
+  yield* Console.log(`✅ File unlocked successfully`)
+}).pipe(Effect.provide(StateManagerLive))
 
 Effect.runPromise(program).catch((error) => {
   console.error('Failed to unlock file:', error)
