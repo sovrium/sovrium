@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T15:46:59.559Z",
+  "lastUpdated": "2026-01-26T15:50:42.908Z",
   "queue": {
     "pending": [
       {
@@ -12,7 +12,7 @@
         "status": "pending",
         "attempts": 0,
         "errors": [],
-        "queuedAt": "2026-01-26T15:46:59.031Z"
+        "queuedAt": "2026-01-26T15:50:42.908Z"
       },
       {
         "id": "TEST-SPEC-2",
@@ -23,7 +23,7 @@
         "status": "pending",
         "attempts": 0,
         "errors": [],
-        "queuedAt": "2026-01-26T15:46:59.031Z"
+        "queuedAt": "2026-01-26T15:50:42.908Z"
       },
       {
         "id": "TEST-SPEC-3",
@@ -34,16 +34,14 @@
         "status": "pending",
         "attempts": 0,
         "errors": [],
-        "queuedAt": "2026-01-26T15:46:59.031Z"
+        "queuedAt": "2026-01-26T15:50:42.908Z"
       }
     ],
     "active": [],
     "completed": [],
     "failed": []
   },
-  "activeFiles": [
-    "specs/test-concurrency/spec1.spec.ts"
-  ],
+  "activeFiles": [],
   "activeSpecs": [],
   "config": {
     "maxConcurrentPRs": 3,
