@@ -8,7 +8,8 @@
 import { $ } from 'bun'
 import { test, expect, beforeAll, afterAll } from 'bun:test'
 import { Effect } from 'effect'
-import { StateManager, StateManagerLive } from './core/state-manager'
+import { StateManager } from './core/state-manager'
+import { createTestStateManager } from './core/state-manager-test-helper'
 
 const TEST_SPEC_FILES = [
   'specs/test-concurrency/spec1.spec.ts',
@@ -26,25 +27,20 @@ const SPEC_ID_1 = 'TEST-SPEC-1'
 const SPEC_ID_2 = 'TEST-SPEC-2'
 const SPEC_ID_3 = 'TEST-SPEC-3'
 
-const TEST_STATE_FILE = '.github/tdd-state.json'
+const TEST_STATE_FILE = `.github/tdd-state-test-${Date.now()}.json`
 
-let originalStateBackup: string | null = null
+let TestStateManagerLayer: ReturnType<typeof createTestStateManager>
 
 beforeAll(async () => {
-  // Ensure clean git state for tests (state-manager uses git operations)
-  await $`git restore .github/tdd-state.json`.nothrow()
+  // Create test StateManager layer
+  TestStateManagerLayer = createTestStateManager(TEST_STATE_FILE)
+
+  // Ensure clean state for tests
   await $`rm -rf specs/test-concurrency`.nothrow()
 
   // Create test directories
   await $`mkdir -p specs/test-concurrency`.nothrow()
   await $`mkdir -p .github`.nothrow()
-
-  // Backup existing state file
-  try {
-    originalStateBackup = await Bun.file(TEST_STATE_FILE).text()
-  } catch {
-    originalStateBackup = null
-  }
 
   // Create mock spec files
   for (const filePath of TEST_SPEC_FILES) {
@@ -104,25 +100,14 @@ test.fixme('test in ${filePath}', () => {
   }
 
   await Bun.write(TEST_STATE_FILE, JSON.stringify(initialState, null, 2))
-
-  // Commit test files to avoid git conflicts during state operations
-  await $`git add specs/test-concurrency .github/tdd-state.json`.nothrow()
-  await $`git commit -m "test: setup concurrency test files [skip ci]"`.nothrow()
 })
 
 afterAll(async () => {
-  // Reset git to remove test commits
-  await $`git reset --hard HEAD~1`.nothrow()
-
-  // Cleanup test files (in case reset didn't remove them)
+  // Cleanup test files
   await $`rm -rf specs/test-concurrency`.nothrow()
 
-  // Restore original state file
-  if (originalStateBackup) {
-    await Bun.write(TEST_STATE_FILE, originalStateBackup)
-  } else {
-    await $`git restore .github/tdd-state.json`.nothrow()
-  }
+  // Remove test state file
+  await $`rm -f ${TEST_STATE_FILE}`.nothrow()
 })
 
 test('Concurrency: 3 workers can lock different files simultaneously', async () => {
@@ -168,7 +153,7 @@ test('Concurrency: 3 workers can lock different files simultaneously', async () 
 
     const finalState = yield* stateManager.load()
     expect(finalState.activeFiles).toHaveLength(0)
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   await Effect.runPromise(program)
 }, 15_000) // 15 second timeout for git operations
@@ -194,7 +179,7 @@ test('Concurrency: Cannot lock same file twice', async () => {
 
     // Cleanup
     yield* stateManager.removeActiveFile(SPEC_FILE_1)
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   await Effect.runPromise(program)
 }, 10_000) // 10 second timeout for git operations
@@ -247,7 +232,7 @@ test('Concurrency: State transitions for 3 specs simultaneously', async () => {
     const completedState = yield* stateManager.load()
     expect(completedState.queue.active).toHaveLength(0)
     expect(completedState.queue.completed).toHaveLength(3)
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   await Effect.runPromise(program)
 }, 15_000) // 15 second timeout for git operations
@@ -314,7 +299,7 @@ test('Concurrency: Spec selector respects file locks', async () => {
 
     // Cleanup
     yield* stateManager.removeActiveFile(SPEC_FILE_1)
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   await Effect.runPromise(program)
 }, 10_000) // 10 second timeout for git operations
@@ -362,7 +347,7 @@ test('Concurrency: maxConcurrentPRs limit enforced', async () => {
       ],
       { concurrency: 1 }
     )
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   await Effect.runPromise(program)
 }, 15_000) // 15 second timeout for git operations

@@ -5,11 +5,23 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from 'bun:test'
+import { test, expect, beforeAll, afterAll } from 'bun:test'
 import { Effect } from 'effect'
 import { INITIAL_STATE } from '../types'
-import { StateManager, StateManagerLive } from './state-manager'
+import { StateManager } from './state-manager'
+import { createTestStateManager } from './state-manager-test-helper'
 import type { TDDState, SpecFileItem, SpecError } from '../types'
+
+const TEST_STATE_FILE = `.github/tdd-state-test-state-manager-${Date.now()}.json`
+let TestStateManagerLayer: ReturnType<typeof createTestStateManager>
+
+beforeAll(() => {
+  TestStateManagerLayer = createTestStateManager(TEST_STATE_FILE)
+})
+
+afterAll(async () => {
+  await Bun.spawn(['rm', '-f', TEST_STATE_FILE]).exited
+})
 
 // Mock state creator for testing
 function createMockState(): TDDState {
@@ -55,7 +67,7 @@ test('StateManager - load returns initial state when file does not exist', async
     const stateManager = yield* StateManager
     const state = yield* stateManager.load()
     return state
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   const result = await Effect.runPromise(program)
 
@@ -77,7 +89,7 @@ test('StateManager - addActiveFile adds file to lock list', async () => {
     // Check if locked
     const isLocked = yield* stateManager.isFileLocked(filePath)
     return isLocked
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   const result = await Effect.runPromise(program)
 
@@ -97,7 +109,7 @@ test('StateManager - addActiveFile is idempotent', async () => {
     // Load state and check activeFiles count
     const state = yield* stateManager.load()
     return state.activeFiles.filter((f) => f === filePath).length
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   const result = await Effect.runPromise(program)
 
@@ -118,7 +130,7 @@ test('StateManager - removeActiveFile removes file from lock list', async () => 
     // Check if still locked
     const isLocked = yield* stateManager.isFileLocked(filePath)
     return isLocked
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   const result = await Effect.runPromise(program)
 
@@ -132,7 +144,7 @@ test('StateManager - isFileLocked returns false for unlocked files', async () =>
     const stateManager = yield* StateManager
     const isLocked = yield* stateManager.isFileLocked(filePath)
     return isLocked
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   const result = await Effect.runPromise(program)
 
@@ -173,7 +185,7 @@ test('StateManager - transition moves spec between queues', async () => {
     const spec = initialState.queue.pending.find((s) => s.id === specId)
     expect(spec).toBeDefined()
     expect(spec?.status).toBe('pending')
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   await Effect.runPromise(program)
 })
@@ -210,7 +222,7 @@ test('StateManager - recordFailureAndRequeue increments attempts', async () => {
 
     expect(initialSpec.attempts).toBe(1)
     expect(initialSpec.errors).toHaveLength(0)
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   await Effect.runPromise(program)
 })
@@ -250,7 +262,7 @@ test('StateManager - moveToManualIntervention updates metrics', async () => {
     // - metrics.manualInterventionCount should increment to 3
 
     expect(initialState.metrics.manualInterventionCount).toBe(2)
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   await Effect.runPromise(program)
 })

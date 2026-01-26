@@ -8,25 +8,22 @@
 import { $ } from 'bun'
 import { test, expect, beforeAll, afterAll } from 'bun:test'
 import { Effect } from 'effect'
-import { StateManager, StateManagerLive } from './core/state-manager'
+import { StateManager } from './core/state-manager'
+import { createTestStateManager } from './core/state-manager-test-helper'
 import type { SpecFileItem } from './types'
 
 const TEST_SPEC_FILE = 'specs/test-integration/sample.spec.ts'
-const TEST_STATE_FILE = '.github/tdd-state.json' // Use actual state file
+const TEST_STATE_FILE = `.github/tdd-state-test-worker-integration-${Date.now()}.json`
 
-let originalStateBackup: string | null = null
+let TestStateManagerLayer: ReturnType<typeof createTestStateManager>
 
 beforeAll(async () => {
+  // Create test StateManager layer
+  TestStateManagerLayer = createTestStateManager(TEST_STATE_FILE)
+
   // Create test directories
   await $`mkdir -p specs/test-integration`.nothrow()
   await $`mkdir -p .github`.nothrow()
-
-  // Backup existing state file
-  try {
-    originalStateBackup = await Bun.file(TEST_STATE_FILE).text()
-  } catch {
-    originalStateBackup = null
-  }
 
   // Create mock spec file with .fixme() tests
   const mockSpecContent = `/**
@@ -94,10 +91,8 @@ afterAll(async () => {
   // Cleanup test files
   await $`rm -rf specs/test-integration`.nothrow()
 
-  // Restore original state file
-  if (originalStateBackup) {
-    await Bun.write(TEST_STATE_FILE, originalStateBackup)
-  }
+  // Remove test state file
+  await $`rm -f ${TEST_STATE_FILE}`.nothrow()
 })
 
 test('Integration: File locking workflow', async () => {
@@ -119,7 +114,7 @@ test('Integration: File locking workflow', async () => {
 
     const stateAfterUnlock = yield* stateManager.load()
     expect(stateAfterUnlock.activeFiles).not.toContain(TEST_SPEC_FILE)
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   await Effect.runPromise(program)
 })
@@ -170,7 +165,7 @@ test('Integration: State transitions (pending → active → completed)', async 
     const completedSpec = completedState.queue.completed.find((s) => s.filePath === TEST_SPEC_FILE)
     expect(completedSpec).toBeDefined()
     expect(completedSpec?.status).toBe('completed')
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   await Effect.runPromise(program)
 })
@@ -228,7 +223,7 @@ test('Integration: 3-strikes rule moves spec to manual intervention', async () =
     expect(failedSpec?.status).toBe('failed')
     expect(failedSpec?.attempts).toBe(2) // Still shows 2 attempts before failure
     expect(finalState.metrics.manualInterventionCount).toBe(1)
-  }).pipe(Effect.provide(StateManagerLive))
+  }).pipe(Effect.provide(TestStateManagerLayer))
 
   await Effect.runPromise(program)
 })
