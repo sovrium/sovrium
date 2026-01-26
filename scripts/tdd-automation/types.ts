@@ -6,7 +6,7 @@
  */
 
 /**
- * TDD Automation V2 - Type Definitions
+ * TDD Automation - Type Definitions
  *
  * Core types for the simplified TDD workflow that processes individual spec IDs
  * continuously with file-level locking and intelligent retry logic.

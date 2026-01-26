@@ -1,14 +1,14 @@
-# TDD Workflow V2 - Inconsistency Review Findings
+# TDD Workflow - Inconsistency Review Findings
 
 ## Executive Summary
 
-The TDD V2 workflow has been refactored from file-based to spec-ID-based granularity, but several services and methods still use file-based logic. This creates critical bugs where multiple specs from the same file cannot be properly tracked.
+The TDD workflow has been refactored from file-based to spec-ID-based granularity. This document tracks the fixes applied to ensure correct state tracking when multiple specs exist in the same file.
 
 ## Critical Issues Found
 
 ### 1. ✅ FIXED: Orchestrator Worker Dispatch
 
-**Location**: `.github/workflows/tdd-orchestrator-v2.yml` (lines 112-142)
+**Location**: `.github/workflows/tdd-orchestrator.yml` (lines 112-142)
 
 **Problem**: Orchestrator was dispatching workers with wrong parameters:
 
@@ -25,7 +25,7 @@ The TDD V2 workflow has been refactored from file-based to spec-ID-based granula
 
 ### 2. ✅ FIXED: StateManager Using filePath Instead of specId
 
-**Location**: `scripts/tdd-automation-v2/core/state-manager.ts`
+**Location**: `scripts/tdd-automation/core/state-manager.ts`
 
 **Problem**: Multiple methods use `filePath` to identify specs:
 
@@ -92,7 +92,7 @@ readonly requeueFromFailed: (
 - StateManager finds first match by filePath → updates `API-TABLES-001` instead!
 - This causes state corruption and incorrect retry logic
 
-**Root Cause**: V2 refactor changed queue items from file-granularity to spec-granularity, but StateManager wasn't updated
+**Root Cause**: Refactor changed queue items from file-granularity to spec-granularity, but StateManager wasn't updated
 
 **Fix Required**: Change all methods to use `specId` instead of `filePath`
 
@@ -100,7 +100,7 @@ readonly requeueFromFailed: (
 
 ### 3. ✅ FIXED: Missing activeSpecs Management
 
-**Location**: `scripts/tdd-automation-v2/core/state-manager.ts`
+**Location**: `scripts/tdd-automation/core/state-manager.ts`
 
 **Problem**: The `TDDState` type has `activeSpecs: string[]` field (line 37 in types.ts), and spec-selector checks it (line 127 in spec-selector.ts), but StateManager has no methods to add/remove specs from `activeSpecs`.
 
@@ -128,7 +128,7 @@ readonly removeActiveSpec: (specId: string) => ...   // ❌ Missing
 
 ### 4. ✅ FIXED: failure-handler.ts Passes Wrong Identifier
 
-**Location**: `scripts/tdd-automation-v2/services/failure-handler.ts`
+**Location**: `scripts/tdd-automation/services/failure-handler.ts`
 
 **Problem**: Failure handler receives `file` parameter (filePath) and passes it to StateManager methods:
 
@@ -162,13 +162,13 @@ yield* stateManager.recordFailureAndRequeue(file, error)
 
 ### 5. ✅ FIXED: Worker Workflow Missing spec_id in Failure Handler
 
-**Location**: `.github/workflows/tdd-worker-v2.yml`
+**Location**: `.github/workflows/tdd-worker.yml`
 
 **Problem**: Worker calls failure-handler with `--file` but not `--spec-id`:
 
 ```yaml
 # Lines 325-328, 337-340, 349-352
-bun run scripts/tdd-automation-v2/services/failure-handler.ts \
+bun run scripts/tdd-automation/services/failure-handler.ts \
 --file "${{ inputs.file_path }}" \
 --pr ${{ steps.pr.outputs.pr_number }} \
 --type regression \
@@ -228,7 +228,7 @@ bun run scripts/tdd-automation-v2/services/failure-handler.ts \
 
 **New capability enabled**:
 
-With spec-level locking now fully implemented, the TDD V2 workflow can process multiple specs from the same file concurrently:
+With spec-level locking now fully implemented, the TDD workflow can process multiple specs from the same file concurrently:
 
 - Worker A can process `API-TABLES-001` from `specs/api/tables/create.spec.ts`
 - Worker B can simultaneously process `API-TABLES-002` from the same file

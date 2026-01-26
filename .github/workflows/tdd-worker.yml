@@ -1,4 +1,4 @@
-name: TDD Worker V2
+name: TDD Worker
 
 on:
   workflow_dispatch:
@@ -57,7 +57,7 @@ jobs:
           # Use spec ID for branch name
           SPEC_ID="${{ inputs.spec_id }}"
           TIMESTAMP=$(date +%s)
-          BRANCH_NAME="tdd-v2/${SPEC_ID}-${TIMESTAMP}"
+          BRANCH_NAME="tdd/${SPEC_ID}-${TIMESTAMP}"
 
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -67,19 +67,19 @@ jobs:
 
       - name: Lock file in state
         run: |
-          bun run scripts/tdd-automation-v2/core/lock-file.ts \
+          bun run scripts/tdd-automation/core/lock-file.ts \
             --file "${{ inputs.file_path }}"
 
       - name: Lock spec in state
         run: |
-          bun run scripts/tdd-automation-v2/core/lock-spec.ts \
+          bun run scripts/tdd-automation/core/lock-spec.ts \
             --spec-id "${{ inputs.spec_id }}"
 
       - name: Run pre-validation (validate-specs)
         id: prevalidate
         continue-on-error: true
         run: |
-          bun run scripts/tdd-automation-v2/core/pre-validate.ts \
+          bun run scripts/tdd-automation/core/pre-validate.ts \
             --file "${{ inputs.file_path }}" \
             --spec-id "${{ inputs.spec_id }}" \
             --test-name "${{ inputs.test_name }}" \
@@ -132,7 +132,7 @@ jobs:
 
           SPEC_ID="${{ inputs.spec_id }}"
 
-          PR_NUMBER=$(bun run scripts/tdd-automation-v2/services/pr-manager.ts create \
+          PR_NUMBER=$(bun run scripts/tdd-automation/services/pr-manager.ts create \
             --file "${{ inputs.file_path }}" \
             --branch "${{ steps.branch.outputs.branch }}" \
             --spec-id "$SPEC_ID" \
@@ -152,11 +152,11 @@ jobs:
           gh pr edit ${{ steps.pr.outputs.pr_number }} --add-label "tdd:fast-path"
 
           # Auto-merge immediately (no need for Claude)
-          bun run scripts/tdd-automation-v2/services/pr-manager.ts merge \
+          bun run scripts/tdd-automation/services/pr-manager.ts merge \
             --pr ${{ steps.pr.outputs.pr_number }}
 
           # Unlock file and exit
-          bun run scripts/tdd-automation-v2/core/unlock-file.ts \
+          bun run scripts/tdd-automation/core/unlock-file.ts \
             --file "${{ inputs.file_path }}"
 
           exit 0
@@ -174,7 +174,7 @@ jobs:
           additional_permissions: |
             actions: read
           prompt: |
-            You are working on the TDD Workflow V2 automation. Your task is to implement code to make a failing E2E test pass.
+            You are working on the TDD Workflow automation. Your task is to implement code to make a failing E2E test pass.
 
             **Spec ID**: ${{ inputs.spec_id }}
             **Test Name**: ${{ inputs.test_name }}
@@ -228,7 +228,7 @@ jobs:
           additional_permissions: |
             actions: read
           prompt: |
-            You are working on the TDD Workflow V2 automation. The e2e-test-fixer agent has implemented code to pass E2E test ${{ inputs.spec_id }} in ${{ inputs.file_path }}.
+            You are working on the TDD Workflow automation. The e2e-test-fixer agent has implemented code to pass E2E test ${{ inputs.spec_id }} in ${{ inputs.file_path }}.
 
             **Your Task**: Audit the implementation and refactor for code quality while maintaining test behavior.
 
@@ -290,7 +290,7 @@ jobs:
         run: |
           echo "⏳ Waiting for CI checks..."
 
-          RESULT=$(bun run scripts/tdd-automation-v2/services/ci-waiter.ts \
+          RESULT=$(bun run scripts/tdd-automation/services/ci-waiter.ts \
             --pr ${{ steps.pr.outputs.pr_number }} \
             --timeout 600)
 
@@ -303,7 +303,7 @@ jobs:
         run: |
           echo "✅ CI passed! Auto-merging PR..."
 
-          bun run scripts/tdd-automation-v2/services/pr-manager.ts merge \
+          bun run scripts/tdd-automation/services/pr-manager.ts merge \
             --pr ${{ steps.pr.outputs.pr_number }}
 
       - name: Analyze failure
@@ -314,7 +314,7 @@ jobs:
         run: |
           echo "❌ CI failed. Analyzing failure type..."
 
-          FAILURE_TYPE=$(bun run scripts/tdd-automation-v2/services/failure-analyzer.ts \
+          FAILURE_TYPE=$(bun run scripts/tdd-automation/services/failure-analyzer.ts \
             --pr ${{ steps.pr.outputs.pr_number }})
 
           echo "type=$FAILURE_TYPE" >> $GITHUB_OUTPUT
@@ -326,7 +326,7 @@ jobs:
         run: |
           echo "🔄 Regression detected. Closing PR and re-queuing..."
 
-          bun run scripts/tdd-automation-v2/services/failure-handler.ts \
+          bun run scripts/tdd-automation/services/failure-handler.ts \
             --spec-id "${{ inputs.spec_id }}" \
             --pr ${{ steps.pr.outputs.pr_number }} \
             --type regression \
@@ -339,7 +339,7 @@ jobs:
         run: |
           echo "❌ Spec failure. Recording and re-queuing..."
 
-          bun run scripts/tdd-automation-v2/services/failure-handler.ts \
+          bun run scripts/tdd-automation/services/failure-handler.ts \
             --spec-id "${{ inputs.spec_id }}" \
             --pr ${{ steps.pr.outputs.pr_number }} \
             --type spec-failure \
@@ -352,7 +352,7 @@ jobs:
         run: |
           echo "⚙️ Infrastructure failure. Recording and re-queuing..."
 
-          bun run scripts/tdd-automation-v2/services/failure-handler.ts \
+          bun run scripts/tdd-automation/services/failure-handler.ts \
             --spec-id "${{ inputs.spec_id }}" \
             --pr ${{ steps.pr.outputs.pr_number }} \
             --type infrastructure \
@@ -363,8 +363,8 @@ jobs:
         run: |
           echo "🔓 Releasing spec and file locks..."
 
-          bun run scripts/tdd-automation-v2/core/unlock-spec.ts \
+          bun run scripts/tdd-automation/core/unlock-spec.ts \
             --spec-id "${{ inputs.spec_id }}" || true
 
-          bun run scripts/tdd-automation-v2/core/unlock-file.ts \
+          bun run scripts/tdd-automation/core/unlock-file.ts \
             --file "${{ inputs.file_path }}" || true

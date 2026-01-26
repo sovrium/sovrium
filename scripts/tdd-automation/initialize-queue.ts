@@ -8,7 +8,7 @@
  */
 
 /**
- * Initialize TDD Queue V2
+ * Initialize TDD Queue
  *
  * This script initializes the TDD automation queue by:
  * 1. Creating initial state file if it doesn't exist
@@ -16,8 +16,8 @@
  * 3. Adding specs to pending queue
  *
  * Usage:
- *   bun run scripts/tdd-automation-v2/initialize-queue.ts
- *   bun run scripts/tdd-automation-v2/initialize-queue.ts --reset  # Reset state file
+ *   bun run scripts/tdd-automation/initialize-queue.ts
+ *   bun run scripts/tdd-automation/initialize-queue.ts --reset  # Reset state file
  */
 
 import { existsSync } from 'node:fs'
@@ -32,11 +32,11 @@ const program = Effect.gen(function* () {
 
   yield* Console.log('')
   yield* Console.log('═══════════════════════════════════════════════')
-  yield* Console.log('  TDD Queue V2 - Initialization Tool')
+  yield* Console.log('  TDD Queue - Initialization Tool')
   yield* Console.log('═══════════════════════════════════════════════')
   yield* Console.log('')
 
-  yield* Console.log('🚀 Initializing TDD Queue V2...')
+  yield* Console.log('🚀 Initializing TDD Queue...')
 
   // Check if state file exists
   const stateExists = existsSync(STATE_FILE)
@@ -119,7 +119,7 @@ const program = Effect.gen(function* () {
   yield* Console.log(`\n🎯 Next steps:`)
   yield* Console.log(`  1. Review the queue in ${STATE_FILE}`)
   yield* Console.log(`  2. Trigger the orchestrator workflow manually:`)
-  yield* Console.log(`     gh workflow run tdd-orchestrator-v2.yml`)
+  yield* Console.log(`     gh workflow run tdd-orchestrator.yml`)
   yield* Console.log(`  3. Or wait for the next test.yml completion to auto-trigger`)
 })
 

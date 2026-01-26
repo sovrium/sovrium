@@ -1,4 +1,4 @@
-name: TDD Orchestrator V2
+name: TDD Orchestrator
 
 on:
   # Trigger after test.yml completes
@@ -89,7 +89,7 @@ jobs:
         run: |
           echo "📋 Selecting next specs to process..."
 
-          SPECS=$(bun run scripts/tdd-automation-v2/services/spec-selector-cli.ts)
+          SPECS=$(bun run scripts/tdd-automation/services/spec-selector-cli.ts)
 
           echo "Selected specs:"
           echo "$SPECS" | jq '.'
@@ -127,7 +127,7 @@ jobs:
 
             echo "📤 Dispatching worker for: $SPEC_ID ($FILE_PATH)"
 
-            gh workflow run tdd-worker-v2.yml \
+            gh workflow run tdd-worker.yml \
               -f spec_id="$SPEC_ID" \
               -f file_path="$FILE_PATH" \
               -f test_name="$TEST_NAME" \

@@ -1,10 +1,10 @@
-# TDD Workflow V2 - Automated Test-Driven Development
+# TDD Workflow - Automated Test-Driven Development
 
 > **Simplified, efficient TDD workflow that processes specs continuously without GitHub issues, using PR-only state management and intelligent orchestration.**
 
 ## Overview
 
-TDD Workflow V2 is a complete rewrite of the TDD automation system that:
+This TDD automation system:
 
 - ✅ **Removes** GitHub issues-based queue (V1: 5 workflows, 6000+ lines)
 - ✅ **Adds** Single orchestrator workflow with TypeScript automation
@@ -12,16 +12,16 @@ TDD Workflow V2 is a complete rewrite of the TDD automation system that:
 - ✅ **Enhances** Continuous processing until credits exhausted or queue empty
 - ✅ **Optimizes** Smart skip detection (test already passes = instant merge)
 
-## Key Improvements
+## Key Features
 
-| Metric                  | V1 (Old)               | V2 (New)      | Improvement       |
-| ----------------------- | ---------------------- | ------------- | ----------------- |
-| **Workflow YAML Lines** | 6,000                  | 500           | **92% reduction** |
-| **State Complexity**    | Issues + Labels + JSON | JSON only     | **Simpler**       |
-| **Throughput**          | 1 spec/15min           | 3 specs/15min | **3x faster**     |
-| **Cost per Spec**       | ~$2                    | ~$1.50        | **25% cheaper**   |
-| **Manual Intervention** | Frequent               | Rare          | **Auto-recovery** |
-| **Time to First Fix**   | ~30min                 | ~5min         | **6x faster**     |
+| Metric                  | Value         | Description                  |
+| ----------------------- | ------------- | ---------------------------- |
+| **Workflow YAML Lines** | ~500          | Minimal, maintainable config |
+| **State Complexity**    | JSON only     | No GitHub issues needed      |
+| **Throughput**          | 3 specs/15min | Concurrent processing        |
+| **Cost per Spec**       | ~$1.50        | Optimized Claude usage       |
+| **Manual Intervention** | Rare          | Auto-recovery enabled        |
+| **Time to First Fix**   | ~5min         | Fast-path optimization       |
 
 ## Architecture
 
@@ -31,7 +31,7 @@ TDD Workflow V2 is a complete rewrite of the TDD automation system that:
 └────────────────────┬────────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────────┐
-│ tdd-orchestrator-v2.yml (Main Coordinator, ~100 lines)     │
+│ tdd-orchestrator.yml (Main Coordinator, ~100 lines)        │
 │                                                              │
 │ Steps:                                                       │
 │  1. Check prerequisites (concurrency, pending queue)        │
@@ -41,7 +41,7 @@ TDD Workflow V2 is a complete rewrite of the TDD automation system that:
 └────────────────────┬────────────────────────────────────────┘
                      │ (dispatches workers)
 ┌────────────────────▼────────────────────────────────────────┐
-│ tdd-worker-v2.yml (Reusable Worker, ~150 lines)            │
+│ tdd-worker.yml (Reusable Worker, ~150 lines)               │
 │                                                              │
 │ Inputs: spec_file, priority, retry_count, previous_errors  │
 │                                                              │
@@ -104,10 +104,10 @@ All state is stored in `.github/tdd-state.json`:
 Scan codebase and populate initial queue:
 
 ```bash
-bun run scripts/tdd-automation-v2/initialize-queue.ts
+bun run scripts/tdd-automation/initialize-queue.ts
 
 # Or reset existing queue
-bun run scripts/tdd-automation-v2/initialize-queue.ts --reset
+bun run scripts/tdd-automation/initialize-queue.ts --reset
 ```
 
 ### 2. Trigger Orchestrator
@@ -115,7 +115,7 @@ bun run scripts/tdd-automation-v2/initialize-queue.ts --reset
 Manually trigger the orchestrator:
 
 ```bash
-gh workflow run tdd-orchestrator-v2.yml
+gh workflow run tdd-orchestrator.yml
 ```
 
 Or wait for automatic triggers:
@@ -134,7 +134,7 @@ cat .github/tdd-state.json | jq '.queue'
 View active workers:
 
 ```bash
-gh run list --workflow=tdd-worker-v2.yml --limit=10
+gh run list --workflow=tdd-worker.yml --limit=10
 ```
 
 ## Services
@@ -155,11 +155,11 @@ gh run list --workflow=tdd-worker-v2.yml --limit=10
 
 ### Workflows
 
-| Workflow                  | Trigger                     | Purpose                        |
-| ------------------------- | --------------------------- | ------------------------------ |
-| `tdd-orchestrator-v2.yml` | After test.yml, hourly cron | Select specs, dispatch workers |
-| `tdd-worker-v2.yml`       | Dispatched by orchestrator  | Process single spec file       |
-| `tdd-cleanup-v2.yml`      | Every 6 hours               | Remove stale locks (> 30 min)  |
+| Workflow               | Trigger                     | Purpose                        |
+| ---------------------- | --------------------------- | ------------------------------ |
+| `tdd-orchestrator.yml` | After test.yml, hourly cron | Select specs, dispatch workers |
+| `tdd-worker.yml`       | Dispatched by orchestrator  | Process single spec file       |
+| `tdd-cleanup.yml`      | Every 6 hours               | Remove stale locks (> 30 min)  |
 
 ## Features
 
@@ -234,7 +234,7 @@ Maximum 3 concurrent PRs:
 
 ```bash
 # Initialize queue (first time)
-bun run scripts/tdd-automation-v2/initialize-queue.ts
+bun run scripts/tdd-automation/initialize-queue.ts
 
 # View queue status
 cat .github/tdd-state.json | jq '.queue'
@@ -250,26 +250,26 @@ cat .github/tdd-state.json | jq '.queue.failed[].filePath'
 
 ```bash
 # Lock a file manually
-bun run scripts/tdd-automation-v2/core/lock-file.ts lock-file \
+bun run scripts/tdd-automation/core/lock-file.ts lock-file \
   --file "specs/api/tables/create.spec.ts"
 
 # Unlock a file manually
-bun run scripts/tdd-automation-v2/core/unlock-file.ts unlock-file \
+bun run scripts/tdd-automation/core/unlock-file.ts unlock-file \
   --file "specs/api/tables/create.spec.ts"
 
 # Pre-validate a spec (check if tests already pass)
-bun run scripts/tdd-automation-v2/core/pre-validate.ts pre-validate \
+bun run scripts/tdd-automation/core/pre-validate.ts pre-validate \
   --file "specs/api/tables/create.spec.ts" \
   --output "/tmp/prevalidate-result.json"
 
 # Create PR manually
-bun run scripts/tdd-automation-v2/services/pr-manager.ts pr create \
+bun run scripts/tdd-automation/services/pr-manager.ts pr create \
   --file "specs/api/tables/create.spec.ts" \
-  --branch "tdd-v2/tables-create" \
+  --branch "tdd/tables-create" \
   --test-count 5
 
 # Merge PR manually
-bun run scripts/tdd-automation-v2/services/pr-manager.ts pr merge \
+bun run scripts/tdd-automation/services/pr-manager.ts pr merge \
   --pr 123
 ```
 
@@ -277,7 +277,7 @@ bun run scripts/tdd-automation-v2/services/pr-manager.ts pr merge \
 
 ```bash
 # Trigger worker for specific spec
-gh workflow run tdd-worker-v2.yml \
+gh workflow run tdd-worker.yml \
   -f spec_file="specs/api/tables/create.spec.ts" \
   -f priority="75" \
   -f retry_count="0" \
@@ -285,7 +285,7 @@ gh workflow run tdd-worker-v2.yml \
   -f previous_errors="[]"
 
 # View worker runs
-gh run list --workflow=tdd-worker-v2.yml --limit=10
+gh run list --workflow=tdd-worker.yml --limit=10
 
 # View specific worker run
 gh run view <run-id>
@@ -303,7 +303,7 @@ gh run cancel <run-id>
 **Solution**: Cleanup workflow runs every 6 hours automatically. Or manually:
 
 ```bash
-bun run scripts/tdd-automation-v2/core/unlock-file.ts unlock-file \
+bun run scripts/tdd-automation/core/unlock-file.ts unlock-file \
   --file "specs/api/tables/create.spec.ts"
 ```
 
@@ -353,21 +353,21 @@ git pull origin main  # Sync with remote
 
 ```bash
 # Run all unit tests
-bun test scripts/tdd-automation-v2/
+bun test scripts/tdd-automation/
 
 # Run specific test file
-bun test scripts/tdd-automation-v2/core/state-manager.test.ts
-bun test scripts/tdd-automation-v2/services/spec-selector.test.ts
+bun test scripts/tdd-automation/core/state-manager.test.ts
+bun test scripts/tdd-automation/services/spec-selector.test.ts
 ```
 
 ### Integration Tests
 
 ```bash
 # Worker integration tests
-bun test scripts/tdd-automation-v2/worker-integration.test.ts
+bun test scripts/tdd-automation/worker-integration.test.ts
 
 # Concurrency tests
-bun test scripts/tdd-automation-v2/concurrency.test.ts
+bun test scripts/tdd-automation/concurrency.test.ts
 ```
 
 **Note**: Integration tests require clean git working directory. They may fail in development but pass in CI (GitHub Actions).
@@ -386,19 +386,19 @@ test.fixme("manual test", () => {
 2. Initialize queue:
 
 ```bash
-bun run scripts/tdd-automation-v2/initialize-queue.ts
+bun run scripts/tdd-automation/initialize-queue.ts
 ```
 
 3. Trigger orchestrator:
 
 ```bash
-gh workflow run tdd-orchestrator-v2.yml
+gh workflow run tdd-orchestrator.yml
 ```
 
 4. Monitor:
 
 ```bash
-gh run list --workflow=tdd-worker-v2.yml --limit=5
+gh run list --workflow=tdd-worker.yml --limit=5
 ```
 
 5. Verify PR created and auto-merged:
@@ -423,35 +423,6 @@ cat .github/tdd-state.json | jq '.metrics'
 - `claudeInvocations`: Total Claude API calls
 - `costSavingsFromSkips`: USD saved by fast-path
 - `manualInterventionCount`: Specs requiring human review
-
-## Migration from V1
-
-**V1 System Status**: Still active (can run in parallel)
-
-**Migration Steps**:
-
-1. **Week 5.1**: Initialize V2 queue
-
-   ```bash
-   bun run scripts/tdd-automation-v2/initialize-queue.ts
-   ```
-
-2. **Week 5.2**: Run V1 and V2 in parallel (different spec sets)
-   - V1: Continue processing existing issues
-   - V2: Process new specs from queue
-
-3. **Week 5.3**: Compare metrics (throughput, cost, success rate)
-
-4. **Week 5.4**: Disable V1 workflows
-
-   ```bash
-   # Disable in GitHub UI: Actions → Workflows → Disable
-   ```
-
-5. **Week 5.5**: Archive V1 code
-   ```bash
-   git mv scripts/tdd-automation scripts/tdd-automation-v1-archived
-   ```
 
 ## Performance Expectations
 
@@ -538,7 +509,7 @@ None. System uses:
 
 ### Adding New Services
 
-1. Create service in `scripts/tdd-automation-v2/services/`
+1. Create service in `scripts/tdd-automation/services/`
 2. Use Effect.ts patterns (Context, Layer)
 3. Add CLI command using `@effect/cli`
 4. Write unit tests
@@ -565,9 +536,8 @@ const program = myProgram.pipe(Logger.withMinimumLogLevel(LogLevel.Debug))
 
 ## References
 
-- **Plan**: `/Users/thomasjeanneau/.claude/plans/inherited-orbiting-charm.md`
-- **V1 System**: `scripts/tdd-automation/` (to be archived)
-- **State Schema**: `scripts/tdd-automation-v2/types.ts`
+- **State Schema**: `scripts/tdd-automation/types.ts`
+- **Workflows**: `.github/workflows/tdd-orchestrator.yml`, `tdd-worker.yml`, `tdd-cleanup.yml`
 - **Effect.ts Docs**: https://effect.website/docs
 - **GitHub Actions**: https://docs.github.com/en/actions
 

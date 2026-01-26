@@ -14,7 +14,7 @@
     "scripts/**/*.ts",
     "specs/fixtures/**/*.ts"
   ],
-  "ignore": ["**/*.test.ts", "**/*.spec.ts", "scripts/tdd-automation-v2/core/pre-validate.ts"],
+  "ignore": ["**/*.test.ts", "**/*.spec.ts", "scripts/tdd-automation/core/pre-validate.ts"],
   "ignoreDependencies": [
     "tailwindcss",
     "tw-animate-css",

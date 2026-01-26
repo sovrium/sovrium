@@ -1,4 +1,4 @@
-name: TDD Cleanup V2
+name: TDD Cleanup
 
 on:
   # Run every 6 hours to clean up stale locks
@@ -125,7 +125,7 @@ jobs:
             echo "  - Unlocking: $file"
 
             # Use unlock-file service
-            bun run scripts/tdd-automation-v2/core/unlock-file.ts unlock-file --file "$file"
+            bun run scripts/tdd-automation/core/unlock-file.ts unlock-file --file "$file"
 
             # Check if there's an active PR for this file
             PR_NUMBER=$(jq -r --arg file "$file" '.queue.active[] | select(.filePath == $file) | .prNumber' .github/tdd-state.json)

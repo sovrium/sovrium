@@ -150,6 +150,33 @@ export function createTestStateManager(testFilePath: string) {
         return state.activeFiles.includes(filePath)
       }),
 
+    addActiveSpec: (specId) =>
+      Effect.gen(function* () {
+        yield* Effect.log(`🔒 Locking spec: ${specId}`)
+
+        yield* updateState((state) => {
+          // Idempotent: don't add if already present
+          if (state.activeSpecs.includes(specId)) {
+            return state
+          }
+
+          return {
+            ...state,
+            activeSpecs: [...state.activeSpecs, specId],
+          }
+        })
+      }),
+
+    removeActiveSpec: (specId) =>
+      Effect.gen(function* () {
+        yield* Effect.log(`🔓 Unlocking spec: ${specId}`)
+
+        yield* updateState((state) => ({
+          ...state,
+          activeSpecs: state.activeSpecs.filter((id) => id !== specId),
+        }))
+      }),
+
     recordFailureAndRequeue: (filePath, error) =>
       Effect.gen(function* () {
         yield* Effect.log(`Recording failure for ${filePath}: ${error.type}`)
