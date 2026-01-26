@@ -118,22 +118,24 @@ jobs:
           SPECS='${{ steps.select.outputs.specs }}'
 
           echo "$SPECS" | jq -c '.[]' | while read -r spec; do
-            FILE=$(echo "$spec" | jq -r '.filePath')
+            SPEC_ID=$(echo "$spec" | jq -r '.specId')
+            FILE_PATH=$(echo "$spec" | jq -r '.filePath')
+            TEST_NAME=$(echo "$spec" | jq -r '.testName')
             PRIORITY=$(echo "$spec" | jq -r '.priority')
             ATTEMPTS=$(echo "$spec" | jq -r '.attempts')
-            TEST_COUNT=$(echo "$spec" | jq -r '.testCount')
             ERRORS=$(echo "$spec" | jq -c '.errors')
 
-            echo "📤 Dispatching worker for: $FILE"
+            echo "📤 Dispatching worker for: $SPEC_ID ($FILE_PATH)"
 
             gh workflow run tdd-worker-v2.yml \
-              -f spec_file="$FILE" \
+              -f spec_id="$SPEC_ID" \
+              -f file_path="$FILE_PATH" \
+              -f test_name="$TEST_NAME" \
               -f priority="$PRIORITY" \
               -f retry_count="$ATTEMPTS" \
-              -f test_count="$TEST_COUNT" \
               -f previous_errors="$ERRORS"
 
-            echo "✅ Worker dispatched for $FILE"
+            echo "✅ Worker dispatched for $SPEC_ID"
 
             # Small delay between dispatches to avoid rate limiting
             sleep 2
