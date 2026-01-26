@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "lastUpdated": "2026-01-26T09:43:33.458Z",
+  "queue": {
+    "pending": [],
+    "active": [],
+    "completed": [],
+    "failed": []
+  },
+  "activeFiles": [
+    "specs/api/test1.spec.ts"
+  ],
+  "config": {
+    "maxConcurrentPRs": 3,
+    "maxRetries": 3,
+    "retryDelayMinutes": 5,
+    "autoMergeEnabled": true
+  },
+  "metrics": {
+    "totalProcessed": 0,
+    "successRate": 0,
+    "averageProcessingTime": 0,
+    "claudeInvocations": 0,
+    "costSavingsFromSkips": 0,
+    "manualInterventionCount": 0
+  }
+}
