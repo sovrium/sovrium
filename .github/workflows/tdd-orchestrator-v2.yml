@@ -110,6 +110,8 @@ jobs:
           exit 0
 
       - name: Dispatch worker jobs
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "🚀 Dispatching ${{ steps.select.outputs.count }} worker(s)..."
 
