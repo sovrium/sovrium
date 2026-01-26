@@ -7,9 +7,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Logger, LogLevel } from 'effect'
+import { Effect, Logger, LogLevel, Layer } from 'effect'
 import { StateManager, StateManagerLive } from '../core/state-manager'
 import { SpecSelector, SpecSelectorLive, PriorityCalculatorLive } from './spec-selector'
+
+// Merge all layers for single provide call
+const AppLayer = Layer.mergeAll(StateManagerLive, PriorityCalculatorLive, SpecSelectorLive)
 
 const program = Effect.gen(function* () {
   // Parse count from command line args (default: 3)
@@ -56,23 +59,21 @@ const program = Effect.gen(function* () {
     )
   }
 
-  // CRITICAL: Transition specs to active AND lock files BEFORE returning
-  // This prevents race conditions where another orchestrator run could select the same spec
-  // before the worker has a chance to lock it
-  console.error(`🔒 Locking selected specs and files...`)
+  // CRITICAL: Lock all specs and files in a SINGLE atomic operation
+  // This prevents race conditions by batching all state changes into one git commit
+  // Before this fix, we were making 9 separate git commits for 3 specs (3 x 3 operations)
+  // Now we make just 1 commit for all locks and transitions
+  console.error(`🔒 Locking selected specs and files (single atomic operation)...`)
+
+  yield* stateManager.lockAndActivateSpecs(
+    selectedSpecs.map((spec) => ({
+      specId: spec.specId,
+      filePath: spec.filePath,
+    }))
+  )
 
   for (const spec of selectedSpecs) {
-    // Lock the file first (primary exclusivity mechanism)
-    yield* stateManager.addActiveFile(spec.filePath)
-    console.error(`  ✅ Locked file: ${spec.filePath}`)
-
-    // Lock the spec (redundant safety net)
-    yield* stateManager.addActiveSpec(spec.specId)
-    console.error(`  ✅ Locked spec: ${spec.specId}`)
-
-    // Transition spec from pending to active
-    yield* stateManager.transition(spec.specId, 'pending', 'active')
-    console.error(`  ✅ Transitioned ${spec.specId}: pending → active`)
+    console.error(`  ✅ Locked and activated: ${spec.specId} (${spec.filePath})`)
   }
 
   console.error(`🔒 All ${selectedSpecs.length} spec(s) locked and transitioned to active`)
@@ -81,11 +82,7 @@ const program = Effect.gen(function* () {
   console.log(JSON.stringify(selectedSpecs, null, 2))
 
   return selectedSpecs
-}).pipe(
-  Effect.provide(StateManagerLive),
-  Effect.provide(PriorityCalculatorLive),
-  Effect.provide(SpecSelectorLive)
-)
+}).pipe(Effect.provide(AppLayer))
 
 // Run the program with Effect logging disabled (to keep stdout clean for JSON output)
 Effect.runPromise(program.pipe(Logger.withMinimumLogLevel(LogLevel.None))).catch((error) => {

@@ -5,8 +5,37 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Context, Layer } from 'effect'
+import { Effect, Context, Layer, Data } from 'effect'
 import type { TDDState, SpecQueueItem, SpecStatus, SpecError, RequeueOptions } from '../types'
+
+/**
+ * Tagged error types for state manager operations
+ */
+class CommandExecutionError extends Data.TaggedError('CommandExecutionError')<{
+  readonly command: string
+  readonly exitCode?: number
+  readonly stderr?: string
+  readonly cause: unknown
+}> {}
+
+class StateFileReadError extends Data.TaggedError('StateFileReadError')<{
+  readonly path: string
+  readonly cause: unknown
+}> {}
+
+class StateFileWriteError extends Data.TaggedError('StateFileWriteError')<{
+  readonly path: string
+  readonly cause: unknown
+}> {}
+
+class MaxRetriesExceededError extends Data.TaggedError('MaxRetriesExceededError')<{
+  readonly maxRetries: number
+}> {}
+
+class SpecNotFoundInQueueError extends Data.TaggedError('SpecNotFoundInQueueError')<{
+  readonly specId: string
+  readonly queueName: string
+}> {}
 
 /**
  * State Manager Service
@@ -45,6 +74,13 @@ export class StateManager extends Context.Tag('StateManager')<
       specId: string,
       options: RequeueOptions
     ) => Effect.Effect<void, Error>
+    /**
+     * Lock and activate multiple specs in a single atomic operation.
+     * This prevents race conditions by batching all lock operations into one git commit.
+     */
+    readonly lockAndActivateSpecs: (
+      specs: Array<{ specId: string; filePath: string }>
+    ) => Effect.Effect<void, Error>
   }
 >() {}
 
@@ -55,7 +91,7 @@ const RETRY_DELAY_MS = 1000
 /**
  * Helper: Execute shell command
  */
-const exec = (command: string): Effect.Effect<string, Error> =>
+const exec = (command: string): Effect.Effect<string, CommandExecutionError> =>
   Effect.tryPromise({
     try: async () => {
       const proc = Bun.spawn(['sh', '-c', command], {
@@ -65,12 +101,21 @@ const exec = (command: string): Effect.Effect<string, Error> =>
       const text = await new Response(proc.stdout).text()
       const exitCode = await proc.exited
       if (exitCode !== 0) {
-        const error = await new Response(proc.stderr).text()
-        throw new Error(`Command failed (${exitCode}): ${error}`)
+        const stderr = await new Response(proc.stderr).text()
+        throw new CommandExecutionError({
+          command,
+          exitCode,
+          stderr,
+          cause: new Error(`Command failed (${exitCode}): ${stderr}`),
+        })
       }
       return text.trim()
     },
-    catch: (error) => new Error(`Exec failed: ${String(error)}`),
+    catch: (error) =>
+      new CommandExecutionError({
+        command,
+        cause: error,
+      }),
   })
 
 /**
@@ -82,7 +127,7 @@ const sleep = (ms: number): Effect.Effect<void> =>
 /**
  * Helper: Read state file from disk
  */
-const readStateFile = (): Effect.Effect<TDDState, Error> =>
+const readStateFile = (): Effect.Effect<TDDState, StateFileReadError> =>
   Effect.tryPromise({
     try: async () => {
       const file = Bun.file(STATE_FILE_PATH)
@@ -97,13 +142,13 @@ const readStateFile = (): Effect.Effect<TDDState, Error> =>
       const content = await file.text()
       return JSON.parse(content) as TDDState
     },
-    catch: (error) => new Error(`Failed to read state file: ${String(error)}`),
+    catch: (error) => new StateFileReadError({ path: STATE_FILE_PATH, cause: error }),
   })
 
 /**
  * Helper: Write state file to disk
  */
-const writeStateFile = (state: TDDState): Effect.Effect<void, Error> =>
+const writeStateFile = (state: TDDState): Effect.Effect<void, StateFileWriteError> =>
   Effect.tryPromise({
     try: async () => {
       const updatedState: TDDState = {
@@ -112,7 +157,7 @@ const writeStateFile = (state: TDDState): Effect.Effect<void, Error> =>
       }
       await Bun.write(STATE_FILE_PATH, JSON.stringify(updatedState, null, 2))
     },
-    catch: (error) => new Error(`Failed to write state file: ${String(error)}`),
+    catch: (error) => new StateFileWriteError({ path: STATE_FILE_PATH, cause: error }),
   })
 
 /**
@@ -124,10 +169,10 @@ const writeStateFile = (state: TDDState): Effect.Effect<void, Error> =>
 const updateStateWithRetry = (
   newState: TDDState,
   retriesLeft: number = MAX_RETRIES
-): Effect.Effect<void, Error> =>
+): Effect.Effect<void, CommandExecutionError | StateFileWriteError | MaxRetriesExceededError | Error> =>
   Effect.gen(function* () {
     if (retriesLeft <= 0) {
-      return yield* Effect.fail(new Error('Failed to update state after maximum retries'))
+      return yield* new MaxRetriesExceededError({ maxRetries: MAX_RETRIES })
     }
 
     return yield* Effect.gen(function* () {
@@ -173,7 +218,12 @@ const updateStateWithRetry = (
  * Helper: Transform state atomically
  * Note: Uses direct file operations to avoid circular dependency with StateManager
  */
-const updateState = (fn: (state: TDDState) => TDDState): Effect.Effect<void, Error> =>
+const updateState = (
+  fn: (state: TDDState) => TDDState
+): Effect.Effect<
+  void,
+  StateFileReadError | CommandExecutionError | StateFileWriteError | MaxRetriesExceededError | Error
+> =>
   Effect.gen(function* () {
     const currentState = yield* readStateFile()
     const newState = fn(currentState)
@@ -198,7 +248,7 @@ export const StateManagerLive = Layer.succeed(StateManager, {
         const spec = sourceQueue.find((s) => s.specId === specId)
 
         if (!spec) {
-          throw new Error(`Spec ${specId} not found in ${from} queue`)
+          throw new SpecNotFoundInQueueError({ specId, queueName: from })
         }
 
         // Remove from source queue
@@ -309,7 +359,7 @@ export const StateManagerLive = Layer.succeed(StateManager, {
         const spec = state.queue.active.find((s) => s.specId === specId)
 
         if (!spec) {
-          throw new Error(`Spec ${specId} not found in active queue`)
+          throw new SpecNotFoundInQueueError({ specId, queueName: 'active' })
         }
 
         // Update spec with error and increment attempts
@@ -356,7 +406,7 @@ export const StateManagerLive = Layer.succeed(StateManager, {
         const spec = state.queue.active.find((s) => s.specId === specId)
 
         if (!spec) {
-          throw new Error(`Spec ${specId} not found in active queue`)
+          throw new SpecNotFoundInQueueError({ specId, queueName: 'active' })
         }
 
         // Update spec with failure details
@@ -407,7 +457,7 @@ export const StateManagerLive = Layer.succeed(StateManager, {
         const spec = state.queue.failed.find((s) => s.specId === specId)
 
         if (!spec) {
-          throw new Error(`Spec ${specId} not found in failed queue`)
+          throw new SpecNotFoundInQueueError({ specId, queueName: 'failed' })
         }
 
         // Reset spec
@@ -443,5 +493,87 @@ export const StateManagerLive = Layer.succeed(StateManager, {
           },
         }
       })
+    }),
+
+  lockAndActivateSpecs: (specs) =>
+    Effect.gen(function* () {
+      if (specs.length === 0) {
+        return
+      }
+
+      yield* Effect.log(
+        `🔒 Locking and activating ${specs.length} spec(s) in single atomic operation...`
+      )
+
+      yield* updateState((state) => {
+        // Collect all file paths and spec IDs to lock
+        const filePaths = specs.map((s) => s.filePath)
+        const specIds = specs.map((s) => s.specId)
+
+        // Add files to activeFiles (idempotent - don't add duplicates)
+        const newActiveFiles = [...state.activeFiles]
+        for (const filePath of filePaths) {
+          if (!newActiveFiles.includes(filePath)) {
+            newActiveFiles.push(filePath)
+          }
+        }
+
+        // Add specs to activeSpecs (idempotent - don't add duplicates)
+        const newActiveSpecs = [...state.activeSpecs]
+        for (const specId of specIds) {
+          if (!newActiveSpecs.includes(specId)) {
+            newActiveSpecs.push(specId)
+          }
+        }
+
+        // Transition all specs from pending to active
+        let newPendingQueue = [...state.queue.pending]
+        let newActiveQueue = [...state.queue.active]
+
+        for (const { specId } of specs) {
+          const spec = newPendingQueue.find((s) => s.specId === specId)
+          if (!spec) {
+            throw new SpecNotFoundInQueueError({ specId, queueName: 'pending' })
+          }
+
+          // Remove from pending
+          newPendingQueue = newPendingQueue.filter((s) => s.specId !== specId)
+
+          // Update spec status and add to active
+          const updatedSpec: SpecQueueItem = {
+            id: spec.id,
+            specId: spec.specId,
+            filePath: spec.filePath,
+            testName: spec.testName,
+            priority: spec.priority,
+            status: 'active',
+            attempts: spec.attempts,
+            errors: spec.errors,
+            queuedAt: spec.queuedAt,
+            prNumber: spec.prNumber,
+            prUrl: spec.prUrl,
+            branch: spec.branch,
+            lastAttempt: spec.lastAttempt,
+            startedAt: new Date().toISOString(),
+            completedAt: spec.completedAt,
+            failureReason: spec.failureReason,
+            requiresAction: spec.requiresAction,
+          }
+          newActiveQueue.push(updatedSpec)
+        }
+
+        return {
+          ...state,
+          activeFiles: newActiveFiles,
+          activeSpecs: newActiveSpecs,
+          queue: {
+            ...state.queue,
+            pending: newPendingQueue,
+            active: newActiveQueue,
+          },
+        }
+      })
+
+      yield* Effect.log(`✅ Successfully locked and activated ${specs.length} spec(s)`)
     }),
 })

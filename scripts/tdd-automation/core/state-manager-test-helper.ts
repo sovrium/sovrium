@@ -5,9 +5,27 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect, Layer, Data } from 'effect'
 import { StateManager } from './state-manager'
 import type { TDDState, SpecQueueItem } from '../types'
+
+/**
+ * Tagged error types for state manager test operations
+ */
+class StateFileReadError extends Data.TaggedError('StateFileReadError')<{
+  readonly path: string
+  readonly cause: unknown
+}> {}
+
+class StateFileWriteError extends Data.TaggedError('StateFileWriteError')<{
+  readonly path: string
+  readonly cause: unknown
+}> {}
+
+class SpecNotFoundInQueueError extends Data.TaggedError('SpecNotFoundInQueueError')<{
+  readonly specId: string
+  readonly queueName: string
+}> {}
 
 /**
  * Create a test-specific StateManager that uses a temporary file
@@ -17,7 +35,7 @@ export function createTestStateManager(testFilePath: string) {
   /**
    * Helper: Read state file from disk
    */
-  const readStateFile = (): Effect.Effect<TDDState, Error> =>
+  const readStateFile = (): Effect.Effect<TDDState, StateFileReadError> =>
     Effect.tryPromise({
       try: async () => {
         const file = Bun.file(testFilePath)
@@ -32,13 +50,13 @@ export function createTestStateManager(testFilePath: string) {
         const content = await file.text()
         return JSON.parse(content) as TDDState
       },
-      catch: (error) => new Error(`Failed to read state file: ${String(error)}`),
+      catch: (error) => new StateFileReadError({ path: testFilePath, cause: error }),
     })
 
   /**
    * Helper: Write state file to disk (without Git operations)
    */
-  const writeStateFile = (state: TDDState): Effect.Effect<void, Error> =>
+  const writeStateFile = (state: TDDState): Effect.Effect<void, StateFileWriteError> =>
     Effect.tryPromise({
       try: async () => {
         const updatedState: TDDState = {
@@ -47,13 +65,15 @@ export function createTestStateManager(testFilePath: string) {
         }
         await Bun.write(testFilePath, JSON.stringify(updatedState, null, 2))
       },
-      catch: (error) => new Error(`Failed to write state file: ${String(error)}`),
+      catch: (error) => new StateFileWriteError({ path: testFilePath, cause: error }),
     })
 
   /**
    * Helper: Transform state (simplified for tests - no Git operations)
    */
-  const updateState = (fn: (state: TDDState) => TDDState): Effect.Effect<void, Error> =>
+  const updateState = (
+    fn: (state: TDDState) => TDDState
+  ): Effect.Effect<void, StateFileReadError | StateFileWriteError> =>
     Effect.gen(function* () {
       const currentState = yield* readStateFile()
       const newState = fn(currentState)
@@ -75,7 +95,7 @@ export function createTestStateManager(testFilePath: string) {
           const spec = sourceQueue.find((s) => s.id === fileId)
 
           if (!spec) {
-            throw new Error(`Spec ${fileId} not found in ${from} queue`)
+            throw new SpecNotFoundInQueueError({ specId: fileId, queueName: from })
           }
 
           // Remove from source queue
@@ -186,7 +206,7 @@ export function createTestStateManager(testFilePath: string) {
           const spec = state.queue.active.find((s) => s.filePath === filePath)
 
           if (!spec) {
-            throw new Error(`Spec ${filePath} not found in active queue`)
+            throw new SpecNotFoundInQueueError({ specId: filePath, queueName: 'active' })
           }
 
           // Update spec with error and increment attempts
@@ -233,7 +253,7 @@ export function createTestStateManager(testFilePath: string) {
           const spec = state.queue.active.find((s) => s.filePath === filePath)
 
           if (!spec) {
-            throw new Error(`Spec ${filePath} not found in active queue`)
+            throw new SpecNotFoundInQueueError({ specId: filePath, queueName: 'active' })
           }
 
           // Update spec with failure details
@@ -284,7 +304,7 @@ export function createTestStateManager(testFilePath: string) {
           const spec = state.queue.failed.find((s) => s.filePath === filePath)
 
           if (!spec) {
-            throw new Error(`Spec ${filePath} not found in failed queue`)
+            throw new SpecNotFoundInQueueError({ specId: filePath, queueName: 'failed' })
           }
 
           // Reset spec
@@ -320,6 +340,88 @@ export function createTestStateManager(testFilePath: string) {
             },
           }
         })
+      }),
+
+    lockAndActivateSpecs: (specs) =>
+      Effect.gen(function* () {
+        if (specs.length === 0) {
+          return
+        }
+
+        yield* Effect.log(
+          `🔒 Locking and activating ${specs.length} spec(s) in single atomic operation...`
+        )
+
+        yield* updateState((state) => {
+          // Collect all file paths and spec IDs to lock
+          const filePaths = specs.map((s) => s.filePath)
+          const specIds = specs.map((s) => s.specId)
+
+          // Add files to activeFiles (idempotent - don't add duplicates)
+          const newActiveFiles = [...state.activeFiles]
+          for (const filePath of filePaths) {
+            if (!newActiveFiles.includes(filePath)) {
+              newActiveFiles.push(filePath)
+            }
+          }
+
+          // Add specs to activeSpecs (idempotent - don't add duplicates)
+          const newActiveSpecs = [...state.activeSpecs]
+          for (const specId of specIds) {
+            if (!newActiveSpecs.includes(specId)) {
+              newActiveSpecs.push(specId)
+            }
+          }
+
+          // Transition all specs from pending to active
+          let newPendingQueue = [...state.queue.pending]
+          let newActiveQueue = [...state.queue.active]
+
+          for (const { specId } of specs) {
+            const spec = newPendingQueue.find((s) => s.specId === specId)
+            if (!spec) {
+              throw new SpecNotFoundInQueueError({ specId, queueName: 'pending' })
+            }
+
+            // Remove from pending
+            newPendingQueue = newPendingQueue.filter((s) => s.specId !== specId)
+
+            // Update spec status and add to active
+            const updatedSpec: SpecQueueItem = {
+              id: spec.id,
+              specId: spec.specId,
+              filePath: spec.filePath,
+              testName: spec.testName,
+              priority: spec.priority,
+              status: 'active',
+              attempts: spec.attempts,
+              errors: spec.errors,
+              queuedAt: spec.queuedAt,
+              prNumber: spec.prNumber,
+              prUrl: spec.prUrl,
+              branch: spec.branch,
+              lastAttempt: spec.lastAttempt,
+              startedAt: new Date().toISOString(),
+              completedAt: spec.completedAt,
+              failureReason: spec.failureReason,
+              requiresAction: spec.requiresAction,
+            }
+            newActiveQueue.push(updatedSpec)
+          }
+
+          return {
+            ...state,
+            activeFiles: newActiveFiles,
+            activeSpecs: newActiveSpecs,
+            queue: {
+              ...state.queue,
+              pending: newPendingQueue,
+              active: newActiveQueue,
+            },
+          }
+        })
+
+        yield* Effect.log(`✅ Successfully locked and activated ${specs.length} spec(s)`)
       }),
   })
 }
