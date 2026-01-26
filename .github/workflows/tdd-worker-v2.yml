@@ -118,18 +118,66 @@ jobs:
 
           exit 0
 
-      - name: Invoke Claude - e2e-test-fixer
+      - name: Create custom prompt for e2e-test-fixer
         if: steps.parse_prevalidation.outputs.all_passed == 'false'
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        id: create_prompt
         run: |
-          echo "🤖 Invoking Claude Code e2e-test-fixer agent..."
+          # Create custom prompt with retry context
+          RETRY_CONTEXT=""
+          if [ "${{ inputs.retry_count }}" -gt "0" ]; then
+            RETRY_CONTEXT="**Retry Attempt**: $((${{ inputs.retry_count }} + 1))/3
 
-          bun run scripts/tdd-automation-v2/services/claude-invoker.ts \
-            --agent e2e-test-fixer \
-            --file "${{ inputs.spec_file }}" \
-            --context '${{ inputs.previous_errors }}' \
-            --retry-count "${{ inputs.retry_count }}"
+          **Previous Errors**:
+          ${{ inputs.previous_errors }}
+          "
+          fi
+
+          # Write prompt to file
+          cat > .claude-prompt.md << 'EOF'
+          You are working on the TDD Workflow V2 automation. Your task is to implement code to make failing E2E tests pass.
+
+          **Spec File**: ${{ inputs.spec_file }}
+          **Test Count**: ${{ inputs.test_count }}
+          ${RETRY_CONTEXT}
+
+          **Instructions**:
+          1. Use the e2e-test-fixer agent to implement the code needed to pass these tests
+          2. Remove .fixme() from all tests in ${{ inputs.spec_file }}
+          3. Implement minimal code to make tests pass (follow TDD best practices)
+          4. Run bun test:e2e to verify your implementation
+          5. Do NOT run quality checks or add license headers (automated in next steps)
+
+          **Critical Requirements**:
+          - Use Effect.ts for business logic in application layer
+          - Follow Sovrium layer-based architecture patterns
+          - Keep implementation minimal (just enough to pass tests)
+          - Ensure all tests in the spec file pass after removing .fixme()
+
+          **Important Notes**:
+          - If src/ files are modified, the codebase-refactor-auditor will run next
+          - Quality checks and license headers are added automatically
+          - Focus only on making tests pass with minimal implementation
+          EOF
+
+          echo "✅ Custom prompt created"
+
+      - name: Run Claude Code (e2e-test-fixer)
+        if: steps.parse_prevalidation.outputs.all_passed == 'false'
+        id: claude_fixer
+        uses: anthropics/claude-code-action@v1
+        timeout-minutes: 60
+        continue-on-error: true
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GH_PAT_WORKFLOW }}
+          additional_permissions: |
+            actions: read
+          prompt_file: .claude-prompt.md
+          claude_args: >-
+            --model claude-sonnet-4-5-20250929
+            --max-budget-usd 50.00
+            --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,Skill,LSP
+            --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
       - name: Check if src/ modified
         if: steps.parse_prevalidation.outputs.all_passed == 'false'
@@ -141,15 +189,54 @@ jobs:
             echo "modified=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Invoke Claude - codebase-refactor-auditor
+      - name: Create custom prompt for codebase-refactor-auditor
         if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.src_check.outputs.modified == 'true'
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        id: create_refactor_prompt
         run: |
-          echo "🔍 Invoking Claude Code codebase-refactor-auditor agent..."
+          cat > .claude-refactor-prompt.md << 'EOF'
+          You are working on the TDD Workflow V2 automation. The e2e-test-fixer agent has implemented code to pass E2E tests for ${{ inputs.spec_file }}.
 
-          bun run scripts/tdd-automation-v2/services/claude-invoker.ts \
-            --agent codebase-refactor-auditor
+          **Your Task**: Audit the implementation and refactor for code quality while maintaining test behavior.
+
+          **Instructions**:
+          1. Use the codebase-refactor-auditor agent to review recent changes in src/
+          2. Eliminate code duplication using DRY principles
+          3. Ensure proper layer-based architecture (domain, application, infrastructure, presentation)
+          4. Verify Effect.ts patterns are followed correctly
+          5. Optimize for readability and maintainability
+
+          **Critical Requirements**:
+          - Do NOT change test behavior (all tests must still pass after refactoring)
+          - Focus on code quality improvements only
+          - Maintain functional programming patterns
+          - Keep changes minimal and focused
+          - Ensure bun run quality --skip-e2e passes after your changes
+
+          **Important Notes**:
+          - Tests are already passing - your job is to improve code quality
+          - Quality checks and license headers will be added automatically next
+          - Run bun test:e2e to verify tests still pass after refactoring
+          EOF
+
+          echo "✅ Refactor prompt created"
+
+      - name: Run Claude Code (codebase-refactor-auditor)
+        if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.src_check.outputs.modified == 'true'
+        id: claude_refactor
+        uses: anthropics/claude-code-action@v1
+        timeout-minutes: 30
+        continue-on-error: true
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GH_PAT_WORKFLOW }}
+          additional_permissions: |
+            actions: read
+          prompt_file: .claude-refactor-prompt.md
+          claude_args: >-
+            --model claude-sonnet-4-5-20250929
+            --max-budget-usd 25.00
+            --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,Skill,LSP
+            --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
       - name: Run quality checks
         if: steps.parse_prevalidation.outputs.all_passed == 'false'
