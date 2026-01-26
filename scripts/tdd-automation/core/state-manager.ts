@@ -167,11 +167,11 @@ const ensureStateBranchExists = async (
   })
 
   if (branchResponse.status === 200) {
-    console.log(`✅ State branch '${STATE_BRANCH}' exists`)
+    console.error(`✅ State branch '${STATE_BRANCH}' exists`)
     return
   }
 
-  console.log(`📌 Creating state branch '${STATE_BRANCH}'...`)
+  console.error(`📌 Creating state branch '${STATE_BRANCH}'...`)
 
   // Get main branch SHA
   const mainUrl = `https://api.github.com/repos/${owner}/${repo}/git/refs/heads/main`
@@ -212,7 +212,7 @@ const ensureStateBranchExists = async (
     throw new Error(`Failed to create state branch: ${errorText}`)
   }
 
-  console.log(`✅ Created state branch '${STATE_BRANCH}'`)
+  console.error(`✅ Created state branch '${STATE_BRANCH}'`)
 }
 
 /**
@@ -232,7 +232,7 @@ const readStateFileFromGitHub = (): Effect.Effect<
 
       const url = `https://api.github.com/repos/${owner}/${repo}/contents/${STATE_FILE_PATH}?ref=${STATE_BRANCH}`
 
-      console.log(`📖 Reading state from branch '${STATE_BRANCH}'`)
+      console.error(`📖 Reading state from branch '${STATE_BRANCH}'`)
 
       const response = await fetch(url, {
         headers: {
@@ -244,7 +244,7 @@ const readStateFileFromGitHub = (): Effect.Effect<
 
       if (response.status === 404) {
         // File doesn't exist yet on state branch, return initial state with empty SHA
-        console.log(`📝 State file not found on '${STATE_BRANCH}', will create new`)
+        console.error(`📝 State file not found on '${STATE_BRANCH}', will create new`)
         const { INITIAL_STATE } = await import('../types')
         return { state: INITIAL_STATE, sha: '' }
       }
@@ -262,7 +262,7 @@ const readStateFileFromGitHub = (): Effect.Effect<
       const content = Buffer.from(data.content, 'base64').toString('utf-8')
       const state = JSON.parse(content) as TDDState
 
-      console.log(`✅ Read state from '${STATE_BRANCH}' (sha: ${data.sha.slice(0, 7)})`)
+      console.error(`✅ Read state from '${STATE_BRANCH}' (sha: ${data.sha.slice(0, 7)})`)
       return { state, sha: data.sha }
     },
     catch: (error) => {
@@ -286,8 +286,8 @@ const writeStateFileViaGitHub = (
       const { owner, repo, token } = getRepoInfo()
       const url = `https://api.github.com/repos/${owner}/${repo}/contents/${STATE_FILE_PATH}`
 
-      console.log(`📤 Writing state to branch '${STATE_BRANCH}'`)
-      console.log(`📋 SHA for update: ${sha ? sha.slice(0, 7) : '(new file)'}`)
+      console.error(`📤 Writing state to branch '${STATE_BRANCH}'`)
+      console.error(`📋 SHA for update: ${sha ? sha.slice(0, 7) : '(new file)'}`)
 
       const updatedState: TDDState = {
         ...state,
@@ -318,7 +318,7 @@ const writeStateFileViaGitHub = (
         body: JSON.stringify(body),
       })
 
-      console.log(`📥 GitHub API response status: ${response.status}`)
+      console.error(`📥 GitHub API response status: ${response.status}`)
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -330,7 +330,7 @@ const writeStateFileViaGitHub = (
         })
       }
 
-      console.log('✅ GitHub API PUT request successful')
+      console.error('✅ GitHub API PUT request successful')
     },
     catch: (error) => {
       if (error instanceof GitHubAPIError) {
