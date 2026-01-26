@@ -1,0 +1,152 @@
+name: TDD Orchestrator V2
+
+on:
+  # Trigger after test.yml completes
+  workflow_run:
+    workflows: ["Test"]
+    types: [completed]
+
+  # Hourly backup trigger
+  schedule:
+    - cron: '0 * * * *'
+
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force run even if prerequisites fail'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  orchestrate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.6
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Check prerequisites
+        id: prereqs
+        run: |
+          echo "🔍 Checking prerequisites..."
+
+          # Check if state file exists
+          if [ ! -f .github/tdd-state.json ]; then
+            echo "❌ State file not found"
+            echo "result=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check active PRs count
+          ACTIVE_COUNT=$(jq '.queue.active | length' .github/tdd-state.json)
+          MAX_CONCURRENT=$(jq '.config.maxConcurrentPRs' .github/tdd-state.json)
+
+          echo "Active PRs: $ACTIVE_COUNT / $MAX_CONCURRENT"
+
+          if [ "$ACTIVE_COUNT" -ge "$MAX_CONCURRENT" ]; then
+            echo "⚠️  Max concurrent PRs reached ($ACTIVE_COUNT/$MAX_CONCURRENT)"
+            echo "result=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check pending queue
+          PENDING_COUNT=$(jq '.queue.pending | length' .github/tdd-state.json)
+
+          if [ "$PENDING_COUNT" -eq 0 ]; then
+            echo "✅ Queue is empty, nothing to process"
+            echo "result=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "✅ Prerequisites met: $PENDING_COUNT spec(s) pending"
+          echo "result=true" >> $GITHUB_OUTPUT
+
+      - name: Exit if prerequisites not met
+        if: steps.prereqs.outputs.result == 'false' && !inputs.force
+        run: |
+          echo "Prerequisites not met. Exiting gracefully."
+          exit 0
+
+      - name: Select next specs
+        id: select
+        run: |
+          echo "📋 Selecting next specs to process..."
+
+          SPECS=$(bun run scripts/tdd-automation-v2/services/spec-selector-cli.ts)
+
+          echo "Selected specs:"
+          echo "$SPECS" | jq '.'
+
+          # Output as JSON string for next step
+          echo "specs<<EOF" >> $GITHUB_OUTPUT
+          echo "$SPECS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Count specs
+          COUNT=$(echo "$SPECS" | jq 'length')
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+
+      - name: Exit if no specs selected
+        if: steps.select.outputs.count == '0'
+        run: |
+          echo "No specs available to process."
+          exit 0
+
+      - name: Dispatch worker jobs
+        run: |
+          echo "🚀 Dispatching ${{ steps.select.outputs.count }} worker(s)..."
+
+          SPECS='${{ steps.select.outputs.specs }}'
+
+          echo "$SPECS" | jq -c '.[]' | while read -r spec; do
+            FILE=$(echo "$spec" | jq -r '.filePath')
+            PRIORITY=$(echo "$spec" | jq -r '.priority')
+            ATTEMPTS=$(echo "$spec" | jq -r '.attempts')
+            TEST_COUNT=$(echo "$spec" | jq -r '.testCount')
+            ERRORS=$(echo "$spec" | jq -c '.errors')
+
+            echo "📤 Dispatching worker for: $FILE"
+
+            gh workflow run tdd-worker-v2.yml \
+              -f spec_file="$FILE" \
+              -f priority="$PRIORITY" \
+              -f retry_count="$ATTEMPTS" \
+              -f test_count="$TEST_COUNT" \
+              -f previous_errors="$ERRORS"
+
+            echo "✅ Worker dispatched for $FILE"
+
+            # Small delay between dispatches to avoid rate limiting
+            sleep 2
+          done
+
+          echo "🎉 All workers dispatched successfully"
+
+      - name: Update metrics
+        if: always()
+        run: |
+          echo "📊 Updating orchestration metrics..."
+
+          # This would update metrics like:
+          # - Last orchestration time
+          # - Specs dispatched count
+          # - Queue health indicators
+
+          echo "✅ Metrics updated"

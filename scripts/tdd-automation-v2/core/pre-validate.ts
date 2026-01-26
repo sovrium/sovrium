@@ -1,0 +1,106 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Effect, Console } from 'effect'
+import { Command, Args } from '@effect/cli'
+import { $ } from 'bun'
+
+interface ValidationResult {
+  passed: number
+  failed: number
+}
+
+const PreValidateCommand = Command.make(
+  'pre-validate',
+  {
+    file: Args.text({ name: 'file' }),
+    output: Args.text({ name: 'output' }),
+  },
+  ({ file, output }) =>
+    Effect.gen(function* () {
+      yield* Console.log(`🔍 Pre-validating spec file: ${file}`)
+
+      // Remove .fixme() from all tests in the file
+      const content = yield* Effect.tryPromise({
+        try: () => Bun.file(file).text(),
+        catch: (error) => new Error(`Failed to read file: ${error}`),
+      })
+
+      const cleanedContent = content.replace(/\.fixme\(\)/g, '')
+
+      yield* Effect.tryPromise({
+        try: () => Bun.write(file, cleanedContent),
+        catch: (error) => new Error(`Failed to write file: ${error}`),
+      })
+
+      yield* Console.log(`✅ Removed .fixme() from ${file}`)
+
+      // Run tests for this file
+      yield* Console.log(`🧪 Running tests for ${file}`)
+
+      const testResult = yield* Effect.tryPromise({
+        try: async () => {
+          const proc = await $`bun test ${file} --reporter=json`.nothrow().quiet()
+          return {
+            exitCode: proc.exitCode,
+            stdout: proc.stdout.toString(),
+            stderr: proc.stderr.toString(),
+          }
+        },
+        catch: (error) => new Error(`Failed to run tests: ${error}`),
+      })
+
+      // Parse test results
+      let passed = 0
+      let failed = 0
+
+      try {
+        const lines = testResult.stdout.split('\n').filter((line) => line.trim())
+        for (const line of lines) {
+          try {
+            const result = JSON.parse(line)
+            if (result.kind === 'test-result') {
+              if (result.status === 'pass') {
+                passed++
+              } else if (result.status === 'fail') {
+                failed++
+              }
+            }
+          } catch {
+            // Ignore lines that aren't JSON
+          }
+        }
+      } catch (error) {
+        yield* Console.error(`Failed to parse test results: ${error}`)
+      }
+
+      const validationResult: ValidationResult = { passed, failed }
+
+      yield* Console.log(`📊 Pre-validation results: ${passed} passed, ${failed} failed`)
+
+      // Write results to output file
+      yield* Effect.tryPromise({
+        try: () => Bun.write(output, JSON.stringify(validationResult, null, 2)),
+        catch: (error) => new Error(`Failed to write output file: ${error}`),
+      })
+
+      yield* Console.log(`✅ Results written to ${output}`)
+
+      if (failed === 0) {
+        yield* Console.log(`🎉 All tests pass without implementation!`)
+      } else {
+        yield* Console.log(`❌ ${failed} test(s) still failing, implementation needed`)
+      }
+    })
+)
+
+const program = PreValidateCommand
+
+Effect.runPromise(program).catch((error) => {
+  console.error('Pre-validation failed:', error)
+  process.exit(1)
+})

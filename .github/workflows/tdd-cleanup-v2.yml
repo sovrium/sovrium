@@ -1,0 +1,203 @@
+name: TDD Cleanup V2
+
+on:
+  # Run every 6 hours to clean up stale locks
+  schedule:
+    - cron: '0 */6 * * *'
+
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force cleanup even if locks are recent'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.6
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Check for stale locks
+        id: stale
+        run: |
+          echo "🔍 Checking for stale file locks..."
+
+          # Check if state file exists
+          if [ ! -f .github/tdd-state.json ]; then
+            echo "❌ State file not found"
+            echo "has_stale=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Get active files
+          ACTIVE_FILES=$(jq -r '.activeFiles[]' .github/tdd-state.json)
+
+          if [ -z "$ACTIVE_FILES" ]; then
+            echo "✅ No active file locks"
+            echo "has_stale=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "📋 Active files:"
+          echo "$ACTIVE_FILES"
+
+          # Get queue state to check timestamps
+          QUEUE_JSON=$(jq '.queue' .github/tdd-state.json)
+
+          # Track stale files
+          STALE_FILES=()
+          CURRENT_TIME=$(date +%s)
+          STALE_THRESHOLD=$((30 * 60)) # 30 minutes in seconds
+
+          # Check each active file
+          while IFS= read -r file; do
+            # Find the file in active queue
+            STARTED_AT=$(echo "$QUEUE_JSON" | jq -r --arg file "$file" '.active[] | select(.filePath == $file) | .startedAt')
+
+            if [ -z "$STARTED_AT" ] || [ "$STARTED_AT" = "null" ]; then
+              echo "⚠️  File locked but not in active queue: $file"
+              STALE_FILES+=("$file")
+              continue
+            fi
+
+            # Calculate age
+            STARTED_TIMESTAMP=$(date -d "$STARTED_AT" +%s)
+            AGE=$((CURRENT_TIME - STARTED_TIMESTAMP))
+
+            echo "  - $file: ${AGE}s old (started: $STARTED_AT)"
+
+            # Check if stale (> 30 minutes)
+            if [ $AGE -gt $STALE_THRESHOLD ] || [ "${{ inputs.force }}" = "true" ]; then
+              echo "    🔴 STALE (threshold: ${STALE_THRESHOLD}s)"
+              STALE_FILES+=("$file")
+            else
+              echo "    ✅ OK"
+            fi
+          done <<< "$ACTIVE_FILES"
+
+          # Output stale files
+          if [ ${#STALE_FILES[@]} -gt 0 ]; then
+            echo "has_stale=true" >> $GITHUB_OUTPUT
+            printf '%s\n' "${STALE_FILES[@]}" > /tmp/stale-files.txt
+            echo "🚨 Found ${#STALE_FILES[@]} stale lock(s)"
+          else
+            echo "has_stale=false" >> $GITHUB_OUTPUT
+            echo "✅ No stale locks found"
+          fi
+
+      - name: Remove stale locks
+        if: steps.stale.outputs.has_stale == 'true'
+        run: |
+          echo "🧹 Removing stale locks..."
+
+          # Read stale files
+          while IFS= read -r file; do
+            echo "  - Unlocking: $file"
+
+            # Use unlock-file service
+            bun run scripts/tdd-automation-v2/core/unlock-file.ts unlock-file --file "$file"
+
+            # Check if there's an active PR for this file
+            PR_NUMBER=$(jq -r --arg file "$file" '.queue.active[] | select(.filePath == $file) | .prNumber' .github/tdd-state.json)
+
+            if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
+              echo "    - Found PR #$PR_NUMBER"
+
+              # Add comment explaining cleanup
+              gh pr comment "$PR_NUMBER" --body "🧹 **Cleanup**: This PR was locked for more than 30 minutes, indicating a possible workflow failure. The file lock has been released to allow retry.
+
+If this PR is still being processed, please check the workflow logs for errors."
+
+              # Close PR if it's still open and checks have failed
+              PR_STATE=$(gh pr view "$PR_NUMBER" --json state -q .state)
+              if [ "$PR_STATE" = "OPEN" ]; then
+                CHECKS=$(gh pr view "$PR_NUMBER" --json statusCheckRollup -q '.statusCheckRollup[] | select(.conclusion == "FAILURE" or .conclusion == "CANCELLED") | .name' | wc -l)
+
+                if [ "$CHECKS" -gt 0 ]; then
+                  echo "    - Closing PR (failed checks)"
+                  gh pr close "$PR_NUMBER" --comment "Closed due to stale lock and failed checks. Please retry."
+                fi
+              fi
+            fi
+          done < /tmp/stale-files.txt
+
+          echo "✅ Stale locks removed"
+
+      - name: Check for abandoned specs
+        run: |
+          echo "🔍 Checking for abandoned specs in active queue..."
+
+          # Get specs in active queue without PR numbers
+          ABANDONED=$(jq -r '.queue.active[] | select(.prNumber == null or .prNumber == 0) | .filePath' .github/tdd-state.json)
+
+          if [ -z "$ABANDONED" ]; then
+            echo "✅ No abandoned specs"
+            exit 0
+          fi
+
+          echo "⚠️  Found abandoned specs (active but no PR):"
+          echo "$ABANDONED"
+
+          # Move back to pending queue
+          while IFS= read -r file; do
+            echo "  - Moving to pending: $file"
+
+            # Use state manager to transition
+            # This would ideally be a CLI command, but we can do it manually:
+            STATE=$(cat .github/tdd-state.json)
+            UPDATED=$(echo "$STATE" | jq --arg file "$file" '
+              .queue.pending += [.queue.active[] | select(.filePath == $file) | .status = "pending" | del(.prNumber, .prUrl, .branch, .startedAt)]
+              | .queue.active = [.queue.active[] | select(.filePath != $file)]
+            ')
+            echo "$UPDATED" > .github/tdd-state.json
+
+            git add .github/tdd-state.json
+            git commit -m "chore(tdd): move abandoned spec to pending: $file [skip ci]"
+            git push origin main
+          done <<< "$ABANDONED"
+
+          echo "✅ Abandoned specs moved to pending"
+
+      - name: Report cleanup summary
+        if: always()
+        run: |
+          echo "📊 Cleanup Summary"
+          echo "=================="
+
+          # Active files count
+          ACTIVE_COUNT=$(jq '.activeFiles | length' .github/tdd-state.json)
+          echo "Active files: $ACTIVE_COUNT"
+
+          # Queue stats
+          PENDING=$(jq '.queue.pending | length' .github/tdd-state.json)
+          ACTIVE=$(jq '.queue.active | length' .github/tdd-state.json)
+          COMPLETED=$(jq '.queue.completed | length' .github/tdd-state.json)
+          FAILED=$(jq '.queue.failed | length' .github/tdd-state.json)
+
+          echo "Queue status:"
+          echo "  - Pending: $PENDING"
+          echo "  - Active: $ACTIVE"
+          echo "  - Completed: $COMPLETED"
+          echo "  - Failed: $FAILED"
+
+          # Manual intervention count
+          MANUAL_COUNT=$(jq '.metrics.manualInterventionCount' .github/tdd-state.json)
+          echo "Manual interventions: $MANUAL_COUNT"
