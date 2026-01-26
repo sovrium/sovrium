@@ -119,7 +119,6 @@ const isCI = (): boolean => {
   return process.env['CI'] === 'true' || process.env['GITHUB_ACTIONS'] === 'true'
 }
 
-
 /**
  * Helper: Sleep for specified milliseconds
  */
@@ -387,7 +386,9 @@ const updateStateWithRetry = (
     }
 
     // CI environment: use GitHub API
-    yield* Effect.log(`📝 Attempting state update via GitHub API (attempt ${MAX_RETRIES - retriesLeft + 1}/${MAX_RETRIES}, sha: ${sha.slice(0, 7) || 'new'})...`)
+    yield* Effect.log(
+      `📝 Attempting state update via GitHub API (attempt ${MAX_RETRIES - retriesLeft + 1}/${MAX_RETRIES}, sha: ${sha.slice(0, 7) || 'new'})...`
+    )
 
     return yield* writeStateFileViaGitHub(newState, sha).pipe(
       Effect.tapBoth({
