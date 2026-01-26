@@ -1,6 +1,6 @@
 {
   "version": "2.0.0",
-  "lastUpdated": "2026-01-26T20:01:38.543Z",
+  "lastUpdated": "2026-01-26T20:01:39.445Z",
   "queue": {
     "pending": [
       {
@@ -2552,7 +2552,9 @@
   "activeFiles": [
     "specs/api/tables/{tableId}/records/{recordId}/comments/{commentId}/delete.spec.ts"
   ],
-  "activeSpecs": [],
+  "activeSpecs": [
+    "API-TABLES-RECORDS-COMMENTS-DELETE-001"
+  ],
   "config": {
     "maxConcurrentPRs": 3,
     "maxRetries": 3,
