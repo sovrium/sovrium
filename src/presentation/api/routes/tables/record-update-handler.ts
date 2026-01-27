@@ -133,7 +133,15 @@ export async function executeUpdate(config: {
       return c.json({ error: 'Record not found' }, 404)
     }
 
-    return c.json(updateResult, 200)
+    // Return the record directly at root level (not wrapped in {record: ...})
+    // Convert id from string to number for API response
+    return c.json(
+      {
+        ...updateResult.record,
+        id: Number(updateResult.record.id),
+      },
+      200
+    )
   } catch (error) {
     return handleUpdateError({ session, tableName, recordId, error, c })
   }

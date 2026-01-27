@@ -114,9 +114,20 @@ export const transformRecord = (
     return { ...acc, [key]: processedValue }
   }, {})
 
+  // If updated_at exists in the record, include it in fields
+  // This handles tables where updated_at is a user-defined field (type='updated-at')
+  const fieldsWithUpdatedAt =
+    updatedAt !== undefined
+      ? {
+          ...transformedFields,
+          updated_at:
+            updatedAt instanceof Date ? updatedAt.toISOString() : (updatedAt as RecordFieldValue),
+        }
+      : transformedFields
+
   return {
     id: String(id),
-    fields: transformedFields,
+    fields: fieldsWithUpdatedAt,
     createdAt: createdAt ? toISOString(createdAt) : new Date().toISOString(),
     updatedAt: updatedAt ? toISOString(updatedAt) : new Date().toISOString(),
   }
