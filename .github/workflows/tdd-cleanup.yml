@@ -35,21 +35,53 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Fetch state from tdd-state branch
+        id: fetch_state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "📖 Fetching state from tdd-state branch..."
+
+          STATE_BRANCH="tdd-state"
+          STATE_URL="https://api.github.com/repos/${{ github.repository }}/contents/.github/tdd-state.json?ref=${STATE_BRANCH}"
+
+          STATE_RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "$STATE_URL")
+
+          HTTP_CODE=$(echo "$STATE_RESPONSE" | tail -n1)
+          RESPONSE_BODY=$(echo "$STATE_RESPONSE" | sed '$d')
+
+          if [ "$HTTP_CODE" = "404" ]; then
+            echo "❌ State file not found on branch '${STATE_BRANCH}'"
+            echo "state_found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Failed to fetch state file (HTTP $HTTP_CODE)"
+            echo "$RESPONSE_BODY"
+            echo "state_found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Decode base64 content and save to temp file
+          echo "$RESPONSE_BODY" | jq -r '.content' | base64 -d > /tmp/tdd-state.json
+          echo "state_found=true" >> "$GITHUB_OUTPUT"
+          echo "✅ State file fetched successfully"
+
       - name: Check for stale locks
+        if: steps.fetch_state.outputs.state_found == 'true'
         id: stale
         shell: bash
         run: |
           echo "🔍 Checking for stale file locks..."
 
-          # Check if state file exists
-          if [ ! -f .github/tdd-state.json ]; then
-            echo "❌ State file not found"
-            echo "has_stale=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+          STATE_FILE="/tmp/tdd-state.json"
 
           # Get active files (handle empty array and errors)
-          ACTIVE_FILES=$(jq -r '.activeFiles[]?' .github/tdd-state.json 2>/dev/null || echo "")
+          ACTIVE_FILES=$(jq -r '.activeFiles[]?' "$STATE_FILE" 2>/dev/null || echo "")
 
           if [ -z "$ACTIVE_FILES" ]; then
             echo "✅ No active file locks"
@@ -61,7 +93,7 @@ jobs:
           echo "$ACTIVE_FILES"
 
           # Get queue state to check timestamps
-          QUEUE_JSON=$(jq '.queue // {}' .github/tdd-state.json 2>/dev/null || echo "{}")
+          QUEUE_JSON=$(jq '.queue // {}' "$STATE_FILE" 2>/dev/null || echo "{}")
 
           # Track stale files
           STALE_FILES=()
@@ -117,36 +149,51 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           echo "🧹 Removing stale locks..."
+
+          STATE_FILE="/tmp/tdd-state.json"
 
           # Read stale files
           while IFS= read -r file; do
             echo "  - Unlocking: $file"
 
             # Use unlock-file service
-            bun run scripts/tdd-automation/core/unlock-file.ts unlock-file --file "$file"
+            bun run scripts/tdd-automation/core/unlock-file.ts --file "$file" || true
 
             # Check if there's an active PR for this file
-            PR_NUMBER=$(jq -r --arg file "$file" '.queue.active[] | select(.filePath == $file) | .prNumber' .github/tdd-state.json)
+            PR_NUMBER=$(jq -r --arg file "$file" '.queue.active[] | select(.filePath == $file) | .prNumber' "$STATE_FILE" 2>/dev/null || echo "")
+            BRANCH_NAME=$(jq -r --arg file "$file" '.queue.active[] | select(.filePath == $file) | .branch' "$STATE_FILE" 2>/dev/null || echo "")
 
-            if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
+            if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ] && [ "$PR_NUMBER" != "" ]; then
               echo "    - Found PR #$PR_NUMBER"
 
-              # Add comment explaining cleanup
-              COMMENT_BODY="🧹 **Cleanup**: This PR was locked for more than 30 minutes, indicating a possible workflow failure. The file lock has been released to allow retry.
+              # Check PR state
+              PR_STATE=$(gh pr view "$PR_NUMBER" --json state -q .state 2>/dev/null || echo "UNKNOWN")
 
-          If this PR is still being processed, please check the workflow logs for errors."
-              gh pr comment "$PR_NUMBER" --body "$COMMENT_BODY"
-
-              # Close PR if it's still open and checks have failed
-              PR_STATE=$(gh pr view "$PR_NUMBER" --json state -q .state)
               if [ "$PR_STATE" = "OPEN" ]; then
-                CHECKS=$(gh pr view "$PR_NUMBER" --json statusCheckRollup -q '.statusCheckRollup[] | select(.conclusion == "FAILURE" or .conclusion == "CANCELLED") | .name' | wc -l)
+                # Check for failed checks
+                CHECKS=$(gh pr view "$PR_NUMBER" --json statusCheckRollup -q '.statusCheckRollup[] | select(.conclusion == "FAILURE" or .conclusion == "CANCELLED") | .name' 2>/dev/null | wc -l || echo "0")
 
                 if [ "$CHECKS" -gt 0 ]; then
-                  echo "    - Closing PR (failed checks)"
-                  gh pr close "$PR_NUMBER" --comment "Closed due to stale lock and failed checks. Please retry."
+                  echo "    - Closing PR (failed checks detected)"
+
+                  gh pr close "$PR_NUMBER" --comment "Cleanup: PR locked for 30+ minutes with failed checks. File lock released for retry. Closed by TDD Cleanup Workflow." --delete-branch 2>/dev/null || {
+                    echo "    - Failed to close PR, attempting to delete branch directly..."
+                    if [ -n "$BRANCH_NAME" ] && [ "$BRANCH_NAME" != "null" ]; then
+                      gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/${BRANCH_NAME}" 2>/dev/null || true
+                    fi
+                  }
+                else
+                  # No failed checks, just add a comment
+                  gh pr comment "$PR_NUMBER" --body "Cleanup Notice: PR locked for 30+ minutes. File lock released. Check workflow logs if still processing." 2>/dev/null || true
+                fi
+              else
+                echo "    - PR is not open (state: ${PR_STATE})"
+                # Still try to delete the branch if it exists
+                if [ -n "$BRANCH_NAME" ] && [ "$BRANCH_NAME" != "null" ]; then
+                  gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/${BRANCH_NAME}" 2>/dev/null || true
                 fi
               fi
             fi
@@ -155,20 +202,18 @@ jobs:
           echo "✅ Stale locks removed"
 
       - name: Check for abandoned specs
+        if: steps.fetch_state.outputs.state_found == 'true'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           echo "🔍 Checking for abandoned specs in active queue..."
 
-          # Check if state file exists
-          if [ ! -f .github/tdd-state.json ]; then
-            echo "❌ State file not found"
-            exit 0
-          fi
+          STATE_FILE="/tmp/tdd-state.json"
 
           # Get specs in active queue without PR numbers
-          ABANDONED=$(jq -r '.queue.active[] | select(.prNumber == null or .prNumber == 0) | .filePath' .github/tdd-state.json 2>/dev/null || echo "")
+          ABANDONED=$(jq -r '.queue.active[] | select(.prNumber == null or .prNumber == 0) | .specId' "$STATE_FILE" 2>/dev/null || echo "")
 
           if [ -z "$ABANDONED" ]; then
             echo "✅ No abandoned specs"
@@ -178,29 +223,14 @@ jobs:
           echo "⚠️  Found abandoned specs (active but no PR):"
           echo "$ABANDONED"
 
-          # Configure git for commits
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Move back to pending queue
-          while IFS= read -r file; do
-            echo "  - Moving to pending: $file"
-
-            # Use state manager to transition
-            # This would ideally be a CLI command, but we can do it manually:
-            STATE=$(cat .github/tdd-state.json)
-            UPDATED=$(echo "$STATE" | jq --arg file "$file" '
-              .queue.pending += [.queue.active[] | select(.filePath == $file) | .status = "pending" | del(.prNumber, .prUrl, .branch, .startedAt)]
-              | .queue.active = [.queue.active[] | select(.filePath != $file)]
-            ')
-            echo "$UPDATED" > .github/tdd-state.json
-
-            git add .github/tdd-state.json
-            git commit -m "chore(tdd): move abandoned spec to pending: $file [skip ci]"
-            git push origin main
+          # Use unlock-spec to release the locks - this also moves them back to pending
+          while IFS= read -r spec_id; do
+            [ -z "$spec_id" ] && continue
+            echo "  - Unlocking abandoned spec: $spec_id"
+            bun run scripts/tdd-automation/core/unlock-spec.ts --spec-id "$spec_id" || true
           done <<< "$ABANDONED"
 
-          echo "✅ Abandoned specs moved to pending"
+          echo "✅ Abandoned specs cleaned up"
 
       - name: Report cleanup summary
         if: always()
@@ -209,21 +239,27 @@ jobs:
           echo "📊 Cleanup Summary"
           echo "=================="
 
-          # Check if state file exists
-          if [ ! -f .github/tdd-state.json ]; then
-            echo "❌ State file not found - cannot generate summary"
+          STATE_FILE="/tmp/tdd-state.json"
+
+          # Check if state file was fetched
+          if [ ! -f "$STATE_FILE" ]; then
+            echo "ℹ️  State file not available - cannot generate summary"
             exit 0
           fi
 
           # Active files count
-          ACTIVE_COUNT=$(jq '.activeFiles | length' .github/tdd-state.json 2>/dev/null || echo "0")
+          ACTIVE_COUNT=$(jq '.activeFiles | length' "$STATE_FILE" 2>/dev/null || echo "0")
           echo "Active files: $ACTIVE_COUNT"
 
+          # Active specs count
+          ACTIVE_SPECS=$(jq '.activeSpecs | length' "$STATE_FILE" 2>/dev/null || echo "0")
+          echo "Active specs: $ACTIVE_SPECS"
+
           # Queue stats
-          PENDING=$(jq '.queue.pending | length' .github/tdd-state.json 2>/dev/null || echo "0")
-          ACTIVE=$(jq '.queue.active | length' .github/tdd-state.json 2>/dev/null || echo "0")
-          COMPLETED=$(jq '.queue.completed | length' .github/tdd-state.json 2>/dev/null || echo "0")
-          FAILED=$(jq '.queue.failed | length' .github/tdd-state.json 2>/dev/null || echo "0")
+          PENDING=$(jq '.queue.pending | length' "$STATE_FILE" 2>/dev/null || echo "0")
+          ACTIVE=$(jq '.queue.active | length' "$STATE_FILE" 2>/dev/null || echo "0")
+          COMPLETED=$(jq '.queue.completed | length' "$STATE_FILE" 2>/dev/null || echo "0")
+          FAILED=$(jq '.queue.failed | length' "$STATE_FILE" 2>/dev/null || echo "0")
 
           echo "Queue status:"
           echo "  - Pending: $PENDING"
@@ -232,5 +268,9 @@ jobs:
           echo "  - Failed: $FAILED"
 
           # Manual intervention count
-          MANUAL_COUNT=$(jq '.metrics.manualInterventionCount' .github/tdd-state.json 2>/dev/null || echo "0")
+          MANUAL_COUNT=$(jq '.metrics.manualInterventionCount // 0' "$STATE_FILE" 2>/dev/null || echo "0")
           echo "Manual interventions: $MANUAL_COUNT"
+
+          # Last updated
+          LAST_UPDATED=$(jq -r '.lastUpdated // "unknown"' "$STATE_FILE" 2>/dev/null || echo "unknown")
+          echo "Last updated: $LAST_UPDATED"

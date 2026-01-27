@@ -244,6 +244,55 @@ export function createTestStateManager(testFilePath: string) {
         })
       }),
 
+    requeueWithoutPenalty: (specId, error) =>
+      Effect.gen(function* () {
+        yield* Effect.log(
+          `Re-queuing ${specId} without penalty (infrastructure failure): ${error.type}`
+        )
+
+        yield* updateState((state) => {
+          // Find spec in active queue by specId
+          const spec = state.queue.active.find((s) => s.specId === specId)
+
+          if (!spec) {
+            throw new SpecNotFoundInQueueError({ specId, queueName: 'active' })
+          }
+
+          // Update spec with error but DO NOT increment attempts (no penalty for infra failures)
+          const updatedSpec: SpecQueueItem = {
+            id: spec.id,
+            specId: spec.specId,
+            filePath: spec.filePath,
+            testName: spec.testName,
+            priority: spec.priority,
+            status: 'pending',
+            attempts: spec.attempts, // NO INCREMENT for infrastructure failures
+            errors: [...spec.errors, error],
+            queuedAt: spec.queuedAt,
+            prNumber: spec.prNumber,
+            prUrl: spec.prUrl,
+            branch: spec.branch,
+            lastAttempt: new Date().toISOString(),
+            startedAt: spec.startedAt,
+            completedAt: spec.completedAt,
+            failureReason: spec.failureReason,
+            requiresAction: spec.requiresAction,
+          }
+
+          // Remove from active, add to pending
+          const newActive = state.queue.active.filter((s) => s.specId !== specId)
+
+          return {
+            ...state,
+            queue: {
+              ...state.queue,
+              active: newActive,
+              pending: [...state.queue.pending, updatedSpec],
+            },
+          }
+        })
+      }),
+
     moveToManualIntervention: (filePath, details) =>
       Effect.gen(function* () {
         yield* Effect.log(`Moving ${filePath} to manual intervention: ${details.failureReason}`)

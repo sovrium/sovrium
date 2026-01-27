@@ -66,6 +66,15 @@ export class StateManager extends Context.Tag('StateManager')<
       specId: string,
       error: SpecError
     ) => Effect.Effect<void, Error>
+    /**
+     * Re-queue spec without incrementing the attempt counter.
+     * Used for infrastructure failures which are NOT code issues and should not
+     * count against the 3-strike retry limit.
+     */
+    readonly requeueWithoutPenalty: (
+      specId: string,
+      error: SpecError
+    ) => Effect.Effect<void, Error>
     readonly moveToManualIntervention: (
       specId: string,
       details: {
@@ -610,6 +619,56 @@ export const StateManagerLive = Layer.succeed(StateManager, {
           priority: spec.priority,
           status: 'pending',
           attempts: spec.attempts + 1,
+          errors: [...spec.errors, error],
+          queuedAt: spec.queuedAt,
+          prNumber: spec.prNumber,
+          prUrl: spec.prUrl,
+          branch: spec.branch,
+          lastAttempt: new Date().toISOString(),
+          startedAt: spec.startedAt,
+          completedAt: spec.completedAt,
+          failureReason: spec.failureReason,
+          requiresAction: spec.requiresAction,
+        }
+
+        // Remove from active, add to pending
+        const newActive = state.queue.active.filter((s) => s.specId !== specId)
+
+        return {
+          ...state,
+          queue: {
+            ...state.queue,
+            active: newActive,
+            pending: [...state.queue.pending, updatedSpec],
+          },
+        }
+      })
+    }),
+
+  requeueWithoutPenalty: (specId, error) =>
+    Effect.gen(function* () {
+      yield* Effect.log(
+        `Re-queuing ${specId} without penalty (infrastructure failure): ${error.type}`
+      )
+
+      yield* updateState((state) => {
+        // Find spec in active queue
+        const spec = state.queue.active.find((s) => s.specId === specId)
+
+        if (!spec) {
+          throw new SpecNotFoundInQueueError({ specId, queueName: 'active' })
+        }
+
+        // Update spec with error but DO NOT increment attempts
+        // Infrastructure failures should not count against the 3-strike limit
+        const updatedSpec: SpecQueueItem = {
+          id: spec.id,
+          specId: spec.specId,
+          filePath: spec.filePath,
+          testName: spec.testName,
+          priority: spec.priority,
+          status: 'pending',
+          attempts: spec.attempts, // NO INCREMENT for infrastructure failures
           errors: [...spec.errors, error],
           queuedAt: spec.queuedAt,
           prNumber: spec.prNumber,
