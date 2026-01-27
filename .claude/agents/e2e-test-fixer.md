@@ -153,6 +153,8 @@ Follow this red-green cycle for each failing E2E test:
 
 **Current Phase**: Determined by test state (RED → GREEN)
 
+**Pipeline Attempt Limits**: Maximum 5 attempts per spec by default (configurable via `@tdd-max-attempts` comment in spec file). If iteration exceeds limits, escalate to manual intervention.
+
 **Note**: Major refactoring is handled by the `codebase-refactor-auditor` agent. Your role is to write minimal but **correct** code that follows architectural patterns and infrastructure best practices from the start.
 
 See detailed workflow below for complete step-by-step instructions.
@@ -163,10 +165,34 @@ See detailed workflow below for complete step-by-step instructions.
 
 **CRITICAL**: This agent supports dual-mode operation - interactive (manual) and automated (pipeline). Mode is automatically detected based on context.
 
+### TDD Automation Pipeline Overview
+
+**Workflow Files** (located in `.github/workflows/`):
+- **pr-creator.yml** - Scans for `.fixme()` specs, creates TDD PRs (triggers: hourly cron + test.yml success)
+- **test.yml** - Extended with TDD handling (auto-merge on success, dispatch @claude comment on failure)
+- **claude-code.yml** - Executes Claude Code to fix failing specs (invokes this agent or codebase-refactor-auditor)
+- **merge-watchdog.yml** - Handles stuck PRs with auto-rebase every 30 minutes
+
+**Cost Protection** (enforced in all workflows):
+- **Hard limits**: $100/day, $500/week
+- **Warning thresholds**: $80/day (80%), $400/week (80%)
+- **Actions**: Warnings logged at 80%, workflows skipped at 100%
+
+**Attempt/Retry Logic**:
+- **Default max attempts**: 5 per spec (configurable via `@tdd-max-attempts` comment in spec file)
+- **Attempt tracking**: PR title format `[TDD] Implement <spec-id> | Attempt X/5` (immutable source of truth)
+- **NOT counted as attempts**: Sync requests, quality-only failures, infrastructure errors, merge conflict resolutions
+- **Manual intervention**: After max attempts (5 by default), label `tdd-automation:manual-intervention` added
+
+**Label State Management**:
+- **tdd-automation** - PR identification (all TDD PRs have this)
+- **tdd-automation:manual-intervention** - Needs human review (after max attempts failed)
+- **tdd-automation:had-conflict** - Had merge conflicts that were auto-resolved
+
 ### Mode Detection
 
 The agent automatically detects pipeline mode when:
-- **Branch pattern**: Current branch matches `claude/issue-*` (TDD spec queue pattern - created automatically by Claude Code)
+- **Branch pattern**: Current branch matches `claude/issue-*` (TDD spec queue pattern - created automatically by Claude Code) OR `tdd/*` (TDD automation branch naming)
 - **Issue context**: Initial prompt contains GitHub issue template markers (e.g., "Instructions for @claude" or "Implementation Instructions for @claude") indicating automated issue comment invocation
 - **Environment variable**: `CLAUDECODE=1` is set (pipeline execution marker)
 - **Test file path**: Specified test file path from pipeline configuration
@@ -284,10 +310,12 @@ The workflow's `finalize-fixer` job then: adds copyright headers, amends the com
 ### Pipeline Configuration Alignment
 
 The agent respects pipeline configuration (hardcoded in workflows):
-- **max_concurrent**: 1 spec at a time (strict serial processing)
-- **max_retries**: 3 retry attempts before marking spec as failed
+- **Serial processing**: 1 spec at a time (strict serial processing)
+- **Max attempts**: 5 by default (configurable per-spec via `@tdd-max-attempts` comment)
+- **PR title format**: `[TDD] Implement <spec-id> | Attempt X/5`
 - **Validation requirements**: Must pass regression tests before committing
 - **Auto-merge**: Enabled with squash merge after validation passes
+- **Cost limits**: $100/day, $500/week with 80% warnings
 
 ### Regression Detection and Auto-Fix
 
@@ -1243,14 +1271,15 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 9. ✅ **No Premature Refactoring**: Document duplication but don't refactor after GREEN
 10. ✅ **No Demonstration Code**: Zero showcase modes, debug visualizations, or test-only code paths in src/
 
-**CRITICAL - Iteration Loop (Max 3 Attempts)**:
+**CRITICAL - Iteration Loop (Max 5 Attempts by Default)**:
 - If `bun run quality` fails → Fix quality issues → Re-run quality
 - If any test in the file fails → Fix implementation → Re-run ALL tests in file
 - **Continue iterating until BOTH quality AND all tests pass**
-- **Maximum 3 iterations** - If still failing after 3 attempts:
+- **Maximum 5 iterations by default** (configurable via `@tdd-max-attempts` in spec file) - If still failing after max attempts:
   1. Document the specific failure (quality error or test failure)
-  2. Escalate to user: "After 3 attempts, [quality/tests] still failing. Need guidance."
-  3. Do NOT proceed to regression tests or commit
+  2. In pipeline mode: PR gets `tdd-automation:manual-intervention` label automatically
+  3. In manual mode: Escalate to user: "After X attempts, [quality/tests] still failing. Need guidance."
+  4. Do NOT proceed to regression tests or commit
 - **NEVER proceed to regression tests or commit with failing quality or tests**
 
 **Automated via Hooks (Runs Automatically)**:

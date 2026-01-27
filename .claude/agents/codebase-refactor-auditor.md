@@ -145,13 +145,35 @@ This agent uses a two-phase strategy to prioritize recent changes over full code
 
 **CRITICAL**: This agent supports dual-mode operation - interactive (manual) and automated (pipeline). Mode is automatically detected based on context.
 
+### TDD Automation Pipeline Overview
+
+**Workflow Files** (located in `.github/workflows/`):
+- **pr-creator.yml** - Scans for `.fixme()` specs, creates TDD PRs (triggers: hourly cron + test.yml success)
+- **test.yml** - Extended with TDD handling (auto-merge on success, dispatch @claude comment on failure)
+- **claude-code.yml** - Executes Claude Code to fix failing specs (invokes e2e-test-fixer or this agent)
+- **merge-watchdog.yml** - Handles stuck PRs with auto-rebase every 30 minutes
+
+**Cost Protection** (enforced in all workflows):
+- **Hard limits**: $100/day, $500/week
+- **Warning thresholds**: $80/day (80%), $400/week (80%)
+- **Actions**: Warnings logged at 80%, workflows skipped at 100%
+
+**Agent Selection Logic** (how this agent gets invoked):
+- **Test failures** (assertions, timeouts, HTTP errors) → e2e-test-fixer
+- **Quality failures** (lint, typecheck) OR handoff after 3+ tests → codebase-refactor-auditor (this agent)
+
+**Label State Management**:
+- **tdd-automation** - PR identification (all TDD PRs have this)
+- **tdd-automation:manual-intervention** - Needs human review (after max attempts failed)
+- **tdd-automation:had-conflict** - Had merge conflicts that were auto-resolved
+
 ### Mode Detection Decision Tree
 
 ```
 START: Detect Operation Mode
 │
 ├─► Check branch name
-│   └─► Branch matches `claude/issue-*`?
+│   └─► Branch matches `claude/issue-*` OR `tdd/*`?
 │       ├─► YES → Pipeline Mode (TDD automation)
 │       └─► NO  → Continue checks
 │
@@ -174,7 +196,7 @@ END: Mode determined
 ```
 
 **Pipeline Mode indicators** (ANY of these triggers pipeline mode):
-- Branch: `claude/issue-*`
+- Branch: `claude/issue-*` OR `tdd/*` (TDD automation branch naming)
 - Prompt: "## 🔄 Triggering Refactoring Phase" or "Implementation Instructions for @claude"
 - Environment: `CLAUDECODE=1`
 - Issue markers: "Instructions for @claude"
@@ -389,6 +411,8 @@ The agent respects pipeline configuration:
 - **Report-only Phase 1.2**: Never blocks on approvals
 - **Test validation**: Must maintain baseline throughout
 - **Time limits**: Complete within workflow timeout
+- **Cost limits**: $100/day, $500/week with 80% warnings
+- **Max refactoring attempts**: 2 fix attempts per issue (from "Maximum 2 fix attempts per issue" requirement)
 
 ### Pipeline vs Manual Mode Differences
 
