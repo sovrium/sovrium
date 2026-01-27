@@ -206,7 +206,10 @@ jobs:
           allowed_bots: '*'
           additional_permissions: |
             actions: read
-          track_progress: true
+          # NOTE: track_progress is disabled because workflow_dispatch events are not supported
+          # (only pull_request, issues, issue_comment, pull_request_review_comment, pull_request_review)
+          # Progress visibility is provided via manual PR comments in "Post Claude summary to PR" step
+          track_progress: false
           prompt: |
             You are working on the TDD Workflow automation. Your task is to implement code to make a failing E2E test pass.
 
@@ -261,7 +264,10 @@ jobs:
           allowed_bots: '*'
           additional_permissions: |
             actions: read
-          track_progress: true
+          # NOTE: track_progress is disabled because workflow_dispatch events are not supported
+          # (only pull_request, issues, issue_comment, pull_request_review_comment, pull_request_review)
+          # Progress visibility is provided via manual PR comments in "Post Claude summary to PR" step
+          track_progress: false
           prompt: |
             You are working on the TDD Workflow automation. The e2e-test-fixer agent has implemented code to pass E2E test ${{ inputs.spec_id }} in ${{ inputs.file_path }}.
 
