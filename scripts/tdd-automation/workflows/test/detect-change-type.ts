@@ -41,6 +41,7 @@ interface ChangeTypeResult {
  * Execute a shell command and return stdout
  */
 function execCommand(command: string): Effect.Effect<string, Error> {
+  // @effect-diagnostics effect/globalErrorInEffectCatch:off
   return Effect.tryPromise({
     try: async () => {
       const proc = Bun.spawn(['sh', '-c', command], {
@@ -51,6 +52,7 @@ function execCommand(command: string): Effect.Effect<string, Error> {
       const exitCode = await proc.exited
       if (exitCode !== 0) {
         const stderr = await new Response(proc.stderr).text()
+        // @effect-diagnostics effect/globalErrorInEffectFailure:off
         throw new Error(`Command failed: ${command}\n${stderr}`)
       }
       return stdout.trim()
@@ -225,6 +227,7 @@ const main = Effect.gen(function* () {
   yield* Console.error(`  is_tdd_automation=${isTDDAutomation}`)
 
   // Output JSON (on stdout for YAML to parse)
+  // @effect-diagnostics effect/preferSchemaOverJson:off
   yield* Console.log(JSON.stringify(result))
 })
 

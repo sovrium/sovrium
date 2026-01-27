@@ -29,6 +29,7 @@ const main = Effect.gen(function* () {
   const branchName = process.env['BRANCH_NAME']
   if (!branchName) {
     yield* Console.error('::error::BRANCH_NAME environment variable not set')
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(
       JSON.stringify({
         inSync: false,
@@ -42,6 +43,7 @@ const main = Effect.gen(function* () {
   yield* git.fetch()
   const status = yield* git.getBranchStatus(branchName)
 
+  // effect-disable-next-line preferSchemaOverJson
   yield* Console.log(
     JSON.stringify({
       inSync: !status.isBehindMain,
@@ -54,6 +56,7 @@ const main = Effect.gen(function* () {
   Effect.catchTag('GitOperationError', (error) =>
     Effect.gen(function* () {
       yield* Console.error(`::error::Git error: ${error.operation}`)
+      // @effect-diagnostics effect/preferSchemaOverJson:off
       yield* Console.log(
         JSON.stringify({
           inSync: false,

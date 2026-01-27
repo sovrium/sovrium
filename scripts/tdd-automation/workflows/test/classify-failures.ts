@@ -315,6 +315,7 @@ const main = Effect.gen(function* () {
       isInfraError: true,
     }
 
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(JSON.stringify(result))
     return
   }
@@ -351,6 +352,7 @@ const main = Effect.gen(function* () {
   yield* Console.error(`  Regression specs: ${classification.regressionSpecs.join(', ') || 'none'}`)
   yield* Console.error(`  Failure type: ${classification.failureType}`)
 
+  // effect-disable-next-line preferSchemaOverJson
   yield* Console.log(JSON.stringify(result))
 })
 

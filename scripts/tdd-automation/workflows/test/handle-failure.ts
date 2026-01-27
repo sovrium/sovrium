@@ -30,6 +30,7 @@ const main = Effect.gen(function* () {
   const prNumberStr = process.env['PR_NUMBER']
   if (!prNumberStr) {
     yield* Console.error('::error::PR_NUMBER environment variable not set')
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(
       JSON.stringify({
         handled: false,
@@ -54,6 +55,7 @@ The previous attempt failed. Starting retry attempt ${result.newAttempt}.
 *This comment was posted by the TDD automation pipeline.*`
   )
 
+  // effect-disable-next-line preferSchemaOverJson
   yield* Console.log(
     JSON.stringify({
       handled: true,
@@ -69,6 +71,7 @@ The previous attempt failed. Starting retry attempt ${result.newAttempt}.
       yield* Console.warn(
         `::warning::Max attempts reached for PR #${error.prNumber} (${error.specId})`
       )
+      // @effect-diagnostics effect/preferSchemaOverJson:off
       yield* Console.log(
         JSON.stringify({
           handled: false,
@@ -84,6 +87,7 @@ The previous attempt failed. Starting retry attempt ${result.newAttempt}.
   Effect.catchTag('GitHubApiError', (error) =>
     Effect.gen(function* () {
       yield* Console.error(`::error::GitHub API error: ${error.operation}`)
+      // @effect-diagnostics effect/preferSchemaOverJson:off
       yield* Console.log(
         JSON.stringify({
           handled: false,

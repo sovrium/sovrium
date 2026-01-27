@@ -99,8 +99,8 @@ const main = Effect.gen(function* () {
 
   if (!specId) {
     yield* Console.error('::error::SPEC_ID environment variable not set')
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(
-      // effect-disable-next-line preferSchemaOverJson
       JSON.stringify({
         error: 'SPEC_ID not set',
       })
@@ -110,7 +110,7 @@ const main = Effect.gen(function* () {
 
   const config = selectAgentForSpec(specId)
 
-  // effect-disable-next-line preferSchemaOverJson
+  // @effect-diagnostics effect/preferSchemaOverJson:off
   yield* Console.log(JSON.stringify(config))
 })
 

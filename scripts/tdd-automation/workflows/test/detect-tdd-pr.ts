@@ -42,6 +42,7 @@ const main = Effect.gen(function* () {
       const matchingPR = prs.find((pr) => pr.branch === branchName)
 
       if (matchingPR) {
+        // @effect-diagnostics effect/preferSchemaOverJson:off
         yield* Console.log(
           JSON.stringify({
             isTDDPR: true,
@@ -54,11 +55,13 @@ const main = Effect.gen(function* () {
       }
     }
 
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(JSON.stringify({ isTDDPR: false }))
     return
   }
 
   if (!prNumber) {
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(JSON.stringify({ isTDDPR: false }))
     return
   }
@@ -68,6 +71,7 @@ const main = Effect.gen(function* () {
 
   // Check if it has TDD label
   if (!pr.labels?.includes(TDD_LABELS.AUTOMATION)) {
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(JSON.stringify({ isTDDPR: false }))
     return
   }
@@ -75,10 +79,12 @@ const main = Effect.gen(function* () {
   // Parse title
   const parsed = parseTDDPRTitle(pr.title)
   if (!parsed) {
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(JSON.stringify({ isTDDPR: false }))
     return
   }
 
+  // effect-disable-next-line preferSchemaOverJson
   yield* Console.log(
     JSON.stringify({
       isTDDPR: true,
@@ -92,6 +98,7 @@ const main = Effect.gen(function* () {
   Effect.catchTag('GitHubApiError', (error) =>
     Effect.gen(function* () {
       yield* Console.error(`::error::GitHub API error: ${error.operation}`)
+      // @effect-diagnostics effect/preferSchemaOverJson:off
       yield* Console.log(JSON.stringify({ isTDDPR: false, error: error.message }))
     })
   ),

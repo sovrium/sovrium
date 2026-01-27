@@ -28,6 +28,7 @@ const main = Effect.gen(function* () {
   const result = yield* findReadySpec
 
   if (result) {
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(
       JSON.stringify({
         found: true,
@@ -35,6 +36,7 @@ const main = Effect.gen(function* () {
       })
     )
   } else {
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(
       JSON.stringify({
         found: false,
@@ -46,6 +48,7 @@ const main = Effect.gen(function* () {
   Effect.catchTag('GitHubApiError', (error) =>
     Effect.gen(function* () {
       yield* Console.error(`::error::GitHub API error: ${error.operation}`)
+      // @effect-diagnostics effect/preferSchemaOverJson:off
       yield* Console.log(
         JSON.stringify({
           found: false,

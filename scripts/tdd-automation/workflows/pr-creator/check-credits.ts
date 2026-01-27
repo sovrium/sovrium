@@ -31,14 +31,14 @@ const main = Effect.gen(function* () {
   }
 
   // Output JSON for YAML to parse
-  // effect-disable-next-line preferSchemaOverJson
+  // @effect-diagnostics effect/preferSchemaOverJson:off
   yield* Console.log(JSON.stringify(result))
 }).pipe(
   Effect.catchTag('CreditLimitExceeded', (error) =>
     Effect.gen(function* () {
       yield* Console.error(`::error::Credit limit exceeded: ${error.limit}`)
+      // @effect-diagnostics effect/preferSchemaOverJson:off
       yield* Console.log(
-        // effect-disable-next-line preferSchemaOverJson
         JSON.stringify({
           canProceed: false,
           dailySpend: error.dailySpend,
@@ -51,8 +51,8 @@ const main = Effect.gen(function* () {
   Effect.catchTag('GitHubApiError', (error) =>
     Effect.gen(function* () {
       yield* Console.error(`::error::GitHub API error: ${error.operation}`)
+      // @effect-diagnostics effect/preferSchemaOverJson:off
       yield* Console.log(
-        // effect-disable-next-line preferSchemaOverJson
         JSON.stringify({
           canProceed: false,
           dailySpend: 0,

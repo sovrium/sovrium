@@ -104,6 +104,7 @@ const MockUserRoleServiceViewer = Layer.succeed(UserRoleService, {
  * The effectSucceedWithVoid diagnostic is a false positive when undefined is an intentional value.
  */
 const MockUserRoleServiceNoRole = Layer.succeed(UserRoleService, {
+  // @effect-diagnostics effect/effectSucceedWithVoid:off
   getUserRole: () => Effect.succeed(undefined),
 })
 

@@ -76,10 +76,12 @@ function extractSpecConfig(specFile: string): Effect.Effect<SpecConfig, Error> {
   return Effect.gen(function* () {
     // Check file exists
     if (!fs.existsSync(specFile)) {
+      // @effect-diagnostics effect/globalErrorInEffectFailure:off
       return yield* Effect.fail(new Error(`Spec file not found: ${specFile}`))
     }
 
     // Read file content
+    // @effect-diagnostics effect/globalErrorInEffectCatch:off
     const content = yield* Effect.try({
       try: () => fs.readFileSync(specFile, 'utf-8'),
       catch: (error) => new Error(`Failed to read spec file: ${error}`),
@@ -102,6 +104,7 @@ const main = Effect.gen(function* () {
 
   if (!specFile) {
     yield* Console.error('::error::SPEC_FILE environment variable is required')
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(
       JSON.stringify({
         maxAttempts: DEFAULTS.maxAttempts,
@@ -122,6 +125,7 @@ const main = Effect.gen(function* () {
   yield* Console.error(`  Max attempts: ${config.maxAttempts}`)
   yield* Console.error(`  Timeout: ${config.timeout} minutes`)
 
+  // effect-disable-next-line preferSchemaOverJson
   yield* Console.log(JSON.stringify(config))
 })
 

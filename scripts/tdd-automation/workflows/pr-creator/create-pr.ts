@@ -37,8 +37,8 @@ const main = Effect.gen(function* () {
   const specJson = process.env['SPEC_JSON']
   if (!specJson) {
     yield* Console.error('::error::SPEC_JSON environment variable not set')
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(
-      // effect-disable-next-line preferSchemaOverJson
       JSON.stringify({
         success: false,
         error: 'SPEC_JSON environment variable not set',
@@ -54,8 +54,8 @@ const main = Effect.gen(function* () {
 
   if (specResult._tag === 'Left') {
     yield* Console.error('::error::Failed to parse SPEC_JSON')
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(
-      // effect-disable-next-line preferSchemaOverJson
       JSON.stringify({
         success: false,
         error: 'Failed to parse SPEC_JSON',
@@ -68,8 +68,8 @@ const main = Effect.gen(function* () {
 
   const result = yield* createTDDPR({ spec })
 
+  // effect-disable-next-line preferSchemaOverJson
   yield* Console.log(
-    // effect-disable-next-line preferSchemaOverJson
     JSON.stringify({
       success: true,
       prNumber: result.prNumber,
@@ -82,8 +82,8 @@ const main = Effect.gen(function* () {
   Effect.catchTag('GitHubApiError', (error) =>
     Effect.gen(function* () {
       yield* Console.error(`::error::GitHub API error: ${error.operation}`)
+      // @effect-diagnostics effect/preferSchemaOverJson:off
       yield* Console.log(
-        // effect-disable-next-line preferSchemaOverJson
         JSON.stringify({
           success: false,
           error: `GitHub API error: ${error.operation} - ${error.message}`,
@@ -94,8 +94,8 @@ const main = Effect.gen(function* () {
   Effect.catchTag('GitOperationError', (error) =>
     Effect.gen(function* () {
       yield* Console.error(`::error::Git error: ${error.operation}`)
+      // @effect-diagnostics effect/preferSchemaOverJson:off
       yield* Console.log(
-        // effect-disable-next-line preferSchemaOverJson
         JSON.stringify({
           success: false,
           error: `Git error: ${error.operation} - ${error.message}`,

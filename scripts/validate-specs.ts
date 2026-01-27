@@ -1127,9 +1127,7 @@ Alternative (direct):
 
   // Output results
   if (args.json) {
-    // effect-disable-next-line preferSchemaOverJson
-    // NOTE: JSON.stringify appropriate for CLI --json flag output (Effect Schema not needed)
-    // effect-disable-next-line preferSchemaOverJson
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     console.log(JSON.stringify(batchResult, null, 2))
   } else {
     console.log('')
