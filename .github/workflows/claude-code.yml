@@ -94,6 +94,7 @@ jobs:
           fi
 
           # Extract spec file if mentioned
+          # shellcheck disable=SC2016
           SPEC_FILE=$(echo "$COMMENT_BODY" | grep -oP '`specs/[^`]+`' | tr -d '`' | head -1 || echo "")
           echo "spec-file=$SPEC_FILE" >> "$GITHUB_OUTPUT"
 

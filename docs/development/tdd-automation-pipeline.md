@@ -63,11 +63,11 @@ Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 2/5
 
 ### Workflows Summary
 
-| Workflow                 | Trigger                                | Purpose                              |
-| ------------------------ | -------------------------------------- | ------------------------------------ |
+| Workflow             | Trigger                                | Purpose                              |
+| -------------------- | -------------------------------------- | ------------------------------------ |
 | `pr-creator.yml`     | Hourly cron + test.yml success on main | Creates next TDD PR                  |
-| `test.yml`               | Push to any branch                     | Runs tests, posts @claude on failure |
-| `claude-code.yml`        | @claude comment on PR                  | Executes Claude Code to fix code     |
+| `test.yml`           | Push to any branch                     | Runs tests, posts @claude on failure |
+| `claude-code.yml`    | @claude comment on PR                  | Executes Claude Code to fix code     |
 | `merge-watchdog.yml` | Every 30 min                           | Unsticks stuck PRs                   |
 
 ### Cost Limits
@@ -1649,9 +1649,9 @@ This handles cases where:
 
 | Task                           | File                                                        | Acceptance Criteria                                                                                                          |
 | ------------------------------ | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 1.1 Create PR Creator workflow | `.github/workflows/pr-creator.yml`                      | - Finds `.fixme()` specs<br>- Creates PRs with correct title format<br>- Adds `tdd-automation` label<br>- Enables auto-merge |
+| 1.1 Create PR Creator workflow | `.github/workflows/pr-creator.yml`                          | - Finds `.fixme()` specs<br>- Creates PRs with correct title format<br>- Adds `tdd-automation` label<br>- Enables auto-merge |
 | 1.2 Create credit check script | `scripts/tdd-automation/core/check-credit-usage.ts`         | - Parses workflow logs<br>- Returns daily/weekly spend<br>- Has fallback ($15/run)<br>- Logs warnings at 80%                 |
-| 1.3 Create Merge Watchdog      | `.github/workflows/merge-watchdog.yml`                  | - Runs every 30 min<br>- Detects stuck PRs<br>- Creates alert issues                                                         |
+| 1.3 Create Merge Watchdog      | `.github/workflows/merge-watchdog.yml`                      | - Runs every 30 min<br>- Detects stuck PRs<br>- Creates alert issues                                                         |
 | 1.4 Update priority calculator | `scripts/tdd-automation/core/schema-priority-calculator.ts` | - Returns spec-id, file, priority<br>- Supports `--exclude` flag<br>- Extracts per-spec config                               |
 
 **Test:** Manually trigger PR Creator, verify PR created correctly (don't let tests run yet).
@@ -1697,10 +1697,10 @@ This handles cases where:
 
 **Goal:** Launch production pipeline.
 
-| Task                      | Description           | Acceptance Criteria                                    |
-| ------------------------- | --------------------- | ------------------------------------------------------ |
-| 4.1 Production monitoring | Set up alerts         | - Daily cost summary<br>- Slack/Discord alerts at 80% |
-| 4.2 Documentation         | Update docs           | - CLAUDE.md updated<br>- TDD pipeline docs updated     |
+| Task                      | Description   | Acceptance Criteria                                   |
+| ------------------------- | ------------- | ----------------------------------------------------- |
+| 4.1 Production monitoring | Set up alerts | - Daily cost summary<br>- Slack/Discord alerts at 80% |
+| 4.2 Documentation         | Update docs   | - CLAUDE.md updated<br>- TDD pipeline docs updated    |
 
 **Go-Live Checklist:**
 

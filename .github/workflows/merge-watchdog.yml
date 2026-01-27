@@ -1,4 +1,4 @@
-name: TDD Merge Watchdog
+name: Merge Watchdog
 
 on:
   schedule:

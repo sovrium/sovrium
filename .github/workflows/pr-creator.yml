@@ -1,4 +1,4 @@
-name: TDD PR Creator
+name: PR Creator
 
 on:
   schedule:
@@ -30,18 +30,19 @@ jobs:
             --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")]' 2>/dev/null || echo "[]")
 
           DAILY_SPEND=0
-          for RUN_ID in $(echo "$DAILY_RUNS" | jq -r '.[].databaseId'); do
+          while IFS= read -r RUN_ID; do
+            [ -z "$RUN_ID" ] && continue
             # Multi-pattern cost extraction with fallback
-            COST=$(gh run view $RUN_ID --log 2>/dev/null | \
+            COST=$(gh run view "$RUN_ID" --log 2>/dev/null | \
               grep -oP '(Total cost: \$|Cost: \$|Session cost: \$)(\K[0-9]+\.[0-9]+)' | head -1 || echo "")
 
             if [ -z "$COST" ]; then
               echo "::warning::Cost parsing failed for run $RUN_ID - using fallback \$15"
               COST=15
-              echo "used-fallback=true" >> $GITHUB_OUTPUT
+              echo "used-fallback=true" >> "$GITHUB_OUTPUT"
             fi
             DAILY_SPEND=$(echo "$DAILY_SPEND + $COST" | bc)
-          done
+          done < <(echo "$DAILY_RUNS" | jq -r '.[].databaseId')
 
           # Similar for weekly (past 7 days)
           WEEKLY_RUNS=$(gh run list --workflow="claude-code.yml" \
@@ -49,29 +50,30 @@ jobs:
             --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")]' 2>/dev/null || echo "[]")
 
           WEEKLY_SPEND=0
-          for RUN_ID in $(echo "$WEEKLY_RUNS" | jq -r '.[].databaseId'); do
-            COST=$(gh run view $RUN_ID --log 2>/dev/null | \
+          while IFS= read -r RUN_ID; do
+            [ -z "$RUN_ID" ] && continue
+            COST=$(gh run view "$RUN_ID" --log 2>/dev/null | \
               grep -oP '(Total cost: \$|Cost: \$|Session cost: \$)(\K[0-9]+\.[0-9]+)' | head -1 || echo "15")
             WEEKLY_SPEND=$(echo "$WEEKLY_SPEND + $COST" | bc)
-          done
+          done < <(echo "$WEEKLY_RUNS" | jq -r '.[].databaseId')
 
-          echo "daily-spend=$DAILY_SPEND" >> $GITHUB_OUTPUT
-          echo "weekly-spend=$WEEKLY_SPEND" >> $GITHUB_OUTPUT
+          echo "daily-spend=$DAILY_SPEND" >> "$GITHUB_OUTPUT"
+          echo "weekly-spend=$WEEKLY_SPEND" >> "$GITHUB_OUTPUT"
 
           # Check limits with warnings at 80%
-          if [ $(echo "$DAILY_SPEND >= 80" | bc) -eq 1 ]; then
+          if [ "$(echo "$DAILY_SPEND >= 80" | bc)" -eq 1 ]; then
             echo "::warning::Daily spend at \$${DAILY_SPEND}/\$100 (80%+)"
           fi
-          if [ $(echo "$WEEKLY_SPEND >= 400" | bc) -eq 1 ]; then
+          if [ "$(echo "$WEEKLY_SPEND >= 400" | bc)" -eq 1 ]; then
             echo "::warning::Weekly spend at \$${WEEKLY_SPEND}/\$500 (80%+)"
           fi
 
-          if [ $(echo "$DAILY_SPEND >= 100" | bc) -eq 1 ] || [ $(echo "$WEEKLY_SPEND >= 500" | bc) -eq 1 ]; then
+          if [ "$(echo "$DAILY_SPEND >= 100" | bc)" -eq 1 ] || [ "$(echo "$WEEKLY_SPEND >= 500" | bc)" -eq 1 ]; then
             echo "⚠️ Credit limit reached - Daily: \$${DAILY_SPEND}, Weekly: \$${WEEKLY_SPEND}"
-            echo "can-proceed=false" >> $GITHUB_OUTPUT
+            echo "can-proceed=false" >> "$GITHUB_OUTPUT"
           else
             echo "✓ Credits OK - Daily: \$${DAILY_SPEND}/\$100, Weekly: \$${WEEKLY_SPEND}/\$500"
-            echo "can-proceed=true" >> $GITHUB_OUTPUT
+            echo "can-proceed=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Alert if cost parsing failed
@@ -97,7 +99,7 @@ jobs:
         run: |
           # API call with exponential backoff for rate limits
           for i in 1 2 3 4 5; do
-            RESULT=$(gh pr list --repo ${{ github.repository }} --label "tdd-automation" --state open --json number,labels 2>/dev/null) && break
+            RESULT=$(gh pr list --repo "${{ github.repository }}" --label "tdd-automation" --state open --json number,labels 2>/dev/null) && break
             echo "Rate limited, waiting $((i * 30)) seconds..."
             sleep $((i * 30))
           done
@@ -107,10 +109,10 @@ jobs:
 
           if [ "$ACTIVE" -gt 0 ]; then
             echo "Active TDD PR exists - exiting"
-            echo "has-active=true" >> $GITHUB_OUTPUT
+            echo "has-active=true" >> "$GITHUB_OUTPUT"
           else
             echo "No active TDD PR - can proceed"
-            echo "has-active=false" >> $GITHUB_OUTPUT
+            echo "has-active=false" >> "$GITHUB_OUTPUT"
           fi
 
   create-pr:
@@ -136,9 +138,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          EXCLUDED=$(gh pr list --repo ${{ github.repository }} --label "tdd-automation:manual-intervention" --state open --json headRefName \
+          EXCLUDED=$(gh pr list --repo "${{ github.repository }}" --label "tdd-automation:manual-intervention" --state open --json headRefName \
             --jq '.[].headRefName' | sed 's|tdd/||' | tr '\n' ',' | sed 's/,$//')
-          echo "specs=$EXCLUDED" >> $GITHUB_OUTPUT
+          echo "specs=$EXCLUDED" >> "$GITHUB_OUTPUT"
 
       - name: Find next spec using V3 script
         id: next-spec
@@ -155,13 +157,13 @@ jobs:
             PRIORITY=$(echo "$RESULT" | jq -r '.priority')
 
             echo "Found spec: $SPEC_ID (priority: $PRIORITY)"
-            echo "found=true" >> $GITHUB_OUTPUT
-            echo "spec-id=$SPEC_ID" >> $GITHUB_OUTPUT
-            echo "spec-file=$SPEC_FILE" >> $GITHUB_OUTPUT
-            echo "priority=$PRIORITY" >> $GITHUB_OUTPUT
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "spec-id=$SPEC_ID" >> "$GITHUB_OUTPUT"
+            echo "spec-file=$SPEC_FILE" >> "$GITHUB_OUTPUT"
+            echo "priority=$PRIORITY" >> "$GITHUB_OUTPUT"
           else
             echo "No pending specs found"
-            echo "found=false" >> $GITHUB_OUTPUT
+            echo "found=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Extract per-spec configuration
@@ -171,8 +173,8 @@ jobs:
           SPEC_FILE="${{ steps.next-spec.outputs.spec-file }}"
           MAX_ATTEMPTS=$(grep -oP '@tdd-max-attempts \K[0-9]+' "$SPEC_FILE" || echo "5")
           TIMEOUT=$(grep -oP '@tdd-timeout \K[0-9]+' "$SPEC_FILE" || echo "45")
-          echo "max-attempts=$MAX_ATTEMPTS" >> $GITHUB_OUTPUT
-          echo "timeout=$TIMEOUT" >> $GITHUB_OUTPUT
+          echo "max-attempts=$MAX_ATTEMPTS" >> "$GITHUB_OUTPUT"
+          echo "timeout=$TIMEOUT" >> "$GITHUB_OUTPUT"
 
       - name: Create branch and remove .fixme()
         if: steps.next-spec.outputs.found == 'true'
