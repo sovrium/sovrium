@@ -7,6 +7,7 @@
 
 import type { App } from '@/domain/models/app'
 import type { CurrencyField } from '@/domain/models/app/table/field-types/currency-field'
+import type { DateField } from '@/domain/models/app/table/field-types/date-field'
 
 /**
  * Currency symbols mapping
@@ -106,6 +107,64 @@ function formatCurrency(value: number, field: CurrencyField): string {
 }
 
 /**
+ * Format a date value based on the date format configuration
+ *
+ * @param value - The date value (string or Date object)
+ * @param field - The date field configuration
+ * @returns Formatted date string
+ */
+function formatDate(value: unknown, field: DateField): string {
+  // Parse the date value
+  const date =
+    value instanceof Date ? value : typeof value === 'string' ? new Date(value) : new Date()
+
+  // Check if date is valid
+  if (isNaN(date.getTime())) {
+    return ''
+  }
+
+  // Get date components
+  const year = date.getFullYear()
+  const month = date.getMonth() + 1 // getMonth() returns 0-11
+  const day = date.getDate()
+
+  // Format based on dateFormat setting
+  const dateFormat = field.dateFormat ?? 'US'
+
+  switch (dateFormat) {
+    case 'US':
+      // US format: M/D/YYYY (no leading zeros)
+      return `${month}/${day}/${year}`
+    case 'European':
+      // European format: D/M/YYYY (no leading zeros)
+      return `${day}/${month}/${year}`
+    case 'ISO':
+      // ISO format: YYYY-MM-DD (with leading zeros)
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    default:
+      return `${month}/${day}/${year}` // Default to US format
+  }
+}
+
+/**
+ * Format currency field value
+ */
+function formatCurrencyField(value: unknown, field: CurrencyField): string | undefined {
+  const numericValue = typeof value === 'string' ? parseFloat(value) : (value as number)
+  if (typeof numericValue === 'number' && !isNaN(numericValue)) {
+    return formatCurrency(numericValue, field)
+  }
+  return undefined
+}
+
+/**
+ * Format date/datetime/time field value
+ */
+function formatDateField(value: unknown, field: DateField): string | undefined {
+  return formatDate(value, field)
+}
+
+/**
  * Format a field value for display based on field type and configuration
  *
  * @param fieldName - The name of the field
@@ -129,11 +188,11 @@ export function formatFieldForDisplay(
 
   // Format based on field type
   if (field.type === 'currency') {
-    // Convert string to number if needed (database may return numeric values as strings)
-    const numericValue = typeof value === 'string' ? parseFloat(value) : (value as number)
-    if (typeof numericValue === 'number' && !isNaN(numericValue)) {
-      return formatCurrency(numericValue, field as CurrencyField)
-    }
+    return formatCurrencyField(value, field as CurrencyField)
+  }
+
+  if (field.type === 'date' || field.type === 'datetime' || field.type === 'time') {
+    return formatDateField(value, field as DateField)
   }
 
   // Return undefined for types that don't need formatting yet

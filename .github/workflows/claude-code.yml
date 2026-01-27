@@ -10,13 +10,14 @@ permissions:
   pull-requests: write
   issues: write
   actions: read
+  id-token: write  # Required for OIDC authentication
 
 jobs:
   # ============================================================================
   # JOB 1: VALIDATE TRIGGER
   #
   # Pre-conditions:
-  # 1. Comment author is github-actions[bot]
+  # 1. Comment author is thomas-jeanneau (TDD bot account)
   # 2. PR has tdd-automation label
   # 3. Credit limits not exceeded
   # ============================================================================
@@ -25,7 +26,7 @@ jobs:
     if: |
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '@claude') &&
-      github.event.comment.user.login == 'github-actions[bot]'
+      github.event.comment.user.login == 'thomas-jeanneau'
     runs-on: ubuntu-latest
     outputs:
       is-valid: ${{ steps.validate.outputs.is-valid }}
@@ -200,7 +201,10 @@ jobs:
               git diff --name-only --diff-filter=U > /tmp/conflicted_files.txt
               CONFLICT_FILES=$(cat /tmp/conflicted_files.txt | tr '\n' ', ' | sed 's/,$//')
               echo "conflict-files=$CONFLICT_FILES" >> "$GITHUB_OUTPUT"
-              git merge --abort
+              # Only abort if merge is actually in progress
+              if [ -f .git/MERGE_HEAD ]; then
+                git merge --abort
+              fi
               echo "⚠️ Merge conflict detected in: $CONFLICT_FILES"
             else
               echo "has-conflict=false" >> "$GITHUB_OUTPUT"
