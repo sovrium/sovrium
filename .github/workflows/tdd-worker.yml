@@ -80,7 +80,13 @@ jobs:
 
           # Extract spec details from PR body metadata section
           # Format: <!-- TDD_METADATA: {"specId":"...", "filePath":"...", ...} -->
-          METADATA=$(echo "$PR_BODY" | grep -oP '<!-- TDD_METADATA: \K[^>]+' | head -1 || echo "{}")
+          # Use sed for better portability (grep -P not reliable across platforms)
+          METADATA=$(echo "$PR_BODY" | sed -n 's/.*<!-- TDD_METADATA: \(.*\) -->.*/\1/p' | head -1)
+
+          # Handle empty result
+          if [ -z "$METADATA" ]; then
+            METADATA="{}"
+          fi
 
           if [ "$METADATA" = "{}" ] || [ -z "$METADATA" ]; then
             echo "::error::No TDD metadata found in PR body"
