@@ -265,7 +265,7 @@ sovrium/
 - **Theming Architecture**: `@docs/architecture/patterns/theming-architecture.md`
 - **Internationalization (i18n)**: `@docs/architecture/patterns/i18n-centralized-translations.md`
 - **Testing React Components**: `@docs/infrastructure/testing/react-testing-library.md` (RTL + Happy DOM + Bun)
-- **TDD Automation**: `@docs/development/tdd-automation-pipeline.md`, `@docs/development/tdd-error-handling.md`, `@docs/development/tdd-conflict-resolution.md`
+- **TDD Automation**: `@docs/development/tdd-automation-pipeline.md`
 
 **Slash Command**: Use `/docs` to list all available documentation files
 
@@ -277,38 +277,42 @@ sovrium/
 4. **Push**: GitHub Actions runs tests
 5. **Release**: When ready to publish, use `git commit -m "release: publish"` and push
 
-## TDD Automation Queue System
+## TDD Automation Pipeline (V3)
 
 > **Primary Documentation**: See `@docs/development/tdd-automation-pipeline.md` for comprehensive pipeline documentation.
 
-**Architecture**: JSON state file-based queue management (no GitHub Issues).
+**Architecture**: GitHub PR-based state management with serial processing (1 spec at a time).
 
 **Workflow Files**:
-- `tdd-orchestrator.yml` - Selects specs, dispatches workers (triggers: test.yml completion, every 4 hours)
-- `tdd-worker.yml` - Processes single spec (Claude Code integration)
-- `tdd-cleanup.yml` - Removes stale locks (every 6 hours)
+- `tdd-pr-creator.yml` - Scans for `.fixme()` specs, creates TDD PRs (triggers: schedule every 4 hours, manual)
+- `test.yml` - Extended with TDD handling (auto-merge on success, dispatch Claude Code on failure)
+- `claude-code.yml` - Runs Claude Code to fix failing specs with cost protection
+- `tdd-merge-watchdog.yml` - Handles post-merge conflicts via auto-rebase
 
 **State Management**:
-- State file: `.github/tdd-state.json` (on `tdd-state` branch)
-- File-level locking prevents concurrent work on same spec file
-- 3-strikes rule: After 3 failures, spec moves to manual intervention
+- PR-based state via labels and title format
+- PR Title: `[TDD] Implement <spec-id> | Attempt X/5`
+- Serial processing: Only one active TDD PR at a time
+- 5-attempt rule: After 5 failures, PR gets `tdd-automation:manual-intervention` label
 
 **Quick Commands**:
 ```bash
-# View queue status
-cat .github/tdd-state.json | jq '.queue'
+# View active TDD PRs
+gh pr list --label "tdd-automation"
 
-# Manually trigger orchestrator
-gh workflow run tdd-orchestrator.yml
+# View PRs needing manual intervention
+gh pr list --label "tdd-automation:manual-intervention"
 
-# View active workers
-gh run list --workflow=tdd-worker.yml --limit=10
+# Manually trigger PR creator
+gh workflow run tdd-pr-creator.yml
 ```
 
 **Labels Used**:
-- `tdd-automation` - PR identification
-- `tdd:fast-path` - Fast path (tests pass without Claude)
-- `tdd-spec:manual-intervention` - Needs human review
+- `tdd-automation` - PR identification (all TDD PRs)
+- `tdd-automation:manual-intervention` - Needs human review (after 5 failures)
+- `tdd-automation:had-conflict` - Had merge conflict that was auto-resolved
+
+**Cost Protection**: $100/day, $500/week limits with 80% warnings
 
 **Full Documentation**: `@docs/development/tdd-automation-pipeline.md`
 

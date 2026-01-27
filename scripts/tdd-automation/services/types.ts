@@ -6,40 +6,28 @@
  */
 
 /**
- * Shared types for TDD Queue services
+ * TDD Automation Service Types
+ *
+ * Minimal types needed for spec scanning and queue operations.
  */
 
 /**
- * Represents a single spec with fixme
+ * Individual spec item from scanning
  */
 export interface SpecItem {
-  specId: string
-  file: string
-  line: number
-  description: string
-  feature: string
-  priority: number
+  readonly specId: string
+  readonly file: string
+  readonly line: number
+  readonly description: string
+  readonly feature: string
+  readonly priority: number
 }
 
 /**
- * Represents a GitHub issue for a spec
- */
-export interface SpecIssue {
-  number: number
-  specId: string
-  state: 'queued' | 'in-progress' | 'completed' | 'failed'
-  url: string
-  createdAt: string
-  updatedAt: string
-  labels?: string[]
-  testFile?: string // Optional: test file path extracted from issue body
-}
-
-/**
- * Scan result containing all specs with fixme
+ * Result of scanning for .fixme() specs
  */
 export interface QueueScanResult {
-  timestamp: string
-  totalSpecs: number
-  specs: SpecItem[]
+  readonly timestamp: string
+  readonly totalSpecs: number
+  readonly specs: readonly SpecItem[]
 }

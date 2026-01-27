@@ -1,0 +1,232 @@
+name: TDD PR Creator
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Hourly backup
+  workflow_run:
+    workflows: ['Test']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  check-credits:
+    runs-on: ubuntu-latest
+    outputs:
+      can-proceed: ${{ steps.check.outputs.can-proceed }}
+      daily-spend: ${{ steps.check.outputs.daily-spend }}
+      weekly-spend: ${{ steps.check.outputs.weekly-spend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Claude Code credit usage
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get runs from past 24 hours
+          DAILY_RUNS=$(gh run list --workflow="claude-code.yml" \
+            --created ">$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
+            --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")]' 2>/dev/null || echo "[]")
+
+          DAILY_SPEND=0
+          for RUN_ID in $(echo "$DAILY_RUNS" | jq -r '.[].databaseId'); do
+            # Multi-pattern cost extraction with fallback
+            COST=$(gh run view $RUN_ID --log 2>/dev/null | \
+              grep -oP '(Total cost: \$|Cost: \$|Session cost: \$)(\K[0-9]+\.[0-9]+)' | head -1 || echo "")
+
+            if [ -z "$COST" ]; then
+              echo "::warning::Cost parsing failed for run $RUN_ID - using fallback \$15"
+              COST=15
+              echo "used-fallback=true" >> $GITHUB_OUTPUT
+            fi
+            DAILY_SPEND=$(echo "$DAILY_SPEND + $COST" | bc)
+          done
+
+          # Similar for weekly (past 7 days)
+          WEEKLY_RUNS=$(gh run list --workflow="claude-code.yml" \
+            --created ">$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)" \
+            --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")]' 2>/dev/null || echo "[]")
+
+          WEEKLY_SPEND=0
+          for RUN_ID in $(echo "$WEEKLY_RUNS" | jq -r '.[].databaseId'); do
+            COST=$(gh run view $RUN_ID --log 2>/dev/null | \
+              grep -oP '(Total cost: \$|Cost: \$|Session cost: \$)(\K[0-9]+\.[0-9]+)' | head -1 || echo "15")
+            WEEKLY_SPEND=$(echo "$WEEKLY_SPEND + $COST" | bc)
+          done
+
+          echo "daily-spend=$DAILY_SPEND" >> $GITHUB_OUTPUT
+          echo "weekly-spend=$WEEKLY_SPEND" >> $GITHUB_OUTPUT
+
+          # Check limits with warnings at 80%
+          if [ $(echo "$DAILY_SPEND >= 80" | bc) -eq 1 ]; then
+            echo "::warning::Daily spend at \$${DAILY_SPEND}/\$100 (80%+)"
+          fi
+          if [ $(echo "$WEEKLY_SPEND >= 400" | bc) -eq 1 ]; then
+            echo "::warning::Weekly spend at \$${WEEKLY_SPEND}/\$500 (80%+)"
+          fi
+
+          if [ $(echo "$DAILY_SPEND >= 100" | bc) -eq 1 ] || [ $(echo "$WEEKLY_SPEND >= 500" | bc) -eq 1 ]; then
+            echo "⚠️ Credit limit reached - Daily: \$${DAILY_SPEND}, Weekly: \$${WEEKLY_SPEND}"
+            echo "can-proceed=false" >> $GITHUB_OUTPUT
+          else
+            echo "✓ Credits OK - Daily: \$${DAILY_SPEND}/\$100, Weekly: \$${WEEKLY_SPEND}/\$500"
+            echo "can-proceed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Alert if cost parsing failed
+        if: steps.check.outputs.used-fallback == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create --title "⚠️ TDD Cost Parsing Failed" \
+            --body "Cost parsing failed for run ${{ github.run_id }}. Using fallback \$15. Please verify Claude Code output format." \
+            --label "tdd-automation,bug" || true
+
+  check-active-pr:
+    needs: check-credits
+    if: needs.check-credits.outputs.can-proceed == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      has-active: ${{ steps.check.outputs.has-active }}
+    steps:
+      - name: Check for active TDD PR (with API backoff)
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # API call with exponential backoff for rate limits
+          for i in 1 2 3 4 5; do
+            RESULT=$(gh pr list --repo ${{ github.repository }} --label "tdd-automation" --state open --json number,labels 2>/dev/null) && break
+            echo "Rate limited, waiting $((i * 30)) seconds..."
+            sleep $((i * 30))
+          done
+
+          # Check if any PR exists without manual-intervention label
+          ACTIVE=$(echo "$RESULT" | jq '[.[] | select(.labels | map(.name) | contains(["tdd-automation:manual-intervention"]) | not)] | length')
+
+          if [ "$ACTIVE" -gt 0 ]; then
+            echo "Active TDD PR exists - exiting"
+            echo "has-active=true" >> $GITHUB_OUTPUT
+          else
+            echo "No active TDD PR - can proceed"
+            echo "has-active=false" >> $GITHUB_OUTPUT
+          fi
+
+  create-pr:
+    needs: [check-credits, check-active-pr]
+    if: needs.check-active-pr.outputs.has-active == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Find excluded specs (in manual-intervention PRs)
+        id: excluded
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          EXCLUDED=$(gh pr list --repo ${{ github.repository }} --label "tdd-automation:manual-intervention" --state open --json headRefName \
+            --jq '.[].headRefName' | sed 's|tdd/||' | tr '\n' ',' | sed 's/,$//')
+          echo "specs=$EXCLUDED" >> $GITHUB_OUTPUT
+
+      - name: Find next spec using V3 script
+        id: next-spec
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RESULT=$(bun run scripts/tdd-automation/v3/find-ready-spec.ts 2>&1) || true
+
+          # Check if we got valid JSON output
+          if echo "$RESULT" | jq -e '.specId' > /dev/null 2>&1; then
+            SPEC_ID=$(echo "$RESULT" | jq -r '.specId')
+            SPEC_FILE=$(echo "$RESULT" | jq -r '.file')
+            PRIORITY=$(echo "$RESULT" | jq -r '.priority')
+
+            echo "Found spec: $SPEC_ID (priority: $PRIORITY)"
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "spec-id=$SPEC_ID" >> $GITHUB_OUTPUT
+            echo "spec-file=$SPEC_FILE" >> $GITHUB_OUTPUT
+            echo "priority=$PRIORITY" >> $GITHUB_OUTPUT
+          else
+            echo "No pending specs found"
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Extract per-spec configuration
+        if: steps.next-spec.outputs.found == 'true'
+        id: spec-config
+        run: |
+          SPEC_FILE="${{ steps.next-spec.outputs.spec-file }}"
+          MAX_ATTEMPTS=$(grep -oP '@tdd-max-attempts \K[0-9]+' "$SPEC_FILE" || echo "5")
+          TIMEOUT=$(grep -oP '@tdd-timeout \K[0-9]+' "$SPEC_FILE" || echo "45")
+          echo "max-attempts=$MAX_ATTEMPTS" >> $GITHUB_OUTPUT
+          echo "timeout=$TIMEOUT" >> $GITHUB_OUTPUT
+
+      - name: Create branch and remove .fixme()
+        if: steps.next-spec.outputs.found == 'true'
+        run: |
+          SPEC_ID="${{ steps.next-spec.outputs.spec-id }}"
+          SPEC_FILE="${{ steps.next-spec.outputs.spec-file }}"
+          BRANCH="tdd/${SPEC_ID,,}"  # Lowercase
+
+          git checkout -b "$BRANCH"
+
+          # Remove .fixme() from the test
+          sed -i 's/\.fixme(/(/g' "$SPEC_FILE"
+
+          git add "$SPEC_FILE"
+          git commit -m "test(tdd): activate $SPEC_ID spec"
+          git push origin "$BRANCH"
+
+      - name: Create PR with attempt tracking in title
+        if: steps.next-spec.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SPEC_ID="${{ steps.next-spec.outputs.spec-id }}"
+          SPEC_FILE="${{ steps.next-spec.outputs.spec-file }}"
+          PRIORITY="${{ steps.next-spec.outputs.priority }}"
+          MAX_ATTEMPTS="${{ steps.spec-config.outputs.max-attempts }}"
+          BRANCH="tdd/${SPEC_ID,,}"  # Lowercase
+
+          # PR title includes attempt tracking (immutable counter)
+          TITLE="[TDD] Implement $SPEC_ID | Attempt 1/$MAX_ATTEMPTS"
+
+          # Write body to temp file to avoid YAML parsing issues
+          {
+            echo "## TDD Automation PR"
+            echo ""
+            echo "This PR was automatically created by the TDD automation pipeline."
+            echo "Tests will run automatically. If they fail, Claude Code will attempt to fix them."
+            echo ""
+            echo "Do not manually edit the attempt count in the title."
+          } > /tmp/pr_body.md
+          # Append dynamic content
+          echo "" >> /tmp/pr_body.md
+          echo "Spec ID: \`$SPEC_ID\`" >> /tmp/pr_body.md
+          echo "File: \`$SPEC_FILE\`" >> /tmp/pr_body.md
+          echo "Priority: $PRIORITY" >> /tmp/pr_body.md
+          echo "Max Attempts: $MAX_ATTEMPTS" >> /tmp/pr_body.md
+
+          gh pr create \
+            --title "$TITLE" \
+            --body-file /tmp/pr_body.md \
+            --label "tdd-automation" \
+            --base main \
+            --head "$BRANCH"
+
+          # Enable auto-merge
+          PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
+          gh pr merge "$PR_NUMBER" --squash --auto || true

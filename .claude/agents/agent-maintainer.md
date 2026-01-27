@@ -425,9 +425,7 @@ Skill({ skill: "generating-effect-schemas", args: "theme" })
 ### Pipeline Integration Points
 
 For detailed pipeline documentation, see:
-- `@docs/development/tdd-automation-pipeline.md` - Full pipeline specification
-- `@docs/development/tdd-error-handling.md` - Error classification and retry logic
-- `@docs/development/tdd-conflict-resolution.md` - Merge conflict handling
+- `@docs/development/tdd-automation-pipeline.md` - Full V3 pipeline specification (PR-based state, cost protection, auto-merge)
 
 ## Self-Review Protocol
 

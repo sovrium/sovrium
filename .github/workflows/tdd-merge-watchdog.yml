@@ -1,0 +1,81 @@
+name: TDD Merge Watchdog
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'  # Every 30 minutes
+  workflow_dispatch:
+
+jobs:
+  check-stuck-prs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find stuck TDD PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Find PRs that are:
+          # - Labeled tdd-automation (not manual-intervention)
+          # - All checks passed
+          # - Mergeable
+          # - Not merged in >2 hours
+
+          STUCK_PRS=$(gh pr list \
+            --repo ${{ github.repository }} \
+            --label "tdd-automation" \
+            --json number,title,updatedAt,mergeStateStatus,statusCheckRollup,labels \
+            --jq '[.[] |
+              select(.labels | map(.name) | contains(["tdd-automation:manual-intervention"]) | not) |
+              select(.mergeStateStatus == "CLEAN" or .mergeStateStatus == "HAS_HOOKS") |
+              select(.statusCheckRollup | all(.conclusion == "SUCCESS" or .conclusion == "SKIPPED" or .conclusion == null)) |
+              select((now - (.updatedAt | fromdateiso8601)) > 7200)
+            ] | .[].number' 2>/dev/null || echo "")
+
+          if [ -n "$STUCK_PRS" ]; then
+            echo "Found stuck PRs: $STUCK_PRS"
+
+            for PR in $STUCK_PRS; do
+              echo "Attempting to unstick PR #$PR"
+
+              # Try to re-enable auto-merge
+              gh pr merge $PR --repo ${{ github.repository }} --squash --auto || true
+
+              # If that fails, try direct merge
+              AUTO_MERGE=$(gh pr view $PR --repo ${{ github.repository }} --json autoMergeRequest -q '.autoMergeRequest' 2>/dev/null || echo "")
+              if [ -z "$AUTO_MERGE" ] || [ "$AUTO_MERGE" = "null" ]; then
+                echo "Auto-merge not enabled, trying direct merge"
+                gh pr merge $PR --repo ${{ github.repository }} --squash || true
+              fi
+            done
+          else
+            echo "No stuck PRs found"
+          fi
+
+      - name: Alert on persistent stuck PRs (>6 hours)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERY_STUCK=$(gh pr list \
+            --repo ${{ github.repository }} \
+            --label "tdd-automation" \
+            --json number,updatedAt,labels \
+            --jq '[.[] |
+              select(.labels | map(.name) | contains(["tdd-automation:manual-intervention"]) | not) |
+              select((now - (.updatedAt | fromdateiso8601)) > 21600)
+            ] | .[].number' 2>/dev/null | tr '\n' ' ')
+
+          if [ -n "$VERY_STUCK" ] && [ "$VERY_STUCK" != " " ]; then
+            # Check if alert issue already exists
+            EXISTING=$(gh issue list --repo ${{ github.repository }} --label "tdd-automation,urgent" --state open --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
+
+            if [ -z "$EXISTING" ]; then
+              gh issue create \
+                --repo ${{ github.repository }} \
+                --title "🚨 TDD PR stuck for >6 hours" \
+                --body "The following TDD PRs have been stuck for more than 6 hours: $VERY_STUCK. Possible causes: branch protection rules, required status checks not completing, or auto-merge disabled. Please check branch protection settings, verify required checks are passing, and manually merge if safe." \
+                --label "tdd-automation,urgent"
+            else
+              echo "Alert issue already exists: #$EXISTING"
+            fi
+          else
+            echo "No PRs stuck for >6 hours"
+          fi

@@ -1028,3 +1028,144 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+  # ============================================================================
+  # TDD AUTOMATION: TRIGGER CLAUDE CODE ON FAILURE
+  #
+  # When a TDD PR fails tests, increment attempt counter and trigger Claude Code.
+  # After max attempts, move to manual intervention.
+  # ============================================================================
+
+  tdd-handle-failure:
+    name: TDD Handle Failure
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed' &&
+      contains(github.event.pull_request.labels.*.name, 'tdd-automation') &&
+      needs.e2e-results.outputs.e2e_failed == 'true' &&
+      needs.e2e-results.outputs.failure_type != 'infrastructure'
+    needs: [e2e-results]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Parse PR title for attempt info
+        id: parse
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # Parse [TDD] Implement SPEC-ID | Attempt X/Y
+          SPEC_ID=$(echo "$PR_TITLE" | grep -oP '\[TDD\]\s+Implement\s+\K[A-Z]+-[A-Z-]+-(?:\d{3}|REGRESSION)' || echo "")
+          ATTEMPT=$(echo "$PR_TITLE" | grep -oP 'Attempt\s+\K\d+' || echo "1")
+          MAX_ATTEMPTS=$(echo "$PR_TITLE" | grep -oP 'Attempt\s+\d+/\K\d+' || echo "5")
+
+          echo "spec-id=$SPEC_ID" >> $GITHUB_OUTPUT
+          echo "attempt=$ATTEMPT" >> $GITHUB_OUTPUT
+          echo "max-attempts=$MAX_ATTEMPTS" >> $GITHUB_OUTPUT
+
+          echo "📋 Parsed: Spec=$SPEC_ID, Attempt=$ATTEMPT/$MAX_ATTEMPTS"
+
+      - name: Increment attempt counter
+        id: increment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          CURRENT_ATTEMPT="${{ steps.parse.outputs.attempt }}"
+          MAX_ATTEMPTS="${{ steps.parse.outputs.max-attempts }}"
+          NEW_ATTEMPT=$((CURRENT_ATTEMPT + 1))
+
+          echo "Incrementing attempt: $CURRENT_ATTEMPT -> $NEW_ATTEMPT (max: $MAX_ATTEMPTS)"
+
+          if [ "$NEW_ATTEMPT" -gt "$MAX_ATTEMPTS" ]; then
+            echo "exceeded=true" >> $GITHUB_OUTPUT
+            echo "new-attempt=$CURRENT_ATTEMPT" >> $GITHUB_OUTPUT
+          else
+            echo "exceeded=false" >> $GITHUB_OUTPUT
+            echo "new-attempt=$NEW_ATTEMPT" >> $GITHUB_OUTPUT
+
+            # Update PR title using V3 script
+            RESULT=$(bun run scripts/tdd-automation/v3/update-pr-title.ts "$PR_NUMBER" 2>&1) || true
+            echo "$RESULT"
+          fi
+
+      - name: Trigger Claude Code on failure
+        if: steps.increment.outputs.exceeded == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          TARGET_SPEC: ${{ needs.e2e-results.outputs.target_spec }}
+          SPEC_ID: ${{ steps.parse.outputs.spec-id }}
+          NEW_ATTEMPT: ${{ steps.increment.outputs.new-attempt }}
+          MAX_ATTEMPTS: ${{ steps.parse.outputs.max-attempts }}
+        run: |
+          echo "🤖 Triggering Claude Code (Attempt $NEW_ATTEMPT/$MAX_ATTEMPTS)"
+
+          # Write comment to temp file to avoid YAML parsing issues
+          {
+            echo "@claude e2e-test-fixer"
+            echo ""
+            echo "Attempt $NEW_ATTEMPT of $MAX_ATTEMPTS"
+            echo ""
+            echo "The E2E test for \`$SPEC_ID\` failed. Please fix the implementation."
+            echo ""
+            echo "Target spec: \`$TARGET_SPEC\`"
+            echo ""
+            echo "Please:"
+            echo "1. Read the failing test to understand what it expects"
+            echo "2. Implement or fix the code to make the test pass"
+            echo "3. Run: bun test:e2e $TARGET_SPEC"
+            echo "4. Run: bun run quality"
+            echo "5. Commit and push if all checks pass"
+          } > /tmp/claude_comment.txt
+
+          gh pr comment "$PR_NUMBER" --body-file /tmp/claude_comment.txt
+
+      - name: Move to manual intervention
+        if: steps.increment.outputs.exceeded == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MAX_ATTEMPTS: ${{ steps.parse.outputs.max-attempts }}
+          SPEC_ID: ${{ steps.parse.outputs.spec-id }}
+        run: |
+          echo "⚠️ Max attempts ($MAX_ATTEMPTS) exceeded - moving to manual intervention"
+
+          # Add manual intervention label
+          gh pr edit "$PR_NUMBER" --add-label "tdd-automation:manual-intervention"
+
+          # Disable auto-merge
+          gh pr merge "$PR_NUMBER" --disable-auto || true
+
+          # Post comment (using temp file to avoid YAML parsing issues)
+          {
+            echo "## 🛑 TDD Automation: Manual Intervention Required"
+            echo ""
+            echo "Spec ID: \`$SPEC_ID\`"
+            echo "Attempts: $MAX_ATTEMPTS/$MAX_ATTEMPTS (exhausted)"
+            echo ""
+            echo "The TDD automation has exhausted all automatic attempts to fix this spec."
+            echo ""
+            echo "Next Steps:"
+            echo "1. Review the test file and implementation"
+            echo "2. Check the error logs from previous attempts"
+            echo "3. Manually fix the issue and push changes"
+            echo "4. Remove the tdd-automation:manual-intervention label to re-enable automation"
+            echo ""
+            echo "This PR will not auto-merge until manual intervention is complete."
+          } > /tmp/manual_comment.txt
+
+          gh pr comment "$PR_NUMBER" --body-file /tmp/manual_comment.txt
+
