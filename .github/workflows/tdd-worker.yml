@@ -48,7 +48,7 @@ jobs:
             BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
           else
             PR_NUMBER="${{ inputs.pr_number }}"
-            BRANCH_NAME=$(gh pr view "$PR_NUMBER" --json headRefName -q .headRefName)
+            BRANCH_NAME=$(gh pr view "$PR_NUMBER" --repo ${{ github.repository }} --json headRefName -q .headRefName)
           fi
 
           echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
@@ -74,7 +74,7 @@ jobs:
           PR_NUMBER="${{ steps.context.outputs.pr_number }}"
 
           # Get PR body which contains spec details
-          PR_DATA=$(gh pr view "$PR_NUMBER" --json body,title,labels)
+          PR_DATA=$(gh pr view "$PR_NUMBER" --repo ${{ github.repository }} --json body,title,labels)
           PR_BODY=$(echo "$PR_DATA" | jq -r '.body')
           PR_TITLE=$(echo "$PR_DATA" | jq -r '.title')
 
