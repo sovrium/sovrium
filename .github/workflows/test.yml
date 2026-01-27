@@ -1064,10 +1064,9 @@ jobs:
               echo "1. Analyze the test to understand what it expects"
               echo "2. Verify required schemas exist (use Skill tool if missing)"
               echo "3. Implement minimal code to pass the test"
-              echo "4. Run \`bun run quality\` AND \`bun test:e2e -- $TARGET_SPEC\` (iterate until BOTH pass)"
-              echo "5. Run \`bun test:e2e:regression\` to verify no regressions"
-              echo "6. Commit with message: \"fix: implement $SPEC_ID\""
-              echo "7. Push to origin (MANDATORY for pipeline to continue)"
+              echo "4. Run \`bun test:e2e -- $TARGET_SPEC\` to verify tests pass"
+              echo "5. Commit with message: \"fix: implement $SPEC_ID\""
+              echo "6. Push to origin (MANDATORY for pipeline to continue)"
             fi
             echo ""
             printf '%s\n' '**Constraints:**'
