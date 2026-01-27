@@ -97,12 +97,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           RESULT=$(bun run scripts/tdd-automation/core/find-ready-spec.ts) || true
+          SPEC_JSON=$(echo "$RESULT" | tail -1)
 
           # Check if we got valid JSON output
-          if echo "$RESULT" | jq -e '.specId' > /dev/null 2>&1; then
-            SPEC_ID=$(echo "$RESULT" | jq -r '.specId')
-            SPEC_FILE=$(echo "$RESULT" | jq -r '.file')
-            PRIORITY=$(echo "$RESULT" | jq -r '.priority')
+          if echo "$SPEC_JSON" | jq -e '.specId' > /dev/null 2>&1; then
+            SPEC_ID=$(echo "$SPEC_JSON" | jq -r '.specId')
+            SPEC_FILE=$(echo "$SPEC_JSON" | jq -r '.file')
+            PRIORITY=$(echo "$SPEC_JSON" | jq -r '.priority')
 
             echo "Found spec: $SPEC_ID (priority: $PRIORITY)"
             echo "found=true" >> "$GITHUB_OUTPUT"
