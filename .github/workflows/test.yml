@@ -601,7 +601,7 @@ jobs:
       - name: Classify test failures
         id: classify-failures
         if: |
-          needs.e2e.result == 'failure' &&
+          (needs.e2e.result == 'failure' || needs.e2e-target.result == 'failure') &&
           contains(github.event.pull_request.labels.*.name, 'tdd-automation')
         env:
           TEST_RESULTS_DIR: all-test-results
