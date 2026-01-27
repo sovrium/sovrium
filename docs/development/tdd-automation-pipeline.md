@@ -235,10 +235,9 @@ ${TEST_OUTPUT}
 2. Analyze the failure (MANDATORY - document root cause)
 3. Verify required schemas exist (escalate if missing)
 4. Implement minimal code to pass the test
-5. Run `bun run quality` AND `bun test:e2e -- ${SPEC_FILE}` (iterate until BOTH pass)
-6. Run `bun test:e2e:regression` to verify no regressions
-7. Commit with message: "fix: implement ${SPEC_ID}"
-8. Push to origin (MANDATORY for pipeline to continue)
+5. Run `bun test:e2e -- ${SPEC_FILE}` to verify tests pass
+6. Commit with message: "fix: implement ${SPEC_ID}"
+7. Push to origin (MANDATORY for pipeline to continue)
 
 **Constraints:**
 
