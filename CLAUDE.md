@@ -284,10 +284,10 @@ sovrium/
 **Architecture**: GitHub PR-based state management with serial processing (1 spec at a time).
 
 **Workflow Files**:
-- `tdd-pr-creator.yml` - Scans for `.fixme()` specs, creates TDD PRs (triggers: schedule every 4 hours, manual)
+- `pr-creator.yml` - Scans for `.fixme()` specs, creates TDD PRs (triggers: schedule every 4 hours, manual)
 - `test.yml` - Extended with TDD handling (auto-merge on success, dispatch Claude Code on failure)
 - `claude-code.yml` - Runs Claude Code to fix failing specs with cost protection
-- `tdd-merge-watchdog.yml` - Handles post-merge conflicts via auto-rebase
+- `merge-watchdog.yml` - Handles post-merge conflicts via auto-rebase
 
 **State Management**:
 - PR-based state via labels and title format
@@ -304,7 +304,7 @@ gh pr list --label "tdd-automation"
 gh pr list --label "tdd-automation:manual-intervention"
 
 # Manually trigger PR creator
-gh workflow run tdd-pr-creator.yml
+gh workflow run pr-creator.yml
 ```
 
 **Labels Used**:

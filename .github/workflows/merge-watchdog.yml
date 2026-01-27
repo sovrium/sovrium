@@ -20,7 +20,7 @@ jobs:
           # - Not merged in >2 hours
 
           STUCK_PRS=$(gh pr list \
-            --repo ${{ github.repository }} \
+            --repo "${{ github.repository }}" \
             --label "tdd-automation" \
             --json number,title,updatedAt,mergeStateStatus,statusCheckRollup,labels \
             --jq '[.[] |
@@ -37,13 +37,13 @@ jobs:
               echo "Attempting to unstick PR #$PR"
 
               # Try to re-enable auto-merge
-              gh pr merge $PR --repo ${{ github.repository }} --squash --auto || true
+              gh pr merge "$PR" --repo "${{ github.repository }}" --squash --auto || true
 
               # If that fails, try direct merge
-              AUTO_MERGE=$(gh pr view $PR --repo ${{ github.repository }} --json autoMergeRequest -q '.autoMergeRequest' 2>/dev/null || echo "")
+              AUTO_MERGE=$(gh pr view "$PR" --repo "${{ github.repository }}" --json autoMergeRequest -q '.autoMergeRequest' 2>/dev/null || echo "")
               if [ -z "$AUTO_MERGE" ] || [ "$AUTO_MERGE" = "null" ]; then
                 echo "Auto-merge not enabled, trying direct merge"
-                gh pr merge $PR --repo ${{ github.repository }} --squash || true
+                gh pr merge "$PR" --repo "${{ github.repository }}" --squash || true
               fi
             done
           else
@@ -55,7 +55,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERY_STUCK=$(gh pr list \
-            --repo ${{ github.repository }} \
+            --repo "${{ github.repository }}" \
             --label "tdd-automation" \
             --json number,updatedAt,labels \
             --jq '[.[] |
@@ -65,11 +65,11 @@ jobs:
 
           if [ -n "$VERY_STUCK" ] && [ "$VERY_STUCK" != " " ]; then
             # Check if alert issue already exists
-            EXISTING=$(gh issue list --repo ${{ github.repository }} --label "tdd-automation,urgent" --state open --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
+            EXISTING=$(gh issue list --repo "${{ github.repository }}" --label "tdd-automation,urgent" --state open --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
 
             if [ -z "$EXISTING" ]; then
               gh issue create \
-                --repo ${{ github.repository }} \
+                --repo "${{ github.repository }}" \
                 --title "🚨 TDD PR stuck for >6 hours" \
                 --body "The following TDD PRs have been stuck for more than 6 hours: $VERY_STUCK. Possible causes: branch protection rules, required status checks not completing, or auto-merge disabled. Please check branch protection settings, verify required checks are passing, and manually merge if safe." \
                 --label "tdd-automation,urgent"

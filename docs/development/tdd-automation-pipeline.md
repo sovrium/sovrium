@@ -12,10 +12,10 @@
 2. [Quick Reference](#quick-reference)
 3. [Architecture](#architecture)
 4. [Workflow Details](#workflow-details)
-   - [PR Creator Workflow](#1-pr-creator-workflow-tdd-pr-creatoryml)
+   - [PR Creator Workflow](#1-pr-creator-workflow-pr-creatoryml)
    - [Test Workflow](#2-test-workflow-testyml)
    - [Claude Code Workflow](#3-claude-code-workflow-claude-codeyml)
-   - [Merge Watchdog Workflow](#4-merge-watchdog-workflow-tdd-merge-watchdogyml)
+   - [Merge Watchdog Workflow](#4-merge-watchdog-workflow-merge-watchdogyml)
 5. [State Management](#label-based-state-machine)
 6. [Cost Protection](#claude-code-credit-usage-protection)
 7. [Implementation Plan](#implementation-plan)
@@ -65,10 +65,10 @@ Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 2/5
 
 | Workflow                 | Trigger                                | Purpose                              |
 | ------------------------ | -------------------------------------- | ------------------------------------ |
-| `tdd-pr-creator.yml`     | Hourly cron + test.yml success on main | Creates next TDD PR                  |
+| `pr-creator.yml`     | Hourly cron + test.yml success on main | Creates next TDD PR                  |
 | `test.yml`               | Push to any branch                     | Runs tests, posts @claude on failure |
 | `claude-code.yml`        | @claude comment on PR                  | Executes Claude Code to fix code     |
-| `tdd-merge-watchdog.yml` | Every 30 min                           | Unsticks stuck PRs                   |
+| `merge-watchdog.yml` | Every 30 min                           | Unsticks stuck PRs                   |
 
 ### Cost Limits
 
@@ -380,7 +380,7 @@ The credit check happens at **two points**:
 2. **Claude Code Workflow** - Before executing Claude Code (double-check)
 
 ```yaml
-# In tdd-pr-creator.yml
+# In pr-creator.yml
 jobs:
   check-credits:
     runs-on: ubuntu-latest
@@ -533,7 +533,7 @@ For each conflict:
 
 ## Workflow Details
 
-### 1. PR Creator Workflow (`tdd-pr-creator.yml`)
+### 1. PR Creator Workflow (`pr-creator.yml`)
 
 **Triggers:**
 
@@ -1380,7 +1380,7 @@ After review, re-enable auto-merge or merge manually."
 - ✅ **Double credit check** before execution
 - ✅ **Merge strategy** (not rebase) for safer conflict handling
 
-### 4. Merge Watchdog Workflow (`tdd-merge-watchdog.yml`)
+### 4. Merge Watchdog Workflow (`merge-watchdog.yml`)
 
 **Purpose:** Detect and unstick PRs that should have auto-merged but didn't.
 
@@ -1649,9 +1649,9 @@ This handles cases where:
 
 | Task                           | File                                                        | Acceptance Criteria                                                                                                          |
 | ------------------------------ | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 1.1 Create PR Creator workflow | `.github/workflows/tdd-pr-creator.yml`                      | - Finds `.fixme()` specs<br>- Creates PRs with correct title format<br>- Adds `tdd-automation` label<br>- Enables auto-merge |
+| 1.1 Create PR Creator workflow | `.github/workflows/pr-creator.yml`                      | - Finds `.fixme()` specs<br>- Creates PRs with correct title format<br>- Adds `tdd-automation` label<br>- Enables auto-merge |
 | 1.2 Create credit check script | `scripts/tdd-automation/core/check-credit-usage.ts`         | - Parses workflow logs<br>- Returns daily/weekly spend<br>- Has fallback ($15/run)<br>- Logs warnings at 80%                 |
-| 1.3 Create Merge Watchdog      | `.github/workflows/tdd-merge-watchdog.yml`                  | - Runs every 30 min<br>- Detects stuck PRs<br>- Creates alert issues                                                         |
+| 1.3 Create Merge Watchdog      | `.github/workflows/merge-watchdog.yml`                  | - Runs every 30 min<br>- Detects stuck PRs<br>- Creates alert issues                                                         |
 | 1.4 Update priority calculator | `scripts/tdd-automation/core/schema-priority-calculator.ts` | - Returns spec-id, file, priority<br>- Supports `--exclude` flag<br>- Extracts per-spec config                               |
 
 **Test:** Manually trigger PR Creator, verify PR created correctly (don't let tests run yet).
@@ -1737,8 +1737,8 @@ This handles cases where:
 **New Files:**
 
 ```
-.github/workflows/tdd-pr-creator.yml       # NEW
-.github/workflows/tdd-merge-watchdog.yml   # NEW
+.github/workflows/pr-creator.yml       # NEW
+.github/workflows/merge-watchdog.yml   # NEW
 .github/workflows/claude-code.yml          # NEW
 scripts/tdd-automation/core/check-credit-usage.ts  # NEW (or update existing)
 ```
@@ -2047,7 +2047,7 @@ export async function getTDDState(): Promise<TDDState> {
 **Solution: Merge Watchdog Workflow**
 
 ```yaml
-# .github/workflows/tdd-merge-watchdog.yml
+# .github/workflows/merge-watchdog.yml
 name: TDD Merge Watchdog
 
 on:

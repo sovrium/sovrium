@@ -21,17 +21,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PR_DATA=$(gh pr view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json headRefName,labels)
+          PR_DATA=$(gh pr view "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --json headRefName,labels)
           BRANCH=$(echo "$PR_DATA" | jq -r '.headRefName')
           HAS_LABEL=$(echo "$PR_DATA" | jq -r '.labels[].name' | grep -c "tdd-automation" || echo "0")
           IS_TDD_BRANCH=$(echo "$BRANCH" | grep -c "^tdd/" || echo "0")
 
-          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
 
           if [ "$HAS_LABEL" -gt 0 ] || [ "$IS_TDD_BRANCH" -gt 0 ]; then
-            echo "is-tdd=true" >> $GITHUB_OUTPUT
+            echo "is-tdd=true" >> "$GITHUB_OUTPUT"
           else
-            echo "is-tdd=false" >> $GITHUB_OUTPUT
+            echo "is-tdd=false" >> "$GITHUB_OUTPUT"
             echo "Not a TDD PR - skipping"
             exit 0
           fi
@@ -42,7 +42,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Same cost checking logic as PR Creator
-          DAILY_RUNS=$(gh run list --repo ${{ github.repository }} --workflow="claude-code.yml" \
+          DAILY_RUNS=$(gh run list --repo "${{ github.repository }}" --workflow="claude-code.yml" \
             --created ">$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
             --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")] | length' 2>/dev/null || echo "0")
 
@@ -50,10 +50,10 @@ jobs:
           ESTIMATED_DAILY=$(echo "$DAILY_RUNS * 10" | bc)  # ~$10 per run estimate
 
           if [ "$ESTIMATED_DAILY" -ge 100 ]; then
-            echo "can-proceed=false" >> $GITHUB_OUTPUT
-            gh pr comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body "⏸️ Daily credit limit reached. TDD automation paused until tomorrow."
+            echo "can-proceed=false" >> "$GITHUB_OUTPUT"
+            gh pr comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body "⏸️ Daily credit limit reached. TDD automation paused until tomorrow."
           else
-            echo "can-proceed=true" >> $GITHUB_OUTPUT
+            echo "can-proceed=true" >> "$GITHUB_OUTPUT"
           fi
 
   execute:
@@ -103,21 +103,21 @@ jobs:
           git fetch origin main
 
           BEHIND=$(git rev-list --count HEAD..origin/main)
-          echo "behind=$BEHIND" >> $GITHUB_OUTPUT
+          echo "behind=$BEHIND" >> "$GITHUB_OUTPUT"
 
           if [ "$BEHIND" -gt 0 ]; then
             echo "Main branch has $BEHIND new commits, merging..."
 
             if ! git merge origin/main --no-edit 2>/dev/null; then
-              echo "has-conflict=true" >> $GITHUB_OUTPUT
+              echo "has-conflict=true" >> "$GITHUB_OUTPUT"
               git diff --name-only --diff-filter=U > /tmp/conflicted_files.txt
               git merge --abort
             else
-              echo "has-conflict=false" >> $GITHUB_OUTPUT
+              echo "has-conflict=false" >> "$GITHUB_OUTPUT"
               git push origin HEAD
             fi
           else
-            echo "has-conflict=false" >> $GITHUB_OUTPUT
+            echo "has-conflict=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Add conflict label if needed
@@ -125,22 +125,23 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr edit ${{ needs.validate.outputs.pr-number }} --repo ${{ github.repository }} --add-label "tdd-automation:had-conflict"
+          gh pr edit "${{ needs.validate.outputs.pr-number }}" --repo "${{ github.repository }}" --add-label "tdd-automation:had-conflict"
 
       - name: Start heartbeat
         id: heartbeat
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_NUMBER="${{ needs.validate.outputs.pr-number }}"
+          REPO="${{ github.repository }}"
           (
             while true; do
               sleep 600  # Every 10 minutes
-              gh pr comment $PR_NUMBER --repo ${{ github.repository }} --body "🤖 Claude Code still working... (heartbeat)" 2>/dev/null || true
+              gh pr comment "$PR_NUMBER" --repo "$REPO" --body "🤖 Claude Code still working... (heartbeat)" 2>/dev/null || true
             done
           ) &
           echo $! > /tmp/heartbeat.pid
-          echo "pid=$(cat /tmp/heartbeat.pid)" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "pid=$(cat /tmp/heartbeat.pid)" >> "$GITHUB_OUTPUT"
 
       - name: Build Claude Code prompt
         id: prompt
@@ -210,13 +211,13 @@ jobs:
 
           # Execute with timeout (40 min to allow buffer before job timeout)
           if timeout 40m claude --print "$PROMPT"; then
-            echo "status=success" >> $GITHUB_OUTPUT
+            echo "status=success" >> "$GITHUB_OUTPUT"
           else
             EXIT_CODE=$?
             if [ "$EXIT_CODE" = "124" ]; then
-              echo "status=timeout" >> $GITHUB_OUTPUT
+              echo "status=timeout" >> "$GITHUB_OUTPUT"
             else
-              echo "status=failed" >> $GITHUB_OUTPUT
+              echo "status=failed" >> "$GITHUB_OUTPUT"
             fi
           fi
 
@@ -269,7 +270,7 @@ jobs:
           PR_NUMBER="${{ needs.validate.outputs.pr-number }}"
 
           # Conflicts require human review
-          gh pr merge $PR_NUMBER --repo ${{ github.repository }} --disable-auto || true
+          gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --disable-auto || true
           {
             echo "⚠️ This PR had merge conflicts that were auto-resolved."
             echo ""
@@ -282,4 +283,4 @@ jobs:
             echo ""
             echo "After review, re-enable auto-merge or merge manually."
           } > /tmp/conflict_comment.txt
-          gh pr comment $PR_NUMBER --repo ${{ github.repository }} --body-file /tmp/conflict_comment.txt
+          gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/conflict_comment.txt
