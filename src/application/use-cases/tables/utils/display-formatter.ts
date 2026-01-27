@@ -131,23 +131,14 @@ function formatDate(value: unknown, field: DateField): string {
   // Format based on dateFormat setting
   const dateFormat = field.dateFormat ?? 'US'
 
-  let formattedDate: string
-  switch (dateFormat) {
-    case 'US':
-      // US format: M/D/YYYY (no leading zeros)
-      formattedDate = `${month}/${day}/${year}`
-      break
-    case 'European':
-      // European format: D/M/YYYY (no leading zeros)
-      formattedDate = `${day}/${month}/${year}`
-      break
-    case 'ISO':
-      // ISO format: YYYY-MM-DD (with leading zeros)
-      formattedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-      break
-    default:
-      formattedDate = `${month}/${day}/${year}` // Default to US format
+  // Format date using immutable mapping pattern
+  const formatMap: Record<string, string> = {
+    US: `${month}/${day}/${year}`, // US format: M/D/YYYY (no leading zeros)
+    European: `${day}/${month}/${year}`, // European format: D/M/YYYY (no leading zeros)
+    ISO: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`, // ISO format: YYYY-MM-DD (with leading zeros)
   }
+
+  const formattedDate = formatMap[dateFormat] ?? `${month}/${day}/${year}` // Default to US format
 
   // Append time if includeTime is true
   if (field.includeTime) {
