@@ -59,9 +59,7 @@ export const checkCreditLimits = Effect.gen(function* () {
       status: 'success',
     }),
     Effect.catchTag('GitHubApiError', (error) => {
-      warnings.push(
-        `Failed to fetch daily workflow runs (${error.operation}), assuming $0 spent`
-      )
+      warnings.push(`Failed to fetch daily workflow runs (${error.operation}), assuming $0 spent`)
       return Effect.succeed([])
     })
   )
@@ -74,9 +72,7 @@ export const checkCreditLimits = Effect.gen(function* () {
       status: 'success',
     }),
     Effect.catchTag('GitHubApiError', (error) => {
-      warnings.push(
-        `Failed to fetch weekly workflow runs (${error.operation}), assuming $0 spent`
-      )
+      warnings.push(`Failed to fetch weekly workflow runs (${error.operation}), assuming $0 spent`)
       return Effect.succeed([])
     })
   )

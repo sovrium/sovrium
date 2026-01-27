@@ -32,6 +32,7 @@ const main = Effect.gen(function* () {
   const prNumberStr = process.env['PR_NUMBER']
   if (!prNumberStr) {
     yield* Console.log(
+      // effect-disable-next-line preferSchemaOverJson
       JSON.stringify({
         valid: false,
         reason: 'PR_NUMBER not set',
@@ -48,6 +49,7 @@ const main = Effect.gen(function* () {
   // Check if it has TDD label
   if (!pr.labels?.includes(TDD_LABELS.AUTOMATION)) {
     yield* Console.log(
+      // effect-disable-next-line preferSchemaOverJson
       JSON.stringify({
         valid: false,
         reason: 'Not a TDD PR (missing label)',
@@ -59,6 +61,7 @@ const main = Effect.gen(function* () {
   // Check for manual intervention label
   if (pr.labels?.includes(TDD_LABELS.MANUAL_INTERVENTION)) {
     yield* Console.log(
+      // effect-disable-next-line preferSchemaOverJson
       JSON.stringify({
         valid: false,
         reason: 'PR marked for manual intervention',
@@ -71,6 +74,7 @@ const main = Effect.gen(function* () {
   const parsed = parseTDDPRTitle(pr.title)
   if (!parsed) {
     yield* Console.log(
+      // effect-disable-next-line preferSchemaOverJson
       JSON.stringify({
         valid: false,
         reason: 'Invalid TDD PR title format',
@@ -84,6 +88,7 @@ const main = Effect.gen(function* () {
 
   if (!creditResult.canProceed) {
     yield* Console.log(
+      // effect-disable-next-line preferSchemaOverJson
       JSON.stringify({
         valid: false,
         reason: 'Credit limit exceeded',
@@ -100,6 +105,7 @@ const main = Effect.gen(function* () {
   }
 
   yield* Console.log(
+    // effect-disable-next-line preferSchemaOverJson
     JSON.stringify({
       valid: true,
       prNumber,
@@ -114,6 +120,7 @@ const main = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Console.warn(`::warning::Credit limit exceeded: ${error.limit}`)
       yield* Console.log(
+        // effect-disable-next-line preferSchemaOverJson
         JSON.stringify({
           valid: false,
           reason: `Credit limit exceeded (${error.limit})`,
@@ -127,6 +134,7 @@ const main = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Console.error(`::error::GitHub API error: ${error.operation}`)
       yield* Console.log(
+        // effect-disable-next-line preferSchemaOverJson
         JSON.stringify({
           valid: false,
           reason: `GitHub API error: ${error.operation}`,

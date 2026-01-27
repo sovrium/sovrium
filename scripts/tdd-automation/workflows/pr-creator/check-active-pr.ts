@@ -33,12 +33,14 @@ const main = Effect.gen(function* () {
   }
 
   // Output JSON for YAML to parse
+  // effect-disable-next-line preferSchemaOverJson
   yield* Console.log(JSON.stringify(result))
 }).pipe(
   Effect.catchTag('GitHubApiError', (error) =>
     Effect.gen(function* () {
       yield* Console.error(`::error::GitHub API error: ${error.operation}`)
       yield* Console.log(
+        // effect-disable-next-line preferSchemaOverJson
         JSON.stringify({
           hasActivePR: false,
           activePR: null,

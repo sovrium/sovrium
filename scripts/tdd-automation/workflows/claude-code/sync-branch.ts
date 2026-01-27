@@ -32,6 +32,7 @@ const main = Effect.gen(function* () {
   if (!branchName) {
     yield* Console.error('::error::BRANCH_NAME environment variable not set')
     yield* Console.log(
+      // effect-disable-next-line preferSchemaOverJson
       JSON.stringify({
         synced: false,
         error: 'BRANCH_NAME not set',
@@ -43,6 +44,7 @@ const main = Effect.gen(function* () {
   const result = yield* syncWithMain({ branch: branchName })
 
   yield* Console.log(
+    // effect-disable-next-line preferSchemaOverJson
     JSON.stringify({
       synced: true,
       wasOutOfSync: result.wasOutOfSync,
@@ -85,6 +87,7 @@ ${error.conflictingFiles.map((f) => `- \`${f}\``).join('\n')}
       }
 
       yield* Console.log(
+        // effect-disable-next-line preferSchemaOverJson
         JSON.stringify({
           synced: false,
           hasConflicts: true,
@@ -97,6 +100,7 @@ ${error.conflictingFiles.map((f) => `- \`${f}\``).join('\n')}
     Effect.gen(function* () {
       yield* Console.error(`::error::Git error: ${error.operation}`)
       yield* Console.log(
+        // effect-disable-next-line preferSchemaOverJson
         JSON.stringify({
           synced: false,
           error: `Git error: ${error.operation}`,

@@ -74,7 +74,7 @@ type ViewGeneratorsModule = {
 const ensureAuthPrerequisites = (
   tx: TransactionLike,
   tables: readonly Table[]
-): Effect.Effect<void, never> =>
+): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
     const needs = needsUsersTable(tables)
@@ -111,7 +111,7 @@ type CreateMigrateTablesConfig = {
 /** Create or migrate each table in sorted order */
 const createMigrateTables = (
   config: CreateMigrateTablesConfig
-): Effect.Effect<void, SQLExecutionError> =>
+): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
     const { tx, sortedTables, tableUsesView, circularTables, previousSchema, lookupViewModule } =
       config
@@ -141,7 +141,7 @@ const addCircularFKConstraints = (
   sortedTables: readonly Table[],
   circularTables: ReadonlySet<string>,
   tableUsesView: ReadonlyMap<string, boolean>
-): Effect.Effect<void, SQLExecutionError> =>
+): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
     if (circularTables.size === 0) return
     logInfo(`[Adding FK constraints for circular dependencies]`)
@@ -177,7 +177,7 @@ const collectJunctionTableSpecs = (
 const createJunctionTables = (
   tx: TransactionLike,
   junctionTableSpecs: ReadonlyMap<string, { readonly name: string; readonly ddl: string }>
-): Effect.Effect<void, SQLExecutionError> =>
+): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
     if (junctionTableSpecs.size === 0) return
     logInfo(`[Creating junction tables] ${Array.from(junctionTableSpecs.keys()).join(', ')}`)
@@ -196,7 +196,7 @@ const createAllViews = (
   tx: TransactionLike,
   sortedTables: readonly Table[],
   viewGeneratorsModule: ViewGeneratorsModule
-): Effect.Effect<void, SQLExecutionError> =>
+): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
     yield* Effect.promise(() => viewGeneratorsModule.dropAllObsoleteViews(tx, sortedTables))
     yield* Effect.all(
@@ -214,7 +214,7 @@ const executeMigrationSteps = (
   tx: TransactionLike,
   tables: readonly Table[],
   app: App
-): Effect.Effect<void, SQLExecutionError> =>
+): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
     // Step 0: Validate stored checksum to detect tampering
     yield* validateStoredChecksum(tx)
@@ -274,7 +274,7 @@ const logRollbackError = (
   databaseUrl: string,
   errorMessage: string,
   runtime: Runtime.Runtime<never>
-): Effect.Effect<void, never> =>
+): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     logInfo(`[executeSchemaInit] CATCH HANDLER - Error caught: ${errorMessage}`)
     const logDb = new SQL(databaseUrl)
@@ -338,7 +338,7 @@ const executeSchemaInit = (
   databaseUrl: string,
   tables: readonly Table[],
   app: App
-): Effect.Effect<void, SchemaInitializationError> =>
+): Effect.Effect<void, SchemaInitializationError, never> =>
   Effect.gen(function* () {
     const db = new SQL({ url: databaseUrl, max: 1 })
     const runtime = yield* Effect.runtime<never>()

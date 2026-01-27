@@ -98,8 +98,10 @@ const MockUserRoleServiceViewer = Layer.succeed(UserRoleService, {
 /**
  * Mock UserRoleService that returns no role (undefined)
  *
- * NOTE: Effect.succeed(undefined) is correct here - return type is `string | undefined`
- * Effect.void would return `void` which breaks the type contract
+ * NOTE: Effect.succeed(undefined) is CORRECT - return type is `Effect<string | undefined, E>`
+ * We're returning `undefined` as a valid value (user has no role).
+ * Effect.void would return `Effect<void, E>` which breaks the type contract.
+ * The effectSucceedWithVoid diagnostic is a false positive when undefined is an intentional value.
  */
 const MockUserRoleServiceNoRole = Layer.succeed(UserRoleService, {
   getUserRole: () => Effect.succeed(undefined),

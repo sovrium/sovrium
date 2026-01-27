@@ -101,6 +101,7 @@ const main = Effect.gen(function* () {
   }
 
   yield* Console.log(
+    // effect-disable-next-line preferSchemaOverJson
     JSON.stringify({
       stuckPRs,
       count: stuckPRs.length,
@@ -111,6 +112,7 @@ const main = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Console.error(`::error::GitHub API error: ${error.operation}`)
       yield* Console.log(
+        // effect-disable-next-line preferSchemaOverJson
         JSON.stringify({
           stuckPRs: [],
           count: 0,

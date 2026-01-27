@@ -20,10 +20,17 @@
  *   { "success": false, "error": "..." }
  */
 
-import { Effect, Console } from 'effect'
+import { Effect, Console, Data } from 'effect'
 import { LiveLayer } from '../../layers/live'
 import { createTDDPR } from '../../programs/create-tdd-pr'
 import type { ReadySpec } from '../../core/types'
+
+/**
+ * Error: Failed to parse SPEC_JSON environment variable
+ */
+class JSONParseError extends Data.TaggedError('JSONParseError')<{
+  readonly cause: unknown
+}> {}
 
 const main = Effect.gen(function* () {
   // Get spec from environment
@@ -31,6 +38,7 @@ const main = Effect.gen(function* () {
   if (!specJson) {
     yield* Console.error('::error::SPEC_JSON environment variable not set')
     yield* Console.log(
+      // effect-disable-next-line preferSchemaOverJson
       JSON.stringify({
         success: false,
         error: 'SPEC_JSON environment variable not set',
@@ -39,12 +47,15 @@ const main = Effect.gen(function* () {
     return
   }
 
-  let spec: ReadySpec
-  try {
-    spec = JSON.parse(specJson) as ReadySpec
-  } catch {
+  const specResult = yield* Effect.try({
+    try: () => JSON.parse(specJson) as ReadySpec,
+    catch: (error) => new JSONParseError({ cause: error }),
+  }).pipe(Effect.either)
+
+  if (specResult._tag === 'Left') {
     yield* Console.error('::error::Failed to parse SPEC_JSON')
     yield* Console.log(
+      // effect-disable-next-line preferSchemaOverJson
       JSON.stringify({
         success: false,
         error: 'Failed to parse SPEC_JSON',
@@ -53,9 +64,12 @@ const main = Effect.gen(function* () {
     return
   }
 
+  const spec = specResult.right
+
   const result = yield* createTDDPR({ spec })
 
   yield* Console.log(
+    // effect-disable-next-line preferSchemaOverJson
     JSON.stringify({
       success: true,
       prNumber: result.prNumber,
@@ -69,6 +83,7 @@ const main = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Console.error(`::error::GitHub API error: ${error.operation}`)
       yield* Console.log(
+        // effect-disable-next-line preferSchemaOverJson
         JSON.stringify({
           success: false,
           error: `GitHub API error: ${error.operation} - ${error.message}`,
@@ -80,6 +95,7 @@ const main = Effect.gen(function* () {
     Effect.gen(function* () {
       yield* Console.error(`::error::Git error: ${error.operation}`)
       yield* Console.log(
+        // effect-disable-next-line preferSchemaOverJson
         JSON.stringify({
           success: false,
           error: `Git error: ${error.operation} - ${error.message}`,

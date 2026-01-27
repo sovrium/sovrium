@@ -470,7 +470,7 @@ const runEffectDiagnostics = Effect.gen(function* () {
   yield* progress('Effect Diagnostics...')
 
   // Run Effect Language Service diagnostics CLI
-  // Filter to only errors and warnings (exclude informational 'message' level diagnostics)
+  // Include errors, warnings, and messages (informational best practice suggestions)
   const result = yield* cmd
     .spawn(
       [
@@ -480,7 +480,7 @@ const runEffectDiagnostics = Effect.gen(function* () {
         '--project',
         'tsconfig.json',
         '--severity',
-        'error,warning',
+        'error,warning,message',
       ],
       { timeout: 120_000, throwOnError: false }
     )
@@ -499,23 +499,23 @@ const runEffectDiagnostics = Effect.gen(function* () {
   const duration = Date.now() - startTime
   const output = result.stdout || result.stderr || ''
 
-  // Count Effect diagnostics warnings (lines containing "effect(" pattern)
+  // Count Effect diagnostics ERROR-level issues only (not message-level suggestions)
   // Exclude:
-  // - scripts/ directory (utility scripts, not core application code)
   // - runEffectInsideEffect (intentional patterns in signal handlers and Drizzle transactions)
-  // Note: Output contains ANSI color codes, so we check for 'scripts/' anywhere in the line
+  // - message-level diagnostics (preferSchemaOverJson, effectSucceedWithVoid - informational only)
+  // Note: Output contains ANSI color codes
   const diagnosticLines = output.split('\n').filter((line) => {
     if (!line.includes('effect(')) return false
-    // Exclude scripts/ directory (check for scripts/ anywhere due to ANSI codes)
-    if (line.includes('scripts/')) return false
     // Exclude intentional runEffectInsideEffect patterns
     if (line.includes('runEffectInsideEffect')) return false
+    // Only fail on ERROR level diagnostics (contains "error" before "effect(")
+    if (!line.includes('error') || !line.match(/error.*effect\(/)) return false
     return true
   })
-  const warningCount = diagnosticLines.length
+  const errorCount = diagnosticLines.length
 
-  if (warningCount > 0) {
-    yield* logError(`Effect Diagnostics failed (${duration}ms) - ${warningCount} warning(s)`)
+  if (errorCount > 0) {
+    yield* logError(`Effect Diagnostics failed (${duration}ms) - ${errorCount} error(s)`)
     // Print only the relevant diagnostic lines
     for (const line of diagnosticLines) {
       console.error(line)
@@ -524,7 +524,7 @@ const runEffectDiagnostics = Effect.gen(function* () {
       name: 'Effect Diagnostics',
       success: false,
       duration,
-      error: `${warningCount} Effect warning(s) found`,
+      error: `${errorCount} Effect error(s) found`,
     } as CheckResult
   }
 

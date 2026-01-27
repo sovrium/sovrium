@@ -81,7 +81,7 @@ export const syncWithMain = (options: SyncOptions) =>
     if (rebaseResult._tag === 'Left') {
       // Rebase failed - likely due to conflicts
       // Abort the rebase
-      yield* git.rebaseAbort().pipe(Effect.catchAll(() => Effect.succeed(undefined)))
+      yield* git.rebaseAbort().pipe(Effect.catchAll(() => Effect.void))
 
       // Check for actual conflicts
       const conflictInfo = yield* git.checkConflicts(branch, TDD_CONFIG.BASE_BRANCH)
