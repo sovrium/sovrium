@@ -606,7 +606,7 @@ jobs:
         env:
           TEST_RESULTS_DIR: all-test-results
           JSON_RESULTS_DIR: all-json-results
-          TARGET_SPEC: ${{ needs.detect-changes.outputs.target_spec }}
+          TARGET_SPEC: ${{ needs.detect-change-type.outputs.target_spec }}
         run: |
           RESULT=$(bun run scripts/tdd-automation/workflows/test/classify-failures.ts 2>&1)
 
@@ -816,10 +816,11 @@ jobs:
 
   tdd-handle-failure:
     name: TDD Handle Failure
+    # Detect TDD PR via label OR branch name (backup per spec)
     if: |
       github.event_name == 'pull_request' &&
       github.event.action != 'closed' &&
-      contains(github.event.pull_request.labels.*.name, 'tdd-automation') &&
+      (contains(github.event.pull_request.labels.*.name, 'tdd-automation') || startsWith(github.event.pull_request.head.ref, 'tdd/')) &&
       needs.e2e-results.outputs.e2e_failed == 'true' &&
       needs.e2e-results.outputs.failure_type != 'infrastructure'
     needs: [e2e-results]
@@ -830,16 +831,65 @@ jobs:
       issues: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if PR is behind main (sync check per spec)
+        id: sync-check
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          # Fetch latest main
+          git fetch origin main
+
+          # Count commits that main has but this branch doesn't
+          BEHIND_COUNT=$(git rev-list HEAD..origin/main --count)
+
+          echo "Commits behind main: $BEHIND_COUNT"
+
+          if [ "$BEHIND_COUNT" -gt 0 ]; then
+            echo "needs_sync=true" >> $GITHUB_OUTPUT
+            echo "behind_count=$BEHIND_COUNT" >> $GITHUB_OUTPUT
+
+            # Post sync request comment (does NOT count as attempt per spec)
+            {
+              echo "## 🔄 Branch Sync Required"
+              echo ""
+              echo "This PR is **$BEHIND_COUNT commit(s) behind main**."
+              echo ""
+              echo "Please sync with main before continuing:"
+              echo "\`\`\`bash"
+              echo "git fetch origin main"
+              echo "git rebase origin/main"
+              echo "git push --force-with-lease"
+              echo "\`\`\`"
+              echo ""
+              echo "**Note:** This sync request does NOT count as an attempt."
+              echo ""
+              echo "---"
+              echo "*🤖 TDD Automation Sync Check*"
+            } > /tmp/sync_comment.txt
+
+            gh pr comment "$PR_NUMBER" --body-file /tmp/sync_comment.txt
+          else
+            echo "needs_sync=false" >> $GITHUB_OUTPUT
+            echo "✅ Branch is up to date with main"
+          fi
 
       - name: Setup Bun
+        if: steps.sync-check.outputs.needs_sync != 'true'
         uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: package.json
 
       - name: Install dependencies
+        if: steps.sync-check.outputs.needs_sync != 'true'
         run: bun install --frozen-lockfile
 
       - name: Parse PR title for attempt info
+        if: steps.sync-check.outputs.needs_sync != 'true'
         id: parse
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
@@ -856,6 +906,7 @@ jobs:
           echo "📋 Parsed: Spec=$SPEC_ID, Attempt=$ATTEMPT/$MAX_ATTEMPTS"
 
       - name: Increment attempt counter
+        if: steps.sync-check.outputs.needs_sync != 'true'
         id: increment
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
@@ -881,7 +932,7 @@ jobs:
           fi
 
       - name: Trigger Claude Code on failure
-        if: steps.increment.outputs.exceeded == 'false'
+        if: steps.sync-check.outputs.needs_sync != 'true' && steps.increment.outputs.exceeded == 'false'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -890,32 +941,59 @@ jobs:
           NEW_ATTEMPT: ${{ steps.increment.outputs.new-attempt }}
           MAX_ATTEMPTS: ${{ steps.parse.outputs.max-attempts }}
           BRANCH: ${{ github.event.pull_request.head.ref }}
+          FAILURE_TYPE: ${{ needs.e2e-results.outputs.failure_type }}
         run: |
           echo "🤖 Triggering Claude Code (Attempt $NEW_ATTEMPT/$MAX_ATTEMPTS)"
+          echo "   Failure type: $FAILURE_TYPE"
+
+          # Select agent based on failure type (per spec)
+          # - quality_only: Use codebase-refactor-auditor (lint/format/type issues, not test failures)
+          # - target_only: Use e2e-test-fixer (actual test failures)
+          if [ "$FAILURE_TYPE" = "quality_only" ]; then
+            AGENT="codebase-refactor-auditor"
+            AGENT_WORKFLOW="codebase-refactor-auditor"
+          else
+            AGENT="e2e-test-fixer"
+            AGENT_WORKFLOW="e2e-test-fixer"
+          fi
+
+          echo "   Selected agent: $AGENT"
 
           # Write comment to temp file to avoid YAML parsing issues
           # Format matches spec: docs/development/tdd-automation-pipeline.md#system-prompt-templates
           {
-            echo "@claude e2e-test-fixer"
+            echo "@claude $AGENT"
             echo ""
-            echo "You are operating in the TDD automation pipeline. Use the e2e-test-fixer agent workflow."
+            echo "You are operating in the TDD automation pipeline. Use the $AGENT_WORKFLOW agent workflow."
             echo ""
-            echo "**Context:**"
+            printf '%s\n' '**Context:**'
             echo "- Spec: \`$SPEC_ID\`"
             echo "- File: \`$TARGET_SPEC\`"
             echo "- Attempt: $NEW_ATTEMPT/$MAX_ATTEMPTS"
             echo "- Branch: \`$BRANCH\`"
+            echo "- Failure Type: \`$FAILURE_TYPE\`"
             echo ""
-            echo "**Instructions:**"
-            echo "1. Analyze the test to understand what it expects"
-            echo "2. Verify required schemas exist (use Skill tool if missing)"
-            echo "3. Implement minimal code to pass the test"
-            echo "4. Run \`bun run quality\` AND \`bun test:e2e -- $TARGET_SPEC\` (iterate until BOTH pass)"
-            echo "5. Run \`bun test:e2e:regression\` to verify no regressions"
-            echo "6. Commit with message: \"fix: implement $SPEC_ID\""
-            echo "7. Push to origin (MANDATORY for pipeline to continue)"
+            # Instructions vary by failure type
+            printf '%s\n' '**Instructions:**'
+            if [ "$FAILURE_TYPE" = "quality_only" ]; then
+              echo "1. Run \`bun run quality\` to identify the specific quality issues"
+              echo "2. Fix lint, format, or type errors in the production code"
+              echo "3. Do NOT modify test files - this is a quality issue, not a test failure"
+              echo "4. Run \`bun run quality\` again to verify all issues are fixed"
+              echo "5. Run \`bun test:e2e -- $TARGET_SPEC\` to confirm tests pass"
+              echo "6. Commit with message: \"fix: resolve quality issues for $SPEC_ID\""
+              echo "7. Push to origin (MANDATORY for pipeline to continue)"
+            else
+              echo "1. Analyze the test to understand what it expects"
+              echo "2. Verify required schemas exist (use Skill tool if missing)"
+              echo "3. Implement minimal code to pass the test"
+              echo "4. Run \`bun run quality\` AND \`bun test:e2e -- $TARGET_SPEC\` (iterate until BOTH pass)"
+              echo "5. Run \`bun test:e2e:regression\` to verify no regressions"
+              echo "6. Commit with message: \"fix: implement $SPEC_ID\""
+              echo "7. Push to origin (MANDATORY for pipeline to continue)"
+            fi
             echo ""
-            echo "**Constraints:**"
+            printf '%s\n' '**Constraints:**'
             echo "- NEVER modify test logic or assertions"
             echo "- NEVER ask clarifying questions (autonomous mode)"
             echo "- Maximum 3 iterations before reporting failure"
@@ -925,7 +1003,7 @@ jobs:
           gh pr comment "$PR_NUMBER" --body-file /tmp/claude_comment.txt
 
       - name: Move to manual intervention
-        if: steps.increment.outputs.exceeded == 'true'
+        if: steps.sync-check.outputs.needs_sync != 'true' && steps.increment.outputs.exceeded == 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
