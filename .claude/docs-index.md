@@ -107,8 +107,7 @@
 
 ## Development Workflows
 
-- `@docs/development/tdd-automation-pipeline.md` - **TDD Automation Pipeline** - Automated test fixing via GitHub Actions + Claude Code
-- `@docs/development/tdd-automation-claude-instructions.md` - **TDD Claude Instructions** - Step-by-step workflow for TDD spec issues (load when triggered by "🤖" issues)
+- `@docs/development/tdd-automation-pipeline.md` - **TDD Automation Pipeline** - Comprehensive documentation for JSON state-based TDD automation (automated test fixing via GitHub Actions + Claude Code)
 - `@docs/development/copyright-headers.md` - Copyright header automation and management
 - `@.claude/SKILLS.md` - Skills reference (autonomous utilities for validation, translation, and code quality)
 

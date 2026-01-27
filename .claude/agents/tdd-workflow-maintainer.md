@@ -106,8 +106,8 @@ You maintain coherence across all TDD-related files:
 - `scripts/tdd-automation/services/failure-handler.ts` (failure handling)
 
 **Documentation:**
-- `scripts/tdd-automation/README.md` (comprehensive pipeline docs)
-- `CLAUDE.md` (TDD automation section for user reference)
+- `@docs/development/tdd-automation-pipeline.md` (comprehensive pipeline docs)
+- `CLAUDE.md` (TDD automation section - quick reference, points to full docs)
 
 **When auditing, you verify:**
 - State file `.github/tdd-state.json` is properly maintained
@@ -161,7 +161,7 @@ When reviewing workflow runs, you:
 
 You ensure documentation matches implementation:
 - `CLAUDE.md` TDD sections reflect actual workflow behavior
-- `scripts/tdd-automation/README.md` is accurate and complete
+- `@docs/development/tdd-automation-pipeline.md` is accurate and complete
 - State file structure matches implementation
 - Command examples work as documented
 - Workflow diagrams reflect current architecture
@@ -219,7 +219,7 @@ When performing a full audit, check:
 - [ ] Metrics are updated correctly
 
 **Documentation**
-- [ ] scripts/tdd-automation/README.md matches implementation
+- [ ] @docs/development/tdd-automation-pipeline.md matches implementation
 - [ ] Workflow diagrams reflect orchestrator → worker flow
 - [ ] Commands documented actually work (tested)
 - [ ] Retry limits and behavior described correctly (max 3, then fail)
@@ -470,7 +470,7 @@ Verify:
 ### Phase 5: Verify Documentation Accuracy
 
 After resolving issues, check if docs need updates:
-- Does `scripts/tdd-automation/README.md` describe this failure scenario?
+- Does `@docs/development/tdd-automation-pipeline.md` describe this failure scenario?
 - Does `CLAUDE.md` include this in common failures list?
 - Are workflow prompts to Claude accurate?
 - Should this failure pattern be added to troubleshooting guide?

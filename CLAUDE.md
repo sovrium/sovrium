@@ -277,36 +277,40 @@ sovrium/
 4. **Push**: GitHub Actions runs tests
 5. **Release**: When ready to publish, use `git commit -m "release: publish"` and push
 
-## TDD Automation Queue System (For Claude Code)
+## TDD Automation Queue System
 
-> **Load detailed instructions**: When triggered by a TDD spec issue (title starts with "🤖"), import `@docs/development/tdd-automation-claude-instructions.md`
+> **Primary Documentation**: See `@docs/development/tdd-automation-pipeline.md` for comprehensive pipeline documentation.
 
-**Quick Recognition**: Issue title "🤖 [SPEC-ID]:" with TDD labels
+**Architecture**: JSON state file-based queue management (no GitHub Issues).
 
-**Label States**:
-- `tdd-spec:queued` → Waiting in queue
-- `tdd-spec:in-progress` → Currently being processed
-- `tdd-spec:completed` → Successfully implemented and merged
-- `tdd-spec:failed` → Failed after max retries
-- `retry:spec:1/2/3` → Code error retry count
-- `retry:infra:1/2/3` → Infrastructure error retry count
-- `failure:spec/regression/infra` → Failure classification
+**Workflow Files**:
+- `tdd-orchestrator.yml` - Selects specs, dispatches workers (triggers: test.yml completion, every 4 hours)
+- `tdd-worker.yml` - Processes single spec (Claude Code integration)
+- `tdd-cleanup.yml` - Removes stale locks (every 6 hours)
 
-**Essential Workflow**:
-1. Branch auto-created: `claude/issue-{NUMBER}-{timestamp}`
-2. Run e2e-test-fixer → remove `.fixme()`, implement code
-3. Run refactor-auditor (if `src/` files changed)
-4. `bun run quality` → `bun run license` → commit → push
-5. Pre-PR checks (issue open? no existing PR?)
-6. **Create PR** (MANDATORY): `gh pr create --title "fix: implement {SPEC-ID}" --body "Closes #{ISSUE}" --label "tdd-automation"`
+**State Management**:
+- State file: `.github/tdd-state.json` (on `tdd-state` branch)
+- File-level locking prevents concurrent work on same spec file
+- 3-strikes rule: After 3 failures, spec moves to manual intervention
 
-**Critical Rules**:
-- Always create PR (even if only `.fixme()` removal)
-- Never modify API endpoint paths in specs
-- Max 3 retries on failures
-- Check queue status: `bun run scripts/tdd-automation/queue-manager.ts status`
+**Quick Commands**:
+```bash
+# View queue status
+cat .github/tdd-state.json | jq '.queue'
 
-**Full Instructions**: `@docs/development/tdd-automation-claude-instructions.md`
+# Manually trigger orchestrator
+gh workflow run tdd-orchestrator.yml
+
+# View active workers
+gh run list --workflow=tdd-worker.yml --limit=10
+```
+
+**Labels Used**:
+- `tdd-automation` - PR identification
+- `tdd:fast-path` - Fast path (tests pass without Claude)
+- `tdd-spec:manual-intervention` - Needs human review
+
+**Full Documentation**: `@docs/development/tdd-automation-pipeline.md`
 
 ## Key Differences from Typical Stacks
 
