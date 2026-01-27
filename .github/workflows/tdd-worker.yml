@@ -291,11 +291,68 @@ jobs:
             --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,Skill,LSP
             --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
-      - name: Run quality checks
+      - name: Post Claude summary to PR
+        if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.pr.outputs.pr_number
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
+          CLAUDE_OUTCOME="${{ steps.claude_fixer.outcome }}"
+          REFACTOR_OUTCOME="${{ steps.claude_refactor.outcome }}"
+          SRC_MODIFIED="${{ steps.src_check.outputs.modified }}"
+
+          # Build summary markdown
+          SUMMARY="## TDD Worker Progress Report\n\n"
+          SUMMARY+="| Property | Value |\n"
+          SUMMARY+="|----------|-------|\n"
+          SUMMARY+="| **Spec ID** | \`${{ inputs.spec_id }}\` |\n"
+          SUMMARY+="| **Attempt** | $((${{ inputs.retry_count }} + 1))/3 |\n"
+          SUMMARY+="| **Test File** | \`${{ inputs.file_path }}\` |\n\n"
+          SUMMARY+="### Agent Execution Results\n\n"
+          SUMMARY+="| Agent | Status |\n"
+          SUMMARY+="|-------|--------|\n"
+
+          # e2e-test-fixer status
+          if [ "$CLAUDE_OUTCOME" = "success" ]; then
+            SUMMARY+="| e2e-test-fixer | Completed |\n"
+          elif [ "$CLAUDE_OUTCOME" = "failure" ]; then
+            SUMMARY+="| e2e-test-fixer | Failed |\n"
+          else
+            SUMMARY+="| e2e-test-fixer | ${CLAUDE_OUTCOME:-skipped} |\n"
+          fi
+
+          # codebase-refactor-auditor status
+          if [ "$SRC_MODIFIED" = "true" ]; then
+            if [ "$REFACTOR_OUTCOME" = "success" ]; then
+              SUMMARY+="| codebase-refactor-auditor | Completed |\n"
+            elif [ "$REFACTOR_OUTCOME" = "failure" ]; then
+              SUMMARY+="| codebase-refactor-auditor | Failed |\n"
+            else
+              SUMMARY+="| codebase-refactor-auditor | ${REFACTOR_OUTCOME:-pending} |\n"
+            fi
+          else
+            SUMMARY+="| codebase-refactor-auditor | Skipped (no src/ changes) |\n"
+          fi
+
+          SUMMARY+="\n---\n*Proceeding to quality checks and CI validation...*"
+
+          gh pr comment "$PR_NUMBER" --body "$(echo -e "$SUMMARY")" || echo "Failed to post summary, continuing..."
+
+      - name: Format and lint code
         if: steps.parse_prevalidation.outputs.all_passed == 'false'
         run: |
+          echo "📝 Formatting code before quality checks..."
+          bun run format || true
+          echo "🔧 Running lint fix..."
+          bun run lint:fix || true
+          echo "✅ Pre-commit formatting complete"
+
+      - name: Run quality checks
+        if: steps.parse_prevalidation.outputs.all_passed == 'false'
+        id: quality
+        run: |
           echo "✅ Running quality checks..."
-          bun run quality --skip-e2e
+          bun run quality --skip-e2e --skip-format
 
       - name: Add license headers
         if: steps.parse_prevalidation.outputs.all_passed == 'false'
@@ -500,16 +557,32 @@ jobs:
           NEXT_ATTEMPT=$((RETRY_COUNT + 1))
           BRANCH_NAME="${{ steps.branch.outputs.branch }}"
 
-          # Determine failure type based on which step failed
-          # Default to infrastructure failure for worker crashes
+          # Determine failure type based on which step ACTUALLY failed
+          # We check step outcomes to identify the real failure point
           FAILURE_TYPE="infrastructure"
           FAILURE_MESSAGE="Worker crashed during execution"
 
-          # Check if it was a Claude step failure (code issue, not infrastructure)
-          if [ "${{ steps.claude_fixer.outcome }}" = "failure" ]; then
+          # Get step outcomes (these are set even with continue-on-error)
+          CLAUDE_FIXER_OUTCOME="${{ steps.claude_fixer.outcome }}"
+          CLAUDE_REFACTOR_OUTCOME="${{ steps.claude_refactor.outcome }}"
+          QUALITY_OUTCOME="${{ steps.quality.outcome }}"
+
+          echo "Step outcomes:"
+          echo "  - claude_fixer: $CLAUDE_FIXER_OUTCOME"
+          echo "  - claude_refactor: $CLAUDE_REFACTOR_OUTCOME"
+          echo "  - quality: $QUALITY_OUTCOME"
+
+          # Quality check failure (most common case based on recent errors)
+          # This happens when Claude succeeds but code doesn't pass quality checks
+          if [ "$QUALITY_OUTCOME" = "failure" ]; then
+            FAILURE_TYPE="quality-failure"
+            FAILURE_MESSAGE="Quality checks failed (formatting, linting, or type errors)"
+          # Claude e2e-test-fixer failed
+          elif [ "$CLAUDE_FIXER_OUTCOME" = "failure" ]; then
             FAILURE_TYPE="spec-failure"
             FAILURE_MESSAGE="e2e-test-fixer agent failed"
-          elif [ "${{ steps.claude_refactor.outcome }}" = "failure" ]; then
+          # Claude refactor auditor failed
+          elif [ "$CLAUDE_REFACTOR_OUTCOME" = "failure" ]; then
             FAILURE_TYPE="spec-failure"
             FAILURE_MESSAGE="codebase-refactor-auditor agent failed"
           fi
@@ -517,7 +590,8 @@ jobs:
           echo "Failure type: $FAILURE_TYPE"
           echo "Message: $FAILURE_MESSAGE"
 
-          # Infrastructure failures don't count against retry limit
+          # Quality and spec failures count against retry limit
+          # Infrastructure failures (Docker, network, etc.) do NOT count
           if [ "$FAILURE_TYPE" = "infrastructure" ]; then
             echo "⚙️  Infrastructure failure - retry counter NOT incremented"
             echo "📝 Spec will be re-queued without penalty"

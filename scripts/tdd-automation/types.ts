@@ -99,7 +99,7 @@ export interface SpecQueueItem {
  */
 export interface SpecError {
   timestamp: string // ISO 8601 timestamp
-  type: 'spec-failure' | 'regression' | 'infrastructure' | 'unknown'
+  type: 'spec-failure' | 'regression' | 'quality-failure' | 'infrastructure' | 'unknown'
   message: string // Short summary
   details?: string // Full error log
   affectedSpecs?: string[] // For regressions: which other tests failed
@@ -113,7 +113,12 @@ export type SpecStatus = 'pending' | 'active' | 'completed' | 'failed'
 /**
  * Error type classification
  */
-export type ErrorType = 'spec-failure' | 'regression' | 'infrastructure' | 'unknown'
+export type ErrorType =
+  | 'spec-failure'
+  | 'regression'
+  | 'quality-failure'
+  | 'infrastructure'
+  | 'unknown'
 
 /**
  * Worker dispatch input

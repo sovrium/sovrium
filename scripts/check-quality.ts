@@ -547,12 +547,13 @@ const runFullChecks = (options: QualityOptions) =>
 
     const results: CheckResult[] = []
 
-    // 1. Prettier format check (fast, fail-fast)
+    // 1. Prettier format check (fail-fast)
+    // Note: Timeout increased to 120s for CI environments where cache may be cold
     if (!options.skipFormat) {
       const formatResult = yield* runCheck(
         'Prettier',
         ['bunx', 'prettier', '--check', '.', '--cache', '--cache-location', '.prettiercache'],
-        30_000
+        120_000
       )
       results.push(formatResult)
       if (!formatResult.success) {

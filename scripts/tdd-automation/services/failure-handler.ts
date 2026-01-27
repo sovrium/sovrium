@@ -20,7 +20,7 @@ class PRCloseError extends Data.TaggedError('PRCloseError')<{
   readonly cause: unknown
 }> {}
 
-type FailureType = 'regression' | 'spec-failure' | 'infrastructure'
+type FailureType = 'regression' | 'spec-failure' | 'quality-failure' | 'infrastructure'
 
 interface GitHubCheck {
   name: string
@@ -134,9 +134,13 @@ const FailureHandlerCommand = Command.make(
         // ============================================================
         const nextAttempt = retryCount + 1
 
-        yield* Console.log(
-          `❌ ${failureType === 'regression' ? 'Regression' : 'Spec'} failure (attempt ${nextAttempt}/3)`
-        )
+        const failureLabel =
+          failureType === 'regression'
+            ? 'Regression'
+            : failureType === 'quality-failure'
+              ? 'Quality'
+              : 'Spec'
+        yield* Console.log(`❌ ${failureLabel} failure (attempt ${nextAttempt}/3)`)
 
         if (nextAttempt >= 3) {
           // MAX RETRIES EXHAUSTED: Park for manual intervention
@@ -195,8 +199,9 @@ const FailureHandlerCommand = Command.make(
 
           yield* Console.log(`❌ Closed PR #${pr} for fresh retry`)
 
-          // Update retry label
-          const retryLabel = `retry:${failureType === 'regression' ? 'regression' : 'spec'}:${nextAttempt}`
+          // Update retry label (quality failures use spec retry counter)
+          const retryLabelType = failureType === 'regression' ? 'regression' : 'spec'
+          const retryLabel = `retry:${retryLabelType}:${nextAttempt}`
           yield* Effect.tryPromise({
             try: async () => {
               // Remove old retry labels and add new one
@@ -251,18 +256,27 @@ function generateRetryComment(
   attemptNumber: number,
   errorDetails: { message: string; details: string }
 ): string {
-  const emoji = failureType === 'regression' ? '📉' : '❌'
-  const typeLabel = failureType === 'regression' ? 'REGRESSION' : 'SPEC FAILURE'
+  const emoji =
+    failureType === 'regression' ? '📉' : failureType === 'quality-failure' ? '🔧' : '❌'
+  const typeLabel =
+    failureType === 'regression'
+      ? 'REGRESSION'
+      : failureType === 'quality-failure'
+        ? 'QUALITY FAILURE'
+        : 'SPEC FAILURE'
+
+  const description =
+    failureType === 'regression'
+      ? 'This implementation caused other tests to fail.'
+      : failureType === 'quality-failure'
+        ? 'The code has formatting, linting, or type errors.'
+        : 'The implemented code did not make all tests pass.'
 
   return `${emoji} **${typeLabel}** (Attempt ${attemptNumber}/3)
 
 **Error**: ${errorDetails.message}
 
-${
-  failureType === 'regression'
-    ? 'This implementation caused other tests to fail.'
-    : 'The implemented code did not make all tests pass.'
-}
+${description}
 
 **Actions taken**:
 - PR closed for fresh retry
@@ -279,8 +293,14 @@ function generateMaxRetriesComment(
   failureType: FailureType,
   errorDetails: { message: string; details: string }
 ): string {
-  const emoji = failureType === 'regression' ? '📉' : '❌'
-  const typeLabel = failureType === 'regression' ? 'REGRESSION' : 'SPEC FAILURE'
+  const emoji =
+    failureType === 'regression' ? '📉' : failureType === 'quality-failure' ? '🔧' : '❌'
+  const typeLabel =
+    failureType === 'regression'
+      ? 'REGRESSION'
+      : failureType === 'quality-failure'
+        ? 'QUALITY FAILURE'
+        : 'SPEC FAILURE'
 
   return `⚠️ **MANUAL INTERVENTION REQUIRED**
 
@@ -313,27 +333,39 @@ function generateActionGuide(
   failureType: FailureType,
   errorDetails: { message: string; details: string }
 ): string {
-  if (failureType === 'regression') {
-    return `Review the implementation to determine if:
+  switch (failureType) {
+    case 'regression': {
+      return `Review the implementation to determine if:
 1. The code has a bug that breaks existing functionality
 2. The affected tests need updating to match new behavior
 3. A database migration or schema change is missing
 
 Failed checks: ${errorDetails.message}`
-  } else if (failureType === 'spec-failure') {
-    return `After 3 attempts, the tests still don't pass. Possible reasons:
+    }
+    case 'quality-failure': {
+      return `After 3 attempts, the code still has quality issues. Possible reasons:
+1. Formatting: Run \`bun run format\` to fix Prettier issues
+2. Linting: Run \`bun run lint:fix\` to fix ESLint issues
+3. Type errors: Check TypeScript compilation with \`bun run typecheck\`
+
+Review the error output and fix the quality issues manually before re-queuing.`
+    }
+    case 'spec-failure': {
+      return `After 3 attempts, the tests still don't pass. Possible reasons:
 1. Test expectations may be incorrect or too strict
 2. Implementation requires architectural changes
 3. Missing dependencies or configuration
 
 Review the test file and determine if tests need adjustment or if a different implementation approach is needed.`
-  } else {
-    return `Infrastructure failure occurred 3 times. This is NOT a code issue. Possible causes:
+    }
+    case 'infrastructure': {
+      return `Infrastructure failure occurred 3 times. This is NOT a code issue. Possible causes:
 1. GitHub API rate limiting
 2. Network timeouts
 3. Build or quality check issues
 
 Wait for infrastructure to stabilize, then manually re-queue this spec.`
+    }
   }
 }
 
