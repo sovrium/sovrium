@@ -119,15 +119,24 @@ jobs:
             echo "passed=$PASSED" >> $GITHUB_OUTPUT
             echo "failed=$FAILED" >> $GITHUB_OUTPUT
 
-            if [ "$FAILED" -eq "0" ]; then
+            # Only consider "all_passed" if we actually ran tests AND they all passed
+            # If passed=0 and failed=0, no tests matched - this is NOT a fast path success
+            if [ "$PASSED" -gt "0" ] && [ "$FAILED" -eq "0" ]; then
               echo "all_passed=true" >> $GITHUB_OUTPUT
+              echo "✅ All $PASSED tests passed - fast path eligible"
             else
               echo "all_passed=false" >> $GITHUB_OUTPUT
+              if [ "$PASSED" -eq "0" ] && [ "$FAILED" -eq "0" ]; then
+                echo "⚠️  No tests matched spec ID - proceeding to Claude implementation"
+              else
+                echo "❌ $FAILED test(s) failed - proceeding to Claude implementation"
+              fi
             fi
           else
             echo "all_passed=false" >> $GITHUB_OUTPUT
             echo "passed=0" >> $GITHUB_OUTPUT
             echo "failed=1" >> $GITHUB_OUTPUT
+            echo "❌ Pre-validation result file not found"
           fi
 
       - name: Commit and push pre-validation changes
@@ -171,8 +180,9 @@ jobs:
         run: |
           echo "🎉 All tests pass without implementation! Fast path activated."
 
-          # Update PR with fast-path label
-          gh pr edit ${{ steps.pr.outputs.pr_number }} --add-label "tdd:fast-path"
+          # Update PR with fast-path label (using API to avoid gh pr edit GraphQL issues)
+          gh api repos/${{ github.repository }}/issues/${{ steps.pr.outputs.pr_number }}/labels \
+            -f "labels[]=tdd:fast-path" || echo "⚠️ Failed to add label, continuing..."
 
           # Auto-merge immediately (no need for Claude)
           bun run scripts/tdd-automation/services/pr-manager.ts merge \
@@ -342,49 +352,202 @@ jobs:
 
           echo "type=$FAILURE_TYPE" >> $GITHUB_OUTPUT
 
-      - name: Handle regression failure
+      # ============================================================
+      # SMART RETRY STRATEGY - Different handling based on failure type
+      # ============================================================
+      #
+      # 1. Infrastructure Errors (failure:infra) - IMMEDIATE CLEANUP:
+      #    - Close PR immediately and delete branch
+      #    - Do NOT increment retry counters (not a code issue)
+      #    - Re-queue spec for automatic retry
+      #
+      # 2. Spec/Regression Errors - 3 RETRIES THEN PARK:
+      #    - Increment retry counter
+      #    - If retries < 3: Close PR, re-queue for retry
+      #    - If retries >= 3: Keep PR open, add manual-intervention label
+      # ============================================================
+
+      - name: Handle regression failure (3 retries then park)
         if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.analyze.outputs.type == 'regression'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          echo "🔄 Regression detected. Closing PR and re-queuing..."
+          RETRY_COUNT="${{ inputs.retry_count }}"
+          NEXT_ATTEMPT=$((RETRY_COUNT + 1))
+
+          echo "📉 Regression detected (attempt ${NEXT_ATTEMPT}/3)"
+
+          if [ "$NEXT_ATTEMPT" -ge 3 ]; then
+            echo "⚠️  Max retries exhausted - parking for manual intervention"
+            echo "📋 PR #${{ steps.pr.outputs.pr_number }} will be kept open for review"
+          else
+            echo "🔄 Will retry (${NEXT_ATTEMPT}/3 attempts used)"
+          fi
 
           bun run scripts/tdd-automation/services/failure-handler.ts \
             --spec-id "${{ inputs.spec_id }}" \
             --pr ${{ steps.pr.outputs.pr_number }} \
             --type regression \
-            --retry-count "${{ inputs.retry_count }}"
+            --retry-count "${{ inputs.retry_count }}" \
+            --branch "${{ steps.branch.outputs.branch }}"
 
-      - name: Handle spec failure
+      - name: Handle spec failure (3 retries then park)
         if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.analyze.outputs.type == 'spec-failure'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          echo "❌ Spec failure. Recording and re-queuing..."
+          RETRY_COUNT="${{ inputs.retry_count }}"
+          NEXT_ATTEMPT=$((RETRY_COUNT + 1))
+
+          echo "❌ Spec failure detected (attempt ${NEXT_ATTEMPT}/3)"
+
+          if [ "$NEXT_ATTEMPT" -ge 3 ]; then
+            echo "⚠️  Max retries exhausted - parking for manual intervention"
+            echo "📋 PR #${{ steps.pr.outputs.pr_number }} will be kept open for review"
+          else
+            echo "🔄 Will retry (${NEXT_ATTEMPT}/3 attempts used)"
+          fi
 
           bun run scripts/tdd-automation/services/failure-handler.ts \
             --spec-id "${{ inputs.spec_id }}" \
             --pr ${{ steps.pr.outputs.pr_number }} \
             --type spec-failure \
-            --retry-count "${{ inputs.retry_count }}"
+            --retry-count "${{ inputs.retry_count }}" \
+            --branch "${{ steps.branch.outputs.branch }}"
 
-      - name: Handle infrastructure failure
+      - name: Handle infrastructure failure (immediate cleanup, no retry penalty)
         if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.analyze.outputs.type == 'infrastructure'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          echo "⚙️ Infrastructure failure. Recording and re-queuing..."
+          echo "⚙️ Infrastructure failure detected (NOT a code issue)"
+          echo "🧹 Immediate cleanup: PR will be closed, branch deleted"
+          echo "📝 Retry counter will NOT be incremented"
 
           bun run scripts/tdd-automation/services/failure-handler.ts \
             --spec-id "${{ inputs.spec_id }}" \
             --pr ${{ steps.pr.outputs.pr_number }} \
             --type infrastructure \
-            --retry-count "${{ inputs.retry_count }}"
+            --retry-count "${{ inputs.retry_count }}" \
+            --branch "${{ steps.branch.outputs.branch }}"
+
+          echo "✅ Spec re-queued for retry (no penalty applied)"
+
+      - name: Cleanup - Close PR and delete branch on failure
+        if: failure() && steps.pr.outputs.pr_number
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          echo "🧹 Cleaning up failed worker resources..."
+
+          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
+          BRANCH_NAME="${{ steps.branch.outputs.branch }}"
+          SPEC_ID="${{ inputs.spec_id }}"
+          RETRY_COUNT="${{ inputs.retry_count }}"
+          NEXT_ATTEMPT=$((RETRY_COUNT + 1))
+
+          if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
+            echo "📝 Checking PR #${PR_NUMBER} state..."
+
+            PR_STATE=$(gh pr view "$PR_NUMBER" --json state -q .state 2>/dev/null || echo "UNKNOWN")
+
+            if [ "$PR_STATE" = "OPEN" ]; then
+              # Check if PR has manual-intervention label (should be kept open)
+              HAS_MANUAL_LABEL=$(gh pr view "$PR_NUMBER" --json labels -q '.labels[].name' 2>/dev/null | grep -c "tdd-spec:manual-intervention" || echo "0")
+
+              if [ "$HAS_MANUAL_LABEL" -gt "0" ]; then
+                echo "📋 PR #${PR_NUMBER} has manual-intervention label - keeping open for review"
+              else
+                echo "❌ Closing PR #${PR_NUMBER} due to worker failure..."
+
+                # Close PR with inline comment
+                gh pr close "$PR_NUMBER" --comment "Worker failure - PR closed automatically. Spec ID ${SPEC_ID} will be retried." --delete-branch 2>/dev/null || {
+                  echo "⚠️  Failed to close PR, attempting to delete branch directly..."
+                  gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/${BRANCH_NAME}" 2>/dev/null || true
+                }
+
+                echo "✅ PR #${PR_NUMBER} closed and branch deleted"
+              fi
+            else
+              echo "ℹ️  PR #${PR_NUMBER} is not open (state: ${PR_STATE}), skipping close"
+
+              # Still try to delete the branch if it exists (but only if not manual intervention)
+              HAS_MANUAL_LABEL=$(gh pr view "$PR_NUMBER" --json labels -q '.labels[].name' 2>/dev/null | grep -c "tdd-spec:manual-intervention" || echo "0")
+              if [ "$HAS_MANUAL_LABEL" -eq "0" ]; then
+                gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/${BRANCH_NAME}" 2>/dev/null || true
+              fi
+            fi
+          else
+            echo "ℹ️  No PR number found, skipping PR cleanup"
+
+            # Still try to delete the branch if it exists
+            if [ -n "$BRANCH_NAME" ]; then
+              gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/${BRANCH_NAME}" 2>/dev/null || true
+            fi
+          fi
+
+      - name: Cleanup - Record failure and update state
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          echo "📊 Recording failure in state..."
+
+          SPEC_ID="${{ inputs.spec_id }}"
+          RETRY_COUNT="${{ inputs.retry_count }}"
+          NEXT_ATTEMPT=$((RETRY_COUNT + 1))
+          BRANCH_NAME="${{ steps.branch.outputs.branch }}"
+
+          # Determine failure type based on which step failed
+          # Default to infrastructure failure for worker crashes
+          FAILURE_TYPE="infrastructure"
+          FAILURE_MESSAGE="Worker crashed during execution"
+
+          # Check if it was a Claude step failure (code issue, not infrastructure)
+          if [ "${{ steps.claude_fixer.outcome }}" = "failure" ]; then
+            FAILURE_TYPE="spec-failure"
+            FAILURE_MESSAGE="e2e-test-fixer agent failed"
+          elif [ "${{ steps.claude_refactor.outcome }}" = "failure" ]; then
+            FAILURE_TYPE="spec-failure"
+            FAILURE_MESSAGE="codebase-refactor-auditor agent failed"
+          fi
+
+          echo "Failure type: $FAILURE_TYPE"
+          echo "Message: $FAILURE_MESSAGE"
+
+          # Infrastructure failures don't count against retry limit
+          if [ "$FAILURE_TYPE" = "infrastructure" ]; then
+            echo "⚙️  Infrastructure failure - retry counter NOT incremented"
+            echo "📝 Spec will be re-queued without penalty"
+          else
+            echo "Attempt: $NEXT_ATTEMPT/3"
+            if [ "$NEXT_ATTEMPT" -ge 3 ]; then
+              echo "⚠️  Max retries reached - will park for manual intervention"
+            fi
+          fi
+
+          # Use failure handler if available, otherwise just log
+          if [ -f scripts/tdd-automation/services/failure-handler.ts ]; then
+            # Only call failure handler if we have a PR number
+            if [ -n "${{ steps.pr.outputs.pr_number }}" ]; then
+              bun run scripts/tdd-automation/services/failure-handler.ts \
+                --spec-id "$SPEC_ID" \
+                --pr "${{ steps.pr.outputs.pr_number }}" \
+                --type "$FAILURE_TYPE" \
+                --retry-count "$RETRY_COUNT" \
+                --branch "$BRANCH_NAME" 2>/dev/null || {
+                echo "⚠️  Failure handler failed, will rely on cleanup step for state management"
+              }
+            else
+              echo "ℹ️  No PR number available, skipping failure handler"
+            fi
+          fi
 
       - name: Cleanup - Release locks
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           echo "🔓 Releasing spec and file locks..."
 
@@ -393,3 +556,5 @@ jobs:
 
           bun run scripts/tdd-automation/core/unlock-file.ts \
             --file "${{ inputs.file_path }}" || true
+
+          echo "✅ Lock cleanup complete"
