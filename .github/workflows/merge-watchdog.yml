@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Find stuck TDD PRs
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           # Find PRs that are:
           # - Labeled tdd-automation (not manual-intervention)
@@ -50,9 +50,9 @@ jobs:
             echo "No stuck PRs found"
           fi
 
-      - name: Alert on persistent stuck PRs (>6 hours)
+      - name: Alert on persistent stuck PRs (>4 hours)
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           VERY_STUCK=$(gh pr list \
             --repo "${{ github.repository }}" \
@@ -60,7 +60,7 @@ jobs:
             --json number,updatedAt,labels \
             --jq '[.[] |
               select(.labels | map(.name) | contains(["tdd-automation:manual-intervention"]) | not) |
-              select((now - (.updatedAt | fromdateiso8601)) > 21600)
+              select((now - (.updatedAt | fromdateiso8601)) > 14400)
             ] | .[].number' 2>/dev/null | tr '\n' ' ')
 
           if [ -n "$VERY_STUCK" ] && [ "$VERY_STUCK" != " " ]; then
@@ -70,12 +70,12 @@ jobs:
             if [ -z "$EXISTING" ]; then
               gh issue create \
                 --repo "${{ github.repository }}" \
-                --title "🚨 TDD PR stuck for >6 hours" \
-                --body "The following TDD PRs have been stuck for more than 6 hours: $VERY_STUCK. Possible causes: branch protection rules, required status checks not completing, or auto-merge disabled. Please check branch protection settings, verify required checks are passing, and manually merge if safe." \
+                --title "🚨 TDD PR stuck for >4 hours" \
+                --body "The following TDD PRs have been stuck for more than 4 hours: $VERY_STUCK. Possible causes: branch protection rules, required status checks not completing, or auto-merge disabled. Please check branch protection settings, verify required checks are passing, and manually merge if safe." \
                 --label "tdd-automation,urgent"
             else
               echo "Alert issue already exists: #$EXISTING"
             fi
           else
-            echo "No PRs stuck for >6 hours"
+            echo "No PRs stuck for >4 hours"
           fi

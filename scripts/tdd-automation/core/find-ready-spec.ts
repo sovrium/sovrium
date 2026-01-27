@@ -36,184 +36,72 @@
  *   2: Error occurred
  */
 
-import { Effect, Layer } from 'effect'
+import { Effect, Console, Layer } from 'effect'
 import { FileSystemServiceLive, LoggerServiceLive } from '../../lib/effect'
+import { GitHubApi, GitHubApiLive } from '../services/github-api'
 import { scanForFixmeSpecs } from './spec-scanner'
-import { parseTDDPRTitle, extractSpecIdFromBranch } from './parse-pr-title'
-import { TDD_LABELS, type ReadySpec, type TDDPullRequest } from './types'
-
-/**
- * Get repository info from environment
- */
-function getRepoInfo(): { owner: string; repo: string; token: string } {
-  const repository = process.env['GITHUB_REPOSITORY'] || ''
-  const [owner, repo] = repository.split('/')
-  const token = process.env['GH_TOKEN'] || process.env['GITHUB_TOKEN'] || ''
-
-  if (!owner || !repo) {
-    throw new Error('GITHUB_REPOSITORY environment variable not set or invalid')
-  }
-
-  if (!token) {
-    throw new Error('GH_TOKEN or GITHUB_TOKEN environment variable not set')
-  }
-
-  return { owner, repo, token }
-}
-
-/**
- * Fetch all open TDD PRs from GitHub
- */
-async function fetchOpenTDDPRs(
-  owner: string,
-  repo: string,
-  token: string
-): Promise<TDDPullRequest[]> {
-  // Use GraphQL for efficient batch fetching
-  const query = `
-    query($owner: String!, $repo: String!) {
-      repository(owner: $owner, name: $repo) {
-        pullRequests(states: OPEN, labels: ["${TDD_LABELS.AUTOMATION}"], first: 100) {
-          nodes {
-            number
-            title
-            headRefName
-            labels(first: 10) {
-              nodes {
-                name
-              }
-            }
-          }
-        }
-      }
-    }
-  `
-
-  const response = await fetch('https://api.github.com/graphql', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      query,
-      variables: { owner, repo },
-    }),
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`GraphQL request failed: ${response.status} ${errorText}`)
-  }
-
-  const data = (await response.json()) as {
-    data?: {
-      repository: {
-        pullRequests: {
-          nodes: Array<{
-            number: number
-            title: string
-            headRefName: string
-            labels: { nodes: Array<{ name: string }> }
-          }>
-        }
-      }
-    }
-    errors?: Array<{ message: string }>
-  }
-
-  if (data.errors) {
-    throw new Error(`GraphQL errors: ${data.errors.map((e) => e.message).join(', ')}`)
-  }
-
-  if (!data.data) {
-    return []
-  }
-
-  const prs = data.data.repository.pullRequests.nodes
-
-  return prs.map((pr) => {
-    const labels = pr.labels.nodes.map((l) => l.name)
-    const parsed = parseTDDPRTitle(pr.title)
-
-    // Try to get spec ID from title or branch
-    const specIdFromTitle = parsed?.specId
-    const specIdFromBranch = extractSpecIdFromBranch(pr.headRefName)
-    const specId = specIdFromTitle || specIdFromBranch || 'UNKNOWN'
-
-    return {
-      number: pr.number,
-      title: pr.title,
-      branch: pr.headRefName,
-      specId,
-      attempt: parsed?.attempt ?? 1,
-      maxAttempts: parsed?.maxAttempts ?? 5,
-      labels,
-      hasManualInterventionLabel: labels.includes(TDD_LABELS.MANUAL_INTERVENTION),
-      hasConflictLabel: labels.includes(TDD_LABELS.HAD_CONFLICT),
-    }
-  })
-}
+import type { ReadySpec } from './types'
 
 /**
  * Find the next spec ready for TDD automation
  *
- * @returns ReadySpec or null if no spec available
+ * Effect program that:
+ * 1. Checks for active TDD PRs (serial processing)
+ * 2. Scans for .fixme() specs
+ * 3. Filters out specs with existing PRs
+ * 4. Returns highest priority spec
  */
-export async function findReadySpec(): Promise<ReadySpec | null> {
-  const { owner, repo, token } = getRepoInfo()
+export const findReadySpec = Effect.gen(function* () {
+  const githubApi = yield* GitHubApi
 
-  console.error('🔍 Finding next ready spec for TDD automation...')
-  console.error('')
+  yield* Console.error('🔍 Finding next ready spec for TDD automation...')
+  yield* Console.error('')
 
   // Step 1: Check for active TDD PRs (serial processing)
-  const openPRs = await fetchOpenTDDPRs(owner, repo, token)
+  const openPRs = yield* githubApi.listTDDPRs()
 
   // Filter to active PRs (not in manual intervention)
   const activePRs = openPRs.filter((pr) => !pr.hasManualInterventionLabel)
 
   if (activePRs.length > 0) {
-    console.error(`⏳ Active TDD PR found: #${activePRs[0]!.number} (${activePRs[0]!.specId})`)
-    console.error('   Serial processing: waiting for current PR to complete')
-    return null
+    const activePR = activePRs[0]!
+    yield* Console.error(`⏳ Active TDD PR found: #${activePR.number} (${activePR.specId})`)
+    yield* Console.error('   Serial processing: waiting for current PR to complete')
+    return null as ReadySpec | null
   }
 
   // Step 2: Scan for .fixme() specs
-  console.error('📂 Scanning for .fixme() specs...')
+  yield* Console.error('📂 Scanning for .fixme() specs...')
 
-  const program = scanForFixmeSpecs.pipe(
-    Effect.provide(Layer.mergeAll(FileSystemServiceLive, LoggerServiceLive()))
-  )
+  const scanResult = yield* scanForFixmeSpecs
 
-  const result = await Effect.runPromise(program)
-
-  if (result.specs.length === 0) {
-    console.error('✅ No .fixme() specs found - all tests are passing!')
-    return null
+  if (scanResult.specs.length === 0) {
+    yield* Console.error('✅ No .fixme() specs found - all tests are passing!')
+    return null as ReadySpec | null
   }
 
-  console.error(`   Found ${result.specs.length} .fixme() specs`)
+  yield* Console.error(`   Found ${scanResult.specs.length} .fixme() specs`)
 
   // Step 3: Filter out specs that already have PRs (including manual intervention)
   const specIdsWithPRs = new Set(openPRs.map((pr) => pr.specId))
-  const availableSpecs = result.specs.filter((spec) => !specIdsWithPRs.has(spec.specId))
+  const availableSpecs = scanResult.specs.filter((spec) => !specIdsWithPRs.has(spec.specId))
 
   if (availableSpecs.length === 0) {
-    console.error('⏳ All .fixme() specs have open PRs (pending or manual intervention)')
-    return null
+    yield* Console.error('⏳ All .fixme() specs have open PRs (pending or manual intervention)')
+    return null as ReadySpec | null
   }
 
-  console.error(`   ${availableSpecs.length} specs available (no existing PR)`)
+  yield* Console.error(`   ${availableSpecs.length} specs available (no existing PR)`)
 
   // Step 4: Return highest priority spec (already sorted by priority)
   const nextSpec = availableSpecs[0]!
 
-  console.error('')
-  console.error('✅ Next spec to process:')
-  console.error(`   Spec ID: ${nextSpec.specId}`)
-  console.error(`   File: ${nextSpec.file}:${nextSpec.line}`)
-  console.error(`   Description: ${nextSpec.description}`)
-  console.error(`   Priority: ${nextSpec.priority}`)
+  yield* Console.error('')
+  yield* Console.error('✅ Next spec to process:')
+  yield* Console.error(`   Spec ID: ${nextSpec.specId}`)
+  yield* Console.error(`   File: ${nextSpec.file}:${nextSpec.line}`)
+  yield* Console.error(`   Description: ${nextSpec.description}`)
+  yield* Console.error(`   Priority: ${nextSpec.priority}`)
 
   return {
     specId: nextSpec.specId,
@@ -221,29 +109,50 @@ export async function findReadySpec(): Promise<ReadySpec | null> {
     line: nextSpec.line,
     description: nextSpec.description,
     priority: nextSpec.priority,
-  }
-}
+  } as ReadySpec | null
+})
+
+/**
+ * Layer composition for find-ready-spec program
+ */
+const FindReadySpecLayer = Layer.mergeAll(GitHubApiLive, FileSystemServiceLive, LoggerServiceLive())
 
 /**
  * CLI entry point
  */
 async function main(): Promise<void> {
-  try {
-    const spec = await findReadySpec()
+  const program = findReadySpec.pipe(
+    Effect.catchTag('GitHubApiError', (error) =>
+      Effect.gen(function* () {
+        yield* Console.error(`GitHub API error: ${error.operation}`)
+        yield* Console.error(String(error.cause))
+        return yield* error
+      })
+    ),
+    Effect.provide(FindReadySpecLayer)
+  )
 
-    if (!spec) {
-      // No spec available (either active PR or no .fixme() specs)
-      console.error('')
-      console.error('No spec ready for processing')
-      process.exit(1)
-    }
+  const result = await Effect.runPromise(
+    program.pipe(
+      Effect.match({
+        onSuccess: (spec) => {
+          if (!spec) {
+            console.error('')
+            console.error('No spec ready for processing')
+            process.exit(1)
+          }
+          // Output JSON for workflow parsing
+          console.log(JSON.stringify(spec))
+        },
+        onFailure: (error) => {
+          console.error('Error:', error instanceof Error ? error.message : error)
+          process.exit(2)
+        },
+      })
+    )
+  )
 
-    // Output JSON for workflow parsing
-    console.log(JSON.stringify(spec))
-  } catch (error) {
-    console.error('Error:', error instanceof Error ? error.message : error)
-    process.exit(2)
-  }
+  return result
 }
 
 // Run CLI if executed directly

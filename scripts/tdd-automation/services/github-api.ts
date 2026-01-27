@@ -1,0 +1,255 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+/**
+ * GitHub API Service
+ *
+ * Effect service interface for GitHub API operations in TDD automation.
+ * Uses gh CLI via Bun shell for all operations.
+ */
+
+import { Context, Effect, Layer } from 'effect'
+import { GitHubApiError } from '../core/errors'
+import { parseTDDPRTitle } from '../core/parse-pr-title'
+import { TDD_LABELS } from '../core/types'
+import type { TDDPullRequest } from '../core/types'
+
+/**
+ * Workflow run metadata from GitHub API
+ */
+export interface WorkflowRun {
+  readonly id: string
+  readonly name: string
+  readonly conclusion: 'success' | 'failure' | 'cancelled' | 'skipped' | null
+  readonly createdAt: Date
+  readonly updatedAt: Date
+  readonly htmlUrl: string
+}
+
+/**
+ * PR details from GitHub API
+ */
+export interface PRDetails {
+  readonly number: number
+  readonly title: string
+  readonly branch: string
+  readonly state: 'open' | 'closed' | 'merged'
+  readonly labels: readonly string[]
+}
+
+/**
+ * GitHub API service interface
+ */
+export interface GitHubApiService {
+  /**
+   * List open PRs with tdd-automation label
+   */
+  readonly listTDDPRs: () => Effect.Effect<readonly TDDPullRequest[], GitHubApiError>
+
+  /**
+   * Get PR details
+   */
+  readonly getPR: (prNumber: number) => Effect.Effect<PRDetails, GitHubApiError>
+
+  /**
+   * Get workflow runs for cost calculation
+   */
+  readonly getWorkflowRuns: (params: {
+    readonly workflow: string
+    readonly createdAfter: Date
+    readonly status: 'success' | 'failure' | 'all'
+  }) => Effect.Effect<readonly WorkflowRun[], GitHubApiError>
+
+  /**
+   * Get workflow run logs for cost parsing
+   */
+  readonly getRunLogs: (runId: string) => Effect.Effect<string, GitHubApiError>
+
+  /**
+   * Create a new PR
+   */
+  readonly createPR: (params: {
+    readonly title: string
+    readonly body: string
+    readonly branch: string
+    readonly base: string
+    readonly labels: readonly string[]
+  }) => Effect.Effect<{ readonly number: number; readonly url: string }, GitHubApiError>
+
+  /**
+   * Update PR title
+   */
+  readonly updatePRTitle: (prNumber: number, title: string) => Effect.Effect<void, GitHubApiError>
+
+  /**
+   * Add label to PR
+   */
+  readonly addLabel: (prNumber: number, label: string) => Effect.Effect<void, GitHubApiError>
+
+  /**
+   * Post comment on PR
+   */
+  readonly postComment: (prNumber: number, body: string) => Effect.Effect<void, GitHubApiError>
+
+  /**
+   * Enable auto-merge for PR
+   */
+  readonly enableAutoMerge: (
+    prNumber: number,
+    mergeMethod: 'squash' | 'merge' | 'rebase'
+  ) => Effect.Effect<void, GitHubApiError>
+}
+
+/**
+ * GitHub API service Context.Tag for dependency injection
+ */
+export class GitHubApi extends Context.Tag('GitHubApi')<GitHubApi, GitHubApiService>() {}
+
+/**
+ * Live implementation using gh CLI via Bun shell
+ */
+export const GitHubApiLive = Layer.succeed(GitHubApi, {
+  listTDDPRs: () =>
+    Effect.tryPromise({
+      try: async () => {
+        const result =
+          await Bun.$`gh pr list --label "${TDD_LABELS.AUTOMATION}" --state open --json number,title,headRefName,labels`.quiet()
+        const prs = JSON.parse(result.stdout.toString()) as Array<{
+          number: number
+          title: string
+          headRefName: string
+          labels: Array<{ name: string }>
+        }>
+
+        return prs.map((pr) => {
+          const parsed = parseTDDPRTitle(pr.title)
+          return {
+            number: pr.number,
+            title: pr.title,
+            branch: pr.headRefName,
+            specId: parsed?.specId ?? '',
+            attempt: parsed?.attempt ?? 0,
+            maxAttempts: parsed?.maxAttempts ?? 5,
+            labels: pr.labels.map((l) => l.name),
+            hasManualInterventionLabel: pr.labels.some(
+              (l) => l.name === TDD_LABELS.MANUAL_INTERVENTION
+            ),
+            hasConflictLabel: pr.labels.some((l) => l.name === TDD_LABELS.HAD_CONFLICT),
+          } satisfies TDDPullRequest
+        })
+      },
+      catch: (error) => new GitHubApiError({ operation: 'listTDDPRs', cause: error }),
+    }),
+
+  getPR: (prNumber) =>
+    Effect.tryPromise({
+      try: async () => {
+        const result =
+          await Bun.$`gh pr view ${prNumber} --json number,title,headRefName,state,labels`.quiet()
+        const pr = JSON.parse(result.stdout.toString()) as {
+          number: number
+          title: string
+          headRefName: string
+          state: string
+          labels: Array<{ name: string }>
+        }
+
+        return {
+          number: pr.number,
+          title: pr.title,
+          branch: pr.headRefName,
+          state: pr.state.toLowerCase() as 'open' | 'closed' | 'merged',
+          labels: pr.labels.map((l) => l.name),
+        }
+      },
+      catch: (error) => new GitHubApiError({ operation: 'getPR', cause: error }),
+    }),
+
+  getWorkflowRuns: ({ workflow, createdAfter, status }) =>
+    Effect.tryPromise({
+      try: async () => {
+        const createdFilter = `>${createdAfter.toISOString()}`
+        const statusFilter = status === 'all' ? '' : `--status ${status}`
+
+        const result =
+          await Bun.$`gh run list --workflow="${workflow}" --created "${createdFilter}" ${statusFilter} --json databaseId,name,conclusion,createdAt,updatedAt,url`.quiet()
+        const runs = JSON.parse(result.stdout.toString()) as Array<{
+          databaseId: number
+          name: string
+          conclusion: string | null
+          createdAt: string
+          updatedAt: string
+          url: string
+        }>
+
+        return runs.map((run) => ({
+          id: String(run.databaseId),
+          name: run.name,
+          conclusion: run.conclusion as WorkflowRun['conclusion'],
+          createdAt: new Date(run.createdAt),
+          updatedAt: new Date(run.updatedAt),
+          htmlUrl: run.url,
+        }))
+      },
+      catch: (error) => new GitHubApiError({ operation: 'getWorkflowRuns', cause: error }),
+    }),
+
+  getRunLogs: (runId) =>
+    Effect.tryPromise({
+      try: async () => {
+        const result = await Bun.$`gh run view ${runId} --log`.quiet()
+        return result.stdout.toString()
+      },
+      catch: (error) => new GitHubApiError({ operation: 'getRunLogs', cause: error }),
+    }),
+
+  createPR: ({ title, body, branch, base, labels }) =>
+    Effect.tryPromise({
+      try: async () => {
+        const labelsArg = labels.length > 0 ? `--label "${labels.join(',')}"` : ''
+
+        const result =
+          await Bun.$`gh pr create --title "${title}" --body "${body}" --head "${branch}" --base "${base}" ${labelsArg} --json number,url`.quiet()
+        const pr = JSON.parse(result.stdout.toString()) as { number: number; url: string }
+
+        return { number: pr.number, url: pr.url }
+      },
+      catch: (error) => new GitHubApiError({ operation: 'createPR', cause: error }),
+    }),
+
+  updatePRTitle: (prNumber, title) =>
+    Effect.tryPromise({
+      try: async () => {
+        await Bun.$`gh pr edit ${prNumber} --title "${title}"`.quiet()
+      },
+      catch: (error) => new GitHubApiError({ operation: 'updatePRTitle', cause: error }),
+    }),
+
+  addLabel: (prNumber, label) =>
+    Effect.tryPromise({
+      try: async () => {
+        await Bun.$`gh pr edit ${prNumber} --add-label "${label}"`.quiet()
+      },
+      catch: (error) => new GitHubApiError({ operation: 'addLabel', cause: error }),
+    }),
+
+  postComment: (prNumber, body) =>
+    Effect.tryPromise({
+      try: async () => {
+        await Bun.$`gh pr comment ${prNumber} --body "${body}"`.quiet()
+      },
+      catch: (error) => new GitHubApiError({ operation: 'postComment', cause: error }),
+    }),
+
+  enableAutoMerge: (prNumber, mergeMethod) =>
+    Effect.tryPromise({
+      try: async () => {
+        await Bun.$`gh pr merge ${prNumber} --${mergeMethod} --auto`.quiet()
+      },
+      catch: (error) => new GitHubApiError({ operation: 'enableAutoMerge', cause: error }),
+    }),
+})

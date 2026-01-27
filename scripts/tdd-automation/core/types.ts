@@ -12,6 +12,9 @@
  * These types define the PR-based state model.
  */
 
+// Re-export config for backward compatibility
+export { TDD_CONFIG, TDD_LABELS, getTDDBranchName, formatTDDPRTitle } from './config'
+
 /**
  * PR title format: [TDD] Implement <spec-id> | Attempt X/5
  */
@@ -48,6 +51,27 @@ export interface ReadySpec {
 }
 
 /**
+ * Individual spec item from scanning
+ */
+export interface SpecItem {
+  readonly specId: string
+  readonly file: string
+  readonly line: number
+  readonly description: string
+  readonly feature: string
+  readonly priority: number
+}
+
+/**
+ * Result of scanning for fixme specs
+ */
+export interface QueueScanResult {
+  readonly timestamp: string
+  readonly totalSpecs: number
+  readonly specs: readonly SpecItem[]
+}
+
+/**
  * Credit usage tracking
  */
 export interface CreditUsage {
@@ -59,50 +83,4 @@ export interface CreditUsage {
   readonly isAtWeeklyLimit: boolean
   readonly dailyWarning: boolean
   readonly weeklyWarning: boolean
-}
-
-/**
- * TDD Automation Labels
- */
-export const TDD_LABELS = {
-  /** Main TDD automation label */
-  AUTOMATION: 'tdd-automation',
-  /** Manual intervention required (after 5 failures) */
-  MANUAL_INTERVENTION: 'tdd-automation:manual-intervention',
-  /** Had a merge conflict that was resolved */
-  HAD_CONFLICT: 'tdd-automation:had-conflict',
-} as const
-
-/**
- * Default configuration
- */
-export const TDD_CONFIG = {
-  /** Maximum attempts before manual intervention */
-  MAX_ATTEMPTS: 5,
-  /** Daily credit limit in dollars */
-  DAILY_LIMIT: 100,
-  /** Weekly credit limit in dollars */
-  WEEKLY_LIMIT: 500,
-  /** Warning threshold percentage (80%) */
-  WARNING_THRESHOLD: 0.8,
-  /** Fallback cost per run when parsing fails */
-  FALLBACK_COST_PER_RUN: 15,
-} as const
-
-/**
- * Branch naming pattern: tdd/<spec-id>
- */
-export function getTDDBranchName(specId: string): string {
-  return `tdd/${specId.toLowerCase()}`
-}
-
-/**
- * PR title format: [TDD] Implement <spec-id> | Attempt X/5
- */
-export function formatTDDPRTitle(
-  specId: string,
-  attempt: number,
-  maxAttempts: number = TDD_CONFIG.MAX_ATTEMPTS
-): string {
-  return `[TDD] Implement ${specId} | Attempt ${attempt}/${maxAttempts}`
 }

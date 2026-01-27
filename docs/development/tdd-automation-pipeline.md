@@ -1,10 +1,10 @@
 # TDD Automation Pipeline - Specification
 
-> **Status**: ✅ SPECIFICATION COMPLETE (ready to implement)
+> **Status**: ✅ EFFECT IMPLEMENTATION COMPLETE
 > **Last Updated**: 2025-01-27
 > **Scope**: 230 pending specs over ~6-8 days
 >
-> **Implementation Note**: This document specifies the target architecture. Effect-based services in `scripts/tdd-automation/` will be built incrementally. Core workflows (`.github/workflows/`) can be implemented first using bash, then migrated to Effect as services mature.
+> **Implementation Note**: Effect-based services in `scripts/tdd-automation/` are now implemented. See the "Effect-Based Implementation Architecture" section for file references. YAML workflows (`.github/workflows/`) are being migrated to call these TypeScript entry points.
 
 ---
 
@@ -127,12 +127,12 @@ Both agents use Claude Sonnet 4.5 for optimal reasoning-to-cost balance. The age
 --disallowedTools "WebFetch,WebSearch,AskUserQuestion,NotebookEdit"
 ```
 
-| Parameter           | Value                    | Rationale                                                                                    |
-| ------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
-| `--max-turns`       | `50`                     | Complex TDD cycles require multiple iterations (quality check → fix → test → repeat)         |
-| `--model`           | `claude-sonnet-4-5`      | Best reasoning-to-cost balance for TDD implementation                                        |
-| `--allowedTools`    | Core tools + Skill       | Read/Write/Edit for code, Bash for tests, Glob/Grep for search, Skill for schema generation  |
-| `--disallowedTools` | Web + Interactive        | WebFetch/WebSearch blocked for CI reproducibility, AskUserQuestion blocked for autonomy      |
+| Parameter           | Value               | Rationale                                                                                   |
+| ------------------- | ------------------- | ------------------------------------------------------------------------------------------- |
+| `--max-turns`       | `50`                | Complex TDD cycles require multiple iterations (quality check → fix → test → repeat)        |
+| `--model`           | `claude-sonnet-4-5` | Best reasoning-to-cost balance for TDD implementation                                       |
+| `--allowedTools`    | Core tools + Skill  | Read/Write/Edit for code, Bash for tests, Glob/Grep for search, Skill for schema generation |
+| `--disallowedTools` | Web + Interactive   | WebFetch/WebSearch blocked for CI reproducibility, AskUserQuestion blocked for autonomy     |
 
 **Autonomous Behaviors:**
 
@@ -156,12 +156,12 @@ Both agents use Claude Sonnet 4.5 for optimal reasoning-to-cost balance. The age
 --disallowedTools "WebFetch,WebSearch,Skill,AskUserQuestion,NotebookEdit"
 ```
 
-| Parameter           | Value                     | Rationale                                                              |
-| ------------------- | ------------------------- | ---------------------------------------------------------------------- |
-| `--max-turns`       | `40`                      | Refactoring is bounded; fewer iterations than implementation           |
-| `--model`           | `claude-sonnet-4-5`       | Architectural reasoning requires Sonnet-level capability               |
-| `--allowedTools`    | Core tools (no Skill)     | Same base tools, but Skill excluded (schema creation not its job)      |
-| `--disallowedTools` | Web + Skill + Interactive | Skill blocked (schema creation is e2e-test-fixer's responsibility)     |
+| Parameter           | Value                     | Rationale                                                          |
+| ------------------- | ------------------------- | ------------------------------------------------------------------ |
+| `--max-turns`       | `40`                      | Refactoring is bounded; fewer iterations than implementation       |
+| `--model`           | `claude-sonnet-4-5`       | Architectural reasoning requires Sonnet-level capability           |
+| `--allowedTools`    | Core tools (no Skill)     | Same base tools, but Skill excluded (schema creation not its job)  |
+| `--disallowedTools` | Web + Skill + Interactive | Skill blocked (schema creation is e2e-test-fixer's responsibility) |
 
 **Autonomous Behaviors:**
 
@@ -1206,10 +1206,10 @@ If labels are accidentally removed, the branch name `tdd/<spec-id>` serves as a 
 
 Credit limits are checked at **two points** for defense-in-depth:
 
-| Workflow     | When Checked                    | If Limit Exceeded                        |
-| ------------ | ------------------------------- | ---------------------------------------- |
-| PR Creator   | Before creating new TDD PR      | Skips PR creation, logs warning          |
-| Claude Code  | Before executing agent          | Skips execution, comments on PR          |
+| Workflow    | When Checked               | If Limit Exceeded               |
+| ----------- | -------------------------- | ------------------------------- |
+| PR Creator  | Before creating new TDD PR | Skips PR creation, logs warning |
+| Claude Code | Before executing agent     | Skips execution, comments on PR |
 
 **Rationale**: Double-checking prevents runaway costs if one workflow misbehaves.
 
@@ -1224,11 +1224,11 @@ Credit limits are checked at **two points** for defense-in-depth:
 
 **Cost Patterns (tried in order, first match wins):**
 
-| Priority | Pattern                 | Example Match           | Notes                           |
-| -------- | ----------------------- | ----------------------- | ------------------------------- |
-| 1        | `Total cost: $X.XX`     | `Total cost: $12.34`    | Claude Code action format       |
-| 2        | `Cost: $X.XX`           | `Cost: $5.67`           | Alternative short format        |
-| 3        | `Session cost: X.XX USD`| `Session cost: 8.90 USD`| Legacy format (no $ prefix)     |
+| Priority | Pattern                  | Example Match            | Notes                       |
+| -------- | ------------------------ | ------------------------ | --------------------------- |
+| 1        | `Total cost: $X.XX`      | `Total cost: $12.34`     | Claude Code action format   |
+| 2        | `Cost: $X.XX`            | `Cost: $5.67`            | Alternative short format    |
+| 3        | `Session cost: X.XX USD` | `Session cost: 8.90 USD` | Legacy format (no $ prefix) |
 
 **Fallback:** $15/run if all patterns fail to match (+ creates GitHub issue for investigation)
 
@@ -1307,26 +1307,27 @@ scripts/tdd-automation/core/schema-priority-calculator.ts
 
 ## Risks & Mitigations
 
-| Risk                           | Mitigation                                           | Confidence   |
-| ------------------------------ | ---------------------------------------------------- | ------------ |
-| Serial processing time         | Chain reaction triggers, fast-path for passing tests | ✅ ~6-8 days |
+| Risk                   | Mitigation                                           | Confidence   |
+| ---------------------- | ---------------------------------------------------- | ------------ |
+| Serial processing time | Chain reaction triggers, fast-path for passing tests | ✅ ~6-8 days |
 
 **Timeline Math Explanation:**
+
 - **Worst-case ceiling**: 230 specs × 2h/spec = 460h (if every spec maxed out)
 - **Realistic estimate**: ~6-8 calendar days because:
   - Many specs pass with trivial implementation (<15 min)
   - Chain reaction triggers eliminate 1h cron wait between specs
   - Fast-path: passing tests trigger immediate next PR creation
   - Average ~45 min/spec realistic (230 × 0.75h = 172h = ~7 days)
-| Cost parsing fragility         | Multi-pattern + $15 fallback + alert issues          | ✅ High      |
-| Merge conflict quality         | Flag label + human review gate                       | ✅ High      |
-| Comment-based retry counting   | PR title-based (immutable)                           | ✅ High      |
-| GitHub API rate limits         | Exponential backoff                                  | ✅ High      |
-| Auto-merge stuck PRs           | Watchdog every 30 min                                | ✅ High      |
-| Claude Code hangs              | Job timeout + action's built-in progress tracking    | ✅ High      |
-| Infrastructure failures        | Classification + auto-retry (no count)               | ✅ High      |
-| Long-running specs             | Per-spec `@tdd-max-attempts`, `@tdd-timeout`         | ✅ High      |
-| Label accidents                | Branch name as backup identifier                     | ✅ High      |
+    | Cost parsing fragility | Multi-pattern + $15 fallback + alert issues | ✅ High |
+    | Merge conflict quality | Flag label + human review gate | ✅ High |
+    | Comment-based retry counting | PR title-based (immutable) | ✅ High |
+    | GitHub API rate limits | Exponential backoff | ✅ High |
+    | Auto-merge stuck PRs | Watchdog every 30 min | ✅ High |
+    | Claude Code hangs | Job timeout + action's built-in progress tracking | ✅ High |
+    | Infrastructure failures | Classification + auto-retry (no count) | ✅ High |
+    | Long-running specs | Per-spec `@tdd-max-attempts`, `@tdd-timeout` | ✅ High |
+    | Label accidents | Branch name as backup identifier | ✅ High |
 
 ---
 
@@ -1488,278 +1489,87 @@ scripts/tdd-automation/
 
 ### Effect Error Types
 
-All TDD automation errors are modeled as `Data.TaggedError` for type-safe error handling:
+All TDD automation errors are modeled as `Data.TaggedError` for type-safe error handling.
 
-```typescript
-// scripts/tdd-automation/core/errors.ts
-import { Data } from 'effect'
+**Implementation:** `scripts/tdd-automation/core/errors.ts`
 
-/**
- * Credit limit exceeded - daily or weekly
- */
-export class CreditLimitExceeded extends Data.TaggedError('CreditLimitExceeded')<{
-  readonly dailySpend: number
-  readonly weeklySpend: number
-  readonly limit: 'daily' | 'weekly'
-}> {}
+**Error Types:**
 
-/**
- * Cost parsing failed for a workflow run
- */
-export class CostParsingFailed extends Data.TaggedError('CostParsingFailed')<{
-  readonly runId: string
-  readonly rawLog: string
-}> {}
-
-/**
- * An active TDD PR already exists (serial processing)
- */
-export class ActiveTDDPRExists extends Data.TaggedError('ActiveTDDPRExists')<{
-  readonly prNumber: number
-  readonly specId: string
-}> {}
-
-/**
- * No pending specs with .fixme() found
- */
-export class NoPendingSpecs extends Data.TaggedError('NoPendingSpecs')<{
-  readonly message: string
-}> {}
-
-/**
- * Merge conflict detected during sync
- */
-export class MergeConflict extends Data.TaggedError('MergeConflict')<{
-  readonly files: readonly string[]
-}> {}
-
-/**
- * Max attempts reached for a spec
- */
-export class MaxAttemptsReached extends Data.TaggedError('MaxAttemptsReached')<{
-  readonly specId: string
-  readonly attempts: number
-  readonly maxAttempts: number
-}> {}
-
-/**
- * GitHub API error
- */
-export class GitHubApiError extends Data.TaggedError('GitHubApiError')<{
-  readonly operation: string
-  readonly cause: unknown
-}> {}
-
-/**
- * Git operation failed
- */
-export class GitOperationError extends Data.TaggedError('GitOperationError')<{
-  readonly command: string
-  readonly stderr: string
-}> {}
-```
+| Error                 | Purpose                             | Key Fields                           |
+| --------------------- | ----------------------------------- | ------------------------------------ |
+| `CreditLimitExceeded` | Daily or weekly cost limit exceeded | `dailySpend`, `weeklySpend`, `limit` |
+| `CostParsingFailed`   | Cost extraction from logs failed    | `runId`, `rawLog`                    |
+| `ActiveTDDPRExists`   | Serial processing violation         | `prNumber`, `specId`                 |
+| `NoPendingSpecs`      | No `.fixme()` specs available       | `message`                            |
+| `MergeConflict`       | Merge conflict detected during sync | `branch`, `conflictingFiles`         |
+| `MaxAttemptsReached`  | 5 attempts exhausted                | `specId`, `attempts`, `maxAttempts`  |
+| `GitHubApiError`      | GitHub API operation failed         | `operation`, `cause`                 |
+| `GitOperationError`   | Git CLI command failed              | `operation`, `stderr`                |
 
 ---
 
 ### Effect Service Interfaces
 
-Services abstract external dependencies for testability:
+Services abstract external dependencies for testability using Effect's `Context.Tag` pattern.
 
-```typescript
-// scripts/tdd-automation/services/github-api.ts
-import { Context, Effect, Layer } from 'effect'
-import type { TDDPullRequest, ReadySpec } from '../core/types'
-import type { GitHubApiError, ActiveTDDPRExists } from '../core/errors'
+**Implementations:**
 
-/**
- * Workflow run metadata from GitHub API
- */
-export interface WorkflowRun {
-  readonly id: string
-  readonly name: string
-  readonly conclusion: 'success' | 'failure' | 'cancelled' | 'skipped' | null
-  readonly createdAt: Date
-  readonly updatedAt: Date
-  readonly htmlUrl: string
-}
+| Service         | File                                                | Purpose                        |
+| --------------- | --------------------------------------------------- | ------------------------------ |
+| `GitHubApi`     | `scripts/tdd-automation/services/github-api.ts`     | GitHub API operations (gh CLI) |
+| `GitOperations` | `scripts/tdd-automation/services/git-operations.ts` | Git CLI operations             |
+| `CostTracker`   | `scripts/tdd-automation/services/cost-tracker.ts`   | Cost parsing from logs         |
 
-export interface GitHubApiService {
-  /**
-   * List open PRs with tdd-automation label
-   */
-  readonly listTDDPRs: () => Effect.Effect<readonly TDDPullRequest[], GitHubApiError>
+**GitHubApi Service Methods:**
 
-  /**
-   * Get workflow runs for cost calculation
-   */
-  readonly getWorkflowRuns: (params: {
-    workflow: string
-    createdAfter: Date
-    status: 'success' | 'failure' | 'all'
-  }) => Effect.Effect<readonly WorkflowRun[], GitHubApiError>
+- `listTDDPRs()` - List open PRs with `tdd-automation` label
+- `getPR(prNumber)` - Get PR details by number
+- `getWorkflowRuns(params)` - Get workflow runs for cost calculation
+- `getRunLogs(runId)` - Get workflow run logs for cost parsing
+- `createPR(params)` - Create a new PR
+- `updatePRTitle(prNumber, title)` - Update PR title
+- `addLabel(prNumber, label)` - Add label to PR
+- `postComment(prNumber, body)` - Post comment on PR
+- `enableAutoMerge(prNumber, mergeMethod)` - Enable auto-merge
 
-  /**
-   * Get workflow run logs for cost parsing
-   */
-  readonly getRunLogs: (runId: string) => Effect.Effect<string, GitHubApiError>
+**GitOperations Service Methods:**
 
-  /**
-   * Create a new PR
-   */
-  readonly createPR: (params: {
-    title: string
-    branch: string
-    base: string
-    labels: readonly string[]
-  }) => Effect.Effect<{ number: number; url: string }, GitHubApiError>
-
-  /**
-   * Update PR title
-   */
-  readonly updatePRTitle: (prNumber: number, title: string) => Effect.Effect<void, GitHubApiError>
-
-  /**
-   * Add label to PR
-   */
-  readonly addLabel: (prNumber: number, label: string) => Effect.Effect<void, GitHubApiError>
-
-  /**
-   * Post comment on PR
-   */
-  readonly postComment: (prNumber: number, body: string) => Effect.Effect<void, GitHubApiError>
-
-  /**
-   * Enable auto-merge for PR
-   */
-  readonly enableAutoMerge: (
-    prNumber: number,
-    mergeMethod: 'squash' | 'merge' | 'rebase'
-  ) => Effect.Effect<void, GitHubApiError>
-}
-
-export class GitHubApi extends Context.Tag('GitHubApi')<GitHubApi, GitHubApiService>() {}
-```
-
-**Live Implementation:**
-
-```typescript
-// scripts/tdd-automation/services/github-api.live.ts
-import { Layer, Effect } from 'effect'
-import { GitHubApi, type GitHubApiService } from './github-api'
-import { GitHubApiError } from '../core/errors'
-import { parseTDDPRTitle } from '../core/parse-pr-title'
-
-export const GitHubApiLive = Layer.succeed(GitHubApi, {
-  listTDDPRs: () =>
-    Effect.tryPromise({
-      try: async () => {
-        const { stdout } =
-          await Bun.$`gh pr list --label "tdd-automation" --state open --json number,title,headRefName,labels`
-        const prs = JSON.parse(stdout.toString())
-        return prs.map((pr: any) => ({
-          number: pr.number,
-          title: pr.title,
-          branch: pr.headRefName,
-          ...parseTDDPRTitle(pr.title),
-          labels: pr.labels.map((l: any) => l.name),
-          hasManualInterventionLabel: pr.labels.some(
-            (l: any) => l.name === 'tdd-automation:manual-intervention'
-          ),
-          hasConflictLabel: pr.labels.some((l: any) => l.name === 'tdd-automation:had-conflict'),
-        }))
-      },
-      catch: (error) => new GitHubApiError({ operation: 'listTDDPRs', cause: error }),
-    }),
-
-  // ... other implementations using Bun shell (gh CLI)
-})
-```
+- `getCurrentBranch()` - Get current branch name
+- `createBranch(name, baseBranch)` - Create new branch
+- `checkout(branch)` - Checkout branch
+- `branchExists(branch)` - Check if branch exists
+- `fetch(remote)` - Fetch from remote
+- `rebase(upstream)` - Rebase onto upstream
+- `push(remote, branch, force)` - Push to remote
+- `getBranchStatus(branch)` - Get sync status with main
+- `checkConflicts(branch)` - Check for merge conflicts
 
 ---
 
 ### Effect Programs (Composable Business Logic)
 
-Programs compose services to implement business logic:
+Programs compose services to implement business logic using `Effect.gen`.
+
+**Implementations:**
+
+| Program                | File                                                        | Purpose                           |
+| ---------------------- | ----------------------------------------------------------- | --------------------------------- |
+| `checkCreditLimits`    | `scripts/tdd-automation/programs/check-credit-limits.ts`    | Verify daily/weekly spend limits  |
+| `findActiveTDDPR`      | `scripts/tdd-automation/programs/find-active-tdd-pr.ts`     | Find active TDD PR (serial check) |
+| `createTDDPR`          | `scripts/tdd-automation/programs/create-tdd-pr.ts`          | Create new TDD PR with setup      |
+| `syncWithMain`         | `scripts/tdd-automation/programs/sync-with-main.ts`         | Sync branch with main via rebase  |
+| `detectMergeConflicts` | `scripts/tdd-automation/programs/detect-merge-conflicts.ts` | Detect conflicts without modify   |
+| `incrementAttempt`     | `scripts/tdd-automation/programs/increment-attempt.ts`      | Increment PR title attempt count  |
+
+**Program Pattern:**
 
 ```typescript
-// scripts/tdd-automation/programs/check-credit-limits.ts
-import { Effect, pipe } from 'effect'
-import { GitHubApi } from '../services/github-api'
-import { CostTracker } from '../services/cost-tracker'
-import { CreditLimitExceeded, CostParsingFailed } from '../core/errors'
-import { TDD_CONFIG } from '../core/config'
-
-export interface CreditCheckResult {
-  readonly canProceed: boolean
-  readonly dailySpend: number
-  readonly weeklySpend: number
-  readonly warnings: readonly string[]
-}
-
-export const checkCreditLimits = Effect.gen(function* () {
-  const github = yield* GitHubApi
-  const costTracker = yield* CostTracker
-
-  // Get workflow runs from past 24h and 7d
-  const now = new Date()
-  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-
-  const dailyRuns = yield* github.getWorkflowRuns({
-    workflow: 'claude-code.yml',
-    createdAfter: oneDayAgo,
-    status: 'success',
-  })
-
-  const weeklyRuns = yield* github.getWorkflowRuns({
-    workflow: 'claude-code.yml',
-    createdAfter: oneWeekAgo,
-    status: 'success',
-  })
-
-  // Calculate costs with fallback
-  const dailyCosts = yield* Effect.forEach(dailyRuns, (run) =>
-    pipe(
-      costTracker.parseCostFromLogs(run.id),
-      Effect.catchTag('CostParsingFailed', () => Effect.succeed(TDD_CONFIG.FALLBACK_COST_PER_RUN))
-    )
-  )
-
-  const weeklyCosts = yield* Effect.forEach(weeklyRuns, (run) =>
-    pipe(
-      costTracker.parseCostFromLogs(run.id),
-      Effect.catchTag('CostParsingFailed', () => Effect.succeed(TDD_CONFIG.FALLBACK_COST_PER_RUN))
-    )
-  )
-
-  const dailySpend = dailyCosts.reduce((a, b) => a + b, 0)
-  const weeklySpend = weeklyCosts.reduce((a, b) => a + b, 0)
-
-  const warnings: string[] = []
-
-  // Check warning thresholds (80%)
-  if (dailySpend >= TDD_CONFIG.DAILY_LIMIT * TDD_CONFIG.WARNING_THRESHOLD) {
-    warnings.push(`Daily spend at $${dailySpend}/$${TDD_CONFIG.DAILY_LIMIT} (80%+)`)
-  }
-  if (weeklySpend >= TDD_CONFIG.WEEKLY_LIMIT * TDD_CONFIG.WARNING_THRESHOLD) {
-    warnings.push(`Weekly spend at $${weeklySpend}/$${TDD_CONFIG.WEEKLY_LIMIT} (80%+)`)
-  }
-
-  // Check hard limits
-  if (dailySpend >= TDD_CONFIG.DAILY_LIMIT) {
-    return yield* Effect.fail(new CreditLimitExceeded({ dailySpend, weeklySpend, limit: 'daily' }))
-  }
-  if (weeklySpend >= TDD_CONFIG.WEEKLY_LIMIT) {
-    return yield* Effect.fail(new CreditLimitExceeded({ dailySpend, weeklySpend, limit: 'weekly' }))
-  }
-
-  return {
-    canProceed: true,
-    dailySpend,
-    weeklySpend,
-    warnings,
-  } satisfies CreditCheckResult
-})
+// Each program follows this pattern:
+export const programName = Effect.gen(function* () {
+  const service = yield* ServiceTag // Inject dependencies
+  const result = yield* service.method() // Call service methods
+  return result // Return typed result
+}).pipe(Effect.catchTag('ErrorType', handler)) // Handle specific errors
 ```
 
 ---
@@ -1869,93 +1679,52 @@ Effect.runPromise(main)
 
 ### Layer Composition (Dependency Injection)
 
-```typescript
-// scripts/tdd-automation/layers/live.ts
-import { Layer } from 'effect'
-import { GitHubApiLive } from '../services/github-api.live'
-import { GitOperationsLive } from '../services/git-operations.live'
-import { CostTrackerLive } from '../services/cost-tracker.live'
+**Implementations:**
 
-/**
- * Production layer with all live service implementations
- */
-export const LiveLayer = Layer.mergeAll(GitHubApiLive, GitOperationsLive, CostTrackerLive)
+| Layer       | File                                    | Purpose                       |
+| ----------- | --------------------------------------- | ----------------------------- |
+| `LiveLayer` | `scripts/tdd-automation/layers/live.ts` | Production layer (real APIs)  |
+| `TestLayer` | `scripts/tdd-automation/layers/test.ts` | Test layer with mock services |
 
-// scripts/tdd-automation/layers/test.ts
-import { Layer } from 'effect'
-import { GitHubApiTest } from '../services/github-api.test'
-import { GitOperationsTest } from '../services/git-operations.test'
-import { CostTrackerTest } from '../services/cost-tracker.test'
+**Live Layer Services:**
 
-/**
- * Test layer with mock service implementations
- */
-export const TestLayer = Layer.mergeAll(GitHubApiTest, GitOperationsTest, CostTrackerTest)
-```
+- `GitHubApiLive` - GitHub CLI (`gh`) operations
+- `GitOperationsLive` - Git CLI operations
+- `CostTrackerLive` - Cost parsing from workflow logs
 
-**Unit Testing Example:**
+**Test Layer Features:**
+
+- `createTestLayer(options)` - Factory for customized test layers
+- Default mocks for all services
+- Configurable mock responses for `mockCost`, `mockPRs`, `mockRuns`, `mockBranchStatus`, `mockConflictInfo`
+
+**Usage Pattern:**
 
 ```typescript
-// scripts/tdd-automation/programs/check-credit-limits.test.ts
-import { describe, test, expect } from 'bun:test'
-import { Effect, Layer } from 'effect'
-import { checkCreditLimits } from './check-credit-limits'
-import { GitHubApi } from '../services/github-api'
-import { CostTracker } from '../services/cost-tracker'
+// Production
+const result = await Effect.runPromise(program.pipe(Effect.provide(LiveLayer)))
 
-describe('checkCreditLimits', () => {
-  test('returns canProceed: true when under limits', async () => {
-    // Create mock layer
-    const MockLayer = Layer.mergeAll(
-      Layer.succeed(GitHubApi, {
-        getWorkflowRuns: () => Effect.succeed([{ id: '123' }]),
-        // ... other mocks
-      }),
-      Layer.succeed(CostTracker, {
-        parseCostFromLogs: () => Effect.succeed(10), // $10 per run
-      })
-    )
-
-    const result = await Effect.runPromise(checkCreditLimits.pipe(Effect.provide(MockLayer)))
-
-    expect(result.canProceed).toBe(true)
-    expect(result.dailySpend).toBe(10)
-  })
-
-  test('fails with CreditLimitExceeded when over daily limit', async () => {
-    const MockLayer = Layer.mergeAll(
-      Layer.succeed(GitHubApi, {
-        getWorkflowRuns: () =>
-          Effect.succeed(Array.from({ length: 10 }, (_, i) => ({ id: `${i}` }))),
-      }),
-      Layer.succeed(CostTracker, {
-        parseCostFromLogs: () => Effect.succeed(15), // $15 * 10 = $150 > $100 limit
-      })
-    )
-
-    const exit = await Effect.runPromiseExit(checkCreditLimits.pipe(Effect.provide(MockLayer)))
-
-    expect(exit._tag).toBe('Failure')
-    // Assert on CreditLimitExceeded error
-  })
+// Testing with custom mocks
+const testLayer = createTestLayer({
+  mockCost: 10,
+  mockPRs: [{ number: 1, specId: 'TEST-001', ... }],
 })
+const result = await Effect.runPromise(program.pipe(Effect.provide(testLayer)))
 ```
 
 ---
 
-### Implementation Phases
+### Implementation Status
 
-| Phase                 | Days | Focus                                     | Deliverables              |
-| --------------------- | ---- | ----------------------------------------- | ------------------------- |
-| **1. Core Types**     | 1    | Error types, config                       | `errors.ts`, `config.ts`  |
-| **2. Services**       | 2-3  | Service interfaces + live implementations | `services/*.ts`           |
-| **3. Programs**       | 3-4  | Business logic programs                   | `programs/*.ts`           |
-| **4. Entry Points**   | 4-5  | CLI scripts for YAML                      | `workflows/**/*.ts`       |
-| **5. YAML Migration** | 5-6  | Replace bash with TypeScript calls        | `.github/workflows/*.yml` |
-| **6. Testing**        | 6-7  | Unit tests for all programs               | `**/*.test.ts`            |
-| **7. Documentation**  | 7    | Update docs, add examples                 | This document             |
-
-**Total: ~7 days** (can be parallelized with current implementation)
+| Phase                 | Status         | Files                                                                              |
+| --------------------- | -------------- | ---------------------------------------------------------------------------------- |
+| **1. Core Types**     | ✅ Complete    | `core/types.ts`, `core/config.ts`, `core/errors.ts`                                |
+| **2. Services**       | ✅ Complete    | `services/github-api.ts`, `services/git-operations.ts`, `services/cost-tracker.ts` |
+| **3. Programs**       | ✅ Complete    | `programs/*.ts` (6 programs)                                                       |
+| **4. Entry Points**   | ✅ Complete    | `workflows/**/*.ts` (10 CLI scripts)                                               |
+| **5. Layers**         | ✅ Complete    | `layers/live.ts`, `layers/test.ts`                                                 |
+| **6. YAML Migration** | 🔄 In Progress | `.github/workflows/*.yml`                                                          |
+| **7. Testing**        | ⏳ Pending     | `**/*.test.ts`                                                                     |
 
 ---
 

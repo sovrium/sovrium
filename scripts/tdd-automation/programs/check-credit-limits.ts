@@ -1,0 +1,106 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+/**
+ * Check Credit Limits Program
+ *
+ * Effect program that calculates daily and weekly Claude Code spending
+ * and enforces credit limits for TDD automation.
+ */
+
+import { Effect, pipe } from 'effect'
+import { CreditLimitExceeded } from '../core/errors'
+import { TDD_CONFIG } from '../core/types'
+import { CostTracker } from '../services/cost-tracker'
+import { GitHubApi } from '../services/github-api'
+
+/**
+ * Result of credit limit check
+ */
+export interface CreditCheckResult {
+  readonly canProceed: boolean
+  readonly dailySpend: number
+  readonly weeklySpend: number
+  readonly warnings: readonly string[]
+}
+
+/**
+ * Check credit limits program
+ *
+ * 1. Fetches workflow runs from past 24h and 7 days
+ * 2. Parses cost from each run's logs
+ * 3. Calculates total daily and weekly spend
+ * 4. Fails with CreditLimitExceeded if over limits
+ * 5. Returns warnings at 80% thresholds
+ *
+ * @returns CreditCheckResult with spend amounts and warnings
+ * @throws CreditLimitExceeded if daily ($100) or weekly ($500) limit exceeded
+ */
+export const checkCreditLimits = Effect.gen(function* () {
+  const github = yield* GitHubApi
+  const costTracker = yield* CostTracker
+
+  // Get workflow runs from past 24h and 7d
+  const now = new Date()
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+  const dailyRuns = yield* github.getWorkflowRuns({
+    workflow: 'claude-code.yml',
+    createdAfter: oneDayAgo,
+    status: 'success',
+  })
+
+  const weeklyRuns = yield* github.getWorkflowRuns({
+    workflow: 'claude-code.yml',
+    createdAfter: oneWeekAgo,
+    status: 'success',
+  })
+
+  // Calculate costs with fallback for parsing failures
+  const dailyCosts = yield* Effect.forEach(dailyRuns, (run) =>
+    pipe(
+      costTracker.parseCostFromLogs(run.id),
+      Effect.catchTag('CostParsingFailed', () => Effect.succeed(TDD_CONFIG.FALLBACK_COST_PER_RUN))
+    )
+  )
+
+  const weeklyCosts = yield* Effect.forEach(weeklyRuns, (run) =>
+    pipe(
+      costTracker.parseCostFromLogs(run.id),
+      Effect.catchTag('CostParsingFailed', () => Effect.succeed(TDD_CONFIG.FALLBACK_COST_PER_RUN))
+    )
+  )
+
+  const dailySpend = dailyCosts.reduce((a, b) => a + b, 0)
+  const weeklySpend = weeklyCosts.reduce((a, b) => a + b, 0)
+
+  const warnings: string[] = []
+
+  // Check warning thresholds (80%)
+  if (dailySpend >= TDD_CONFIG.DAILY_LIMIT * TDD_CONFIG.WARNING_THRESHOLD) {
+    warnings.push(`Daily spend at $${dailySpend}/$${TDD_CONFIG.DAILY_LIMIT} (80%+)`)
+  }
+  if (weeklySpend >= TDD_CONFIG.WEEKLY_LIMIT * TDD_CONFIG.WARNING_THRESHOLD) {
+    warnings.push(`Weekly spend at $${weeklySpend}/$${TDD_CONFIG.WEEKLY_LIMIT} (80%+)`)
+  }
+
+  // Check hard limits
+  if (dailySpend >= TDD_CONFIG.DAILY_LIMIT) {
+    return yield* new CreditLimitExceeded({ dailySpend, weeklySpend, limit: 'daily' })
+  }
+  if (weeklySpend >= TDD_CONFIG.WEEKLY_LIMIT) {
+    return yield* new CreditLimitExceeded({ dailySpend, weeklySpend, limit: 'weekly' })
+  }
+
+  return {
+    canProceed: true,
+    dailySpend,
+    weeklySpend,
+    warnings,
+  } satisfies CreditCheckResult
+})

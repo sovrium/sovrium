@@ -1079,7 +1079,7 @@ jobs:
       - name: Increment attempt counter
         id: increment
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
@@ -1104,31 +1104,43 @@ jobs:
       - name: Trigger Claude Code on failure
         if: steps.increment.outputs.exceeded == 'false'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           TARGET_SPEC: ${{ needs.e2e-results.outputs.target_spec }}
           SPEC_ID: ${{ steps.parse.outputs.spec-id }}
           NEW_ATTEMPT: ${{ steps.increment.outputs.new-attempt }}
           MAX_ATTEMPTS: ${{ steps.parse.outputs.max-attempts }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           echo "🤖 Triggering Claude Code (Attempt $NEW_ATTEMPT/$MAX_ATTEMPTS)"
 
           # Write comment to temp file to avoid YAML parsing issues
+          # Format matches spec: docs/development/tdd-automation-pipeline.md#system-prompt-templates
           {
             echo "@claude e2e-test-fixer"
             echo ""
-            echo "Attempt $NEW_ATTEMPT of $MAX_ATTEMPTS"
+            echo "You are operating in the TDD automation pipeline. Use the e2e-test-fixer agent workflow."
             echo ""
-            echo "The E2E test for \`$SPEC_ID\` failed. Please fix the implementation."
+            echo "**Context:**"
+            echo "- Spec: \`$SPEC_ID\`"
+            echo "- File: \`$TARGET_SPEC\`"
+            echo "- Attempt: $NEW_ATTEMPT/$MAX_ATTEMPTS"
+            echo "- Branch: \`$BRANCH\`"
             echo ""
-            echo "Target spec: \`$TARGET_SPEC\`"
+            echo "**Instructions:**"
+            echo "1. Analyze the test to understand what it expects"
+            echo "2. Verify required schemas exist (use Skill tool if missing)"
+            echo "3. Implement minimal code to pass the test"
+            echo "4. Run \`bun run quality\` AND \`bun test:e2e -- $TARGET_SPEC\` (iterate until BOTH pass)"
+            echo "5. Run \`bun test:e2e:regression\` to verify no regressions"
+            echo "6. Commit with message: \"fix: implement $SPEC_ID\""
+            echo "7. Push to origin (MANDATORY for pipeline to continue)"
             echo ""
-            echo "Please:"
-            echo "1. Read the failing test to understand what it expects"
-            echo "2. Implement or fix the code to make the test pass"
-            echo "3. Run: bun test:e2e $TARGET_SPEC"
-            echo "4. Run: bun run quality"
-            echo "5. Commit and push if all checks pass"
+            echo "**Constraints:**"
+            echo "- NEVER modify test logic or assertions"
+            echo "- NEVER ask clarifying questions (autonomous mode)"
+            echo "- Maximum 3 iterations before reporting failure"
+            echo "- Follow functional programming patterns (no push/mutation)"
           } > /tmp/claude_comment.txt
 
           gh pr comment "$PR_NUMBER" --body-file /tmp/claude_comment.txt
@@ -1136,7 +1148,7 @@ jobs:
       - name: Move to manual intervention
         if: steps.increment.outputs.exceeded == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           MAX_ATTEMPTS: ${{ steps.parse.outputs.max-attempts }}
           SPEC_ID: ${{ steps.parse.outputs.spec-id }}

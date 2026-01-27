@@ -19,71 +19,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check Claude Code credit usage
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check credit limits
         id: check
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          # Get runs from past 24 hours
-          DAILY_RUNS=$(gh run list --workflow="claude-code.yml" \
-            --created ">$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
-            --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")]' 2>/dev/null || echo "[]")
-
-          DAILY_SPEND=0
-          while IFS= read -r RUN_ID; do
-            [ -z "$RUN_ID" ] && continue
-            # Multi-pattern cost extraction with fallback
-            COST=$(gh run view "$RUN_ID" --log 2>/dev/null | \
-              grep -oP '(Total cost: \$|Cost: \$|Session cost: \$)(\K[0-9]+\.[0-9]+)' | head -1 || echo "")
-
-            if [ -z "$COST" ]; then
-              echo "::warning::Cost parsing failed for run $RUN_ID - using fallback \$15"
-              COST=15
-              echo "used-fallback=true" >> "$GITHUB_OUTPUT"
-            fi
-            DAILY_SPEND=$(echo "$DAILY_SPEND + $COST" | bc)
-          done < <(echo "$DAILY_RUNS" | jq -r '.[].databaseId')
-
-          # Similar for weekly (past 7 days)
-          WEEKLY_RUNS=$(gh run list --workflow="claude-code.yml" \
-            --created ">$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)" \
-            --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")]' 2>/dev/null || echo "[]")
-
-          WEEKLY_SPEND=0
-          while IFS= read -r RUN_ID; do
-            [ -z "$RUN_ID" ] && continue
-            COST=$(gh run view "$RUN_ID" --log 2>/dev/null | \
-              grep -oP '(Total cost: \$|Cost: \$|Session cost: \$)(\K[0-9]+\.[0-9]+)' | head -1 || echo "15")
-            WEEKLY_SPEND=$(echo "$WEEKLY_SPEND + $COST" | bc)
-          done < <(echo "$WEEKLY_RUNS" | jq -r '.[].databaseId')
-
-          echo "daily-spend=$DAILY_SPEND" >> "$GITHUB_OUTPUT"
-          echo "weekly-spend=$WEEKLY_SPEND" >> "$GITHUB_OUTPUT"
-
-          # Check limits with warnings at 80%
-          if [ "$(echo "$DAILY_SPEND >= 80" | bc)" -eq 1 ]; then
-            echo "::warning::Daily spend at \$${DAILY_SPEND}/\$100 (80%+)"
-          fi
-          if [ "$(echo "$WEEKLY_SPEND >= 400" | bc)" -eq 1 ]; then
-            echo "::warning::Weekly spend at \$${WEEKLY_SPEND}/\$500 (80%+)"
-          fi
-
-          if [ "$(echo "$DAILY_SPEND >= 100" | bc)" -eq 1 ] || [ "$(echo "$WEEKLY_SPEND >= 500" | bc)" -eq 1 ]; then
-            echo "⚠️ Credit limit reached - Daily: \$${DAILY_SPEND}, Weekly: \$${WEEKLY_SPEND}"
-            echo "can-proceed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "✓ Credits OK - Daily: \$${DAILY_SPEND}/\$100, Weekly: \$${WEEKLY_SPEND}/\$500"
-            echo "can-proceed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Alert if cost parsing failed
-        if: steps.check.outputs.used-fallback == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh issue create --title "⚠️ TDD Cost Parsing Failed" \
-            --body "Cost parsing failed for run ${{ github.run_id }}. Using fallback \$15. Please verify Claude Code output format." \
-            --label "tdd-automation,bug" || true
+          RESULT=$(bun run scripts/tdd-automation/workflows/pr-creator/check-credits.ts 2>&1)
+          echo "can-proceed=$(echo "$RESULT" | tail -1 | jq -r '.canProceed')" >> "$GITHUB_OUTPUT"
+          echo "daily-spend=$(echo "$RESULT" | tail -1 | jq -r '.dailySpend')" >> "$GITHUB_OUTPUT"
+          echo "weekly-spend=$(echo "$RESULT" | tail -1 | jq -r '.weeklySpend')" >> "$GITHUB_OUTPUT"
 
   check-active-pr:
     needs: check-credits
@@ -95,7 +47,7 @@ jobs:
       - name: Check for active TDD PR (with API backoff)
         id: check
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           # API call with exponential backoff for rate limits
           for i in 1 2 3 4 5; do
@@ -122,7 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT_WORKFLOW }}
           fetch-depth: 0
 
       - name: Setup Bun
@@ -136,7 +88,7 @@ jobs:
       - name: Find excluded specs (in manual-intervention PRs)
         id: excluded
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           EXCLUDED=$(gh pr list --repo "${{ github.repository }}" --label "tdd-automation:manual-intervention" --state open --json headRefName \
             --jq '.[].headRefName' | sed 's|tdd/||' | tr '\n' ',' | sed 's/,$//')
@@ -146,7 +98,7 @@ jobs:
         id: next-spec
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           RESULT=$(bun run scripts/tdd-automation/core/find-ready-spec.ts 2>&1) || true
 
@@ -195,7 +147,7 @@ jobs:
       - name: Create PR with attempt tracking in title
         if: steps.next-spec.outputs.found == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           SPEC_ID="${{ steps.next-spec.outputs.spec-id }}"
           SPEC_FILE="${{ steps.next-spec.outputs.spec-file }}"

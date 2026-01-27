@@ -21,125 +21,68 @@
  *   New PR title and attempt count
  */
 
+import { Effect, Console } from 'effect'
+import { GitHubApi, GitHubApiLive } from '../services/github-api'
 import { parseTDDPRTitle } from './parse-pr-title'
 import { formatTDDPRTitle } from './types'
+import type { GitHubApiError } from './errors'
 
 /**
- * Get repository info from environment
+ * Error for invalid PR title format
  */
-function getRepoInfo(): { owner: string; repo: string; token: string } {
-  const repository = process.env['GITHUB_REPOSITORY'] || ''
-  const [owner, repo] = repository.split('/')
-  const token = process.env['GH_TOKEN'] || process.env['GITHUB_TOKEN'] || ''
-
-  if (!owner || !repo) {
-    throw new Error('GITHUB_REPOSITORY environment variable not set or invalid')
-  }
-
-  if (!token) {
-    throw new Error('GH_TOKEN or GITHUB_TOKEN environment variable not set')
-  }
-
-  return { owner, repo, token }
-}
-
-/**
- * Fetch PR details from GitHub API
- */
-async function fetchPR(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  token: string
-): Promise<{ title: string; number: number }> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`
-
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github.v3+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Failed to fetch PR #${prNumber}: ${response.status} ${errorText}`)
-  }
-
-  const data = (await response.json()) as { title: string; number: number }
-  return data
-}
-
-/**
- * Update PR title via GitHub API
- */
-async function updatePRTitle(
-  owner: string,
-  repo: string,
-  prNumber: number,
-  newTitle: string,
-  token: string
-): Promise<void> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${prNumber}`
-
-  const response = await fetch(url, {
-    method: 'PATCH',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json',
-      'X-GitHub-Api-Version': '2022-11-28',
-    },
-    body: JSON.stringify({ title: newTitle }),
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Failed to update PR #${prNumber} title: ${response.status} ${errorText}`)
-  }
+class InvalidPRTitleError {
+  readonly _tag = 'InvalidPRTitleError'
+  constructor(
+    readonly prNumber: number,
+    readonly title: string
+  ) {}
 }
 
 /**
  * Increment attempt count in PR title
  *
+ * Effect program that:
+ * 1. Fetches current PR title
+ * 2. Parses the TDD title format
+ * 3. Increments attempt count
+ * 4. Updates PR with new title
+ *
  * @param prNumber PR number to update
  * @returns Object with new title and attempt count
  */
-export async function incrementAttempt(
-  prNumber: number
-): Promise<{ newTitle: string; newAttempt: number; specId: string }> {
-  const { owner, repo, token } = getRepoInfo()
+export const incrementAttempt = (prNumber: number) =>
+  Effect.gen(function* () {
+    const githubApi = yield* GitHubApi
 
-  // Fetch current PR
-  const pr = await fetchPR(owner, repo, prNumber, token)
+    // Fetch current PR
+    const pr = yield* githubApi.getPR(prNumber)
 
-  // Parse current title
-  const parsed = parseTDDPRTitle(pr.title)
+    // Parse current title
+    const parsed = parseTDDPRTitle(pr.title)
 
-  if (!parsed) {
-    throw new Error(`PR #${prNumber} does not have a valid TDD title format: "${pr.title}"`)
-  }
+    if (!parsed) {
+      return yield* Effect.fail(new InvalidPRTitleError(prNumber, pr.title))
+    }
 
-  // Increment attempt
-  const newAttempt = parsed.attempt + 1
+    // Increment attempt
+    const newAttempt = parsed.attempt + 1
 
-  // Create new title
-  const newTitle = formatTDDPRTitle(parsed.specId, newAttempt, parsed.maxAttempts)
+    // Create new title
+    const newTitle = formatTDDPRTitle(parsed.specId, newAttempt, parsed.maxAttempts)
 
-  // Update PR
-  await updatePRTitle(owner, repo, prNumber, newTitle, token)
+    // Update PR
+    yield* githubApi.updatePRTitle(prNumber, newTitle)
 
-  console.error(`✅ Updated PR #${prNumber} title:`)
-  console.error(`   Old: ${pr.title}`)
-  console.error(`   New: ${newTitle}`)
+    yield* Console.error(`✅ Updated PR #${prNumber} title:`)
+    yield* Console.error(`   Old: ${pr.title}`)
+    yield* Console.error(`   New: ${newTitle}`)
 
-  return {
-    newTitle,
-    newAttempt,
-    specId: parsed.specId,
-  }
-}
+    return {
+      newTitle,
+      newAttempt,
+      specId: parsed.specId,
+    }
+  })
 
 /**
  * CLI entry point
@@ -164,22 +107,48 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  try {
-    const result = await incrementAttempt(prNumber)
+  const program = incrementAttempt(prNumber).pipe(
+    Effect.catchTag('InvalidPRTitleError', (error) =>
+      Effect.gen(function* () {
+        yield* Console.error(
+          `PR #${error.prNumber} does not have a valid TDD title format: "${error.title}"`
+        )
+        return yield* Effect.fail(error)
+      })
+    ),
+    Effect.catchTag('GitHubApiError', (error: GitHubApiError) =>
+      Effect.gen(function* () {
+        yield* Console.error(`GitHub API error: ${error.operation}`)
+        yield* Console.error(String(error.cause))
+        return yield* error
+      })
+    ),
+    Effect.provide(GitHubApiLive)
+  )
 
-    // Output JSON for workflow parsing
-    console.log(
-      JSON.stringify({
-        prNumber,
-        specId: result.specId,
-        newAttempt: result.newAttempt,
-        newTitle: result.newTitle,
+  const result = await Effect.runPromise(
+    program.pipe(
+      Effect.match({
+        onSuccess: (result) => {
+          // Output JSON for workflow parsing
+          console.log(
+            JSON.stringify({
+              prNumber,
+              specId: result.specId,
+              newAttempt: result.newAttempt,
+              newTitle: result.newTitle,
+            })
+          )
+        },
+        onFailure: (error) => {
+          console.error('Error:', error instanceof Error ? error.message : error)
+          process.exit(1)
+        },
       })
     )
-  } catch (error) {
-    console.error('Error:', error instanceof Error ? error.message : error)
-    process.exit(1)
-  }
+  )
+
+  return result
 }
 
 // Run CLI if executed directly

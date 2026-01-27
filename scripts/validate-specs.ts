@@ -45,10 +45,10 @@ import {
   success,
   progress,
 } from './lib/effect'
-import { createSchemaPriorityCalculator } from './tdd-automation/schema-priority-calculator'
-import { parseTestFileForSpecs } from './tdd-automation/services/spec-scanner'
+import { createSchemaPriorityCalculator } from './tdd-automation/core/schema-priority-calculator'
+import { parseTestFileForSpecs } from './tdd-automation/core/spec-scanner'
 import type { LoggerService } from './lib/effect'
-import type { SpecItem } from './tdd-automation/services/types'
+import type { SpecItem } from './tdd-automation/core/types'
 
 // ============================================================================
 // Error Types

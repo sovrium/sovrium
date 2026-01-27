@@ -4,22 +4,42 @@ on:
   issue_comment:
     types: [created]
 
+# Required permissions for Claude Code Action
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: read
+
 jobs:
+  # ============================================================================
+  # JOB 1: VALIDATE TRIGGER
+  #
+  # Pre-conditions:
+  # 1. Comment author is github-actions[bot]
+  # 2. PR has tdd-automation label
+  # 3. Credit limits not exceeded
+  # ============================================================================
   validate:
+    name: Validate Trigger
     if: |
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '@claude') &&
       github.event.comment.user.login == 'github-actions[bot]'
     runs-on: ubuntu-latest
     outputs:
-      can-proceed: ${{ steps.check.outputs.can-proceed }}
+      is-valid: ${{ steps.validate.outputs.is-valid }}
       pr-number: ${{ github.event.issue.number }}
       pr-branch: ${{ steps.pr-info.outputs.branch }}
+      agent-type: ${{ steps.parse.outputs.agent-type }}
+      spec-file: ${{ steps.parse.outputs.spec-file }}
+      spec-id: ${{ steps.parse.outputs.spec-id }}
+      timeout: ${{ steps.config.outputs.timeout }}
     steps:
       - name: Get PR info
         id: pr-info
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           PR_DATA=$(gh pr view "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --json headRefName,labels)
           BRANCH=$(echo "$PR_DATA" | jq -r '.headRefName')
@@ -32,41 +52,128 @@ jobs:
             echo "is-tdd=true" >> "$GITHUB_OUTPUT"
           else
             echo "is-tdd=false" >> "$GITHUB_OUTPUT"
-            echo "Not a TDD PR - skipping"
-            exit 0
+            echo "⚠️ Not a TDD PR - skipping"
           fi
 
-      - name: Check credit usage (double-check)
-        id: check
+      - name: Parse @claude comment
+        id: parse
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          # Same cost checking logic as PR Creator
+          # Extract agent type from comment
+          if echo "$COMMENT_BODY" | grep -q "e2e-test-fixer"; then
+            echo "agent-type=e2e-test-fixer" >> "$GITHUB_OUTPUT"
+          elif echo "$COMMENT_BODY" | grep -q "codebase-refactor-auditor"; then
+            echo "agent-type=codebase-refactor-auditor" >> "$GITHUB_OUTPUT"
+          else
+            echo "agent-type=e2e-test-fixer" >> "$GITHUB_OUTPUT"  # Default
+          fi
+
+          # Extract spec file if mentioned (format: `specs/...`)
+          # shellcheck disable=SC2016
+          SPEC_FILE=$(echo "$COMMENT_BODY" | grep -oP 'File: `\K[^`]+' | head -1 || echo "")
+          if [ -z "$SPEC_FILE" ]; then
+            SPEC_FILE=$(echo "$COMMENT_BODY" | grep -oP '`specs/[^`]+`' | tr -d '`' | head -1 || echo "")
+          fi
+          echo "spec-file=$SPEC_FILE" >> "$GITHUB_OUTPUT"
+
+          # Extract spec ID (format: Spec: `SPEC-ID`)
+          SPEC_ID=$(echo "$COMMENT_BODY" | grep -oP 'Spec: `\K[^`]+' | head -1 || echo "")
+          echo "spec-id=$SPEC_ID" >> "$GITHUB_OUTPUT"
+
+          echo "📋 Parsed: agent=${{ steps.parse.outputs.agent-type || 'e2e-test-fixer' }}, spec-file=$SPEC_FILE, spec-id=$SPEC_ID"
+
+      - name: Check credit limits
+        id: credits
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          # Secondary credit check (defense in depth with pr-creator.yml)
+          # Query successful claude-code.yml runs from past 24 hours
           DAILY_RUNS=$(gh run list --repo "${{ github.repository }}" --workflow="claude-code.yml" \
             --created ">$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
             --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")] | length' 2>/dev/null || echo "0")
 
-          # Estimate cost (use actual parsing in production)
-          ESTIMATED_DAILY=$(echo "$DAILY_RUNS * 10" | bc)  # ~$10 per run estimate
+          # Estimate cost ($15 fallback per run - conservative)
+          ESTIMATED_DAILY=$((DAILY_RUNS * 15))
+
+          echo "📊 Estimated daily spend: ~\$$ESTIMATED_DAILY (based on $DAILY_RUNS successful runs)"
 
           if [ "$ESTIMATED_DAILY" -ge 100 ]; then
-            echo "can-proceed=false" >> "$GITHUB_OUTPUT"
-            gh pr comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body "⏸️ Daily credit limit reached. TDD automation paused until tomorrow."
+            echo "credits-ok=false" >> "$GITHUB_OUTPUT"
+            echo "⛔ Daily credit limit (~\$100) reached"
           else
-            echo "can-proceed=true" >> "$GITHUB_OUTPUT"
+            echo "credits-ok=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Validate all conditions
+        id: validate
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          IS_TDD="${{ steps.pr-info.outputs.is-tdd }}"
+          CREDITS_OK="${{ steps.credits.outputs.credits-ok }}"
+
+          if [ "$IS_TDD" != "true" ]; then
+            echo "is-valid=false" >> "$GITHUB_OUTPUT"
+            echo "❌ Validation failed: Not a TDD PR"
+            exit 0
+          fi
+
+          if [ "$CREDITS_OK" != "true" ]; then
+            echo "is-valid=false" >> "$GITHUB_OUTPUT"
+            gh pr comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" \
+              --body "⏸️ Daily credit limit reached. TDD automation paused until tomorrow."
+            exit 0
+          fi
+
+          echo "is-valid=true" >> "$GITHUB_OUTPUT"
+          echo "✅ All validation checks passed"
+
+      - uses: actions/checkout@v4
+        if: steps.validate.outputs.is-valid == 'true'
+        with:
+          ref: ${{ steps.pr-info.outputs.branch }}
+
+      - name: Extract per-spec timeout
+        id: config
+        if: steps.validate.outputs.is-valid == 'true'
+        run: |
+          SPEC_FILE="${{ steps.parse.outputs.spec-file }}"
+          DEFAULT_TIMEOUT=45
+
+          if [ -n "$SPEC_FILE" ] && [ -f "$SPEC_FILE" ]; then
+            # Extract @tdd-timeout annotation if present
+            TIMEOUT=$(grep -oP '@tdd-timeout \K[0-9]+' "$SPEC_FILE" 2>/dev/null || echo "$DEFAULT_TIMEOUT")
+          else
+            TIMEOUT=$DEFAULT_TIMEOUT
+          fi
+
+          echo "timeout=$TIMEOUT" >> "$GITHUB_OUTPUT"
+          echo "⏱️ Timeout: ${TIMEOUT} minutes"
+
+  # ============================================================================
+  # JOB 2: EXECUTE CLAUDE CODE
+  #
+  # Steps:
+  # 1. Checkout PR branch
+  # 2. Sync with main (detect conflicts)
+  # 3. Configure agent based on failure type
+  # 4. Run anthropics/claude-code-action@v1
+  # 5. Push changes (handled by action)
+  # ============================================================================
   execute:
+    name: Execute Claude Code
     needs: validate
-    if: needs.validate.outputs.can-proceed == 'true'
+    if: needs.validate.outputs.is-valid == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 45  # Hard timeout
+    timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 45 }}
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.validate.outputs.pr-branch }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT_WORKFLOW }}
           fetch-depth: 0
 
       - name: Setup Bun
@@ -77,27 +184,6 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Parse @claude comment
-        id: parse
-        env:
-          COMMENT_BODY: ${{ github.event.comment.body }}
-        run: |
-          # Extract agent type
-          if echo "$COMMENT_BODY" | grep -q "e2e-test-fixer"; then
-            echo "agent=e2e-test-fixer" >> "$GITHUB_OUTPUT"
-          elif echo "$COMMENT_BODY" | grep -q "codebase-refactor-auditor"; then
-            echo "agent=codebase-refactor-auditor" >> "$GITHUB_OUTPUT"
-          elif echo "$COMMENT_BODY" | grep -q "Sync required"; then
-            echo "agent=sync" >> "$GITHUB_OUTPUT"
-          else
-            echo "agent=e2e-test-fixer" >> "$GITHUB_OUTPUT"  # Default
-          fi
-
-          # Extract spec file if mentioned
-          # shellcheck disable=SC2016
-          SPEC_FILE=$(echo "$COMMENT_BODY" | grep -oP '`specs/[^`]+`' | tr -d '`' | head -1 || echo "")
-          echo "spec-file=$SPEC_FILE" >> "$GITHUB_OUTPUT"
-
       - name: Sync with main branch
         id: sync
         run: |
@@ -107,175 +193,122 @@ jobs:
           echo "behind=$BEHIND" >> "$GITHUB_OUTPUT"
 
           if [ "$BEHIND" -gt 0 ]; then
-            echo "Main branch has $BEHIND new commits, merging..."
+            echo "📥 Main branch has $BEHIND new commits, merging..."
 
             if ! git merge origin/main --no-edit 2>/dev/null; then
               echo "has-conflict=true" >> "$GITHUB_OUTPUT"
               git diff --name-only --diff-filter=U > /tmp/conflicted_files.txt
+              CONFLICT_FILES=$(cat /tmp/conflicted_files.txt | tr '\n' ', ' | sed 's/,$//')
+              echo "conflict-files=$CONFLICT_FILES" >> "$GITHUB_OUTPUT"
               git merge --abort
+              echo "⚠️ Merge conflict detected in: $CONFLICT_FILES"
             else
               echo "has-conflict=false" >> "$GITHUB_OUTPUT"
               git push origin HEAD
+              echo "✅ Successfully merged and pushed"
             fi
           else
             echo "has-conflict=false" >> "$GITHUB_OUTPUT"
+            echo "✅ Already up to date with main"
           fi
 
       - name: Add conflict label if needed
         if: steps.sync.outputs.has-conflict == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          gh pr edit "${{ needs.validate.outputs.pr-number }}" --repo "${{ github.repository }}" --add-label "tdd-automation:had-conflict"
+          gh pr edit "${{ needs.validate.outputs.pr-number }}" \
+            --repo "${{ github.repository }}" \
+            --add-label "tdd-automation:had-conflict"
 
-      - name: Start heartbeat
-        id: heartbeat
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ needs.validate.outputs.pr-number }}"
-          REPO="${{ github.repository }}"
-          (
-            while true; do
-              sleep 600  # Every 10 minutes
-              gh pr comment "$PR_NUMBER" --repo "$REPO" --body "🤖 Claude Code still working... (heartbeat)" 2>/dev/null || true
-            done
-          ) &
-          echo $! > /tmp/heartbeat.pid
-          echo "pid=$(cat /tmp/heartbeat.pid)" >> "$GITHUB_OUTPUT"
+          # Disable auto-merge until human reviews conflict resolution
+          gh pr merge "${{ needs.validate.outputs.pr-number }}" \
+            --repo "${{ github.repository }}" --disable-auto || true
 
-      - name: Build Claude Code prompt
-        id: prompt
+      - name: Configure agent
+        id: agent-config
         env:
+          AGENT_TYPE: ${{ needs.validate.outputs.agent-type }}
+          HAS_CONFLICT: ${{ steps.sync.outputs.has-conflict }}
+          CONFLICT_FILES: ${{ steps.sync.outputs.conflict-files }}
+          SPEC_ID: ${{ needs.validate.outputs.spec-id }}
+          SPEC_FILE: ${{ needs.validate.outputs.spec-file }}
           ORIGINAL_COMMENT: ${{ github.event.comment.body }}
         run: |
-          AGENT="${{ steps.parse.outputs.agent }}"
-          SPEC_FILE="${{ steps.parse.outputs.spec-file }}"
-          HAS_CONFLICT="${{ steps.sync.outputs.has-conflict }}"
+          # Configure claude_args based on agent type
+          # See: docs/development/tdd-automation-pipeline.md#agent-configurations
 
+          if [ "$AGENT_TYPE" = "codebase-refactor-auditor" ]; then
+            ALLOWED_TOOLS="Bash,Read,Write,Edit,Glob,Grep,Task,TodoWrite,LSP"
+            DISALLOWED_TOOLS="WebFetch,WebSearch,Skill,AskUserQuestion,NotebookEdit"
+            MAX_TURNS=40
+          else
+            # Default: e2e-test-fixer
+            ALLOWED_TOOLS="Bash,Read,Write,Edit,Glob,Grep,Task,TodoWrite,LSP,Skill"
+            DISALLOWED_TOOLS="WebFetch,WebSearch,AskUserQuestion,NotebookEdit"
+            MAX_TURNS=50
+          fi
+
+          # Build claude_args for the action
+          CLAUDE_ARGS="--max-turns $MAX_TURNS --allowedTools \"$ALLOWED_TOOLS\" --disallowedTools \"$DISALLOWED_TOOLS\""
+          echo "claude-args=$CLAUDE_ARGS" >> "$GITHUB_OUTPUT"
+
+          # Build prompt based on context
           if [ "$HAS_CONFLICT" = "true" ]; then
-            CONFLICT_FILES=$(cat /tmp/conflicted_files.txt | tr '\n' ', ')
             {
-              echo "⚠️ MERGE CONFLICT DETECTED"
+              echo "⚠️ **MERGE CONFLICT DETECTED**"
               echo ""
-              echo "Conflicted files: $CONFLICT_FILES"
+              echo "Conflicted files: \`$CONFLICT_FILES\`"
               echo ""
-              echo "This PR has conflicts with main. You must:"
-              echo "1. Run: git fetch origin main && git merge origin/main"
+              echo "**Resolve conflicts first:**"
+              echo "1. Run: \`git fetch origin main && git merge origin/main\`"
               echo "2. Carefully resolve each conflict:"
               echo "   - For DOMAIN MODEL conflicts: prefer main (newer schema)"
               echo "   - For TEST FILE conflicts: merge both test cases"
               echo "   - For CONFIG conflicts: prefer main"
               echo "3. After resolving, run full quality + regression tests"
-              echo "4. If unsure about ANY conflict, add comment: // TODO human review needed"
+              echo "4. If unsure about ANY conflict, add comment: \`// TODO human review needed\`"
               echo "5. Commit the resolved merge"
               echo ""
-              echo "Then proceed with the original task:"
+              echo "**Then proceed with the original task:**"
+              echo ""
               echo "$ORIGINAL_COMMENT"
             } > /tmp/claude_prompt.txt
-          elif [ "$AGENT" = "e2e-test-fixer" ]; then
-            {
-              echo "Fix the failing E2E test using the e2e-test-fixer agent."
-              echo ""
-              echo "Target file: $SPEC_FILE"
-              echo ""
-              echo "Please:"
-              echo "1. Read the test file to understand what it expects"
-              echo "2. Implement or fix the code to make the test pass"
-              echo "3. Run the specific test: bun test:e2e $SPEC_FILE"
-              echo "4. Run quality checks: bun run quality"
-              echo "5. If all pass, commit and push changes"
-              echo ""
-              echo "Focus on minimal changes to make the test green."
-            } > /tmp/claude_prompt.txt
-          elif [ "$AGENT" = "codebase-refactor-auditor" ]; then
-            {
-              echo "Fix the quality/regression issues using the codebase-refactor-auditor agent."
-              echo ""
-              echo "Please:"
-              echo "1. Run bun run quality to see the current errors"
-              echo "2. Fix ESLint, TypeScript, and other quality issues"
-              echo "3. If regression tests fail, fix them while maintaining the new spec"
-              echo "4. Commit and push changes"
-            } > /tmp/claude_prompt.txt
           else
+            # Use original comment as prompt (already contains full instructions from test.yml)
             echo "$ORIGINAL_COMMENT" > /tmp/claude_prompt.txt
           fi
 
-      - name: Execute Claude Code
-        id: claude
-        continue-on-error: true
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
+          # Store prompt for action
           PROMPT=$(cat /tmp/claude_prompt.txt)
+          echo "prompt<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$PROMPT" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
-          # Execute with timeout (40 min to allow buffer before job timeout)
-          if timeout 40m claude --print "$PROMPT"; then
-            echo "status=success" >> "$GITHUB_OUTPUT"
-          else
-            EXIT_CODE=$?
-            if [ "$EXIT_CODE" = "124" ]; then
-              echo "status=timeout" >> "$GITHUB_OUTPUT"
-            else
-              echo "status=failed" >> "$GITHUB_OUTPUT"
-            fi
-          fi
+      - name: Run Claude Code Action
+        uses: anthropics/claude-code-action@v1
+        timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 45 }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: ${{ steps.agent-config.outputs.prompt }}
+          claude_args: ${{ steps.agent-config.outputs.claude-args }}
+          track_progress: true
+          use_sticky_comment: true
 
-      - name: Stop heartbeat
-        if: always()
-        run: |
-          kill "$(cat /tmp/heartbeat.pid)" 2>/dev/null || true
-
-      - name: Handle timeout
-        if: steps.claude.outputs.status == 'timeout'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ORIGINAL_COMMENT: ${{ github.event.comment.body }}
-        run: |
-          PR_NUMBER="${{ needs.validate.outputs.pr-number }}"
-
-          # Timeout is infrastructure failure - don't count as attempt
-          # Write timeout message to temp file to avoid YAML parsing issues
-          {
-            echo "⏱️ Claude Code timed out (infrastructure issue - not counting as attempt)."
-            echo ""
-            echo "This happens when:"
-            echo "- The task is very complex"
-            echo "- There's a network issue"
-            echo "- Claude is taking longer than expected"
-            echo ""
-            echo "Retrying automatically..."
-          } > /tmp/timeout_comment.txt
-          gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/timeout_comment.txt
-
-          # Re-trigger by posting new @claude comment with same content
-          gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body "$ORIGINAL_COMMENT"
-
-      - name: Push changes if any
-        if: steps.claude.outputs.status == 'success'
-        run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            git add -A
-            git commit -m "fix(tdd): Claude Code fixes for ${{ needs.validate.outputs.pr-branch }}"
-            git push origin HEAD
-          else
-            echo "No changes to push"
-          fi
-
-      - name: Disable auto-merge if had conflict
+      - name: Handle conflict resolution notice
         if: steps.sync.outputs.has-conflict == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           PR_NUMBER="${{ needs.validate.outputs.pr-number }}"
 
-          # Conflicts require human review
-          gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" --disable-auto || true
+          # Post conflict review notice
           {
-            echo "⚠️ This PR had merge conflicts that were auto-resolved."
+            echo "⚠️ **Merge Conflict Resolution Notice**"
             echo ""
-            echo "Human review required before merge."
+            echo "This PR had merge conflicts that were auto-resolved by Claude Code."
+            echo ""
+            echo "**Human review required before merge.**"
             echo ""
             echo "Please verify:"
             echo "- [ ] Conflict resolution is correct"
@@ -284,4 +317,5 @@ jobs:
             echo ""
             echo "After review, re-enable auto-merge or merge manually."
           } > /tmp/conflict_comment.txt
+
           gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/conflict_comment.txt
