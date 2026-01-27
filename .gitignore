@@ -66,6 +66,8 @@ test-output.log
 .github/tdd-scan.lock
 .github/tdd-queue-scan.json
 .github/tdd-queue-dependencies.json
+prevalidation-result.json
+.tdd-marker-*
 
 # Development schemas (not released)
 schemas/development/

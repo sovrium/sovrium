@@ -240,17 +240,18 @@ jobs:
             git checkout -b "$BRANCH_NAME"
 
             # Run pre-validation to remove .fixme()
+            # Output to /tmp/ to avoid committing temp files
             echo "Running pre-validation..."
             bun run scripts/tdd-automation/core/pre-validate.ts \
               --file "$FILE_PATH" \
               --spec-id "$SPEC_ID" \
               --test-name "$TEST_NAME" \
-              --output prevalidation-result.json || true
+              --output /tmp/prevalidation-result.json || true
 
             # Parse pre-validation results
-            if [ -f prevalidation-result.json ]; then
-              PASSED=$(cat prevalidation-result.json | jq -r '.passed // 0')
-              FAILED=$(cat prevalidation-result.json | jq -r '.failed // 0')
+            if [ -f /tmp/prevalidation-result.json ]; then
+              PASSED=$(cat /tmp/prevalidation-result.json | jq -r '.passed // 0')
+              FAILED=$(cat /tmp/prevalidation-result.json | jq -r '.failed // 0')
               echo "Pre-validation: $PASSED passed, $FAILED failed"
             else
               PASSED=0
@@ -258,23 +259,44 @@ jobs:
               echo "Pre-validation result file not found"
             fi
 
-            # Check if there are changes to commit
-            git add .
+            # Only stage the spec file changes (not bun.lock or other files)
+            git add "$FILE_PATH"
+
+            # Check if spec file was actually modified
             if git diff --staged --quiet; then
-              echo "No changes from pre-validation (possibly .fixme() already removed)"
-              # Still need to create a commit for the PR
-              # Create an empty commit or use existing state
-              echo "Creating marker file for PR..."
-              echo "Spec: $SPEC_ID" > ".tdd-marker-${SPEC_ID}"
-              git add ".tdd-marker-${SPEC_ID}"
+              echo "⚠️ No changes to spec file (test may already be implemented)"
+
+              # If test passes and no changes needed, spec is already complete
+              if [ "$FAILED" -eq 0 ] && [ "$PASSED" -gt 0 ]; then
+                echo "✅ Test already passing without .fixme() - marking as complete"
+
+                # Clean up the branch
+                git checkout main
+                git branch -D "$BRANCH_NAME" 2>/dev/null || true
+
+                # Mark spec as completed in state (already passing, no work needed)
+                bun run scripts/tdd-automation/core/mark-spec-complete.ts \
+                  --spec-id "$SPEC_ID" \
+                  --reason "Test already implemented and passing" || {
+                  echo "Warning: Failed to mark spec as complete, continuing anyway..."
+                }
+
+                echo "Skipping PR creation for $SPEC_ID (already complete)"
+                continue
+              fi
+
+              # Test failed but no changes - this shouldn't happen, but handle it
+              echo "❌ Test failing but no .fixme() found - creating PR anyway for investigation"
             fi
 
             # Commit changes
             git commit -m "test: remove .fixme() from ${SPEC_ID}" \
               -m "Pre-validation: $PASSED passed, $FAILED failed" \
               -m "Spec file: $FILE_PATH" || {
-              echo "Nothing to commit, creating empty commit..."
-              git commit --allow-empty -m "test: prepare ${SPEC_ID} for implementation"
+              echo "Nothing to commit - spec needs investigation"
+              git checkout main
+              git branch -D "$BRANCH_NAME" 2>/dev/null || true
+              continue
             }
 
             # Push branch
