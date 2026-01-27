@@ -54,7 +54,7 @@
         "@types/dompurify": "^3.2.0",
         "@types/js-yaml": "^4.0.9",
         "@types/node": "^25.0.10",
-        "@types/nodemailer": "^7.0.6",
+        "@types/nodemailer": "^7.0.9",
         "@types/pg": "^8.16.0",
         "@types/react-dom": "^19.2.3",
         "drizzle-kit": "^0.31.8",
