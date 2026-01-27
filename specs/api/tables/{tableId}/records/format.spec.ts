@@ -451,7 +451,7 @@ test.describe('Record Display Formatting', () => {
   // Datetime Formatting Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-FORMAT-012: should display time in 12-hour format with AM/PM',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
