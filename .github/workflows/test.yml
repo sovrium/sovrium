@@ -905,9 +905,13 @@ jobs:
       github.event_name == 'pull_request' &&
       github.event.action != 'closed' &&
       (contains(github.event.pull_request.labels.*.name, 'tdd-automation') || startsWith(github.event.pull_request.head.ref, 'tdd/')) &&
-      needs.e2e-results.outputs.e2e_failed == 'true' &&
-      needs.e2e-results.outputs.failure_type != 'infrastructure'
-    needs: [e2e-results]
+      (
+        (needs.e2e-results.outputs.e2e_failed == 'true' && needs.e2e-results.outputs.failure_type != 'infrastructure') ||
+        needs.lint.result == 'failure' ||
+        needs.typecheck.result == 'failure' ||
+        needs.unit-tests.result == 'failure'
+      )
+    needs: [lint, typecheck, unit-tests, e2e-results]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -972,6 +976,37 @@ jobs:
         if: steps.sync-check.outputs.needs_sync != 'true'
         run: bun install --frozen-lockfile
 
+      - name: Detect failure type
+        if: steps.sync-check.outputs.needs_sync != 'true'
+        id: detect-failure
+        env:
+          E2E_FAILED: ${{ needs.e2e-results.outputs.e2e_failed }}
+          LINT_RESULT: ${{ needs.lint.result }}
+          TYPECHECK_RESULT: ${{ needs.typecheck.result }}
+          UNIT_RESULT: ${{ needs.unit-tests.result }}
+          E2E_FAILURE_TYPE: ${{ needs.e2e-results.outputs.failure_type }}
+        run: |
+          echo "📊 Detecting failure type..."
+          echo "   E2E failed: $E2E_FAILED"
+          echo "   Lint result: $LINT_RESULT"
+          echo "   TypeCheck result: $TYPECHECK_RESULT"
+          echo "   Unit test result: $UNIT_RESULT"
+          echo "   E2E failure type: $E2E_FAILURE_TYPE"
+
+          # Determine overall failure type per spec (line 209)
+          # Quality failure only: lint/typecheck/unit fail, but E2E passes (or no E2E ran)
+          # Test failure: E2E tests fail
+          if [ "$E2E_FAILED" = "true" ]; then
+            echo "failure-type=$E2E_FAILURE_TYPE" >> $GITHUB_OUTPUT
+            echo "🧪 Test failure detected (E2E)"
+          elif [ "$LINT_RESULT" = "failure" ] || [ "$TYPECHECK_RESULT" = "failure" ] || [ "$UNIT_RESULT" = "failure" ]; then
+            echo "failure-type=quality_only" >> $GITHUB_OUTPUT
+            echo "🔧 Quality failure detected (lint/typecheck/unit)"
+          else
+            echo "failure-type=unknown" >> $GITHUB_OUTPUT
+            echo "⚠️  Unknown failure type"
+          fi
+
       - name: Parse PR title for attempt info
         if: steps.sync-check.outputs.needs_sync != 'true'
         id: parse
@@ -1025,7 +1060,7 @@ jobs:
           NEW_ATTEMPT: ${{ steps.increment.outputs.new-attempt }}
           MAX_ATTEMPTS: ${{ steps.parse.outputs.max-attempts }}
           BRANCH: ${{ github.event.pull_request.head.ref }}
-          FAILURE_TYPE: ${{ needs.e2e-results.outputs.failure_type }}
+          FAILURE_TYPE: ${{ steps.detect-failure.outputs.failure-type }}
         run: |
           echo "🤖 Triggering Claude Code (Attempt $NEW_ATTEMPT/$MAX_ATTEMPTS)"
           echo "   Failure type: $FAILURE_TYPE"
