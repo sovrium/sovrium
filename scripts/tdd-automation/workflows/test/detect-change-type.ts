@@ -62,6 +62,31 @@ function execCommand(command: string): Effect.Effect<string, Error> {
 }
 
 /**
+ * Extract target spec directly from PR body
+ */
+function extractTargetSpecFromPRBody(prBody: string): string {
+  // Pattern 1: **File**: `specs/path/file.spec.ts:123` (TDD automation format)
+  const fileMatch = prBody.match(/\*\*File\*\*:\s*`([^:`]+\.spec\.ts)/)
+  if (fileMatch && fileMatch[1]) {
+    return fileMatch[1]
+  }
+
+  // Pattern 2: **Test File**: `specs/path/file.spec.ts` (issue format)
+  const testFileMatch = prBody.match(/\*\*(?:Test File)\*\*:\s*`([^`]+\.spec\.ts)`/)
+  if (testFileMatch && testFileMatch[1]) {
+    return testFileMatch[1]
+  }
+
+  // Pattern 3: Fallback - find any spec file path in body
+  const specMatch = prBody.match(/specs\/[^\s:)`]+\.spec\.ts/)
+  if (specMatch && specMatch[0]) {
+    return specMatch[0]
+  }
+
+  return ''
+}
+
+/**
  * Extract target spec from linked issue
  */
 function extractTargetSpecFromIssue(prBody: string, ghToken: string): Effect.Effect<string, never> {
@@ -178,12 +203,20 @@ const main = Effect.gen(function* () {
     isTDDAutomation = true
     yield* Console.error('🤖 TDD automation PR detected')
 
-    // Extract target spec from linked issue
-    if (ghToken) {
+    // Try extracting target spec from PR body first (TDD automation format)
+    targetSpec = extractTargetSpecFromPRBody(prBody)
+    if (targetSpec) {
+      yield* Console.error(`🎯 Target spec from PR body: ${targetSpec}`)
+    } else if (ghToken) {
+      // Fallback: Extract from linked issue
       targetSpec = yield* extractTargetSpecFromIssue(prBody, ghToken)
       if (targetSpec) {
-        yield* Console.error(`🎯 Target spec: ${targetSpec}`)
+        yield* Console.error(`🎯 Target spec from linked issue: ${targetSpec}`)
       }
+    }
+
+    if (!targetSpec) {
+      yield* Console.error('⚠️  Could not extract target spec from PR body or linked issue')
     }
   }
 
