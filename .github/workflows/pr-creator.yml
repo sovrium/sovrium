@@ -44,28 +44,24 @@ jobs:
     outputs:
       has-active: ${{ steps.check.outputs.has-active }}
     steps:
-      - name: Check for active TDD PR (with API backoff)
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check for active TDD PR
         id: check
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          # API call with exponential backoff for rate limits
-          for i in 1 2 3 4 5; do
-            RESULT=$(gh pr list --repo "${{ github.repository }}" --label "tdd-automation" --state open --json number,labels 2>/dev/null) && break
-            echo "Rate limited, waiting $((i * 30)) seconds..."
-            sleep $((i * 30))
-          done
-
-          # Check if any PR exists without manual-intervention label
-          ACTIVE=$(echo "$RESULT" | jq '[.[] | select(.labels | map(.name) | contains(["tdd-automation:manual-intervention"]) | not)] | length')
-
-          if [ "$ACTIVE" -gt 0 ]; then
-            echo "Active TDD PR exists - exiting"
-            echo "has-active=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No active TDD PR - can proceed"
-            echo "has-active=false" >> "$GITHUB_OUTPUT"
-          fi
+          RESULT=$(bun run scripts/tdd-automation/workflows/pr-creator/check-active-pr.ts 2>&1)
+          HAS_ACTIVE=$(echo "$RESULT" | tail -1 | jq -r '.hasActivePR')
+          echo "has-active=$HAS_ACTIVE" >> "$GITHUB_OUTPUT"
 
   create-pr:
     needs: [check-credits, check-active-pr]
@@ -90,8 +86,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          EXCLUDED=$(gh pr list --repo "${{ github.repository }}" --label "tdd-automation:manual-intervention" --state open --json headRefName \
-            --jq '.[].headRefName' | sed 's|tdd/||' | tr '\n' ',' | sed 's/,$//')
+          RESULT=$(bun run scripts/tdd-automation/workflows/pr-creator/find-excluded-specs.ts 2>&1)
+          EXCLUDED=$(echo "$RESULT" | tail -1 | jq -r '.excludedList')
           echo "specs=$EXCLUDED" >> "$GITHUB_OUTPUT"
 
       - name: Find next spec
@@ -121,10 +117,12 @@ jobs:
       - name: Extract per-spec configuration
         if: steps.next-spec.outputs.found == 'true'
         id: spec-config
+        env:
+          SPEC_FILE: ${{ steps.next-spec.outputs.spec-file }}
         run: |
-          SPEC_FILE="${{ steps.next-spec.outputs.spec-file }}"
-          MAX_ATTEMPTS=$(grep -oP '@tdd-max-attempts \K[0-9]+' "$SPEC_FILE" || echo "5")
-          TIMEOUT=$(grep -oP '@tdd-timeout \K[0-9]+' "$SPEC_FILE" || echo "45")
+          RESULT=$(bun run scripts/tdd-automation/workflows/pr-creator/extract-spec-config.ts 2>&1)
+          MAX_ATTEMPTS=$(echo "$RESULT" | tail -1 | jq -r '.maxAttempts')
+          TIMEOUT=$(echo "$RESULT" | tail -1 | jq -r '.timeout')
           echo "max-attempts=$MAX_ATTEMPTS" >> "$GITHUB_OUTPUT"
           echo "timeout=$TIMEOUT" >> "$GITHUB_OUTPUT"
 

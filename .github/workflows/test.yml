@@ -40,81 +40,26 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
       - name: Detect test-only changes
         id: detect
         env:
           GH_TOKEN: ${{ github.token }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HAS_TDD_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'tdd-automation') }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          IS_TEST_ONLY="false"
-          TARGET_SPEC=""
-          IS_TDD_AUTOMATION="false"
-
-          # Check if this is a TDD automation PR
-          if [ "${{ contains(github.event.pull_request.labels.*.name, 'tdd-automation') }}" = "true" ]; then
-            IS_TDD_AUTOMATION="true"
-            echo "🤖 TDD automation PR detected"
-
-            # Extract target spec from linked issue
-            ISSUE_NUMBER=$(echo "$PR_BODY" | grep -oP 'Closes #\K[0-9]+' | head -1 || echo "")
-            if [ -n "$ISSUE_NUMBER" ]; then
-              ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body --jq '.body' 2>/dev/null || echo "")
-              TARGET_SPEC=$(echo "$ISSUE_BODY" | grep -oP '\*\*Test File\*\*:\s*`\K[^`]+' | head -1 || echo "")
-              if [ -z "$TARGET_SPEC" ]; then
-                TARGET_SPEC=$(echo "$ISSUE_BODY" | grep -oP 'specs/[^\s:]+\.spec\.ts' | head -1 || echo "")
-              fi
-              echo "🎯 Target spec: $TARGET_SPEC"
-            fi
-          fi
-
-          # Get changed files compared to base branch
-          echo "🔍 Analyzing changed files..."
-          CHANGED_FILES=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD)
-          echo "Changed files:"
-          echo "$CHANGED_FILES" | head -20
-
-          # Check if ALL changed files are in specs/ directory
-          NON_SPEC_FILES=$(echo "$CHANGED_FILES" | grep -v '^specs/' | grep -v '^\s*$' || true)
-
-          if [ -z "$NON_SPEC_FILES" ]; then
-            echo "✅ Only spec files changed"
-
-            # Check if changes are only .fixme() removal (no significant logic changes)
-            DIFF_CONTENT=$(git diff origin/${{ github.event.pull_request.base.ref }}...HEAD -- specs/)
-
-            # Count lines that are NOT:
-            # - .fixme() related
-            # - file headers (---, +++)
-            # - diff markers (@@)
-            # - empty lines
-            SIGNIFICANT_CHANGES=$(echo "$DIFF_CONTENT" | \
-              grep -E '^[-+]' | \
-              grep -v '^[-+][-+][-+]' | \
-              grep -v '\.fixme\(' | \
-              grep -v '\.skip\(' | \
-              grep -v '^[-+]\s*$' | \
-              wc -l | tr -d ' ')
-
-            echo "📊 Significant changes (non-.fixme): $SIGNIFICANT_CHANGES lines"
-
-            # If less than 10 significant lines changed, consider it test-only
-            if [ "$SIGNIFICANT_CHANGES" -lt 10 ]; then
-              IS_TEST_ONLY="true"
-              echo "✅ Test-only change detected (primarily .fixme() removal)"
-            else
-              echo "ℹ️  Spec files changed with significant modifications"
-            fi
-          else
-            echo "ℹ️  Non-spec files changed:"
-            echo "$NON_SPEC_FILES" | head -10
-          fi
-
-          # Output results
-          echo ""
-          echo "📋 Detection Results:"
-          echo "  is_test_only=$IS_TEST_ONLY"
-          echo "  target_spec=$TARGET_SPEC"
-          echo "  is_tdd_automation=$IS_TDD_AUTOMATION"
+          RESULT=$(bun run scripts/tdd-automation/workflows/test/detect-change-type.ts 2>&1)
+          IS_TEST_ONLY=$(echo "$RESULT" | tail -1 | jq -r '.isTestOnly')
+          TARGET_SPEC=$(echo "$RESULT" | tail -1 | jq -r '.targetSpec')
+          IS_TDD_AUTOMATION=$(echo "$RESULT" | tail -1 | jq -r '.isTDDAutomation')
 
           echo "is_test_only=$IS_TEST_ONLY" >> $GITHUB_OUTPUT
           echo "target_spec=$TARGET_SPEC" >> $GITHUB_OUTPUT
@@ -659,190 +604,24 @@ jobs:
           needs.e2e.result == 'failure' &&
           contains(github.event.pull_request.labels.*.name, 'tdd-automation')
         env:
-          GH_TOKEN: ${{ github.token }}
-          PR_BODY: ${{ github.event.pull_request.body }}
+          TEST_RESULTS_DIR: all-test-results
+          JSON_RESULTS_DIR: all-json-results
+          TARGET_SPEC: ${{ needs.detect-changes.outputs.target_spec }}
         run: |
-          echo "🔍 Classifying test failures for TDD automation PR..."
+          RESULT=$(bun run scripts/tdd-automation/workflows/test/classify-failures.ts 2>&1)
 
-          # ═══════════════════════════════════════════════════════════════════
-          # INFRASTRUCTURE ERROR DETECTION (Check BEFORE classifying as regression)
-          # Detects environment issues that are NOT caused by code changes
-          # ═══════════════════════════════════════════════════════════════════
-          INFRA_ERROR_DETECTED=false
-          INFRA_ERROR_TYPE=""
-
-          echo "🔧 Checking for infrastructure errors in test results..."
-
-          # Collect all test result content (stdout/stderr from failures)
-          TEST_OUTPUT=""
-          if [ -d "all-test-results" ]; then
-            TEST_OUTPUT=$(find all-test-results -type f \( -name "*.txt" -o -name "*.log" -o -name "output.txt" \) -exec cat {} \; 2>/dev/null || echo "")
-          fi
-
-          # Also check JSON results for error messages
-          if [ -d "all-json-results" ]; then
-            JSON_ERRORS=$(find all-json-results -name "*.json" -exec cat {} \; 2>/dev/null | \
-              jq -r '.. | .error? // .message? // empty' 2>/dev/null | head -100 || echo "")
-            TEST_OUTPUT="$TEST_OUTPUT"$'\n'"$JSON_ERRORS"
-          fi
-
-          # Check for Playwright browser installation errors
-          if echo "$TEST_OUTPUT" | grep -qE "browserType\.launch|Executable doesn't exist|chrome-headless-shell"; then
-            INFRA_ERROR_DETECTED=true
-            INFRA_ERROR_TYPE="playwright_browser_missing"
-            echo "⚠️  INFRASTRUCTURE ERROR: Playwright browser not installed"
-          # Check for network/connection errors
-          elif echo "$TEST_OUTPUT" | grep -qE "ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|socket hang up"; then
-            INFRA_ERROR_DETECTED=true
-            INFRA_ERROR_TYPE="network_error"
-            echo "⚠️  INFRASTRUCTURE ERROR: Network connectivity issue"
-          # Check for Docker errors
-          elif echo "$TEST_OUTPUT" | grep -qE "docker.*error|Cannot connect to Docker|docker daemon"; then
-            INFRA_ERROR_DETECTED=true
-            INFRA_ERROR_TYPE="docker_error"
-            echo "⚠️  INFRASTRUCTURE ERROR: Docker service unavailable"
-          # Check for resource exhaustion
-          elif echo "$TEST_OUTPUT" | grep -qE "out of memory|OOM|ENOMEM|killed"; then
-            INFRA_ERROR_DETECTED=true
-            INFRA_ERROR_TYPE="resource_exhaustion"
-            echo "⚠️  INFRASTRUCTURE ERROR: Resource exhaustion (OOM)"
-          # Check for permission errors
-          elif echo "$TEST_OUTPUT" | grep -qE "EPERM|EACCES|Permission denied"; then
-            INFRA_ERROR_DETECTED=true
-            INFRA_ERROR_TYPE="permission_error"
-            echo "⚠️  INFRASTRUCTURE ERROR: Permission denied"
-          # Check for Playwright browser context/page closure errors
-          elif echo "$TEST_OUTPUT" | grep -qE "Target page.*closed|Context disposed|Page closed|browser has been closed"; then
-            INFRA_ERROR_DETECTED=true
-            INFRA_ERROR_TYPE="browser_context_closed"
-            echo "⚠️  INFRASTRUCTURE ERROR: Browser context prematurely closed"
-          # Check for explicit Playwright test timeout
-          elif echo "$TEST_OUTPUT" | grep -qE "Test timeout of [0-9]+ms exceeded"; then
-            INFRA_ERROR_DETECTED=true
-            INFRA_ERROR_TYPE="test_timeout"
-            echo "⚠️  INFRASTRUCTURE ERROR: Test execution timeout"
-          fi
-
-          # If infrastructure error detected, short-circuit classification
-          if [ "$INFRA_ERROR_DETECTED" = "true" ]; then
-            echo ""
-            echo "🚨 INFRASTRUCTURE ERROR DETECTED - NOT a code regression!"
-            echo "   Error Type: $INFRA_ERROR_TYPE"
-            echo "   This failure should be retried, not classified as regression"
-            echo ""
-
-            # Output as infrastructure failure (will trigger different handling)
-            echo "has_regressions=false" >> $GITHUB_OUTPUT
-            echo "regression_specs=" >> $GITHUB_OUTPUT
-            echo "target_spec=" >> $GITHUB_OUTPUT
-            echo "failure_type=infrastructure" >> $GITHUB_OUTPUT
-            echo "infra_error_type=$INFRA_ERROR_TYPE" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "✅ No infrastructure errors detected - proceeding with failure classification"
-          echo ""
-
-          # ═══════════════════════════════════════════════════════════════════
-          # NORMAL CLASSIFICATION LOGIC (Code/Test failures)
-          # ═══════════════════════════════════════════════════════════════════
-
-          # Extract target spec from PR body
-          ISSUE_NUMBER=$(echo "$PR_BODY" | grep -oP 'Closes #\K[0-9]+' | head -1 || echo "")
-          TARGET_SPEC=""
-
-          if [ -n "$ISSUE_NUMBER" ]; then
-            echo "📋 Found linked issue: #$ISSUE_NUMBER"
-            ISSUE_BODY=$(gh issue view "$ISSUE_NUMBER" --json body --jq '.body' 2>/dev/null || echo "")
-            TARGET_SPEC=$(echo "$ISSUE_BODY" | grep -oP '\*\*File\*\*:\s*`\K[^`]+' | head -1 || echo "")
-
-            if [ -z "$TARGET_SPEC" ]; then
-              TARGET_SPEC=$(echo "$ISSUE_BODY" | grep -oP 'specs/[^\s:]+\.spec\.ts' | head -1 || echo "")
-            fi
-            echo "🎯 Target spec: $TARGET_SPEC"
-          fi
-
-          # Parse failed tests from JSON results (reliable) or fall back to directory names
-          FAILED_SPECS=""
-
-          # Method 1: Parse from JSON results (preferred - contains exact file paths)
-          if [ -d "all-json-results" ]; then
-            echo "📄 Parsing failed specs from JSON results..."
-            # Extract unique file paths from all JSON result files where status is not "passed"
-            FAILED_SPECS=$(find all-json-results -name "*.json" -exec cat {} \; 2>/dev/null | \
-              jq -r '.suites[]?.specs[]? | select(.tests[]?.status != "passed") | .file // empty' 2>/dev/null | \
-              sort -u | tr '\n' ',' | sed 's/,$//' || echo "")
-
-            # If jq parsing failed or empty, try alternative JSON structure
-            if [ -z "$FAILED_SPECS" ]; then
-              FAILED_SPECS=$(find all-json-results -name "*.json" -exec cat {} \; 2>/dev/null | \
-                jq -r '.suites[]? | select(.specs[]?.tests[]?.status != "passed") | .file // empty' 2>/dev/null | \
-                sort -u | tr '\n' ',' | sed 's/,$//' || echo "")
-            fi
-          fi
-
-          # Method 2: Fall back to directory-based parsing (legacy, less reliable for hyphenated paths)
-          if [ -z "$FAILED_SPECS" ] && [ -d "all-test-results" ]; then
-            echo "⚠️  JSON results unavailable, falling back to directory-based parsing..."
-            echo "    Note: This may misparse specs with hyphens in their paths"
-            FAILED_SPECS=$(find all-test-results -type d -name "*.spec.ts*" 2>/dev/null | \
-              sed 's|.*/test-results-shard-[0-9]*/||' | \
-              sed 's|-chromium.*||' | \
-              sed 's|--.*||' | \
-              tr '-' '/' | \
-              sed 's|^|specs/|' | \
-              sed 's|$|.spec.ts|' | \
-              sort -u | tr '\n' ',' | sed 's/,$//')
-          fi
-
-          if [ -z "$FAILED_SPECS" ]; then
-            FAILED_SPECS="unknown"
-          fi
-
-          echo "❌ Failed specs: $FAILED_SPECS"
-
-          # Classify failures
-          HAS_REGRESSIONS="false"
-          REGRESSION_SPECS=""
-          FAILURE_TYPE="unknown"
-
-          if [ -n "$TARGET_SPEC" ] && [ "$FAILED_SPECS" != "unknown" ]; then
-            IFS=',' read -ra SPECS_ARRAY <<< "$FAILED_SPECS"
-            for spec in "${SPECS_ARRAY[@]}"; do
-              spec=$(echo "$spec" | xargs)
-              if [ -n "$spec" ] && [ "$spec" != "$TARGET_SPEC" ]; then
-                HAS_REGRESSIONS="true"
-                if [ -z "$REGRESSION_SPECS" ]; then
-                  REGRESSION_SPECS="$spec"
-                else
-                  REGRESSION_SPECS="$REGRESSION_SPECS,$spec"
-                fi
-              fi
-            done
-
-            if [ "$HAS_REGRESSIONS" = "true" ]; then
-              if echo "$FAILED_SPECS" | grep -q "$TARGET_SPEC"; then
-                FAILURE_TYPE="mixed"
-              else
-                FAILURE_TYPE="regression_only"
-              fi
-            else
-              FAILURE_TYPE="target_only"
-            fi
-          fi
-
-          echo ""
-          echo "📊 Classification Results:"
-          echo "  Target spec: $TARGET_SPEC"
-          echo "  Failed specs: $FAILED_SPECS"
-          echo "  Has regressions: $HAS_REGRESSIONS"
-          echo "  Regression specs: $REGRESSION_SPECS"
-          echo "  Failure type: $FAILURE_TYPE"
+          # Parse JSON output (last line is JSON, earlier lines are logs to stderr)
+          HAS_REGRESSIONS=$(echo "$RESULT" | tail -1 | jq -r '.hasRegressions')
+          REGRESSION_SPECS=$(echo "$RESULT" | tail -1 | jq -r '.regressionSpecs | join(",")')
+          TARGET_SPEC_OUT=$(echo "$RESULT" | tail -1 | jq -r '.targetSpec')
+          FAILURE_TYPE=$(echo "$RESULT" | tail -1 | jq -r '.failureType')
+          INFRA_ERROR_TYPE=$(echo "$RESULT" | tail -1 | jq -r '.infraErrorType // ""')
 
           echo "has_regressions=$HAS_REGRESSIONS" >> $GITHUB_OUTPUT
           echo "regression_specs=$REGRESSION_SPECS" >> $GITHUB_OUTPUT
-          echo "target_spec=$TARGET_SPEC" >> $GITHUB_OUTPUT
+          echo "target_spec=$TARGET_SPEC_OUT" >> $GITHUB_OUTPUT
           echo "failure_type=$FAILURE_TYPE" >> $GITHUB_OUTPUT
+          echo "infra_error_type=$INFRA_ERROR_TYPE" >> $GITHUB_OUTPUT
 
       - name: Add target failure label
         if: |
