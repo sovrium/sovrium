@@ -29,7 +29,7 @@ jobs:
     name: Detect Change Type
     if: github.event_name == 'pull_request' && github.event.action != 'closed'
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 5
     outputs:
       is_test_only: ${{ steps.detect.outputs.is_test_only }}
       target_spec: ${{ steps.detect.outputs.target_spec }}
