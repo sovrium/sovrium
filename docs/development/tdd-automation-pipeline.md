@@ -1,8 +1,10 @@
-# TDD Automation Pipeline - Implementation Specification
+# TDD Automation Pipeline - Specification
 
-> **Status**: ✅ READY FOR IMPLEMENTATION
+> **Status**: ✅ SPECIFICATION COMPLETE (ready to implement)
 > **Last Updated**: 2025-01-27
 > **Scope**: 230 pending specs over ~6-8 days
+>
+> **Implementation Note**: This document specifies the target architecture. Effect-based services in `scripts/tdd-automation/` will be built incrementally. Core workflows (`.github/workflows/`) can be implemented first using bash, then migrated to Effect as services mature.
 
 ---
 
@@ -11,20 +13,19 @@
 1. [Executive Summary](#executive-summary)
 2. [Quick Reference](#quick-reference)
 3. [Architecture](#architecture)
-4. [Workflow Details](#workflow-details)
-   - [PR Creator Workflow](#1-pr-creator-workflow-pr-creatoryml)
-   - [Test Workflow](#2-test-workflow-testyml)
-   - [Claude Code Workflow](#3-claude-code-workflow-claude-codeyml)
-   - [Merge Watchdog Workflow](#4-merge-watchdog-workflow-merge-watchdogyml)
-5. [State Management](#label-based-state-machine)
-6. [Cost Protection](#claude-code-credit-usage-protection)
+4. [Workflow Specifications](#workflow-specifications)
+5. [State Management](#state-management)
+6. [Cost Protection](#cost-protection)
 7. [Implementation Plan](#implementation-plan)
+8. [Risks & Mitigations](#risks--mitigations)
+9. [Design Decisions](#design-decisions)
+10. [Effect-Based Implementation Architecture](#effect-based-implementation-architecture)
 
 ---
 
 ## Executive Summary
 
-This pipeline represents a **complete simplification** of TDD automation. The key insight: **GitHub's native features (PRs, labels, comments) already provide the state management we need** - no custom JSON state file required.
+This pipeline automates TDD implementation using **GitHub's native features** (PRs, labels, comments) for state management - no custom JSON state file required.
 
 **Key Design Decisions:**
 
@@ -63,12 +64,12 @@ Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 2/5
 
 ### Workflows Summary
 
-| Workflow             | Trigger                                | Purpose                              |
-| -------------------- | -------------------------------------- | ------------------------------------ |
-| `pr-creator.yml`     | Hourly cron + test.yml success on main | Creates next TDD PR                  |
-| `test.yml`           | Push to any branch                     | Runs tests, posts @claude on failure |
-| `claude-code.yml`    | @claude comment on PR                  | Executes Claude Code to fix code     |
-| `merge-watchdog.yml` | Every 30 min                           | Unsticks stuck PRs                   |
+| Workflow       | File                                   | Trigger                                |
+| -------------- | -------------------------------------- | -------------------------------------- |
+| PR Creator     | `.github/workflows/pr-creator.yml`     | Hourly cron + test.yml success on main |
+| Test           | `.github/workflows/test.yml`           | Push to any branch                     |
+| Claude Code    | `.github/workflows/claude-code.yml`    | @claude comment on PR                  |
+| Merge Watchdog | `.github/workflows/merge-watchdog.yml` | Every 30 min                           |
 
 ### Cost Limits
 
@@ -77,13 +78,236 @@ Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 2/5
 | Warning    | $80   | $400   | Log warning   |
 | Hard Limit | $100  | $500   | Skip workflow |
 
+### Claude Code GitHub Action
+
+**Uses:** `anthropics/claude-code-action@v1` ([Repository](https://github.com/anthropics/claude-code-action))
+
+**Required Secret:**
+
+```
+CLAUDE_CODE_OAUTH_TOKEN  # Settings → Secrets and variables → Actions
+```
+
+**Action Inputs:**
+
+| Input                     | Value                                    | Purpose                                         |
+| ------------------------- | ---------------------------------------- | ----------------------------------------------- |
+| `claude_code_oauth_token` | `${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}` | OAuth token authentication                      |
+| `track_progress`          | `true`                                   | Built-in progress tracking (replaces heartbeat) |
+| `use_sticky_comment`      | `true`                                   | Updates single comment instead of creating new  |
+| `claude_args`             | See agent configurations below           | CLI-compatible arguments                        |
+| `timeout_minutes`         | `45` (default), configurable per-spec    | Read from `@tdd-timeout` comment in spec file   |
+
+**Required Permissions:**
+
+```yaml
+permissions:
+  contents: write # Push commits
+  pull-requests: write # Comment on PRs
+  issues: write # Create issues
+  actions: read # Read workflow runs
+```
+
 ---
 
-## Overview
+### Agent Configurations
 
-This pipeline represents a complete simplification of TDD automation. The key insight is that **GitHub's native features (PRs, labels, comments) already provide the state management we need** - no custom JSON state file required.
+Both agents use Claude Sonnet 4.5 for optimal reasoning-to-cost balance. The agents are configured for **fully autonomous operation** in the TDD pipeline.
+
+#### e2e-test-fixer Agent Configuration
+
+**Purpose:** Make failing E2E tests pass through minimal, correct implementation.
+
+**claude_args:**
+
+```bash
+--max-turns 50
+--model claude-sonnet-4-5
+--allowedTools "Bash,Read,Write,Edit,Glob,Grep,Task,TodoWrite,LSP,Skill"
+--disallowedTools "WebFetch,WebSearch,AskUserQuestion,NotebookEdit"
+```
+
+| Parameter           | Value                    | Rationale                                                                                    |
+| ------------------- | ------------------------ | -------------------------------------------------------------------------------------------- |
+| `--max-turns`       | `50`                     | Complex TDD cycles require multiple iterations (quality check → fix → test → repeat)         |
+| `--model`           | `claude-sonnet-4-5`      | Best reasoning-to-cost balance for TDD implementation                                        |
+| `--allowedTools`    | Core tools + Skill       | Read/Write/Edit for code, Bash for tests, Glob/Grep for search, Skill for schema generation  |
+| `--disallowedTools` | Web + Interactive        | WebFetch/WebSearch blocked for CI reproducibility, AskUserQuestion blocked for autonomy      |
+
+**Autonomous Behaviors:**
+
+- ✅ Creates schemas via Skill tool when missing (explicitly allowed)
+- ✅ Runs quality checks and tests iteratively
+- ✅ Commits and pushes changes without confirmation
+- ✅ Handles merge conflicts via merge strategy
+- ❌ Never asks clarifying questions (autonomous mode)
+- ❌ Never fetches external documentation (CI reproducibility)
+
+#### codebase-refactor-auditor Agent Configuration
+
+**Purpose:** Optimize implementations after tests pass (code quality, DRY, architecture).
+
+**claude_args:**
+
+```bash
+--max-turns 40
+--model claude-sonnet-4-5
+--allowedTools "Bash,Read,Write,Edit,Glob,Grep,Task,TodoWrite,LSP"
+--disallowedTools "WebFetch,WebSearch,Skill,AskUserQuestion,NotebookEdit"
+```
+
+| Parameter           | Value                     | Rationale                                                              |
+| ------------------- | ------------------------- | ---------------------------------------------------------------------- |
+| `--max-turns`       | `40`                      | Refactoring is bounded; fewer iterations than implementation           |
+| `--model`           | `claude-sonnet-4-5`       | Architectural reasoning requires Sonnet-level capability               |
+| `--allowedTools`    | Core tools (no Skill)     | Same base tools, but Skill excluded (schema creation not its job)      |
+| `--disallowedTools` | Web + Skill + Interactive | Skill blocked (schema creation is e2e-test-fixer's responsibility)     |
+
+**Autonomous Behaviors:**
+
+- ✅ Removes eslint-disable comments and fixes violations
+- ✅ Refactors recent commits (Phase 1.1) immediately
+- ✅ Generates recommendations for older code (Phase 1.2)
+- ✅ Validates with regression tests before committing
+- ❌ Does not implement Phase 1.2 recommendations without approval
+- ❌ Never creates new schemas (e2e-test-fixer's responsibility)
+
+---
+
+### Agent Selection Logic
+
+The workflow dynamically selects the appropriate agent based on failure context:
+
+```
+@claude comment received
+        │
+        ▼
+┌───────────────────────────┐
+│ Parse comment context     │
+└───────────┬───────────────┘
+            │
+    ┌───────┴───────┐
+    │               │
+    ▼               ▼
+┌────────┐    ┌────────────┐
+│ Test   │    │ Quality    │
+│ Failure│    │ Only Fail  │
+└────┬───┘    └──────┬─────┘
+     │               │
+     ▼               ▼
+┌────────────┐  ┌─────────────────────┐
+│ e2e-test-  │  │ codebase-refactor-  │
+│ fixer      │  │ auditor             │
+└────────────┘  └─────────────────────┘
+```
+
+**Selection Rules:**
+
+| Condition                                            | Agent                          | Prompt Includes                       |
+| ---------------------------------------------------- | ------------------------------ | ------------------------------------- |
+| Test failure (assertions, timeouts, HTTP errors)     | `e2e-test-fixer`               | Spec ID, file path, failure details   |
+| Quality failure only (lint, typecheck, no test fail) | `codebase-refactor-auditor`    | Quality output, files affected        |
+| Merge conflict detected                              | Either + conflict instructions | Conflict markers, resolution guidance |
+| 3+ tests fixed, handoff triggered                    | `codebase-refactor-auditor`    | Baseline results, duplication notes   |
+
+---
+
+### System Prompt Templates
+
+#### For e2e-test-fixer (Test Failures)
+
+```markdown
+You are operating in the TDD automation pipeline. Use the e2e-test-fixer agent workflow.
+
+**Context:**
+
+- Spec: ${SPEC_ID}
+- File: ${SPEC_FILE}
+- Attempt: ${ATTEMPT}/${MAX_ATTEMPTS}
+- Branch: tdd/${SPEC_ID}
+
+**Failure Details:**
+${TEST_OUTPUT}
+
+**Instructions:**
+
+1. Remove .fixme() from the failing test
+2. Analyze the failure (MANDATORY - document root cause)
+3. Verify required schemas exist (escalate if missing)
+4. Implement minimal code to pass the test
+5. Run `bun run quality` AND `bun test:e2e -- ${SPEC_FILE}` (iterate until BOTH pass)
+6. Run `bun test:e2e:regression` to verify no regressions
+7. Commit with message: "fix: implement ${SPEC_ID}"
+8. Push to origin (MANDATORY for pipeline to continue)
+
+**Constraints:**
+
+- NEVER modify test logic or assertions
+- NEVER ask clarifying questions (autonomous mode)
+- Maximum 3 iterations before reporting failure
+- Follow functional programming patterns (no push/mutation)
+```
+
+#### For codebase-refactor-auditor (Quality Failures)
+
+```markdown
+You are operating in the TDD automation pipeline. Use the codebase-refactor-auditor agent workflow.
+
+**Context:**
+
+- Branch: tdd/${SPEC_ID}
+- Trigger: Quality failure (tests passing)
+
+**Quality Output:**
+${QUALITY_OUTPUT}
+
+**Instructions:**
+
+1. Establish Phase 0 baseline: `bun run quality --include-effect` and `bun test:e2e:regression`
+2. Phase 1.1: Analyze and fix issues in recent commits
+3. Phase 5: Validate no regressions with same commands
+4. Commit with message: "refactor: optimize ${SPEC_ID} implementation"
+5. Push to origin
+
+**Constraints:**
+
+- `bun run quality` MUST pass - any failure blocks commit
+- Layer architecture MUST be correct
+- Maximum 2 fix attempts per issue
+- NEVER run @spec tests (too slow for CI)
+```
+
+---
+
+### Timeout Configuration
+
+Complex specs may require extended timeouts. Configure via:
+
+1. **Per-Spec Annotation** (in spec file):
+
+   ```typescript
+   // @tdd-timeout 60
+   test.fixme('Complex integration test', async () => { ... })
+   ```
+
+2. **Workflow Default** (in claude-code.yml):
+   ```yaml
+   - uses: anthropics/claude-code-action@v1
+     timeout-minutes: ${{ inputs.timeout || 45 }}
+   ```
+
+| Spec Type           | Recommended Timeout | Rationale                        |
+| ------------------- | ------------------- | -------------------------------- |
+| Simple UI           | 30 min              | Single component, few iterations |
+| API endpoint        | 45 min (default)    | Requires route + schema + tests  |
+| Complex integration | 60 min              | Multiple layers, database, auth  |
+| Multi-file feature  | 75 min              | Cross-cutting implementation     |
+
+---
 
 ## Architecture
+
+### High-Level Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -94,7 +318,6 @@ This pipeline represents a complete simplification of TDD automation. The key in
 │  │  Workflow   │         │  Workflow   │         │  Workflow   │           │
 │  └─────────────┘         └─────────────┘         └─────────────┘           │
 │        │                       │                       │                    │
-│        │                       │                       │                    │
 │        ▼                       ▼                       ▼                    │
 │  ┌─────────────┐         ┌─────────────┐         ┌─────────────┐           │
 │  │ Creates PR  │         │ Runs tests  │         │ Fixes code  │           │
@@ -104,463 +327,1480 @@ This pipeline represents a complete simplification of TDD automation. The key in
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Workflow Diagram
+---
+
+### Detailed Workflow Pipeline Schema
+
+This section provides a **complete, unabridged view** of the TDD automation pipeline with all decision points, error handling paths, state transitions, and workflow interconnections.
+
+#### Complete Pipeline Flow with All Decision Points
 
 ```
-                                    ┌───────────────┐
-                                    │  Cron (hourly)│
-                                    │      OR       │
-                                    │ test.yml pass │
-                                    └───────┬───────┘
-                                            │
-                                            ▼
-                              ┌─────────────────────────────┐
-                              │     PR CREATOR WORKFLOW     │
-                              │                             │
-                              │  0. Check Claude Code spend │
-                              │     Daily < $100?           │
-                              │     Weekly < $500?          │
-                              │     If over → EXIT          │
-                              │                             │
-                              │  1. Check: any active TDD   │
-                              │     PR without manual-      │
-                              │     intervention label?     │
-                              │                             │
-                              │  2. If yes → EXIT           │
-                              │     (one at a time)         │
-                              │                             │
-                              │  3. Find next .fixme() spec │
-                              │     using priority calc     │
-                              │                             │
-                              │  4. Exclude specs already   │
-                              │     in manual-intervention  │
-                              │     PRs                     │
-                              │                             │
-                              │  5. Remove .fixme()         │
-                              │     Commit + Create PR      │
-                              │     Label: tdd-automation   │
-                              │     Enable auto-merge       │
-                              └─────────────┬───────────────┘
-                                            │
-                                            │ PR created
-                                            ▼
-                              ┌─────────────────────────────┐
-                              │       TEST WORKFLOW         │
-                              │    (triggered on push)      │
-                              │                             │
-                              │  Analyze changes:           │
-                              │                             │
-                              │  ┌─────────────────────┐    │
-                              │  │ Only .fixme removed │    │
-                              │  │ from spec file?     │    │
-                              │  └──────────┬──────────┘    │
-                              │             │               │
-                              │      YES    │    NO         │
-                              │      │      │    │          │
-                              │      ▼      │    ▼          │
-                              │  ┌──────┐   │ ┌──────────┐  │
-                              │  │ Run  │   │ │ Test +   │  │
-                              │  │ only │   │ │ src code │  │
-                              │  │ this │   │ │ changed? │  │
-                              │  │ test │   │ └────┬─────┘  │
-                              │  └──┬───┘   │   YES│  NO    │
-                              │     │       │      │   │    │
-                              │     │       │      ▼   ▼    │
-                              │     │       │  ┌────┐ ┌───┐ │
-                              │     │       │  │Qual│ │Qua│ │
-                              │     │       │  │+Reg│ │+  │ │
-                              │     │       │  │Test│ │Tst│ │
-                              │     │       │  └──┬─┘ └─┬─┘ │
-                              │     │       │     │     │   │
-                              └─────┼───────┼─────┼─────┼───┘
-                                    │       │     │     │
-                                    └───┬───┴─────┴─────┘
-                                        │
-                            ┌───────────┼───────────┐
-                            │           │           │
-                            ▼           ▼           ▼
-                       ┌────────┐  ┌────────┐  ┌────────┐
-                       │  PASS  │  │  FAIL  │  │ FAIL   │
-                       │        │  │ (test) │  │(quality│
-                       │        │  │        │  │  only) │
-                       └────┬───┘  └────┬───┘  └────┬───┘
-                            │           │           │
-                            ▼           ▼           ▼
-                    ┌───────────┐  ┌─────────────────────────┐
-                    │Auto-merge │  │   Check attempt count   │
-                    │  (done!)  │  │   (count @claude        │
-                    └───────────┘  │    comments on PR)      │
-                                   └───────────┬─────────────┘
-                                               │
-                                   ┌───────────┼───────────┐
-                                   │           │           │
-                                   ▼           ▼           ▼
-                              attempt     attempt     attempt
-                                1-2          3          >3
-                                 │           │           │
-                                 ▼           ▼           ▼
-                            ┌────────┐  ┌────────┐  ┌────────┐
-                            │Post    │  │Add     │  │Already │
-                            │@claude │  │manual- │  │marked  │
-                            │comment │  │interv. │  │(skip)  │
-                            │        │  │label   │  │        │
-                            └────┬───┘  └────────┘  └────────┘
-                                 │
-                                 ▼
-                    ┌─────────────────────────────┐
-                    │    CLAUDE CODE WORKFLOW     │
-                    │  (triggered on PR comment)  │
-                    │                             │
-                    │  1. Sync with main branch   │
-                    │     (merge main → PR branch)│
-                    │     If conflict → Claude    │
-                    │     resolves it             │
-                    │                             │
-                    │  2. Parse comment to        │
-                    │     determine agent:        │
-                    │                             │
-                    │  - Test fail → e2e-test-    │
-                    │    fixer                    │
-                    │                             │
-                    │  - Quality fail → codebase- │
-                    │    refactor-auditor         │
-                    │                             │
-                    │  - Conflict → resolve merge │
-                    │    conflicts first          │
-                    │                             │
-                    │  3. Execute Claude Code     │
-                    │  4. Push changes            │
-                    └─────────────┬───────────────┘
-                                  │
-                                  │ Push triggers
-                                  │ test workflow
-                                  │ again
-                                  ▼
-                              ┌───────┐
-                              │ LOOP  │
-                              │ BACK  │
-                              └───────┘
+╔══════════════════════════════════════════════════════════════════════════════════════════════════════╗
+║                                    TDD AUTOMATION PIPELINE                                            ║
+║                                    ══════════════════════                                             ║
+╠══════════════════════════════════════════════════════════════════════════════════════════════════════╣
+║                                                                                                       ║
+║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
+║  ENTRY POINTS (3 possible triggers for PR Creator)                                                   ║
+║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
+║                                                                                                       ║
+║      ┌────────────────────┐      ┌────────────────────┐      ┌────────────────────┐                  ║
+║      │  TRIGGER 1         │      │  TRIGGER 2         │      │  TRIGGER 3         │                  ║
+║      │  Cron Schedule     │      │  workflow_run      │      │  workflow_dispatch │                  ║
+║      │  (every hour)      │      │  test.yml pass on  │      │  (manual trigger)  │                  ║
+║      │  0 * * * *         │      │  main branch       │      │                    │                  ║
+║      └─────────┬──────────┘      └─────────┬──────────┘      └─────────┬──────────┘                  ║
+║                │                           │                           │                              ║
+║                └───────────────────────────┼───────────────────────────┘                              ║
+║                                            │                                                          ║
+║                                            ▼                                                          ║
+║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
+║  WORKFLOW 1: PR CREATOR (.github/workflows/pr-creator.yml)                                           ║
+║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
+║                                                                                                       ║
+║                              ┌─────────────────────────────┐                                          ║
+║                              │   JOB 1: check-credits      │                                          ║
+║                              │   ─────────────────────     │                                          ║
+║                              │   Query workflow runs from: │                                          ║
+║                              │   - Last 24 hours (daily)   │                                          ║
+║                              │   - Last 7 days (weekly)    │                                          ║
+║                              └─────────────┬───────────────┘                                          ║
+║                                            │                                                          ║
+║                              ┌─────────────▼───────────────┐                                          ║
+║                              │  Parse cost from logs:      │                                          ║
+║                              │  1. "Total cost: $X.XX"     │                                          ║
+║                              │  2. "Cost: $X.XX"           │                                          ║
+║                              │  3. "Session cost: X.XX USD"│                                          ║
+║                              │  4. Fallback: $15/run       │                                          ║
+║                              └─────────────┬───────────────┘                                          ║
+║                                            │                                                          ║
+║                    ┌───────────────────────┼───────────────────────┐                                  ║
+║                    │                       │                       │                                  ║
+║                    ▼                       ▼                       ▼                                  ║
+║           ┌───────────────┐       ┌───────────────┐       ┌───────────────┐                          ║
+║           │ daily >= $100 │       │ daily >= $80  │       │ daily < $80   │                          ║
+║           │ HARD LIMIT    │       │ WARNING       │       │ OK            │                          ║
+║           └───────┬───────┘       └───────┬───────┘       └───────┬───────┘                          ║
+║                   │                       │                       │                                   ║
+║                   ▼                       ▼                       │                                   ║
+║           ┌───────────────┐       ┌───────────────┐               │                                   ║
+║           │ STOP          │       │ Log warning   │               │                                   ║
+║           │ can-proceed:  │       │ Continue      │               │                                   ║
+║           │ false         │       │               │               │                                   ║
+║           └───────────────┘       └───────┬───────┘               │                                   ║
+║                   │                       │                       │                                   ║
+║                   │                       └───────────────────────┤                                   ║
+║                   │                                               │                                   ║
+║                   │              (same check for weekly: $500/$400)                                   ║
+║                   │                                               │                                   ║
+║                   │               ┌───────────────────────────────┘                                   ║
+║                   │               │                                                                   ║
+║                   │               ▼                                                                   ║
+║                   │  ┌─────────────────────────────┐                                                  ║
+║                   │  │   JOB 2: check-active-pr    │                                                  ║
+║                   │  │   (needs: check-credits)    │                                                  ║
+║                   │  │   ─────────────────────     │                                                  ║
+║                   │  │   Query GitHub for PRs:     │                                                  ║
+║                   │  │   - state: open             │                                                  ║
+║                   │  │   - label: tdd-automation   │                                                  ║
+║                   │  │   - NOT label: manual-      │                                                  ║
+║                   │  │     intervention            │                                                  ║
+║                   │  └─────────────┬───────────────┘                                                  ║
+║                   │                │                                                                  ║
+║                   │    ┌───────────┴───────────┐                                                      ║
+║                   │    │                       │                                                      ║
+║                   │    ▼                       ▼                                                      ║
+║                   │ ┌────────────┐       ┌────────────┐                                               ║
+║                   │ │ Active PR  │       │ No active  │                                               ║
+║                   │ │ exists     │       │ PR found   │                                               ║
+║                   │ └─────┬──────┘       └─────┬──────┘                                               ║
+║                   │       │                    │                                                      ║
+║                   │       ▼                    │                                                      ║
+║                   │ ┌────────────┐             │                                                      ║
+║                   │ │ STOP       │             │                                                      ║
+║                   │ │ has-active:│             │                                                      ║
+║                   │ │ true       │             │                                                      ║
+║                   │ │ (wait for  │             │                                                      ║
+║                   │ │ current PR)│             │                                                      ║
+║                   │ └────────────┘             │                                                      ║
+║                   │                            │                                                      ║
+║                   │               ┌────────────┘                                                      ║
+║                   │               │                                                                   ║
+║                   │               ▼                                                                   ║
+║                   │  ┌─────────────────────────────┐                                                  ║
+║                   │  │   JOB 3: find-spec          │                                                  ║
+║                   │  │   (needs: check-active-pr)  │                                                  ║
+║                   │  │   ─────────────────────     │                                                  ║
+║                   │  │   Run priority calculator:  │                                                  ║
+║                   │  │   scripts/tdd-automation/   │                                                  ║
+║                   │  │   core/schema-priority-     │                                                  ║
+║                   │  │   calculator.ts             │                                                  ║
+║                   │  └─────────────┬───────────────┘                                                  ║
+║                   │                │                                                                  ║
+║                   │    ┌───────────▼───────────┐                                                      ║
+║                   │    │ Scan specs/ directory │                                                      ║
+║                   │    │ for .fixme() tests    │                                                      ║
+║                   │    └───────────┬───────────┘                                                      ║
+║                   │                │                                                                  ║
+║                   │    ┌───────────┴───────────┐                                                      ║
+║                   │    │                       │                                                      ║
+║                   │    ▼                       ▼                                                      ║
+║                   │ ┌────────────┐       ┌────────────────────┐                                       ║
+║                   │ │ No .fixme()│       │ Found .fixme()     │                                       ║
+║                   │ │ specs found│       │ Priority order:    │                                       ║
+║                   │ └─────┬──────┘       │ 1. Schema deps     │                                       ║
+║                   │       │              │ 2. API endpoints   │                                       ║
+║                   │       ▼              │ 3. UI components   │                                       ║
+║                   │ ┌────────────┐       └─────────┬──────────┘                                       ║
+║                   │ │ STOP       │                 │                                                  ║
+║                   │ │ All specs  │                 │                                                  ║
+║                   │ │ complete!  │                 │                                                  ║
+║                   │ └────────────┘                 │                                                  ║
+║                   │                                │                                                  ║
+║                   │               ┌────────────────┘                                                  ║
+║                   │               │                                                                   ║
+║                   │               ▼                                                                   ║
+║                   │  ┌─────────────────────────────┐                                                  ║
+║                   │  │   JOB 4: create-pr          │                                                  ║
+║                   │  │   (needs: find-spec)        │                                                  ║
+║                   │  └─────────────┬───────────────┘                                                  ║
+║                   │                │                                                                  ║
+║                   │                ▼                                                                  ║
+║                   │  ┌─────────────────────────────┐                                                  ║
+║                   │  │ STEP 1: Create branch       │                                                  ║
+║                   │  │ git checkout -b tdd/<id>    │                                                  ║
+║                   │  │ git push -u origin tdd/<id> │                                                  ║
+║                   │  └─────────────┬───────────────┘                                                  ║
+║                   │                │                                                                  ║
+║                   │                ▼                                                                  ║
+║                   │  ┌─────────────────────────────┐                                                  ║
+║                   │  │ STEP 2: Create PR           │                                                  ║
+║                   │  │ gh pr create                │                                                  ║
+║                   │  │ --title "[TDD] Implement    │                                                  ║
+║                   │  │   <spec-id> | Attempt 1/5"  │                                                  ║
+║                   │  │ --label "tdd-automation"    │                                                  ║
+║                   │  │ --base main                 │                                                  ║
+║                   │  └─────────────┬───────────────┘                                                  ║
+║                   │                │                                                                  ║
+║                   │                ▼                                                                  ║
+║                   │  ┌─────────────────────────────┐                                                  ║
+║                   │  │ STEP 3: Enable auto-merge   │                                                  ║
+║                   │  │ gh pr merge --auto --squash │                                                  ║
+║                   │  │ <pr-number>                 │                                                  ║
+║                   │  └─────────────┬───────────────┘                                                  ║
+║                   │                │                                                                  ║
+║                   │                │  ← PR CREATED, triggers test.yml via push event                 ║
+║                   │                │                                                                  ║
+║                   │                ▼                                                                  ║
+║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
+║  WORKFLOW 2: TEST (.github/workflows/test.yml)                                                       ║
+║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
+║                   │                                                                                   ║
+║                   │  ┌─────────────────────────────┐                                                  ║
+║                   │  │   JOB: test                 │                                                  ║
+║                   │  │   ─────────────────         │                                                  ║
+║                   │  │   Triggers: push, PR        │                                                  ║
+║                   │  └─────────────┬───────────────┘                                                  ║
+║                   │                │                                                                  ║
+║                   │                ▼                                                                  ║
+║                   │  ┌─────────────────────────────┐                                                  ║
+║                   │  │ STEP 1: Detect TDD PR       │                                                  ║
+║                   │  │                             │                                                  ║
+║                   │  │ Check 1: Has label?         │                                                  ║
+║                   │  │   tdd-automation            │                                                  ║
+║                   │  │                             │                                                  ║
+║                   │  │ Check 2 (backup): Branch?   │                                                  ║
+║                   │  │   matches tdd/*             │                                                  ║
+║                   │  └─────────────┬───────────────┘                                                  ║
+║                   │                │                                                                  ║
+║                   │    ┌───────────┴───────────┐                                                      ║
+║                   │    │                       │                                                      ║
+║                   │    ▼                       ▼                                                      ║
+║                   │ ┌────────────┐       ┌────────────┐                                               ║
+║                   │ │ NOT TDD PR │       │ IS TDD PR  │                                               ║
+║                   │ │ (normal    │       │            │                                               ║
+║                   │ │ CI flow)   │       │            │                                               ║
+║                   │ └─────┬──────┘       └─────┬──────┘                                               ║
+║                   │       │                    │                                                      ║
+║                   │       ▼                    ▼                                                      ║
+║                   │ ┌────────────┐  ┌─────────────────────────┐                                       ║
+║                   │ │ Run tests  │  │ STEP 2: Check sync      │                                       ║
+║                   │ │ normally   │  │ Is branch behind main?  │                                       ║
+║                   │ │ (no TDD    │  │ git rev-list HEAD..     │                                       ║
+║                   │ │ handling)  │  │   origin/main --count   │                                       ║
+║                   │ └────────────┘  └───────────┬─────────────┘                                       ║
+║                   │                             │                                                     ║
+║                   │                 ┌───────────┴───────────┐                                         ║
+║                   │                 │                       │                                         ║
+║                   │                 ▼                       ▼                                         ║
+║                   │          ┌────────────┐          ┌────────────┐                                   ║
+║                   │          │ Behind main│          │ Up to date │                                   ║
+║                   │          │ (count > 0)│          │ (count = 0)│                                   ║
+║                   │          └─────┬──────┘          └─────┬──────┘                                   ║
+║                   │                │                       │                                          ║
+║                   │                ▼                       │                                          ║
+║                   │          ┌────────────────────┐        │                                          ║
+║                   │          │ Post sync request  │        │                                          ║
+║                   │          │ @claude Sync       │        │                                          ║
+║                   │          │ required...        │        │                                          ║
+║                   │          │ (NOT counted as    │        │                                          ║
+║                   │          │ attempt)           │        │                                          ║
+║                   │          └─────┬──────────────┘        │                                          ║
+║                   │                │                       │                                          ║
+║                   │                │ ──────────────────────┤                                          ║
+║                   │                │                       │                                          ║
+║                   │                ▼                       ▼                                          ║
+║                   │  ┌─────────────────────────────────────────────┐                                  ║
+║                   │  │ STEP 3: Run quality + tests                 │                                  ║
+║                   │  │                                             │                                  ║
+║                   │  │ 1. bun run lint                            │                                  ║
+║                   │  │ 2. bun run typecheck                       │                                  ║
+║                   │  │ 3. bun test:unit                           │                                  ║
+║                   │  │ 4. bun test:e2e -- <spec-file>             │                                  ║
+║                   │  │                                             │                                  ║
+║                   │  └─────────────┬───────────────────────────────┘                                  ║
+║                   │                │                                                                  ║
+║                   │    ┌───────────┴───────────────────────┐                                          ║
+║                   │    │                   │               │                                          ║
+║                   │    ▼                   ▼               ▼                                          ║
+║                   │ ┌────────┐       ┌──────────┐    ┌───────────┐                                    ║
+║                   │ │ ALL    │       │ TESTS    │    │ QUALITY   │                                    ║
+║                   │ │ PASS   │       │ FAIL     │    │ ONLY FAIL │                                    ║
+║                   │ └────┬───┘       └────┬─────┘    │ (lint/    │                                    ║
+║                   │      │                │          │ typecheck)│                                    ║
+║                   │      │                │          └─────┬─────┘                                    ║
+║                   │      │                │                │                                          ║
+║                   │      ▼                │                │                                          ║
+║                   │ ┌────────────┐        │                │                                          ║
+║                   │ │ AUTO-MERGE │        │                │                                          ║
+║                   │ │ (squash)   │        │                │                                          ║
+║                   │ │            │        │                │                                          ║
+║                   │ │ PR closes  │        │                │                                          ║
+║                   │ │ Label      │        │                │                                          ║
+║                   │ │ removed    │        │                │                                          ║
+║                   │ │            │        │                │                                          ║
+║                   │ │ ► Triggers │        │                │                                          ║
+║                   │ │   PR       │        │                │                                          ║
+║                   │ │   Creator  │        │                │                                          ║
+║                   │ │   (next    │        │                │                                          ║
+║                   │ │   spec)    │        │                │                                          ║
+║                   │ └────────────┘        │                │                                          ║
+║                   │                       │                │                                          ║
+║                   │      ┌────────────────┘                │                                          ║
+║                   │      │                                 │                                          ║
+║                   │      ▼                                 │                                          ║
+║                   │ ┌─────────────────────────────┐        │                                          ║
+║                   │ │ STEP 4: Parse attempt count │        │                                          ║
+║                   │ │                             │        │                                          ║
+║                   │ │ Extract from PR title:      │        │                                          ║
+║                   │ │ "Attempt X/Y"               │        │                                          ║
+║                   │ │                             │        │                                          ║
+║                   │ │ Read @tdd-max-attempts from │        │                                          ║
+║                   │ │ spec file (default: 5)      │        │                                          ║
+║                   │ └─────────────┬───────────────┘        │                                          ║
+║                   │               │                        │                                          ║
+║                   │   ┌───────────┴───────────┐            │                                          ║
+║                   │   │                       │            │                                          ║
+║                   │   ▼                       ▼            │                                          ║
+║                   │ ┌────────────────┐  ┌────────────────┐ │                                          ║
+║                   │ │ attempt < max  │  │ attempt >= max │ │                                          ║
+║                   │ │ (e.g., 3 < 5)  │  │ (e.g., 5 >= 5) │ │                                          ║
+║                   │ └───────┬────────┘  └───────┬────────┘ │                                          ║
+║                   │         │                   │          │                                          ║
+║                   │         │                   ▼          │                                          ║
+║                   │         │          ┌────────────────────────┐                                     ║
+║                   │         │          │ ADD LABEL:             │                                     ║
+║                   │         │          │ tdd-automation:        │                                     ║
+║                   │         │          │ manual-intervention    │                                     ║
+║                   │         │          │                        │                                     ║
+║                   │         │          │ Create issue:          │                                     ║
+║                   │         │          │ "TDD spec <id> needs   │                                     ║
+║                   │         │          │ human review"          │                                     ║
+║                   │         │          │                        │                                     ║
+║                   │         │          │ STOP (human decides    │                                     ║
+║                   │         │          │ next steps)            │                                     ║
+║                   │         │          └────────────────────────┘                                     ║
+║                   │         │                                                                         ║
+║                   │         ▼                                  │                                      ║
+║                   │ ┌───────────────────────────────────────┐  │                                      ║
+║                   │ │ STEP 5: Update PR title               │  │                                      ║
+║                   │ │                                       │  │                                      ║
+║                   │ │ gh pr edit <pr-number>               │  │                                      ║
+║                   │ │ --title "[TDD] Implement <spec-id>   │  │                                      ║
+║                   │ │   | Attempt (X+1)/Y"                 │  │                                      ║
+║                   │ └───────────────┬───────────────────────┘  │                                      ║
+║                   │                 │                          │                                      ║
+║                   │                 ▼                          │                                      ║
+║                   │ ┌───────────────────────────────────────┐  │                                      ║
+║                   │ │ STEP 6: Post @claude comment          │  │                                      ║
+║                   │ │                                       │  │                                      ║
+║                   │ │ For TEST FAILURE:                     │◀─┘                                      ║
+║                   │ │ ─────────────────                     │ (quality failures also                  ║
+║                   │ │ @claude Tests are failing...          │  post @claude but with                  ║
+║                   │ │ **Spec:** <spec-id>                   │  different template)                    ║
+║                   │ │ **File:** <spec-file-path>            │                                         ║
+║                   │ │ **Attempt:** X/Y                      │                                         ║
+║                   │ │ **Failure Details:**                  │                                         ║
+║                   │ │ <test output>                         │                                         ║
+║                   │ │ Please use e2e-test-fixer...          │                                         ║
+║                   │ │                                       │                                         ║
+║                   │ │ For QUALITY FAILURE:                  │                                         ║
+║                   │ │ ────────────────────                  │                                         ║
+║                   │ │ @claude Quality checks failing...     │                                         ║
+║                   │ │ Please use codebase-refactor-         │                                         ║
+║                   │ │ auditor...                            │                                         ║
+║                   │ └───────────────┬───────────────────────┘                                         ║
+║                   │                 │                                                                 ║
+║                   │                 │  ← @claude comment triggers claude-code.yml                     ║
+║                   │                 │                                                                 ║
+║                   │                 ▼                                                                 ║
+║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
+║  WORKFLOW 3: CLAUDE CODE (.github/workflows/claude-code.yml)                                         ║
+║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
+║                   │                                                                                   ║
+║                   │  ┌─────────────────────────────┐                                                  ║
+║                   │  │   JOB: claude-code          │                                                  ║
+║                   │  │   ─────────────────         │                                                  ║
+║                   │  │   Trigger: issue_comment    │                                                  ║
+║                   │  │   containing "@claude"      │                                                  ║
+║                   │  └─────────────┬───────────────┘                                                  ║
+║                   │                │                                                                  ║
+║                   │                ▼                                                                  ║
+║                   │  ┌─────────────────────────────┐                                                  ║
+║                   │  │ STEP 1: Validate trigger    │                                                  ║
+║                   │  │                             │                                                  ║
+║                   │  │ Check 1: Comment author is  │                                                  ║
+║                   │  │   github-actions[bot]       │                                                  ║
+║                   │  │                             │                                                  ║
+║                   │  │ Check 2: PR has label       │                                                  ║
+║                   │  │   tdd-automation            │                                                  ║
+║                   │  │                             │                                                  ║
+║                   │  │ Check 3: Credit limits OK   │                                                  ║
+║                   │  └─────────────┬───────────────┘                                                  ║
+║                   │                │                                                                  ║
+║                   │    ┌───────────┴───────────┐                                                      ║
+║                   │    │                       │                                                      ║
+║                   │    ▼                       ▼                                                      ║
+║                   │ ┌────────────┐       ┌────────────┐                                               ║
+║                   │ │ Validation │       │ Validation │                                               ║
+║                   │ │ FAILED     │       │ PASSED     │                                               ║
+║                   │ └─────┬──────┘       └─────┬──────┘                                               ║
+║                   │       │                    │                                                      ║
+║                   │       ▼                    ▼                                                      ║
+║                   │ ┌────────────┐  ┌─────────────────────────┐                                       ║
+║                   │ │ STOP       │  │ STEP 2: Checkout PR     │                                       ║
+║                   │ │ (ignore    │  │ branch                  │                                       ║
+║                   │ │ comment)   │  │                         │                                       ║
+║                   │ └────────────┘  │ git checkout tdd/<id>   │                                       ║
+║                   │                 └───────────┬─────────────┘                                       ║
+║                   │                             │                                                     ║
+║                   │                             ▼                                                     ║
+║                   │                ┌─────────────────────────┐                                        ║
+║                   │                │ STEP 3: Sync with main  │                                        ║
+║                   │                │                         │                                        ║
+║                   │                │ git fetch origin main   │                                        ║
+║                   │                │ git merge origin/main   │                                        ║
+║                   │                │   --no-edit             │                                        ║
+║                   │                └───────────┬─────────────┘                                        ║
+║                   │                            │                                                      ║
+║                   │                ┌───────────┴───────────┐                                          ║
+║                   │                │                       │                                          ║
+║                   │                ▼                       ▼                                          ║
+║                   │         ┌────────────┐          ┌────────────┐                                    ║
+║                   │         │ MERGE      │          │ NO         │                                    ║
+║                   │         │ CONFLICT   │          │ CONFLICT   │                                    ║
+║                   │         └─────┬──────┘          └─────┬──────┘                                    ║
+║                   │               │                       │                                           ║
+║                   │               ▼                       │                                           ║
+║                   │         ┌────────────────────┐        │                                           ║
+║                   │         │ Add label:         │        │                                           ║
+║                   │         │ tdd-automation:    │        │                                           ║
+║                   │         │ had-conflict       │        │                                           ║
+║                   │         │                    │        │                                           ║
+║                   │         │ Disable auto-merge │        │                                           ║
+║                   │         │ (human must review │        │                                           ║
+║                   │         │ resolution)        │        │                                           ║
+║                   │         │                    │        │                                           ║
+║                   │         │ Modify prompt to   │        │                                           ║
+║                   │         │ include conflict   │        │                                           ║
+║                   │         │ resolution         │        │                                           ║
+║                   │         │ instructions       │        │                                           ║
+║                   │         └─────────┬──────────┘        │                                           ║
+║                   │                   │                   │                                           ║
+║                   │                   └───────────────────┤                                           ║
+║                   │                                       │                                           ║
+║                   │                                       ▼                                           ║
+║                   │                ┌─────────────────────────────────────┐                            ║
+║                   │                │ STEP 4: Select agent based on       │                            ║
+║                   │                │ failure type                        │                            ║
+║                   │                │                                     │                            ║
+║                   │                │ Parse @claude comment to determine: │                            ║
+║                   │                └───────────────┬─────────────────────┘                            ║
+║                   │                                │                                                  ║
+║                   │        ┌───────────────────────┼───────────────────────┐                          ║
+║                   │        │                       │                       │                          ║
+║                   │        ▼                       ▼                       ▼                          ║
+║                   │  ┌───────────┐          ┌───────────┐          ┌───────────┐                      ║
+║                   │  │ CONFLICT  │          │ TEST      │          │ QUALITY   │                      ║
+║                   │  │ DETECTED  │          │ FAILURE   │          │ ONLY FAIL │                      ║
+║                   │  └─────┬─────┘          └─────┬─────┘          └─────┬─────┘                      ║
+║                   │        │                      │                      │                            ║
+║                   │        ▼                      ▼                      ▼                            ║
+║                   │  ┌───────────────┐    ┌───────────────┐    ┌─────────────────────┐                ║
+║                   │  │ Prompt:       │    │ Agent:        │    │ Agent:              │                ║
+║                   │  │ Resolve       │    │ e2e-test-     │    │ codebase-refactor-  │                ║
+║                   │  │ conflicts     │    │ fixer         │    │ auditor             │                ║
+║                   │  │ first, then   │    │               │    │                     │                ║
+║                   │  │ use selected  │    │ --max-turns   │    │ --max-turns 40      │                ║
+║                   │  │ agent         │    │ 50            │    │ --model claude-     │                ║
+║                   │  │               │    │ --model       │    │ sonnet-4-5          │                ║
+║                   │  │               │    │ claude-       │    │                     │                ║
+║                   │  │               │    │ sonnet-4-5    │    │                     │                ║
+║                   │  └───────┬───────┘    └───────┬───────┘    └─────────┬───────────┘                ║
+║                   │          │                    │                      │                            ║
+║                   │          └────────────────────┼──────────────────────┘                            ║
+║                   │                               │                                                   ║
+║                   │                               ▼                                                   ║
+║                   │                ┌─────────────────────────────────────┐                            ║
+║                   │                │ STEP 5: Execute Claude Code Action  │                            ║
+║                   │                │                                     │                            ║
+║                   │                │ uses: anthropics/claude-code-       │                            ║
+║                   │                │   action@v1                         │                            ║
+║                   │                │ with:                               │                            ║
+║                   │                │   claude_code_oauth_token: ${{      │                            ║
+║                   │                │     secrets.CLAUDE_CODE_OAUTH_TOKEN │                            ║
+║                   │                │   }}                                │                            ║
+║                   │                │   track_progress: true              │                            ║
+║                   │                │   use_sticky_comment: true          │                            ║
+║                   │                │   claude_args: <agent-specific>     │                            ║
+║                   │                │   timeout_minutes: ${{ TIMEOUT }}   │  # 45 default, per-spec    ║
+║                   │                └───────────────┬─────────────────────┘                            ║
+║                   │                                │                                                  ║
+║                   │                                ▼                                                  ║
+║                   │                ┌─────────────────────────────────────┐                            ║
+║                   │                │ AGENT EXECUTION (autonomous)        │                            ║
+║                   │                │                                     │                            ║
+║                   │                │ 1. Analyze failure                  │                            ║
+║                   │                │ 2. Implement fix                    │                            ║
+║                   │                │ 3. Run quality + tests locally      │                            ║
+║                   │                │ 4. Iterate until pass (max 3        │                            ║
+║                   │                │    iterations)                      │                            ║
+║                   │                │ 5. Commit changes                   │                            ║
+║                   │                │ 6. Push to origin                   │                            ║
+║                   │                └───────────────┬─────────────────────┘                            ║
+║                   │                                │                                                  ║
+║                   │                    ┌───────────┴───────────┐                                      ║
+║                   │                    │                       │                                      ║
+║                   │                    ▼                       ▼                                      ║
+║                   │             ┌────────────┐          ┌────────────┐                                ║
+║                   │             │ SUCCESS    │          │ FAILURE    │                                ║
+║                   │             │ (pushed    │          │ (timeout,  │                                ║
+║                   │             │ changes)   │          │ error, or  │                                ║
+║                   │             │            │          │ no fix)    │                                ║
+║                   │             └─────┬──────┘          └─────┬──────┘                                ║
+║                   │                   │                       │                                       ║
+║                   │                   │                       ▼                                       ║
+║                   │                   │              ┌────────────────┐                               ║
+║                   │                   │              │ Post failure   │                               ║
+║                   │                   │              │ comment        │                               ║
+║                   │                   │              │ (will trigger  │                               ║
+║                   │                   │              │ test.yml which │                               ║
+║                   │                   │              │ increments     │                               ║
+║                   │                   │              │ attempt)       │                               ║
+║                   │                   │              └────────────────┘                               ║
+║                   │                   │                                                               ║
+║                   │                   │  ← Push triggers test.yml                                     ║
+║                   │                   │                                                               ║
+║                   │                   ▼                                                               ║
+║                   │  ┌─────────────────────────────────────────────────────────────┐                  ║
+║                   │  │                         LOOP BACK                            │                  ║
+║                   │  │                                                              │                  ║
+║                   │  │  Push event → test.yml → pass? → auto-merge                 │                  ║
+║                   │  │                           │                                   │                  ║
+║                   │  │                           └─► fail? → @claude → claude-code  │                  ║
+║                   │  │                                            │                 │                  ║
+║                   │  │                                            └──► LOOP        │                  ║
+║                   │  │                                                              │                  ║
+║                   │  └─────────────────────────────────────────────────────────────┘                  ║
+║                   │                                                                                   ║
+║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
+║  WORKFLOW 4: MERGE WATCHDOG (.github/workflows/merge-watchdog.yml)                                   ║
+║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
+║                                                                                                       ║
+║      ┌────────────────────┐                                                                          ║
+║      │ TRIGGER: Cron      │                                                                          ║
+║      │ Every 30 minutes   │                                                                          ║
+║      │ */30 * * * *       │                                                                          ║
+║      └─────────┬──────────┘                                                                          ║
+║                │                                                                                      ║
+║                ▼                                                                                      ║
+║      ┌─────────────────────────────┐                                                                 ║
+║      │ Query open TDD PRs          │                                                                 ║
+║      │ - label: tdd-automation     │                                                                 ║
+║      │ - NOT label: manual-        │                                                                 ║
+║      │   intervention              │                                                                 ║
+║      └─────────────┬───────────────┘                                                                 ║
+║                    │                                                                                  ║
+║      ┌─────────────┴─────────────┐                                                                   ║
+║      │                           │                                                                   ║
+║      ▼                           ▼                                                                   ║
+║ ┌────────────┐            ┌────────────────────┐                                                     ║
+║ │ No stuck   │            │ Found stuck PR:    │                                                     ║
+║ │ PRs        │            │ - Open > 2 hours   │                                                     ║
+║ │            │            │ - All checks pass  │                                                     ║
+║ │ (normal    │            │ - Auto-merge not   │                                                     ║
+║ │ operation) │            │   completing       │                                                     ║
+║ └────────────┘            └─────────┬──────────┘                                                     ║
+║                                     │                                                                ║
+║                         ┌───────────┴───────────┐                                                    ║
+║                         │                       │                                                    ║
+║                         ▼                       ▼                                                    ║
+║                  ┌────────────┐          ┌────────────────┐                                          ║
+║                  │ Open < 4h  │          │ Open > 4 hours │                                          ║
+║                  │            │          │                │                                          ║
+║                  │ Log warning│          │ Create alert   │                                          ║
+║                  │ only       │          │ issue          │                                          ║
+║                  │            │          │                │                                          ║
+║                  │ Try re-    │          │ Request human  │                                          ║
+║                  │ enable     │          │ investigation  │                                          ║
+║                  │ auto-merge │          │                │                                          ║
+║                  └────────────┘          └────────────────┘                                          ║
+║                                                                                                       ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════════════╝
 ```
-
-## Label-Based State Machine
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        LABEL STATE MACHINE                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌──────────────────┐                                           │
-│  │  No TDD PR open  │ ◀─────────────────────────────────────┐   │
-│  │  (idle state)    │                                       │   │
-│  └────────┬─────────┘                                       │   │
-│           │                                                 │   │
-│           │ PR Creator creates PR                           │   │
-│           │ with tdd-automation label                       │   │
-│           ▼                                                 │   │
-│  ┌──────────────────┐                                       │   │
-│  │ tdd-automation   │ ◀──────────────┐                      │   │
-│  │ (active)         │                │                      │   │
-│  └────────┬─────────┘                │                      │   │
-│           │                          │                      │   │
-│           ├──────────────────────────┤                      │   │
-│           │                          │                      │   │
-│      Tests pass              Tests fail (≤2 attempts)       │   │
-│           │                          │                      │   │
-│           ▼                          │                      │   │
-│  ┌──────────────────┐                │                      │   │
-│  │ Auto-merged      │                │                      │   │
-│  │ PR closed        │────────────────┼──────────────────────┘   │
-│  └──────────────────┘                │                          │
-│                                      │                          │
-│                              Tests fail (3rd attempt)           │
-│                                      │                          │
-│                                      ▼                          │
-│                          ┌──────────────────────┐               │
-│                          │ tdd-automation       │               │
-│                          │ + manual-intervention│               │
-│                          │ (needs human)        │               │
-│                          └──────────────────────┘               │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## Claude Code Credit Usage Protection
-
-### Cost Limits
-
-To prevent runaway costs, V3 includes **mandatory credit usage checks** before any Claude Code execution:
-
-| Limit Type | Threshold | Action if Exceeded         |
-| ---------- | --------- | -------------------------- |
-| **Daily**  | $100/day  | Skip workflow, log warning |
-| **Weekly** | $500/week | Skip workflow, log warning |
-
-### Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                       CREDIT USAGE CHECK FLOW                                │
-│                                                                              │
-│  ┌─────────────┐         ┌─────────────────────┐         ┌──────────────┐  │
-│  │ PR Creator  │────────▶│ Check Credit Usage  │────────▶│ Within Limits│  │
-│  │   starts    │         │ (before any work)   │         │    ✓ YES     │  │
-│  └─────────────┘         └─────────────────────┘         └──────┬───────┘  │
-│                                   │                              │          │
-│                                   │ Over limit                   │          │
-│                                   ▼                              ▼          │
-│                          ┌──────────────┐               ┌──────────────┐   │
-│                          │ Skip workflow│               │ Continue with│   │
-│                          │ Log warning  │               │ normal flow  │   │
-│                          │ Exit cleanly │               └──────────────┘   │
-│                          └──────────────┘                                   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Extracting Cost from Claude Code Logs
-
-Each Claude Code workflow execution outputs cost information. The check script parses workflow logs:
-
-```bash
-# Script: scripts/tdd-automation/check-claude-usage.sh
-
-# Get Claude Code workflow runs from the past 24 hours
-gh run list --workflow="claude-code.yml" --json databaseId,createdAt,status \
-  --jq '[.[] | select(.createdAt > (now - 86400 | strftime("%Y-%m-%dT%H:%M:%SZ")))]'
-
-# For each completed run, extract cost from logs
-# Claude Code outputs: "Total cost: $X.XX"
-gh run view $RUN_ID --log | grep -oP 'Total cost: \$\K[0-9]+\.[0-9]+'
-
-# Sum daily costs
-DAILY_TOTAL=$(... | awk '{sum += $1} END {print sum}')
-
-# Sum weekly costs (past 7 days)
-WEEKLY_TOTAL=$(... | awk '{sum += $1} END {print sum}')
-```
-
-### Cost Calculation Script
-
-```typescript
-// scripts/tdd-automation/core/check-credit-usage.ts
-
-interface UsageResult {
-  dailySpend: number
-  weeklySpend: number
-  dailyRemaining: number
-  weeklyRemaining: number
-  canProceed: boolean
-}
-
-const DAILY_LIMIT = 100 // $100/day
-const WEEKLY_LIMIT = 500 // $500/week
-
-export function checkCreditUsage(): Effect.Effect<UsageResult, UsageCheckError> {
-  return Effect.gen(function* () {
-    // Parse workflow logs for cost data
-    const dailySpend = yield* getDailySpend()
-    const weeklySpend = yield* getWeeklySpend()
-
-    return {
-      dailySpend,
-      weeklySpend,
-      dailyRemaining: DAILY_LIMIT - dailySpend,
-      weeklyRemaining: WEEKLY_LIMIT - weeklySpend,
-      canProceed: dailySpend < DAILY_LIMIT && weeklySpend < WEEKLY_LIMIT,
-    }
-  })
-}
-```
-
-### Workflow Integration
-
-The credit check happens at **two points**:
-
-1. **PR Creator Workflow** - Before creating any new TDD PR
-2. **Claude Code Workflow** - Before executing Claude Code (double-check)
-
-```yaml
-# In pr-creator.yml
-jobs:
-  check-credits:
-    runs-on: ubuntu-latest
-    outputs:
-      can-proceed: ${{ steps.check.outputs.can-proceed }}
-    steps:
-      - name: Check Claude Code credit usage
-        id: check
-        run: |
-          # Calculate daily spend
-          DAILY_SPEND=$(gh run list --workflow="claude-code.yml" \
-            --created ">$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
-            --json databaseId --jq 'length' | xargs -I {} echo "Checking {} runs" >&2)
-
-          # ... cost extraction logic ...
-
-          if [ "$DAILY_SPEND" -ge 100 ] || [ "$WEEKLY_SPEND" -ge 500 ]; then
-            echo "⚠️ Credit limit reached - Daily: \$${DAILY_SPEND}, Weekly: \$${WEEKLY_SPEND}"
-            echo "can-proceed=false" >> $GITHUB_OUTPUT
-          else
-            echo "✓ Credits OK - Daily: \$${DAILY_SPEND}/\$100, Weekly: \$${WEEKLY_SPEND}/\$500"
-            echo "can-proceed=true" >> $GITHUB_OUTPUT
-          fi
-
-  create-pr:
-    needs: check-credits
-    if: needs.check-credits.outputs.can-proceed == 'true'
-    # ... rest of PR creation logic
-```
-
-### Logging & Alerts
-
-When limits are approached or exceeded:
-
-| Spend Level           | Action                   |
-| --------------------- | ------------------------ |
-| 80% of daily ($80)    | Warning in workflow logs |
-| 80% of weekly ($400)  | Warning in workflow logs |
-| 100% of daily ($100)  | Skip workflow, log error |
-| 100% of weekly ($500) | Skip workflow, log error |
-
-**Optional**: Add Slack/Discord webhook notification when 80%+ reached.
 
 ---
 
-## Main Branch Synchronization
+#### Workflow Interconnection Diagram
 
-### The Problem
-
-While a TDD PR is being processed (which may take multiple fix attempts over hours), the `main` branch can advance due to:
-
-- Other developers merging PRs
-- Other TDD PRs completing
-- Hotfixes
-
-If the TDD PR gets too far behind, it can cause:
-
-1. **Merge conflicts** when auto-merge tries to complete
-2. **Stale code** - Claude fixing code that's already changed
-3. **False positives** - Tests passing on old code but failing on current main
-
-### The Solution: Sync Before Every Claude Code Execution
+Shows how the 4 workflows communicate via GitHub events:
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      MAIN BRANCH SYNC STRATEGY                               │
-│                                                                              │
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌───────────┐ │
-│  │Test Workflow│────▶│ PR behind?  │────▶│Post @claude │────▶│Claude Code│ │
-│  │   fails     │     │   main?     │ YES │ sync comment│     │ syncs +   │ │
-│  └─────────────┘     └──────┬──────┘     └─────────────┘     │ fixes     │ │
-│                             │ NO                              └───────────┘ │
-│                             ▼                                               │
-│                      ┌─────────────┐                                        │
-│                      │Post @claude │                                        │
-│                      │ fix comment │                                        │
-│                      └─────────────┘                                        │
-│                                                                              │
-│  ═══════════════════════════════════════════════════════════════════════   │
-│                                                                              │
-│  CLAUDE CODE WORKFLOW (always syncs first):                                  │
-│                                                                              │
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌───────────┐ │
-│  │  Checkout   │────▶│ git fetch   │────▶│git merge    │────▶│ Conflicts?│ │
-│  │  PR branch  │     │   main      │     │origin/main  │     └─────┬─────┘ │
-│  └─────────────┘     └─────────────┘     └─────────────┘           │       │
-│                                                                     │       │
-│                                              ┌──────────────────────┤       │
-│                                              │                      │       │
-│                                           NO ▼                   YES▼       │
-│                                      ┌─────────────┐        ┌───────────┐  │
-│                                      │ Proceed to  │        │ Resolve   │  │
-│                                      │ original    │        │ conflicts │  │
-│                                      │ task        │        │ first     │  │
-│                                      └─────────────┘        └─────┬─────┘  │
-│                                                                   │        │
-│                                                                   ▼        │
-│                                                            ┌───────────┐   │
-│                                                            │ Then do   │   │
-│                                                            │ original  │   │
-│                                                            │ task      │   │
-│                                                            └───────────┘   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Sync Trigger Points
-
-| Trigger Point            | When                           | Action                                                                             |
-| ------------------------ | ------------------------------ | ---------------------------------------------------------------------------------- |
-| **Test Workflow**        | Before running tests on TDD PR | Check `mergeStateStatus`, if `BEHIND` → post sync comment instead of running tests |
-| **Claude Code Workflow** | Before every execution         | Always `git fetch && git merge origin/main`                                        |
-| **PR Creator**           | When creating new PR           | Branch from latest `main` (always fresh start)                                     |
-
-### Comment Format for Sync Requests
-
-When Test Workflow detects the PR is behind:
-
-```
-@claude Sync required: The main branch has been updated since this PR was created.
-
-Please:
-1. Merge origin/main into this branch
-2. Resolve any merge conflicts (look for <<<<<<< markers)
-3. Run quality checks after merging
-4. Commit and push the merge result
-
-The original test fix task will continue after sync is complete.
-```
-
-### Conflict Resolution by Claude
-
-When Claude Code detects conflicts during merge:
-
-```
-Conflict detected in files:
-- src/domain/models/table.ts
-- specs/api/tables/create.spec.ts
-
-Claude Code prompt includes:
-"Resolve ALL merge conflicts before proceeding.
-For each conflict:
-1. Understand what both sides intended
-2. Choose the correct resolution (usually: keep both changes if they don't conflict, or prefer main's version for unrelated changes)
-3. Remove all conflict markers (<<<<<<< ======= >>>>>>>)
-4. Test the resolution works"
+┌───────────────────────────────────────────────────────────────────────────────────────────┐
+│                             WORKFLOW INTERCONNECTIONS                                      │
+│                             ════════════════════════                                       │
+│                                                                                           │
+│  ┌───────────────┐                                                                        │
+│  │               │                                                                        │
+│  │  PR CREATOR   │──────────────────────────────────────────────────────────────┐        │
+│  │               │                                                               │        │
+│  └───────┬───────┘                                                               │        │
+│          │                                                                       │        │
+│          │ Creates PR with tdd-automation label                                  │        │
+│          │ Pushes to tdd/<spec-id> branch                                        │        │
+│          │                                                                       │        │
+│          │ ◀─────────────────────────────────────────────────────────────────────┤        │
+│          │   workflow_run: test.yml success on main                              │        │
+│          │                                                                       │        │
+│          ▼                                                                       │        │
+│  ┌───────────────┐                                                               │        │
+│  │               │                                                               │        │
+│  │     TEST      │◀──────────────────────────────────────────────────┐           │        │
+│  │               │                                                    │           │        │
+│  └───────┬───────┘                                                    │           │        │
+│          │                                                            │           │        │
+│          │ On failure:                                                │           │        │
+│          │ - Updates PR title (Attempt X+1/Y)                         │           │        │
+│          │ - Posts @claude comment                                    │           │        │
+│          │                                                            │           │        │
+│          │ On success:                                                │           │        │
+│          │ - Auto-merge triggers                                      │           │        │
+│          │ - Triggers PR Creator (workflow_run)                       ────────────┘        │
+│          │                                                                                │
+│          ▼                                                                                │
+│  ┌───────────────┐                                                                        │
+│  │               │                                                                        │
+│  │  CLAUDE CODE  │                                                                        │
+│  │               │                                                                        │
+│  └───────┬───────┘                                                                        │
+│          │                                                                                │
+│          │ On success:                                                                    │
+│          │ - Commits and pushes changes                                                   │
+│          │ - Push event triggers TEST workflow ──────────────────────────────────────────┘│
+│          │                                                                                │
+│          │ On merge conflict:                                                             │
+│          │ - Adds had-conflict label                                                      │
+│          │ - Disables auto-merge (human review required)                                  │
+│          │                                                                                │
+│          │                                                                                │
+│  ┌───────▼───────┐                                                                        │
+│  │               │                                                                        │
+│  │MERGE WATCHDOG │  (independent, runs every 30 min)                                      │
+│  │               │                                                                        │
+│  └───────────────┘                                                                        │
+│          │                                                                                │
+│          │ Monitors for stuck PRs                                                         │
+│          │ Creates alert issues if stuck > 4 hours                                        │
+│                                                                                           │
+└───────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Workflow Details
+#### Complete Spec Lifecycle (Single Spec Journey)
 
-### 1. PR Creator Workflow (`pr-creator.yml`)
+```
+SPEC LIFECYCLE: From .fixme() to Merged
+═══════════════════════════════════════
+
+Timeline ──────────────────────────────────────────────────────────────────────────────────►
+
+┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐
+│ STATE 0 │──▶│ STATE 1 │──▶│ STATE 2 │──▶│ STATE 3 │──▶│ STATE 4 │──▶│ STATE 5 │──▶│ STATE 6 │
+│         │   │         │   │         │   │         │   │         │   │         │   │         │
+│.fixme() │   │ PR      │   │ Tests   │   │ @claude │   │ Agent   │   │ Tests   │   │ Merged  │
+│ in spec │   │ Created │   │ Running │   │ Posted  │   │ Fixing  │   │ Pass    │   │ to Main │
+└─────────┘   └─────────┘   └─────────┘   └─────────┘   └─────────┘   └─────────┘   └─────────┘
+     │             │             │             │             │             │             │
+     │             │             │             │             │             │             │
+     ▼             ▼             ▼             ▼             ▼             ▼             ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                             │
+│  Spec file:      Branch:        test.yml:      test.yml:      claude-code:   test.yml:    │
+│  specs/api/      tdd/API-       Triggered      Posts          Agent runs     Detects      │
+│  tables/         TABLES-        by push        @claude        autonomously   all pass     │
+│  create.spec.ts  CREATE-001     event          comment        for ~45 min    Auto-merge   │
+│                                                                              squash       │
+│  test.fixme(     PR Title:      Runs:          Comment:       Outputs:       PR closes    │
+│    'creates      [TDD]          - lint         @claude        - Analysis     Label        │
+│    table'        Implement      - typecheck    Tests fail...  - Code fix     removed      │
+│  )               API-TABLES-    - unit         Spec: ...      - Tests        Next spec    │
+│                  CREATE-001     - e2e spec     Attempt: 1/5   - Commit       begins       │
+│                  | Attempt 1/5                 Please use...  - Push                      │
+│                                                                                             │
+│                  Label:                        Title update:                               │
+│                  tdd-automation                [TDD]...|                                  │
+│                                                Attempt 2/5                                │
+│                                                                                             │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
+
+FAILURE PATH (up to 5 attempts):
+═══════════════════════════════
+
+    STATE 3 ──▶ STATE 4 ──▶ STATE 2 ──▶ STATE 3 ──▶ STATE 4 ──▶ STATE 2 ...
+       │          │          │          │          │          │
+       │          │          │          │          │          │
+       ▼          ▼          ▼          ▼          ▼          ▼
+   Attempt 1   Agent 1    Tests 1    Attempt 2   Agent 2    Tests 2   ...until pass or 5 fails
+   @claude     Fixes      Still      @claude     Fixes      Still
+   posted      pushed     fail       posted      pushed     fail
+
+TERMINAL STATES:
+════════════════
+
+┌─────────────────────────┐       ┌─────────────────────────┐
+│ SUCCESS (STATE 6)       │       │ MANUAL INTERVENTION     │
+│                         │       │                         │
+│ - Tests pass            │       │ - 5 attempts failed     │
+│ - Auto-merge completes  │       │ - Label added:          │
+│ - PR closes             │       │   tdd-automation:       │
+│ - Label removed         │       │   manual-intervention   │
+│ - Next spec begins      │       │ - Human review needed   │
+│                         │       │ - Pipeline continues    │
+│                         │       │   with next spec        │
+└─────────────────────────┘       └─────────────────────────┘
+```
+
+---
+
+## Workflow Specifications
+
+### 1. PR Creator Workflow
+
+**File:** `.github/workflows/pr-creator.yml`
 
 **Triggers:**
 
-- `workflow_run`: After successful `test.yml` on `main` branch (chain reaction - minimizes latency)
-- `schedule`: Every hour (`0 * * * *`) (backup)
+- `workflow_run`: After successful `test.yml` on `main` (chain reaction)
+- `schedule`: Every hour (`0 * * * *`) - backup
 - `workflow_dispatch`: Manual trigger
 
 **Pre-conditions (all must be true):**
 
-1. **Claude Code credit usage within limits** (daily < $100, weekly < $500)
-2. No open PR exists with label `tdd-automation` that DOESN'T have `tdd-automation:manual-intervention`
-3. At least one `.fixme()` spec exists in the codebase
+1. Credit usage within limits (daily < $100, weekly < $500)
+2. No active TDD PR without `manual-intervention` label
+3. At least one `.fixme()` spec exists
 
-**Full Implementation:**
+**Jobs:**
+
+| Job               | Purpose                                | Outputs                        |
+| ----------------- | -------------------------------------- | ------------------------------ |
+| `check-credits`   | Verify Claude Code spend within limits | `can-proceed`, `daily-spend`   |
+| `check-active-pr` | Ensure no other TDD PR is processing   | `has-active`                   |
+| `create-pr`       | Find next spec → create branch → PR    | PR with `tdd-automation` label |
+
+> **Note**: The diagram shows `find-spec` as a logical step (JOB 3). In implementation, it's a step within the `create-pr` job to simplify job output passing. The 4 logical steps in the diagram map to 3 GitHub Actions jobs.
+
+**Spec Selection Logic (within create-pr job):**
+
+1. Run `scripts/tdd-automation/core/schema-priority-calculator.ts`
+2. Exclude specs in `manual-intervention` PRs
+3. Extract per-spec config (`@tdd-max-attempts`, `@tdd-timeout`)
+
+**PR Creation:**
+
+- Branch: `tdd/<spec-id>`
+- Title: `[TDD] Implement <spec-id> | Attempt 1/5`
+- Label: `tdd-automation`
+- Auto-merge: Enabled (squash)
+
+---
+
+### 2. Test Workflow
+
+**File:** `.github/workflows/test.yml`
+
+**Triggers:**
+
+- `push`: Any branch
+- `pull_request`: Any PR
+
+**TDD-Specific Behavior:**
+
+| Condition                    | Action                                             |
+| ---------------------------- | -------------------------------------------------- |
+| TDD PR detected              | Identify via label OR branch name `tdd/*`          |
+| PR is behind main            | Post sync request comment (not counted as attempt) |
+| Tests fail (attempts < max)  | Post `@claude` comment with failure details        |
+| Tests fail (attempts >= max) | Add `tdd-automation:manual-intervention` label     |
+| Tests pass                   | Auto-merge proceeds                                |
+
+**Attempt Counting:**
+
+- Read from PR title: `Attempt X/Y`
+- Increment ONLY on **test failure** (E2E assertions fail)
+- Do NOT count toward attempts (still triggers @claude):
+  - **Sync requests**: Branch needs update from main
+  - **Quality-only failures**: Lint/typecheck fail but tests pass (uses refactor-auditor agent)
+  - **Infrastructure errors**: Network timeouts, GitHub API errors, CI runner issues
+  - **Merge conflicts**: Resolution doesn't burn an attempt
+
+**Rationale**: Attempts track "implementation tries", not "pipeline runs". Quality fixes are refinement, not core implementation.
+
+**@claude Comment Format:**
+
+```
+@claude Tests are failing for this TDD PR.
+
+**Spec:** <spec-id>
+**File:** <spec-file-path>
+**Attempt:** X/Y
+
+**Failure Details:**
+<test output>
+
+Please use the e2e-test-fixer agent to implement the minimal code changes needed to make this test pass.
+```
+
+---
+
+### 3. Claude Code Workflow
+
+**File:** `.github/workflows/claude-code.yml`
+
+**Triggers:**
+
+- `issue_comment`: When comment contains `@claude` on TDD PR
+
+**Pre-conditions:**
+
+1. Comment author is `github-actions[bot]`
+2. PR has `tdd-automation` label
+3. Credit limits not exceeded
+
+**Execution Flow:**
+
+| Step               | Action                                             |
+| ------------------ | -------------------------------------------------- |
+| 1. Validate        | Check commenter, label, credits                    |
+| 2. Sync            | `git fetch && git merge origin/main`               |
+| 3. Detect conflict | If conflict → add label, modify prompt             |
+| 4. Execute action  | Run `anthropics/claude-code-action@v1`             |
+| 5. Handle result   | Push changes if any, update PR title attempt count |
+
+**Agent Selection (via prompt):**
+
+| Condition            | Agent                       | Focus                        |
+| -------------------- | --------------------------- | ---------------------------- |
+| Merge conflict       | Conflict resolution         | Fix markers, test resolution |
+| Test failure         | `e2e-test-fixer`            | Minimal code to pass tests   |
+| Quality failure only | `codebase-refactor-auditor` | Code quality improvements    |
+
+**Conflict Handling:**
+
+- Add `tdd-automation:had-conflict` label
+- Disable auto-merge until human reviews
+- Include conflict resolution instructions in prompt
+
+---
+
+### 4. Merge Watchdog Workflow
+
+**File:** `.github/workflows/merge-watchdog.yml`
+
+**Triggers:**
+
+- `schedule`: Every 30 minutes (`*/30 * * * *`)
+
+**Purpose:** Detect and alert on stuck PRs that should have auto-merged.
+
+**Detection Criteria:**
+
+- PR has `tdd-automation` label
+- PR is open for > 2 hours
+- All checks passing
+- Auto-merge not completing
+
+**Actions:**
+
+1. Log warning with PR details
+2. Create alert issue if stuck > 4 hours
+3. Optionally re-enable auto-merge
+
+---
+
+## State Management
+
+### Label State Machine
+
+```
+┌──────────────────┐
+│  No TDD PR open  │ ◀────────────────────────────────────┐
+│  (idle state)    │                                      │
+└────────┬─────────┘                                      │
+         │ PR Creator creates PR                          │
+         ▼                                                │
+┌──────────────────┐                                      │
+│ tdd-automation   │ ◀──────────────┐                     │
+│ (active)         │                │                     │
+└────────┬─────────┘                │                     │
+         │                          │                     │
+         ├── Tests pass ────────────┼────► Auto-merge ────┘
+         │                          │
+         ├── Tests fail (<5) ───────┤
+         │   Post @claude           │
+         │   Claude fixes           │
+         │   Push triggers tests ───┘
+         │
+         └── Tests fail (>=5) ──────┐
+                                    ▼
+                          ┌──────────────────────┐
+                          │ manual-intervention  │
+                          │ (needs human)        │
+                          └──────────────────────┘
+```
+
+### Branch Name as Backup ID
+
+If labels are accidentally removed, the branch name `tdd/<spec-id>` serves as a backup identifier to:
+
+1. Restore the `tdd-automation` label
+2. Associate the PR with its spec
+
+---
+
+## Cost Protection
+
+### Credit Check Points
+
+Credit limits are checked at **two points** for defense-in-depth:
+
+| Workflow     | When Checked                    | If Limit Exceeded                        |
+| ------------ | ------------------------------- | ---------------------------------------- |
+| PR Creator   | Before creating new TDD PR      | Skips PR creation, logs warning          |
+| Claude Code  | Before executing agent          | Skips execution, comments on PR          |
+
+**Rationale**: Double-checking prevents runaway costs if one workflow misbehaves.
+
+### Credit Tracking
+
+**Calculation:**
+
+1. Query `claude-code.yml` workflow runs from past 24h/7d
+2. Parse cost from logs using multiple patterns
+3. Sum all successful run costs
+4. Compare against thresholds
+
+**Cost Patterns (tried in order, first match wins):**
+
+| Priority | Pattern                 | Example Match           | Notes                           |
+| -------- | ----------------------- | ----------------------- | ------------------------------- |
+| 1        | `Total cost: $X.XX`     | `Total cost: $12.34`    | Claude Code action format       |
+| 2        | `Cost: $X.XX`           | `Cost: $5.67`           | Alternative short format        |
+| 3        | `Session cost: X.XX USD`| `Session cost: 8.90 USD`| Legacy format (no $ prefix)     |
+
+**Fallback:** $15/run if all patterns fail to match (+ creates GitHub issue for investigation)
+
+### Thresholds
+
+| Check  | Warning | Hard Limit | Action             |
+| ------ | ------- | ---------- | ------------------ |
+| Daily  | $80     | $100       | Log warning / Skip |
+| Weekly | $400    | $500       | Log warning / Skip |
+
+---
+
+## Implementation Plan
+
+### Phase 1: Core Infrastructure (Days 1-2)
+
+| Task                     | File                                                        | Acceptance Criteria                                                 |
+| ------------------------ | ----------------------------------------------------------- | ------------------------------------------------------------------- |
+| 1.1 Create PR Creator    | `.github/workflows/pr-creator.yml`                          | Finds `.fixme()` specs, creates PRs, adds label, enables auto-merge |
+| 1.2 Create credit check  | `scripts/tdd-automation/programs/check-credit-limits.ts`    | Parses logs, returns spend, has fallback (see Effect Architecture)  |
+| 1.3 Create Watchdog      | `.github/workflows/merge-watchdog.yml`                      | Runs every 30 min, detects stuck PRs                                |
+| 1.4 Update priority calc | `scripts/tdd-automation/core/schema-priority-calculator.ts` | Returns spec-id, supports `--exclude`                               |
+
+### Phase 2: Test Workflow Integration (Days 3-4)
+
+| Task                     | File                         | Acceptance Criteria                      |
+| ------------------------ | ---------------------------- | ---------------------------------------- |
+| 2.1 Add TDD detection    | `.github/workflows/test.yml` | Detects via label OR branch name         |
+| 2.2 Add change detection | `.github/workflows/test.yml` | Identifies fixme-only changes            |
+| 2.3 Add failure handling | `.github/workflows/test.yml` | Reads/increments attempts, posts @claude |
+| 2.4 Add sync check       | `.github/workflows/test.yml` | Checks if behind main                    |
+
+### Phase 3: Claude Code Workflow (Days 5-6)
+
+**Prerequisites:**
+
+- Add `CLAUDE_CODE_OAUTH_TOKEN` to repository secrets
+
+| Task                 | File                                | Acceptance Criteria                                          |
+| -------------------- | ----------------------------------- | ------------------------------------------------------------ |
+| 3.1 Create workflow  | `.github/workflows/claude-code.yml` | Uses `anthropics/claude-code-action@v1`, triggers on @claude |
+| 3.2 Add sync logic   | `.github/workflows/claude-code.yml` | Fetches main, detects conflicts                              |
+| 3.3 Configure action | `.github/workflows/claude-code.yml` | `track_progress: true`, `use_sticky_comment: true`           |
+| 3.4 Add prompts      | `.github/workflows/claude-code.yml` | Conflict, e2e-test-fixer, refactor prompts                   |
+
+### Phase 4: Production Launch (Days 7-8)
+
+**Go-Live Checklist:**
+
+- [ ] `CLAUDE_CODE_OAUTH_TOKEN` secret configured
+- [ ] All workflows created and tested
+- [ ] Credit limits verified working
+- [ ] Watchdog creating alerts correctly
+- [ ] First 5 specs processed successfully
+
+### Files Summary
+
+**New Files:**
+
+```
+.github/workflows/pr-creator.yml
+.github/workflows/merge-watchdog.yml
+.github/workflows/claude-code.yml
+scripts/tdd-automation/programs/check-credit-limits.ts
+scripts/tdd-automation/services/  (see Effect Architecture for full list)
+```
+
+**Modified Files:**
+
+```
+.github/workflows/test.yml
+scripts/tdd-automation/core/schema-priority-calculator.ts
+```
+
+---
+
+## Risks & Mitigations
+
+| Risk                           | Mitigation                                           | Confidence   |
+| ------------------------------ | ---------------------------------------------------- | ------------ |
+| Serial processing time         | Chain reaction triggers, fast-path for passing tests | ✅ ~6-8 days |
+
+**Timeline Math Explanation:**
+- **Worst-case ceiling**: 230 specs × 2h/spec = 460h (if every spec maxed out)
+- **Realistic estimate**: ~6-8 calendar days because:
+  - Many specs pass with trivial implementation (<15 min)
+  - Chain reaction triggers eliminate 1h cron wait between specs
+  - Fast-path: passing tests trigger immediate next PR creation
+  - Average ~45 min/spec realistic (230 × 0.75h = 172h = ~7 days)
+| Cost parsing fragility         | Multi-pattern + $15 fallback + alert issues          | ✅ High      |
+| Merge conflict quality         | Flag label + human review gate                       | ✅ High      |
+| Comment-based retry counting   | PR title-based (immutable)                           | ✅ High      |
+| GitHub API rate limits         | Exponential backoff                                  | ✅ High      |
+| Auto-merge stuck PRs           | Watchdog every 30 min                                | ✅ High      |
+| Claude Code hangs              | Job timeout + action's built-in progress tracking    | ✅ High      |
+| Infrastructure failures        | Classification + auto-retry (no count)               | ✅ High      |
+| Long-running specs             | Per-spec `@tdd-max-attempts`, `@tdd-timeout`         | ✅ High      |
+| Label accidents                | Branch name as backup identifier                     | ✅ High      |
+
+---
+
+## Design Decisions
+
+| Decision               | Choice                                                    | Rationale                                            |
+| ---------------------- | --------------------------------------------------------- | ---------------------------------------------------- |
+| Cron frequency         | Hourly (backup only)                                      | Chain reaction via `workflow_run` handles most cases |
+| Max attempts           | 5 (default, configurable)                                 | Increased from 3 for 230-spec reliability            |
+| Label names            | `tdd-automation`, `:manual-intervention`, `:had-conflict` | Clear, consistent naming                             |
+| Branch naming          | `tdd/<spec-id>`                                           | Simple, serves as backup identifier                  |
+| @claude comment format | Agent-specific with file paths                            | Enables correct agent selection                      |
+| Credit limits          | $100/day, $500/week                                       | Conservative limits with 80% warnings                |
+| Cost parsing           | Multi-pattern + fallback                                  | Handles format changes gracefully                    |
+| Sync strategy          | Merge (not rebase)                                        | Safer, no force-push, better for automation          |
+| Conflict counting      | Not counted as attempt                                    | Infrastructure issue, not code failure               |
+
+---
+
+## Per-Spec Configuration
+
+Specs can include inline configuration via comments:
+
+```typescript
+// @tdd-max-attempts 8   // Override default 5 attempts
+// @tdd-timeout 60       // Override default 45 min timeout
+test.fixme('Complex integration test', async () => {
+  // ...
+})
+```
+
+---
+
+## Comment Templates
+
+### Sync Request (Test Workflow → Claude)
+
+```
+@claude Sync required: The main branch has been updated.
+
+Please:
+1. Merge origin/main into this branch
+2. Resolve any merge conflicts
+3. Run quality checks after merging
+4. Commit and push the merge result
+```
+
+### Test Failure (Test Workflow → Claude)
+
+```
+@claude Tests are failing for this TDD PR.
+
+**Spec:** <spec-id>
+**File:** <spec-file-path>
+**Attempt:** X/Y
+
+**Failure Details:**
+<test output>
+
+Please use the e2e-test-fixer agent to implement the minimal code changes needed.
+```
+
+### Conflict Resolution (Claude Code)
+
+```
+Conflict detected in files:
+- <file-list>
+
+Resolve ALL merge conflicts before proceeding:
+1. Understand what both sides intended
+2. Choose correct resolution
+3. Remove all conflict markers
+4. Test the resolution works
+```
+
+---
+
+## Effect-Based Implementation Architecture
+
+### Architecture Principle
+
+**YAML for Orchestration Only, TypeScript + Effect for All Logic**
+
+The TDD automation pipeline follows a strict separation of concerns:
+
+| Layer              | Responsibility                                                   | Technology             |
+| ------------------ | ---------------------------------------------------------------- | ---------------------- |
+| **Orchestration**  | Workflow triggers, job sequencing, GitHub event handling         | GitHub Actions YAML    |
+| **Business Logic** | Credit calculation, spec scanning, PR management, error handling | TypeScript + Effect.ts |
+
+**Why This Separation?**
+
+| Bash-in-YAML (Current)              | Effect-Based (Target)                       |
+| ----------------------------------- | ------------------------------------------- |
+| ❌ Hard to test                     | ✅ Fully unit-testable                      |
+| ❌ Complex error handling           | ✅ Type-safe errors with `Data.TaggedError` |
+| ❌ Duplicated code across workflows | ✅ Shared services and programs             |
+| ❌ Fragile string parsing           | ✅ Effect Schema for validation             |
+| ❌ No IDE support                   | ✅ Full TypeScript IntelliSense             |
+| ❌ Hidden bugs in grep/sed          | ✅ Compile-time type checking               |
+| ❌ Hard to refactor                 | ✅ Safe refactoring with types              |
+
+---
+
+### Directory Structure
+
+```
+scripts/tdd-automation/
+├── core/                              # EXISTING - Domain types and utilities
+│   ├── types.ts                       # ✓ TDDPRTitle, TDDPullRequest, ReadySpec, etc.
+│   ├── errors.ts                      # NEW: Effect error types
+│   ├── config.ts                      # NEW: TDD_CONFIG as Effect Config
+│   ├── schema-priority-calculator.ts  # ✓ Pure functions for spec priority
+│   ├── parse-pr-title.ts              # ✓ Parse attempt count from PR title
+│   ├── update-pr-title.ts             # ✓ Generate updated PR title
+│   ├── find-ready-spec.ts             # ✓ Find next spec to process
+│   └── spec-scanner.ts                # ✓ Scan for .fixme() specs
+│
+├── services/                          # NEW: Effect service interfaces
+│   ├── github-api.ts                  # GitHub API service interface
+│   ├── github-api.live.ts             # Live implementation (gh CLI)
+│   ├── github-api.test.ts             # Mock implementation for tests
+│   ├── git-operations.ts              # Git operations service
+│   ├── git-operations.live.ts
+│   ├── cost-tracker.ts                # Credit tracking service
+│   └── cost-tracker.live.ts
+│
+├── programs/                          # NEW: Effect programs (composable)
+│   ├── check-credit-limits.ts         # Credit limit checking program
+│   ├── find-active-tdd-pr.ts          # Find active PR program
+│   ├── create-tdd-pr.ts               # PR creation program
+│   ├── sync-with-main.ts              # Branch sync program
+│   ├── detect-merge-conflicts.ts      # Conflict detection program
+│   └── increment-attempt.ts           # Attempt counter program
+│
+├── workflows/                         # NEW: CLI entry points for YAML
+│   ├── pr-creator/
+│   │   ├── check-credits.ts           # Entry: bun run scripts/tdd-automation/workflows/pr-creator/check-credits.ts
+│   │   ├── check-active-pr.ts
+│   │   ├── find-next-spec.ts
+│   │   └── create-pr.ts
+│   ├── test/
+│   │   ├── detect-tdd-pr.ts
+│   │   ├── check-sync-status.ts
+│   │   └── handle-failure.ts
+│   ├── claude-code/
+│   │   ├── validate-trigger.ts
+│   │   ├── sync-branch.ts
+│   │   └── select-agent.ts
+│   └── merge-watchdog/
+│       └── check-stuck-prs.ts
+│
+└── layers/                            # NEW: Effect dependency injection
+    ├── live.ts                        # Production layer (real APIs)
+    └── test.ts                        # Test layer (mocks)
+```
+
+---
+
+### Effect Error Types
+
+All TDD automation errors are modeled as `Data.TaggedError` for type-safe error handling:
+
+```typescript
+// scripts/tdd-automation/core/errors.ts
+import { Data } from 'effect'
+
+/**
+ * Credit limit exceeded - daily or weekly
+ */
+export class CreditLimitExceeded extends Data.TaggedError('CreditLimitExceeded')<{
+  readonly dailySpend: number
+  readonly weeklySpend: number
+  readonly limit: 'daily' | 'weekly'
+}> {}
+
+/**
+ * Cost parsing failed for a workflow run
+ */
+export class CostParsingFailed extends Data.TaggedError('CostParsingFailed')<{
+  readonly runId: string
+  readonly rawLog: string
+}> {}
+
+/**
+ * An active TDD PR already exists (serial processing)
+ */
+export class ActiveTDDPRExists extends Data.TaggedError('ActiveTDDPRExists')<{
+  readonly prNumber: number
+  readonly specId: string
+}> {}
+
+/**
+ * No pending specs with .fixme() found
+ */
+export class NoPendingSpecs extends Data.TaggedError('NoPendingSpecs')<{
+  readonly message: string
+}> {}
+
+/**
+ * Merge conflict detected during sync
+ */
+export class MergeConflict extends Data.TaggedError('MergeConflict')<{
+  readonly files: readonly string[]
+}> {}
+
+/**
+ * Max attempts reached for a spec
+ */
+export class MaxAttemptsReached extends Data.TaggedError('MaxAttemptsReached')<{
+  readonly specId: string
+  readonly attempts: number
+  readonly maxAttempts: number
+}> {}
+
+/**
+ * GitHub API error
+ */
+export class GitHubApiError extends Data.TaggedError('GitHubApiError')<{
+  readonly operation: string
+  readonly cause: unknown
+}> {}
+
+/**
+ * Git operation failed
+ */
+export class GitOperationError extends Data.TaggedError('GitOperationError')<{
+  readonly command: string
+  readonly stderr: string
+}> {}
+```
+
+---
+
+### Effect Service Interfaces
+
+Services abstract external dependencies for testability:
+
+```typescript
+// scripts/tdd-automation/services/github-api.ts
+import { Context, Effect, Layer } from 'effect'
+import type { TDDPullRequest, ReadySpec } from '../core/types'
+import type { GitHubApiError, ActiveTDDPRExists } from '../core/errors'
+
+/**
+ * Workflow run metadata from GitHub API
+ */
+export interface WorkflowRun {
+  readonly id: string
+  readonly name: string
+  readonly conclusion: 'success' | 'failure' | 'cancelled' | 'skipped' | null
+  readonly createdAt: Date
+  readonly updatedAt: Date
+  readonly htmlUrl: string
+}
+
+export interface GitHubApiService {
+  /**
+   * List open PRs with tdd-automation label
+   */
+  readonly listTDDPRs: () => Effect.Effect<readonly TDDPullRequest[], GitHubApiError>
+
+  /**
+   * Get workflow runs for cost calculation
+   */
+  readonly getWorkflowRuns: (params: {
+    workflow: string
+    createdAfter: Date
+    status: 'success' | 'failure' | 'all'
+  }) => Effect.Effect<readonly WorkflowRun[], GitHubApiError>
+
+  /**
+   * Get workflow run logs for cost parsing
+   */
+  readonly getRunLogs: (runId: string) => Effect.Effect<string, GitHubApiError>
+
+  /**
+   * Create a new PR
+   */
+  readonly createPR: (params: {
+    title: string
+    branch: string
+    base: string
+    labels: readonly string[]
+  }) => Effect.Effect<{ number: number; url: string }, GitHubApiError>
+
+  /**
+   * Update PR title
+   */
+  readonly updatePRTitle: (prNumber: number, title: string) => Effect.Effect<void, GitHubApiError>
+
+  /**
+   * Add label to PR
+   */
+  readonly addLabel: (prNumber: number, label: string) => Effect.Effect<void, GitHubApiError>
+
+  /**
+   * Post comment on PR
+   */
+  readonly postComment: (prNumber: number, body: string) => Effect.Effect<void, GitHubApiError>
+
+  /**
+   * Enable auto-merge for PR
+   */
+  readonly enableAutoMerge: (
+    prNumber: number,
+    mergeMethod: 'squash' | 'merge' | 'rebase'
+  ) => Effect.Effect<void, GitHubApiError>
+}
+
+export class GitHubApi extends Context.Tag('GitHubApi')<GitHubApi, GitHubApiService>() {}
+```
+
+**Live Implementation:**
+
+```typescript
+// scripts/tdd-automation/services/github-api.live.ts
+import { Layer, Effect } from 'effect'
+import { GitHubApi, type GitHubApiService } from './github-api'
+import { GitHubApiError } from '../core/errors'
+import { parseTDDPRTitle } from '../core/parse-pr-title'
+
+export const GitHubApiLive = Layer.succeed(GitHubApi, {
+  listTDDPRs: () =>
+    Effect.tryPromise({
+      try: async () => {
+        const { stdout } =
+          await Bun.$`gh pr list --label "tdd-automation" --state open --json number,title,headRefName,labels`
+        const prs = JSON.parse(stdout.toString())
+        return prs.map((pr: any) => ({
+          number: pr.number,
+          title: pr.title,
+          branch: pr.headRefName,
+          ...parseTDDPRTitle(pr.title),
+          labels: pr.labels.map((l: any) => l.name),
+          hasManualInterventionLabel: pr.labels.some(
+            (l: any) => l.name === 'tdd-automation:manual-intervention'
+          ),
+          hasConflictLabel: pr.labels.some((l: any) => l.name === 'tdd-automation:had-conflict'),
+        }))
+      },
+      catch: (error) => new GitHubApiError({ operation: 'listTDDPRs', cause: error }),
+    }),
+
+  // ... other implementations using Bun shell (gh CLI)
+})
+```
+
+---
+
+### Effect Programs (Composable Business Logic)
+
+Programs compose services to implement business logic:
+
+```typescript
+// scripts/tdd-automation/programs/check-credit-limits.ts
+import { Effect, pipe } from 'effect'
+import { GitHubApi } from '../services/github-api'
+import { CostTracker } from '../services/cost-tracker'
+import { CreditLimitExceeded, CostParsingFailed } from '../core/errors'
+import { TDD_CONFIG } from '../core/config'
+
+export interface CreditCheckResult {
+  readonly canProceed: boolean
+  readonly dailySpend: number
+  readonly weeklySpend: number
+  readonly warnings: readonly string[]
+}
+
+export const checkCreditLimits = Effect.gen(function* () {
+  const github = yield* GitHubApi
+  const costTracker = yield* CostTracker
+
+  // Get workflow runs from past 24h and 7d
+  const now = new Date()
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+  const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+  const dailyRuns = yield* github.getWorkflowRuns({
+    workflow: 'claude-code.yml',
+    createdAfter: oneDayAgo,
+    status: 'success',
+  })
+
+  const weeklyRuns = yield* github.getWorkflowRuns({
+    workflow: 'claude-code.yml',
+    createdAfter: oneWeekAgo,
+    status: 'success',
+  })
+
+  // Calculate costs with fallback
+  const dailyCosts = yield* Effect.forEach(dailyRuns, (run) =>
+    pipe(
+      costTracker.parseCostFromLogs(run.id),
+      Effect.catchTag('CostParsingFailed', () => Effect.succeed(TDD_CONFIG.FALLBACK_COST_PER_RUN))
+    )
+  )
+
+  const weeklyCosts = yield* Effect.forEach(weeklyRuns, (run) =>
+    pipe(
+      costTracker.parseCostFromLogs(run.id),
+      Effect.catchTag('CostParsingFailed', () => Effect.succeed(TDD_CONFIG.FALLBACK_COST_PER_RUN))
+    )
+  )
+
+  const dailySpend = dailyCosts.reduce((a, b) => a + b, 0)
+  const weeklySpend = weeklyCosts.reduce((a, b) => a + b, 0)
+
+  const warnings: string[] = []
+
+  // Check warning thresholds (80%)
+  if (dailySpend >= TDD_CONFIG.DAILY_LIMIT * TDD_CONFIG.WARNING_THRESHOLD) {
+    warnings.push(`Daily spend at $${dailySpend}/$${TDD_CONFIG.DAILY_LIMIT} (80%+)`)
+  }
+  if (weeklySpend >= TDD_CONFIG.WEEKLY_LIMIT * TDD_CONFIG.WARNING_THRESHOLD) {
+    warnings.push(`Weekly spend at $${weeklySpend}/$${TDD_CONFIG.WEEKLY_LIMIT} (80%+)`)
+  }
+
+  // Check hard limits
+  if (dailySpend >= TDD_CONFIG.DAILY_LIMIT) {
+    return yield* Effect.fail(new CreditLimitExceeded({ dailySpend, weeklySpend, limit: 'daily' }))
+  }
+  if (weeklySpend >= TDD_CONFIG.WEEKLY_LIMIT) {
+    return yield* Effect.fail(new CreditLimitExceeded({ dailySpend, weeklySpend, limit: 'weekly' }))
+  }
+
+  return {
+    canProceed: true,
+    dailySpend,
+    weeklySpend,
+    warnings,
+  } satisfies CreditCheckResult
+})
+```
+
+---
+
+### YAML Transformation (Before/After)
+
+**Before (Bash in YAML - 150+ lines):**
 
 ```yaml
-name: TDD PR Creator
+# .github/workflows/pr-creator.yml (CURRENT)
+- name: Check Claude Code credit usage
+  id: check
+  env:
+    GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  run: |
+    # Get runs from past 24 hours
+    DAILY_RUNS=$(gh run list --workflow="claude-code.yml" \
+      --created ">$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
+      --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")]' 2>/dev/null || echo "[]")
 
-on:
-  schedule:
-    - cron: '0 * * * *' # Hourly backup
-  workflow_run:
-    workflows: ['test']
-    types: [completed]
-    branches: [main]
-  workflow_dispatch:
+    DAILY_SPEND=0
+    while IFS= read -r RUN_ID; do
+      [ -z "$RUN_ID" ] && continue
+      # Multi-pattern cost extraction with fallback
+      COST=$(gh run view "$RUN_ID" --log 2>/dev/null | \
+        grep -oP '(Total cost: \$|Cost: \$|Session cost: \$)(\K[0-9]+\.[0-9]+)' | head -1 || echo "")
 
+      if [ -z "$COST" ]; then
+        echo "::warning::Cost parsing failed for run $RUN_ID - using fallback \$15"
+        COST=15
+        echo "used-fallback=true" >> "$GITHUB_OUTPUT"
+      fi
+      DAILY_SPEND=$(echo "$DAILY_SPEND + $COST" | bc)
+    done < <(echo "$DAILY_RUNS" | jq -r '.[].databaseId')
+    # ... 80+ more lines of bash
+```
+
+**After (Effect-based - ~10 lines in YAML):**
+
+```yaml
+# .github/workflows/pr-creator.yml (TARGET)
 jobs:
   check-credits:
     runs-on: ubuntu-latest
@@ -571,1693 +1811,164 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check Claude Code credit usage
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Get runs from past 24 hours
-          DAILY_RUNS=$(gh run list --workflow="claude-code.yml" \
-            --created ">$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
-            --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")]')
-
-          DAILY_SPEND=0
-          for RUN_ID in $(echo "$DAILY_RUNS" | jq -r '.[].databaseId'); do
-            # Multi-pattern cost extraction with fallback
-            COST=$(gh run view $RUN_ID --log 2>/dev/null | \
-              grep -oP '(Total cost: \$|Cost: \$|Session cost: )(\K[0-9]+\.[0-9]+)' | head -1 || echo "")
-
-            if [ -z "$COST" ]; then
-              echo "::warning::Cost parsing failed for run $RUN_ID - using fallback \$15"
-              COST=15
-              echo "used-fallback=true" >> $GITHUB_OUTPUT
-            fi
-            DAILY_SPEND=$(echo "$DAILY_SPEND + $COST" | bc)
-          done
-
-          # Similar for weekly (past 7 days)
-          WEEKLY_RUNS=$(gh run list --workflow="claude-code.yml" \
-            --created ">$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)" \
-            --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")]')
-
-          WEEKLY_SPEND=0
-          for RUN_ID in $(echo "$WEEKLY_RUNS" | jq -r '.[].databaseId'); do
-            COST=$(gh run view $RUN_ID --log 2>/dev/null | \
-              grep -oP '(Total cost: \$|Cost: \$|Session cost: )(\K[0-9]+\.[0-9]+)' | head -1 || echo "15")
-            WEEKLY_SPEND=$(echo "$WEEKLY_SPEND + $COST" | bc)
-          done
-
-          echo "daily-spend=$DAILY_SPEND" >> $GITHUB_OUTPUT
-          echo "weekly-spend=$WEEKLY_SPEND" >> $GITHUB_OUTPUT
-
-          # Check limits with warnings at 80%
-          if [ $(echo "$DAILY_SPEND >= 80" | bc) -eq 1 ]; then
-            echo "::warning::Daily spend at \$${DAILY_SPEND}/\$100 (80%+)"
-          fi
-          if [ $(echo "$WEEKLY_SPEND >= 400" | bc) -eq 1 ]; then
-            echo "::warning::Weekly spend at \$${WEEKLY_SPEND}/\$500 (80%+)"
-          fi
-
-          if [ $(echo "$DAILY_SPEND >= 100" | bc) -eq 1 ] || [ $(echo "$WEEKLY_SPEND >= 500" | bc) -eq 1 ]; then
-            echo "⚠️ Credit limit reached - Daily: \$${DAILY_SPEND}, Weekly: \$${WEEKLY_SPEND}"
-            echo "can-proceed=false" >> $GITHUB_OUTPUT
-          else
-            echo "✓ Credits OK - Daily: \$${DAILY_SPEND}/\$100, Weekly: \$${WEEKLY_SPEND}/\$500"
-            echo "can-proceed=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Alert if cost parsing failed
-        if: steps.check.outputs.used-fallback == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh issue create --title "⚠️ TDD Cost Parsing Failed" \
-            --body "Cost parsing failed for run ${{ github.run_id }}. Using fallback \$15. Please verify Claude Code output format." \
-            --label "tdd-automation,bug" || true
-
-  check-active-pr:
-    needs: check-credits
-    if: needs.check-credits.outputs.can-proceed == 'true'
-    runs-on: ubuntu-latest
-    outputs:
-      has-active: ${{ steps.check.outputs.has-active }}
-    steps:
-      - name: Check for active TDD PR (with API backoff)
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # API call with exponential backoff for rate limits
-          for i in 1 2 3 4 5; do
-            RESULT=$(gh pr list --label "tdd-automation" --state open --json number,labels 2>/dev/null) && break
-            echo "Rate limited, waiting $((i * 30)) seconds..."
-            sleep $((i * 30))
-          done
-
-          # Check if any PR exists without manual-intervention label
-          ACTIVE=$(echo "$RESULT" | jq '[.[] | select(.labels | map(.name) | contains(["tdd-automation:manual-intervention"]) | not)] | length')
-
-          if [ "$ACTIVE" -gt 0 ]; then
-            echo "Active TDD PR exists - exiting"
-            echo "has-active=true" >> $GITHUB_OUTPUT
-          else
-            echo "No active TDD PR - can proceed"
-            echo "has-active=false" >> $GITHUB_OUTPUT
-          fi
-
-  create-pr:
-    needs: [check-credits, check-active-pr]
-    if: needs.check-active-pr.outputs.has-active == 'false'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Find excluded specs (in manual-intervention PRs)
-        id: excluded
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          EXCLUDED=$(gh pr list --label "tdd-automation:manual-intervention" --state open --json headRefName \
-            --jq '.[].headRefName' | sed 's|tdd/||' | tr '\n' ',' | sed 's/,$//')
-          echo "specs=$EXCLUDED" >> $GITHUB_OUTPUT
-
-      - name: Find next spec using priority calculator
-        id: next-spec
-        run: |
-          RESULT=$(bun run scripts/tdd-automation/core/schema-priority-calculator.ts \
-            --exclude "${{ steps.excluded.outputs.specs }}")
-
-          SPEC_ID=$(echo "$RESULT" | jq -r '.specId')
-          SPEC_FILE=$(echo "$RESULT" | jq -r '.file')
-          PRIORITY=$(echo "$RESULT" | jq -r '.priority')
-
-          if [ -z "$SPEC_ID" ] || [ "$SPEC_ID" = "null" ]; then
-            echo "No pending specs found"
-            echo "found=false" >> $GITHUB_OUTPUT
-          else
-            echo "Found spec: $SPEC_ID (priority: $PRIORITY)"
-            echo "found=true" >> $GITHUB_OUTPUT
-            echo "spec-id=$SPEC_ID" >> $GITHUB_OUTPUT
-            echo "spec-file=$SPEC_FILE" >> $GITHUB_OUTPUT
-            echo "priority=$PRIORITY" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Extract per-spec configuration
-        if: steps.next-spec.outputs.found == 'true'
-        id: spec-config
-        run: |
-          SPEC_FILE="${{ steps.next-spec.outputs.spec-file }}"
-          MAX_ATTEMPTS=$(grep -oP '@tdd-max-attempts \K[0-9]+' "$SPEC_FILE" || echo "5")
-          TIMEOUT=$(grep -oP '@tdd-timeout \K[0-9]+' "$SPEC_FILE" || echo "45")
-          echo "max-attempts=$MAX_ATTEMPTS" >> $GITHUB_OUTPUT
-          echo "timeout=$TIMEOUT" >> $GITHUB_OUTPUT
-
-      - name: Create branch and remove .fixme()
-        if: steps.next-spec.outputs.found == 'true'
-        run: |
-          SPEC_ID="${{ steps.next-spec.outputs.spec-id }}"
-          SPEC_FILE="${{ steps.next-spec.outputs.spec-file }}"
-          BRANCH="tdd/$SPEC_ID"
-
-          git checkout -b "$BRANCH"
-
-          # Remove .fixme() from the test
-          sed -i 's/\.fixme(/(/g' "$SPEC_FILE"
-
-          git add "$SPEC_FILE"
-          git commit -m "test(tdd): activate $SPEC_ID spec"
-          git push origin "$BRANCH"
-
-      - name: Create PR with attempt tracking in title
-        if: steps.next-spec.outputs.found == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          SPEC_ID="${{ steps.next-spec.outputs.spec-id }}"
-          SPEC_FILE="${{ steps.next-spec.outputs.spec-file }}"
-          PRIORITY="${{ steps.next-spec.outputs.priority }}"
-          MAX_ATTEMPTS="${{ steps.spec-config.outputs.max-attempts }}"
-          BRANCH="tdd/$SPEC_ID"
-
-          # PR title includes attempt tracking (immutable counter)
-          TITLE="[TDD] Implement $SPEC_ID | Attempt 1/$MAX_ATTEMPTS"
-
-          BODY="## TDD Automation PR
-
-**Spec ID:** \`$SPEC_ID\`
-**File:** \`$SPEC_FILE\`
-**Priority:** $PRIORITY
-**Max Attempts:** $MAX_ATTEMPTS
-
-This PR was automatically created by the TDD automation pipeline.
-Tests will run automatically. If they fail, Claude Code will attempt to fix them.
-
----
-*Do not manually edit the attempt count in the title.*"
-
-          gh pr create \
-            --title "$TITLE" \
-            --body "$BODY" \
-            --label "tdd-automation" \
-            --base main \
-            --head "$BRANCH"
-
-          # Enable auto-merge
-          PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
-          gh pr merge "$PR_NUMBER" --squash --auto
-```
-
-**Key Mitigations Integrated:**
-
-- ✅ **Cost parsing** with multi-pattern fallback + alert on failure
-- ✅ **API rate limiting** with exponential backoff
-- ✅ **Per-spec configuration** extraction (`@tdd-max-attempts`, `@tdd-timeout`)
-- ✅ **PR title-based attempt tracking** (immutable)
-- ✅ **Chain reaction trigger** via `workflow_run` for minimal latency
-
-### 2. Test Workflow (`test.yml`)
-
-**Triggers:**
-
-- `push`: Any branch
-- `pull_request`: Any PR
-
-**Key Additions for TDD:**
-
-```yaml
-name: Test
-
-on:
-  push:
-    branches: ['**']
-  pull_request:
-    branches: ['**']
-
-jobs:
-  detect-changes:
-    runs-on: ubuntu-latest
-    outputs:
-      is-tdd-pr: ${{ steps.check.outputs.is-tdd }}
-      pr-number: ${{ steps.check.outputs.pr-number }}
-      changes-type: ${{ steps.changes.outputs.type }}
-      spec-file: ${{ steps.changes.outputs.spec-file }}
-    steps:
-      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          bun-version-file: package.json
 
-      - name: Identify TDD PR (label OR branch name)
+      - name: Check credit limits
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-            BRANCH="${{ github.head_ref }}"
-          else
-            PR_NUMBER=$(gh pr list --head "${{ github.ref_name }}" --json number --jq '.[0].number // empty')
-            BRANCH="${{ github.ref_name }}"
-          fi
-
-          echo "pr-number=$PR_NUMBER" >> $GITHUB_OUTPUT
-
-          if [ -n "$PR_NUMBER" ]; then
-            # Check BOTH label AND branch name (branch is backup)
-            IS_TDD_BY_LABEL=$(gh pr view $PR_NUMBER --json labels -q '.labels[].name' | grep -c "tdd-automation" || echo "0")
-            IS_TDD_BY_BRANCH=$(echo "$BRANCH" | grep -c "^tdd/" || echo "0")
-
-            if [ "$IS_TDD_BY_LABEL" -gt 0 ] || [ "$IS_TDD_BY_BRANCH" -gt 0 ]; then
-              echo "is-tdd=true" >> $GITHUB_OUTPUT
-
-              # Restore label if missing (accident recovery)
-              if [ "$IS_TDD_BY_LABEL" -eq 0 ] && [ "$IS_TDD_BY_BRANCH" -gt 0 ]; then
-                gh pr edit $PR_NUMBER --add-label "tdd-automation"
-                echo "::notice::Restored missing tdd-automation label"
-              fi
-            else
-              echo "is-tdd=false" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "is-tdd=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Check if PR is behind main (TDD only)
-        if: steps.check.outputs.is-tdd == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ steps.check.outputs.pr-number }}"
-          MERGE_STATE=$(gh pr view $PR_NUMBER --json mergeStateStatus -q '.mergeStateStatus')
-
-          if [ "$MERGE_STATE" = "BEHIND" ]; then
-            echo "PR is behind main - posting sync request"
-            gh pr comment $PR_NUMBER --body "@claude Sync required: main branch has been updated.
-
-Please:
-1. Run: git fetch origin main && git merge origin/main
-2. Resolve any merge conflicts (look for <<<<<<< markers)
-3. Run quality checks after merging
-4. Commit and push the merge result"
-            echo "needs-sync=true" >> $GITHUB_OUTPUT
-            exit 0  # Exit early, don't run tests
-          fi
-
-      - name: Detect change type
-        id: changes
-        run: |
-          # Get changed files
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            CHANGED=$(git diff --name-only origin/main...HEAD)
-          else
-            CHANGED=$(git diff --name-only HEAD~1 HEAD)
-          fi
-
-          # Analyze changes
-          SPEC_ONLY_FIXME=$(echo "$CHANGED" | grep -c "specs/.*\.spec\.ts$" || echo "0")
-          SRC_CHANGED=$(echo "$CHANGED" | grep -c "^src/" || echo "0")
-          SPEC_FILE=$(echo "$CHANGED" | grep "specs/.*\.spec\.ts$" | head -1)
-
-          echo "spec-file=$SPEC_FILE" >> $GITHUB_OUTPUT
-
-          if [ "$SPEC_ONLY_FIXME" -gt 0 ] && [ "$SRC_CHANGED" -eq 0 ]; then
-            # Check if only .fixme() was removed
-            DIFF=$(git diff origin/main...HEAD -- "$SPEC_FILE" | grep -E "^[-+]" | grep -v "^---" | grep -v "^+++" || echo "")
-            ONLY_FIXME=$(echo "$DIFF" | grep -cE "^[-+].*\.fixme\(" || echo "0")
-            TOTAL_LINES=$(echo "$DIFF" | wc -l)
-
-            if [ "$ONLY_FIXME" = "$TOTAL_LINES" ] && [ "$TOTAL_LINES" -gt 0 ]; then
-              echo "type=fixme-only" >> $GITHUB_OUTPUT
-            else
-              echo "type=test-changed" >> $GITHUB_OUTPUT
-            fi
-          elif [ "$SRC_CHANGED" -gt 0 ]; then
-            echo "type=src-changed" >> $GITHUB_OUTPUT
-          else
-            echo "type=other" >> $GITHUB_OUTPUT
-          fi
-
-  test:
-    needs: detect-changes
-    runs-on: ubuntu-latest
-    # ... existing test steps based on changes-type ...
-
-  handle-tdd-failure:
-    needs: [detect-changes, test]
-    if: failure() && needs.detect-changes.outputs.is-tdd-pr == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Get current attempt from PR title (immutable)
-        id: attempt
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ needs.detect-changes.outputs.pr-number }}"
-          TITLE=$(gh pr view $PR_NUMBER --json title -q '.title')
-
-          # Extract attempt from title: "[TDD] Implement X | Attempt Y/Z"
-          CURRENT=$(echo "$TITLE" | grep -oP 'Attempt \K[0-9]+' || echo "1")
-          MAX=$(echo "$TITLE" | grep -oP 'Attempt [0-9]+/\K[0-9]+' || echo "5")
-
-          echo "current=$CURRENT" >> $GITHUB_OUTPUT
-          echo "max=$MAX" >> $GITHUB_OUTPUT
-          echo "title=$TITLE" >> $GITHUB_OUTPUT
-
-      - name: Classify failure type
-        id: classify
-        run: |
-          # Get failure reason from test step
-          ERROR="${{ needs.test.outputs.error-message || '' }}"
-
-          # Infrastructure failures (don't count against attempts)
-          if [[ "$ERROR" == *"rate limit"* ]] || \
-             [[ "$ERROR" == *"timeout"* ]] || \
-             [[ "$ERROR" == *"network"* ]] || \
-             [[ "$ERROR" == *"503"* ]] || \
-             [[ "$ERROR" == *"502"* ]] || \
-             [[ "$ERROR" == *"ECONNREFUSED"* ]]; then
-            echo "type=infrastructure" >> $GITHUB_OUTPUT
-          else
-            echo "type=code" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Handle infrastructure failure (don't count, retry)
-        if: steps.classify.outputs.type == 'infrastructure'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ needs.detect-changes.outputs.pr-number }}"
-          gh pr comment $PR_NUMBER --body "🔄 Infrastructure issue detected (not counting as attempt). Auto-retrying in 5 minutes..."
-          sleep 300
-          # Re-run tests by re-triggering workflow
-          gh workflow run test.yml -f ref=${{ github.ref }}
-
-      - name: Increment attempt in PR title (code failures only)
-        if: steps.classify.outputs.type == 'code'
-        id: increment
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ needs.detect-changes.outputs.pr-number }}"
-          CURRENT="${{ steps.attempt.outputs.current }}"
-          MAX="${{ steps.attempt.outputs.max }}"
-          TITLE="${{ steps.attempt.outputs.title }}"
-
-          NEW_ATTEMPT=$((CURRENT + 1))
-          NEW_TITLE=$(echo "$TITLE" | sed "s/Attempt [0-9]\+/Attempt $NEW_ATTEMPT/")
-
-          gh pr edit $PR_NUMBER --title "$NEW_TITLE"
-          echo "new-attempt=$NEW_ATTEMPT" >> $GITHUB_OUTPUT
-
-      - name: Check if max attempts reached
-        if: steps.classify.outputs.type == 'code' && steps.increment.outputs.new-attempt > steps.attempt.outputs.max
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ needs.detect-changes.outputs.pr-number }}"
-          gh pr edit $PR_NUMBER --add-label "tdd-automation:manual-intervention"
-          gh pr comment $PR_NUMBER --body "⚠️ **Max attempts (${{ steps.attempt.outputs.max }}) reached.**
-
-This spec requires manual intervention. Please:
-1. Review the failing tests and Claude's previous attempts
-2. Either fix the issue manually, or
-3. Remove the \`tdd-automation:manual-intervention\` label to retry
-
-The TDD automation will continue with other specs."
-
-      - name: Post @claude comment (if under max attempts)
-        if: steps.classify.outputs.type == 'code' && steps.increment.outputs.new-attempt <= steps.attempt.outputs.max
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ needs.detect-changes.outputs.pr-number }}"
-          SPEC_FILE="${{ needs.detect-changes.outputs.spec-file }}"
-          FAILURE_TYPE="${{ needs.test.outputs.failure-type || 'test' }}"
-
-          case "$FAILURE_TYPE" in
-            "quality")
-              COMMENT="@claude Use the codebase-refactor-auditor agent to fix the quality errors.
-
-The tests passed but quality checks failed. Focus on:
-- ESLint errors
-- TypeScript type errors
-- Code style issues
-
-After fixing, run \`bun run quality\` to verify."
-              ;;
-            "regression")
-              COMMENT="@claude Use the codebase-refactor-auditor agent to fix the regression test failures.
-
-Some previously passing tests are now failing. This likely means:
-- A code change broke existing functionality
-- A test expectation needs updating
-
-Fix the regressions while keeping the new spec working."
-              ;;
-            *)
-              COMMENT="@claude Use the e2e-test-fixer agent to fix the failing test in \`$SPEC_FILE\`.
-
-The spec test is failing. Please:
-1. Analyze the test failure output
-2. Implement or fix the code to make the test pass
-3. Run the specific test to verify: \`bun test:e2e $SPEC_FILE\`
-4. Ensure quality checks pass: \`bun run quality\`"
-              ;;
-          esac
-
-          gh pr comment $PR_NUMBER --body "$COMMENT"
-
-  update-spec-progress:
-    needs: test
-    if: github.ref == 'refs/heads/main' && needs.test.result == 'success'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: oven-sh/setup-bun@v2
-
-      - run: bun install --frozen-lockfile
-
-      - name: Run analyze:specs
-        run: bun run analyze:specs
-
-      - name: Check for changes
-        id: changes
-        run: |
-          if git diff --quiet SPEC-PROGRESS.md; then
-            echo "has-changes=false" >> $GITHUB_OUTPUT
-          else
-            echo "has-changes=true" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Commit spec progress update
-        if: steps.changes.outputs.has-changes == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add SPEC-PROGRESS.md
-          git commit -m "docs: update SPEC-PROGRESS.md [skip ci]"
-          git push origin main
+          RESULT=$(bun run scripts/tdd-automation/workflows/pr-creator/check-credits.ts)
+          echo "can-proceed=$(echo "$RESULT" | jq -r '.canProceed')" >> "$GITHUB_OUTPUT"
+          echo "daily-spend=$(echo "$RESULT" | jq -r '.dailySpend')" >> "$GITHUB_OUTPUT"
+          echo "weekly-spend=$(echo "$RESULT" | jq -r '.weeklySpend')" >> "$GITHUB_OUTPUT"
 ```
 
-**Key Mitigations Integrated:**
-
-- ✅ **PR title-based attempt tracking** (immutable, not comment-based)
-- ✅ **Branch name as backup identifier** (label accident recovery)
-- ✅ **Failure classification** (infrastructure vs code - only code counts)
-- ✅ **Infrastructure failure retry** (automatic, doesn't count)
-- ✅ **Per-spec max attempts** (from PR title)
-- ✅ **Spec progress auto-update** with `[skip ci]`
-
-### 3. Claude Code Workflow (`claude-code.yml`)
-
-**Triggers:**
-
-- `issue_comment`: Comment starts with `@claude` on PR
-
-**Pre-conditions:**
-
-1. **Claude Code credit usage within limits** (daily < $100, weekly < $500)
-2. Comment is on a PR (not an issue)
-3. PR has `tdd-automation` label (or branch starts with `tdd/`)
-4. Commenter is `github-actions[bot]` (security: only workflow-generated comments)
-
-**Full Implementation:**
-
-```yaml
-name: Claude Code
-
-on:
-  issue_comment:
-    types: [created]
-
-jobs:
-  validate:
-    if: |
-      github.event.issue.pull_request &&
-      startsWith(github.event.comment.body, '@claude') &&
-      github.event.comment.user.login == 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    outputs:
-      can-proceed: ${{ steps.check.outputs.can-proceed }}
-      pr-number: ${{ github.event.issue.number }}
-      pr-branch: ${{ steps.pr-info.outputs.branch }}
-    steps:
-      - name: Get PR info
-        id: pr-info
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_DATA=$(gh pr view ${{ github.event.issue.number }} --json headRefName,labels)
-          BRANCH=$(echo "$PR_DATA" | jq -r '.headRefName')
-          HAS_LABEL=$(echo "$PR_DATA" | jq -r '.labels[].name' | grep -c "tdd-automation" || echo "0")
-          IS_TDD_BRANCH=$(echo "$BRANCH" | grep -c "^tdd/" || echo "0")
-
-          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
-
-          if [ "$HAS_LABEL" -gt 0 ] || [ "$IS_TDD_BRANCH" -gt 0 ]; then
-            echo "is-tdd=true" >> $GITHUB_OUTPUT
-          else
-            echo "is-tdd=false" >> $GITHUB_OUTPUT
-            echo "Not a TDD PR - skipping"
-            exit 0
-          fi
-
-      - name: Check credit usage (double-check)
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Same cost checking logic as PR Creator
-          DAILY_SPEND=$(gh run list --workflow="claude-code.yml" \
-            --created ">$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
-            --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")] | length' || echo "0")
-
-          # Estimate cost (use actual parsing in production)
-          ESTIMATED_DAILY=$(echo "$DAILY_SPEND * 10" | bc)  # ~$10 per run estimate
-
-          if [ "$ESTIMATED_DAILY" -ge 100 ]; then
-            echo "can-proceed=false" >> $GITHUB_OUTPUT
-            gh pr comment ${{ github.event.issue.number }} --body "⏸️ Daily credit limit reached. TDD automation paused until tomorrow."
-          else
-            echo "can-proceed=true" >> $GITHUB_OUTPUT
-          fi
-
-  execute:
-    needs: validate
-    if: needs.validate.outputs.can-proceed == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45  # Hard timeout
-    steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.validate.outputs.pr-branch }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Parse @claude comment
-        id: parse
-        run: |
-          COMMENT="${{ github.event.comment.body }}"
-
-          # Extract agent type
-          if echo "$COMMENT" | grep -q "e2e-test-fixer"; then
-            echo "agent=e2e-test-fixer" >> $GITHUB_OUTPUT
-          elif echo "$COMMENT" | grep -q "codebase-refactor-auditor"; then
-            echo "agent=codebase-refactor-auditor" >> $GITHUB_OUTPUT
-          elif echo "$COMMENT" | grep -q "Sync required"; then
-            echo "agent=sync" >> $GITHUB_OUTPUT
-          else
-            echo "agent=e2e-test-fixer" >> $GITHUB_OUTPUT  # Default
-          fi
-
-          # Extract spec file if mentioned
-          SPEC_FILE=$(echo "$COMMENT" | grep -oP '`specs/[^`]+`' | tr -d '`' | head -1 || echo "")
-          echo "spec-file=$SPEC_FILE" >> $GITHUB_OUTPUT
-
-      - name: Sync with main branch
-        id: sync
-        run: |
-          git fetch origin main
-
-          BEHIND=$(git rev-list --count HEAD..origin/main)
-          echo "behind=$BEHIND" >> $GITHUB_OUTPUT
-
-          if [ "$BEHIND" -gt 0 ]; then
-            echo "Main branch has $BEHIND new commits, merging..."
-
-            if ! git merge origin/main --no-edit 2>/dev/null; then
-              echo "has-conflict=true" >> $GITHUB_OUTPUT
-              git diff --name-only --diff-filter=U > /tmp/conflicted_files.txt
-              git merge --abort
-            else
-              echo "has-conflict=false" >> $GITHUB_OUTPUT
-              git push origin HEAD
-            fi
-          else
-            echo "has-conflict=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Add conflict label if needed
-        if: steps.sync.outputs.has-conflict == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr edit ${{ needs.validate.outputs.pr-number }} --add-label "tdd-automation:had-conflict"
-
-      - name: Start heartbeat
-        id: heartbeat
-        run: |
-          PR_NUMBER="${{ needs.validate.outputs.pr-number }}"
-          (
-            while true; do
-              sleep 600  # Every 10 minutes
-              gh pr comment $PR_NUMBER --body "🤖 Claude Code still working... (heartbeat)" 2>/dev/null || true
-            done
-          ) &
-          echo $! > /tmp/heartbeat.pid
-          echo "pid=$(cat /tmp/heartbeat.pid)" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Claude Code prompt
-        id: prompt
-        run: |
-          AGENT="${{ steps.parse.outputs.agent }}"
-          SPEC_FILE="${{ steps.parse.outputs.spec-file }}"
-          HAS_CONFLICT="${{ steps.sync.outputs.has-conflict }}"
-          ORIGINAL_COMMENT="${{ github.event.comment.body }}"
-
-          if [ "$HAS_CONFLICT" = "true" ]; then
-            CONFLICT_FILES=$(cat /tmp/conflicted_files.txt | tr '\n' ', ')
-            PROMPT="⚠️ MERGE CONFLICT DETECTED
-
-Conflicted files: $CONFLICT_FILES
-
-IMPORTANT: This PR has conflicts with main. You must:
-1. Run: git fetch origin main && git merge origin/main
-2. Carefully resolve each conflict:
-   - For DOMAIN MODEL conflicts: prefer main (newer schema)
-   - For TEST FILE conflicts: merge both test cases
-   - For CONFIG conflicts: prefer main
-3. After resolving, run full quality + regression tests
-4. If unsure about ANY conflict, add comment: '// TODO: human review needed'
-5. Commit the resolved merge
-
-Then proceed with the original task:
-$ORIGINAL_COMMENT"
-          elif [ "$AGENT" = "e2e-test-fixer" ]; then
-            PROMPT="Fix the failing E2E test using the e2e-test-fixer agent.
-
-Target file: $SPEC_FILE
-
-Please:
-1. Read the test file to understand what it expects
-2. Implement or fix the code to make the test pass
-3. Run the specific test: bun test:e2e $SPEC_FILE
-4. Run quality checks: bun run quality
-5. If all pass, commit and push changes
-
-Focus on minimal changes to make the test green."
-          elif [ "$AGENT" = "codebase-refactor-auditor" ]; then
-            PROMPT="Fix the quality/regression issues using the codebase-refactor-auditor agent.
-
-Please:
-1. Run bun run quality to see the current errors
-2. Fix ESLint, TypeScript, and other quality issues
-3. If regression tests fail, fix them while maintaining the new spec
-4. Commit and push changes"
-          else
-            PROMPT="$ORIGINAL_COMMENT"
-          fi
-
-          # Save prompt to file (handles multiline)
-          echo "$PROMPT" > /tmp/claude_prompt.txt
-
-      - name: Execute Claude Code
-        id: claude
-        continue-on-error: true
-        run: |
-          PROMPT=$(cat /tmp/claude_prompt.txt)
-
-          # Execute with timeout (40 min to allow buffer before job timeout)
-          if timeout 40m claude --print "$PROMPT"; then
-            echo "status=success" >> $GITHUB_OUTPUT
-          else
-            EXIT_CODE=$?
-            if [ "$EXIT_CODE" = "124" ]; then
-              echo "status=timeout" >> $GITHUB_OUTPUT
-            else
-              echo "status=failed" >> $GITHUB_OUTPUT
-            fi
-          fi
-
-      - name: Stop heartbeat
-        if: always()
-        run: |
-          kill $(cat /tmp/heartbeat.pid) 2>/dev/null || true
-
-      - name: Handle timeout
-        if: steps.claude.outputs.status == 'timeout'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ needs.validate.outputs.pr-number }}"
-
-          # Timeout is infrastructure failure - don't count as attempt
-          gh pr comment $PR_NUMBER --body "⏱️ Claude Code timed out (infrastructure issue - not counting as attempt).
-
-This happens when:
-- The task is very complex
-- There's a network issue
-- Claude is taking longer than expected
-
-Retrying automatically..."
-
-          # Re-trigger by posting new @claude comment with same content
-          ORIGINAL="${{ github.event.comment.body }}"
-          gh pr comment $PR_NUMBER --body "$ORIGINAL"
-
-      - name: Push changes if any
-        if: steps.claude.outputs.status == 'success'
-        run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            git add -A
-            git commit -m "fix(tdd): Claude Code fixes for ${{ needs.validate.outputs.pr-branch }}"
-            git push origin HEAD
-          else
-            echo "No changes to push"
-          fi
-
-      - name: Disable auto-merge if had conflict
-        if: steps.sync.outputs.has-conflict == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          PR_NUMBER="${{ needs.validate.outputs.pr-number }}"
-
-          # Conflicts require human review
-          gh pr merge $PR_NUMBER --disable-auto
-          gh pr comment $PR_NUMBER --body "⚠️ This PR had merge conflicts that were auto-resolved.
-
-**Human review required before merge.**
-
-Please verify:
-- [ ] Conflict resolution is correct
-- [ ] Tests pass
-- [ ] Code logic makes sense
-
-After review, re-enable auto-merge or merge manually."
-```
-
-**Key Mitigations Integrated:**
-
-- ✅ **Timeout (45 min)** with 40 min inner timeout for Claude
-- ✅ **Heartbeat comments** every 10 minutes
-- ✅ **Timeout recovery** - auto-retry without counting as attempt
-- ✅ **Conflict detection and flagging** with `tdd-automation:had-conflict` label
-- ✅ **Human review gate** for PRs with conflicts (disables auto-merge)
-- ✅ **Double credit check** before execution
-- ✅ **Merge strategy** (not rebase) for safer conflict handling
-
-### 4. Merge Watchdog Workflow (`merge-watchdog.yml`)
-
-**Purpose:** Detect and unstick PRs that should have auto-merged but didn't.
-
-**Triggers:**
-
-- `schedule`: Every 30 minutes (`*/30 * * * *`)
-
-**Full Implementation:**
-
-```yaml
-name: TDD Merge Watchdog
-
-on:
-  schedule:
-    - cron: '*/30 * * * *'  # Every 30 minutes
-  workflow_dispatch:
-
-jobs:
-  check-stuck-prs:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Find stuck TDD PRs
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Find PRs that are:
-          # - Labeled tdd-automation (not manual-intervention)
-          # - All checks passed
-          # - Mergeable
-          # - Not merged in >2 hours
-
-          STUCK_PRS=$(gh pr list \
-            --label "tdd-automation" \
-            --json number,title,updatedAt,mergeStateStatus,statusCheckRollup,labels \
-            --jq '[.[] |
-              select(.labels | map(.name) | contains(["tdd-automation:manual-intervention"]) | not) |
-              select(.mergeStateStatus == "CLEAN" or .mergeStateStatus == "HAS_HOOKS") |
-              select(.statusCheckRollup | all(.conclusion == "SUCCESS" or .conclusion == "SKIPPED")) |
-              select((now - (.updatedAt | fromdateiso8601)) > 7200)
-            ] | .[].number')
-
-          if [ -n "$STUCK_PRS" ]; then
-            echo "Found stuck PRs: $STUCK_PRS"
-
-            for PR in $STUCK_PRS; do
-              echo "Attempting to unstick PR #$PR"
-
-              # Try to re-enable auto-merge
-              gh pr merge $PR --squash --auto || true
-
-              # If that fails, try direct merge
-              if ! gh pr view $PR --json autoMergeRequest -q '.autoMergeRequest' | grep -q "SQUASH"; then
-                echo "Auto-merge not enabled, trying direct merge"
-                gh pr merge $PR --squash || true
-              fi
-            done
-          else
-            echo "No stuck PRs found"
-          fi
-
-      - name: Alert on persistent stuck PRs (>6 hours)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          VERY_STUCK=$(gh pr list \
-            --label "tdd-automation" \
-            --json number,updatedAt,labels \
-            --jq '[.[] |
-              select(.labels | map(.name) | contains(["tdd-automation:manual-intervention"]) | not) |
-              select((now - (.updatedAt | fromdateiso8601)) > 21600)
-            ] | .[].number' | tr '\n' ' ')
-
-          if [ -n "$VERY_STUCK" ]; then
-            # Check if alert issue already exists
-            EXISTING=$(gh issue list --label "tdd-automation,urgent" --state open --json number --jq '.[0].number // empty')
-
-            if [ -z "$EXISTING" ]; then
-              gh issue create \
-                --title "🚨 TDD PR stuck for >6 hours" \
-                --body "The following TDD PRs have been stuck for more than 6 hours:
-
-PRs: $VERY_STUCK
-
-**Possible causes:**
-- Branch protection rules blocking merge
-- Required status checks not completing
-- Auto-merge disabled somehow
-
-**Action required:**
-1. Check branch protection settings
-2. Verify required checks are passing
-3. Manually merge if safe
-
-This is an automated alert from the TDD Merge Watchdog." \
-                --label "tdd-automation,urgent"
-            else
-              echo "Alert issue already exists: #$EXISTING"
-            fi
-          fi
-```
-
-**Key Mitigations:**
-
-- ✅ **Auto-merge recovery** - Re-enables or forces merge for stuck PRs
-- ✅ **Alert system** - Creates GitHub issue for PRs stuck >6 hours
-- ✅ **Duplicate prevention** - Doesn't create multiple alert issues
-
----
-
-## Fast-Path Optimization
-
-When a spec's `.fixme()` is removed and the test **passes immediately** (feature already implemented):
-
-```
-PR Creator removes .fixme()
-        │
-        ▼
-   Test Workflow
-        │
-        ├─── Tests PASS ───▶ Auto-merge (no Claude needed!)
-        │
-        └─── Tests FAIL ───▶ Continue with @claude fix loop
-```
-
-This handles cases where:
-
-- The feature was already implemented but test wasn't activated
-- Simple tests that pass without any code changes
-- Tests that were .fixme'd prematurely
-
-## Edge Cases
-
-### 1. PR Creator Runs While Claude Code is Working
-
-**Protection**: PR Creator checks for open PRs with `tdd-automation` label (without `manual-intervention`). While Claude Code is working, that PR is still open → PR Creator exits.
-
-### 2. Multiple .fixme() in Same File
-
-**Behavior**: Priority calculator returns the spec ID, not the file. Each test with `.fixme()` is treated as a separate spec. PR Creator selects ONE spec at a time.
-
-### 3. Claude Code Takes Too Long / Fails
-
-**Protection**:
-
-- Workflow timeout (e.g., 30 minutes)
-- On timeout, workflow fails → Test workflow sees failure → Posts @claude comment → Counts as attempt
-
-### 4. Manual Intervention PR Needs Retry
-
-**Resolution**: Human removes `tdd-automation:manual-intervention` label. Next Test workflow run or manual re-run will process it normally.
-
-### 5. Spec Priority Changes Mid-Processing
-
-**Behavior**: Not an issue. Once a PR is created for a spec, it continues until merged or marked manual-intervention. Priority only matters when selecting the NEXT spec.
-
-### 6. Credit Limit Exceeded Mid-Processing
-
-**Protection**: If daily/weekly limit is reached while a PR is being processed:
-
-- PR Creator won't start new PRs (pre-check fails)
-- Claude Code workflow also has pre-check, so new fixes won't run
-- The active PR remains open and resumes automatically when limits reset (next day/week)
-- No manual intervention needed, just wait for budget refresh
-
-### 7. Main Branch Updated During Processing (Merge Conflicts)
-
-**Scenario**: While Claude Code is working on a TDD PR, someone merges another PR to main that modifies the same files.
-
-**Protection Flow**:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    MAIN BRANCH SYNC FLOW                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  Claude Code Workflow starts                                     │
-│         │                                                        │
-│         ▼                                                        │
-│  ┌──────────────────┐                                           │
-│  │ git fetch main   │                                           │
-│  │ Check if behind  │                                           │
-│  └────────┬─────────┘                                           │
-│           │                                                      │
-│     ┌─────┴─────┐                                               │
-│     │           │                                                │
-│  Up-to-date   Behind                                             │
-│     │           │                                                │
-│     │           ▼                                                │
-│     │    ┌──────────────────┐                                   │
-│     │    │ git merge main   │                                   │
-│     │    └────────┬─────────┘                                   │
-│     │             │                                              │
-│     │       ┌─────┴─────┐                                       │
-│     │       │           │                                        │
-│     │    Success     Conflict                                    │
-│     │       │           │                                        │
-│     │       │           ▼                                        │
-│     │       │    ┌──────────────────┐                           │
-│     │       │    │ Claude resolves  │                           │
-│     │       │    │ conflicts first, │                           │
-│     │       │    │ then fixes test  │                           │
-│     │       │    └────────┬─────────┘                           │
-│     │       │             │                                      │
-│     └───────┴─────────────┘                                      │
-│             │                                                    │
-│             ▼                                                    │
-│    Continue with test fix                                        │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**Key Behaviors**:
-
-1. **Always sync before working**: Claude Code fetches main before every execution
-2. **Clean merge**: If no conflicts, merge completes silently and Claude proceeds with the original task
-3. **Conflict resolution**: If conflicts exist, Claude resolves them FIRST, then proceeds with the original task
-4. **Single commit for both**: Claude can commit conflict resolution + test fix together or separately
-5. **Retry counting**: Conflict resolution doesn't count as an extra attempt (it's infrastructure, not a test failure)
-
-**Why Merge Instead of Rebase?**
-
-- Merge is safer for automated systems (preserves commit history)
-- Easier conflict markers for Claude to understand
-- GitHub auto-merge works better with merge commits
-- No force-push needed (avoids triggering extra workflow runs)
-
-## Benefits of V3
-
-1. **Radical Simplicity**
-   - No JSON state file to corrupt or debug
-   - No file locking logic
-   - No race conditions (serial processing)
-
-2. **Native GitHub Integration**
-   - Uses PRs as work items
-   - Uses labels as state
-   - Uses comments for retry tracking
-   - Uses auto-merge for completion
-
-3. **Easy Debugging**
-   - State visible directly in GitHub UI
-   - No hidden state files
-   - PR history shows all attempts
-
-4. **Predictable Behavior**
-   - One spec at a time = deterministic
-   - Clear state transitions via labels
-   - No concurrent conflicts
-
-5. **Maintainability**
-   - Each workflow is small and focused
-   - Standard GitHub Actions patterns
-   - No custom state management code
-
-6. **Cost Protection**
-   - Built-in credit usage monitoring
-   - Automatic pause when limits reached ($100/day, $500/week)
-   - No runaway costs possible
-   - Budget visibility via workflow logs
-
-## Implementation Plan
-
-### Phase 1: Core Infrastructure (Days 1-2)
-
-**Goal:** Create the foundational workflows without executing Claude Code.
-
-| Task                           | File                                                        | Acceptance Criteria                                                                                                          |
-| ------------------------------ | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| 1.1 Create PR Creator workflow | `.github/workflows/pr-creator.yml`                          | - Finds `.fixme()` specs<br>- Creates PRs with correct title format<br>- Adds `tdd-automation` label<br>- Enables auto-merge |
-| 1.2 Create credit check script | `scripts/tdd-automation/core/check-credit-usage.ts`         | - Parses workflow logs<br>- Returns daily/weekly spend<br>- Has fallback ($15/run)<br>- Logs warnings at 80%                 |
-| 1.3 Create Merge Watchdog      | `.github/workflows/merge-watchdog.yml`                      | - Runs every 30 min<br>- Detects stuck PRs<br>- Creates alert issues                                                         |
-| 1.4 Update priority calculator | `scripts/tdd-automation/core/schema-priority-calculator.ts` | - Returns spec-id, file, priority<br>- Supports `--exclude` flag<br>- Extracts per-spec config                               |
-
-**Test:** Manually trigger PR Creator, verify PR created correctly (don't let tests run yet).
-
-### Phase 2: Test Workflow Integration (Days 3-4)
-
-**Goal:** Enhance test.yml with TDD-specific logic.
-
-| Task                         | File                         | Acceptance Criteria                                                                                                             |
-| ---------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| 2.1 Add TDD PR detection     | `.github/workflows/test.yml` | - Detects via label OR branch name<br>- Restores missing labels                                                                 |
-| 2.2 Add change detection     | `.github/workflows/test.yml` | - Identifies fixme-only changes<br>- Determines test scope                                                                      |
-| 2.3 Add failure handling     | `.github/workflows/test.yml` | - Reads attempt from PR title<br>- Classifies failure type<br>- Increments attempt on code failures<br>- Posts @claude comments |
-| 2.4 Add sync check           | `.github/workflows/test.yml` | - Checks if behind main<br>- Posts sync request if needed                                                                       |
-| 2.5 Add spec progress update | `.github/workflows/test.yml` | - Runs `analyze:specs` on main<br>- Commits with `[skip ci]`                                                                    |
-
-**Test:** Create a test TDD PR, push failing code, verify:
-
-- Attempt increments in title
-- @claude comment posted
-- Manual intervention label after 5 failures
-
-### Phase 3: Claude Code Workflow (Days 5-6)
-
-**Goal:** Enable Claude Code execution with safety controls.
-
-| Task                            | File                                | Acceptance Criteria                                                                           |
-| ------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------- |
-| 3.1 Create Claude Code workflow | `.github/workflows/claude-code.yml` | - Triggers on @claude comment<br>- Validates commenter is bot<br>- Validates TDD PR           |
-| 3.2 Add main sync logic         | `.github/workflows/claude-code.yml` | - Fetches main before work<br>- Detects conflicts<br>- Adds conflict label                    |
-| 3.3 Add timeout/heartbeat       | `.github/workflows/claude-code.yml` | - 45 min job timeout<br>- 40 min Claude timeout<br>- 10 min heartbeat comments                |
-| 3.4 Add prompt building         | `.github/workflows/claude-code.yml` | - Conflict resolution prompt<br>- e2e-test-fixer prompt<br>- codebase-refactor-auditor prompt |
-| 3.5 Add recovery logic          | `.github/workflows/claude-code.yml` | - Timeout retry (no count)<br>- Human review for conflicts                                    |
-
-**Test:** End-to-end test with a simple failing spec:
-
-1. PR Creator creates PR
-2. Tests fail, @claude posted
-3. Claude Code fixes
-4. Tests pass, auto-merge
-
-### Phase 4: Production Launch (Days 7-8)
-
-**Goal:** Launch production pipeline.
-
-| Task                      | Description   | Acceptance Criteria                                   |
-| ------------------------- | ------------- | ----------------------------------------------------- |
-| 4.1 Production monitoring | Set up alerts | - Daily cost summary<br>- Slack/Discord alerts at 80% |
-| 4.2 Documentation         | Update docs   | - CLAUDE.md updated<br>- TDD pipeline docs updated    |
-
-**Go-Live Checklist:**
-
-- [ ] All Phase 1-3 tests passing
-- [ ] Credit limits verified working
-- [ ] Watchdog creating alerts correctly
-- [ ] First 5 specs processed successfully
-- [ ] No unexpected costs
-
-### Timeline Summary
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Week 1                                                          │
-├─────────────────────────────────────────────────────────────────┤
-│ Days 1-2: Phase 1 - Core Infrastructure                         │
-│   └─ PR Creator, Credit Check, Watchdog, Priority Calculator    │
-│                                                                  │
-│ Days 3-4: Phase 2 - Test Workflow                               │
-│   └─ TDD detection, failure handling, sync check                │
-│                                                                  │
-│ Days 5-6: Phase 3 - Claude Code Workflow                        │
-│   └─ Execution, timeout, heartbeat, prompts                     │
-│                                                                  │
-│ Days 7-8: Phase 4 - Production Launch                           │
-│   └─ Monitoring setup, documentation, go-live                   │
-├─────────────────────────────────────────────────────────────────┤
-│ Post-Launch: Process 230 specs (~6-8 days)                      │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Files to Create/Modify
-
-**New Files:**
-
-```
-.github/workflows/pr-creator.yml       # NEW
-.github/workflows/merge-watchdog.yml   # NEW
-.github/workflows/claude-code.yml          # NEW
-scripts/tdd-automation/core/check-credit-usage.ts  # NEW (or update existing)
-```
-
-**Modified Files:**
-
-```
-.github/workflows/test.yml                 # ADD TDD handling
-scripts/tdd-automation/core/schema-priority-calculator.ts  # ADD --exclude, per-spec config
-```
-
----
-
-## Risks Summary
-
-> **All mitigations are integrated into the workflow sections above.** This table provides a quick reference.
-
-| #   | Risk                                | Mitigation                                   | Confidence   |
-| --- | ----------------------------------- | -------------------------------------------- | ------------ |
-| 1   | Serial processing time (~460 hours) | Chain reaction triggers, fast-path           | ✅ ~6-8 days |
-| 2   | Cost parsing fragility              | Multi-pattern + $15 fallback + alerts        | ✅ High      |
-| 3   | Merge conflict quality              | Flag label + human review gate               | ✅ High      |
-| 4   | Comment-based retry counting        | PR title-based (immutable)                   | ✅ High      |
-| 5   | GitHub API rate limits              | GraphQL batching + exponential backoff       | ✅ High      |
-| 6   | Auto-merge stuck PRs                | Watchdog workflow every 30 min               | ✅ High      |
-| 7   | Claude Code hangs/crashes           | 45 min timeout + heartbeat + recovery        | ✅ High      |
-| 8   | Infrastructure failures             | Classification + auto-retry (no count)       | ✅ High      |
-| 9   | Long-running specs                  | Per-spec `@tdd-max-attempts`, `@tdd-timeout` | ✅ High      |
-| 10  | Label accidents                     | Branch name as backup identifier             | ✅ High      |
-
----
-
-## Design Decisions (Formerly "Questions")
-
-These questions have been answered and are now **final design decisions**:
-
-| #   | Question               | Decision                                                                              | Rationale                                            |
-| --- | ---------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| 1   | Cron frequency         | **Hourly** (backup only)                                                              | Chain reaction via `workflow_run` handles most cases |
-| 2   | Max attempts           | **5** (default, configurable per-spec)                                                | Increased from 3 for 230-spec reliability            |
-| 3   | Label names            | `tdd-automation`, `tdd-automation:manual-intervention`, `tdd-automation:had-conflict` | Clear, consistent naming                             |
-| 4   | Branch naming          | `tdd/<spec-id>`                                                                       | Simple, serves as backup identifier                  |
-| 5   | @claude comment format | Agent-specific with file paths                                                        | Enables correct agent selection                      |
-| 6   | Regression shards      | **Keep existing (4)**                                                                 | No change needed                                     |
-| 7   | Credit limits          | **$100/day, $500/week** with 80% warnings                                             | Conservative limits with alerts                      |
-| 8   | Cost parsing           | Multi-pattern with $15 fallback                                                       | Handles format changes gracefully                    |
-| 9   | Sync strategy          | **Merge** (not rebase)                                                                | Safer, no force-push, better for automation          |
-| 10  | Conflict counting      | **Not counted** as attempt                                                            | Infrastructure issue, not code failure               |
-
----
-
-## Deprecated: Detailed Risk Mitigations
-
-> **Note:** The detailed risk mitigations previously in this section have been **integrated directly into the workflow implementations above**. The following section is kept for reference but should not be used - refer to the workflow YAML sections instead.
-
-<details>
-<summary>Click to expand legacy risk details (for reference only)</summary>
-
-### 🔴 Risk 1: Serial Processing Time
-
-**Risk**: 230 specs × ~2 hours average = ~460 hours (~19 days) of processing time.
-
-**Accepted Trade-off**: We prioritize reliability over speed. Serial processing eliminates race conditions and debugging complexity.
-
-**Optimizations Implemented**:
-
-```yaml
-# 1. Chain Reaction Trigger (minimize latency between specs)
-# PR Creator triggers on BOTH cron AND workflow_run
-on:
-  schedule:
-    - cron: '0 * * * *' # Hourly backup
-  workflow_run:
-    workflows: ['test'] # Triggers immediately when tests pass on main
-    types: [completed]
-    branches: [main]
-```
-
-```
-Completion Flow (minimizes idle time):
-TDD PR merged → main updated → test.yml runs → PR Creator triggers → next spec starts
-                                              ↑
-                                         ~2-5 minutes latency (not 55 minutes)
-```
-
-**Estimated Timeline**:
-
-- With fast-path (tests already pass): ~10% of specs → instant merge
-- With 1 attempt fixes: ~50% of specs → ~30 min each
-- With 2-3 attempts: ~40% of specs → ~2 hours each
-- **Realistic estimate**: ~150-200 hours (~6-8 days)
-
----
-
-### 🔴 Risk 2: Cost Parsing Fragility
-
-**Risk**: Parsing costs from logs could break silently.
-
-**Solution: Multi-Layer Cost Tracking**
+**CLI Entry Point:**
 
 ```typescript
-// scripts/tdd-automation/core/check-credit-usage.ts
+// scripts/tdd-automation/workflows/pr-creator/check-credits.ts
+import { Effect, Console } from 'effect'
+import { checkCreditLimits } from '../../programs/check-credit-limits'
+import { LiveLayer } from '../../layers/live'
 
-const FALLBACK_COST_PER_RUN = 15 // Conservative estimate if parsing fails
+const main = Effect.gen(function* () {
+  const result = yield* checkCreditLimits
 
-export function extractCostFromLogs(logs: string): number {
-  // Pattern 1: "Total cost: $X.XX"
-  const pattern1 = /Total cost: \$([0-9]+\.[0-9]+)/i
-  // Pattern 2: "Cost: $X.XX" (alternative format)
-  const pattern2 = /Cost: \$([0-9]+\.[0-9]+)/i
-  // Pattern 3: "Session cost: X.XX USD"
-  const pattern3 = /Session cost: ([0-9]+\.[0-9]+) USD/i
-
-  for (const pattern of [pattern1, pattern2, pattern3]) {
-    const match = logs.match(pattern)
-    if (match) {
-      return parseFloat(match[1])
-    }
+  // Log warnings to GitHub Actions
+  for (const warning of result.warnings) {
+    yield* Console.warn(`::warning::${warning}`)
   }
 
-  // CRITICAL: Log warning and use fallback
-  console.warn('⚠️ COST PARSING FAILED - using fallback $15')
-  return FALLBACK_COST_PER_RUN
-}
+  // Output JSON for YAML to parse
+  yield* Console.log(JSON.stringify(result))
+}).pipe(
+  Effect.catchTag('CreditLimitExceeded', (error) =>
+    Effect.gen(function* () {
+      yield* Console.error(`::error::Credit limit exceeded: ${error.limit}`)
+      yield* Console.log(
+        JSON.stringify({
+          canProceed: false,
+          dailySpend: error.dailySpend,
+          weeklySpend: error.weeklySpend,
+          warnings: [],
+        })
+      )
+    })
+  ),
+  Effect.provide(LiveLayer)
+)
 
-// Add to workflow output for visibility
-console.log(`::warning::Cost parsed: $${cost} (fallback used: ${usedFallback})`)
-```
-
-**Alerting**:
-
-```yaml
-- name: Alert if cost parsing failed
-  if: steps.check-cost.outputs.used-fallback == 'true'
-  run: |
-    gh issue create --title "⚠️ TDD Cost Parsing Failed" \
-      --body "Cost parsing failed for run ${{ github.run_id }}. Using fallback. Please verify Claude Code output format." \
-      --label "tdd-automation,bug"
-```
-
----
-
-### 🔴 Risk 3: Merge Conflict Resolution Quality
-
-**Risk**: Claude might incorrectly resolve complex conflicts.
-
-**Solution: Conflict Flagging + Human Review Gate**
-
-```yaml
-# In claude-code.yml
-- name: Detect and flag conflicts
-  id: conflict-check
-  run: |
-    git fetch origin main
-    if ! git merge origin/main --no-commit --no-ff 2>/dev/null; then
-      echo "has-conflict=true" >> $GITHUB_OUTPUT
-      git merge --abort
-    fi
-
-- name: Add conflict label
-  if: steps.conflict-check.outputs.has-conflict == 'true'
-  run: |
-    gh pr edit $PR_NUMBER --add-label "tdd-automation:had-conflict"
-
-- name: Execute Claude Code with conflict awareness
-  run: |
-    if [ "$HAS_CONFLICT" = "true" ]; then
-      claude --print "⚠️ MERGE CONFLICT DETECTED
-
-      IMPORTANT: This PR has conflicts with main. You must:
-      1. Run: git fetch origin main && git merge origin/main
-      2. Carefully resolve each conflict:
-         - For DOMAIN MODEL conflicts: prefer main (newer schema)
-         - For TEST FILE conflicts: merge both test cases
-         - For CONFIG conflicts: prefer main
-      3. After resolving, run full quality + regression tests
-      4. If unsure about ANY conflict, add comment: '// TODO: human review needed'
-
-      Then proceed with the original fix task."
-    fi
-```
-
-**Human Review Requirement**:
-
-```yaml
-# PRs with conflicts require human approval before merge
-- name: Disable auto-merge if had conflict
-  if: contains(github.event.pull_request.labels.*.name, 'tdd-automation:had-conflict')
-  run: |
-    gh pr edit $PR_NUMBER --remove-label "tdd-automation:auto-merge"
-    gh pr comment $PR_NUMBER --body "⚠️ This PR had merge conflicts that were auto-resolved. **Human review required before merge.**"
+Effect.runPromise(main)
 ```
 
 ---
 
-### 🟡 Risk 4: Comment-Based Retry Counting (Unreliable)
-
-**Risk**: Comments can be deleted/edited, making count unreliable.
-
-**Solution: Use PR Title for Attempt Tracking (Immutable)**
-
-```yaml
-# PR Title format: [TDD] Implement <spec-id> | Attempt X/5
-# Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 2/5
-
-- name: Get current attempt from PR title
-  id: attempt
-  run: |
-    TITLE=$(gh pr view $PR_NUMBER --json title -q '.title')
-    ATTEMPT=$(echo "$TITLE" | grep -oP 'Attempt \K[0-9]+' || echo "1")
-    echo "current=$ATTEMPT" >> $GITHUB_OUTPUT
-
-- name: Increment attempt in PR title
-  if: failure()
-  run: |
-    NEW_ATTEMPT=$((ATTEMPT + 1))
-    NEW_TITLE=$(echo "$TITLE" | sed "s/Attempt [0-9]\+/Attempt $NEW_ATTEMPT/")
-    gh pr edit $PR_NUMBER --title "$NEW_TITLE"
-
-- name: Check if max attempts reached
-  if: steps.attempt.outputs.current >= 5
-  run: |
-    gh pr edit $PR_NUMBER --add-label "tdd-automation:manual-intervention"
-    echo "Max attempts (5) reached - marking for manual intervention"
-```
-
-**Configurable Max Attempts**:
-
-```yaml
-# Default: 5 attempts (increased from 3 for 230-spec reliability)
-# Can be overridden per-spec via test file comment:
-# // @tdd-max-attempts: 8
-```
-
----
-
-### 🟡 Risk 5: GitHub API Rate Limits
-
-**Risk**: 230 specs × multiple API calls could hit rate limits.
-
-**Solution: Batched GraphQL Queries + Caching**
+### Layer Composition (Dependency Injection)
 
 ```typescript
-// scripts/tdd-automation/core/github-api.ts
+// scripts/tdd-automation/layers/live.ts
+import { Layer } from 'effect'
+import { GitHubApiLive } from '../services/github-api.live'
+import { GitOperationsLive } from '../services/git-operations.live'
+import { CostTrackerLive } from '../services/cost-tracker.live'
 
-// Single GraphQL query instead of multiple REST calls
-const GET_TDD_STATE = `
-  query GetTDDState($owner: String!, $repo: String!) {
-    repository(owner: $owner, name: $repo) {
-      # Get all TDD PRs in one query
-      tddPRs: pullRequests(labels: ["tdd-automation"], states: [OPEN], first: 10) {
-        nodes {
-          number
-          title
-          headRefName
-          mergeStateStatus
-          labels(first: 10) { nodes { name } }
-        }
-      }
-      # Get manual intervention PRs
-      manualPRs: pullRequests(labels: ["tdd-automation:manual-intervention"], states: [OPEN], first: 50) {
-        nodes {
-          headRefName
-        }
-      }
-    }
-  }
-`
-
-// Cache results for 60 seconds
-const cache = new Map<string, { data: any; timestamp: number }>()
-const CACHE_TTL = 60_000
-
-export async function getTDDState(): Promise<TDDState> {
-  const cached = cache.get('tdd-state')
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.data
-  }
-
-  const data = await graphqlQuery(GET_TDD_STATE)
-  cache.set('tdd-state', { data, timestamp: Date.now() })
-  return data
-}
-```
-
-**Rate Limit Handling**:
-
-```yaml
-- name: API call with backoff
-  run: |
-    for i in 1 2 3 4 5; do
-      if gh pr list --label "tdd-automation" --json number 2>/dev/null; then
-        break
-      fi
-      echo "Rate limited, waiting $((i * 30)) seconds..."
-      sleep $((i * 30))
-    done
-```
-
----
-
-### 🟡 Risk 6: Auto-Merge Failures
-
-**Risk**: PR stuck after tests pass.
-
-**Solution: Merge Watchdog Workflow**
-
-```yaml
-# .github/workflows/merge-watchdog.yml
-name: TDD Merge Watchdog
-
-on:
-  schedule:
-    - cron: '*/30 * * * *' # Every 30 minutes
-
-jobs:
-  check-stuck-prs:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Find stuck TDD PRs
-        run: |
-          # Find PRs that are:
-          # - Labeled tdd-automation (not manual-intervention)
-          # - All checks passed
-          # - Mergeable
-          # - Not merged in >2 hours
-
-          STUCK_PRS=$(gh pr list \
-            --label "tdd-automation" \
-            --json number,title,updatedAt,mergeStateStatus,statusCheckRollup \
-            --jq '[.[] |
-              select(.mergeStateStatus == "CLEAN") |
-              select(.statusCheckRollup | all(.conclusion == "SUCCESS")) |
-              select((now - (.updatedAt | fromdateiso8601)) > 7200)
-            ] | .[].number')
-
-          for PR in $STUCK_PRS; do
-            echo "PR #$PR is stuck - attempting merge"
-            gh pr merge $PR --squash --auto || true
-          done
-
-      - name: Alert on persistent stuck PRs
-        run: |
-          # If PR stuck for >6 hours, create alert issue
-          VERY_STUCK=$(gh pr list --label "tdd-automation" --json number,updatedAt \
-            --jq '[.[] | select((now - (.updatedAt | fromdateiso8601)) > 21600)] | .[].number')
-
-          if [ -n "$VERY_STUCK" ]; then
-            gh issue create \
-              --title "🚨 TDD PR stuck for >6 hours" \
-              --body "PRs stuck: $VERY_STUCK. Please investigate branch protection rules." \
-              --label "tdd-automation,urgent"
-          fi
-```
-
----
-
-### 🟡 Risk 7: Claude Code Hangs/Crashes
-
-**Risk**: No push → pipeline stalls.
-
-**Solution: Timeout + Heartbeat + Recovery**
-
-```yaml
-# In claude-code.yml
-jobs:
-  fix-code:
-    timeout-minutes: 45 # Hard timeout
-
-    steps:
-      - name: Start heartbeat
-        run: |
-          # Post progress comment every 10 minutes
-          (
-            while true; do
-              sleep 600
-              gh pr comment $PR_NUMBER --body "🤖 Claude Code still working... (heartbeat)"
-            done
-          ) &
-          echo $! > /tmp/heartbeat.pid
-
-      - name: Execute Claude Code
-        id: claude
-        continue-on-error: true
-        run: |
-          timeout 40m claude --print "$PROMPT" || echo "status=timeout" >> $GITHUB_OUTPUT
-
-      - name: Stop heartbeat
-        if: always()
-        run: kill $(cat /tmp/heartbeat.pid) 2>/dev/null || true
-
-      - name: Handle timeout
-        if: steps.claude.outputs.status == 'timeout'
-        run: |
-          # Don't count as attempt - it's infrastructure failure
-          gh pr comment $PR_NUMBER --body "⏱️ Claude Code timed out (infrastructure issue - not counting as attempt). Retrying..."
-          # Re-trigger by posting new @claude comment
-          gh pr comment $PR_NUMBER --body "@claude Previous attempt timed out. Please continue fixing the failing tests."
-```
-
----
-
-### 🟢 Risk 8: Infrastructure Failures
-
-**Risk**: GitHub/network issues counting against attempts.
-
-**Solution: Failure Classification**
-
-```yaml
-- name: Classify failure type
-  if: failure()
-  id: classify
-  run: |
-    # Infrastructure failures (don't count)
-    if [[ "$ERROR" == *"rate limit"* ]] || \
-       [[ "$ERROR" == *"timeout"* ]] || \
-       [[ "$ERROR" == *"network"* ]] || \
-       [[ "$ERROR" == *"503"* ]] || \
-       [[ "$ERROR" == *"502"* ]]; then
-      echo "type=infrastructure" >> $GITHUB_OUTPUT
-    else
-      echo "type=code" >> $GITHUB_OUTPUT
-    fi
-
-- name: Increment attempt (code failures only)
-  if: steps.classify.outputs.type == 'code'
-  run: |
-    # Only increment attempt counter for actual code failures
-    ./scripts/increment-attempt.sh $PR_NUMBER
-
-- name: Retry infrastructure failure
-  if: steps.classify.outputs.type == 'infrastructure'
-  run: |
-    gh pr comment $PR_NUMBER --body "🔄 Infrastructure issue detected. Auto-retrying in 5 minutes..."
-    sleep 300
-    gh workflow run claude-code.yml -f pr_number=$PR_NUMBER
-```
-
----
-
-### 🟢 Risk 9: Long-Running Specs
-
-**Risk**: Complex specs need >5 attempts.
-
-**Solution: Per-Spec Configurable Limits**
-
-```typescript
-// In spec file: specs/api/complex-feature.spec.ts
 /**
- * @tdd-max-attempts 10
- * @tdd-timeout 60
+ * Production layer with all live service implementations
  */
-test.fixme('complex feature that needs many iterations', async () => {
-  // ...
+export const LiveLayer = Layer.mergeAll(GitHubApiLive, GitOperationsLive, CostTrackerLive)
+
+// scripts/tdd-automation/layers/test.ts
+import { Layer } from 'effect'
+import { GitHubApiTest } from '../services/github-api.test'
+import { GitOperationsTest } from '../services/git-operations.test'
+import { CostTrackerTest } from '../services/cost-tracker.test'
+
+/**
+ * Test layer with mock service implementations
+ */
+export const TestLayer = Layer.mergeAll(GitHubApiTest, GitOperationsTest, CostTrackerTest)
+```
+
+**Unit Testing Example:**
+
+```typescript
+// scripts/tdd-automation/programs/check-credit-limits.test.ts
+import { describe, test, expect } from 'bun:test'
+import { Effect, Layer } from 'effect'
+import { checkCreditLimits } from './check-credit-limits'
+import { GitHubApi } from '../services/github-api'
+import { CostTracker } from '../services/cost-tracker'
+
+describe('checkCreditLimits', () => {
+  test('returns canProceed: true when under limits', async () => {
+    // Create mock layer
+    const MockLayer = Layer.mergeAll(
+      Layer.succeed(GitHubApi, {
+        getWorkflowRuns: () => Effect.succeed([{ id: '123' }]),
+        // ... other mocks
+      }),
+      Layer.succeed(CostTracker, {
+        parseCostFromLogs: () => Effect.succeed(10), // $10 per run
+      })
+    )
+
+    const result = await Effect.runPromise(checkCreditLimits.pipe(Effect.provide(MockLayer)))
+
+    expect(result.canProceed).toBe(true)
+    expect(result.dailySpend).toBe(10)
+  })
+
+  test('fails with CreditLimitExceeded when over daily limit', async () => {
+    const MockLayer = Layer.mergeAll(
+      Layer.succeed(GitHubApi, {
+        getWorkflowRuns: () =>
+          Effect.succeed(Array.from({ length: 10 }, (_, i) => ({ id: `${i}` }))),
+      }),
+      Layer.succeed(CostTracker, {
+        parseCostFromLogs: () => Effect.succeed(15), // $15 * 10 = $150 > $100 limit
+      })
+    )
+
+    const exit = await Effect.runPromiseExit(checkCreditLimits.pipe(Effect.provide(MockLayer)))
+
+    expect(exit._tag).toBe('Failure')
+    // Assert on CreditLimitExceeded error
+  })
 })
 ```
 
-```yaml
-# Extract config from spec file
-- name: Get spec config
-  run: |
-    MAX_ATTEMPTS=$(grep -oP '@tdd-max-attempts \K[0-9]+' "$SPEC_FILE" || echo "5")
-    TIMEOUT=$(grep -oP '@tdd-timeout \K[0-9]+' "$SPEC_FILE" || echo "45")
-    echo "max-attempts=$MAX_ATTEMPTS" >> $GITHUB_OUTPUT
-    echo "timeout=$TIMEOUT" >> $GITHUB_OUTPUT
-```
+---
+
+### Implementation Phases
+
+| Phase                 | Days | Focus                                     | Deliverables              |
+| --------------------- | ---- | ----------------------------------------- | ------------------------- |
+| **1. Core Types**     | 1    | Error types, config                       | `errors.ts`, `config.ts`  |
+| **2. Services**       | 2-3  | Service interfaces + live implementations | `services/*.ts`           |
+| **3. Programs**       | 3-4  | Business logic programs                   | `programs/*.ts`           |
+| **4. Entry Points**   | 4-5  | CLI scripts for YAML                      | `workflows/**/*.ts`       |
+| **5. YAML Migration** | 5-6  | Replace bash with TypeScript calls        | `.github/workflows/*.yml` |
+| **6. Testing**        | 6-7  | Unit tests for all programs               | `**/*.test.ts`            |
+| **7. Documentation**  | 7    | Update docs, add examples                 | This document             |
+
+**Total: ~7 days** (can be parallelized with current implementation)
 
 ---
 
-### 🟢 Risk 10: Label Accidents
+### Benefits Summary
 
-**Risk**: Human removes label accidentally.
-
-**Solution: Branch Name as Backup Identifier**
-
-```yaml
-# Always check BOTH label AND branch name
-- name: Identify TDD PR
-  run: |
-    IS_TDD_BY_LABEL=$(gh pr view $PR --json labels -q '.labels[].name' | grep -c "tdd-automation" || echo "0")
-    IS_TDD_BY_BRANCH=$(echo "$BRANCH" | grep -c "^tdd/" || echo "0")
-
-    if [ "$IS_TDD_BY_LABEL" -gt 0 ] || [ "$IS_TDD_BY_BRANCH" -gt 0 ]; then
-      echo "is-tdd=true" >> $GITHUB_OUTPUT
-
-      # Restore label if missing
-      if [ "$IS_TDD_BY_LABEL" -eq 0 ] && [ "$IS_TDD_BY_BRANCH" -gt 0 ]; then
-        gh pr edit $PR --add-label "tdd-automation"
-        echo "Restored missing tdd-automation label"
-      fi
-    fi
-```
-
----
-
-## Reliability Summary for 230 Specs
-
-| Risk                    | Mitigation                         | Confidence                |
-| ----------------------- | ---------------------------------- | ------------------------- |
-| Serial processing time  | Chain reaction triggers, fast-path | ✅ Acceptable (~6-8 days) |
-| Cost parsing            | Multi-pattern + fallback + alerts  | ✅ High                   |
-| Merge conflicts         | Flag + human review gate           | ✅ High                   |
-| Retry counting          | PR title (immutable)               | ✅ High                   |
-| API rate limits         | GraphQL batching + cache + backoff | ✅ High                   |
-| Auto-merge stuck        | Watchdog workflow                  | ✅ High                   |
-| Claude hangs            | Timeout + heartbeat + recovery     | ✅ High                   |
-| Infrastructure failures | Classification + no-count retry    | ✅ High                   |
-| Long-running specs      | Per-spec config                    | ✅ High                   |
-| Label accidents         | Branch name backup                 | ✅ High                   |
-
-**Expected Outcome**: All 230 specs processed reliably over ~6-8 days with:
-
-- Zero data loss
-- Full audit trail in GitHub PRs
-- Automatic recovery from transient failures
-- Human escalation for genuine issues
-
-</details>
-
----
-
-_Document ready for implementation. See [Implementation Plan](#implementation-plan) to begin._
+| Aspect             | Bash-in-YAML        | Effect-Based                        |
+| ------------------ | ------------------- | ----------------------------------- |
+| **Testability**    | Manual testing only | Full unit test coverage             |
+| **Type Safety**    | None                | Full TypeScript inference           |
+| **Error Handling** | Exit codes + grep   | Tagged errors with recovery         |
+| **Debugging**      | `echo` statements   | Effect DevTools, structured logging |
+| **Reusability**    | Copy-paste          | Composable services                 |
+| **Refactoring**    | Risky               | Safe with compiler checks           |
+| **IDE Support**    | None                | Full autocomplete, go-to-definition |
+| **Code Review**    | Hard to verify      | Easy to reason about                |
+| **Maintenance**    | Fragile             | Robust and scalable                 |
