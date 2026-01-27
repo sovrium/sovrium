@@ -805,6 +805,55 @@ jobs:
           fi
 
   # ============================================================================
+  # SPEC PROGRESS AUTO-UPDATE
+  # Updates SPEC-PROGRESS.md after successful test runs
+  # ============================================================================
+
+  update-spec-progress:
+    name: Update Spec Progress
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed' &&
+      needs.test.result == 'success'
+    needs: [test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Analyze spec progress
+        run: bun run analyze:spec
+
+      - name: Commit spec progress updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Check if SPEC-PROGRESS.md changed
+          if git diff --quiet SPEC-PROGRESS.md; then
+            echo "✅ No changes to SPEC-PROGRESS.md"
+          else
+            echo "📝 Committing SPEC-PROGRESS.md updates..."
+            git add SPEC-PROGRESS.md
+            git commit -m "chore: update spec progress [skip ci]"
+            git push
+            echo "✅ SPEC-PROGRESS.md updated and pushed"
+          fi
+
+  # ============================================================================
   # TDD AUTOMATION JOBS
   #
   # These jobs handle TDD lifecycle events that must run IMMEDIATELY on PR events.
