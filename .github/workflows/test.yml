@@ -296,20 +296,30 @@ jobs:
         env:
           TARGET_SPEC: ${{ needs.detect-change-type.outputs.target_spec }}
           CI_WORKERS: 2
+          # JSON reporter outputs to this file
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results.json
         run: |
           echo "🎯 Running target spec only (test-only fast path)..."
           echo "Target: $TARGET_SPEC"
 
           if [ -n "$TARGET_SPEC" ] && [ -f "$TARGET_SPEC" ]; then
             echo "🧪 Running: bunx playwright test $TARGET_SPEC"
-            bunx playwright test "$TARGET_SPEC" --reporter=github
+            bunx playwright test "$TARGET_SPEC" --reporter=github,json
+            # Move JSON results to predictable location
+            if [ -f "test-results.json" ]; then
+              mv test-results.json "test-results-target-spec.json"
+            fi
           else
             echo "⚠️  Target spec not found, running @regression tests that match changed files..."
             # Fall back to running changed spec files
             CHANGED_SPECS=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | grep '\.spec\.ts$' || true)
             if [ -n "$CHANGED_SPECS" ]; then
               echo "Running: $CHANGED_SPECS"
-              bunx playwright test $CHANGED_SPECS --reporter=github
+              bunx playwright test $CHANGED_SPECS --reporter=github,json
+              # Move JSON results to predictable location
+              if [ -f "test-results.json" ]; then
+                mv test-results.json "test-results-target-spec.json"
+              fi
             else
               echo "✅ No spec files to run"
             fi
@@ -321,6 +331,15 @@ jobs:
         with:
           name: test-results-target-spec
           path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload JSON test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: json-results-target-spec
+          path: test-results-target-spec.json
           retention-days: 7
           if-no-files-found: ignore
 
@@ -560,7 +579,7 @@ jobs:
       - name: Download all JSON test results
         uses: actions/download-artifact@v4
         with:
-          pattern: json-results-shard-*
+          pattern: json-results-*
           path: all-json-results/
           merge-multiple: false
         continue-on-error: true
