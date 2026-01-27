@@ -14,7 +14,7 @@
 import { Array as EffectArray, pipe } from 'effect'
 import * as Effect from 'effect/Effect'
 import { FileSystemService, logInfo, progress } from '../../lib/effect'
-import { createSchemaPriorityCalculator } from '../schema-priority-calculator'
+import { createSchemaPriorityCalculator } from './schema-priority-calculator'
 import type { SpecItem, QueueScanResult } from './types'
 
 /**

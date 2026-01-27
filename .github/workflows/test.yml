@@ -1096,8 +1096,8 @@ jobs:
             echo "exceeded=false" >> $GITHUB_OUTPUT
             echo "new-attempt=$NEW_ATTEMPT" >> $GITHUB_OUTPUT
 
-            # Update PR title using V3 script
-            RESULT=$(bun run scripts/tdd-automation/v3/update-pr-title.ts "$PR_NUMBER" 2>&1) || true
+            # Update PR title
+            RESULT=$(bun run scripts/tdd-automation/core/update-pr-title.ts "$PR_NUMBER" 2>&1) || true
             echo "$RESULT"
           fi
 

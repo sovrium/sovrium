@@ -11,7 +11,7 @@
  * Increments the attempt counter in a TDD PR title.
  *
  * Usage:
- *   bun run scripts/tdd-automation/v3/update-pr-title.ts <pr-number>
+ *   bun run scripts/tdd-automation/core/update-pr-title.ts <pr-number>
  *
  * Environment:
  *   - GITHUB_REPOSITORY: owner/repo (e.g., "owner/sovrium")

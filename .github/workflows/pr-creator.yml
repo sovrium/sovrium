@@ -142,13 +142,13 @@ jobs:
             --jq '.[].headRefName' | sed 's|tdd/||' | tr '\n' ',' | sed 's/,$//')
           echo "specs=$EXCLUDED" >> "$GITHUB_OUTPUT"
 
-      - name: Find next spec using V3 script
+      - name: Find next spec
         id: next-spec
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          RESULT=$(bun run scripts/tdd-automation/v3/find-ready-spec.ts 2>&1) || true
+          RESULT=$(bun run scripts/tdd-automation/core/find-ready-spec.ts 2>&1) || true
 
           # Check if we got valid JSON output
           if echo "$RESULT" | jq -e '.specId' > /dev/null 2>&1; then

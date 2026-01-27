@@ -12,7 +12,7 @@
  * [TDD] Implement <spec-id> | Attempt X/5
  *
  * Usage:
- *   bun run scripts/tdd-automation/v3/parse-pr-title.ts "[TDD] Implement APP-VERSION-001 | Attempt 2/5"
+ *   bun run scripts/tdd-automation/core/parse-pr-title.ts "[TDD] Implement APP-VERSION-001 | Attempt 2/5"
  *
  * Output (JSON):
  *   { "specId": "APP-VERSION-001", "attempt": 2, "maxAttempts": 5 }

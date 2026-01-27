@@ -15,7 +15,7 @@
  *   3. No other active TDD PR (serial processing)
  *
  * Usage:
- *   bun run scripts/tdd-automation/v3/find-ready-spec.ts
+ *   bun run scripts/tdd-automation/core/find-ready-spec.ts
  *
  * Environment:
  *   - GITHUB_REPOSITORY: owner/repo
@@ -38,7 +38,7 @@
 
 import { Effect, Layer } from 'effect'
 import { FileSystemServiceLive, LoggerServiceLive } from '../../lib/effect'
-import { scanForFixmeSpecs } from '../services/spec-scanner'
+import { scanForFixmeSpecs } from './spec-scanner'
 import { parseTDDPRTitle, extractSpecIdFromBranch } from './parse-pr-title'
 import { TDD_LABELS, type ReadySpec, type TDDPullRequest } from './types'
 
