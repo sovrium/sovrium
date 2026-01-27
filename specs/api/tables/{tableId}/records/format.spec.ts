@@ -104,7 +104,7 @@ test.describe('Record Display Formatting', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-FORMAT-003: should format currency with specified decimal precision',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
