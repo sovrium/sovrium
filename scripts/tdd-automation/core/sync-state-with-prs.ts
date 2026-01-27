@@ -289,9 +289,7 @@ const syncStateWithPRs = Effect.gen(function* () {
 
         // Use shorter threshold for specs without PRs
         if (ageMinutes > ORPHAN_ACTIVATION_THRESHOLD_MINUTES) {
-          console.error(
-            `    ⚠️  Activated ${ageMinutes.toFixed(0)}m ago without PR - re-queuing`
-          )
+          console.error(`    ⚠️  Activated ${ageMinutes.toFixed(0)}m ago without PR - re-queuing`)
           specsToRequeue.push(spec.specId)
           filesToUnlock.push(spec.filePath)
           specsToUnlock.push(spec.specId)

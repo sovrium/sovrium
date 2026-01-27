@@ -158,35 +158,75 @@ jobs:
             echo "Spec lock verified: ${{ steps.spec.outputs.spec_id }}"
           fi
 
-      - name: Check if tests already pass (fast path)
+      - name: Pre-validate spec (remove .fixme and test)
         id: precheck
         continue-on-error: true
         run: |
-          echo "Running test to check if implementation is needed..."
+          echo "Pre-validating spec: removing .fixme() and running test..."
 
-          # Run the specific test
-          bun test:e2e -- "${{ steps.spec.outputs.file_path }}" --grep "${{ steps.spec.outputs.test_name }}" 2>&1 | tee test-output.txt
+          # Store original file content for restoration if needed
+          cp "${{ steps.spec.outputs.file_path }}" /tmp/original-spec-file.ts
 
-          if [ ${PIPESTATUS[0]} -eq 0 ]; then
-            echo "fast_path=true" >> $GITHUB_OUTPUT
-            echo "Tests pass - fast path eligible"
+          # Run pre-validate script which:
+          # 1. Removes .fixme() from the specific test
+          # 2. Runs the test with Playwright
+          # 3. Outputs results to JSON file
+          bun run scripts/tdd-automation/core/pre-validate.ts \
+            --file "${{ steps.spec.outputs.file_path }}" \
+            --spec-id "${{ steps.spec.outputs.spec_id }}" \
+            --test-name "${{ steps.spec.outputs.test_name }}" \
+            --output /tmp/precheck-result.json
+
+          # Read the results
+          if [ -f /tmp/precheck-result.json ]; then
+            PASSED=$(cat /tmp/precheck-result.json | jq -r '.passed // 0')
+            FAILED=$(cat /tmp/precheck-result.json | jq -r '.failed // 0')
+
+            echo "Pre-validation result: passed=$PASSED, failed=$FAILED"
+
+            if [ "$PASSED" -gt 0 ] && [ "$FAILED" -eq 0 ]; then
+              echo "fast_path=true" >> $GITHUB_OUTPUT
+              echo "Tests pass without Claude - fast path eligible"
+            else
+              echo "fast_path=false" >> $GITHUB_OUTPUT
+              echo "Tests fail - Claude implementation needed"
+              # Restore original file (with .fixme()) for Claude to work with
+              cp /tmp/original-spec-file.ts "${{ steps.spec.outputs.file_path }}"
+            fi
           else
             echo "fast_path=false" >> $GITHUB_OUTPUT
-            echo "Tests fail - Claude implementation needed"
+            echo "Pre-validation failed to produce results"
+            # Restore original file
+            cp /tmp/original-spec-file.ts "${{ steps.spec.outputs.file_path }}"
           fi
 
-      - name: Fast path - All tests pass
+      - name: Fast path - Commit and merge
         if: steps.precheck.outputs.fast_path == 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          echo "All tests pass without implementation! Fast path activated."
+          echo "Tests pass without Claude implementation! Fast path activated."
 
           # Add fast-path label
           gh api repos/${{ github.repository }}/issues/${{ steps.context.outputs.pr_number }}/labels \
             -f "labels[]=tdd:fast-path" || echo "Failed to add label, continuing..."
 
-          # Auto-merge immediately (no need for Claude)
+          # Commit the .fixme() removal
+          git add "${{ steps.spec.outputs.file_path }}"
+          if ! git diff --staged --quiet; then
+            SPEC_ID="${{ steps.spec.outputs.spec_id }}"
+            git commit -m "test: enable ${SPEC_ID} (fast-path)" -m "Test passes without implementation - .fixme() removal only" -m "Co-Authored-By: github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+            git push origin ${{ steps.context.outputs.branch }}
+            echo "Committed .fixme() removal to PR #${{ steps.context.outputs.pr_number }}"
+          else
+            echo "No changes to commit (test was already enabled)"
+          fi
+
+          # Wait briefly for CI to start on the new commit
+          echo "Waiting for CI to pick up the commit..."
+          sleep 10
+
+          # Auto-merge (CI will validate the commit)
           bun run scripts/tdd-automation/services/pr-manager.ts merge \
             --pr ${{ steps.context.outputs.pr_number }}
 
@@ -221,7 +261,8 @@ jobs:
 
             **Instructions**:
             1. Use the e2e-test-fixer agent to implement the code needed to pass this specific test
-            2. The .fixme() has already been removed from the test: ${{ steps.spec.outputs.test_name }}
+            2. First, remove the .fixme() from the test in ${{ steps.spec.outputs.file_path }}
+               - Find `test.fixme('${{ steps.spec.outputs.test_name }}'` and change it to `test('${{ steps.spec.outputs.test_name }}'`
             3. Implement minimal code to make this test pass (follow TDD best practices)
             4. Run bun test:e2e:regression to verify your implementation
             5. Do NOT run quality checks or add license headers (automated in next steps)

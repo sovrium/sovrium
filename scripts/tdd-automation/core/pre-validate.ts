@@ -11,6 +11,7 @@ import { Effect, Console, Data } from 'effect'
 interface ValidationResult {
   passed: number
   failed: number
+  originalContent?: string // Store original content for restoration on failure
 }
 
 /**
@@ -108,12 +109,13 @@ const program = Effect.gen(function* () {
 
   yield* Console.log(`✅ Removed .fixme() from ${specId}`)
 
-  // Run ONLY the specific test using --grep
-  yield* Console.log(`🧪 Running test: ${specId}`)
+  // Run ONLY the specific test using Playwright (E2E tests)
+  yield* Console.log(`🧪 Running E2E test: ${specId}`)
 
   const testResult = yield* Effect.tryPromise({
     try: async () => {
-      const proc = await $`bun test ${file} --grep ${testName} --reporter=json`.nothrow().quiet()
+      // Use bunx playwright test for E2E tests (not bun test which is for unit tests)
+      const proc = await $`bunx playwright test ${file} --grep ${testName}`.nothrow().quiet()
       return {
         exitCode: proc.exitCode,
         stdout: proc.stdout.toString(),
@@ -123,28 +125,12 @@ const program = Effect.gen(function* () {
     catch: (error) => new TestExecutionError({ specId, cause: error }),
   })
 
-  // Parse test results
-  let passed = 0
-  let failed = 0
+  // Playwright exit codes: 0 = all passed, 1 = some failed
+  const passed = testResult.exitCode === 0 ? 1 : 0
+  const failed = testResult.exitCode === 0 ? 0 : 1
 
-  const lines = testResult.stdout.split('\n').filter((line) => line.trim())
-  for (const line of lines) {
-    const parseResult = yield* Effect.try({
-      // NOTE: JSON.parse appropriate for parsing trusted Playwright test output (Effect Schema not needed)
-      try: () => JSON.parse(line),
-      catch: () => null, // Ignore lines that aren't JSON
-    })
-
-    if (parseResult && parseResult.kind === 'test-result') {
-      if (parseResult.status === 'pass') {
-        passed++
-      } else if (parseResult.status === 'fail') {
-        failed++
-      }
-    }
-  }
-
-  const validationResult: ValidationResult = { passed, failed }
+  // Include original content in result for potential restoration
+  const validationResult: ValidationResult = { passed, failed, originalContent: content }
 
   yield* Console.log(`📊 Pre-validation results for ${specId}: ${passed} passed, ${failed} failed`)
 

@@ -44,7 +44,9 @@ const parseArguments = () => {
   const { 'spec-id': specId, 'pr-number': prNumber, 'pr-url': prUrl, branch } = values
 
   if (!specId || !prNumber || !prUrl || !branch) {
-    console.error('Usage: update-active-pr.ts --spec-id ID --pr-number NUM --pr-url URL --branch NAME')
+    console.error(
+      'Usage: update-active-pr.ts --spec-id ID --pr-number NUM --pr-url URL --branch NAME'
+    )
     console.error('')
     console.error('Required arguments:')
     console.error('  --spec-id     Spec ID (e.g., "API-TABLES-001")')
@@ -106,7 +108,10 @@ if (!isCI()) {
 }
 
 Effect.runPromise(
-  program.pipe(Effect.provide(Layer.mergeAll(StateManagerLive)), Logger.withMinimumLogLevel(LogLevel.Warning))
+  program.pipe(
+    Effect.provide(Layer.mergeAll(StateManagerLive)),
+    Logger.withMinimumLogLevel(LogLevel.Warning)
+  )
 ).catch((error) => {
   console.error('❌ Failed to update PR info:', error)
   process.exit(1)
