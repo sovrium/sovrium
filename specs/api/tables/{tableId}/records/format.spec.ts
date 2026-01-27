@@ -371,7 +371,7 @@ test.describe('Record Display Formatting', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-FORMAT-010: should include time component when includeTime is true',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
