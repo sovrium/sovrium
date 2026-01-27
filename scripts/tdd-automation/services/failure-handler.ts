@@ -52,7 +52,7 @@ const FailureHandlerCommand = Command.make(
     retryCount: Options.integer('retry-count'),
     branch: Options.text('branch').pipe(Options.optional),
   },
-  ({ specId, pr, type, retryCount, branch }) =>
+  ({ specId, pr, type, retryCount, branch: _branch }) =>
     Effect.gen(function* () {
       const failureType = type as FailureType
 
