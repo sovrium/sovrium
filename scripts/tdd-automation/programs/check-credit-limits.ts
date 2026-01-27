@@ -49,17 +49,37 @@ export const checkCreditLimits = Effect.gen(function* () {
   const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
   const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
 
-  const dailyRuns = yield* github.getWorkflowRuns({
-    workflow: 'claude-code.yml',
-    createdAfter: oneDayAgo,
-    status: 'success',
-  })
+  const warnings: string[] = []
 
-  const weeklyRuns = yield* github.getWorkflowRuns({
-    workflow: 'claude-code.yml',
-    createdAfter: oneWeekAgo,
-    status: 'success',
-  })
+  // Fetch daily runs with graceful error handling (empty array if API fails)
+  const dailyRuns = yield* pipe(
+    github.getWorkflowRuns({
+      workflow: 'claude-code.yml',
+      createdAfter: oneDayAgo,
+      status: 'success',
+    }),
+    Effect.catchTag('GitHubApiError', (error) => {
+      warnings.push(
+        `Failed to fetch daily workflow runs (${error.operation}), assuming $0 spent`
+      )
+      return Effect.succeed([])
+    })
+  )
+
+  // Fetch weekly runs with graceful error handling (empty array if API fails)
+  const weeklyRuns = yield* pipe(
+    github.getWorkflowRuns({
+      workflow: 'claude-code.yml',
+      createdAfter: oneWeekAgo,
+      status: 'success',
+    }),
+    Effect.catchTag('GitHubApiError', (error) => {
+      warnings.push(
+        `Failed to fetch weekly workflow runs (${error.operation}), assuming $0 spent`
+      )
+      return Effect.succeed([])
+    })
+  )
 
   // Calculate costs with fallback for parsing failures
   const dailyCosts = yield* Effect.forEach(dailyRuns, (run) =>
@@ -78,8 +98,6 @@ export const checkCreditLimits = Effect.gen(function* () {
 
   const dailySpend = dailyCosts.reduce((a, b) => a + b, 0)
   const weeklySpend = weeklyCosts.reduce((a, b) => a + b, 0)
-
-  const warnings: string[] = []
 
   // Check warning thresholds (80%)
   if (dailySpend >= TDD_CONFIG.DAILY_LIMIT * TDD_CONFIG.WARNING_THRESHOLD) {
