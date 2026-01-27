@@ -12,6 +12,11 @@ on:
     types: [opened, synchronize, reopened, closed]
     branches: [main]
 
+# Cancel in-progress runs for the same PR when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   # Infrastructure retry configuration
   MAX_E2E_RETRIES: 2
