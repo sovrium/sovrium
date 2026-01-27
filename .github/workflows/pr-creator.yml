@@ -103,12 +103,14 @@ jobs:
           if echo "$SPEC_JSON" | jq -e '.specId' > /dev/null 2>&1; then
             SPEC_ID=$(echo "$SPEC_JSON" | jq -r '.specId')
             SPEC_FILE=$(echo "$SPEC_JSON" | jq -r '.file')
+            SPEC_LINE=$(echo "$SPEC_JSON" | jq -r '.line')
             PRIORITY=$(echo "$SPEC_JSON" | jq -r '.priority')
 
-            echo "Found spec: $SPEC_ID (priority: $PRIORITY)"
+            echo "Found spec: $SPEC_ID (priority: $PRIORITY) at line $SPEC_LINE"
             echo "found=true" >> "$GITHUB_OUTPUT"
             echo "spec-id=$SPEC_ID" >> "$GITHUB_OUTPUT"
             echo "spec-file=$SPEC_FILE" >> "$GITHUB_OUTPUT"
+            echo "spec-line=$SPEC_LINE" >> "$GITHUB_OUTPUT"
             echo "priority=$PRIORITY" >> "$GITHUB_OUTPUT"
           else
             echo "No pending specs found"
@@ -132,6 +134,7 @@ jobs:
         run: |
           SPEC_ID="${{ steps.next-spec.outputs.spec-id }}"
           SPEC_FILE="${{ steps.next-spec.outputs.spec-file }}"
+          SPEC_LINE="${{ steps.next-spec.outputs.spec-line }}"
           BRANCH="tdd/${SPEC_ID,,}"  # Lowercase
 
           # Configure git
@@ -140,8 +143,8 @@ jobs:
 
           git checkout -b "$BRANCH"
 
-          # Remove .fixme() from the test
-          sed -i 's/\.fixme(/(/g' "$SPEC_FILE"
+          # Remove .fixme() from the specific test line only
+          sed -i "${SPEC_LINE}s/\.fixme(/(/g" "$SPEC_FILE"
 
           git add "$SPEC_FILE"
           git commit -m "test(tdd): activate $SPEC_ID spec"
