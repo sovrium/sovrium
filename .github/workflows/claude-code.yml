@@ -10,6 +10,7 @@ permissions:
   pull-requests: write
   issues: write
   actions: read
+  id-token: write  # Required for OIDC authentication
 
 jobs:
   # ============================================================================
