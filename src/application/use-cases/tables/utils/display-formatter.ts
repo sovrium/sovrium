@@ -53,6 +53,14 @@ function applyNegativeFormat(amount: string, isNegative: boolean, format: Negati
 }
 
 /**
+ * Get default thousands separator based on precision
+ * When precision is 0 (e.g., JPY), default to no separator (¥1000 not ¥1,000)
+ */
+function getDefaultThousandsSeparator(precision: number): ThousandsSeparator {
+  return precision === 0 ? 'none' : 'comma'
+}
+
+/**
  * Format a currency value with the appropriate symbol and formatting options
  *
  * @param value - The numeric value to format
@@ -64,7 +72,8 @@ function formatCurrency(value: number, field: CurrencyField): string {
   const precision = field.precision ?? 2
   const symbolPosition = field.symbolPosition ?? 'before'
   const negativeFormat = (field.negativeFormat ?? 'minus') as NegativeFormat
-  const thousandsSeparator = (field.thousandsSeparator ?? 'comma') as ThousandsSeparator
+  const thousandsSeparator = (field.thousandsSeparator ??
+    getDefaultThousandsSeparator(precision)) as ThousandsSeparator
 
   // Handle negative values
   const isNegative = value < 0
