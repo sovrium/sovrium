@@ -1,6 +1,6 @@
 # TDD Workflow - Automated Test-Driven Development
 
-> **Simplified, efficient TDD workflow that processes specs continuously without GitHub issues, using PR-only state management and intelligent orchestration.**
+> **Simplified, efficient TDD workflow that processes specs continuously without GitHub issues, using PR-only state management and intelligent orchestration with real-time Claude Code progress tracking.**
 
 ## Overview
 
@@ -11,6 +11,7 @@ This TDD automation system:
 - ✅ **Simplifies** PR-only state tracking (no issues, minimal labels)
 - ✅ **Enhances** Continuous processing until credits exhausted or queue empty
 - ✅ **Optimizes** Smart skip detection (test already passes = instant merge)
+- ✅ **NEW** Real-time Claude Code progress tracking in PRs via `track_progress: true`
 
 ## Key Features
 
@@ -31,32 +32,64 @@ This TDD automation system:
 └────────────────────┬────────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────────┐
-│ tdd-orchestrator.yml (Main Coordinator, ~100 lines)        │
+│ tdd-orchestrator.yml (Main Coordinator)                     │
 │                                                              │
 │ Steps:                                                       │
 │  1. Check prerequisites (concurrency, pending queue)        │
 │  2. Select next specs (priority-based)                      │
-│  3. Dispatch 1-3 worker jobs (parallel)                     │
-│  4. Update metrics                                           │
+│  3. Create branch for each spec                              │
+│  4. Run pre-validation (remove .fixme())                    │
+│  5. Commit, push branch                                      │
+│  6. Create PR with "tdd-automation" label + metadata        │
+│     → PR creation triggers worker automatically              │
 └────────────────────┬────────────────────────────────────────┘
-                     │ (dispatches workers)
+                     │ (pull_request:opened event)
 ┌────────────────────▼────────────────────────────────────────┐
-│ tdd-worker.yml (Reusable Worker, ~150 lines)               │
+│ tdd-worker.yml (Triggered by PR, track_progress: true)     │
 │                                                              │
-│ Inputs: spec_file, priority, retry_count, previous_errors  │
+│ Trigger: pull_request:opened with "tdd-automation" label   │
 │                                                              │
 │ Steps:                                                       │
-│  1. Lock file (prevent duplicate work)                      │
-│  2. Pre-validation (remove .fixme(), test)                  │
-│  3. If passed → commit, push, auto-merge ⚡ FAST PATH       │
-│  4. If failed → invoke Claude (e2e-test-fixer)              │
+│  1. Extract spec metadata from PR body                       │
+│  2. Verify file locks                                        │
+│  3. If passed → auto-merge ⚡ FAST PATH                      │
+│  4. If failed → invoke Claude with track_progress: true     │
+│     → Real-time progress visible in PR comments!             │
 │  5. If src/ modified → invoke Claude (refactor-auditor)     │
 │  6. Commit, push, wait for CI                               │
 │  7. If CI green → auto-merge, exit SUCCESS                  │
 │  8. If CI red → analyze failure, handle retry/failure       │
-│  9. Cleanup (always unlock file)                            │
+│  9. Cleanup (always unlock file and spec)                   │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+### Key Architecture Change: PR-Triggered Workers
+
+**Why this architecture?**
+
+The Claude Code Action's `track_progress` feature only works with certain GitHub event types:
+
+- ✅ `pull_request` (opened, synchronize, ready_for_review, reopened)
+- ✅ `issues` (opened, edited, labeled, assigned)
+- ❌ `workflow_dispatch` (NOT supported)
+
+**Old Architecture** (workflow_dispatch):
+
+```
+Orchestrator → workflow_dispatch → Worker → Creates PR → Claude (no progress)
+```
+
+**New Architecture** (pull_request trigger):
+
+```
+Orchestrator → Creates PR → pull_request:opened → Worker → Claude (with progress!)
+```
+
+**Benefits:**
+
+- Real-time Claude thinking/progress visible in PR comments
+- Better debugging and monitoring
+- Users can see what Claude is doing as it works
 
 ## State Management
 
@@ -155,11 +188,19 @@ gh run list --workflow=tdd-worker.yml --limit=10
 
 ### Workflows
 
-| Workflow               | Trigger                     | Purpose                        |
-| ---------------------- | --------------------------- | ------------------------------ |
-| `tdd-orchestrator.yml` | After test.yml, hourly cron | Select specs, dispatch workers |
-| `tdd-worker.yml`       | Dispatched by orchestrator  | Process single spec file       |
-| `tdd-cleanup.yml`      | Every 6 hours               | Remove stale locks (> 30 min)  |
+| Workflow               | Trigger                              | Purpose                                |
+| ---------------------- | ------------------------------------ | -------------------------------------- |
+| `tdd-orchestrator.yml` | After test.yml, hourly cron          | Select specs, create PRs with metadata |
+| `tdd-worker.yml`       | pull_request:opened + tdd-automation | Process spec with track_progress: true |
+| `tdd-cleanup.yml`      | Every 6 hours                        | Remove stale locks (> 30 min)          |
+
+### PR Metadata Format
+
+The orchestrator embeds spec details in PR body for the worker to extract:
+
+```html
+<!-- TDD_METADATA: {"specId":"API-TABLES-001","filePath":"specs/api/tables/create.spec.ts","testName":"should create table","priority":75,"retryCount":0,"previousErrors":[]} -->
+```
 
 ## Features
 
@@ -276,13 +317,9 @@ bun run scripts/tdd-automation/services/pr-manager.ts pr merge \
 ### Worker Operations
 
 ```bash
-# Trigger worker for specific spec
-gh workflow run tdd-worker.yml \
-  -f spec_file="specs/api/tables/create.spec.ts" \
-  -f priority="75" \
-  -f retry_count="0" \
-  -f test_count="5" \
-  -f previous_errors="[]"
+# Workers are now triggered automatically by PR creation with tdd-automation label
+# To manually trigger (without track_progress), use:
+gh workflow run tdd-worker.yml -f pr_number=123 -f force=true
 
 # View worker runs
 gh run list --workflow=tdd-worker.yml --limit=10
@@ -293,6 +330,9 @@ gh run view <run-id>
 # Cancel worker
 gh run cancel <run-id>
 ```
+
+**Note**: Manual workflow_dispatch triggers will NOT have `track_progress` enabled.
+For real-time progress, the PR must be created first (which triggers the worker via pull_request event).
 
 ## Troubleshooting
 

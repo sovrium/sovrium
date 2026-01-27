@@ -1,36 +1,36 @@
 name: TDD Worker
 
 on:
+  # PRIMARY TRIGGER: PR creation enables track_progress for real-time updates
+  # The orchestrator creates PRs with the "tdd-automation" label, which triggers this workflow
+  pull_request:
+    types: [opened]
+    branches: [main]
+
+  # FALLBACK: Manual trigger for debugging/retries (track_progress will be disabled)
   workflow_dispatch:
     inputs:
-      spec_id:
-        description: 'Spec ID (e.g., API-TABLES-001)'
-        required: true
-        type: string
-      file_path:
-        description: 'Path to spec file (e.g., specs/api/tables/create.spec.ts)'
-        required: true
-        type: string
-      test_name:
-        description: 'Full test description for grep matching (e.g., "API-TABLES-001: should create table")'
-        required: true
-        type: string
-      priority:
-        description: 'Priority score (0-100)'
+      pr_number:
+        description: 'PR number to process'
         required: true
         type: number
-      retry_count:
-        description: 'Current attempt number (0-2, after 3rd failure → manual intervention)'
-        required: true
-        type: number
-      previous_errors:
-        description: 'JSON array of previous error objects'
+      force:
+        description: 'Force processing even if PR is not labeled'
         required: false
-        type: string
-        default: '[]'
+        type: boolean
+        default: false
+
+# Prevent multiple workers from processing the same PR
+concurrency:
+  group: tdd-worker-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: false
 
 jobs:
   process-spec:
+    # Only run if PR has the tdd-automation label (or forced via workflow_dispatch)
+    if: |
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'tdd-automation')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.force)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -38,9 +38,79 @@ jobs:
       issues: write
 
     steps:
-      - name: Checkout repository
+      - name: Determine PR context
+        id: context
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            BRANCH_NAME="${{ github.event.pull_request.head.ref }}"
+          else
+            PR_NUMBER="${{ inputs.pr_number }}"
+            BRANCH_NAME=$(gh pr view "$PR_NUMBER" --json headRefName -q .headRefName)
+          fi
+
+          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          # Determine if track_progress should be enabled
+          # Only works with pull_request events, not workflow_dispatch
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "track_progress=true" >> $GITHUB_OUTPUT
+          else
+            echo "track_progress=false" >> $GITHUB_OUTPUT
+          fi
+
+          echo "PR: #$PR_NUMBER"
+          echo "Branch: $BRANCH_NAME"
+          echo "Track Progress: ${{ github.event_name == 'pull_request' }}"
+
+      - name: Extract spec details from PR
+        id: spec
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_NUMBER="${{ steps.context.outputs.pr_number }}"
+
+          # Get PR body which contains spec details
+          PR_DATA=$(gh pr view "$PR_NUMBER" --json body,title,labels)
+          PR_BODY=$(echo "$PR_DATA" | jq -r '.body')
+          PR_TITLE=$(echo "$PR_DATA" | jq -r '.title')
+
+          # Extract spec details from PR body metadata section
+          # Format: <!-- TDD_METADATA: {"specId":"...", "filePath":"...", ...} -->
+          METADATA=$(echo "$PR_BODY" | grep -oP '<!-- TDD_METADATA: \K[^>]+' | head -1 || echo "{}")
+
+          if [ "$METADATA" = "{}" ] || [ -z "$METADATA" ]; then
+            echo "::error::No TDD metadata found in PR body"
+            exit 1
+          fi
+
+          # Parse metadata
+          SPEC_ID=$(echo "$METADATA" | jq -r '.specId')
+          FILE_PATH=$(echo "$METADATA" | jq -r '.filePath')
+          TEST_NAME=$(echo "$METADATA" | jq -r '.testName')
+          PRIORITY=$(echo "$METADATA" | jq -r '.priority')
+          RETRY_COUNT=$(echo "$METADATA" | jq -r '.retryCount // 0')
+          PREVIOUS_ERRORS=$(echo "$METADATA" | jq -c '.previousErrors // []')
+
+          echo "spec_id=$SPEC_ID" >> $GITHUB_OUTPUT
+          echo "file_path=$FILE_PATH" >> $GITHUB_OUTPUT
+          echo "test_name=$TEST_NAME" >> $GITHUB_OUTPUT
+          echo "priority=$PRIORITY" >> $GITHUB_OUTPUT
+          echo "retry_count=$RETRY_COUNT" >> $GITHUB_OUTPUT
+          echo "previous_errors=$PREVIOUS_ERRORS" >> $GITHUB_OUTPUT
+
+          echo "Spec ID: $SPEC_ID"
+          echo "File: $FILE_PATH"
+          echo "Test: $TEST_NAME"
+          echo "Retry: $RETRY_COUNT/3"
+
+      - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ steps.context.outputs.branch }}
           fetch-depth: 0
 
       - name: Setup Bun
@@ -51,151 +121,77 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Create PR branch
-        id: branch
+      - name: Configure git identity
         run: |
-          # Use spec ID for branch name
-          SPEC_ID="${{ inputs.spec_id }}"
-          TIMESTAMP=$(date +%s)
-          BRANCH_NAME="tdd/${SPEC_ID}-${TIMESTAMP}"
-
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          git checkout -b "$BRANCH_NAME"
-          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
-
-      # NOTE: File and spec locks are now acquired by the orchestrator's spec-selector-cli.ts
-      # BEFORE dispatching workers. This prevents race conditions where another orchestrator
-      # run could select the same spec before the worker has a chance to lock it.
-      #
-      # The locks are released in the cleanup step at the end of this workflow.
       - name: Verify locks acquired by orchestrator
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          echo "🔒 Verifying file/spec locks (acquired by orchestrator)..."
+          echo "Verifying file/spec locks (acquired by orchestrator)..."
 
           # Fetch state from tdd-state branch
           STATE_JSON=$(gh api repos/${{ github.repository }}/contents/.github/tdd-state.json?ref=tdd-state \
             --jq '.content' | base64 -d 2>/dev/null || echo '{"activeFiles":[],"activeSpecs":[]}')
 
           # Verify file is locked
-          FILE_LOCKED=$(echo "$STATE_JSON" | jq --arg file "${{ inputs.file_path }}" '.activeFiles | index($file) != null')
+          FILE_LOCKED=$(echo "$STATE_JSON" | jq --arg file "${{ steps.spec.outputs.file_path }}" '.activeFiles | index($file) != null')
           if [ "$FILE_LOCKED" != "true" ]; then
-            echo "⚠️  Warning: File ${{ inputs.file_path }} is not locked. This may indicate a race condition."
-            echo "   The orchestrator should have locked this file before dispatching this worker."
+            echo "Warning: File ${{ steps.spec.outputs.file_path }} is not locked."
           else
-            echo "✅ File lock verified: ${{ inputs.file_path }}"
+            echo "File lock verified: ${{ steps.spec.outputs.file_path }}"
           fi
 
           # Verify spec is locked
-          SPEC_LOCKED=$(echo "$STATE_JSON" | jq --arg spec "${{ inputs.spec_id }}" '.activeSpecs | index($spec) != null')
+          SPEC_LOCKED=$(echo "$STATE_JSON" | jq --arg spec "${{ steps.spec.outputs.spec_id }}" '.activeSpecs | index($spec) != null')
           if [ "$SPEC_LOCKED" != "true" ]; then
-            echo "⚠️  Warning: Spec ${{ inputs.spec_id }} is not locked. This may indicate a race condition."
-            echo "   The orchestrator should have locked this spec before dispatching this worker."
+            echo "Warning: Spec ${{ steps.spec.outputs.spec_id }} is not locked."
           else
-            echo "✅ Spec lock verified: ${{ inputs.spec_id }}"
+            echo "Spec lock verified: ${{ steps.spec.outputs.spec_id }}"
           fi
 
-      - name: Run pre-validation (validate-specs)
-        id: prevalidate
+      - name: Check if tests already pass (fast path)
+        id: precheck
         continue-on-error: true
         run: |
-          bun run scripts/tdd-automation/core/pre-validate.ts \
-            --file "${{ inputs.file_path }}" \
-            --spec-id "${{ inputs.spec_id }}" \
-            --test-name "${{ inputs.test_name }}" \
-            --output prevalidation-result.json
+          echo "Running test to check if implementation is needed..."
 
-      - name: Parse pre-validation results
-        id: parse_prevalidation
-        run: |
-          if [ -f prevalidation-result.json ]; then
-            RESULT=$(cat prevalidation-result.json)
-            PASSED=$(echo "$RESULT" | jq -r '.passed')
-            FAILED=$(echo "$RESULT" | jq -r '.failed')
+          # Run the specific test
+          bun test:e2e -- "${{ steps.spec.outputs.file_path }}" --grep "${{ steps.spec.outputs.test_name }}" 2>&1 | tee test-output.txt
 
-            echo "passed=$PASSED" >> $GITHUB_OUTPUT
-            echo "failed=$FAILED" >> $GITHUB_OUTPUT
-
-            # Only consider "all_passed" if we actually ran tests AND they all passed
-            # If passed=0 and failed=0, no tests matched - this is NOT a fast path success
-            if [ "$PASSED" -gt "0" ] && [ "$FAILED" -eq "0" ]; then
-              echo "all_passed=true" >> $GITHUB_OUTPUT
-              echo "✅ All $PASSED tests passed - fast path eligible"
-            else
-              echo "all_passed=false" >> $GITHUB_OUTPUT
-              if [ "$PASSED" -eq "0" ] && [ "$FAILED" -eq "0" ]; then
-                echo "⚠️  No tests matched spec ID - proceeding to Claude implementation"
-              else
-                echo "❌ $FAILED test(s) failed - proceeding to Claude implementation"
-              fi
-            fi
+          if [ ${PIPESTATUS[0]} -eq 0 ]; then
+            echo "fast_path=true" >> $GITHUB_OUTPUT
+            echo "Tests pass - fast path eligible"
           else
-            echo "all_passed=false" >> $GITHUB_OUTPUT
-            echo "passed=0" >> $GITHUB_OUTPUT
-            echo "failed=1" >> $GITHUB_OUTPUT
-            echo "❌ Pre-validation result file not found"
+            echo "fast_path=false" >> $GITHUB_OUTPUT
+            echo "Tests fail - Claude implementation needed"
           fi
-
-      - name: Commit and push pre-validation changes
-        run: |
-          echo "📝 Committing .fixme() removal..."
-
-          git add .
-
-          # Only commit if there are changes
-          if git diff --staged --quiet; then
-            echo "⚠️  No changes to commit (pre-validation may have failed)"
-          else
-            SPEC_ID="${{ inputs.spec_id }}"
-            git commit -m "test: remove .fixme() from ${SPEC_ID}" -m "Pre-validation: ${{ steps.parse_prevalidation.outputs.passed }} passed, ${{ steps.parse_prevalidation.outputs.failed }} failed"
-            git push origin ${{ steps.branch.outputs.branch }}
-            echo "✅ Changes committed and pushed"
-          fi
-
-      - name: Create Pull Request
-        id: pr
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
-        run: |
-          echo "🔀 Creating PR for transparency..."
-
-          SPEC_ID="${{ inputs.spec_id }}"
-
-          PR_NUMBER=$(bun run scripts/tdd-automation/services/pr-manager.ts create \
-            --file "${{ inputs.file_path }}" \
-            --branch "${{ steps.branch.outputs.branch }}" \
-            --spec-id "$SPEC_ID" \
-            --retry-count "${{ inputs.retry_count }}")
-
-          echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-          echo "✅ PR #${PR_NUMBER} created - Claude's work will be visible here"
 
       - name: Fast path - All tests pass
-        if: steps.parse_prevalidation.outputs.all_passed == 'true'
+        if: steps.precheck.outputs.fast_path == 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          echo "🎉 All tests pass without implementation! Fast path activated."
+          echo "All tests pass without implementation! Fast path activated."
 
-          # Update PR with fast-path label (using API to avoid gh pr edit GraphQL issues)
-          gh api repos/${{ github.repository }}/issues/${{ steps.pr.outputs.pr_number }}/labels \
-            -f "labels[]=tdd:fast-path" || echo "⚠️ Failed to add label, continuing..."
+          # Add fast-path label
+          gh api repos/${{ github.repository }}/issues/${{ steps.context.outputs.pr_number }}/labels \
+            -f "labels[]=tdd:fast-path" || echo "Failed to add label, continuing..."
 
           # Auto-merge immediately (no need for Claude)
           bun run scripts/tdd-automation/services/pr-manager.ts merge \
-            --pr ${{ steps.pr.outputs.pr_number }}
+            --pr ${{ steps.context.outputs.pr_number }}
 
-          # Unlock file and exit
+          # Unlock file and spec
           bun run scripts/tdd-automation/core/unlock-file.ts \
-            --file "${{ inputs.file_path }}"
-
-          exit 0
+            --file "${{ steps.spec.outputs.file_path }}" || true
+          bun run scripts/tdd-automation/core/unlock-spec.ts \
+            --spec-id "${{ steps.spec.outputs.spec_id }}" || true
 
       - name: Run Claude Code (e2e-test-fixer)
-        if: steps.parse_prevalidation.outputs.all_passed == 'false'
+        if: steps.precheck.outputs.fast_path == 'false'
         id: claude_fixer
         uses: anthropics/claude-code-action@v1
         timeout-minutes: 60
@@ -206,22 +202,20 @@ jobs:
           allowed_bots: '*'
           additional_permissions: |
             actions: read
-          # NOTE: track_progress is disabled because workflow_dispatch events are not supported
-          # (only pull_request, issues, issue_comment, pull_request_review_comment, pull_request_review)
-          # Progress visibility is provided via manual PR comments in "Post Claude summary to PR" step
-          track_progress: false
+          # track_progress enabled for pull_request events - shows real-time progress in PR
+          track_progress: ${{ steps.context.outputs.track_progress }}
           prompt: |
             You are working on the TDD Workflow automation. Your task is to implement code to make a failing E2E test pass.
 
-            **Spec ID**: ${{ inputs.spec_id }}
-            **Test Name**: ${{ inputs.test_name }}
-            **Spec File**: ${{ inputs.file_path }}
-            **Retry Count**: ${{ inputs.retry_count }}/3 (0 = first attempt)
-            ${{ inputs.retry_count != '0' && format('**Previous Errors**: {0}', inputs.previous_errors) || '' }}
+            **Spec ID**: ${{ steps.spec.outputs.spec_id }}
+            **Test Name**: ${{ steps.spec.outputs.test_name }}
+            **Spec File**: ${{ steps.spec.outputs.file_path }}
+            **Retry Count**: ${{ steps.spec.outputs.retry_count }}/3 (0 = first attempt)
+            ${{ steps.spec.outputs.retry_count != '0' && format('**Previous Errors**: {0}', steps.spec.outputs.previous_errors) || '' }}
 
             **Instructions**:
             1. Use the e2e-test-fixer agent to implement the code needed to pass this specific test
-            2. The .fixme() has already been removed from the test: ${{ inputs.test_name }}
+            2. The .fixme() has already been removed from the test: ${{ steps.spec.outputs.test_name }}
             3. Implement minimal code to make this test pass (follow TDD best practices)
             4. Run bun test:e2e:regression to verify your implementation
             5. Do NOT run quality checks or add license headers (automated in next steps)
@@ -230,7 +224,7 @@ jobs:
             - Use Effect.ts for business logic in application layer
             - Follow Sovrium layer-based architecture patterns
             - Keep implementation minimal (just enough to pass this specific test)
-            - Focus only on ${{ inputs.spec_id }} - do not modify other tests
+            - Focus only on ${{ steps.spec.outputs.spec_id }} - do not modify other tests
 
             **Important Notes**:
             - If src/ files are modified, the codebase-refactor-auditor will run next
@@ -243,7 +237,7 @@ jobs:
             --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
       - name: Check if src/ modified
-        if: steps.parse_prevalidation.outputs.all_passed == 'false'
+        if: steps.precheck.outputs.fast_path == 'false'
         id: src_check
         run: |
           if git diff --name-only | grep '^src/'; then
@@ -253,7 +247,7 @@ jobs:
           fi
 
       - name: Run Claude Code (codebase-refactor-auditor)
-        if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.src_check.outputs.modified == 'true'
+        if: steps.precheck.outputs.fast_path == 'false' && steps.src_check.outputs.modified == 'true'
         id: claude_refactor
         uses: anthropics/claude-code-action@v1
         timeout-minutes: 30
@@ -264,12 +258,10 @@ jobs:
           allowed_bots: '*'
           additional_permissions: |
             actions: read
-          # NOTE: track_progress is disabled because workflow_dispatch events are not supported
-          # (only pull_request, issues, issue_comment, pull_request_review_comment, pull_request_review)
-          # Progress visibility is provided via manual PR comments in "Post Claude summary to PR" step
-          track_progress: false
+          # track_progress enabled for pull_request events - shows real-time progress in PR
+          track_progress: ${{ steps.context.outputs.track_progress }}
           prompt: |
-            You are working on the TDD Workflow automation. The e2e-test-fixer agent has implemented code to pass E2E test ${{ inputs.spec_id }} in ${{ inputs.file_path }}.
+            You are working on the TDD Workflow automation. The e2e-test-fixer agent has implemented code to pass E2E test ${{ steps.spec.outputs.spec_id }} in ${{ steps.spec.outputs.file_path }}.
 
             **Your Task**: Audit the implementation and refactor for code quality while maintaining test behavior.
 
@@ -297,257 +289,177 @@ jobs:
             --allowedTools Edit,Read,Write,Bash,Glob,Grep,Task,TodoWrite,Skill,LSP
             --disallowedTools WebFetch,WebSearch,AskUserQuestion,NotebookEdit,SlashCommand
 
-      - name: Post Claude summary to PR
-        if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.pr.outputs.pr_number
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
-        run: |
-          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
-          CLAUDE_OUTCOME="${{ steps.claude_fixer.outcome }}"
-          REFACTOR_OUTCOME="${{ steps.claude_refactor.outcome }}"
-          SRC_MODIFIED="${{ steps.src_check.outputs.modified }}"
-
-          # Build summary markdown
-          SUMMARY="## TDD Worker Progress Report\n\n"
-          SUMMARY+="| Property | Value |\n"
-          SUMMARY+="|----------|-------|\n"
-          SUMMARY+="| **Spec ID** | \`${{ inputs.spec_id }}\` |\n"
-          SUMMARY+="| **Attempt** | $((${{ inputs.retry_count }} + 1))/3 |\n"
-          SUMMARY+="| **Test File** | \`${{ inputs.file_path }}\` |\n\n"
-          SUMMARY+="### Agent Execution Results\n\n"
-          SUMMARY+="| Agent | Status |\n"
-          SUMMARY+="|-------|--------|\n"
-
-          # e2e-test-fixer status
-          if [ "$CLAUDE_OUTCOME" = "success" ]; then
-            SUMMARY+="| e2e-test-fixer | Completed |\n"
-          elif [ "$CLAUDE_OUTCOME" = "failure" ]; then
-            SUMMARY+="| e2e-test-fixer | Failed |\n"
-          else
-            SUMMARY+="| e2e-test-fixer | ${CLAUDE_OUTCOME:-skipped} |\n"
-          fi
-
-          # codebase-refactor-auditor status
-          if [ "$SRC_MODIFIED" = "true" ]; then
-            if [ "$REFACTOR_OUTCOME" = "success" ]; then
-              SUMMARY+="| codebase-refactor-auditor | Completed |\n"
-            elif [ "$REFACTOR_OUTCOME" = "failure" ]; then
-              SUMMARY+="| codebase-refactor-auditor | Failed |\n"
-            else
-              SUMMARY+="| codebase-refactor-auditor | ${REFACTOR_OUTCOME:-pending} |\n"
-            fi
-          else
-            SUMMARY+="| codebase-refactor-auditor | Skipped (no src/ changes) |\n"
-          fi
-
-          SUMMARY+="\n---\n*Proceeding to quality checks and CI validation...*"
-
-          gh pr comment "$PR_NUMBER" --body "$(echo -e "$SUMMARY")" || echo "Failed to post summary, continuing..."
-
       - name: Format and lint code
-        if: steps.parse_prevalidation.outputs.all_passed == 'false'
+        if: steps.precheck.outputs.fast_path == 'false'
         run: |
-          echo "📝 Formatting code before quality checks..."
+          echo "Formatting code before quality checks..."
           bun run format || true
-          echo "🔧 Running lint fix..."
+          echo "Running lint fix..."
           bun run lint:fix || true
-          echo "✅ Pre-commit formatting complete"
+          echo "Pre-commit formatting complete"
 
       - name: Run quality checks
-        if: steps.parse_prevalidation.outputs.all_passed == 'false'
+        if: steps.precheck.outputs.fast_path == 'false'
         id: quality
         run: |
-          echo "✅ Running quality checks..."
+          echo "Running quality checks..."
           bun run quality --skip-e2e --skip-format
 
       - name: Add license headers
-        if: steps.parse_prevalidation.outputs.all_passed == 'false'
+        if: steps.precheck.outputs.fast_path == 'false'
         run: |
-          echo "📝 Adding license headers..."
+          echo "Adding license headers..."
           bun run license
 
       - name: Commit and push changes
-        if: steps.parse_prevalidation.outputs.all_passed == 'false'
+        if: steps.precheck.outputs.fast_path == 'false'
         run: |
-          echo "📦 Committing Claude's implementation..."
+          echo "Committing Claude's implementation..."
 
           git add .
 
-          SPEC_ID="${{ inputs.spec_id }}"
-          git commit -m "feat: implement ${SPEC_ID}" -m "Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
-
-          git push origin ${{ steps.branch.outputs.branch }}
-
-          echo "✅ Changes pushed to PR #${{ steps.pr.outputs.pr_number }}"
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            SPEC_ID="${{ steps.spec.outputs.spec_id }}"
+            git commit -m "feat: implement ${SPEC_ID}" -m "Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
+            git push origin ${{ steps.context.outputs.branch }}
+            echo "Changes pushed to PR #${{ steps.context.outputs.pr_number }}"
+          fi
 
       - name: Wait for CI checks
-        if: steps.parse_prevalidation.outputs.all_passed == 'false'
+        if: steps.precheck.outputs.fast_path == 'false'
         id: ci
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          echo "⏳ Waiting for CI checks..."
+          echo "Waiting for CI checks..."
 
           RESULT=$(bun run scripts/tdd-automation/services/ci-waiter.ts \
-            --pr ${{ steps.pr.outputs.pr_number }} \
+            --pr ${{ steps.context.outputs.pr_number }} \
             --timeout 600)
 
           echo "result=$RESULT" >> $GITHUB_OUTPUT
 
       - name: Auto-merge on success
-        if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.ci.outputs.result == 'success'
+        if: steps.precheck.outputs.fast_path == 'false' && steps.ci.outputs.result == 'success'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          echo "✅ CI passed! Auto-merging PR..."
+          echo "CI passed! Auto-merging PR..."
 
           bun run scripts/tdd-automation/services/pr-manager.ts merge \
-            --pr ${{ steps.pr.outputs.pr_number }}
+            --pr ${{ steps.context.outputs.pr_number }}
 
       - name: Analyze failure
-        if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.ci.outputs.result == 'failure'
+        if: steps.precheck.outputs.fast_path == 'false' && steps.ci.outputs.result == 'failure'
         id: analyze
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          echo "❌ CI failed. Analyzing failure type..."
+          echo "CI failed. Analyzing failure type..."
 
           FAILURE_TYPE=$(bun run scripts/tdd-automation/services/failure-analyzer.ts \
-            --pr ${{ steps.pr.outputs.pr_number }})
+            --pr ${{ steps.context.outputs.pr_number }})
 
           echo "type=$FAILURE_TYPE" >> $GITHUB_OUTPUT
 
       # ============================================================
       # SMART RETRY STRATEGY - Different handling based on failure type
       # ============================================================
-      #
-      # 1. Infrastructure Errors (failure:infra) - IMMEDIATE CLEANUP:
-      #    - Close PR immediately and delete branch
-      #    - Do NOT increment retry counters (not a code issue)
-      #    - Re-queue spec for automatic retry
-      #
-      # 2. Spec/Regression Errors - 3 RETRIES THEN PARK:
-      #    - Increment retry counter
-      #    - If retries < 3: Close PR, re-queue for retry
-      #    - If retries >= 3: Keep PR open, add manual-intervention label
-      # ============================================================
 
       - name: Handle regression failure (3 retries then park)
-        if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.analyze.outputs.type == 'regression'
+        if: steps.precheck.outputs.fast_path == 'false' && steps.analyze.outputs.type == 'regression'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          RETRY_COUNT="${{ inputs.retry_count }}"
+          RETRY_COUNT="${{ steps.spec.outputs.retry_count }}"
           NEXT_ATTEMPT=$((RETRY_COUNT + 1))
 
-          echo "📉 Regression detected (attempt ${NEXT_ATTEMPT}/3)"
+          echo "Regression detected (attempt ${NEXT_ATTEMPT}/3)"
 
           if [ "$NEXT_ATTEMPT" -ge 3 ]; then
-            echo "⚠️  Max retries exhausted - parking for manual intervention"
-            echo "📋 PR #${{ steps.pr.outputs.pr_number }} will be kept open for review"
+            echo "Max retries exhausted - parking for manual intervention"
           else
-            echo "🔄 Will retry (${NEXT_ATTEMPT}/3 attempts used)"
+            echo "Will retry (${NEXT_ATTEMPT}/3 attempts used)"
           fi
 
           bun run scripts/tdd-automation/services/failure-handler.ts \
-            --spec-id "${{ inputs.spec_id }}" \
-            --pr ${{ steps.pr.outputs.pr_number }} \
+            --spec-id "${{ steps.spec.outputs.spec_id }}" \
+            --pr ${{ steps.context.outputs.pr_number }} \
             --type regression \
-            --retry-count "${{ inputs.retry_count }}" \
-            --branch "${{ steps.branch.outputs.branch }}"
+            --retry-count "${{ steps.spec.outputs.retry_count }}" \
+            --branch "${{ steps.context.outputs.branch }}"
 
       - name: Handle spec failure (3 retries then park)
-        if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.analyze.outputs.type == 'spec-failure'
+        if: steps.precheck.outputs.fast_path == 'false' && steps.analyze.outputs.type == 'spec-failure'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          RETRY_COUNT="${{ inputs.retry_count }}"
+          RETRY_COUNT="${{ steps.spec.outputs.retry_count }}"
           NEXT_ATTEMPT=$((RETRY_COUNT + 1))
 
-          echo "❌ Spec failure detected (attempt ${NEXT_ATTEMPT}/3)"
+          echo "Spec failure detected (attempt ${NEXT_ATTEMPT}/3)"
 
           if [ "$NEXT_ATTEMPT" -ge 3 ]; then
-            echo "⚠️  Max retries exhausted - parking for manual intervention"
-            echo "📋 PR #${{ steps.pr.outputs.pr_number }} will be kept open for review"
+            echo "Max retries exhausted - parking for manual intervention"
           else
-            echo "🔄 Will retry (${NEXT_ATTEMPT}/3 attempts used)"
+            echo "Will retry (${NEXT_ATTEMPT}/3 attempts used)"
           fi
 
           bun run scripts/tdd-automation/services/failure-handler.ts \
-            --spec-id "${{ inputs.spec_id }}" \
-            --pr ${{ steps.pr.outputs.pr_number }} \
+            --spec-id "${{ steps.spec.outputs.spec_id }}" \
+            --pr ${{ steps.context.outputs.pr_number }} \
             --type spec-failure \
-            --retry-count "${{ inputs.retry_count }}" \
-            --branch "${{ steps.branch.outputs.branch }}"
+            --retry-count "${{ steps.spec.outputs.retry_count }}" \
+            --branch "${{ steps.context.outputs.branch }}"
 
       - name: Handle infrastructure failure (immediate cleanup, no retry penalty)
-        if: steps.parse_prevalidation.outputs.all_passed == 'false' && steps.analyze.outputs.type == 'infrastructure'
+        if: steps.precheck.outputs.fast_path == 'false' && steps.analyze.outputs.type == 'infrastructure'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          echo "⚙️ Infrastructure failure detected (NOT a code issue)"
-          echo "🧹 Immediate cleanup: PR will be closed, branch deleted"
-          echo "📝 Retry counter will NOT be incremented"
+          echo "Infrastructure failure detected (NOT a code issue)"
+          echo "Immediate cleanup: PR will be closed, branch deleted"
+          echo "Retry counter will NOT be incremented"
 
           bun run scripts/tdd-automation/services/failure-handler.ts \
-            --spec-id "${{ inputs.spec_id }}" \
-            --pr ${{ steps.pr.outputs.pr_number }} \
+            --spec-id "${{ steps.spec.outputs.spec_id }}" \
+            --pr ${{ steps.context.outputs.pr_number }} \
             --type infrastructure \
-            --retry-count "${{ inputs.retry_count }}" \
-            --branch "${{ steps.branch.outputs.branch }}"
+            --retry-count "${{ steps.spec.outputs.retry_count }}" \
+            --branch "${{ steps.context.outputs.branch }}"
 
-          echo "✅ Spec re-queued for retry (no penalty applied)"
+          echo "Spec re-queued for retry (no penalty applied)"
 
       - name: Cleanup - Close PR and delete branch on failure
-        if: failure() && steps.pr.outputs.pr_number
+        if: failure() && steps.context.outputs.pr_number
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          echo "🧹 Cleaning up failed worker resources..."
+          echo "Cleaning up failed worker resources..."
 
-          PR_NUMBER="${{ steps.pr.outputs.pr_number }}"
-          BRANCH_NAME="${{ steps.branch.outputs.branch }}"
-          SPEC_ID="${{ inputs.spec_id }}"
-          RETRY_COUNT="${{ inputs.retry_count }}"
+          PR_NUMBER="${{ steps.context.outputs.pr_number }}"
+          BRANCH_NAME="${{ steps.context.outputs.branch }}"
+          SPEC_ID="${{ steps.spec.outputs.spec_id }}"
+          RETRY_COUNT="${{ steps.spec.outputs.retry_count }}"
           NEXT_ATTEMPT=$((RETRY_COUNT + 1))
 
           if [ -n "$PR_NUMBER" ] && [ "$PR_NUMBER" != "null" ]; then
-            echo "📝 Checking PR #${PR_NUMBER} state..."
-
             PR_STATE=$(gh pr view "$PR_NUMBER" --json state -q .state 2>/dev/null || echo "UNKNOWN")
 
             if [ "$PR_STATE" = "OPEN" ]; then
-              # Check if PR has manual-intervention label (should be kept open)
               HAS_MANUAL_LABEL=$(gh pr view "$PR_NUMBER" --json labels -q '.labels[].name' 2>/dev/null | grep -c "tdd-spec:manual-intervention" || echo "0")
 
               if [ "$HAS_MANUAL_LABEL" -gt "0" ]; then
-                echo "📋 PR #${PR_NUMBER} has manual-intervention label - keeping open for review"
+                echo "PR #${PR_NUMBER} has manual-intervention label - keeping open for review"
               else
-                echo "❌ Closing PR #${PR_NUMBER} due to worker failure..."
-
-                # Close PR with inline comment
+                echo "Closing PR #${PR_NUMBER} due to worker failure..."
                 gh pr close "$PR_NUMBER" --comment "Worker failure - PR closed automatically. Spec ID ${SPEC_ID} will be retried." --delete-branch 2>/dev/null || {
-                  echo "⚠️  Failed to close PR, attempting to delete branch directly..."
                   gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/${BRANCH_NAME}" 2>/dev/null || true
                 }
-
-                echo "✅ PR #${PR_NUMBER} closed and branch deleted"
               fi
-            else
-              echo "ℹ️  PR #${PR_NUMBER} is not open (state: ${PR_STATE}), skipping close"
-
-              # Still try to delete the branch if it exists (but only if not manual intervention)
-              HAS_MANUAL_LABEL=$(gh pr view "$PR_NUMBER" --json labels -q '.labels[].name' 2>/dev/null | grep -c "tdd-spec:manual-intervention" || echo "0")
-              if [ "$HAS_MANUAL_LABEL" -eq "0" ]; then
-                gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/${BRANCH_NAME}" 2>/dev/null || true
-              fi
-            fi
-          else
-            echo "ℹ️  No PR number found, skipping PR cleanup"
-
-            # Still try to delete the branch if it exists
-            if [ -n "$BRANCH_NAME" ]; then
-              gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/${BRANCH_NAME}" 2>/dev/null || true
             fi
           fi
 
@@ -556,73 +468,35 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          echo "📊 Recording failure in state..."
+          echo "Recording failure in state..."
 
-          SPEC_ID="${{ inputs.spec_id }}"
-          RETRY_COUNT="${{ inputs.retry_count }}"
-          NEXT_ATTEMPT=$((RETRY_COUNT + 1))
-          BRANCH_NAME="${{ steps.branch.outputs.branch }}"
+          SPEC_ID="${{ steps.spec.outputs.spec_id }}"
+          RETRY_COUNT="${{ steps.spec.outputs.retry_count }}"
+          BRANCH_NAME="${{ steps.context.outputs.branch }}"
 
-          # Determine failure type based on which step ACTUALLY failed
-          # We check step outcomes to identify the real failure point
+          # Determine failure type based on step outcomes
           FAILURE_TYPE="infrastructure"
-          FAILURE_MESSAGE="Worker crashed during execution"
-
-          # Get step outcomes (these are set even with continue-on-error)
           CLAUDE_FIXER_OUTCOME="${{ steps.claude_fixer.outcome }}"
           CLAUDE_REFACTOR_OUTCOME="${{ steps.claude_refactor.outcome }}"
           QUALITY_OUTCOME="${{ steps.quality.outcome }}"
 
-          echo "Step outcomes:"
-          echo "  - claude_fixer: $CLAUDE_FIXER_OUTCOME"
-          echo "  - claude_refactor: $CLAUDE_REFACTOR_OUTCOME"
-          echo "  - quality: $QUALITY_OUTCOME"
-
-          # Quality check failure (most common case based on recent errors)
-          # This happens when Claude succeeds but code doesn't pass quality checks
           if [ "$QUALITY_OUTCOME" = "failure" ]; then
             FAILURE_TYPE="quality-failure"
-            FAILURE_MESSAGE="Quality checks failed (formatting, linting, or type errors)"
-          # Claude e2e-test-fixer failed
           elif [ "$CLAUDE_FIXER_OUTCOME" = "failure" ]; then
             FAILURE_TYPE="spec-failure"
-            FAILURE_MESSAGE="e2e-test-fixer agent failed"
-          # Claude refactor auditor failed
           elif [ "$CLAUDE_REFACTOR_OUTCOME" = "failure" ]; then
             FAILURE_TYPE="spec-failure"
-            FAILURE_MESSAGE="codebase-refactor-auditor agent failed"
           fi
 
           echo "Failure type: $FAILURE_TYPE"
-          echo "Message: $FAILURE_MESSAGE"
 
-          # Quality and spec failures count against retry limit
-          # Infrastructure failures (Docker, network, etc.) do NOT count
-          if [ "$FAILURE_TYPE" = "infrastructure" ]; then
-            echo "⚙️  Infrastructure failure - retry counter NOT incremented"
-            echo "📝 Spec will be re-queued without penalty"
-          else
-            echo "Attempt: $NEXT_ATTEMPT/3"
-            if [ "$NEXT_ATTEMPT" -ge 3 ]; then
-              echo "⚠️  Max retries reached - will park for manual intervention"
-            fi
-          fi
-
-          # Use failure handler if available, otherwise just log
-          if [ -f scripts/tdd-automation/services/failure-handler.ts ]; then
-            # Only call failure handler if we have a PR number
-            if [ -n "${{ steps.pr.outputs.pr_number }}" ]; then
-              bun run scripts/tdd-automation/services/failure-handler.ts \
-                --spec-id "$SPEC_ID" \
-                --pr "${{ steps.pr.outputs.pr_number }}" \
-                --type "$FAILURE_TYPE" \
-                --retry-count "$RETRY_COUNT" \
-                --branch "$BRANCH_NAME" 2>/dev/null || {
-                echo "⚠️  Failure handler failed, will rely on cleanup step for state management"
-              }
-            else
-              echo "ℹ️  No PR number available, skipping failure handler"
-            fi
+          if [ -f scripts/tdd-automation/services/failure-handler.ts ] && [ -n "${{ steps.context.outputs.pr_number }}" ]; then
+            bun run scripts/tdd-automation/services/failure-handler.ts \
+              --spec-id "$SPEC_ID" \
+              --pr "${{ steps.context.outputs.pr_number }}" \
+              --type "$FAILURE_TYPE" \
+              --retry-count "$RETRY_COUNT" \
+              --branch "$BRANCH_NAME" 2>/dev/null || true
           fi
 
       - name: Cleanup - Release locks
@@ -631,12 +505,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           GITHUB_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          echo "🔓 Releasing spec and file locks..."
+          echo "Releasing spec and file locks..."
 
-          bun run scripts/tdd-automation/core/unlock-spec.ts \
-            --spec-id "${{ inputs.spec_id }}" || true
+          # Only release locks if we have spec info (may not have parsed if early failure)
+          if [ -n "${{ steps.spec.outputs.spec_id }}" ]; then
+            bun run scripts/tdd-automation/core/unlock-spec.ts \
+              --spec-id "${{ steps.spec.outputs.spec_id }}" || true
 
-          bun run scripts/tdd-automation/core/unlock-file.ts \
-            --file "${{ inputs.file_path }}" || true
+            bun run scripts/tdd-automation/core/unlock-file.ts \
+              --file "${{ steps.spec.outputs.file_path }}" || true
+          fi
 
-          echo "✅ Lock cleanup complete"
+          echo "Lock cleanup complete"
