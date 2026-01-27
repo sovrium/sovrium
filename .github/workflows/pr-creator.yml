@@ -96,7 +96,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          RESULT=$(bun run scripts/tdd-automation/core/find-ready-spec.ts 2>&1) || true
+          RESULT=$(bun run scripts/tdd-automation/core/find-ready-spec.ts) || true
 
           # Check if we got valid JSON output
           if echo "$RESULT" | jq -e '.specId' > /dev/null 2>&1; then
