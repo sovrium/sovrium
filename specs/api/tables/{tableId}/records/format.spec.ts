@@ -266,7 +266,7 @@ test.describe('Record Display Formatting', () => {
   // Date Formatting Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-FORMAT-007: should format date in US format (M/D/YYYY)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
