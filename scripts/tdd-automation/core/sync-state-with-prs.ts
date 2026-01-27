@@ -32,6 +32,7 @@ import { StateManager, StateManagerLive } from './state-manager'
  * Configuration
  */
 const STALE_PR_THRESHOLD_MINUTES = 60 // Consider PR stale if active for > 60 minutes without progress
+const ORPHAN_ACTIVATION_THRESHOLD_MINUTES = 15 // Re-queue specs without PRs after 15 minutes
 const GITHUB_API_BASE = 'https://api.github.com'
 
 /**
@@ -67,10 +68,7 @@ interface SyncResult {
 /**
  * Get PR status from GitHub API
  */
-const getPRStatus = (
-  prNumber: number,
-  repo: string
-): Effect.Effect<GitHubPRStatus | null, Error> =>
+const getPRStatus = (prNumber: number, repo: string): Effect.Effect<GitHubPRStatus | null, Error> =>
   Effect.tryPromise({
     try: async () => {
       const token = process.env['GH_TOKEN'] || process.env['GITHUB_TOKEN']
@@ -107,6 +105,68 @@ const getPRStatus = (
       }
     },
     catch: (error) => new Error(`Failed to get PR status: ${error}`),
+  })
+
+/**
+ * Search for a PR matching a spec by branch name pattern
+ * Used when the spec has no prNumber recorded (state update failed)
+ */
+const findPRBySpecId = (
+  specId: string,
+  repo: string
+): Effect.Effect<GitHubPRStatus | null, Error> =>
+  Effect.tryPromise({
+    try: async () => {
+      const token = process.env['GH_TOKEN'] || process.env['GITHUB_TOKEN']
+      if (!token) {
+        console.error('Warning: No GitHub token found, skipping PR search')
+        return null
+      }
+
+      // Search for PRs with branches matching the pattern tdd/{specId}-*
+      // The GitHub API doesn't support wildcard search, so we list recent PRs and filter
+      const response = await fetch(
+        `${GITHUB_API_BASE}/repos/${repo}/pulls?state=all&per_page=50&sort=created&direction=desc`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github.v3+json',
+          },
+        }
+      )
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      }
+
+      const prs = (await response.json()) as Array<{
+        number: number
+        state: 'open' | 'closed'
+        merged_at: string | null
+        closed_at: string | null
+        updated_at: string
+        head: { ref: string }
+      }>
+
+      // Find the most recent PR with a matching branch name
+      const branchPrefix = `tdd/${specId}-`
+      const matchingPR = prs.find((pr) => pr.head.ref.startsWith(branchPrefix))
+
+      if (!matchingPR) {
+        return null
+      }
+
+      return {
+        number: matchingPR.number,
+        state: matchingPR.merged_at ? 'merged' : matchingPR.state,
+        merged: !!matchingPR.merged_at,
+        merged_at: matchingPR.merged_at,
+        closed_at: matchingPR.closed_at,
+        updated_at: matchingPR.updated_at,
+        head: { ref: matchingPR.head.ref },
+      }
+    },
+    catch: (error) => new Error(`Failed to search for PR: ${error}`),
   })
 
 /**
@@ -178,20 +238,66 @@ const syncStateWithPRs = Effect.gen(function* () {
   for (const spec of state.queue.active) {
     result.specsChecked++
 
-    // Skip if no PR number (spec was just activated, PR not yet created)
+    // Handle specs without PR number (state update may have failed)
     if (!spec.prNumber) {
-      console.error(`  ⏳ ${spec.specId}: No PR yet (recently activated)`)
+      console.error(`  🔍 ${spec.specId}: No PR number in state, searching for matching PR...`)
 
-      // Check if started too long ago (orphaned activation)
+      // Try to find a matching PR by branch name
+      const foundPR = yield* findPRBySpecId(spec.specId, repo).pipe(
+        Effect.catchAll((error) => {
+          console.error(`    ⚠️  Error searching for PR: ${error.message}`)
+          return Effect.succeed(null)
+        })
+      )
+
+      if (foundPR) {
+        console.error(`    ✅ Found PR #${foundPR.number} (${foundPR.state})`)
+
+        // Process this PR like we normally would
+        switch (foundPR.state) {
+          case 'merged': {
+            console.error(`    ✅ Merged - transitioning to completed`)
+            specsToComplete.push(spec.specId)
+            filesToUnlock.push(spec.filePath)
+            specsToUnlock.push(spec.specId)
+            result.specsMoved.toCompleted.push(spec.specId)
+            break
+          }
+
+          case 'closed': {
+            console.error(`    🔄 Closed without merge - re-queuing for retry`)
+            specsToRequeue.push(spec.specId)
+            filesToUnlock.push(spec.filePath)
+            specsToUnlock.push(spec.specId)
+            result.specsMoved.toPending.push(spec.specId)
+            break
+          }
+
+          case 'open': {
+            // PR is open but we didn't have the number - this is fine, the PR exists
+            console.error(`    ⏳ PR is open and in progress`)
+            break
+          }
+        }
+        continue
+      }
+
+      // No matching PR found - check if activation is orphaned
       if (spec.startedAt) {
         const startedAt = new Date(spec.startedAt).getTime()
         const ageMinutes = (Date.now() - startedAt) / (1000 * 60)
 
-        if (ageMinutes > STALE_PR_THRESHOLD_MINUTES) {
-          console.error(`  ⚠️  ${spec.specId}: Activated ${ageMinutes.toFixed(0)}m ago without PR - re-queuing`)
+        // Use shorter threshold for specs without PRs
+        if (ageMinutes > ORPHAN_ACTIVATION_THRESHOLD_MINUTES) {
+          console.error(
+            `    ⚠️  Activated ${ageMinutes.toFixed(0)}m ago without PR - re-queuing`
+          )
           specsToRequeue.push(spec.specId)
           filesToUnlock.push(spec.filePath)
           specsToUnlock.push(spec.specId)
+          result.specsMoved.toPending.push(spec.specId)
+        } else {
+          console.error(`    ⏳ Recently activated (${ageMinutes.toFixed(0)}m ago), waiting...`)
         }
       }
       continue

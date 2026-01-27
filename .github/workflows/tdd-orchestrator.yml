@@ -329,6 +329,16 @@ jobs:
               PR_NUMBER=$(echo "$PR_URL" | grep -oP 'pull/\K\d+')
               echo "PR #${PR_NUMBER} created: $PR_URL"
               echo "Worker will be triggered by pull_request:opened event with track_progress enabled"
+
+              # Update state file with PR info (critical for sync to work)
+              echo "Updating state with PR info..."
+              bun run scripts/tdd-automation/core/update-active-pr.ts \
+                --spec-id "$SPEC_ID" \
+                --pr-number "$PR_NUMBER" \
+                --pr-url "$PR_URL" \
+                --branch "$BRANCH_NAME" || {
+                echo "Warning: Failed to update state with PR info, continuing anyway..."
+              }
             else
               echo "Failed to create PR: $PR_URL"
               # Cleanup branch on failure

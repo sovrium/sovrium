@@ -472,5 +472,61 @@ export function createTestStateManager(testFilePath: string) {
 
         yield* Effect.log(`✅ Successfully locked and activated ${specs.length} spec(s)`)
       }),
+
+    updateActivePR: (specId, prInfo) =>
+      Effect.gen(function* () {
+        yield* Effect.log(
+          `📝 Updating PR info for ${specId}: PR #${prInfo.prNumber} (${prInfo.branch})`
+        )
+
+        yield* updateState((state) => {
+          // Find spec in active queue
+          const specIndex = state.queue.active.findIndex((s) => s.specId === specId)
+
+          if (specIndex === -1) {
+            console.error(`Warning: Spec ${specId} not found in active queue, skipping PR update`)
+            return state
+          }
+
+          const spec = state.queue.active[specIndex]
+          if (!spec) {
+            // Extra safety check (should never happen since we checked index above)
+            return state
+          }
+
+          // Update spec with PR info
+          const updatedSpec: SpecQueueItem = {
+            id: spec.id,
+            specId: spec.specId,
+            filePath: spec.filePath,
+            testName: spec.testName,
+            priority: spec.priority,
+            status: spec.status,
+            attempts: spec.attempts,
+            errors: spec.errors,
+            queuedAt: spec.queuedAt,
+            prNumber: prInfo.prNumber,
+            prUrl: prInfo.prUrl,
+            branch: prInfo.branch,
+            lastAttempt: spec.lastAttempt,
+            startedAt: spec.startedAt,
+            completedAt: spec.completedAt,
+            failureReason: spec.failureReason,
+            requiresAction: spec.requiresAction,
+          }
+
+          // Replace spec in active queue
+          const newActiveQueue = [...state.queue.active]
+          newActiveQueue[specIndex] = updatedSpec
+
+          return {
+            ...state,
+            queue: {
+              ...state.queue,
+              active: newActiveQueue,
+            },
+          }
+        })
+      }),
   })
 }
