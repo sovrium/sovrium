@@ -499,25 +499,42 @@ const runEffectDiagnostics = Effect.gen(function* () {
   const duration = Date.now() - startTime
   const output = result.stdout || result.stderr || ''
 
-  // Count Effect diagnostics ERROR-level issues only (not message-level suggestions)
-  // Exclude:
-  // - runEffectInsideEffect (intentional patterns in signal handlers and Drizzle transactions)
-  // - message-level diagnostics (preferSchemaOverJson, effectSucceedWithVoid - informational only)
+  // Separate Effect diagnostics by severity level
+  // Exclude: runEffectInsideEffect (intentional patterns in signal handlers and Drizzle transactions)
   // Note: Output contains ANSI color codes
-  const diagnosticLines = output.split('\n').filter((line) => {
+  const allDiagnosticLines = output.split('\n').filter((line) => {
     if (!line.includes('effect(')) return false
     // Exclude intentional runEffectInsideEffect patterns
     if (line.includes('runEffectInsideEffect')) return false
-    // Only fail on ERROR level diagnostics (contains "error" before "effect(")
-    if (!line.includes('error') || !line.match(/error.*effect\(/)) return false
     return true
   })
-  const errorCount = diagnosticLines.length
 
+  // ERROR-level diagnostics (blocking - must be fixed)
+  const errorLines = allDiagnosticLines.filter((line) => line.match(/error.*effect\(/))
+
+  // MESSAGE-level diagnostics (informational - warnings only)
+  const messageLines = allDiagnosticLines.filter((line) => line.match(/message.*effect\(/))
+
+  const errorCount = errorLines.length
+  const messageCount = messageLines.length
+
+  // Display MESSAGE-level warnings (non-blocking)
+  if (messageCount > 0) {
+    yield* Effect.log('')
+    yield* Effect.log(`⚠️  Effect Diagnostics: ${messageCount} informational warning(s)`)
+    yield* Effect.log('   (These are suggestions and do not block the build)')
+    yield* Effect.log('')
+    for (const line of messageLines) {
+      console.log(line)
+    }
+    yield* Effect.log('')
+  }
+
+  // Fail only on ERROR-level diagnostics
   if (errorCount > 0) {
     yield* logError(`Effect Diagnostics failed (${duration}ms) - ${errorCount} error(s)`)
-    // Print only the relevant diagnostic lines
-    for (const line of diagnosticLines) {
+    yield* Effect.log('')
+    for (const line of errorLines) {
       console.error(line)
     }
     return {
@@ -528,7 +545,9 @@ const runEffectDiagnostics = Effect.gen(function* () {
     } as CheckResult
   }
 
-  yield* success(`Effect Diagnostics passed (${duration}ms)`)
+  // Success message includes warning count for visibility
+  const warningNote = messageCount > 0 ? ` (${messageCount} informational warnings)` : ''
+  yield* success(`Effect Diagnostics passed (${duration}ms)${warningNote}`)
   return {
     name: 'Effect Diagnostics',
     success: true,
