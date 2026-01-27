@@ -60,6 +60,46 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+      # ============================================================
+      # STATE SYNCHRONIZATION: Sync state with actual PR status
+      # ============================================================
+      # This step is CRITICAL to prevent the orchestrator from being blocked
+      # by stale state entries that no longer correspond to actual open PRs.
+      #
+      # It checks all active specs and:
+      # 1. Moves merged PRs to completed queue
+      # 2. Re-queues closed (but not merged) PRs for retry
+      # 3. Releases file/spec locks for finished PRs
+      # 4. Handles abandoned activations (active > 60min without PR)
+      - name: Sync state with PR status
+        id: sync
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          echo "🔄 Synchronizing TDD state with actual PR status..."
+          echo ""
+
+          # Run the sync script (outputs JSON result to stdout)
+          SYNC_RESULT=$(bun run scripts/tdd-automation/core/sync-state-with-prs.ts 2>&1 | tee /dev/stderr | tail -n 1)
+
+          # Check if sync succeeded (last line should be valid JSON)
+          if echo "$SYNC_RESULT" | jq -e '.' > /dev/null 2>&1; then
+            COMPLETED=$(echo "$SYNC_RESULT" | jq '.specsMoved.toCompleted | length')
+            PENDING=$(echo "$SYNC_RESULT" | jq '.specsMoved.toPending | length')
+            FAILED=$(echo "$SYNC_RESULT" | jq '.specsMoved.toFailed | length')
+            UNLOCKED=$(echo "$SYNC_RESULT" | jq '.filesUnlocked | length')
+
+            echo ""
+            echo "✅ State sync complete:"
+            echo "   - Moved to completed: $COMPLETED"
+            echo "   - Re-queued to pending: $PENDING"
+            echo "   - Moved to failed: $FAILED"
+            echo "   - Files unlocked: $UNLOCKED"
+          else
+            echo "⚠️  State sync returned unexpected output, continuing anyway..."
+          fi
+
       - name: Check prerequisites
         id: prereqs
         env:
