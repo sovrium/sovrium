@@ -180,7 +180,7 @@ test.describe('Record Display Formatting', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-FORMAT-005: should format currency with space as thousands separator',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
