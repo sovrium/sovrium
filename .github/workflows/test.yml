@@ -810,8 +810,10 @@ jobs:
   update-spec-progress:
     name: Update Spec Progress
     if: |
-      github.event_name == 'pull_request' &&
-      github.event.action != 'closed' &&
+      (
+        (github.event_name == 'pull_request' && github.event.action != 'closed') ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      ) &&
       needs.test.result == 'success'
     needs: [test]
     runs-on: ubuntu-latest
