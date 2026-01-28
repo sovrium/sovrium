@@ -12,7 +12,14 @@
  * Replaces complex bash logic in claude-code.yml with type-safe TypeScript.
  */
 
-import { Effect, type UnknownException } from 'effect'
+import { Data, Effect } from 'effect'
+
+/**
+ * Error thrown when parsing credit metrics fails
+ */
+export class ParseMetricsError extends Data.TaggedError('ParseMetricsError')<{
+  readonly cause: unknown
+}> {}
 
 /**
  * Credit metrics for comment generation
@@ -128,27 +135,30 @@ export function generateCreditComment(metrics: CreditMetrics): Effect.Effect<str
  */
 export function parseCreditMetrics(
   env: Record<string, string>
-): Effect.Effect<CreditMetrics, UnknownException> {
-  return Effect.try(() => ({
-    creditsOk: env['credits-ok'] === 'true' || env['creditsOk'] === 'true',
-    limitType: (env['limit-type'] || env['limitType'] || 'none') as 'daily' | 'weekly' | 'none',
-    dailyRuns: parseInt(env['daily-runs'] || env['dailyRuns'] || '0', 10),
-    weeklyRuns: parseInt(env['weekly-runs'] || env['weeklyRuns'] || '0', 10),
-    actualDaily: parseFloat(env['actual-daily'] || env['actualDaily'] || '0'),
-    actualWeekly: parseFloat(env['actual-weekly'] || env['actualWeekly'] || '0'),
-    dailyLimit: parseFloat(env['daily-limit'] || env['dailyLimit'] || '100'),
-    weeklyLimit: parseFloat(env['weekly-limit'] || env['weeklyLimit'] || '500'),
-    dailyRemaining: parseFloat(env['daily-remaining'] || env['dailyRemaining'] || '100'),
-    weeklyRemaining: parseFloat(env['weekly-remaining'] || env['weeklyRemaining'] || '500'),
-    dailyPercent: parseInt(env['daily-percent'] || env['dailyPercent'] || '0', 10),
-    weeklyPercent: parseInt(env['weekly-percent'] || env['weeklyPercent'] || '0', 10),
-    hoursUntilDailyReset: parseInt(
-      env['hours-until-daily-reset'] || env['hoursUntilDailyReset'] || '24',
-      10
-    ),
-    daysUntilWeeklyReset: parseInt(
-      env['days-until-weekly-reset'] || env['daysUntilWeeklyReset'] || '7',
-      10
-    ),
-  }))
+): Effect.Effect<CreditMetrics, ParseMetricsError> {
+  return Effect.try({
+    try: () => ({
+      creditsOk: env['credits-ok'] === 'true' || env['creditsOk'] === 'true',
+      limitType: (env['limit-type'] || env['limitType'] || 'none') as 'daily' | 'weekly' | 'none',
+      dailyRuns: parseInt(env['daily-runs'] || env['dailyRuns'] || '0', 10),
+      weeklyRuns: parseInt(env['weekly-runs'] || env['weeklyRuns'] || '0', 10),
+      actualDaily: parseFloat(env['actual-daily'] || env['actualDaily'] || '0'),
+      actualWeekly: parseFloat(env['actual-weekly'] || env['actualWeekly'] || '0'),
+      dailyLimit: parseFloat(env['daily-limit'] || env['dailyLimit'] || '100'),
+      weeklyLimit: parseFloat(env['weekly-limit'] || env['weeklyLimit'] || '500'),
+      dailyRemaining: parseFloat(env['daily-remaining'] || env['dailyRemaining'] || '100'),
+      weeklyRemaining: parseFloat(env['weekly-remaining'] || env['weeklyRemaining'] || '500'),
+      dailyPercent: parseInt(env['daily-percent'] || env['dailyPercent'] || '0', 10),
+      weeklyPercent: parseInt(env['weekly-percent'] || env['weeklyPercent'] || '0', 10),
+      hoursUntilDailyReset: parseInt(
+        env['hours-until-daily-reset'] || env['hoursUntilDailyReset'] || '24',
+        10
+      ),
+      daysUntilWeeklyReset: parseInt(
+        env['days-until-weekly-reset'] || env['daysUntilWeeklyReset'] || '7',
+        10
+      ),
+    }),
+    catch: (cause) => new ParseMetricsError({ cause }),
+  })
 }

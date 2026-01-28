@@ -12,7 +12,14 @@
  * Replaces complex bash template logic in claude-code.yml with type-safe TypeScript.
  */
 
-import { Effect, type UnknownException } from 'effect'
+import { Data, Effect } from 'effect'
+
+/**
+ * Error thrown when parsing agent prompt context fails
+ */
+export class ParseContextError extends Data.TaggedError('ParseContextError')<{
+  readonly cause: unknown
+}> {}
 
 /**
  * Agent types for TDD automation
@@ -180,28 +187,31 @@ export function generateAgentPrompt(context: AgentPromptContext): Effect.Effect<
  */
 export function parseAgentPromptContext(
   env: Record<string, string>
-): Effect.Effect<AgentPromptContext, UnknownException> {
-  return Effect.try(() => {
-    const agentType = (env['agent-type'] || env['agentType'] || 'e2e-test-fixer') as AgentType
-    const specId = env['spec-id'] || env['specId'] || ''
-    const specFile = env['spec-file'] || env['specFile'] || ''
-    const hasConflict = (env['has-conflict'] || env['hasConflict']) === 'true'
-    const conflictFiles = env['conflict-files'] || env['conflictFiles'] || ''
+): Effect.Effect<AgentPromptContext, ParseContextError> {
+  return Effect.try({
+    try: () => {
+      const agentType = (env['agent-type'] || env['agentType'] || 'e2e-test-fixer') as AgentType
+      const specId = env['spec-id'] || env['specId'] || ''
+      const specFile = env['spec-file'] || env['specFile'] || ''
+      const hasConflict = (env['has-conflict'] || env['hasConflict']) === 'true'
+      const conflictFiles = env['conflict-files'] || env['conflictFiles'] || ''
 
-    if (!specId) {
-      throw new Error('Missing required field: spec-id')
-    }
+      if (!specId) {
+        throw new Error('Missing required field: spec-id')
+      }
 
-    if (!specFile) {
-      throw new Error('Missing required field: spec-file')
-    }
+      if (!specFile) {
+        throw new Error('Missing required field: spec-file')
+      }
 
-    return {
-      agentType,
-      specId,
-      specFile,
-      hasConflict,
-      conflictFiles: hasConflict ? conflictFiles : undefined,
-    }
+      return {
+        agentType,
+        specId,
+        specFile,
+        hasConflict,
+        conflictFiles: hasConflict ? conflictFiles : undefined,
+      }
+    },
+    catch: (cause) => new ParseContextError({ cause }),
   })
 }

@@ -12,7 +12,14 @@
  * Replaces bash template logic in test.yml with type-safe TypeScript.
  */
 
-import { Effect, type UnknownException } from 'effect'
+import { Data, Effect } from 'effect'
+
+/**
+ * Error thrown when parsing failure comment context fails
+ */
+export class ParseFailureContextError extends Data.TaggedError('ParseFailureContextError')<{
+  readonly cause: unknown
+}> {}
 
 /**
  * Failure types for TDD automation
@@ -142,43 +149,46 @@ export function generateFailureComment(context: FailureCommentContext): Effect.E
  */
 export function parseFailureCommentContext(
   env: Record<string, string>
-): Effect.Effect<FailureCommentContext, UnknownException> {
-  return Effect.try(() => {
-    const specId = env['SPEC_ID'] || env['spec-id'] || env['specId'] || ''
-    const targetSpec = env['TARGET_SPEC'] || env['target-spec'] || env['targetSpec'] || ''
-    const newAttempt = parseInt(
-      env['NEW_ATTEMPT'] || env['new-attempt'] || env['newAttempt'] || '1',
-      10
-    )
-    const maxAttempts = parseInt(
-      env['MAX_ATTEMPTS'] || env['max-attempts'] || env['maxAttempts'] || '5',
-      10
-    )
-    const branch = env['BRANCH'] || env['branch'] || ''
-    const failureType = (env['FAILURE_TYPE'] ||
-      env['failure-type'] ||
-      env['failureType'] ||
-      'target_only') as FailureType
+): Effect.Effect<FailureCommentContext, ParseFailureContextError> {
+  return Effect.try({
+    try: () => {
+      const specId = env['SPEC_ID'] || env['spec-id'] || env['specId'] || ''
+      const targetSpec = env['TARGET_SPEC'] || env['target-spec'] || env['targetSpec'] || ''
+      const newAttempt = parseInt(
+        env['NEW_ATTEMPT'] || env['new-attempt'] || env['newAttempt'] || '1',
+        10
+      )
+      const maxAttempts = parseInt(
+        env['MAX_ATTEMPTS'] || env['max-attempts'] || env['maxAttempts'] || '5',
+        10
+      )
+      const branch = env['BRANCH'] || env['branch'] || ''
+      const failureType = (env['FAILURE_TYPE'] ||
+        env['failure-type'] ||
+        env['failureType'] ||
+        'target_only') as FailureType
 
-    if (!specId) {
-      throw new Error('Missing required field: SPEC_ID')
-    }
+      if (!specId) {
+        throw new Error('Missing required field: SPEC_ID')
+      }
 
-    if (!targetSpec) {
-      throw new Error('Missing required field: TARGET_SPEC')
-    }
+      if (!targetSpec) {
+        throw new Error('Missing required field: TARGET_SPEC')
+      }
 
-    if (!branch) {
-      throw new Error('Missing required field: BRANCH')
-    }
+      if (!branch) {
+        throw new Error('Missing required field: BRANCH')
+      }
 
-    return {
-      specId,
-      targetSpec,
-      newAttempt,
-      maxAttempts,
-      branch,
-      failureType,
-    }
+      return {
+        specId,
+        targetSpec,
+        newAttempt,
+        maxAttempts,
+        branch,
+        failureType,
+      }
+    },
+    catch: (cause) => new ParseFailureContextError({ cause }),
   })
 }
