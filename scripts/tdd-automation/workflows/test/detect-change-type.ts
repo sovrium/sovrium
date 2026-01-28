@@ -35,6 +35,7 @@ interface ChangeTypeResult {
   readonly isTDDAutomation: boolean
   readonly changedFiles: readonly string[]
   readonly significantChanges: number
+  readonly isFixmeRemovalOnly: boolean
 }
 
 /**
@@ -197,6 +198,7 @@ const main = Effect.gen(function* () {
   let isTDDAutomation = false
   let targetSpec = ''
   let isTestOnly = false
+  let isFixmeRemovalOnly = false
 
   // Check if this is a TDD automation PR
   if (hasTDDLabel) {
@@ -234,8 +236,12 @@ const main = Effect.gen(function* () {
     const significantChanges = yield* countSignificantChanges(baseRef)
     yield* Console.error(`📊 Significant changes: ${significantChanges} lines`)
 
-    // If less than 10 significant lines, consider it test-only
-    if (significantChanges < 10) {
+    // If 0 significant lines, it's pure .fixme() removal
+    if (significantChanges === 0) {
+      isTestOnly = true
+      isFixmeRemovalOnly = true
+      yield* Console.error('✅ Pure .fixme() removal detected (typecheck can be skipped)')
+    } else if (significantChanges < 10) {
       isTestOnly = true
       yield* Console.error('✅ Test-only change detected (primarily .fixme() removal)')
     } else {
@@ -251,6 +257,7 @@ const main = Effect.gen(function* () {
     isTDDAutomation,
     changedFiles,
     significantChanges: isTestOnly ? 0 : changedFiles.length,
+    isFixmeRemovalOnly,
   }
 
   yield* Console.error('')
@@ -258,6 +265,7 @@ const main = Effect.gen(function* () {
   yield* Console.error(`  is_test_only=${isTestOnly}`)
   yield* Console.error(`  target_spec=${targetSpec}`)
   yield* Console.error(`  is_tdd_automation=${isTDDAutomation}`)
+  yield* Console.error(`  is_fixme_removal_only=${isFixmeRemovalOnly}`)
 
   // Output JSON (on stdout for YAML to parse)
   // @effect-diagnostics effect/preferSchemaOverJson:off
@@ -273,6 +281,7 @@ Effect.runPromise(main).catch((error) => {
       isTDDAutomation: false,
       changedFiles: [],
       significantChanges: 0,
+      isFixmeRemovalOnly: false,
       error: String(error),
     })
   )

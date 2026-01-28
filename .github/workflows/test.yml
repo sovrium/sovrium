@@ -39,6 +39,7 @@ jobs:
       is_test_only: ${{ steps.detect.outputs.is_test_only }}
       target_spec: ${{ steps.detect.outputs.target_spec }}
       is_tdd_automation: ${{ steps.detect.outputs.is_tdd_automation }}
+      is_fixme_removal_only: ${{ steps.detect.outputs.is_fixme_removal_only }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -65,10 +66,12 @@ jobs:
           IS_TEST_ONLY=$(echo "$RESULT" | tail -1 | jq -r '.isTestOnly')
           TARGET_SPEC=$(echo "$RESULT" | tail -1 | jq -r '.targetSpec')
           IS_TDD_AUTOMATION=$(echo "$RESULT" | tail -1 | jq -r '.isTDDAutomation')
+          IS_FIXME_REMOVAL_ONLY=$(echo "$RESULT" | tail -1 | jq -r '.isFixmeRemovalOnly')
 
           echo "is_test_only=$IS_TEST_ONLY" >> $GITHUB_OUTPUT
           echo "target_spec=$TARGET_SPEC" >> $GITHUB_OUTPUT
           echo "is_tdd_automation=$IS_TDD_AUTOMATION" >> $GITHUB_OUTPUT
+          echo "is_fixme_removal_only=$IS_FIXME_REMOVAL_ONLY" >> $GITHUB_OUTPUT
 
   # ============================================================================
   # PARALLEL STATIC ANALYSIS JOBS
@@ -125,10 +128,12 @@ jobs:
     name: TypeCheck
     needs: [detect-change-type]
     # TypeCheck always runs (spec files have TypeScript that needs validation)
+    # EXCEPT for pure .fixme() removals (typecheck guaranteed to pass)
     # Note: always() allows this job to run even when detect-change-type is skipped (push events)
     if: |
       always() &&
-      (github.event_name == 'push' || github.event.action != 'closed')
+      (github.event_name == 'push' || github.event.action != 'closed') &&
+      needs.detect-change-type.outputs.is_fixme_removal_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
