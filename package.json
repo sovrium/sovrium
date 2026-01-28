@@ -55,7 +55,7 @@
     "start": "bun run src/cli.ts --watch",
     "format": "prettier --write . --cache --cache-location .prettiercache",
     "format:check": "prettier --check . --cache --cache-location .prettiercache",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --incremental",
     "clean": "knip",
     "clean:fix": "knip --fix",
     "lint": "eslint . --cache --cache-location .eslintcache",

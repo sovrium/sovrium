@@ -342,7 +342,7 @@ const runFileChecks = (filePath: string) =>
         ],
         120_000
       ),
-      runCheck('TypeScript', ['bunx', 'tsc', '--noEmit'], 60_000, [2]),
+      runCheck('TypeScript', ['bunx', 'tsc', '--noEmit', '--incremental'], 60_000, [2]),
     ]
 
     // Add test file check if it exists
@@ -613,8 +613,12 @@ const runFullChecks = (options: QualityOptions) =>
     }
 
     // 3. TypeScript check (accept exit code 2 = warnings only from Effect language service)
-    // Note: --incremental is intentionally omitted as it changes exit code from 2 to 1
-    const tscResult = yield* runCheck('TypeScript', ['bunx', 'tsc', '--noEmit'], 60_000, [2])
+    const tscResult = yield* runCheck(
+      'TypeScript',
+      ['bunx', 'tsc', '--noEmit', '--incremental'],
+      60_000,
+      [2]
+    )
     results.push(tscResult)
     if (!tscResult.success) {
       yield* logError('\n⚠️  Stopping checks due to TypeScript failure (fail-fast mode)')
