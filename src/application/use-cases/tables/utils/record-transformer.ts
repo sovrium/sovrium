@@ -26,6 +26,7 @@ export interface FormattedFieldValue {
   readonly value: RecordFieldValue
   readonly displayValue?: string
   readonly timezone?: string
+  readonly allowedFileTypes?: readonly string[]
 }
 
 /**
@@ -104,6 +105,7 @@ const processFieldValue = (
     value: fieldValue,
     displayValue: formatResult.displayValue,
     ...(formatResult.timezone ? { timezone: formatResult.timezone } : {}),
+    ...(formatResult.allowedFileTypes ? { allowedFileTypes: formatResult.allowedFileTypes } : {}),
   }
 }
 
