@@ -130,10 +130,15 @@ jobs:
     # TypeCheck always runs (spec files have TypeScript that needs validation)
     # EXCEPT for pure .fixme() removals (typecheck guaranteed to pass)
     # Note: always() allows this job to run even when detect-change-type is skipped (push events)
+    # When detect-change-type runs (PR events), skip if is_fixme_removal_only == 'true'
+    # When detect-change-type is skipped (push events), always run TypeCheck
     if: |
       always() &&
       (github.event_name == 'push' || github.event.action != 'closed') &&
-      needs.detect-change-type.outputs.is_fixme_removal_only != 'true'
+      (
+        needs.detect-change-type.result == 'skipped' ||
+        needs.detect-change-type.outputs.is_fixme_removal_only != 'true'
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

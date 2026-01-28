@@ -984,6 +984,17 @@ TERMINAL STATES:
 | Tests fail (attempts >= max) | Add `tdd-automation:manual-intervention` label     |
 | Tests pass                   | Auto-merge proceeds                                |
 
+**CI Optimization for .fixme() Removal:**
+
+When a PR contains ONLY `.fixme()` removals from test files (i.e., test activation with no other code changes):
+
+- **TypeCheck job is SKIPPED**: `.fixme()` removal doesn't change TypeScript code, so typecheck is guaranteed to pass. Skipping saves ~30s per run.
+- **Detection logic**: `detect-change-type` job analyzes git diff and counts "significant" lines (non-`.fixme()`, non-file headers, non-empty). If significant changes = 0, sets `is_fixme_removal_only=true`.
+- **Skip condition**: TypeCheck job checks `needs.detect-change-type.outputs.is_fixme_removal_only != 'true'` before running.
+- **Other jobs still run**: Lint (for spec formatting), Unit Tests (unaffected), and E2E Tests (to verify the spec passes).
+
+**Rationale**: .fixme() removal activates a test but doesn't change its implementation. TypeScript validation adds no value since no code changed, only test execution status.
+
 **Attempt Counting:**
 
 - Read from PR title: `Attempt X/Y`
