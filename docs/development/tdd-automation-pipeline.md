@@ -1175,9 +1175,29 @@ Track execution errors from result JSON:
 | Daily  | $80     | $100       | Log warning / Skip |
 | Weekly | $400    | $500       | Log warning / Skip |
 
-### Credit Limit Comment Format
+### Credit Usage Comment (Always Posted)
 
-When credit limits are reached, a comment is posted on the PR showing:
+**When Posted**: Always, before Claude Code execution on every TDD PR
+
+**Purpose**: Real-time transparency of Claude Code costs across all TDD PRs
+
+A credit usage comment is **always posted** on TDD PRs, with one of three states:
+
+#### 1. ✅ Credits Available (Under Limits)
+
+Posted when daily and weekly usage is below 80% of limits.
+
+#### 2. ⚠️ Warning: Approaching Limit (80%+ Usage)
+
+Posted when either daily or weekly usage reaches 80% or more (execution continues).
+
+#### 3. ⏸️ Credit Limit Reached (Limit Exceeded)
+
+Posted when daily or weekly limit is reached (blocks execution).
+
+---
+
+### Comment Format (All States)
 
 **Daily/Weekly Usage Table:**
 
@@ -1197,6 +1217,8 @@ When credit limits are reached, a comment is posted on the PR showing:
 **Notes:**
 
 - Actual costs extracted from Claude Code execution results
+- Comment posted before Claude Code runs (not after)
+- Provides transparency for all TDD PRs, not just when limits are hit
 - "(estimated)" suffix shown only when actual cost unavailable
 - Link to run details for verification
 
