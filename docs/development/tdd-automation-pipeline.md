@@ -1151,12 +1151,12 @@ Claude Code action outputs a JSON result in workflow logs containing:
 
 **Cost Extraction Patterns (tried in order):**
 
-| Priority | Pattern                            | Example Match                                 | Notes                              |
-| -------- | ---------------------------------- | --------------------------------------------- | ---------------------------------- |
-| 1        | `"total_cost_usd": <number>`       | `"total_cost_usd": 0.7814745000000001`        | Claude Code result JSON (primary)  |
-| 2        | `Total cost: $X.XX`                | `Total cost: $12.34`                          | Legacy log format (fallback)       |
-| 3        | `Cost: $X.XX`                      | `Cost: $5.67`                                 | Alternative short format           |
-| 4        | `Session cost: X.XX USD`           | `Session cost: 8.90 USD`                      | Legacy format (no $ prefix)        |
+| Priority | Pattern                      | Example Match                          | Notes                             |
+| -------- | ---------------------------- | -------------------------------------- | --------------------------------- |
+| 1        | `"total_cost_usd": <number>` | `"total_cost_usd": 0.7814745000000001` | Claude Code result JSON (primary) |
+| 2        | `Total cost: $X.XX`          | `Total cost: $12.34`                   | Legacy log format (fallback)      |
+| 3        | `Cost: $X.XX`                | `Cost: $5.67`                          | Alternative short format          |
+| 4        | `Session cost: X.XX USD`     | `Session cost: 8.90 USD`               | Legacy format (no $ prefix)       |
 
 **Fallback:** $15/run if all patterns fail to match (+ creates GitHub issue for investigation)
 
@@ -1181,18 +1181,18 @@ When credit limits are reached, a comment is posted on the PR showing:
 
 **Daily/Weekly Usage Table:**
 
-| Period     | Usage  | Limit | Remaining | % Used | Runs | Reset In |
-| ---------- | ------ | ----- | --------- | ------ | ---- | -------- |
-| **Daily**  | $42.15 | $100  | $57.85    | 42%    | 54   | 18h      |
+| Period     | Usage   | Limit | Remaining | % Used | Runs | Reset In |
+| ---------- | ------- | ----- | --------- | ------ | ---- | -------- |
+| **Daily**  | $42.15  | $100  | $57.85    | 42%    | 54   | 18h      |
 | **Weekly** | $123.67 | $500  | $376.33   | 25%    | 158  | 5d       |
 
 **Recent Runs Table (Last 10):**
 
-| Run    | Date            | Spec ID           | Cost  |
-| ------ | --------------- | ----------------- | ----- |
-| [#123] | 2026-01-28 10:30 | `API-USERS-001`   | $0.78 |
-| [#124] | 2026-01-28 11:15 | `API-POSTS-002`   | $1.23 |
-| [#125] | 2026-01-28 12:00 | `API-TABLES-003`  | $0.54 |
+| Run    | Date             | Spec ID          | Cost  |
+| ------ | ---------------- | ---------------- | ----- |
+| [#123] | 2026-01-28 10:30 | `API-USERS-001`  | $0.78 |
+| [#124] | 2026-01-28 11:15 | `API-POSTS-002`  | $1.23 |
+| [#125] | 2026-01-28 12:00 | `API-TABLES-003` | $0.54 |
 
 **Notes:**
 
