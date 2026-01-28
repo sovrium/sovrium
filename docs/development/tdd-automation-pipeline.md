@@ -1,10 +1,12 @@
 # TDD Automation Pipeline - Specification
 
+> **Document Purpose**: Workflow specification and source of truth for TDD automation business logic and architecture decisions.
+>
 > **Status**: ✅ EFFECT IMPLEMENTATION COMPLETE
 > **Last Updated**: 2025-01-27
 > **Scope**: 230 pending specs over ~6-8 days
 >
-> **Implementation Note**: Effect-based services in `scripts/tdd-automation/` are now implemented. See the "Effect-Based Implementation Architecture" section for file references. YAML workflows (`.github/workflows/`) are being migrated to call these TypeScript entry points.
+> **Current State**: Effect-based services in `scripts/tdd-automation/` are implemented. See the "Effect-Based Implementation Architecture" section for file references. YAML workflows (`.github/workflows/`) are being migrated to call these TypeScript entry points.
 
 ---
 
@@ -16,10 +18,9 @@
 4. [Workflow Specifications](#workflow-specifications)
 5. [State Management](#state-management)
 6. [Cost Protection](#cost-protection)
-7. [Implementation Plan](#implementation-plan)
-8. [Risks & Mitigations](#risks--mitigations)
-9. [Design Decisions](#design-decisions)
-10. [Effect-Based Implementation Architecture](#effect-based-implementation-architecture)
+7. [Risks & Mitigations](#risks--mitigations)
+8. [Design Decisions](#design-decisions)
+9. [Effect-Based Implementation Architecture](#effect-based-implementation-architecture)
 
 ---
 
@@ -1237,70 +1238,6 @@ Credit limits are checked at **two points** for defense-in-depth:
 | ------ | ------- | ---------- | ------------------ |
 | Daily  | $80     | $100       | Log warning / Skip |
 | Weekly | $400    | $500       | Log warning / Skip |
-
----
-
-## Implementation Plan
-
-### Phase 1: Core Infrastructure (Days 1-2)
-
-| Task                     | File                                                        | Acceptance Criteria                                                 |
-| ------------------------ | ----------------------------------------------------------- | ------------------------------------------------------------------- |
-| 1.1 Create PR Creator    | `.github/workflows/pr-creator.yml`                          | Finds `.fixme()` specs, creates PRs, adds label, enables auto-merge |
-| 1.2 Create credit check  | `scripts/tdd-automation/programs/check-credit-limits.ts`    | Parses logs, returns spend, has fallback (see Effect Architecture)  |
-| 1.3 Create Watchdog      | `.github/workflows/merge-watchdog.yml`                      | Runs every 30 min, detects stuck PRs                                |
-| 1.4 Update priority calc | `scripts/tdd-automation/core/schema-priority-calculator.ts` | Returns spec-id, supports `--exclude`                               |
-
-### Phase 2: Test Workflow Integration (Days 3-4)
-
-| Task                     | File                         | Acceptance Criteria                      |
-| ------------------------ | ---------------------------- | ---------------------------------------- |
-| 2.1 Add TDD detection    | `.github/workflows/test.yml` | Detects via label OR branch name         |
-| 2.2 Add change detection | `.github/workflows/test.yml` | Identifies fixme-only changes            |
-| 2.3 Add failure handling | `.github/workflows/test.yml` | Reads/increments attempts, posts @claude |
-| 2.4 Add sync check       | `.github/workflows/test.yml` | Checks if behind main                    |
-
-### Phase 3: Claude Code Workflow (Days 5-6)
-
-**Prerequisites:**
-
-- Add `CLAUDE_CODE_OAUTH_TOKEN` to repository secrets
-
-| Task                 | File                                | Acceptance Criteria                                          |
-| -------------------- | ----------------------------------- | ------------------------------------------------------------ |
-| 3.1 Create workflow  | `.github/workflows/claude-code.yml` | Uses `anthropics/claude-code-action@v1`, triggers on @claude |
-| 3.2 Add sync logic   | `.github/workflows/claude-code.yml` | Fetches main, detects conflicts                              |
-| 3.3 Configure action | `.github/workflows/claude-code.yml` | `track_progress: true`, `use_sticky_comment: true`           |
-| 3.4 Add prompts      | `.github/workflows/claude-code.yml` | Conflict, e2e-test-fixer, refactor prompts                   |
-
-### Phase 4: Production Launch (Days 7-8)
-
-**Go-Live Checklist:**
-
-- [ ] `CLAUDE_CODE_OAUTH_TOKEN` secret configured
-- [ ] All workflows created and tested
-- [ ] Credit limits verified working
-- [ ] Watchdog creating alerts correctly
-- [ ] First 5 specs processed successfully
-
-### Files Summary
-
-**New Files:**
-
-```
-.github/workflows/pr-creator.yml
-.github/workflows/merge-watchdog.yml
-.github/workflows/claude-code.yml
-scripts/tdd-automation/programs/check-credit-limits.ts
-scripts/tdd-automation/services/  (see Effect Architecture for full list)
-```
-
-**Modified Files:**
-
-```
-.github/workflows/test.yml
-scripts/tdd-automation/core/schema-priority-calculator.ts
-```
 
 ---
 
