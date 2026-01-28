@@ -90,21 +90,72 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           # Secondary credit check (defense in depth with pr-creator.yml)
+          # Cost limits: $100/day, $500/week (see docs/development/tdd-automation-pipeline.md)
+
           # Query successful claude-code.yml runs from past 24 hours
           DAILY_RUNS=$(gh run list --repo "${{ github.repository }}" --workflow="claude-code.yml" \
             --created ">$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)" \
             --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")] | length' 2>/dev/null || echo "0")
 
+          # Query successful runs from past 7 days
+          WEEKLY_RUNS=$(gh run list --repo "${{ github.repository }}" --workflow="claude-code.yml" \
+            --created ">$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)" \
+            --json databaseId,conclusion --jq '[.[] | select(.conclusion == "success")] | length' 2>/dev/null || echo "0")
+
           # Estimate cost ($15 fallback per run - conservative)
           ESTIMATED_DAILY=$((DAILY_RUNS * 15))
+          ESTIMATED_WEEKLY=$((WEEKLY_RUNS * 15))
 
-          echo "📊 Estimated daily spend: ~\$$ESTIMATED_DAILY (based on $DAILY_RUNS successful runs)"
+          # Calculate limits
+          DAILY_LIMIT=100
+          WEEKLY_LIMIT=500
+          DAILY_WARNING=80
+          WEEKLY_WARNING=400
 
-          if [ "$ESTIMATED_DAILY" -ge 100 ]; then
+          # Calculate remaining budget
+          DAILY_REMAINING=$((DAILY_LIMIT - ESTIMATED_DAILY))
+          WEEKLY_REMAINING=$((WEEKLY_LIMIT - ESTIMATED_WEEKLY))
+
+          # Calculate usage percentages
+          DAILY_PERCENT=$((ESTIMATED_DAILY * 100 / DAILY_LIMIT))
+          WEEKLY_PERCENT=$((ESTIMATED_WEEKLY * 100 / WEEKLY_LIMIT))
+
+          # Time until reset
+          HOURS_UNTIL_DAILY_RESET=$(( 24 - $(date -u +%H) ))
+          DAYS_UNTIL_WEEKLY_RESET=$(( 7 - $(date -u +%u) ))
+
+          # Store all metrics for comment
+          echo "daily-runs=$DAILY_RUNS" >> "$GITHUB_OUTPUT"
+          echo "weekly-runs=$WEEKLY_RUNS" >> "$GITHUB_OUTPUT"
+          echo "estimated-daily=$ESTIMATED_DAILY" >> "$GITHUB_OUTPUT"
+          echo "estimated-weekly=$ESTIMATED_WEEKLY" >> "$GITHUB_OUTPUT"
+          echo "daily-limit=$DAILY_LIMIT" >> "$GITHUB_OUTPUT"
+          echo "weekly-limit=$WEEKLY_LIMIT" >> "$GITHUB_OUTPUT"
+          echo "daily-remaining=$DAILY_REMAINING" >> "$GITHUB_OUTPUT"
+          echo "weekly-remaining=$WEEKLY_REMAINING" >> "$GITHUB_OUTPUT"
+          echo "daily-percent=$DAILY_PERCENT" >> "$GITHUB_OUTPUT"
+          echo "weekly-percent=$WEEKLY_PERCENT" >> "$GITHUB_OUTPUT"
+          echo "hours-until-daily-reset=$HOURS_UNTIL_DAILY_RESET" >> "$GITHUB_OUTPUT"
+          echo "days-until-weekly-reset=$DAYS_UNTIL_WEEKLY_RESET" >> "$GITHUB_OUTPUT"
+
+          echo "📊 Credit Usage Metrics:"
+          echo "  Daily:  $ESTIMATED_DAILY/$DAILY_LIMIT USD ($DAILY_PERCENT%) - $DAILY_RUNS runs - Reset in ${HOURS_UNTIL_DAILY_RESET}h"
+          echo "  Weekly: $ESTIMATED_WEEKLY/$WEEKLY_LIMIT USD ($WEEKLY_PERCENT%) - $WEEKLY_RUNS runs - Reset in ${DAYS_UNTIL_WEEKLY_RESET}d"
+
+          # Check if limits exceeded
+          if [ "$ESTIMATED_DAILY" -ge "$DAILY_LIMIT" ] || [ "$ESTIMATED_WEEKLY" -ge "$WEEKLY_LIMIT" ]; then
             echo "credits-ok=false" >> "$GITHUB_OUTPUT"
-            echo "⛔ Daily credit limit (~\$100) reached"
+            if [ "$ESTIMATED_DAILY" -ge "$DAILY_LIMIT" ]; then
+              echo "limit-type=daily" >> "$GITHUB_OUTPUT"
+              echo "⛔ Daily credit limit (\$$DAILY_LIMIT) reached"
+            else
+              echo "limit-type=weekly" >> "$GITHUB_OUTPUT"
+              echo "⛔ Weekly credit limit (\$$WEEKLY_LIMIT) reached"
+            fi
           else
             echo "credits-ok=true" >> "$GITHUB_OUTPUT"
+            echo "limit-type=none" >> "$GITHUB_OUTPUT"
+            echo "✅ Credits OK"
           fi
 
       - name: Validate all conditions
@@ -123,8 +174,74 @@ jobs:
 
           if [ "$CREDITS_OK" != "true" ]; then
             echo "is-valid=false" >> "$GITHUB_OUTPUT"
-            gh pr comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" \
-              --body "⏸️ Daily credit limit reached. TDD automation paused until tomorrow."
+
+            # Build detailed credit limit comment
+            LIMIT_TYPE="${{ steps.credits.outputs.limit-type }}"
+            DAILY_RUNS="${{ steps.credits.outputs.daily-runs }}"
+            WEEKLY_RUNS="${{ steps.credits.outputs.weekly-runs }}"
+            EST_DAILY="${{ steps.credits.outputs.estimated-daily }}"
+            EST_WEEKLY="${{ steps.credits.outputs.estimated-weekly }}"
+            DAILY_LIMIT="${{ steps.credits.outputs.daily-limit }}"
+            WEEKLY_LIMIT="${{ steps.credits.outputs.weekly-limit }}"
+            DAILY_REMAINING="${{ steps.credits.outputs.daily-remaining }}"
+            WEEKLY_REMAINING="${{ steps.credits.outputs.weekly-remaining }}"
+            DAILY_PERCENT="${{ steps.credits.outputs.daily-percent }}"
+            WEEKLY_PERCENT="${{ steps.credits.outputs.weekly-percent }}"
+            HOURS_RESET="${{ steps.credits.outputs.hours-until-daily-reset }}"
+            DAYS_RESET="${{ steps.credits.outputs.days-until-weekly-reset }}"
+
+            {
+              if [ "$LIMIT_TYPE" = "daily" ]; then
+                echo "## ⏸️ Daily Credit Limit Reached"
+                echo ""
+                echo "TDD automation paused until daily limit resets."
+              else
+                echo "## ⏸️ Weekly Credit Limit Reached"
+                echo ""
+                echo "TDD automation paused until weekly limit resets."
+              fi
+              echo ""
+              echo "### 📊 Current Usage"
+              echo ""
+              echo "| Period | Usage | Limit | Remaining | % Used | Runs | Reset In |"
+              echo "|--------|-------|-------|-----------|--------|------|----------|"
+              echo "| **Daily** | \$$EST_DAILY | \$$DAILY_LIMIT | \$$DAILY_REMAINING | $DAILY_PERCENT% | $DAILY_RUNS | ${HOURS_RESET}h |"
+              echo "| **Weekly** | \$$EST_WEEKLY | \$$WEEKLY_LIMIT | \$$WEEKLY_REMAINING | $WEEKLY_PERCENT% | $WEEKLY_RUNS | ${DAYS_RESET}d |"
+              echo ""
+              echo "### 💡 What This Means"
+              echo ""
+              if [ "$LIMIT_TYPE" = "daily" ]; then
+                echo "- **Daily limit** of \$$DAILY_LIMIT has been reached ($DAILY_RUNS successful Claude Code runs today)"
+                echo "- TDD automation will automatically resume in **${HOURS_RESET} hours**"
+                echo "- Weekly budget: \$$WEEKLY_REMAINING remaining (\$$EST_WEEKLY/\$$WEEKLY_LIMIT used)"
+              else
+                echo "- **Weekly limit** of \$$WEEKLY_LIMIT has been reached ($WEEKLY_RUNS successful Claude Code runs this week)"
+                echo "- TDD automation will automatically resume in **${DAYS_RESET} days**"
+                echo "- This is a protective measure to control costs"
+              fi
+              echo ""
+              echo "### 🔧 Options"
+              echo ""
+              echo "1. **Wait for automatic reset** (recommended)"
+              echo "   - Daily limit resets in ${HOURS_RESET} hours"
+              echo "   - Weekly limit resets in ${DAYS_RESET} days"
+              echo ""
+              echo "2. **Increase limits** (if needed):"
+              echo "   - Edit \`.github/workflows/claude-code.yml\` (lines 100-101)"
+              echo "   - Current: \`DAILY_LIMIT=$DAILY_LIMIT\`, \`WEEKLY_LIMIT=$WEEKLY_LIMIT\`"
+              echo "   - Consider cost implications before increasing"
+              echo ""
+              echo "3. **Manual intervention**:"
+              echo "   - Remove \`tdd-automation\` label to skip automation"
+              echo "   - Implement manually and re-add label when ready"
+              echo ""
+              echo "---"
+              echo "*💰 Cost estimate: ~\$15 per successful run (conservative estimate)*"
+              echo ""
+              echo "*📅 Last updated: $(date -u '+%Y-%m-%d %H:%M UTC')*"
+            } > /tmp/credit_limit.md
+
+            gh pr comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body-file /tmp/credit_limit.md
             exit 0
           fi
 
