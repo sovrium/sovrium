@@ -47,29 +47,37 @@ This pipeline automates TDD implementation using **GitHub's native features** (P
 ```
 tdd/<spec-id>
 Example: tdd/API-TABLES-CREATE-001
+
+Spec ID Format: <COMPONENT>-<FEATURE>-<NUMBER> or <COMPONENT>-<FEATURE>-REGRESSION
+Examples: API-TABLES-CREATE-001, API-TABLES-REGRESSION
 ```
 
 ### PR Title Format
 
 ```
-[TDD] Implement <spec-id> | Attempt X/5
-Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 2/5
+[TDD] Implement <spec-id>
+Example: [TDD] Implement API-TABLES-CREATE-001
+
+Note: Max attempts default is 5 (configurable per spec)
 ```
 
 ### Workflows Summary
 
-| Workflow    | File                                | Trigger                                |
-| ----------- | ----------------------------------- | -------------------------------------- |
-| PR Creator  | `.github/workflows/pr-creator.yml`  | Hourly cron + test.yml success on main |
-| Test        | `.github/workflows/test.yml`        | Push to any branch                     |
-| Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                  |
+| Workflow    | File                                | Trigger                                                            |
+| ----------- | ----------------------------------- | ------------------------------------------------------------------ |
+| PR Creator  | `.github/workflows/pr-creator.yml`  | Hourly cron + test.yml success on main + manual (workflow_dispatch) |
+| Test        | `.github/workflows/test.yml`        | Push to main + PR events (opened, synchronize, reopened, closed)  |
+| Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                                              |
 
 ### Cost Limits
 
-| Threshold  | Per-Run | Daily | Weekly | Action                                       |
-| ---------- | ------- | ----- | ------ | -------------------------------------------- |
-| Hard Limit | $5.00   | $100  | $500   | Skip workflow, add manual-intervention label |
-| Warning    | N/A     | $80   | $400   | Log warning (80% of daily limit)             |
+| Threshold  | Per-Run | Daily | Weekly | Action                                                |
+| ---------- | ------- | ----- | ------ | ----------------------------------------------------- |
+| Hard Limit | $5.00   | $100  | $500   | Claude Code stops / Skip workflow / Skip workflow     |
+| Warning    | N/A     | $80   | $400   | N/A / Log warning (80%) / Log warning (80%)           |
+
+**Per-Run**: Enforced by Claude Code CLI (`--max-budget-usd`), not workflow
+**Daily/Weekly**: Enforced by workflow credit check before execution
 
 ### Claude Code GitHub Action
 
@@ -138,6 +146,8 @@ Both agents use Claude Sonnet 4.5 for optimal reasoning-to-cost balance. The age
 - ✅ Validates with regression tests before committing
 - ❌ Does not implement Phase 1.2 recommendations without approval
 - ❌ Never creates new schemas (e2e-test-fixer's responsibility)
+
+**Note**: "Core tools" include: Bash, Read, Write, Edit, Glob, Grep, Task, TodoWrite, LSP
 
 ---
 
@@ -253,6 +263,8 @@ Complex specs may require extended timeouts. Configure via:
    - uses: anthropics/claude-code-action@v1
      timeout-minutes: ${{ inputs.timeout || 45 }}
    ```
+
+**Timeout Validation**: Range is 15-90 minutes. Values outside this range default to 45 minutes.
 
 | Spec Type           | Recommended Timeout | Rationale                        |
 | ------------------- | ------------------- | -------------------------------- |
@@ -701,30 +713,26 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                   │                │ failure type                        │                            ║
 ║                   │                │                                     │                            ║
 ║                   │                │ Parse @claude comment to determine: │                            ║
+║                   │                │ - Test failure → e2e-test-fixer     │                            ║
+║                   │                │ - Quality fail → refactor-auditor   │                            ║
+║                   │                │                                     │                            ║
+║                   │                │ Note: Conflicts handled in Step 3   │                            ║
+║                   │                │ (early exit before agent selection) │                            ║
 ║                   │                └───────────────┬─────────────────────┘                            ║
 ║                   │                                │                                                  ║
-║                   │        ┌───────────────────────┼───────────────────────┐                          ║
-║                   │        │                       │                       │                          ║
-║                   │        ▼                       ▼                       ▼                          ║
-║                   │  ┌───────────┐          ┌───────────┐          ┌───────────┐                      ║
-║                   │  │ CONFLICT  │          │ TEST      │          │ QUALITY   │                      ║
-║                   │  │ DETECTED  │          │ FAILURE   │          │ ONLY FAIL │                      ║
-║                   │  └─────┬─────┘          └─────┬─────┘          └─────┬─────┘                      ║
-║                   │        │                      │                      │                            ║
-║                   │        ▼                      ▼                      ▼                            ║
-║                   │  ┌───────────────┐    ┌───────────────┐    ┌─────────────────────┐                ║
-║                   │  │ Prompt:       │    │ Agent:        │    │ Agent:              │                ║
-║                   │  │ Resolve       │    │ e2e-test-     │    │ codebase-refactor-  │                ║
-║                   │  │ conflicts     │    │ fixer         │    │ auditor             │                ║
-║                   │  │ first, then   │    │               │    │                     │                ║
-║                   │  │ use selected  │    │ --max-turns   │    │ --max-turns 40      │                ║
-║                   │  │ agent         │    │ 50            │    │ --model claude-     │                ║
-║                   │  │               │    │ --model       │    │ sonnet-4-5          │                ║
-║                   │  │               │    │ claude-       │    │                     │                ║
-║                   │  │               │    │ sonnet-4-5    │    │                     │                ║
-║                   │  └───────┬───────┘    └───────┬───────┘    └─────────┬───────────┘                ║
-║                   │          │                    │                      │                            ║
-║                   │          └────────────────────┼──────────────────────┘                            ║
+║                   │                ┌───────────────┴──────────────┐                                   ║
+║                   │                │                              │                                   ║
+║                   │                ▼                              ▼                                   ║
+║                   │  ┌──────────────────────┐          ┌─────────────────────┐                        ║
+║                   │  │ Agent:               │          │ Agent:              │                        ║
+║                   │  │ e2e-test-fixer       │          │ codebase-refactor-  │                        ║
+║                   │  │                      │          │ auditor             │                        ║
+║                   │  │ --max-turns 50       │          │ --max-turns 40      │                        ║
+║                   │  │ --model claude-      │          │ --model claude-     │                        ║
+║                   │  │ sonnet-4-5           │          │ sonnet-4-5          │                        ║
+║                   │  └──────────┬───────────┘          └─────────┬───────────┘                        ║
+║                   │             │                                │                                    ║
+║                   │             └────────────────┬───────────────┘                                    ║
 ║                   │                               │                                                   ║
 ║                   │                               ▼                                                   ║
 ║                   │                ┌─────────────────────────────────────┐                            ║
@@ -1142,16 +1150,20 @@ All errors now follow this single path instead of complex categorization and mul
          │                          │                     │
          ├── Tests pass ────────────┼────► Auto-merge ────┘
          │                          │
-         ├── Tests fail (<5) ───────┤
+         ├── Tests fail ────────────┤
          │   Post @claude           │
-         │   Claude fixes           │
-         │   Push triggers tests ───┘
+         │   Claude Code runs       │
+         │   Success → push ────────┘
+         │   changes
          │
-         └── Tests fail (>=5) ──────┐
+         └── Claude Code ───────────┐
+             error (any type)       │
                                     ▼
                           ┌──────────────────────┐
                           │ manual-intervention  │
-                          │ (needs human)        │
+                          │ (PR stays open)      │
+                          │ (PR Creator          │
+                          │  continues)          │
                           └──────────────────────┘
 ```
 
