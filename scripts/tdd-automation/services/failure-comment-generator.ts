@@ -12,7 +12,7 @@
  * Replaces bash template logic in test.yml with type-safe TypeScript.
  */
 
-import { Effect } from 'effect'
+import { Effect, type UnknownException } from 'effect'
 
 /**
  * Failure types for TDD automation
@@ -142,7 +142,7 @@ export function generateFailureComment(context: FailureCommentContext): Effect.E
  */
 export function parseFailureCommentContext(
   env: Record<string, string>
-): Effect.Effect<FailureCommentContext> {
+): Effect.Effect<FailureCommentContext, UnknownException> {
   return Effect.try(() => {
     const specId = env['SPEC_ID'] || env['spec-id'] || env['specId'] || ''
     const targetSpec = env['TARGET_SPEC'] || env['target-spec'] || env['targetSpec'] || ''

@@ -12,7 +12,7 @@
  * Replaces complex bash logic in claude-code.yml with type-safe TypeScript.
  */
 
-import { Effect } from 'effect'
+import { Effect, type UnknownException } from 'effect'
 
 /**
  * Credit metrics for comment generation
@@ -126,7 +126,9 @@ export function generateCreditComment(metrics: CreditMetrics): Effect.Effect<str
  * @param env - Environment variable object or GitHub Actions outputs
  * @returns Parsed credit metrics
  */
-export function parseCreditMetrics(env: Record<string, string>): Effect.Effect<CreditMetrics> {
+export function parseCreditMetrics(
+  env: Record<string, string>
+): Effect.Effect<CreditMetrics, UnknownException> {
   return Effect.try(() => ({
     creditsOk: env['credits-ok'] === 'true' || env['creditsOk'] === 'true',
     limitType: (env['limit-type'] || env['limitType'] || 'none') as 'daily' | 'weekly' | 'none',

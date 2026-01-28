@@ -12,7 +12,7 @@
  * Replaces complex bash template logic in claude-code.yml with type-safe TypeScript.
  */
 
-import { Effect } from 'effect'
+import { Effect, type UnknownException } from 'effect'
 
 /**
  * Agent types for TDD automation
@@ -180,7 +180,7 @@ export function generateAgentPrompt(context: AgentPromptContext): Effect.Effect<
  */
 export function parseAgentPromptContext(
   env: Record<string, string>
-): Effect.Effect<AgentPromptContext> {
+): Effect.Effect<AgentPromptContext, UnknownException> {
   return Effect.try(() => {
     const agentType = (env['agent-type'] || env['agentType'] || 'e2e-test-fixer') as AgentType
     const specId = env['spec-id'] || env['specId'] || ''
