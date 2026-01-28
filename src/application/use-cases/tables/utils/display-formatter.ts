@@ -184,20 +184,57 @@ function formatDateField(value: unknown, field: DateField): string | undefined {
 }
 
 /**
+ * Formatted display result with optional timezone metadata
+ */
+export interface FormatResult {
+  readonly displayValue: string
+  readonly timezone?: string
+}
+
+/**
+ * Format a currency field and create FormatResult
+ */
+function formatCurrencyFieldResult(value: unknown, field: CurrencyField): FormatResult | undefined {
+  const displayValue = formatCurrencyField(value, field)
+  return displayValue !== undefined ? { displayValue } : undefined
+}
+
+/**
+ * Format a date field and create FormatResult with optional timezone
+ */
+function formatDateFieldResult(value: unknown, field: DateField): FormatResult | undefined {
+  const displayValue = formatDateField(value, field)
+  if (displayValue === undefined) return undefined
+
+  // Include timezone metadata if timeZone is set
+  if (field.timeZone) {
+    return { displayValue, timezone: field.timeZone }
+  }
+  return { displayValue }
+}
+
+/**
+ * Check if field type is a date-related type
+ */
+function isDateRelatedType(type: string): boolean {
+  return type === 'date' || type === 'datetime' || type === 'time'
+}
+
+/**
  * Format a field value for display based on field type and configuration
  *
  * @param fieldName - The name of the field
  * @param value - The field value
  * @param app - The application schema
  * @param tableName - The table name
- * @returns Formatted display value or undefined if no formatting needed
+ * @returns Formatted display value with optional timezone, or undefined if no formatting needed
  */
 export function formatFieldForDisplay(
   fieldName: string,
   value: unknown,
   app: App,
   tableName: string
-): string | undefined {
+): FormatResult | undefined {
   // Find the table and field
   const table = app.tables?.find((t) => t.name === tableName)
   if (!table) return undefined
@@ -207,11 +244,11 @@ export function formatFieldForDisplay(
 
   // Format based on field type
   if (field.type === 'currency') {
-    return formatCurrencyField(value, field as CurrencyField)
+    return formatCurrencyFieldResult(value, field as CurrencyField)
   }
 
-  if (field.type === 'date' || field.type === 'datetime' || field.type === 'time') {
-    return formatDateField(value, field as DateField)
+  if (isDateRelatedType(field.type)) {
+    return formatDateFieldResult(value, field as DateField)
   }
 
   // Return undefined for types that don't need formatting yet
