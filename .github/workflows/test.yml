@@ -822,7 +822,7 @@ jobs:
 
   update-spec-progress:
     name: Update Spec Progress
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: needs.test.result == 'success'
     needs: [test]
     runs-on: ubuntu-latest
     permissions:
