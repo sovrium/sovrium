@@ -536,10 +536,20 @@ jobs:
             echo "error-message=$ERROR_MESSAGE" >> "$GITHUB_OUTPUT"
             echo "📊 Result subtype: $RESULT_SUBTYPE"
             [ -n "$ERROR_MESSAGE" ] && echo "⚠️ Error message: $ERROR_MESSAGE"
+
+            # Exit with appropriate code based on result subtype
+            if [ "$RESULT_SUBTYPE" = "success" ]; then
+              echo "✅ Claude Code execution succeeded"
+              exit 0
+            else
+              echo "❌ Claude Code execution failed: $RESULT_SUBTYPE"
+              exit 1
+            fi
           else
             echo "result-subtype=unknown" >> "$GITHUB_OUTPUT"
             echo "error-message=Execution file not found" >> "$GITHUB_OUTPUT"
             echo "❌ No execution file found"
+            exit 1
           fi
 
       - name: Extract Execution Metrics
