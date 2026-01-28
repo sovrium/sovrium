@@ -25,6 +25,7 @@ export type RecordFieldValue =
 export interface FormattedFieldValue {
   readonly value: RecordFieldValue
   readonly displayValue?: string
+  readonly timezone?: string
 }
 
 /**
@@ -91,9 +92,9 @@ export const transformRecord = (
     // Apply display formatting if requested
     if (options?.format === 'display' && options.app && options.tableName) {
       // For display formatting, pass the original value (may be string or number from database)
-      const displayValue = formatFieldForDisplay(key, value, options.app, options.tableName)
+      const formatResult = formatFieldForDisplay(key, value, options.app, options.tableName)
 
-      if (displayValue !== undefined) {
+      if (formatResult !== undefined) {
         // For formatted fields, use the original value (preserve number type)
         // Convert string numbers back to numbers for numeric field types
         const fieldValue =
@@ -105,7 +106,8 @@ export const transformRecord = (
           ...acc,
           [key]: {
             value: fieldValue,
-            displayValue,
+            displayValue: formatResult.displayValue,
+            ...(formatResult.timezone ? { timezone: formatResult.timezone } : {}),
           },
         }
       }
