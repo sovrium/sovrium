@@ -8,6 +8,7 @@
 import type { App } from '@/domain/models/app'
 import type { CurrencyField } from '@/domain/models/app/table/field-types/currency-field'
 import type { DateField } from '@/domain/models/app/table/field-types/date-field'
+import type { DurationField } from '@/domain/models/app/table/field-types/duration-field'
 
 /**
  * Currency symbols mapping
@@ -214,6 +215,95 @@ function formatDateFieldResult(value: unknown, field: DateField): FormatResult |
 }
 
 /**
+ * Parse PostgreSQL interval string to total minutes
+ *
+ * Handles formats like:
+ * - "1 hour 30 minutes"
+ * - "2 hours"
+ * - "45 minutes"
+ * - "1:30:45" (h:mm:ss format)
+ *
+ * @param value - PostgreSQL interval string
+ * @returns Total minutes
+ */
+function parseIntervalToMinutes(value: string): number {
+  // Handle h:mm:ss format (e.g., "1:30:45")
+  if (/^\d+:\d{2}(:\d{2})?$/.test(value)) {
+    const parts = value.split(':')
+    const hours = parseInt(parts[0] ?? '0', 10)
+    const minutes = parseInt(parts[1] ?? '0', 10)
+    const seconds = parseInt(parts[2] ?? '0', 10)
+    return hours * 60 + minutes + seconds / 60
+  }
+
+  // Handle PostgreSQL text format (e.g., "1 hour 30 minutes")
+  // Extract hours
+  const hoursMatch = value.match(/(\d+)\s*hours?/)
+  const hoursMinutes = hoursMatch ? parseInt(hoursMatch[1] ?? '0', 10) * 60 : 0
+
+  // Extract minutes
+  const minutesMatch = value.match(/(\d+)\s*minutes?/)
+  const minutesValue = minutesMatch ? parseInt(minutesMatch[1] ?? '0', 10) : 0
+
+  return hoursMinutes + minutesValue
+}
+
+/**
+ * Format duration value based on display format
+ *
+ * @param value - Duration value (string or number)
+ * @param field - Duration field configuration
+ * @returns Formatted duration string
+ */
+function formatDuration(value: unknown, field: DurationField): string {
+  // Parse the duration value to minutes
+  const totalMinutes = typeof value === 'string' ? parseIntervalToMinutes(value) : (value as number)
+
+  const displayFormat = field.displayFormat ?? 'h:mm'
+
+  // Format based on display format
+  if (displayFormat === 'h:mm') {
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = Math.floor(totalMinutes % 60)
+    return `${hours}:${String(minutes).padStart(2, '0')}`
+  }
+
+  if (displayFormat === 'h:mm:ss') {
+    const hours = Math.floor(totalMinutes / 60)
+    const remainingMinutes = totalMinutes % 60
+    const minutes = Math.floor(remainingMinutes)
+    const seconds = Math.floor((remainingMinutes - minutes) * 60)
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+
+  if (displayFormat === 'decimal') {
+    const hours = totalMinutes / 60
+    return hours.toFixed(1)
+  }
+
+  // Default to h:mm
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = Math.floor(totalMinutes % 60)
+  return `${hours}:${String(minutes).padStart(2, '0')}`
+}
+
+/**
+ * Format duration field value
+ */
+function formatDurationField(value: unknown, field: DurationField): string | undefined {
+  if (value === null || value === undefined) return undefined
+  return formatDuration(value, field)
+}
+
+/**
+ * Format duration field and create FormatResult
+ */
+function formatDurationFieldResult(value: unknown, field: DurationField): FormatResult | undefined {
+  const displayValue = formatDurationField(value, field)
+  return displayValue !== undefined ? { displayValue } : undefined
+}
+
+/**
  * Check if field type is a date-related type
  */
 function isDateRelatedType(type: string): boolean {
@@ -249,6 +339,10 @@ export function formatFieldForDisplay(
 
   if (isDateRelatedType(field.type)) {
     return formatDateFieldResult(value, field as DateField)
+  }
+
+  if (field.type === 'duration') {
+    return formatDurationFieldResult(value, field as DurationField)
   }
 
   // Return undefined for types that don't need formatting yet
