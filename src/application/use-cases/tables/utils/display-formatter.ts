@@ -192,6 +192,35 @@ export interface FormatResult {
 }
 
 /**
+ * Format a currency field and create FormatResult
+ */
+function formatCurrencyFieldResult(value: unknown, field: CurrencyField): FormatResult | undefined {
+  const displayValue = formatCurrencyField(value, field)
+  return displayValue !== undefined ? { displayValue } : undefined
+}
+
+/**
+ * Format a date field and create FormatResult with optional timezone
+ */
+function formatDateFieldResult(value: unknown, field: DateField): FormatResult | undefined {
+  const displayValue = formatDateField(value, field)
+  if (displayValue === undefined) return undefined
+
+  // Include timezone metadata if timeZone is set
+  if (field.timeZone) {
+    return { displayValue, timezone: field.timeZone }
+  }
+  return { displayValue }
+}
+
+/**
+ * Check if field type is a date-related type
+ */
+function isDateRelatedType(type: string): boolean {
+  return type === 'date' || type === 'datetime' || type === 'time'
+}
+
+/**
  * Format a field value for display based on field type and configuration
  *
  * @param fieldName - The name of the field
@@ -215,22 +244,11 @@ export function formatFieldForDisplay(
 
   // Format based on field type
   if (field.type === 'currency') {
-    const displayValue = formatCurrencyField(value, field as CurrencyField)
-    if (displayValue !== undefined) {
-      return { displayValue }
-    }
+    return formatCurrencyFieldResult(value, field as CurrencyField)
   }
 
-  if (field.type === 'date' || field.type === 'datetime' || field.type === 'time') {
-    const displayValue = formatDateField(value, field as DateField)
-    if (displayValue !== undefined) {
-      const dateField = field as DateField
-      // Include timezone metadata if timeZone is set
-      if (dateField.timeZone) {
-        return { displayValue, timezone: dateField.timeZone }
-      }
-      return { displayValue }
-    }
+  if (isDateRelatedType(field.type)) {
+    return formatDateFieldResult(value, field as DateField)
   }
 
   // Return undefined for types that don't need formatting yet

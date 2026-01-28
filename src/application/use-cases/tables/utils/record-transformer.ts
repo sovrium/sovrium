@@ -58,6 +58,56 @@ const toISOString = (value: unknown): string => {
 }
 
 /**
+ * Convert string numbers to numeric values
+ */
+const parseNumericString = (
+  value: unknown,
+  processedValue: Readonly<RecordFieldValue>
+): Readonly<RecordFieldValue> => {
+  if (typeof value === 'string' && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))) {
+    return parseFloat(value)
+  }
+  return processedValue
+}
+
+/**
+ * Process a single field value with optional display formatting
+ */
+const processFieldValue = (
+  key: string,
+  value: unknown,
+  options?: Readonly<{
+    readonly format?: 'display'
+    readonly app?: App
+    readonly tableName?: string
+  }>
+): Readonly<RecordFieldValue | FormattedFieldValue> => {
+  const processedValue = value instanceof Date ? value.toISOString() : (value as RecordFieldValue)
+
+  // Apply display formatting if requested
+  const shouldFormat = options?.format === 'display' && options.app && options.tableName
+  if (!shouldFormat) {
+    return processedValue
+  }
+
+  // For display formatting, pass the original value (may be string or number from database)
+  const formatResult = formatFieldForDisplay(key, value, options.app!, options.tableName!)
+
+  if (formatResult === undefined) {
+    return processedValue
+  }
+
+  // For formatted fields, use the original value (preserve number type)
+  const fieldValue = parseNumericString(value, processedValue)
+
+  return {
+    value: fieldValue,
+    displayValue: formatResult.displayValue,
+    ...(formatResult.timezone ? { timezone: formatResult.timezone } : {}),
+  }
+}
+
+/**
  * Transform a raw database record into the API response format (Airtable-style)
  *
  * This utility standardizes record transformation across all table endpoints:
@@ -86,35 +136,13 @@ export const transformRecord = (
   // Convert Date objects to ISO strings in user fields and optionally format for display
   const transformedFields = Object.entries(userFields).reduce<
     Record<string, RecordFieldValue | FormattedFieldValue>
-  >((acc, [key, value]) => {
-    const processedValue = value instanceof Date ? value.toISOString() : (value as RecordFieldValue)
-
-    // Apply display formatting if requested
-    if (options?.format === 'display' && options.app && options.tableName) {
-      // For display formatting, pass the original value (may be string or number from database)
-      const formatResult = formatFieldForDisplay(key, value, options.app, options.tableName)
-
-      if (formatResult !== undefined) {
-        // For formatted fields, use the original value (preserve number type)
-        // Convert string numbers back to numbers for numeric field types
-        const fieldValue =
-          typeof value === 'string' && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))
-            ? parseFloat(value)
-            : processedValue
-
-        return {
-          ...acc,
-          [key]: {
-            value: fieldValue,
-            displayValue: formatResult.displayValue,
-            ...(formatResult.timezone ? { timezone: formatResult.timezone } : {}),
-          },
-        }
-      }
-    }
-
-    return { ...acc, [key]: processedValue }
-  }, {})
+  >(
+    (acc, [key, value]) => ({
+      ...acc,
+      [key]: processFieldValue(key, value, options),
+    }),
+    {}
+  )
 
   return {
     id: String(id),
