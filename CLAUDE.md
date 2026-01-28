@@ -309,8 +309,7 @@ gh workflow run pr-creator.yml
 
 **Labels Used**:
 - `tdd-automation` - PR identification (all TDD PRs)
-- `tdd-automation:manual-intervention` - Needs human review (after 5 failures)
-- `tdd-automation:had-conflict` - Had merge conflict that was auto-resolved
+- `tdd-automation:manual-intervention` - Needs human review (on any error)
 
 **Cost Protection**: $100/day, $500/week limits with 80% warnings
 

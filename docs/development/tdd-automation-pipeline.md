@@ -37,11 +37,10 @@ This pipeline automates TDD implementation using **GitHub's native features** (P
 
 ### Labels
 
-| Label                                | Purpose                    | Added By                              | Removed By            |
-| ------------------------------------ | -------------------------- | ------------------------------------- | --------------------- |
-| `tdd-automation`                     | Identifies TDD PR          | PR Creator                            | Auto-merge (on close) |
-| `tdd-automation:manual-intervention` | Needs human review         | Test Workflow (5 failures)            | Human                 |
-| `tdd-automation:had-conflict`        | Had actual merge conflicts | Claude Code (when conflicts detected) | Human (after review)  |
+| Label                                | Purpose            | Added By                   | Removed By            |
+| ------------------------------------ | ------------------ | -------------------------- | --------------------- |
+| `tdd-automation`                     | Identifies TDD PR  | PR Creator                 | Auto-merge (on close) |
+| `tdd-automation:manual-intervention` | Needs human review | Claude Code (on any error) | Human                 |
 
 ### Branch Naming
 
@@ -64,7 +63,6 @@ Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 2/5
 | PR Creator  | `.github/workflows/pr-creator.yml`  | Hourly cron + test.yml success on main |
 | Test        | `.github/workflows/test.yml`        | Push to any branch                     |
 | Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                  |
-| Recovery    | `.github/workflows/recovery.yml`    | Manual (workflow_dispatch)             |
 
 ### Cost Limits
 
@@ -283,15 +281,11 @@ Complex specs may require extended timeouts. Configure via:
 │  └─────────────┘         └─────────────┘         └─────────────┘           │
 │                                                                              │
 │  ┌─────────────────────────────────────────────────────────────────┐        │
-│  │ Manual Intervention (recovery.yml - workflow_dispatch)          │        │
-│  │ ┌────────────────┐  ┌────────────────┐  ┌────────────────┐     │        │
-│  │ │ retry-claude-  │  │ reset-attempt- │  │ mark-for-spec- │     │        │
-│  │ │ code           │  │ counter        │  │ review         │     │        │
-│  │ └────────────────┘  └────────────────┘  └────────────────┘     │        │
-│  │ ┌────────────────┐                                              │        │
-│  │ │ close-and-     │                                              │        │
-│  │ │ reset-spec     │                                              │        │
-│  │ └────────────────┘                                              │        │
+│  │ Manual Intervention (via GitHub UI)                              │        │
+│  │ ┌────────────────────────────────────────────────────────┐      │        │
+│  │ │ 1. Remove manual-intervention label                     │      │        │
+│  │ │ 2. Post @claude comment to retry                        │      │        │
+│  │ └────────────────────────────────────────────────────────┘      │        │
 │  └─────────────────────────────────────────────────────────────────┘        │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -685,14 +679,14 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                   │         ┌────────────────────┐        │                                           ║
 ║                   │         │ Add label:         │        │                                           ║
 ║                   │         │ tdd-automation:    │        │                                           ║
-║                   │         │ had-conflict       │        │                                           ║
+║                   │         │ manual-intervention│        │                                           ║
 ║                   │         │                    │        │                                           ║
 ║                   │         │ Disable auto-merge │        │                                           ║
 ║                   │         │ (human must review │        │                                           ║
 ║                   │         │ resolution)        │        │                                           ║
 ║                   │         │                    │        │                                           ║
-║                   │         │ Modify prompt to   │        │                                           ║
-║                   │         │ include conflict   │        │                                           ║
+║                   │         │ Post comment with  │        │                                           ║
+║                   │         │ conflict           │        │                                           ║
 ║                   │         │ resolution         │        │                                           ║
 ║                   │         │ instructions       │        │                                           ║
 ║                   │         └─────────┬──────────┘        │                                           ║
@@ -847,14 +841,14 @@ Shows how the 3 workflows communicate via GitHub events:
 │          │                                                                                │
 │          │ On actual merge conflict:                                                      │
 │          │ - Detects conflicts via git status (UU, AA, DD, AU, UA, DU, UD markers)       │
-│          │ - Adds had-conflict label                                                      │
+│          │ - Adds manual-intervention label                                               │
 │          │ - Disables auto-merge (human review required)                                  │
-│          │ - Continues workflow for Claude to attempt resolution                          │
+│          │ - Posts error comment with conflict details                                    │
 │          │                                                                                │
 │          │ On merge failure without conflicts:                                            │
 │          │ - Logs error details                                                           │
-│          │ - Fails workflow (infrastructure issue, not conflict)                          │
-│          │ - No had-conflict label added                                                  │
+│          │ - Adds manual-intervention label (infrastructure issue)                        │
+│          │ - Posts error comment                                                          │
 │                                                                                           │
 └───────────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -897,41 +891,6 @@ Timeline ───────────────────────�
 │                                                Attempt 2/5                                │
 │                                                                                             │
 └─────────────────────────────────────────────────────────────────────────────────────────────┘
-║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
-║  WORKFLOW 4: RECOVERY - Manual Intervention (.github/workflows/recovery.yml)                        ║
-║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
-║                                                                                                       ║
-║                              ┌─────────────────────────────────────────┐                             ║
-║                              │   TRIGGER: workflow_dispatch            │                             ║
-║                              │   (Manual trigger via gh CLI or UI)     │                             ║
-║                              └─────────────┬───────────────────────────┘                             ║
-║                                            │                                                          ║
-║                    ┌───────────────────────┼──────────────────────┬──────────────────────────┐       ║
-║                    │                       │                      │                          │       ║
-║                    ▼                       ▼                      ▼                          ▼       ║
-║           ┌────────────────┐      ┌────────────────┐    ┌────────────────┐         ┌────────────────┐║
-║           │ retry-claude-  │      │ reset-attempt- │    │ mark-for-spec- │         │ close-and-     │║
-║           │ code           │      │ counter        │    │ review         │         │ reset-spec     │║
-║           └────────┬───────┘      └────────┬───────┘    └────────┬───────┘         └────────┬───────┘║
-║                    │                       │                     │                          │       ║
-║                    ▼                       ▼                     ▼                          ▼       ║
-║           ┌────────────────┐      ┌────────────────┐    ┌────────────────┐         ┌────────────────┐║
-║           │ Post @claude   │      │ Update PR      │    │ Close PR       │         │ Close PR       │║
-║           │ comment        │      │ title:         │    │ Add label:     │         │ Provide .fixme │║
-║           │                │      │ "Attempt 1/5"  │    │ spec-review-   │         │ reset          │║
-║           │                │      │                │    │ needed         │         │ instructions   │║
-║           └────────┬───────┘      └────────┬───────┘    └────────────────┘         └────────────────┘║
-║                    │                       │                                                         ║
-║                    └───────────────────────┴──────────► Returns to WORKFLOW 3 (Claude Code)         ║
-║                                                         or WORKFLOW 2 (Test)                         ║
-║                                                                                                       ║
-║  Use Cases:                                                                                           ║
-║  • retry-claude-code: Network timeout, want manual retry without incrementing counter               ║
-║  • reset-attempt-counter: Fixed codebase issue, want fresh 5 attempts                               ║
-║  • mark-for-spec-review: Spec too complex/ambiguous, needs human review                             ║
-║  • close-and-reset-spec: Complete restart, reset spec to .fixme()                                   ║
-║                                                                                                       ║
-╚═══════════════════════════════════════════════════════════════════════════════════════════════════════╝
 
 FAILURE PATH (up to 5 attempts):
 ═══════════════════════════════
@@ -1097,7 +1056,7 @@ The workflow distinguishes between two types of merge failures:
      - `DU` - Deleted by us
      - `UD` - Deleted by them
    - Actions taken:
-     - Add `tdd-automation:had-conflict` label
+     - Add `tdd-automation:manual-intervention` label
      - Disable auto-merge until human reviews
      - Include conflict resolution instructions in agent prompt
      - Abort merge and continue workflow
@@ -1114,74 +1073,24 @@ The workflow distinguishes between two types of merge failures:
 
 ---
 
-### 4. Recovery Workflow
+## Removed Workflows
 
-**File**: `.github/workflows/recovery.yml`
-**Trigger**: Manual (workflow_dispatch)
-**Purpose**: Provide manual intervention actions for failed or stuck TDD PRs
+### 4. Recovery Workflow (Removed 2026-01-28)
 
-**Actions**:
+**Status**: Removed in favor of simplified error handling
 
-#### 4.1. retry-claude-code
+**File** (deleted): `.github/workflows/recovery.yml`
 
-- **Trigger**: `workflow_dispatch` with `action=retry-claude-code`
-- **Purpose**: Manually trigger Claude Code execution without incrementing attempt counter
-- **Use Case**: Transient infrastructure failure (network timeout, API rate limit)
-- **Implementation**: Posts @claude comment to PR, test workflow handles execution
+**Replacement**: Manual intervention is now simplified:
 
-#### 4.2. reset-attempt-counter
+1. Review the error comment on the PR
+2. Fix the underlying issue (spec, codebase, or infrastructure)
+3. Remove `tdd-automation:manual-intervention` label
+4. Post `@claude` comment to retry
 
-- **Trigger**: `workflow_dispatch` with `action=reset-attempt-counter`
-- **Purpose**: Reset PR title attempt counter to 1/5
-- **Use Case**: Fixed underlying codebase issue (missing dependency, broken test), want fresh attempts
-- **Implementation**: Updates PR title via gh CLI
-
-#### 4.3. mark-for-spec-review
-
-- **Trigger**: `workflow_dispatch` with `action=mark-for-spec-review`
-- **Purpose**: Close PR and flag spec for human review
-- **Use Case**: Spec too complex, ambiguous, or requires human expertise
-- **Implementation**: Closes PR, adds `tdd-automation:spec-review-needed` label, posts explanatory comment
-
-#### 4.4. close-and-reset-spec
-
-- **Trigger**: `workflow_dispatch` with `action=close-and-reset-spec`
-- **Purpose**: Close PR and provide instructions to reset spec to .fixme()
-- **Use Case**: Complete restart needed (wrong implementation approach, spec needs rewrite)
-- **Implementation**: Closes PR, posts instructions to add .fixme() back to spec file
-
-**Parameters**:
-
-- `pr_number` (required): TDD PR number to act on
-- `action` (required): One of the 4 actions above
-- `spec_file` (optional): Spec file path (used by close-and-reset-spec)
-
-**Example Usage**:
-
-```bash
-# Retry Claude Code (transient error)
-gh workflow run recovery.yml -f action=retry-claude-code -f pr_number=123
-
-# Reset attempt counter (fixed codebase issue)
-gh workflow run recovery.yml -f action=reset-attempt-counter -f pr_number=123
-
-# Mark for spec review (spec too complex)
-gh workflow run recovery.yml -f action=mark-for-spec-review -f pr_number=123
-
-# Close and reset spec (complete restart)
-gh workflow run recovery.yml -f action=close-and-reset-spec -f pr_number=123 -f spec_file=specs/api/tables.spec.ts
-```
-
-**Integration with Error Handling**:
-
-- Recovery actions are **manual escape hatches** for when automation fails
-- Error handling (claude-code.yml) **automatically closes** non-retriable errors
-- Recovery workflow allows **human override** of automation decisions
-- See "Error Type → Recovery Action Mapping" section for recommendations
+All errors now follow this single path instead of complex categorization and multiple recovery actions.
 
 ---
-
-## Removed Workflows
 
 ### Merge Watchdog (Removed 2026-01-28)
 
@@ -1357,28 +1266,23 @@ Posted when daily or weekly limit is reached (blocks execution).
 
 ### Claude Code Error Types
 
-The pipeline implements comprehensive error handling for all Claude Code failure modes:
+The pipeline implements **simplified** error handling for all Claude Code failure modes:
 
-| Error Type                        | Subtype                               | Retriable | Action                                         | Label                                 |
-| --------------------------------- | ------------------------------------- | --------- | ---------------------------------------------- | ------------------------------------- |
-| **Success**                       | `success`                             | N/A       | Continue to test workflow                      | None                                  |
-| **Max Turns**                     | `error_max_turns`                     | ❌ No     | Close PR immediately                           | `tdd-automation:spec-review-needed`   |
-| **Budget Exceeded**               | `error_max_budget_usd`                | ❌ No     | Close PR immediately                           | `tdd-automation:budget-exceeded`      |
-| **Execution Error (Transient)¹**  | `error_during_execution`              | ✅ Yes    | Automatic retry with exponential backoff       | None (auto-recovery active)           |
-| **Execution Error (Persistent)¹** | `error_during_execution`              | ❌ No     | Close PR immediately                           | `tdd-automation:manual-intervention`  |
-| **Execution Error (Unknown)¹**    | `error_during_execution`              | ✅ Yes    | Automatic retry, then manual if persists       | `tdd-automation:manual-intervention`  |
-| **Structured Output Retries**     | `error_max_structured_output_retries` | ✅ Yes    | Automatic retry, then manual if persists       | `tdd-automation:manual-intervention`  |
-| **Unknown Error**                 | `unknown`                             | ❌ No     | Close PR immediately                           | `tdd-automation:manual-intervention`  |
+| Error Type    | Subtype         | Action                                            | Label                                |
+| ------------- | --------------- | ------------------------------------------------- | ------------------------------------ |
+| **Success**   | `success`       | Continue to test workflow                         | None                                 |
+| **Any Error** | All other types | Post error comment, add label, trigger PR Creator | `tdd-automation:manual-intervention` |
 
-**Notes:**
+**Simplified Error Handling** (implemented 2026-01-28):
 
-¹ **`error_during_execution` categorization** is determined by pattern matching the error message:
+All errors follow the same flow:
 
-- **Transient patterns**: `timeout|ETIMEDOUT|ECONNREFUSED|network|429|502|503|504|out of memory|ENOMEM` (safe to retry)
-- **Persistent patterns**: `SyntaxError|TypeError|ReferenceError|Cannot find module|ENOENT|parse error` (code bug, needs manual fix)
-- **Unknown patterns**: Any error not matching above (retry once, then manual intervention)
+1. Post detailed error comment to PR (includes error type and message)
+2. Add `tdd-automation:manual-intervention` label
+3. Disable auto-merge
+4. Trigger PR Creator to pick up next spec
 
-See "Error Detection Pipeline" section for implementation details.
+**Rationale**: Complex error categorization was removed in favor of a single, predictable flow. Human review is required for all failures, regardless of error type.
 
 ### Automatic Recovery System
 
@@ -1413,21 +1317,22 @@ When Claude Code fails with a **retriable error** (transient, unknown execution,
 **Max Cumulative Time**: 26 minutes (from first failure to 5th attempt start)
 
 **Why Exponential?**
+
 - Prevents retry storms (avoids overwhelming services)
 - Gives transient issues time to resolve (network recovery, API rate limits reset)
 - Natural backoff pattern (failures cluster together, backoff separates them)
 
 #### Retry Categories
 
-| Error Category                | Should Retry | Max Attempts | Rationale                                                  |
-| ----------------------------- | ------------ | ------------ | ---------------------------------------------------------- |
-| `transient`                   | ✅ Yes       | 5            | Network timeouts, 502/503 errors, API rate limits          |
-| `structured_output_retries`   | ✅ Yes       | 5            | Claude output parsing issues (usually transient)           |
-| `unknown_execution`           | ✅ Yes       | 5            | Unknown errors (conservative retry)                        |
-| `persistent`                  | ❌ No        | -            | SyntaxError, ENOENT (requires code fix)                    |
-| `max_turns`                   | ❌ No        | -            | Spec too complex (needs spec review)                       |
-| `max_budget`                  | ❌ No        | -            | Exceeded $5 per-run limit (close PR)                       |
-| `max_attempts_reached` (new)  | ❌ No        | -            | Already at 5/5 attempts (manual intervention required)     |
+| Error Category               | Should Retry | Max Attempts | Rationale                                              |
+| ---------------------------- | ------------ | ------------ | ------------------------------------------------------ |
+| `transient`                  | ✅ Yes       | 5            | Network timeouts, 502/503 errors, API rate limits      |
+| `structured_output_retries`  | ✅ Yes       | 5            | Claude output parsing issues (usually transient)       |
+| `unknown_execution`          | ✅ Yes       | 5            | Unknown errors (conservative retry)                    |
+| `persistent`                 | ❌ No        | -            | SyntaxError, ENOENT (requires code fix)                |
+| `max_turns`                  | ❌ No        | -            | Spec too complex (needs spec review)                   |
+| `max_budget`                 | ❌ No        | -            | Exceeded $5 per-run limit (close PR)                   |
+| `max_attempts_reached` (new) | ❌ No        | -            | Already at 5/5 attempts (manual intervention required) |
 
 **New Guard Rail**: If current attempt ≥ 5, automatic retry is **skipped** and PR is closed with `manual-intervention` label (prevents infinite loops).
 
@@ -1483,23 +1388,23 @@ Retry          No Retry
 
 If automatic retry is insufficient or fails to resolve the issue:
 
-1. **Reset attempt counter**: `recovery.yml` → `reset-attempt-counter` (allows 5 more retries after fixing underlying issue)
-2. **Manual retry**: `recovery.yml` → `retry-claude-code` (posts @claude comment immediately, bypasses backoff)
-3. **Mark for spec review**: `recovery.yml` → `mark-for-spec-review` (close PR with `spec-review-needed` label)
-4. **Close and reset spec**: `recovery.yml` → `close-and-reset-spec` (close PR and add `.fixme()` back to spec file)
+1. **Review error details** in the PR comment posted by Claude Code
+2. **Fix the underlying issue** (spec clarity, codebase bug, infrastructure)
+3. **Remove `tdd-automation:manual-intervention` label** from the PR
+4. **Post `@claude` comment** to trigger a new attempt
 
-See "Recovery Workflow" section for detailed manual recovery options.
+All manual intervention follows this single, simplified flow.
 
 #### Expected Impact
 
-| Metric                     | Before (Manual Only)         | After (Automatic Recovery) |
-| -------------------------- | ---------------------------- | -------------------------- |
-| **Transient Error Recovery** | ❌ Manual (hours to days)   | ✅ Automatic (minutes)     |
-| **Response Time**          | ⏰ Hours (human intervention) | ⚡ 1-26 minutes (automated) |
-| **Human Effort**           | 🧑 High (every transient error) | 🤖 Low (only persistent failures) |
-| **Throughput**             | 📉 ~10-20 specs/day          | 📈 ~50-100 specs/day       |
-| **Cost Per Spec**          | 💰 ~$15 (manual retry cycles) | 💰 ~$12 (fewer retry loops) |
-| **Reliability**            | ⚠️ Depends on human availability | ✅ 24/7 automatic recovery |
+| Metric                       | Before (Manual Only)             | After (Automatic Recovery)        |
+| ---------------------------- | -------------------------------- | --------------------------------- |
+| **Transient Error Recovery** | ❌ Manual (hours to days)        | ✅ Automatic (minutes)            |
+| **Response Time**            | ⏰ Hours (human intervention)    | ⚡ 1-26 minutes (automated)       |
+| **Human Effort**             | 🧑 High (every transient error)  | 🤖 Low (only persistent failures) |
+| **Throughput**               | 📉 ~10-20 specs/day              | 📈 ~50-100 specs/day              |
+| **Cost Per Spec**            | 💰 ~$15 (manual retry cycles)    | 💰 ~$12 (fewer retry loops)       |
+| **Reliability**              | ⚠️ Depends on human availability | ✅ 24/7 automatic recovery        |
 
 **Key Benefit**: **80% reduction in human effort** - only persistent failures (code bugs, spec issues) require manual intervention.
 
@@ -1519,37 +1424,29 @@ See "Recovery Workflow" section for detailed manual recovery options.
 - **Manual intervention rate**: Target <5% (only persistent failures escalate)
 - **Mean time to recovery**: Target <10 minutes (exponential backoff averages ~6 minutes)
 
-### Error Type → Recovery Action Mapping
+### Error Recovery Guide
 
-This table recommends which recovery action to use for each error scenario, helping you respond quickly to automation failures.
+This section describes how to respond to different error scenarios.
 
-| Error Scenario                            | Auto Action              | Recommended Recovery Action    | When to Use Recovery                         |
-| ----------------------------------------- | ------------------------ | ------------------------------ | -------------------------------------------- |
-| **error_max_turns** (5 attempts used)     | Close PR + review label  | `mark-for-spec-review`         | Already auto-closed, use if label missing    |
-| **error_max_budget_usd** ($5.00 hit)      | Close PR + budget label  | Manual investigation           | Evaluate if spec needs budget increase       |
-| **Transient error** (timeout, network)    | Auto-retry via @claude   | `retry-claude-code`            | Manual retry if automation didn't trigger    |
-| **Persistent error** (SyntaxError, etc.)  | Close PR + manual label  | Fix code → `reset-attempt`     | After fixing codebase issue                  |
-| **Unknown error** (retried once already)  | Close PR + manual label  | Investigate → choose action    | After understanding error root cause         |
-| **Spec ambiguity** (discovered mid-run)   | Agent struggles          | `mark-for-spec-review`         | Spec requirements unclear/contradictory      |
-| **Merge conflict** (main branch updated)  | @claude conflict prompt  | None (let automation handle)   | Automation resolves conflicts automatically  |
-| **Want fresh attempts** (codebase fixed)  | N/A                      | `reset-attempt-counter`        | After fixing dependency, test helper, etc.   |
-| **Complete restart** (wrong approach)     | N/A                      | `close-and-reset-spec`         | Spec needs rewrite with different approach   |
-| **Stuck merge** (checks passed, no merge) | Test workflow re-enables | None (GitHub auto-merge works) | Auto-merge re-enabled by test.yml (line 818) |
+| Error Scenario                            | Auto Action                                      | Manual Recovery                                          |
+| ----------------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
+| **Any error** (all types)                 | Post error comment + `manual-intervention` label | Review error, fix issue, remove label, post `@claude`    |
+| **Merge conflict** (main branch updated)  | `manual-intervention` label                      | Review error, fix conflict, remove label, post `@claude` |
+| **Stuck merge** (checks passed, no merge) | Test workflow re-enables auto-merge              | Usually resolves automatically                           |
 
-**Decision Guide**:
+**Manual Recovery Steps**:
 
-1. **Check error type** in claude-code.yml execution logs or PR comment
-2. **Verify auto action** was taken (PR closed? Label added? @claude comment posted?)
-3. **Investigate root cause** if error is persistent or unknown
-4. **Choose recovery action** based on table above
-5. **Execute** via `gh workflow run recovery.yml -f action=<action> -f pr_number=<PR>`
+1. **Check error details** in the PR comment posted by Claude Code
+2. **Investigate root cause** - spec issue? codebase bug? infrastructure?
+3. **Fix the underlying problem**
+4. **Remove `tdd-automation:manual-intervention` label**
+5. **Post `@claude` comment** to trigger retry
 
-**When NOT to Use Recovery Workflow**:
+**When Manual Recovery is NOT Needed**:
 
-- ✅ **Automation is working** - let it run (test workflow handles retries)
-- ✅ **Merge conflicts** - automation has conflict resolution built-in
-- ✅ **First failure** - give automation full 5 attempts before manual intervention
-- ✅ **Budget warnings** - only warnings, not hard limits (automation continues)
+- ✅ **Automation is working** - let it run through all 5 attempts
+- ✅ **First/second failure** - give automation full attempts before manual intervention
+- ✅ **Auto-merge pending** - test workflow handles auto-merge enablement
 
 ### Error Detection Pipeline
 
@@ -1572,6 +1469,130 @@ This table recommends which recovery action to use for each error scenario, help
    - **Retriable errors**: Post @claude comment (test workflow retries)
    - **Non-retriable errors**: Close PR with appropriate label + explanation comment
 
+### Execution Metrics in PR Comments
+
+**Decision**: Post execution metrics (duration, turns, total cost) in PR comments after Claude Code execution completes.
+
+**Purpose**: Transparency and observability of Claude Code execution costs and efficiency.
+
+**When Posted**:
+
+- **On Success**: After Claude Code executes successfully (before tests run)
+- **On Retriable Error**: Included in error comment before automatic retry
+- **On Non-Retriable Error**: Included in error comment before PR closure
+
+**Metrics Included**:
+
+| Metric         | Source Field     | Example Value | Description                                |
+| -------------- | ---------------- | ------------- | ------------------------------------------ |
+| **Duration**   | `duration_ms`    | `626421` ms   | Total execution time in milliseconds       |
+| **Turns**      | `num_turns`      | `10`          | Number of conversation turns with Claude   |
+| **Total Cost** | `total_cost_usd` | `$0.78`       | Actual cost in USD from Claude Code action |
+
+**Comment Format**:
+
+#### Success Comment
+
+```markdown
+✅ **Claude Code Execution Succeeded**
+
+**Execution Metrics**:
+
+- **Duration**: 10m 26s
+- **Turns**: 10
+- **Total Cost**: $0.78
+
+Changes pushed successfully. Tests will run next.
+```
+
+#### Error Comment (Retryable Errors)
+
+```markdown
+⚠️ **Claude Code Execution Failed (Retryable Error)**
+
+**Error Category**: `transient`
+**Error Message**:
+```
+
+Network timeout during test execution
+
+```
+
+**Execution Metrics**:
+- **Duration**: 15m 32s
+- **Turns**: 23
+- **Total Cost**: $1.45
+
+**Attempt**: 2/5
+**Backoff Delay**: 180s
+
+**Automatic Recovery**: Retrying after exponential backoff...
+
+---
+_Automated retry triggered by TDD pipeline error handling_
+```
+
+#### Error Comment (Non-Retriable Errors)
+
+```markdown
+❌ **TDD Automation Failed: Spec too complex (exceeded 50 conversation turns)**
+
+**Error Category**: `max_turns`
+**Spec ID**: `API-TABLES-CREATE-001`
+
+**Reason**: This spec requires too many steps to implement. Consider breaking it into smaller specs or simplifying the requirements.
+
+**Execution Metrics**:
+
+- **Duration**: 42m 15s
+- **Turns**: 50
+- **Total Cost**: $3.85
+
+**What This Means**:
+
+- This PR cannot be automatically implemented
+- Manual intervention is required
+
+**Recovery**:
+
+1. Review the error above
+2. Fix the spec or codebase issue
+3. Remove `tdd-automation:manual-intervention` label
+4. Post `@claude` comment to retry
+
+---
+
+_Automated closure by TDD pipeline error handling_
+```
+
+**Rationale**:
+
+1. **Cost Transparency**: Developers see actual Claude Code costs per attempt
+2. **Efficiency Tracking**: Duration and turns indicate if specs are well-defined
+3. **Budget Awareness**: Total cost helps identify expensive specs early
+4. **Debugging Aid**: Metrics patterns (high turns, long duration) suggest spec clarity issues
+
+**Implementation**:
+
+- Extract metrics from `execution_file` JSON output by Claude Code action
+- Format duration from milliseconds to human-readable (e.g., "10m 26s")
+- Include in both success and error comments
+- Cost tracking remains separate (credit usage comment posted before execution)
+
+**Data Source**: Claude Code action outputs `execution_file` containing:
+
+```json
+{
+  "type": "result",
+  "subtype": "success|error|timeout",
+  "is_error": false,
+  "duration_ms": 626421,
+  "num_turns": 10,
+  "total_cost_usd": 0.7814745000000001,
+  "permission_denials": []
+}
+```
+
 ### Per-Run Budget Protection
 
 **Budget Limit**: $5.00 per Claude Code execution
@@ -1586,7 +1607,7 @@ claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd 5.00
 
 - Claude Code stops execution when approaching $5.00
 - Returns `error_max_budget_usd` result subtype
-- Pipeline closes PR with `tdd-automation:budget-exceeded` label
+- Pipeline adds `tdd-automation:manual-intervention` label and posts error details
 - Daily/weekly limits still enforced (defense in depth)
 
 **Rationale**:
@@ -1627,179 +1648,53 @@ _Automated retry triggered by TDD pipeline error handling_
 - This PR cannot be automatically implemented
 - Manual intervention is required
 
-**Recovery Options** (via workflow_dispatch in `.github/workflows/recovery.yml`):
-
-- `retry-claude-code`: Post @claude comment to retry (if error might be transient)
-- `reset-attempt-counter`: Reset attempt counter to 1/5 (if retrying after fixing issue)
-- `mark-for-spec-review`: Close PR and add spec-review-needed label
-- `close-and-reset-spec`: Close PR and create new PR to add .fixme() back to spec
+**Recovery**: Remove `tdd-automation:manual-intervention` label and post `@claude` comment to retry.
 
 ---
 
-_Automated closure by TDD pipeline error handling_
+_Automated by TDD pipeline error handling_
 ```
 
-### TDD Recovery Workflow
+### Manual Recovery Process
 
-**Workflow**: `.github/workflows/recovery.yml`
+All TDD errors now follow a single, simplified recovery flow:
 
-Manual recovery actions for TDD automation failures:
-
-#### 1. `retry-claude-code`
-
-**Purpose**: Manually trigger Claude Code retry by posting @claude comment
-
-**Inputs**:
-
-- `pr_number`: PR to retry
-- `spec_file`: (optional) Spec file path for context
-
-**Actions**:
-
-- Posts @claude comment with spec context
-- Claude Code workflow triggers automatically
-
-**Use Case**: Error might have been transient (network issue, temporary service outage)
-
-#### 2. `reset-attempt-counter`
-
-**Purpose**: Reset PR attempt counter to 1/5
-
-**Inputs**:
-
-- `pr_number`: PR to reset
-
-**Actions**:
-
-- Updates PR title: `[TDD] Implement <spec-id> | Attempt 1/5`
-- Posts comment explaining reset
-- Allows 5 more retry attempts
-
-**Use Case**: Fixed underlying issue (code cleanup, spec clarification) and want to retry
-
-#### 3. `mark-for-spec-review`
-
-**Purpose**: Mark spec for human review
-
-**Inputs**:
-
-- `pr_number`: PR to close
-- `spec_file`: Spec file needing review
-
-**Actions**:
-
-- Adds `tdd-automation:spec-review-needed` label
-- Closes PR with review guidance comment
-- Spec remains with `.fixme()` annotation
-
-**Use Case**: Spec is too complex, ambiguous, or requires architectural decisions
-
-#### 4. `close-and-reset-spec`
-
-**Purpose**: Close PR and prepare for fresh start
-
-**Inputs**:
-
-- `pr_number`: PR to close
-- `spec_file`: Spec file to reset
-
-**Actions**:
-
-- Closes PR with `tdd-automation:reset-spec` label
-- Provides instructions to add `.fixme()` back to spec
-- PR creator will detect spec again after reset
-
-**Use Case**: Want to completely restart TDD process for this spec
+1. **Review Error**: Check the error comment posted on the PR for details
+2. **Fix Issue**: Address the underlying problem (spec clarity, codebase bug, infrastructure)
+3. **Remove Label**: Remove `tdd-automation:manual-intervention` label from PR
+4. **Retry**: Post `@claude` comment to trigger Claude Code
 
 ### Common Recovery Scenarios
 
-This section provides practical examples of when to use each recovery action based on real failure patterns.
+#### Scenario 1: Transient Error (Network, Timeout)
 
-#### Scenario 1: Transient Infrastructure Failure
+**Symptom**: Error message shows network timeout, API rate limit (429, 502, 503), or similar transient issue.
 
-**Symptom**: Claude Code failed with `error_during_execution` showing network timeout or API rate limit (429, 502, 503).
-
-**Example Error**:
-
-```json
-{
-  "subtype": "error_during_execution",
-  "errors": ["ETIMEDOUT: connection timed out after 30000ms"]
-}
-```
-
-**Action**: Use `retry-claude-code` to manually trigger another attempt without burning an attempt counter.
-
-**Command**:
-
-```bash
-gh workflow run recovery.yml \
-  -f action=retry-claude-code \
-  -f pr_number=123
-```
-
-**Expected Outcome**: Test workflow receives @claude comment, triggers Claude Code execution, likely succeeds on retry.
+**Recovery**: Remove `manual-intervention` label and post `@claude` comment. The issue likely resolves on retry.
 
 ---
 
-#### Scenario 2: Spec Ambiguity Discovered After Multiple Failures
+#### Scenario 2: Spec Clarity Issue
 
-**Symptom**: Claude Code has failed 3-4 times with `error_max_turns` (hit 41-turn limit each time). Error comments suggest spec requirements are unclear or contradictory.
+**Symptom**: Agent struggles with unclear requirements or contradictory spec statements.
 
-**Example**: Spec says "validate email format" but doesn't specify which RFC standard (5321, 5322, 6531).
-
-**Action**: Use `mark-for-spec-review` to close PR and flag spec for human clarification.
-
-**Command**:
-
-```bash
-gh workflow run recovery.yml \
-  -f action=mark-for-spec-review \
-  -f pr_number=123
-```
-
-**Expected Outcome**: PR closed with `tdd-automation:spec-review-needed` label, team reviews and clarifies spec, then removes `.fixme()` to restart automation.
+**Recovery**: Clarify the spec file, then remove `manual-intervention` label and post `@claude` comment.
 
 ---
 
-#### Scenario 3: Fixed Codebase Issue, Want Clean Slate
+#### Scenario 3: Codebase Bug
 
-**Symptom**: Agent failed 2 times due to missing dependency or broken test helper. You've now fixed the issue (added dependency to package.json, fixed test helper). Want to give agent 5 fresh attempts with the fixed codebase.
+**Symptom**: Agent fails due to missing dependency, broken test helper, or codebase issue.
 
-**Example**: Agent failed because `@tanstack/react-query` wasn't installed. You ran `bun add @tanstack/react-query`.
-
-**Action**: Use `reset-attempt-counter` to reset to 1/5 and give it fresh attempts.
-
-**Command**:
-
-```bash
-gh workflow run recovery.yml \
-  -f action=reset-attempt-counter \
-  -f pr_number=123
-```
-
-**Expected Outcome**: PR title changes from "Attempt 3/5" to "Attempt 1/5", next Claude Code execution gets 5 full attempts with fixed codebase.
+**Recovery**: Fix the codebase issue, then remove `manual-intervention` label and post `@claude` comment.
 
 ---
 
-#### Scenario 4: Implementation Approach Was Wrong, Need Complete Restart
+#### Scenario 4: Complete Restart Needed
 
-**Symptom**: Agent has been trying to implement feature using approach A, but team realized approach B is correct. Spec needs rewrite to reflect approach B. Current PR is pursuing wrong approach.
+**Symptom**: Implementation approach was wrong and spec needs rewriting.
 
-**Example**: Spec said "use Redux for state management" but team decided "use TanStack Query instead".
-
-**Action**: Use `close-and-reset-spec` to close PR, reset spec to `.fixme()`, rewrite spec with correct approach, then restart automation.
-
-**Command**:
-
-```bash
-gh workflow run recovery.yml \
-  -f action=close-and-reset-spec \
-  -f pr_number=123 \
-  -f spec_file=specs/features/user-profile.spec.ts
-```
-
-**Expected Outcome**: PR closed, instructions provided to add `.fixme()` back to spec, team rewrites spec, removes `.fixme()` to create fresh PR with correct approach.
+**Recovery**: Close the PR, add `.fixme()` back to spec, rewrite spec with correct approach, then let PR Creator pick it up again.
 
 ---
 
@@ -1850,10 +1745,10 @@ gh workflow run recovery.yml \
 
 1. **Investigate logs** first - view full error trace in GitHub Actions logs
 2. **Identify root cause** - is this a codebase issue (needs fix) or transient (safe to retry)?
-3. **Choose recovery action**:
-   - If transient: `retry-claude-code`
-   - If codebase issue: Fix code, then `reset-attempt-counter`
-   - If spec issue: `mark-for-spec-review`
+3. **Recovery**:
+   - If transient: Remove `manual-intervention` label, post `@claude` comment
+   - If codebase issue: Fix code, remove label, post `@claude` comment
+   - If spec issue: Clarify spec, remove label, post `@claude` comment
 
 **No immediate recovery action** - investigate first, then decide.
 
@@ -1963,23 +1858,23 @@ triggers retry
 
 ## Design Decisions
 
-| Decision               | Choice                                                    | Rationale                                            |
-| ---------------------- | --------------------------------------------------------- | ---------------------------------------------------- |
-| Cron frequency         | Hourly (backup only)                                      | Chain reaction via `workflow_run` handles most cases |
-| Max attempts           | 5 (default, configurable)                                 | Increased from 3 for 230-spec reliability            |
-| Label names            | `tdd-automation`, `:manual-intervention`, `:had-conflict` | Clear, consistent naming                             |
-| Branch naming          | `tdd/<spec-id>`                                           | Simple, serves as backup identifier                  |
-| @claude comment format | Agent-specific with file paths                            | Enables correct agent selection                      |
-| Credit limits          | $100/day, $500/week (+ $5/run)                            | Three-layer defense: per-run, daily, weekly          |
-| Per-run budget limit   | $5.00                                                     | Prevents runaway costs from single spec              |
-| Cost tracking          | Actual costs from Claude Code result JSON                 | Accurate tracking vs. $15 estimates                  |
-| Cost parsing           | JSON result + multi-pattern fallback                      | Handles format changes gracefully                    |
-| Sync strategy          | Merge (not rebase)                                        | Safer, no force-push, better for automation          |
-| Conflict counting      | Not counted as attempt                                    | Infrastructure issue, not code failure               |
-| Error handling         | Pattern matching (conservative)                           | Distinguish transient vs. persistent errors          |
-| Retry strategy         | Transient errors retry, persistent errors close           | Avoid infinite loops, clear failure path             |
-| Unknown errors         | Retry once, then manual intervention                      | Conservative approach for unexpected failures        |
-| Recovery actions       | Manual workflow_dispatch triggers                         | Flexible recovery without pipeline re-runs           |
+| Decision               | Choice                                          | Rationale                                            |
+| ---------------------- | ----------------------------------------------- | ---------------------------------------------------- |
+| Cron frequency         | Hourly (backup only)                            | Chain reaction via `workflow_run` handles most cases |
+| Max attempts           | 5 (default, configurable)                       | Increased from 3 for 230-spec reliability            |
+| Label names            | `tdd-automation`, `:manual-intervention`        | Simplified to 2 labels (2026-01-28)                  |
+| Branch naming          | `tdd/<spec-id>`                                 | Simple, serves as backup identifier                  |
+| @claude comment format | Agent-specific with file paths                  | Enables correct agent selection                      |
+| Credit limits          | $100/day, $500/week (+ $5/run)                  | Three-layer defense: per-run, daily, weekly          |
+| Per-run budget limit   | $5.00                                           | Prevents runaway costs from single spec              |
+| Cost tracking          | Actual costs from Claude Code result JSON       | Accurate tracking vs. $15 estimates                  |
+| Cost parsing           | JSON result + multi-pattern fallback            | Handles format changes gracefully                    |
+| Sync strategy          | Merge (not rebase)                              | Safer, no force-push, better for automation          |
+| Conflict counting      | Not counted as attempt                          | Infrastructure issue, not code failure               |
+| Error handling         | Pattern matching (conservative)                 | Distinguish transient vs. persistent errors          |
+| Retry strategy         | Transient errors retry, persistent errors close | Avoid infinite loops, clear failure path             |
+| Unknown errors         | Retry once, then manual intervention            | Conservative approach for unexpected failures        |
+| Recovery actions       | Manual workflow_dispatch triggers               | Flexible recovery without pipeline re-runs           |
 
 ---
 

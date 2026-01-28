@@ -222,7 +222,7 @@ jobs:
       - name: Setup Bun (for credit comment script)
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: package.json
 
       - uses: actions/checkout@v4
         with:
@@ -402,7 +402,7 @@ jobs:
         run: |
           gh pr edit "${{ needs.validate.outputs.pr-number }}" \
             --repo "${{ github.repository }}" \
-            --add-label "tdd-automation:had-conflict"
+            --add-label "tdd-automation:manual-intervention"
 
           # Disable auto-merge until human reviews conflict resolution
           gh pr merge "${{ needs.validate.outputs.pr-number }}" \
@@ -501,240 +501,120 @@ jobs:
             echo "❌ No execution file found"
           fi
 
-      - name: Categorize Error Type
-        id: categorize-error
-        if: steps.parse-result.outputs.result-subtype != 'success'
+      - name: Extract Execution Metrics
+        id: extract-metrics
+        if: always()
         env:
-          RESULT_SUBTYPE: ${{ steps.parse-result.outputs.result-subtype }}
-          ERROR_MESSAGE: ${{ steps.parse-result.outputs.error-message }}
+          EXECUTION_FILE: ${{ steps.claude-code.outputs.execution_file }}
         run: |
-          # Categorize error based on subtype and message patterns
-          # Categories: transient (retry), persistent (close PR), unknown (retry once)
+          # Extract execution metrics from Claude Code result JSON
+          # Metrics: duration_ms, num_turns, total_cost_usd
 
-          ERROR_CATEGORY="unknown"
-          SHOULD_RETRY="false"
+          if [ -f "$EXECUTION_FILE" ]; then
+            RESULT_JSON=$(jq -r '.[] | select(.type == "result")' "$EXECUTION_FILE" 2>/dev/null || echo "{}")
 
-          case "$RESULT_SUBTYPE" in
-            error_max_turns)
-              ERROR_CATEGORY="max_turns"
-              echo "❌ Max turns exceeded (50 turns) - spec too complex"
-              ;;
-            error_max_budget_usd)
-              ERROR_CATEGORY="max_budget"
-              echo "❌ Per-run budget exceeded ($5.00 limit)"
-              ;;
-            error_max_structured_output_retries)
-              ERROR_CATEGORY="structured_output_retries"
-              SHOULD_RETRY="true"
-              echo "⚠️ Structured output retries exceeded - will retry once"
-              ;;
-            error_during_execution)
-              # Pattern matching for transient vs persistent errors
-              if echo "$ERROR_MESSAGE" | grep -qE "timeout|ETIMEDOUT|ECONNREFUSED|network|429|502|503|504|out of memory|ENOMEM"; then
-                ERROR_CATEGORY="transient"
-                SHOULD_RETRY="true"
-                echo "⚠️ Transient error detected - will retry with backoff"
-              elif echo "$ERROR_MESSAGE" | grep -qE "SyntaxError|TypeError|ReferenceError|Cannot find module|ENOENT|parse error"; then
-                ERROR_CATEGORY="persistent"
-                echo "❌ Persistent error detected - requires manual intervention"
-              else
-                ERROR_CATEGORY="unknown_execution"
-                SHOULD_RETRY="true"
-                echo "⚠️ Unknown execution error - will retry once"
-              fi
-              ;;
-            unknown)
-              ERROR_CATEGORY="unknown"
-              echo "❌ Unknown error - no result message"
-              ;;
-            *)
-              ERROR_CATEGORY="unknown"
-              echo "❌ Unknown error subtype: $RESULT_SUBTYPE"
-              ;;
-          esac
+            # Extract metrics with fallbacks
+            DURATION_MS=$(echo "$RESULT_JSON" | jq -r '.duration_ms // 0')
+            NUM_TURNS=$(echo "$RESULT_JSON" | jq -r '.num_turns // 0')
+            TOTAL_COST=$(echo "$RESULT_JSON" | jq -r '.total_cost_usd // 0')
 
-          echo "error-category=$ERROR_CATEGORY" >> "$GITHUB_OUTPUT"
-          echo "should-retry=$SHOULD_RETRY" >> "$GITHUB_OUTPUT"
-          echo "📋 Error category: $ERROR_CATEGORY (retry: $SHOULD_RETRY)"
+            # Convert duration to human-readable format (e.g., "10m 26s")
+            DURATION_SECONDS=$((DURATION_MS / 1000))
+            DURATION_MINUTES=$((DURATION_SECONDS / 60))
+            DURATION_REMAINDER=$((DURATION_SECONDS % 60))
+            DURATION_FORMATTED="${DURATION_MINUTES}m ${DURATION_REMAINDER}s"
 
-      - name: Route by Error Type
+            # Format cost to 2 decimal places
+            COST_FORMATTED=$(printf "%.2f" "$TOTAL_COST")
+
+            echo "duration-ms=$DURATION_MS" >> "$GITHUB_OUTPUT"
+            echo "duration-formatted=$DURATION_FORMATTED" >> "$GITHUB_OUTPUT"
+            echo "num-turns=$NUM_TURNS" >> "$GITHUB_OUTPUT"
+            echo "total-cost=$COST_FORMATTED" >> "$GITHUB_OUTPUT"
+
+            echo "📊 Execution Metrics:"
+            echo "   Duration: $DURATION_FORMATTED ($DURATION_MS ms)"
+            echo "   Turns: $NUM_TURNS"
+            echo "   Total Cost: \$$COST_FORMATTED"
+          else
+            echo "duration-ms=0" >> "$GITHUB_OUTPUT"
+            echo "duration-formatted=N/A" >> "$GITHUB_OUTPUT"
+            echo "num-turns=0" >> "$GITHUB_OUTPUT"
+            echo "total-cost=0.00" >> "$GITHUB_OUTPUT"
+            echo "⚠️ No execution file found - metrics unavailable"
+          fi
+
+      - name: Post Success Comment with Metrics
+        if: steps.parse-result.outputs.result-subtype == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          PR_NUMBER: ${{ needs.validate.outputs.pr-number }}
+          DURATION: ${{ steps.extract-metrics.outputs.duration-formatted }}
+          TURNS: ${{ steps.extract-metrics.outputs.num-turns }}
+          COST: ${{ steps.extract-metrics.outputs.total-cost }}
+        run: |
+          # Post success comment with execution metrics
+          {
+            echo "✅ **Claude Code Execution Succeeded**"
+            echo ""
+            echo "**Execution Metrics**:"
+            echo "- **Duration**: $DURATION"
+            echo "- **Turns**: $TURNS"
+            echo "- **Total Cost**: \$$COST"
+            echo ""
+            echo "Changes pushed successfully. Tests will run next."
+          } > /tmp/success_comment.md
+
+          gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/success_comment.md
+          echo "✅ Success comment with metrics posted"
+
+      - name: Handle Claude Code Error
         if: steps.parse-result.outputs.result-subtype != 'success'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ needs.validate.outputs.pr-number }}
-          ERROR_CATEGORY: ${{ steps.categorize-error.outputs.error-category }}
-          SHOULD_RETRY: ${{ steps.categorize-error.outputs.should-retry }}
+          RESULT_SUBTYPE: ${{ steps.parse-result.outputs.result-subtype }}
           ERROR_MESSAGE: ${{ steps.parse-result.outputs.error-message }}
           SPEC_ID: ${{ needs.validate.outputs.spec-id }}
-          SPEC_FILE: ${{ needs.validate.outputs.spec-file }}
         run: |
-          # Route based on error category
+          # Simplified error handling: ALL errors → post comment → add label → close PR
+          # No automatic retries - manual intervention required for all failures
 
-          if [ "$SHOULD_RETRY" = "true" ]; then
-            echo "🔄 Retryable error - triggering automatic retry with exponential backoff..."
+          echo "❌ Claude Code execution failed: $RESULT_SUBTYPE"
 
-            # Fetch PR title to extract attempt number
-            PR_TITLE=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json title --jq '.title')
-            echo "PR Title: $PR_TITLE"
+          # Add manual-intervention label
+          gh pr edit "$PR_NUMBER" --repo "${{ github.repository }}" --add-label "tdd-automation:manual-intervention"
 
-            # Extract attempt number from PR title (format: "Implement SPEC-ID | Attempt X/Y")
-            CURRENT_ATTEMPT=$(echo "$PR_TITLE" | grep -oP 'Attempt\s+\K\d+' || echo "1")
-            MAX_ATTEMPTS=$(echo "$PR_TITLE" | grep -oP 'Attempt\s+\d+/\K\d+' || echo "5")
-
-            echo "📊 Current attempt: $CURRENT_ATTEMPT/$MAX_ATTEMPTS"
-
-            # Guard: Don't retry if already at max attempts
-            if [ "$CURRENT_ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
-              echo "⚠️ Already at max attempts ($MAX_ATTEMPTS) - skipping automatic retry"
-              echo "Manual intervention required (will be handled by non-retriable error flow)"
-              SHOULD_RETRY="false"  # Override to trigger manual intervention flow
-            else
-              # Calculate exponential backoff: delay = 60 * (2^(attempt-1) - 1)
-              # Attempt 1: 0s (immediate)
-              # Attempt 2: 60s (1 min)
-              # Attempt 3: 180s (3 min)
-              # Attempt 4: 420s (7 min)
-              # Attempt 5: 900s (15 min)
-              BACKOFF_SECONDS=$((60 * ((1 << (CURRENT_ATTEMPT - 1)) - 1)))
-
-              echo "📊 Automatic Retry Configuration:"
-              echo "   Error Category: $ERROR_CATEGORY"
-              echo "   Current Attempt: $CURRENT_ATTEMPT/$MAX_ATTEMPTS"
-              echo "   Backoff Delay: ${BACKOFF_SECONDS}s"
-
-              # Post status comment (non-blocking - informational)
-              {
-                echo "⚠️ **Claude Code Execution Failed (Retryable Error)**"
-                echo ""
-                echo "**Error Category**: \`$ERROR_CATEGORY\`"
-                echo "**Error Message**:"
-                echo "\`\`\`"
-                echo "$ERROR_MESSAGE"
-                echo "\`\`\`"
-                echo ""
-                echo "**Attempt**: $CURRENT_ATTEMPT/$MAX_ATTEMPTS"
-                echo "**Backoff Delay**: ${BACKOFF_SECONDS}s"
-                echo ""
-                echo "**Automatic Recovery**: Retrying after exponential backoff..."
-                echo ""
-                if [ "$BACKOFF_SECONDS" -gt 0 ]; then
-                  echo "⏳ Next retry in: ${BACKOFF_SECONDS}s"
-                else
-                  echo "⚡ Retrying immediately (first failure)"
-                fi
-                echo ""
-                echo "---"
-                echo "_Automated retry triggered by TDD pipeline error handling_"
-              } > /tmp/retry_status.md
-
-              gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/retry_status.md
-
-              # Sleep for exponential backoff (max 15 minutes for attempt 5)
-              if [ "$BACKOFF_SECONDS" -gt 0 ]; then
-                echo "⏳ Sleeping for ${BACKOFF_SECONDS}s..."
-                sleep "$BACKOFF_SECONDS"
-              else
-                echo "⚡ No backoff delay (immediate retry)"
-              fi
-
-              # Post @claude comment to trigger claude-code.yml via issue_comment event
-              NEXT_ATTEMPT=$((CURRENT_ATTEMPT + 1))
-              {
-                echo "@claude"
-                echo ""
-                echo "Spec: \`$SPEC_ID\`"
-                echo "File: \`$SPEC_FILE\`"
-                echo ""
-                echo "_Automatic retry after transient error (Attempt $NEXT_ATTEMPT/$MAX_ATTEMPTS)_"
-              } > /tmp/claude_retry.md
-
-              gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/claude_retry.md
-
-              echo "✅ Automatic retry triggered - claude-code.yml will execute via issue_comment event"
-              exit 0
-            fi
-          fi
-
-          # Non-retriable errors: close PR with appropriate label
-          case "$ERROR_CATEGORY" in
-            max_turns)
-              LABEL="tdd-automation:spec-review-needed"
-              REASON="Spec too complex (exceeded 50 conversation turns)"
-              MESSAGE="This spec requires too many steps to implement. Consider breaking it into smaller specs or simplifying the requirements."
-              ;;
-            max_budget)
-              LABEL="tdd-automation:budget-exceeded"
-              REASON="Per-run budget exceeded (\$5.00 limit)"
-              MESSAGE="This execution exceeded the \$5.00 per-run budget limit. The spec may be too complex or require optimization."
-              ;;
-            persistent)
-              LABEL="tdd-automation:manual-intervention"
-              REASON="Persistent execution error"
-              MESSAGE="Claude Code encountered a persistent error that cannot be resolved automatically: $ERROR_MESSAGE"
-              ;;
-            *)
-              LABEL="tdd-automation:manual-intervention"
-              REASON="Unknown error"
-              MESSAGE="Claude Code failed with an unknown error. Manual review required."
-              ;;
-          esac
-
-          echo "❌ Closing PR with label: $LABEL"
-
-          # Add label
-          gh pr edit "$PR_NUMBER" --repo "${{ github.repository }}" --add-label "$LABEL"
-
-          # Post closing comment
+          # Post error comment with execution metrics
           {
-            echo "❌ **TDD Automation Failed: $REASON**"
+            echo "❌ **Claude Code Execution Failed**"
             echo ""
-            echo "**Error Category**: \`$ERROR_CATEGORY\`"
+            echo "**Error Type**: \`$RESULT_SUBTYPE\`"
             echo "**Spec ID**: \`$SPEC_ID\`"
             echo ""
-            echo "**Reason**: $MESSAGE"
+            echo "**Error Details**:"
+            echo "\`\`\`"
+            echo "$ERROR_MESSAGE"
+            echo "\`\`\`"
             echo ""
-            echo "**What This Means**:"
-            echo "- This PR cannot be automatically implemented"
-            echo "- Manual intervention is required"
+            echo "**Execution Metrics**:"
+            echo "- **Duration**: ${{ steps.extract-metrics.outputs.duration-formatted }}"
+            echo "- **Turns**: ${{ steps.extract-metrics.outputs.num-turns }}"
+            echo "- **Total Cost**: \$${{ steps.extract-metrics.outputs.total-cost }}"
             echo ""
-            echo "**Recovery Options** (via workflow_dispatch in \`.github/workflows/recovery.yml\`):"
-            echo "- \`retry-claude-code\`: Post @claude comment to retry (if error might be transient)"
-            echo "- \`reset-attempt-counter\`: Reset attempt counter to 1/5 (if retrying after fixing issue)"
-            echo "- \`mark-for-spec-review\`: Close PR and add spec-review-needed label"
-            echo "- \`close-and-reset-spec\`: Close PR and create new PR to add .fixme() back to spec"
+            echo "**Recovery**:"
+            echo "1. Review the error above"
+            echo "2. Fix the spec or codebase issue"
+            echo "3. Remove \`tdd-automation:manual-intervention\` label"
+            echo "4. Post \`@claude\` comment to retry"
             echo ""
             echo "---"
-            echo "_Automated closure by TDD pipeline error handling_"
-          } > /tmp/close_comment.md
+            echo "_TDD Automation paused for this spec_"
+          } > /tmp/error_comment.md
 
-          gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/close_comment.md
+          gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/error_comment.md
 
           # Close PR
-          gh pr close "$PR_NUMBER" --repo "${{ github.repository }}" --comment "Closed due to: $REASON"
+          gh pr close "$PR_NUMBER" --repo "${{ github.repository }}" --comment "Closed: Claude Code execution failed - manual intervention required"
 
-          echo "✅ PR closed with label $LABEL"
-
-      - name: Handle conflict resolution notice
-        if: steps.sync.outputs.has-conflict == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
-        run: |
-          PR_NUMBER="${{ needs.validate.outputs.pr-number }}"
-
-          # Post conflict review notice
-          {
-            echo "⚠️ **Merge Conflict Resolution Notice**"
-            echo ""
-            echo "This PR had merge conflicts that were auto-resolved by Claude Code."
-            echo ""
-            echo "**Human review required before merge.**"
-            echo ""
-            echo "Please verify:"
-            echo "- [ ] Conflict resolution is correct"
-            echo "- [ ] Tests pass"
-            echo "- [ ] Code logic makes sense"
-            echo ""
-            echo "After review, re-enable auto-merge or merge manually."
-          } > /tmp/conflict_comment.txt
-
-          gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/conflict_comment.txt
+          echo "✅ Error handled - PR closed with manual-intervention label"

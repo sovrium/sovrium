@@ -77,9 +77,9 @@ const main = Effect.gen(function* () {
         commitsBehind: conflictResult.commitsBehind,
       })
 
-      // Add conflict label if not already present
-      if (!pr.hasConflictLabel) {
-        yield* github.addLabel(pr.number, TDD_LABELS.HAD_CONFLICT)
+      // Add manual intervention label if not already present
+      if (!pr.hasManualInterventionLabel) {
+        yield* github.addLabel(pr.number, TDD_LABELS.MANUAL_INTERVENTION)
       }
     } else if (conflictResult.isBehindMain && conflictResult.commitsBehind > 10) {
       // Flag PRs significantly behind main (>10 commits)

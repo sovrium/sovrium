@@ -164,8 +164,7 @@ This agent uses a two-phase strategy to prioritize recent changes over full code
 
 **Label State Management**:
 - **tdd-automation** - PR identification (all TDD PRs have this)
-- **tdd-automation:manual-intervention** - Needs human review (after max attempts failed)
-- **tdd-automation:had-conflict** - Had merge conflicts that were auto-resolved
+- **tdd-automation:manual-intervention** - Needs human review (on any error)
 
 ### Mode Detection Decision Tree
 

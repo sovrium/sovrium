@@ -186,8 +186,7 @@ See detailed workflow below for complete step-by-step instructions.
 
 **Label State Management**:
 - **tdd-automation** - PR identification (all TDD PRs have this)
-- **tdd-automation:manual-intervention** - Needs human review (after max attempts failed)
-- **tdd-automation:had-conflict** - Had merge conflicts that were auto-resolved
+- **tdd-automation:manual-intervention** - Needs human review (on any error)
 
 ### Mode Detection
 

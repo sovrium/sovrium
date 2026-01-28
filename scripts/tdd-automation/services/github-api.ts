@@ -138,7 +138,6 @@ export const GitHubApiLive = Layer.succeed(GitHubApi, {
             hasManualInterventionLabel: pr.labels.some(
               (l) => l.name === TDD_LABELS.MANUAL_INTERVENTION
             ),
-            hasConflictLabel: pr.labels.some((l) => l.name === TDD_LABELS.HAD_CONFLICT),
           } satisfies TDDPullRequest
         })
       },

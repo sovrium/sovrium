@@ -18,10 +18,8 @@
 export const TDD_LABELS = {
   /** Main TDD automation label - identifies TDD PRs */
   AUTOMATION: 'tdd-automation',
-  /** Manual intervention required (after MAX_ATTEMPTS failures) */
+  /** Manual intervention required (on any error) */
   MANUAL_INTERVENTION: 'tdd-automation:manual-intervention',
-  /** Had a merge conflict that was auto-resolved */
-  HAD_CONFLICT: 'tdd-automation:had-conflict',
 } as const
 
 /**

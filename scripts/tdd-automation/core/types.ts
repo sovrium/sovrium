@@ -36,7 +36,6 @@ export interface TDDPullRequest {
   readonly maxAttempts: number
   readonly labels: readonly string[]
   readonly hasManualInterventionLabel: boolean
-  readonly hasConflictLabel: boolean
 }
 
 /**
