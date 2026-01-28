@@ -1042,8 +1042,69 @@ jobs:
             echo "$RESULT"
           fi
 
-      - name: Trigger Claude Code on failure
+      - name: Check if this is the last test run
+        id: check-last-run
         if: steps.increment.outputs.exceeded == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          echo "🔍 Checking if there are other test.yml runs after this one..."
+
+          # Query test.yml runs for this PR's branch
+          # Get runs that are queued or in_progress (after this one started)
+          CURRENT_RUN_ID="${{ github.run_id }}"
+
+          PENDING_TEST_RUNS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?status=queued&branch=$BRANCH" \
+            --jq ".workflow_runs | map(select(.id != $CURRENT_RUN_ID)) | length")
+
+          IN_PROGRESS_TEST_RUNS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?status=in_progress&branch=$BRANCH" \
+            --jq ".workflow_runs | map(select(.id != $CURRENT_RUN_ID)) | length")
+
+          # Also check for pending Claude Code runs (if already triggered)
+          PENDING_CLAUDE_RUNS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=queued&branch=$BRANCH" \
+            --jq '.workflow_runs | length')
+
+          IN_PROGRESS_CLAUDE_RUNS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=in_progress&branch=$BRANCH" \
+            --jq '.workflow_runs | length')
+
+          TOTAL_PENDING_TESTS=$((PENDING_TEST_RUNS + IN_PROGRESS_TEST_RUNS))
+          TOTAL_PENDING_CLAUDE=$((PENDING_CLAUDE_RUNS + IN_PROGRESS_CLAUDE_RUNS))
+
+          echo "📊 Status:"
+          echo "   Other test.yml runs (queued/running): $TOTAL_PENDING_TESTS"
+          echo "   Claude Code runs (queued/running): $TOTAL_PENDING_CLAUDE"
+
+          # Only trigger Claude Code if:
+          # 1. No other test.yml runs are pending (we're the last one)
+          # 2. No Claude Code is already running (avoid duplicates)
+          if [ "$TOTAL_PENDING_TESTS" -gt 0 ]; then
+            echo "⏭️ Skipping @claude comment: $TOTAL_PENDING_TESTS test run(s) pending after this one"
+            echo "   The last test.yml run will trigger Claude Code with the most recent failure"
+            echo "should-trigger=false" >> "$GITHUB_OUTPUT"
+          elif [ "$TOTAL_PENDING_CLAUDE" -gt 0 ]; then
+            echo "⏭️ Skipping @claude comment: Claude Code already running or queued ($TOTAL_PENDING_CLAUDE workflow(s))"
+            echo "should-trigger=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "✅ This is the last test run and no Claude Code pending - will trigger execution"
+            echo "should-trigger=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger Claude Code on failure
+        if: steps.increment.outputs.exceeded == 'false' && steps.check-last-run.outputs.should-trigger == 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}

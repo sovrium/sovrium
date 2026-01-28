@@ -338,45 +338,6 @@ jobs:
           token: ${{ secrets.GH_PAT_WORKFLOW }}
           fetch-depth: 0
 
-      - name: Wait for test workflow completion
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
-          PR_NUMBER: ${{ needs.validate.outputs.pr-number }}
-          PR_BRANCH: ${{ needs.validate.outputs.pr-branch }}
-        run: |
-          echo "🔍 Checking for running test workflows on PR #$PR_NUMBER (branch: $PR_BRANCH)..."
-
-          # Maximum wait time: 15 minutes (test.yml should complete within this)
-          MAX_WAIT_SECONDS=900
-          CHECK_INTERVAL=30
-          ELAPSED=0
-
-          while [ $ELAPSED -lt $MAX_WAIT_SECONDS ]; do
-            # Query test.yml runs for this PR's branch
-            RUNNING_WORKFLOWS=$(gh api \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?status=in_progress&branch=$PR_BRANCH" \
-              --jq '.workflow_runs | length')
-
-            if [ "$RUNNING_WORKFLOWS" -eq 0 ]; then
-              echo "✅ No test workflows running - proceeding with Claude Code execution"
-              break
-            fi
-
-            echo "⏳ Found $RUNNING_WORKFLOWS test workflow(s) still running (waited ${ELAPSED}s/${MAX_WAIT_SECONDS}s)"
-            echo "   Waiting ${CHECK_INTERVAL}s before next check..."
-
-            sleep $CHECK_INTERVAL
-            ELAPSED=$((ELAPSED + CHECK_INTERVAL))
-          done
-
-          if [ $ELAPSED -ge $MAX_WAIT_SECONDS ]; then
-            echo "⚠️ Timeout: Test workflow still running after ${MAX_WAIT_SECONDS}s"
-            echo "   Proceeding anyway to avoid blocking Claude Code indefinitely"
-            echo "   Note: This may cause parallel execution, but test.yml will handle conflicts"
-          fi
-
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
