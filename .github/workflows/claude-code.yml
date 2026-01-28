@@ -532,12 +532,12 @@ jobs:
           if [ -n "$RETRY_OUTCOME" ]; then
             # Retry ran - use retry outputs
             EXECUTION_FILE="${{ steps.claude-code-retry.outputs.execution_file }}"
-            CONCLUSION="${{ steps.claude-code-retry.outputs.conclusion }}"
+            CONCLUSION="${{ steps.claude-code-retry.conclusion }}"
             echo "📊 Using retry attempt result (original attempt had SDK crash)"
           else
             # Retry didn't run - use original outputs
             EXECUTION_FILE="${{ steps.claude-code.outputs.execution_file }}"
-            CONCLUSION="${{ steps.claude-code.outputs.conclusion }}"
+            CONCLUSION="${{ steps.claude-code.conclusion }}"
             echo "📊 Using original attempt result"
           fi
 
