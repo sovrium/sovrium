@@ -42,7 +42,7 @@ const main = Effect.gen(function* () {
   Effect.catchAll((error) =>
     Effect.gen(function* () {
       yield* Console.error(`::error::Failed to generate failure comment: ${error}`)
-      return yield* Effect.fail(error)
+      return yield* error
     })
   )
 )
