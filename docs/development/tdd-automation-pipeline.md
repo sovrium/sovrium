@@ -1,12 +1,6 @@
 # TDD Automation Pipeline - Specification
 
 > **Document Purpose**: Workflow specification and source of truth for TDD automation business logic and architecture decisions.
->
-> **Status**: ✅ EFFECT IMPLEMENTATION COMPLETE
-> **Last Updated**: 2025-01-27
-> **Scope**: 230 pending specs over ~6-8 days
->
-> **Current State**: Effect-based services in `scripts/tdd-automation/` are implemented. See the "Effect-Based Implementation Architecture" section for file references. YAML workflows (`.github/workflows/`) are being migrated to call these TypeScript entry points.
 
 ---
 
@@ -1126,22 +1120,53 @@ Credit limits are checked at **two points** for defense-in-depth:
 
 ### Credit Tracking
 
-**Calculation:**
+**Architecture: Actual Cost Extraction from Claude Code Results**
+
+The pipeline extracts **actual costs** from Claude Code execution results instead of using estimates.
+
+**Data Source:**
+
+Claude Code action outputs a JSON result in workflow logs containing:
+
+```json
+{
+  "type": "result",
+  "subtype": "success|error|timeout",
+  "is_error": false,
+  "duration_ms": 626421,
+  "num_turns": 10,
+  "total_cost_usd": 0.7814745000000001,
+  "permission_denials": []
+}
+```
+
+**Extraction Flow:**
 
 1. Query `claude-code.yml` workflow runs from past 24h/7d
-2. Parse cost from logs using multiple patterns
-3. Sum all successful run costs
-4. Compare against thresholds
+2. For each successful run, fetch workflow logs
+3. Extract `total_cost_usd` from Claude Code action result JSON
+4. Store actual cost per run (keyed by run ID)
+5. Sum actual costs for daily/weekly totals
+6. Compare against thresholds
 
-**Cost Patterns (tried in order, first match wins):**
+**Cost Extraction Patterns (tried in order):**
 
-| Priority | Pattern                  | Example Match            | Notes                       |
-| -------- | ------------------------ | ------------------------ | --------------------------- |
-| 1        | `Total cost: $X.XX`      | `Total cost: $12.34`     | Claude Code action format   |
-| 2        | `Cost: $X.XX`            | `Cost: $5.67`            | Alternative short format    |
-| 3        | `Session cost: X.XX USD` | `Session cost: 8.90 USD` | Legacy format (no $ prefix) |
+| Priority | Pattern                            | Example Match                                 | Notes                              |
+| -------- | ---------------------------------- | --------------------------------------------- | ---------------------------------- |
+| 1        | `"total_cost_usd": <number>`       | `"total_cost_usd": 0.7814745000000001`        | Claude Code result JSON (primary)  |
+| 2        | `Total cost: $X.XX`                | `Total cost: $12.34`                          | Legacy log format (fallback)       |
+| 3        | `Cost: $X.XX`                      | `Cost: $5.67`                                 | Alternative short format           |
+| 4        | `Session cost: X.XX USD`           | `Session cost: 8.90 USD`                      | Legacy format (no $ prefix)        |
 
 **Fallback:** $15/run if all patterns fail to match (+ creates GitHub issue for investigation)
+
+**Error Tracking:**
+
+Track execution errors from result JSON:
+
+- `is_error` field: Indicates execution failure
+- `subtype` field: Distinguishes success/error/timeout
+- Used for metrics and debugging
 
 ### Thresholds
 
@@ -1149,6 +1174,31 @@ Credit limits are checked at **two points** for defense-in-depth:
 | ------ | ------- | ---------- | ------------------ |
 | Daily  | $80     | $100       | Log warning / Skip |
 | Weekly | $400    | $500       | Log warning / Skip |
+
+### Credit Limit Comment Format
+
+When credit limits are reached, a comment is posted on the PR showing:
+
+**Daily/Weekly Usage Table:**
+
+| Period     | Usage  | Limit | Remaining | % Used | Runs | Reset In |
+| ---------- | ------ | ----- | --------- | ------ | ---- | -------- |
+| **Daily**  | $42.15 | $100  | $57.85    | 42%    | 54   | 18h      |
+| **Weekly** | $123.67 | $500  | $376.33   | 25%    | 158  | 5d       |
+
+**Recent Runs Table (Last 10):**
+
+| Run    | Date            | Spec ID           | Cost  |
+| ------ | --------------- | ----------------- | ----- |
+| [#123] | 2026-01-28 10:30 | `API-USERS-001`   | $0.78 |
+| [#124] | 2026-01-28 11:15 | `API-POSTS-002`   | $1.23 |
+| [#125] | 2026-01-28 12:00 | `API-TABLES-003`  | $0.54 |
+
+**Notes:**
+
+- Actual costs extracted from Claude Code execution results
+- "(estimated)" suffix shown only when actual cost unavailable
+- Link to run details for verification
 
 ---
 
@@ -1188,7 +1238,8 @@ Credit limits are checked at **two points** for defense-in-depth:
 | Branch naming          | `tdd/<spec-id>`                                           | Simple, serves as backup identifier                  |
 | @claude comment format | Agent-specific with file paths                            | Enables correct agent selection                      |
 | Credit limits          | $100/day, $500/week                                       | Conservative limits with 80% warnings                |
-| Cost parsing           | Multi-pattern + fallback                                  | Handles format changes gracefully                    |
+| Cost tracking          | Actual costs from Claude Code result JSON                 | Accurate tracking vs. $15 estimates                  |
+| Cost parsing           | JSON result + multi-pattern fallback                      | Handles format changes gracefully                    |
 | Sync strategy          | Merge (not rebase)                                        | Safer, no force-push, better for automation          |
 | Conflict counting      | Not counted as attempt                                    | Infrastructure issue, not code failure               |
 

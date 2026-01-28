@@ -105,33 +105,101 @@ jobs:
           DAILY_RUNS=$(jq "[.[] | select(.createdAt > \"$DAILY_CUTOFF\")] | length" /tmp/successful_runs.json)
           WEEKLY_RUNS=$(jq 'length' /tmp/successful_runs.json)
 
-          # Estimate cost ($15 per run - conservative)
-          ESTIMATED_DAILY=$((DAILY_RUNS * 15))
-          ESTIMATED_WEEKLY=$((WEEKLY_RUNS * 15))
+          # Extract actual costs from Claude Code execution results
+          # Create arrays to store costs and run details
+          declare -A run_costs
+          DAILY_TOTAL=0
+          WEEKLY_TOTAL=0
+          DAILY_RUNS_COUNT=0
+          WEEKLY_RUNS_COUNT=0
 
-          # Calculate limits
+          echo "📊 Extracting actual costs from workflow logs..."
+
+          # Process each successful run
+          while IFS='|' read -r run_id created_at; do
+            echo "  Fetching logs for run $run_id..."
+
+            # Fetch workflow logs and extract cost
+            LOGS=$(gh run view "$run_id" --repo "${{ github.repository }}" --log 2>/dev/null || echo "")
+
+            # Try pattern 1: "total_cost_usd": <number> (Claude Code result JSON)
+            COST=$(echo "$LOGS" | grep -oP '"total_cost_usd":\s*\K[0-9]+(\.[0-9]+)?' | head -1 || echo "")
+
+            # Try pattern 2: Total cost: $X.XX (legacy log format)
+            if [ -z "$COST" ]; then
+              COST=$(echo "$LOGS" | grep -oP 'Total cost: \$\K[0-9]+(\.[0-9]+)?' | head -1 || echo "")
+            fi
+
+            # Try pattern 3: Cost: $X.XX (alternative short format)
+            if [ -z "$COST" ]; then
+              COST=$(echo "$LOGS" | grep -oP 'Cost: \$\K[0-9]+(\.[0-9]+)?' | head -1 || echo "")
+            fi
+
+            # Try pattern 4: Session cost: X.XX USD (legacy format)
+            if [ -z "$COST" ]; then
+              COST=$(echo "$LOGS" | grep -oP 'Session cost: \K[0-9]+(\.[0-9]+)? USD' | sed 's/ USD//' | head -1 || echo "")
+            fi
+
+            # Fallback: $15 estimate if no pattern matched
+            if [ -z "$COST" ]; then
+              COST="15.00"
+              echo "    ⚠️ No cost found in logs, using fallback estimate: \$15.00"
+            else
+              echo "    ✅ Actual cost extracted: \$$COST"
+            fi
+
+            # Store cost for this run
+            run_costs[$run_id]=$COST
+
+            # Add to weekly total
+            WEEKLY_TOTAL=$(echo "$WEEKLY_TOTAL + $COST" | bc)
+            WEEKLY_RUNS_COUNT=$((WEEKLY_RUNS_COUNT + 1))
+
+            # Add to daily total if within 24h
+            if [[ "$created_at" > "$DAILY_CUTOFF" ]]; then
+              DAILY_TOTAL=$(echo "$DAILY_TOTAL + $COST" | bc)
+              DAILY_RUNS_COUNT=$((DAILY_RUNS_COUNT + 1))
+            fi
+          done < <(jq -r '.[] | "\(.databaseId)|\(.createdAt)"' /tmp/successful_runs.json)
+
+          # Round totals to 2 decimal places
+          ACTUAL_DAILY=$(printf "%.2f" "$DAILY_TOTAL")
+          ACTUAL_WEEKLY=$(printf "%.2f" "$WEEKLY_TOTAL")
+
+          # Convert to integers for comparison (multiply by 100 to avoid float issues)
+          ACTUAL_DAILY_CENTS=$(printf "%.0f" "$(echo "$ACTUAL_DAILY * 100" | bc)")
+          ACTUAL_WEEKLY_CENTS=$(printf "%.0f" "$(echo "$ACTUAL_WEEKLY * 100" | bc)")
+
+          # Calculate limits (in cents for comparison)
           DAILY_LIMIT=100
           WEEKLY_LIMIT=500
           DAILY_WARNING=80
           WEEKLY_WARNING=400
+          DAILY_LIMIT_CENTS=$((DAILY_LIMIT * 100))
+          WEEKLY_LIMIT_CENTS=$((WEEKLY_LIMIT * 100))
 
           # Calculate remaining budget
-          DAILY_REMAINING=$((DAILY_LIMIT - ESTIMATED_DAILY))
-          WEEKLY_REMAINING=$((WEEKLY_LIMIT - ESTIMATED_WEEKLY))
+          DAILY_REMAINING=$(echo "$DAILY_LIMIT - $ACTUAL_DAILY" | bc)
+          WEEKLY_REMAINING=$(echo "$WEEKLY_LIMIT - $ACTUAL_WEEKLY" | bc)
 
           # Calculate usage percentages
-          DAILY_PERCENT=$((ESTIMATED_DAILY * 100 / DAILY_LIMIT))
-          WEEKLY_PERCENT=$((ESTIMATED_WEEKLY * 100 / WEEKLY_LIMIT))
+          DAILY_PERCENT=$(printf "%.0f" "$(echo "$ACTUAL_DAILY * 100 / $DAILY_LIMIT" | bc -l)")
+          WEEKLY_PERCENT=$(printf "%.0f" "$(echo "$ACTUAL_WEEKLY * 100 / $WEEKLY_LIMIT" | bc -l)")
 
           # Time until reset
           HOURS_UNTIL_DAILY_RESET=$(( 24 - $(date -u +%H) ))
           DAYS_UNTIL_WEEKLY_RESET=$(( 7 - $(date -u +%u) ))
 
+          # Save run costs for comment generation
+          for run_id in "${!run_costs[@]}"; do
+            echo "${run_id}=${run_costs[$run_id]}" >> /tmp/run_costs.txt
+          done
+
           # Store all metrics for comment
-          echo "daily-runs=$DAILY_RUNS" >> "$GITHUB_OUTPUT"
-          echo "weekly-runs=$WEEKLY_RUNS" >> "$GITHUB_OUTPUT"
-          echo "estimated-daily=$ESTIMATED_DAILY" >> "$GITHUB_OUTPUT"
-          echo "estimated-weekly=$ESTIMATED_WEEKLY" >> "$GITHUB_OUTPUT"
+          echo "daily-runs=$DAILY_RUNS_COUNT" >> "$GITHUB_OUTPUT"
+          echo "weekly-runs=$WEEKLY_RUNS_COUNT" >> "$GITHUB_OUTPUT"
+          echo "actual-daily=$ACTUAL_DAILY" >> "$GITHUB_OUTPUT"
+          echo "actual-weekly=$ACTUAL_WEEKLY" >> "$GITHUB_OUTPUT"
           echo "daily-limit=$DAILY_LIMIT" >> "$GITHUB_OUTPUT"
           echo "weekly-limit=$WEEKLY_LIMIT" >> "$GITHUB_OUTPUT"
           echo "daily-remaining=$DAILY_REMAINING" >> "$GITHUB_OUTPUT"
@@ -141,14 +209,14 @@ jobs:
           echo "hours-until-daily-reset=$HOURS_UNTIL_DAILY_RESET" >> "$GITHUB_OUTPUT"
           echo "days-until-weekly-reset=$DAYS_UNTIL_WEEKLY_RESET" >> "$GITHUB_OUTPUT"
 
-          echo "📊 Credit Usage Metrics:"
-          echo "  Daily:  $ESTIMATED_DAILY/$DAILY_LIMIT USD ($DAILY_PERCENT%) - $DAILY_RUNS runs - Reset in ${HOURS_UNTIL_DAILY_RESET}h"
-          echo "  Weekly: $ESTIMATED_WEEKLY/$WEEKLY_LIMIT USD ($WEEKLY_PERCENT%) - $WEEKLY_RUNS runs - Reset in ${DAYS_UNTIL_WEEKLY_RESET}d"
+          echo "📊 Credit Usage Metrics (Actual Costs):"
+          echo "  Daily:  \$${ACTUAL_DAILY}/\$${DAILY_LIMIT} USD ($DAILY_PERCENT%) - $DAILY_RUNS_COUNT runs - Reset in ${HOURS_UNTIL_DAILY_RESET}h"
+          echo "  Weekly: \$${ACTUAL_WEEKLY}/\$${WEEKLY_LIMIT} USD ($WEEKLY_PERCENT%) - $WEEKLY_RUNS_COUNT runs - Reset in ${DAYS_UNTIL_WEEKLY_RESET}d"
 
-          # Check if limits exceeded
-          if [ "$ESTIMATED_DAILY" -ge "$DAILY_LIMIT" ] || [ "$ESTIMATED_WEEKLY" -ge "$WEEKLY_LIMIT" ]; then
+          # Check if limits exceeded (use cent comparison to avoid float issues)
+          if [ "$ACTUAL_DAILY_CENTS" -ge "$DAILY_LIMIT_CENTS" ] || [ "$ACTUAL_WEEKLY_CENTS" -ge "$WEEKLY_LIMIT_CENTS" ]; then
             echo "credits-ok=false" >> "$GITHUB_OUTPUT"
-            if [ "$ESTIMATED_DAILY" -ge "$DAILY_LIMIT" ]; then
+            if [ "$ACTUAL_DAILY_CENTS" -ge "$DAILY_LIMIT_CENTS" ]; then
               echo "limit-type=daily" >> "$GITHUB_OUTPUT"
               echo "⛔ Daily credit limit (\$$DAILY_LIMIT) reached"
             else
@@ -178,12 +246,12 @@ jobs:
           if [ "$CREDITS_OK" != "true" ]; then
             echo "is-valid=false" >> "$GITHUB_OUTPUT"
 
-            # Build simplified credit limit comment with run details
+            # Build simplified credit limit comment with actual costs
             LIMIT_TYPE="${{ steps.credits.outputs.limit-type }}"
             DAILY_RUNS="${{ steps.credits.outputs.daily-runs }}"
             WEEKLY_RUNS="${{ steps.credits.outputs.weekly-runs }}"
-            EST_DAILY="${{ steps.credits.outputs.estimated-daily }}"
-            EST_WEEKLY="${{ steps.credits.outputs.estimated-weekly }}"
+            ACTUAL_DAILY="${{ steps.credits.outputs.actual-daily }}"
+            ACTUAL_WEEKLY="${{ steps.credits.outputs.actual-weekly }}"
             DAILY_LIMIT="${{ steps.credits.outputs.daily-limit }}"
             WEEKLY_LIMIT="${{ steps.credits.outputs.weekly-limit }}"
             DAILY_REMAINING="${{ steps.credits.outputs.daily-remaining }}"
@@ -192,6 +260,14 @@ jobs:
             WEEKLY_PERCENT="${{ steps.credits.outputs.weekly-percent }}"
             HOURS_RESET="${{ steps.credits.outputs.hours-until-daily-reset }}"
             DAYS_RESET="${{ steps.credits.outputs.days-until-weekly-reset }}"
+
+            # Load run costs from temp file
+            declare -A run_costs_map
+            if [ -f /tmp/run_costs.txt ]; then
+              while IFS='=' read -r run_id cost; do
+                run_costs_map[$run_id]=$cost
+              done < /tmp/run_costs.txt
+            fi
 
             {
               if [ "$LIMIT_TYPE" = "daily" ]; then
@@ -204,35 +280,39 @@ jobs:
                 echo "TDD automation paused until weekly limit resets in **${DAYS_RESET} days**."
               fi
               echo ""
-              echo "### 📊 Current Usage"
+              echo "### 📊 Current Usage (Actual Costs)"
               echo ""
               echo "| Period | Usage | Limit | Remaining | % Used | Runs | Reset In |"
               echo "|--------|-------|-------|-----------|--------|------|----------|"
-              echo "| **Daily** | \$$EST_DAILY | \$$DAILY_LIMIT | \$$DAILY_REMAINING | $DAILY_PERCENT% | $DAILY_RUNS | ${HOURS_RESET}h |"
-              echo "| **Weekly** | \$$EST_WEEKLY | \$$WEEKLY_LIMIT | \$$WEEKLY_REMAINING | $WEEKLY_PERCENT% | $WEEKLY_RUNS | ${DAYS_RESET}d |"
+              echo "| **Daily** | \$$ACTUAL_DAILY | \$$DAILY_LIMIT | \$$DAILY_REMAINING | $DAILY_PERCENT% | $DAILY_RUNS | ${HOURS_RESET}h |"
+              echo "| **Weekly** | \$$ACTUAL_WEEKLY | \$$WEEKLY_LIMIT | \$$WEEKLY_REMAINING | $WEEKLY_PERCENT% | $WEEKLY_RUNS | ${DAYS_RESET}d |"
               echo ""
               echo "### 📋 Recent Runs (Last 10)"
               echo ""
               echo "| Run | Date | Spec ID | Cost |"
               echo "|-----|------|---------|------|"
 
-              # Generate run details table from successful runs
+              # Generate run details table with actual costs
               jq -r '.[] | "\(.databaseId)|\(.createdAt)|\(.displayTitle)"' /tmp/successful_runs.json | head -10 | while IFS='|' read -r run_id created_at title; do
                 # Format date
                 run_date=$(date -u -d "$created_at" '+%Y-%m-%d %H:%M' 2>/dev/null || echo "$created_at")
 
                 # Extract spec ID from title (format: "Implement SPEC-ID")
-                spec_id=$(echo "$title" | grep -oP 'Implement \K[A-Z]+-[A-Z]+-[A-Z]+-[0-9]+' || echo "N/A")
+                spec_id=$(echo "$title" | grep -oP 'Implement \K[A-Z]+-[A-Z]+-[A-Z]+-[A-Z0-9-]+' || echo "N/A")
 
-                # Cost per run
-                cost="\$15"
+                # Get actual cost for this run
+                if [ -n "${run_costs_map[$run_id]}" ]; then
+                  cost="\$${run_costs_map[$run_id]}"
+                else
+                  cost="\$15.00 (estimated)"
+                fi
 
                 echo "| [#$run_id](https://github.com/${{ github.repository }}/actions/runs/$run_id) | $run_date | \`$spec_id\` | $cost |"
               done
 
               echo ""
               echo "---"
-              echo "*💰 Cost estimate: ~\$15 per successful run (conservative)*"
+              echo "*💰 Costs extracted from Claude Code execution results*"
               echo ""
               echo "*📅 Last updated: $(date -u '+%Y-%m-%d %H:%M UTC')*"
             } > /tmp/credit_limit.md
