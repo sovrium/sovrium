@@ -501,92 +501,70 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                   │ └─────┬──────┘       └─────┬──────┘                                               ║
 ║                   │       │                    │                                                      ║
 ║                   │       ▼                    ▼                                                      ║
-║                   │ ┌────────────┐  ┌─────────────────────────┐                                       ║
-║                   │ │ Run tests  │  │ STEP 2: Check sync      │                                       ║
-║                   │ │ normally   │  │ Is branch behind main?  │                                       ║
-║                   │ │ (no TDD    │  │ git rev-list HEAD..     │                                       ║
-║                   │ │ handling)  │  │   origin/main --count   │                                       ║
-║                   │ └────────────┘  └───────────┬─────────────┘                                       ║
-║                   │                             │                                                     ║
-║                   │                 ┌───────────┴───────────┐                                         ║
-║                   │                 │                       │                                         ║
-║                   │                 ▼                       ▼                                         ║
-║                   │          ┌────────────┐          ┌────────────┐                                   ║
-║                   │          │ Behind main│          │ Up to date │                                   ║
-║                   │          │ (count > 0)│          │ (count = 0)│                                   ║
-║                   │          └─────┬──────┘          └─────┬──────┘                                   ║
-║                   │                │                       │                                          ║
-║                   │                ▼                       │                                          ║
-║                   │          ┌────────────────────┐        │                                          ║
-║                   │          │ Post sync request  │        │                                          ║
-║                   │          │ @claude Sync       │        │                                          ║
-║                   │          │ required...        │        │                                          ║
-║                   │          │ (NOT counted as    │        │                                          ║
-║                   │          │ attempt)           │        │                                          ║
-║                   │          └─────┬──────────────┘        │                                          ║
-║                   │                │                       │                                          ║
-║                   │                │ ──────────────────────┤                                          ║
-║                   │                │                       │                                          ║
-║                   │                ▼                       ▼                                          ║
-║                   │  ┌─────────────────────────────────────────────┐                                  ║
-║                   │  │ STEP 3: Run quality + tests                 │                                  ║
-║                   │  │                                             │                                  ║
-║                   │  │ 1. bun run lint                            │                                  ║
-║                   │  │ 2. bun run typecheck                       │                                  ║
-║                   │  │ 3. bun test:unit                           │                                  ║
-║                   │  │ 4. bun test:e2e -- <spec-file>             │                                  ║
-║                   │  │                                             │                                  ║
-║                   │  └─────────────┬───────────────────────────────┘                                  ║
-║                   │                │                                                                  ║
-║                   │    ┌───────────┴───────────────────────┐                                          ║
-║                   │    │                   │               │                                          ║
-║                   │    ▼                   ▼               ▼                                          ║
-║                   │ ┌────────┐       ┌──────────┐    ┌───────────┐                                    ║
-║                   │ │ ALL    │       │ TESTS    │    │ QUALITY   │                                    ║
-║                   │ │ PASS   │       │ FAIL     │    │ ONLY FAIL │                                    ║
-║                   │ └────┬───┘       └────┬─────┘    │ (lint/    │                                    ║
-║                   │      │                │          │ typecheck)│                                    ║
-║                   │      │                │          └─────┬─────┘                                    ║
-║                   │      │                │                │                                          ║
-║                   │      ▼                │                │                                          ║
-║                   │ ┌────────────┐        │                │                                          ║
-║                   │ │ AUTO-MERGE │        │                │                                          ║
-║                   │ │ (squash)   │        │                │                                          ║
-║                   │ │            │        │                │                                          ║
-║                   │ │ PR closes  │        │                │                                          ║
-║                   │ │ Label      │        │                │                                          ║
-║                   │ │ removed    │        │                │                                          ║
-║                   │ │            │        │                │                                          ║
-║                   │ │ ► Triggers │        │                │                                          ║
-║                   │ │   PR       │        │                │                                          ║
-║                   │ │   Creator  │        │                │                                          ║
-║                   │ │   (next    │        │                │                                          ║
-║                   │ │   spec)    │        │                │                                          ║
-║                   │ └────────────┘        │                │                                          ║
-║                   │                       │                │                                          ║
-║                   │      ┌────────────────┘                │                                          ║
-║                   │      │                                 │                                          ║
-║                   │      ▼                                 │                                          ║
-║                   │ ┌─────────────────────────────┐        │                                          ║
-║                   │ │ STEP 4: Parse attempt count │        │                                          ║
-║                   │ │                             │        │                                          ║
-║                   │ │ Extract from PR title:      │        │                                          ║
-║                   │ │ "Attempt X/Y"               │        │                                          ║
-║                   │ │                             │        │                                          ║
-║                   │ │ Read @tdd-max-attempts from │        │                                          ║
-║                   │ │ spec file (default: 5)      │        │                                          ║
-║                   │ └─────────────┬───────────────┘        │                                          ║
-║                   │               │                        │                                          ║
-║                   │   ┌───────────┴───────────┐            │                                          ║
-║                   │   │                       │            │                                          ║
-║                   │   ▼                       ▼            │                                          ║
-║                   │ ┌────────────────┐  ┌────────────────┐ │                                          ║
-║                   │ │ attempt < max  │  │ attempt >= max │ │                                          ║
-║                   │ │ (e.g., 3 < 5)  │  │ (e.g., 5 >= 5) │ │                                          ║
-║                   │ └───────┬────────┘  └───────┬────────┘ │                                          ║
-║                   │         │                   │          │                                          ║
-║                   │         │                   ▼          │                                          ║
-║                   │         │          ┌────────────────────────┐                                     ║
+║                   │ ┌────────────┐  ┌─────────────────────────────────┐                              ║
+║                   │ │ Run tests  │  │ STEP 2: Run quality + tests     │                              ║
+║                   │ │ normally   │  │                                 │                              ║
+║                   │ │ (no TDD    │  │ 1. bun run lint                 │                              ║
+║                   │ │ handling)  │  │ 2. bun run typecheck            │                              ║
+║                   │ └────────────┘  │ 3. bun test:unit                │                              ║
+║                   │                 │ 4. bun test:e2e -- <spec-file>  │                              ║
+║                   │                 │                                 │                              ║
+║                   │                 │ NOTE: Branch syncing handled    │                              ║
+║                   │                 │ automatically by claude-code.yml│                              ║
+║                   │                 │ via merge strategy. No sync     │                              ║
+║                   │                 │ check needed here.              │                              ║
+║                   │                 └───────────────┬─────────────────┘                              ║
+║                   │                                 │                                                ║
+║                   │                 ┌───────────────┴───────────────────────┐                        ║
+║                   │                 │                   │                   │                        ║
+║                   │                 ▼                   ▼                   ▼                        ║
+║                   │          ┌────────────┐       ┌──────────┐       ┌───────────┐                   ║
+║                   │          │ ALL PASS   │       │ TESTS    │       │ QUALITY   │                   ║
+║                   │          │            │       │ FAIL     │       │ ONLY FAIL │                   ║
+║                   │          │            │       │          │       │ (lint/    │                   ║
+║                   │          │            │       │          │       │ typecheck)│                   ║
+║                   │          └─────┬──────┘       └────┬─────┘       └─────┬─────┘                   ║
+║                   │                │                   │                   │                        ║
+║                   │                ▼                   │                   │                        ║
+║                   │          ┌──────────┐            │                   │                        ║
+║                   │          │ AUTO-    │            │                   │                        ║
+║                   │          │ MERGE    │            │                   │                        ║
+║                   │          │ (squash) │            │                   │                        ║
+║                   │          │          │            │                   │                        ║
+║                   │          │ PR closes│            │                   │                        ║
+║                   │          │ Label    │            │                   │                        ║
+║                   │          │ removed  │            │                   │                        ║
+║                   │          │          │            │                   │                        ║
+║                   │          │ ► Triggers            │                   │                        ║
+║                   │          │   PR                  │                   │                        ║
+║                   │          │   Creator             │                   │                        ║
+║                   │          │   (next               │                   │                        ║
+║                   │          │   spec)               │                   │                        ║
+║                   │          └──────────┘            │                   │                        ║
+║                   │                                  │                   │                        ║
+║                   │             ┌────────────────────┴───────────────────┘                        ║
+║                   │             │                                                                 ║
+║                   │             ▼                                                                 ║
+║                   │  ┌─────────────────────────────┐                                              ║
+║                   │  │ STEP 3: Parse attempt count │                                              ║
+║                   │  │                             │                                              ║
+║                   │  │ Extract from PR title:      │                                              ║
+║                   │  │ "Attempt X/Y"               │                                              ║
+║                   │  │                             │                                              ║
+║                   │  │ Read @tdd-max-attempts from │                                              ║
+║                   │  │ spec file (default: 5)      │                                              ║
+║                   │  └─────────────┬───────────────┘                                              ║
+║                   │                │                                                              ║
+║                   │    ┌───────────┴───────────┐                                                  ║
+║                   │    │                       │                                                  ║
+║                   │    ▼                       ▼                                                  ║
+║                   │ ┌────────────────┐  ┌────────────────┐                                        ║
+║                   │ │ attempt < max  │  │ attempt >= max │                                        ║
+║                   │ │ (e.g., 3 < 5)  │  │ (e.g., 5 >= 5) │                                        ║
+║                   │ └───────┬────────┘  └───────┬────────┘                                        ║
+║                   │         │                   │                                                 ║
+║                   │         │                   ▼                                                 ║
+║                   │         │          ┌────────────────────────┐                                 ║
 ║                   │         │          │ ADD LABEL:             │                                     ║
 ║                   │         │          │ tdd-automation:        │                                     ║
 ║                   │         │          │ manual-intervention    │                                     ║
@@ -599,23 +577,23 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                   │         │          │ next steps)            │                                     ║
 ║                   │         │          └────────────────────────┘                                     ║
 ║                   │         │                                                                         ║
-║                   │         ▼                                  │                                      ║
-║                   │ ┌───────────────────────────────────────┐  │                                      ║
-║                   │ │ STEP 5: Update PR title               │  │                                      ║
-║                   │ │                                       │  │                                      ║
-║                   │ │ gh pr edit <pr-number>               │  │                                      ║
-║                   │ │ --title "[TDD] Implement <spec-id>   │  │                                      ║
-║                   │ │   | Attempt (X+1)/Y"                 │  │                                      ║
-║                   │ └───────────────┬───────────────────────┘  │                                      ║
-║                   │                 │                          │                                      ║
-║                   │                 ▼                          │                                      ║
-║                   │ ┌───────────────────────────────────────┐  │                                      ║
-║                   │ │ STEP 6: Post @claude comment          │  │                                      ║
-║                   │ │                                       │  │                                      ║
-║                   │ │ For TEST FAILURE:                     │◀─┘                                      ║
-║                   │ │ ─────────────────                     │ (quality failures also                  ║
-║                   │ │ @claude Tests are failing...          │  post @claude but with                  ║
-║                   │ │ **Spec:** <spec-id>                   │  different template)                    ║
+║                   │         ▼                                                                         ║
+║                   │ ┌───────────────────────────────────────┐                                         ║
+║                   │ │ STEP 4: Update PR title               │                                         ║
+║                   │ │                                       │                                         ║
+║                   │ │ gh pr edit <pr-number>                │                                         ║
+║                   │ │ --title "[TDD] Implement <spec-id>    │                                         ║
+║                   │ │   | Attempt (X+1)/Y"                  │                                         ║
+║                   │ └───────────────┬───────────────────────┘                                         ║
+║                   │                 │                                                                 ║
+║                   │                 ▼                                                                 ║
+║                   │ ┌───────────────────────────────────────┐                                         ║
+║                   │ │ STEP 5: Post @claude comment          │                                         ║
+║                   │ │                                       │                                         ║
+║                   │ │ For TEST FAILURE:                     │                                         ║
+║                   │ │ ─────────────────                     │                                         ║
+║                   │ │ @claude Tests are failing...          │                                         ║
+║                   │ │ **Spec:** <spec-id>                   │                                         ║
 ║                   │ │ **File:** <spec-file-path>            │                                         ║
 ║                   │ │ **Attempt:** X/Y                      │                                         ║
 ║                   │ │ **Failure Details:**                  │                                         ║
@@ -985,13 +963,12 @@ TERMINAL STATES:
 
 **TDD-Specific Behavior:**
 
-| Condition                    | Action                                             |
-| ---------------------------- | -------------------------------------------------- |
-| TDD PR detected              | Identify via label OR branch name `tdd/*`          |
-| PR is behind main            | Post sync request comment (not counted as attempt) |
-| Tests fail (attempts < max)  | Post `@claude` comment with failure details        |
-| Tests fail (attempts >= max) | Add `tdd-automation:manual-intervention` label     |
-| Tests pass                   | Auto-merge proceeds                                |
+| Condition                    | Action                                         |
+| ---------------------------- | ---------------------------------------------- |
+| TDD PR detected              | Identify via label OR branch name `tdd/*`      |
+| Tests fail (attempts < max)  | Post `@claude` comment with failure details    |
+| Tests fail (attempts >= max) | Add `tdd-automation:manual-intervention` label |
+| Tests pass                   | Auto-merge proceeds                            |
 
 **CI Optimization for .fixme() Removal:**
 
@@ -1044,6 +1021,8 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 | 3. Detect conflict | If conflict → add label, post comment, **exit**    |
 | 4. Execute action  | Run `anthropics/claude-code-action@v1`             |
 | 5. Handle result   | Push changes if any, update PR title attempt count |
+
+**Note**: Branch syncing (Step 2) is handled automatically by this workflow via merge strategy. The test workflow (`.github/workflows/test.yml`) does NOT check if the branch is behind main - syncing happens when Claude Code is triggered via `@claude` comment.
 
 **Agent Selection (via prompt):**
 
@@ -1840,15 +1819,20 @@ Specs can include inline configuration via comments in the format:
 Automated comments are posted by workflows for different scenarios:
 
 - **Test Workflow**: `.github/workflows/test.yml`
-  - Sync requests when branch behind main
   - Test failure notifications with spec context
-  - Quality failure notifications
+  - Quality failure notifications (lint/typecheck)
+  - Manual intervention notifications (max attempts exceeded)
 
 - **Claude Code Workflow**: `.github/workflows/claude-code.yml`
+  - Branch sync (merge) operation status
   - Merge conflict manual resolution instructions (informational, not triggering @claude)
   - Agent-specific prompt construction (for successful sync)
 
-**Note**: Merge conflict comments do NOT include `@claude` - they provide manual resolution instructions only. After manual resolution, human removes `manual-intervention` label and posts `@claude` to resume automation.
+**Note**:
+
+- Branch syncing is handled automatically by `claude-code.yml` via merge strategy (not test.yml)
+- Merge conflict comments do NOT include `@claude` - they provide manual resolution instructions only
+- After manual conflict resolution, human removes `manual-intervention` label and posts `@claude` to resume automation
 
 See workflow files for exact comment formats and variable substitution patterns.
 
