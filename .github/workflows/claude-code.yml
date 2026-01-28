@@ -228,6 +228,7 @@ jobs:
         with:
           sparse-checkout: |
             scripts/tdd-automation/workflows/claude-code/
+            scripts/tdd-automation/services/
             package.json
 
       - name: Post credit usage comment (always)
