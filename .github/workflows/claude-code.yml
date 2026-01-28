@@ -665,3 +665,75 @@ jobs:
           gh workflow run pr-creator.yml --repo "${{ github.repository }}"
 
           echo "✅ Error handled - PR kept open with manual-intervention label, PR Creator triggered for next spec"
+
+      - name: Final sync with main branch
+        id: final-sync
+        if: always() # Run even if Claude Code failed
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          PR_NUMBER: ${{ needs.validate.outputs.pr-number }}
+        run: |
+          echo "🔄 Performing final sync with main branch..."
+          git fetch origin main
+
+          BEHIND=$(git rev-list --count HEAD..origin/main)
+
+          if [ "$BEHIND" -gt 0 ]; then
+            echo "📥 Main branch has $BEHIND new commits since execution started, merging..."
+
+            if ! git merge origin/main --no-edit 2>&1 | tee /tmp/final_merge_output.txt; then
+              echo "⚠️ Post-execution merge conflict detected"
+
+              # Check for actual merge conflicts
+              if git status --porcelain | grep -q '^UU\|^AA\|^DD\|^AU\|^UA\|^DU\|^UD'; then
+                # Get conflicted files
+                git diff --name-only --diff-filter=U > /tmp/final_conflicted_files.txt
+                CONFLICT_FILES=$(cat /tmp/final_conflicted_files.txt | tr '\n' ', ' | sed 's/,$//')
+
+                # Add manual-intervention label
+                gh pr edit "$PR_NUMBER" \
+                  --repo "${{ github.repository }}" \
+                  --add-label "tdd-automation:manual-intervention"
+
+                # Post comment about post-execution conflict
+                {
+                  echo "## ⚠️ Post-Execution Merge Conflict"
+                  echo ""
+                  echo "Main branch was updated during Claude Code execution."
+                  echo ""
+                  echo "**Affected Files:**"
+                  echo "\`\`\`"
+                  echo "$CONFLICT_FILES"
+                  echo "\`\`\`"
+                  echo ""
+                  echo "**Resolution Required:**"
+                  echo "1. Resolve conflicts manually in the files above"
+                  echo "2. Push changes to update the PR"
+                  echo "3. Tests will run automatically after push"
+                  echo ""
+                  echo "**Note**: Claude Code execution completed successfully, but main branch conflicts prevent auto-merge."
+                } | gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file -
+
+                # Abort merge
+                git merge --abort
+
+                echo "❌ Post-execution merge conflict - manual intervention required"
+                exit 1
+              else
+                # Merge failed for other reasons
+                echo "❌ Merge failed but no conflicts detected"
+                echo "Merge output:"
+                cat /tmp/final_merge_output.txt
+
+                git merge --abort 2>/dev/null || true
+
+                echo "::error::Final merge with origin/main failed without conflicts. This may indicate a git error or network issue."
+                exit 1
+              fi
+            else
+              git push origin HEAD
+              echo "✅ Successfully synced with main after execution ($BEHIND commits merged)"
+            fi
+          else
+            echo "✅ Already up to date with main - no sync needed"
+          fi

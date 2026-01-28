@@ -761,9 +761,41 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                   │                   │              │ attempt)       │                               ║
 ║                   │                   │              └────────────────┘                               ║
 ║                   │                   │                                                               ║
-║                   │                   │  ← Push triggers test.yml                                     ║
-║                   │                   │                                                               ║
 ║                   │                   ▼                                                               ║
+║                   │         ┌──────────────────────────────┐                                          ║
+║                   │         │ STEP 6: Final sync with main │                                          ║
+║                   │         │                              │                                          ║
+║                   │         │ git fetch origin main        │                                          ║
+║                   │         │ git merge origin/main        │                                          ║
+║                   │         │   --no-edit                  │                                          ║
+║                   │         │                              │                                          ║
+║                   │         │ Purpose: Handle race         │                                          ║
+║                   │         │ condition (main updated      │                                          ║
+║                   │         │ during 45min execution)      │                                          ║
+║                   │         └────────────┬─────────────────┘                                          ║
+║                   │                      │                                                            ║
+║                   │         ┌────────────┴────────────┐                                               ║
+║                   │         │                         │                                               ║
+║                   │         ▼                         ▼                                               ║
+║                   │  ┌────────────┐          ┌────────────┐                                           ║
+║                   │  │ POST-EXEC  │          │ NO         │                                           ║
+║                   │  │ CONFLICT   │          │ CONFLICT   │                                           ║
+║                   │  └─────┬──────┘          └─────┬──────┘                                           ║
+║                   │        │                       │                                                  ║
+║                   │        ▼                       │                                                  ║
+║                   │  ┌────────────────┐            │                                                  ║
+║                   │  │ Add label:     │            │                                                  ║
+║                   │  │ manual-        │            │                                                  ║
+║                   │  │ intervention   │            │                                                  ║
+║                   │  │                │            │                                                  ║
+║                   │  │ Post conflict  │            │                                                  ║
+║                   │  │ resolution     │            │                                                  ║
+║                   │  │ comment        │            │                                                  ║
+║                   │  └────────────────┘            │                                                  ║
+║                   │                                │                                                  ║
+║                   │                                │  ← Push triggers test.yml                        ║
+║                   │                                │                                                  ║
+║                   │                                ▼                                                  ║
 ║                   │  ┌─────────────────────────────────────────────────────────────┐                  ║
 ║                   │  │                         LOOP BACK                            │                  ║
 ║                   │  │                                                              │                  ║
@@ -825,13 +857,20 @@ Shows how the 3 workflows communicate via GitHub events:
 │          │                                                                                │
 │          │ On success:                                                                    │
 │          │ - Commits and pushes changes                                                   │
+│          │ - Final sync with main (handles race condition)                               │
 │          │ - Push event triggers TEST workflow ──────────────────────────────────────────┘│
 │          │                                                                                │
-│          │ On actual merge conflict:                                                      │
+│          │ On actual merge conflict (pre-execution):                                      │
 │          │ - Detects conflicts via git status (UU, AA, DD, AU, UA, DU, UD markers)       │
 │          │ - Adds manual-intervention label                                               │
 │          │ - Disables auto-merge (human review required)                                  │
 │          │ - Posts error comment with conflict details                                    │
+│          │                                                                                │
+│          │ On actual merge conflict (post-execution):                                     │
+│          │ - Detected during final sync step                                              │
+│          │ - Adds manual-intervention label                                               │
+│          │ - Posts post-execution conflict comment                                        │
+│          │ - Human review required before tests can run                                   │
 │          │                                                                                │
 │          │ On merge failure without conflicts:                                            │
 │          │ - Logs error details                                                           │
