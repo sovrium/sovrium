@@ -184,20 +184,28 @@ function formatDateField(value: unknown, field: DateField): string | undefined {
 }
 
 /**
+ * Formatting result with display value and optional metadata
+ */
+export interface FieldFormattingResult {
+  readonly displayValue: string
+  readonly timezone?: string
+}
+
+/**
  * Format a field value for display based on field type and configuration
  *
  * @param fieldName - The name of the field
  * @param value - The field value
  * @param app - The application schema
  * @param tableName - The table name
- * @returns Formatted display value or undefined if no formatting needed
+ * @returns Formatted display value with optional metadata, or undefined if no formatting needed
  */
 export function formatFieldForDisplay(
   fieldName: string,
   value: unknown,
   app: App,
   tableName: string
-): string | undefined {
+): FieldFormattingResult | undefined {
   // Find the table and field
   const table = app.tables?.find((t) => t.name === tableName)
   if (!table) return undefined
@@ -207,11 +215,20 @@ export function formatFieldForDisplay(
 
   // Format based on field type
   if (field.type === 'currency') {
-    return formatCurrencyField(value, field as CurrencyField)
+    const displayValue = formatCurrencyField(value, field as CurrencyField)
+    return displayValue !== undefined ? { displayValue } : undefined
   }
 
   if (field.type === 'date' || field.type === 'datetime' || field.type === 'time') {
-    return formatDateField(value, field as DateField)
+    const displayValue = formatDateField(value, field as DateField)
+    if (displayValue !== undefined) {
+      const result: FieldFormattingResult = { displayValue }
+      // Include timezone metadata if field specifies 'local'
+      if ('timeZone' in field && field.timeZone === 'local') {
+        return { ...result, timezone: 'local' }
+      }
+      return result
+    }
   }
 
   // Return undefined for types that don't need formatting yet
