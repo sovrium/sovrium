@@ -185,11 +185,12 @@ function formatDateField(value: unknown, field: DateField): string | undefined {
 }
 
 /**
- * Formatted display result with optional timezone metadata
+ * Formatted display result with optional timezone metadata and attachment metadata
  */
 export interface FormatResult {
   readonly displayValue: string
   readonly timezone?: string
+  readonly allowedFileTypes?: readonly string[]
 }
 
 /**
@@ -311,6 +312,27 @@ function isDateRelatedType(type: string): boolean {
 }
 
 /**
+ * Check if field type is an attachment type
+ */
+function isAttachmentType(type: string): boolean {
+  return type === 'single-attachment' || type === 'multiple-attachments'
+}
+
+/**
+ * Format attachment field and create FormatResult with allowedFileTypes
+ */
+function formatAttachmentFieldResult(
+  value: unknown,
+  field: Readonly<{ allowedFileTypes?: readonly string[] }>
+): FormatResult | undefined {
+  if (!field.allowedFileTypes) return undefined
+  return {
+    displayValue: String(value ?? ''),
+    allowedFileTypes: field.allowedFileTypes,
+  }
+}
+
+/**
  * Format a field value for display based on field type and configuration
  *
  * @param fieldName - The name of the field
@@ -343,6 +365,10 @@ export function formatFieldForDisplay(
 
   if (field.type === 'duration') {
     return formatDurationFieldResult(value, field as DurationField)
+  }
+
+  if (isAttachmentType(field.type)) {
+    return formatAttachmentFieldResult(value, field as { allowedFileTypes?: readonly string[] })
   }
 
   // Return undefined for types that don't need formatting yet
