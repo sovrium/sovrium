@@ -59,12 +59,11 @@ Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 2/5
 
 ### Workflows Summary
 
-| Workflow       | File                                   | Trigger                                |
-| -------------- | -------------------------------------- | -------------------------------------- |
-| PR Creator     | `.github/workflows/pr-creator.yml`     | Hourly cron + test.yml success on main |
-| Test           | `.github/workflows/test.yml`           | Push to any branch                     |
-| Claude Code    | `.github/workflows/claude-code.yml`    | @claude comment on PR                  |
-| Merge Watchdog | `.github/workflows/merge-watchdog.yml` | Every 30 min                           |
+| Workflow    | File                                | Trigger                                |
+| ----------- | ----------------------------------- | -------------------------------------- |
+| PR Creator  | `.github/workflows/pr-creator.yml`  | Hourly cron + test.yml success on main |
+| Test        | `.github/workflows/test.yml`        | Push to any branch                     |
+| Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                  |
 
 ### Cost Limits
 
@@ -782,49 +781,6 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                   │  │                                                              │                  ║
 ║                   │  └─────────────────────────────────────────────────────────────┘                  ║
 ║                   │                                                                                   ║
-║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
-║  WORKFLOW 4: MERGE WATCHDOG (.github/workflows/merge-watchdog.yml)                                   ║
-║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
-║                                                                                                       ║
-║      ┌────────────────────┐                                                                          ║
-║      │ TRIGGER: Cron      │                                                                          ║
-║      │ Every 30 minutes   │                                                                          ║
-║      │ */30 * * * *       │                                                                          ║
-║      └─────────┬──────────┘                                                                          ║
-║                │                                                                                      ║
-║                ▼                                                                                      ║
-║      ┌─────────────────────────────┐                                                                 ║
-║      │ Query open TDD PRs          │                                                                 ║
-║      │ - label: tdd-automation     │                                                                 ║
-║      │ - NOT label: manual-        │                                                                 ║
-║      │   intervention              │                                                                 ║
-║      └─────────────┬───────────────┘                                                                 ║
-║                    │                                                                                  ║
-║      ┌─────────────┴─────────────┐                                                                   ║
-║      │                           │                                                                   ║
-║      ▼                           ▼                                                                   ║
-║ ┌────────────┐            ┌────────────────────┐                                                     ║
-║ │ No stuck   │            │ Found stuck PR:    │                                                     ║
-║ │ PRs        │            │ - Open > 2 hours   │                                                     ║
-║ │            │            │ - All checks pass  │                                                     ║
-║ │ (normal    │            │ - Auto-merge not   │                                                     ║
-║ │ operation) │            │   completing       │                                                     ║
-║ └────────────┘            └─────────┬──────────┘                                                     ║
-║                                     │                                                                ║
-║                         ┌───────────┴───────────┐                                                    ║
-║                         │                       │                                                    ║
-║                         ▼                       ▼                                                    ║
-║                  ┌────────────┐          ┌────────────────┐                                          ║
-║                  │ Open < 4h  │          │ Open > 4 hours │                                          ║
-║                  │            │          │                │                                          ║
-║                  │ Log warning│          │ Create alert   │                                          ║
-║                  │ only       │          │ issue          │                                          ║
-║                  │            │          │                │                                          ║
-║                  │ Try re-    │          │ Request human  │                                          ║
-║                  │ enable     │          │ investigation  │                                          ║
-║                  │ auto-merge │          │                │                                          ║
-║                  └────────────┘          └────────────────┘                                          ║
-║                                                                                                       ║
 ╚══════════════════════════════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -832,7 +788,7 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 
 #### Workflow Interconnection Diagram
 
-Shows how the 4 workflows communicate via GitHub events:
+Shows how the 3 workflows communicate via GitHub events:
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────────────┐
@@ -887,16 +843,6 @@ Shows how the 4 workflows communicate via GitHub events:
 │          │ - Logs error details                                                           │
 │          │ - Fails workflow (infrastructure issue, not conflict)                          │
 │          │ - No had-conflict label added                                                  │
-│          │                                                                                │
-│          │                                                                                │
-│  ┌───────▼───────┐                                                                        │
-│  │               │                                                                        │
-│  │MERGE WATCHDOG │  (independent, runs every 30 min)                                      │
-│  │               │                                                                        │
-│  └───────────────┘                                                                        │
-│          │                                                                                │
-│          │ Monitors for stuck PRs                                                         │
-│          │ Creates alert issues if stuck > 4 hours                                        │
 │                                                                                           │
 └───────────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -1121,28 +1067,27 @@ The workflow distinguishes between two types of merge failures:
 
 ---
 
-### 4. Merge Watchdog Workflow
+---
 
-**File:** `.github/workflows/merge-watchdog.yml`
+## Removed Workflows
 
-**Triggers:**
+### Merge Watchdog (Removed 2026-01-28)
 
-- `schedule`: Every 30 minutes (`*/30 * * * *`)
+**Status**: Removed as redundant
 
-**Purpose:** Detect and alert on stuck PRs that should have auto-merged.
+**Why removed**:
 
-**Detection Criteria:**
+- GitHub's native auto-merge feature handles PR merging automatically
+- PR Creator already enables auto-merge on creation (pr-creator.yml line 192)
+- test.yml now re-enables auto-merge on success (added as root cause fix)
+- No evidence of PRs getting "stuck" with passed checks
+- Unnecessary complexity: 48 cron runs/day, API rate limits, maintenance overhead
 
-- PR has `tdd-automation` label
-- PR is open for > 2 hours
-- All checks passing
-- Auto-merge not completing
+**Root cause fixed**: test.yml now explicitly re-enables auto-merge after all checks pass, ensuring PRs merge automatically.
 
-**Actions:**
+**Migration**: No action needed. Auto-merge works via GitHub's native feature + test.yml re-enable step.
 
-1. Log warning with PR details
-2. Create alert issue if stuck > 4 hours
-3. Optionally re-enable auto-merge
+**Rollback**: If PRs get stuck (unlikely), manually merge with `gh pr merge --squash` or use recovery workflow.
 
 ---
 
@@ -1296,6 +1241,261 @@ Posted when daily or weekly limit is reached (blocks execution).
 
 ---
 
+## Error Handling
+
+### Claude Code Error Types
+
+The pipeline implements comprehensive error handling for all Claude Code failure modes:
+
+| Error Type                       | Subtype                               | Retriable | Action                               | Label                                 |
+| -------------------------------- | ------------------------------------- | --------- | ------------------------------------ | ------------------------------------- |
+| **Success**                      | `success`                             | N/A       | Continue to test workflow            | None                                  |
+| **Max Turns**                    | `error_max_turns`                     | ❌ No     | Close PR immediately                 | `tdd-automation:spec-review-needed`   |
+| **Budget Exceeded**              | `error_max_budget_usd`                | ❌ No     | Close PR immediately                 | `tdd-automation:budget-exceeded`      |
+| **Execution Error (Transient)**  | `error_during_execution`              | ✅ Yes    | Post @claude comment to retry        | None (retry handled by test workflow) |
+| **Execution Error (Persistent)** | `error_during_execution`              | ❌ No     | Close PR immediately                 | `tdd-automation:manual-intervention`  |
+| **Execution Error (Unknown)**    | `error_during_execution`              | ✅ Once   | Retry once, then manual intervention | `tdd-automation:manual-intervention`  |
+| **Structured Output Retries**    | `error_max_structured_output_retries` | ✅ Once   | Retry once, then manual intervention | `tdd-automation:manual-intervention`  |
+| **Unknown Error**                | `unknown`                             | ❌ No     | Close PR immediately                 | `tdd-automation:manual-intervention`  |
+
+### Error Detection Pipeline
+
+**Workflow**: `.github/workflows/claude-code.yml` (after Claude Code action)
+
+1. **Parse Claude Code Result**
+   - Reads `execution_file` output from action
+   - Extracts `result.subtype` and `result.errors` from JSON
+   - Outputs: `result-subtype`, `error-message`
+
+2. **Categorize Error Type**
+   - Maps `result.subtype` to error category
+   - For `error_during_execution`, applies pattern matching:
+     - **Transient patterns**: `timeout|ETIMEDOUT|ECONNREFUSED|network|429|502|503|504|out of memory|ENOMEM`
+     - **Persistent patterns**: `SyntaxError|TypeError|ReferenceError|Cannot find module|ENOENT|parse error`
+     - **Unknown patterns**: Any error not matching above (retry once)
+   - Outputs: `error-category`, `should-retry`
+
+3. **Route by Error Type**
+   - **Retriable errors**: Post @claude comment (test workflow retries)
+   - **Non-retriable errors**: Close PR with appropriate label + explanation comment
+
+### Per-Run Budget Protection
+
+**Budget Limit**: $5.00 per Claude Code execution
+
+**Configuration**: Added to `claude_args` in `.github/workflows/claude-code.yml`:
+
+```yaml
+claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd 5.00
+```
+
+**Behavior**:
+
+- Claude Code stops execution when approaching $5.00
+- Returns `error_max_budget_usd` result subtype
+- Pipeline closes PR with `tdd-automation:budget-exceeded` label
+- Daily/weekly limits still enforced (defense in depth)
+
+**Rationale**:
+
+- Prevents runaway costs from single spec
+- Complements daily ($100) and weekly ($500) limits
+- Conservative limit encourages efficient spec design
+
+### Error Messages and Comments
+
+**Retriable Error Comment** (posted by `Route by Error Type` step):
+
+```markdown
+⚠️ **Claude Code Execution Failed (Retryable Error)**
+
+**Error Category**: `transient`
+**Error Message**: [detailed error from Claude Code]
+
+**Next Steps**: The test workflow will automatically retry by posting a @claude comment.
+
+---
+
+_Automated retry triggered by TDD pipeline error handling_
+```
+
+**Non-Retriable Error Comment** (posted before closing PR):
+
+```markdown
+❌ **TDD Automation Failed: [Reason]**
+
+**Error Category**: `max_turns`
+**Spec ID**: `SPEC-123`
+
+**Reason**: This spec requires too many steps to implement. Consider breaking it into smaller specs or simplifying the requirements.
+
+**What This Means**:
+
+- This PR cannot be automatically implemented
+- Manual intervention is required
+
+**Recovery Options** (via workflow_dispatch in `.github/workflows/recovery.yml`):
+
+- `retry-claude-code`: Post @claude comment to retry (if error might be transient)
+- `reset-attempt-counter`: Reset attempt counter to 1/5 (if retrying after fixing issue)
+- `mark-for-spec-review`: Close PR and add spec-review-needed label
+- `close-and-reset-spec`: Close PR and create new PR to add .fixme() back to spec
+
+---
+
+_Automated closure by TDD pipeline error handling_
+```
+
+### TDD Recovery Workflow
+
+**Workflow**: `.github/workflows/recovery.yml`
+
+Manual recovery actions for TDD automation failures:
+
+#### 1. `retry-claude-code`
+
+**Purpose**: Manually trigger Claude Code retry by posting @claude comment
+
+**Inputs**:
+
+- `pr_number`: PR to retry
+- `spec_file`: (optional) Spec file path for context
+
+**Actions**:
+
+- Posts @claude comment with spec context
+- Claude Code workflow triggers automatically
+
+**Use Case**: Error might have been transient (network issue, temporary service outage)
+
+#### 2. `reset-attempt-counter`
+
+**Purpose**: Reset PR attempt counter to 1/5
+
+**Inputs**:
+
+- `pr_number`: PR to reset
+
+**Actions**:
+
+- Updates PR title: `[TDD] Implement <spec-id> | Attempt 1/5`
+- Posts comment explaining reset
+- Allows 5 more retry attempts
+
+**Use Case**: Fixed underlying issue (code cleanup, spec clarification) and want to retry
+
+#### 3. `mark-for-spec-review`
+
+**Purpose**: Mark spec for human review
+
+**Inputs**:
+
+- `pr_number`: PR to close
+- `spec_file`: Spec file needing review
+
+**Actions**:
+
+- Adds `tdd-automation:spec-review-needed` label
+- Closes PR with review guidance comment
+- Spec remains with `.fixme()` annotation
+
+**Use Case**: Spec is too complex, ambiguous, or requires architectural decisions
+
+#### 4. `close-and-reset-spec`
+
+**Purpose**: Close PR and prepare for fresh start
+
+**Inputs**:
+
+- `pr_number`: PR to close
+- `spec_file`: Spec file to reset
+
+**Actions**:
+
+- Closes PR with `tdd-automation:reset-spec` label
+- Provides instructions to add `.fixme()` back to spec
+- PR creator will detect spec again after reset
+
+**Use Case**: Want to completely restart TDD process for this spec
+
+### Error Handling Workflow Diagram
+
+```
+Claude Code Action
+       ↓
+[Parse Result] → result-subtype, error-message
+       ↓
+[Categorize Error] → error-category, should-retry
+       ↓
+[Route by Type]
+       ↓
+   ┌───┴───┐
+   ↓       ↓
+Retriable  Non-Retriable
+   ↓       ↓
+Post       Close PR
+@claude    + Label
+comment    + Comment
+   ↓
+Test workflow
+triggers retry
+```
+
+### Pattern Matching Rationale
+
+**Transient Error Patterns**:
+
+- **Network issues**: `timeout`, `ETIMEDOUT`, `ECONNREFUSED`, `network`
+- **Service issues**: `429` (rate limit), `502/503/504` (bad gateway/service unavailable)
+- **Resource issues**: `out of memory`, `ENOMEM`
+
+**Persistent Error Patterns**:
+
+- **Code errors**: `SyntaxError`, `TypeError`, `ReferenceError`
+- **Missing resources**: `Cannot find module`, `ENOENT` (file not found)
+- **Parsing errors**: `parse error`
+
+**Unknown Patterns**:
+
+- Any error not matching transient or persistent patterns
+- Retry once (conservative approach)
+- Requires manual intervention after retry fails
+
+**Why Pattern Matching**:
+
+- Conservative approach: avoids infinite retry loops
+- Pragmatic: distinguishes fixable vs. non-fixable errors
+- Transparent: error category visible in logs and comments
+- Maintainable: easy to add new patterns as needed
+
+### Cost Protection Strategy
+
+**Three-Layer Defense**:
+
+1. **Per-Run Budget** ($5.00)
+   - Immediate protection against runaway costs
+   - Prevents single spec from consuming entire daily budget
+   - Enforced by Claude Code CLI (`--max-budget-usd`)
+
+2. **Daily Limit** ($100)
+   - Aggregate limit across all executions
+   - 20 executions at $5.00 each (realistic)
+   - Enforced by validation job (blocks execution)
+
+3. **Weekly Limit** ($500)
+   - Rolling 7-day window
+   - 100 executions at $5.00 each
+   - Enforced by validation job (blocks execution)
+
+**Monitoring**:
+
+- Credit usage comment posted before every execution
+- Shows actual costs (not estimates)
+- Displays remaining budget and reset timers
+- 80% warning thresholds ($80 daily, $400 weekly)
+
+---
+
 ## Risks & Mitigations
 
 | Risk                   | Mitigation                                           | Confidence   |
@@ -1331,11 +1531,16 @@ Posted when daily or weekly limit is reached (blocks execution).
 | Label names            | `tdd-automation`, `:manual-intervention`, `:had-conflict` | Clear, consistent naming                             |
 | Branch naming          | `tdd/<spec-id>`                                           | Simple, serves as backup identifier                  |
 | @claude comment format | Agent-specific with file paths                            | Enables correct agent selection                      |
-| Credit limits          | $100/day, $500/week                                       | Conservative limits with 80% warnings                |
+| Credit limits          | $100/day, $500/week (+ $5/run)                            | Three-layer defense: per-run, daily, weekly          |
+| Per-run budget limit   | $5.00                                                     | Prevents runaway costs from single spec              |
 | Cost tracking          | Actual costs from Claude Code result JSON                 | Accurate tracking vs. $15 estimates                  |
 | Cost parsing           | JSON result + multi-pattern fallback                      | Handles format changes gracefully                    |
 | Sync strategy          | Merge (not rebase)                                        | Safer, no force-push, better for automation          |
 | Conflict counting      | Not counted as attempt                                    | Infrastructure issue, not code failure               |
+| Error handling         | Pattern matching (conservative)                           | Distinguish transient vs. persistent errors          |
+| Retry strategy         | Transient errors retry, persistent errors close           | Avoid infinite loops, clear failure path             |
+| Unknown errors         | Retry once, then manual intervention                      | Conservative approach for unexpected failures        |
+| Recovery actions       | Manual workflow_dispatch triggers                         | Flexible recovery without pipeline re-runs           |
 
 ---
 
@@ -1398,13 +1603,13 @@ The TDD automation pipeline follows a strict separation of concerns:
 
 See `scripts/tdd-automation/` directory for complete implementation:
 
-| Directory    | Purpose                                        | Key Files                                                                                                     |
-| ------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `core/`      | Domain types, errors, configuration, utilities | `types.ts`, `errors.ts`, `config.ts`, `schema-priority-calculator.ts`                                         |
+| Directory    | Purpose                                        | Key Files                                                                                                                                           |
+| ------------ | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/`      | Domain types, errors, configuration, utilities | `types.ts`, `errors.ts`, `config.ts`, `schema-priority-calculator.ts`                                                                               |
 | `services/`  | Effect service interfaces and implementations  | `github-api.ts`, `git-operations.ts`, `cost-tracker.ts`, `credit-comment-generator.ts`, `agent-prompt-generator.ts`, `failure-comment-generator.ts` |
-| `programs/`  | Composable Effect programs for workflow logic  | `check-credit-limits.ts`, `find-active-tdd-pr.ts`, `create-tdd-pr.ts`                                         |
-| `workflows/` | CLI entry points called by YAML workflows      | `pr-creator/`, `test/`, `claude-code/`, `merge-watchdog/`                                                     |
-| `layers/`    | Dependency injection (live, test)              | `live.ts`, `test.ts`                                                                                          |
+| `programs/`  | Composable Effect programs for workflow logic  | `check-credit-limits.ts`, `find-active-tdd-pr.ts`, `create-tdd-pr.ts`                                                                               |
+| `workflows/` | CLI entry points called by YAML workflows      | `pr-creator/`, `test/`, `claude-code/`, `merge-watchdog/`                                                                                           |
+| `layers/`    | Dependency injection (live, test)              | `live.ts`, `test.ts`                                                                                                                                |
 
 **Error Types:** See `scripts/tdd-automation/core/errors.ts` for all `Data.TaggedError` definitions
 **Service Interfaces:** See `scripts/tdd-automation/services/*.ts` for service method signatures
@@ -1435,11 +1640,11 @@ Programs compose services to implement business logic using `Effect.gen`.
 
 Three TypeScript services replace complex bash template logic for generating GitHub PR comments:
 
-| Service                        | File                                                              | Purpose                                              | Replaces (Lines)                     |
-| ------------------------------ | ----------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------ |
-| `generateCreditComment`        | `scripts/tdd-automation/services/credit-comment-generator.ts`     | Generate credit usage markdown for PR comments       | ~60 lines bash in `claude-code.yml`  |
-| `generateAgentPrompt`          | `scripts/tdd-automation/services/agent-prompt-generator.ts`       | Generate Claude Code agent invocation prompts        | ~85 lines bash in `claude-code.yml`  |
-| `generateFailureComment`       | `scripts/tdd-automation/services/failure-comment-generator.ts`    | Generate failure recovery prompts for test failures  | ~38 lines bash in `test.yml`         |
+| Service                  | File                                                           | Purpose                                             | Replaces (Lines)                    |
+| ------------------------ | -------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------- |
+| `generateCreditComment`  | `scripts/tdd-automation/services/credit-comment-generator.ts`  | Generate credit usage markdown for PR comments      | ~60 lines bash in `claude-code.yml` |
+| `generateAgentPrompt`    | `scripts/tdd-automation/services/agent-prompt-generator.ts`    | Generate Claude Code agent invocation prompts       | ~85 lines bash in `claude-code.yml` |
+| `generateFailureComment` | `scripts/tdd-automation/services/failure-comment-generator.ts` | Generate failure recovery prompts for test failures | ~38 lines bash in `test.yml`        |
 
 **Key Benefits:**
 

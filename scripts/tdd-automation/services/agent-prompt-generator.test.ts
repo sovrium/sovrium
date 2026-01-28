@@ -49,9 +49,7 @@ describe('Agent Prompt Generator', () => {
 
       const result = await Effect.runPromise(generateAgentPrompt(context))
 
-      expect(result).toContain(
-        'Use the Task tool to invoke the `codebase-refactor-auditor` agent'
-      )
+      expect(result).toContain('Use the Task tool to invoke the `codebase-refactor-auditor` agent')
       expect(result).toContain('- Spec: `API-USERS-002`')
       expect(result).toContain('- Branch: `tdd/api-users-002`')
       expect(result).toContain('- Failure type: Quality issues only')

@@ -444,14 +444,198 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Run Claude Code Action
+        id: claude-code
         uses: anthropics/claude-code-action@v1
         timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 45 }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: ${{ steps.agent-config.outputs.prompt }}
-          claude_args: ${{ steps.agent-config.outputs.claude-args }}
+          claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd 5.00
           track_progress: true
           use_sticky_comment: true
+
+      - name: Parse Claude Code Result
+        id: parse-result
+        if: always()
+        env:
+          EXECUTION_FILE: ${{ steps.claude-code.outputs.execution_file }}
+          CONCLUSION: ${{ steps.claude-code.outputs.conclusion }}
+        run: |
+          # Parse Claude Code execution result
+          # Output structure: { type: "result", subtype: "success" | "error_max_turns" | "error_max_budget_usd" | "error_during_execution" | "error_max_structured_output_retries" }
+
+          RESULT_SUBTYPE=""
+          ERROR_MESSAGE=""
+
+          if [ "$CONCLUSION" = "success" ]; then
+            RESULT_SUBTYPE="success"
+            echo "result-subtype=success" >> "$GITHUB_OUTPUT"
+            echo "✅ Claude Code execution succeeded"
+            exit 0
+          fi
+
+          if [ -f "$EXECUTION_FILE" ]; then
+            # Extract result message from execution file
+            RESULT_JSON=$(jq -r '.[] | select(.type == "result")' "$EXECUTION_FILE" 2>/dev/null || echo "{}")
+            RESULT_SUBTYPE=$(echo "$RESULT_JSON" | jq -r '.subtype // "unknown"')
+            ERROR_MESSAGE=$(echo "$RESULT_JSON" | jq -r '.errors // [] | join(", ")' 2>/dev/null || echo "")
+
+            echo "result-subtype=$RESULT_SUBTYPE" >> "$GITHUB_OUTPUT"
+            echo "error-message=$ERROR_MESSAGE" >> "$GITHUB_OUTPUT"
+            echo "📊 Result subtype: $RESULT_SUBTYPE"
+            [ -n "$ERROR_MESSAGE" ] && echo "⚠️ Error message: $ERROR_MESSAGE"
+          else
+            echo "result-subtype=unknown" >> "$GITHUB_OUTPUT"
+            echo "error-message=Execution file not found" >> "$GITHUB_OUTPUT"
+            echo "❌ No execution file found"
+          fi
+
+      - name: Categorize Error Type
+        id: categorize-error
+        if: steps.parse-result.outputs.result-subtype != 'success'
+        env:
+          RESULT_SUBTYPE: ${{ steps.parse-result.outputs.result-subtype }}
+          ERROR_MESSAGE: ${{ steps.parse-result.outputs.error-message }}
+        run: |
+          # Categorize error based on subtype and message patterns
+          # Categories: transient (retry), persistent (close PR), unknown (retry once)
+
+          ERROR_CATEGORY="unknown"
+          SHOULD_RETRY="false"
+
+          case "$RESULT_SUBTYPE" in
+            error_max_turns)
+              ERROR_CATEGORY="max_turns"
+              echo "❌ Max turns exceeded (50 turns) - spec too complex"
+              ;;
+            error_max_budget_usd)
+              ERROR_CATEGORY="max_budget"
+              echo "❌ Per-run budget exceeded ($5.00 limit)"
+              ;;
+            error_max_structured_output_retries)
+              ERROR_CATEGORY="structured_output_retries"
+              SHOULD_RETRY="true"
+              echo "⚠️ Structured output retries exceeded - will retry once"
+              ;;
+            error_during_execution)
+              # Pattern matching for transient vs persistent errors
+              if echo "$ERROR_MESSAGE" | grep -qE "timeout|ETIMEDOUT|ECONNREFUSED|network|429|502|503|504|out of memory|ENOMEM"; then
+                ERROR_CATEGORY="transient"
+                SHOULD_RETRY="true"
+                echo "⚠️ Transient error detected - will retry with backoff"
+              elif echo "$ERROR_MESSAGE" | grep -qE "SyntaxError|TypeError|ReferenceError|Cannot find module|ENOENT|parse error"; then
+                ERROR_CATEGORY="persistent"
+                echo "❌ Persistent error detected - requires manual intervention"
+              else
+                ERROR_CATEGORY="unknown_execution"
+                SHOULD_RETRY="true"
+                echo "⚠️ Unknown execution error - will retry once"
+              fi
+              ;;
+            unknown)
+              ERROR_CATEGORY="unknown"
+              echo "❌ Unknown error - no result message"
+              ;;
+            *)
+              ERROR_CATEGORY="unknown"
+              echo "❌ Unknown error subtype: $RESULT_SUBTYPE"
+              ;;
+          esac
+
+          echo "error-category=$ERROR_CATEGORY" >> "$GITHUB_OUTPUT"
+          echo "should-retry=$SHOULD_RETRY" >> "$GITHUB_OUTPUT"
+          echo "📋 Error category: $ERROR_CATEGORY (retry: $SHOULD_RETRY)"
+
+      - name: Route by Error Type
+        if: steps.parse-result.outputs.result-subtype != 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          PR_NUMBER: ${{ needs.validate.outputs.pr-number }}
+          ERROR_CATEGORY: ${{ steps.categorize-error.outputs.error-category }}
+          SHOULD_RETRY: ${{ steps.categorize-error.outputs.should-retry }}
+          ERROR_MESSAGE: ${{ steps.parse-result.outputs.error-message }}
+          SPEC_ID: ${{ needs.validate.outputs.spec-id }}
+        run: |
+          # Route based on error category
+
+          if [ "$SHOULD_RETRY" = "true" ]; then
+            echo "🔄 Retryable error - workflow will post @claude comment to trigger retry"
+
+            # Post comment to trigger retry (test workflow will call claude-code.yml again)
+            {
+              echo "⚠️ **Claude Code Execution Failed (Retryable Error)**"
+              echo ""
+              echo "**Error Category**: \`$ERROR_CATEGORY\`"
+              echo "**Error Message**: $ERROR_MESSAGE"
+              echo ""
+              echo "**Next Steps**: The test workflow will automatically retry by posting a @claude comment."
+              echo ""
+              echo "---"
+              echo "_Automated retry triggered by TDD pipeline error handling_"
+            } > /tmp/retry_comment.md
+
+            gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/retry_comment.md
+            exit 0
+          fi
+
+          # Non-retriable errors: close PR with appropriate label
+          case "$ERROR_CATEGORY" in
+            max_turns)
+              LABEL="tdd-automation:spec-review-needed"
+              REASON="Spec too complex (exceeded 50 conversation turns)"
+              MESSAGE="This spec requires too many steps to implement. Consider breaking it into smaller specs or simplifying the requirements."
+              ;;
+            max_budget)
+              LABEL="tdd-automation:budget-exceeded"
+              REASON="Per-run budget exceeded (\$5.00 limit)"
+              MESSAGE="This execution exceeded the \$5.00 per-run budget limit. The spec may be too complex or require optimization."
+              ;;
+            persistent)
+              LABEL="tdd-automation:manual-intervention"
+              REASON="Persistent execution error"
+              MESSAGE="Claude Code encountered a persistent error that cannot be resolved automatically: $ERROR_MESSAGE"
+              ;;
+            *)
+              LABEL="tdd-automation:manual-intervention"
+              REASON="Unknown error"
+              MESSAGE="Claude Code failed with an unknown error. Manual review required."
+              ;;
+          esac
+
+          echo "❌ Closing PR with label: $LABEL"
+
+          # Add label
+          gh pr edit "$PR_NUMBER" --repo "${{ github.repository }}" --add-label "$LABEL"
+
+          # Post closing comment
+          {
+            echo "❌ **TDD Automation Failed: $REASON**"
+            echo ""
+            echo "**Error Category**: \`$ERROR_CATEGORY\`"
+            echo "**Spec ID**: \`$SPEC_ID\`"
+            echo ""
+            echo "**Reason**: $MESSAGE"
+            echo ""
+            echo "**What This Means**:"
+            echo "- This PR cannot be automatically implemented"
+            echo "- Manual intervention is required"
+            echo ""
+            echo "**Recovery Options** (via workflow_dispatch in \`.github/workflows/recovery.yml\`):"
+            echo "- \`retry-claude-code\`: Post @claude comment to retry (if error might be transient)"
+            echo "- \`reset-attempt-counter\`: Reset attempt counter to 1/5 (if retrying after fixing issue)"
+            echo "- \`mark-for-spec-review\`: Close PR and add spec-review-needed label"
+            echo "- \`close-and-reset-spec\`: Close PR and create new PR to add .fixme() back to spec"
+            echo ""
+            echo "---"
+            echo "_Automated closure by TDD pipeline error handling_"
+          } > /tmp/close_comment.md
+
+          gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/close_comment.md
+
+          # Close PR
+          gh pr close "$PR_NUMBER" --repo "${{ github.repository }}" --comment "Closed due to: $REASON"
+
+          echo "✅ PR closed with label $LABEL"
 
       - name: Handle conflict resolution notice
         if: steps.sync.outputs.has-conflict == 'true'

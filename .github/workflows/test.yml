@@ -817,13 +817,20 @@ jobs:
             echo "✅ All jobs passed!"
           fi
 
-      - name: Debug values for dependent jobs
+      - name: Re-enable auto-merge on success
+        if: |
+          github.event_name == 'pull_request' &&
+          contains(github.event.pull_request.labels.*.name, 'tdd-automation') &&
+          !contains(github.event.pull_request.labels.*.name, 'tdd-automation:manual-intervention')
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo "🔍 Debug: Values available to dependent jobs"
-          echo "   Event: ${{ github.event_name }}"
-          echo "   Ref: ${{ github.ref }}"
-          echo "   Action: ${{ github.event.action }}"
-          echo "   Job conclusion will be: success (if we reach here)"
+          echo "✅ All checks passed, ensuring auto-merge is enabled"
+          gh pr merge "$PR_NUMBER" --squash --auto || {
+            echo "⚠️ Could not enable auto-merge (may already be enabled or PR not mergeable)"
+            exit 0
+          }
 
   # ============================================================================
   # SPEC PROGRESS AUTO-UPDATE
@@ -1148,4 +1155,3 @@ jobs:
           } > /tmp/manual_comment.txt
 
           gh pr comment "$PR_NUMBER" --body-file /tmp/manual_comment.txt
-
