@@ -602,7 +602,7 @@ test.describe('Record Display Formatting', () => {
   // Duration Formatting Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-FORMAT-016: should format duration in h:mm format',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
