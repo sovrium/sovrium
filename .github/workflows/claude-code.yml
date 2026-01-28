@@ -497,6 +497,7 @@ jobs:
 
       - name: Run Claude Code Action
         id: claude-code
+        continue-on-error: true
         uses: anthropics/claude-code-action@v1
         timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 45 }}
         with:
@@ -506,12 +507,53 @@ jobs:
           track_progress: true
           use_sticky_comment: true
 
+      - name: Retry Claude Code on SDK Crash
+        id: claude-code-retry
+        if: steps.claude-code.outcome == 'failure' && steps.claude-code.outputs.execution_file == ''
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 45 }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: ${{ steps.agent-config.outputs.prompt }}
+          claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd 5.00
+          track_progress: true
+          use_sticky_comment: true
+
+      - name: Determine Final Outcome
+        id: final-outcome
+        if: always()
+        run: |
+          # Determine which attempt's result to use
+          # If retry ran (has an outcome), use retry outputs; otherwise use original outputs
+
+          RETRY_OUTCOME="${{ steps.claude-code-retry.outcome }}"
+
+          if [ -n "$RETRY_OUTCOME" ]; then
+            # Retry ran - use retry outputs
+            EXECUTION_FILE="${{ steps.claude-code-retry.outputs.execution_file }}"
+            CONCLUSION="${{ steps.claude-code-retry.outputs.conclusion }}"
+            echo "📊 Using retry attempt result (original attempt had SDK crash)"
+          else
+            # Retry didn't run - use original outputs
+            EXECUTION_FILE="${{ steps.claude-code.outputs.execution_file }}"
+            CONCLUSION="${{ steps.claude-code.outputs.conclusion }}"
+            echo "📊 Using original attempt result"
+          fi
+
+          # Write outputs for subsequent steps
+          echo "execution_file=$EXECUTION_FILE" >> "$GITHUB_OUTPUT"
+          echo "conclusion=$CONCLUSION" >> "$GITHUB_OUTPUT"
+
+          echo "   Execution file: ${EXECUTION_FILE:-(empty)}"
+          echo "   Conclusion: $CONCLUSION"
+
       - name: Parse Claude Code Result
         id: parse-result
         if: always()
         env:
-          EXECUTION_FILE: ${{ steps.claude-code.outputs.execution_file }}
-          CONCLUSION: ${{ steps.claude-code.outputs.conclusion }}
+          EXECUTION_FILE: ${{ steps.final-outcome.outputs.execution_file }}
+          CONCLUSION: ${{ steps.final-outcome.outputs.conclusion }}
         run: |
           # Parse Claude Code execution result
           # Output structure: { type: "result", subtype: "success" | "error_max_turns" | "error_max_budget_usd" | "error_during_execution" | "error_max_structured_output_retries" }
@@ -556,7 +598,7 @@ jobs:
         id: extract-metrics
         if: always()
         env:
-          EXECUTION_FILE: ${{ steps.claude-code.outputs.execution_file }}
+          EXECUTION_FILE: ${{ steps.final-outcome.outputs.execution_file }}
         run: |
           # Extract execution metrics from Claude Code result JSON
           # Metrics: duration_ms, num_turns, total_cost_usd
