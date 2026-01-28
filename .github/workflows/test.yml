@@ -807,6 +807,14 @@ jobs:
             echo "✅ All jobs passed!"
           fi
 
+      - name: Debug values for dependent jobs
+        run: |
+          echo "🔍 Debug: Values available to dependent jobs"
+          echo "   Event: ${{ github.event_name }}"
+          echo "   Ref: ${{ github.ref }}"
+          echo "   Action: ${{ github.event.action }}"
+          echo "   Job conclusion will be: success (if we reach here)"
+
   # ============================================================================
   # SPEC PROGRESS AUTO-UPDATE
   # Updates SPEC-PROGRESS.md after successful test runs
@@ -815,16 +823,29 @@ jobs:
   update-spec-progress:
     name: Update Spec Progress
     if: |
-      (
-        (github.event_name == 'pull_request' && github.event.action != 'closed') ||
-        (github.event_name == 'push' && github.ref == 'refs/heads/main')
-      ) &&
-      needs.test.result == 'success'
+      (github.event_name == 'pull_request' && github.event.action != 'closed') ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: [test]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - name: Debug condition values
+        run: |
+          echo "🔍 Debugging update-spec-progress condition"
+          echo "   Event: ${{ github.event_name }}"
+          echo "   Ref: ${{ github.ref }}"
+          echo "   Action: ${{ github.event.action }}"
+          echo "   Test result: ${{ needs.test.result }}"
+          echo "   Test outcome: ${{ needs.test.outputs }}"
+          echo ""
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "❌ Test job did not succeed (result: ${{ needs.test.result }})"
+            echo "   Skipping spec progress update"
+            exit 0
+          fi
+          echo "✅ Test job succeeded, proceeding with spec progress update"
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
