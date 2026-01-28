@@ -219,6 +219,17 @@ jobs:
             echo "✅ Credits OK"
           fi
 
+      - name: Setup Bun (for credit comment script)
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/tdd-automation/workflows/claude-code/
+            package.json
+
       - name: Post credit usage comment (always)
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
