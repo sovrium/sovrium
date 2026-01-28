@@ -45,13 +45,15 @@ export interface FailureCommentContext {
  */
 function generateQualityInstructions(context: FailureCommentContext): string[] {
   return [
-    '1. Run `bun run quality` to identify the specific quality issues',
-    '2. Fix lint, format, or type errors in the production code',
-    '3. Do NOT modify test files - this is a quality issue, not a test failure',
-    '4. Run `bun run quality` again to verify all issues are fixed',
-    `5. Run \`bun test:e2e -- ${context.targetSpec}\` to confirm tests pass`,
-    `6. Commit with message: "fix: resolve quality issues for ${context.specId}"`,
-    '7. Push to origin (MANDATORY for pipeline to continue)',
+    '1. Run `bun run quality` to identify specific quality issues',
+    '2. Fix lint, format, or type errors in production code',
+    '3. Review recent changes for architecture compliance and best practices',
+    '4. Eliminate code duplication if found in modified files',
+    '5. Do NOT modify test files - this is a quality issue, not a test failure',
+    '6. Run `bun run quality` again to verify all issues are fixed',
+    `7. Run \`bun test:e2e -- ${context.targetSpec}\` to confirm tests still pass`,
+    `8. Commit with message: "fix: resolve quality issues for ${context.specId}"`,
+    '9. Push to origin (MANDATORY for pipeline to continue)',
   ]
 }
 
@@ -63,11 +65,10 @@ function generateQualityInstructions(context: FailureCommentContext): string[] {
 function generateTestFailureInstructions(context: FailureCommentContext): string[] {
   return [
     '1. Analyze the test to understand what it expects',
-    '2. Verify required schemas exist (use Skill tool if missing)',
-    '3. Implement minimal code to pass the test',
-    `4. Run \`bun test:e2e -- ${context.targetSpec}\` to verify tests pass`,
-    `5. Commit with message: "fix: implement ${context.specId}"`,
-    '6. Push to origin (MANDATORY for pipeline to continue)',
+    '2. Implement minimal code to pass the test',
+    `3. Run \`bun test:e2e -- ${context.targetSpec}\` to verify tests pass`,
+    `4. Commit with message: "fix: implement ${context.specId}"`,
+    '5. Push to origin (MANDATORY for pipeline to continue)',
   ]
 }
 
