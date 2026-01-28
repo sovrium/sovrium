@@ -755,8 +755,11 @@ jobs:
     needs: [detect-change-type, lint, typecheck, unit-tests, e2e-results]
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    outputs:
+      all-passed: ${{ steps.check-all.outputs.all-passed }}
     steps:
       - name: Check all jobs passed
+        id: check-all
         env:
           IS_TEST_ONLY: ${{ needs.detect-change-type.outputs.is_test_only }}
         run: |
@@ -822,6 +825,9 @@ jobs:
             echo "✅ All jobs passed!"
           fi
 
+          # Set output for dependent jobs
+          echo "all-passed=true" >> "$GITHUB_OUTPUT"
+
       - name: Re-enable auto-merge on success
         if: |
           github.event_name == 'pull_request' &&
@@ -844,7 +850,10 @@ jobs:
 
   update-spec-progress:
     name: Update Spec Progress
-    if: needs.test.result == 'success'
+    if: |
+      needs.test.outputs.all-passed == 'true' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main'
     needs: [test]
     runs-on: ubuntu-latest
     permissions:
@@ -852,19 +861,12 @@ jobs:
     steps:
       - name: Debug condition values
         run: |
-          echo "🔍 Debugging update-spec-progress condition"
+          echo "🔍 Spec progress update triggered"
           echo "   Event: ${{ github.event_name }}"
           echo "   Ref: ${{ github.ref }}"
-          echo "   Action: ${{ github.event.action }}"
-          echo "   Test result: ${{ needs.test.result }}"
-          echo "   Test outcome: ${{ needs.test.outputs }}"
+          echo "   All tests passed: ${{ needs.test.outputs.all-passed }}"
           echo ""
-          if [ "${{ needs.test.result }}" != "success" ]; then
-            echo "❌ Test job did not succeed (result: ${{ needs.test.result }})"
-            echo "   Skipping spec progress update"
-            exit 0
-          fi
-          echo "✅ Test job succeeded, proceeding with spec progress update"
+          echo "✅ Proceeding with spec progress update"
 
       - name: Checkout code
         uses: actions/checkout@v4

@@ -69,6 +69,12 @@ Note: Max attempts default is 5 (configurable per spec)
 | Test        | `.github/workflows/test.yml`        | Push to main + PR events (opened, synchronize, reopened, closed)    |
 | Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                                               |
 
+**Note on Spec Progress Updates**: The `test` workflow includes an `update-spec-progress` job that automatically updates `SPEC-PROGRESS.md` when all tests pass on `main` branch. This job:
+- Runs only on `push` events to `main` (not on PRs)
+- Requires explicit success signal from `test` job via `outputs.all-passed`
+- Uses `bun run analyze:spec` to scan and update spec completion status
+- Commits changes with `[skip ci]` to avoid triggering new workflow runs
+
 ### Cost Limits
 
 | Threshold  | Per-Run | Daily | Weekly | Action                                            |
@@ -1053,15 +1059,15 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 
 **Execution Flow:**
 
-| Step                     | Action                                                              |
-| ------------------------ | ------------------------------------------------------------------- |
-| 1. Validate              | Check commenter, label, credits                                     |
-| 2. Checkout              | Checkout PR branch                                                  |
-| 3. Sync                  | `git fetch && git merge origin/main`                                |
-| 4. Detect conflict       | If conflict → add label, post comment, **exit**                     |
-| 5. Execute action        | Run `anthropics/claude-code-action@v1`                              |
-| 6. Final sync            | Merge any new commits from main after execution                     |
-| 7. Handle result         | Push changes if any, update PR title attempt count                  |
+| Step               | Action                                             |
+| ------------------ | -------------------------------------------------- |
+| 1. Validate        | Check commenter, label, credits                    |
+| 2. Checkout        | Checkout PR branch                                 |
+| 3. Sync            | `git fetch && git merge origin/main`               |
+| 4. Detect conflict | If conflict → add label, post comment, **exit**    |
+| 5. Execute action  | Run `anthropics/claude-code-action@v1`             |
+| 6. Final sync      | Merge any new commits from main after execution    |
+| 7. Handle result   | Push changes if any, update PR title attempt count |
 
 **Notes:**
 
