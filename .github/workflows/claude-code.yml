@@ -395,25 +395,62 @@ jobs:
             echo "✅ Already up to date with main"
           fi
 
-      - name: Add conflict label if needed
+      - name: Handle merge conflict
         if: steps.sync.outputs.has-conflict == 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          PR_NUMBER: ${{ needs.validate.outputs.pr-number }}
+          CONFLICT_FILES: ${{ steps.sync.outputs.conflict-files }}
         run: |
-          gh pr edit "${{ needs.validate.outputs.pr-number }}" \
+          echo "⚠️ Merge conflict detected - exiting workflow early"
+          echo "Conflict files: $CONFLICT_FILES"
+
+          # Add manual-intervention label
+          gh pr edit "$PR_NUMBER" \
             --repo "${{ github.repository }}" \
             --add-label "tdd-automation:manual-intervention"
 
-          # Disable auto-merge until human reviews conflict resolution
-          gh pr merge "${{ needs.validate.outputs.pr-number }}" \
-            --repo "${{ github.repository }}" --disable-auto || true
+          # Disable auto-merge (requires human review)
+          gh pr merge "$PR_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --disable-auto || true
+
+          # Post comment with conflict resolution instructions
+          {
+            echo "## ⚠️ Merge Conflict Detected"
+            echo ""
+            echo "**Affected Files:**"
+            echo "\`\`\`"
+            echo "$CONFLICT_FILES"
+            echo "\`\`\`"
+            echo ""
+            echo "**Resolution Required:**"
+            echo "This PR has merge conflicts with the \`main\` branch that must be resolved manually."
+            echo ""
+            echo "**Steps to Resolve:**"
+            echo "1. Pull the latest changes: \`git checkout tdd/${{ needs.validate.outputs.spec-id }} && git pull\`"
+            echo "2. Merge main branch: \`git merge origin/main\`"
+            echo "3. Resolve conflicts in the files listed above"
+            echo "4. Mark conflicts as resolved: \`git add <resolved-files>\`"
+            echo "5. Complete the merge: \`git commit\`"
+            echo "6. Push changes: \`git push\`"
+            echo "7. Remove the \`tdd-automation:manual-intervention\` label"
+            echo "8. Post \`@claude\` comment to resume automation"
+            echo ""
+            echo "Auto-merge has been disabled. The \`tdd-automation:manual-intervention\` label will remain until you manually remove it after resolving conflicts."
+          } > /tmp/merge_conflict.md
+
+          gh pr comment "$PR_NUMBER" \
+            --repo "${{ github.repository }}" \
+            --body-file /tmp/merge_conflict.md
+
+          # Exit workflow early (don't run Claude Code on conflicts)
+          exit 1
 
       - name: Configure agent
         id: agent-config
         env:
           AGENT_TYPE: ${{ needs.validate.outputs.agent-type }}
-          HAS_CONFLICT: ${{ steps.sync.outputs.has-conflict }}
-          CONFLICT_FILES: ${{ steps.sync.outputs.conflict-files }}
           SPEC_ID: ${{ needs.validate.outputs.spec-id }}
           SPEC_FILE: ${{ needs.validate.outputs.spec-file }}
           ORIGINAL_COMMENT: ${{ github.event.comment.body }}
@@ -444,8 +481,6 @@ jobs:
           agent_type="$AGENT_TYPE" \
           spec_id="$SPEC_ID" \
           spec_file="$SPEC_FILE" \
-          has_conflict="$HAS_CONFLICT" \
-          conflict_files="$CONFLICT_FILES" \
           bun run scripts/tdd-automation/workflows/claude-code/generate-prompt.ts > /tmp/claude_prompt.txt
 
           # Store prompt for action
