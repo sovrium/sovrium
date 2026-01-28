@@ -82,7 +82,19 @@ jobs:
           SPEC_ID=$(echo "$COMMENT_BODY" | grep -oP 'Spec: `\K[^`]+' | head -1 || echo "")
           echo "spec-id=$SPEC_ID" >> "$GITHUB_OUTPUT"
 
-          echo "📋 Parsed: agent=${{ steps.parse.outputs.agent-type || 'e2e-test-fixer' }}, spec-file=$SPEC_FILE, spec-id=$SPEC_ID"
+          # Validate parsed values
+          echo "📋 Parsed values:"
+          echo "   Agent type: ${AGENT_TYPE:-e2e-test-fixer}"
+          echo "   Spec ID: ${SPEC_ID:-(empty)}"
+          echo "   Spec file: ${SPEC_FILE:-(empty)}"
+
+          if [ -z "$SPEC_ID" ]; then
+            echo "⚠️ Warning: spec-id is empty - comment may not match expected format"
+          fi
+
+          if [ -z "$SPEC_FILE" ]; then
+            echo "⚠️ Warning: spec-file is empty - comment may not match expected format"
+          fi
 
       - name: Check credit limits
         id: credits
@@ -469,9 +481,12 @@ jobs:
           # Why: Agents are not activated by text instructions alone. They must be explicitly
           # invoked via the Task tool for their specialized system prompts and behaviors to activate.
           # Tool restrictions (--allowedTools) apply to the base assistant, not automatically to agents.
-          agent_type="$AGENT_TYPE" \
-          spec_id="$SPEC_ID" \
-          spec_file="$SPEC_FILE" \
+
+          # Export environment variables (TypeScript script supports both naming conventions)
+          export agentType="$AGENT_TYPE"
+          export specId="$SPEC_ID"
+          export specFile="$SPEC_FILE"
+
           bun run scripts/tdd-automation/workflows/claude-code/generate-prompt.ts > /tmp/claude_prompt.txt
 
           # Store prompt for action
