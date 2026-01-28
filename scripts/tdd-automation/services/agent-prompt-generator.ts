@@ -89,7 +89,7 @@ function generateTestFixerPrompt(context: AgentPromptContext): string {
   lines.push('')
   lines.push('**Instructions for the agent:**')
   lines.push('1. Analyze the test to understand what it expects')
-  lines.push('2. Verify required schemas exist (use Skill tool if missing)')
+  lines.push('2. Verify required schemas exist (STOP and escalate if missing - schema creation is product-specs-architect\'s job)')
   lines.push('3. Implement minimal code to pass the test')
   lines.push(`4. Run \`bun test:e2e -- ${context.specFile}\` to verify tests pass`)
   lines.push('5. Run `bun run quality` to ensure code quality')
