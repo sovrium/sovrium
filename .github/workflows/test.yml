@@ -12,10 +12,10 @@ on:
     types: [opened, synchronize, reopened, closed]
     branches: [main]
 
-# Cancel in-progress runs for the same PR when new commits are pushed
+# Concurrency control: Cancel PRs (fast feedback), complete main (spec updates)
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # Infrastructure retry configuration

@@ -76,6 +76,12 @@ Note: Max attempts default is 5 (configurable per spec)
 - Uses `bun run analyze:spec` to scan and update spec completion status
 - Commits changes with `[skip ci]` to avoid triggering new workflow runs
 
+**Note on Concurrency Control**: The `test` workflow uses a hybrid concurrency strategy to balance fast feedback with workflow completion:
+
+- **PR workflows**: Cancelled when new commits are pushed (fast feedback on latest code)
+- **Main branch workflows**: Run to completion even when new commits arrive (ensures spec progress updates execute)
+- **Rationale**: TDD automation pushes to main frequently. Cancelling main workflows would prevent spec progress tracking, breaking the automation pipeline.
+
 ### Cost Limits
 
 | Threshold  | Per-Run | Daily | Weekly | Action                                            |
