@@ -184,20 +184,54 @@ function formatDateField(value: unknown, field: DateField): string | undefined {
 }
 
 /**
+ * Field formatting result with display value and optional metadata
+ */
+export interface FieldFormatResult {
+  readonly displayValue: string
+  readonly timezone?: string
+}
+
+/**
+ * Format currency field and return result
+ */
+function formatCurrencyFieldResult(
+  value: unknown,
+  field: CurrencyField
+): FieldFormatResult | undefined {
+  const displayValue = formatCurrencyField(value, field)
+  return displayValue ? { displayValue } : undefined
+}
+
+/**
+ * Format date/datetime/time field and return result with timezone metadata
+ */
+function formatDateFieldResult(value: unknown, field: DateField): FieldFormatResult | undefined {
+  const displayValue = formatDateField(value, field)
+  if (!displayValue) return undefined
+
+  // Include timezone metadata if timeZone is 'local'
+  if (field.timeZone === 'local') {
+    return { displayValue, timezone: 'local' }
+  }
+
+  return { displayValue }
+}
+
+/**
  * Format a field value for display based on field type and configuration
  *
  * @param fieldName - The name of the field
  * @param value - The field value
  * @param app - The application schema
  * @param tableName - The table name
- * @returns Formatted display value or undefined if no formatting needed
+ * @returns Formatted display value and metadata, or undefined if no formatting needed
  */
 export function formatFieldForDisplay(
   fieldName: string,
   value: unknown,
   app: App,
   tableName: string
-): string | undefined {
+): FieldFormatResult | undefined {
   // Find the table and field
   const table = app.tables?.find((t) => t.name === tableName)
   if (!table) return undefined
@@ -207,11 +241,11 @@ export function formatFieldForDisplay(
 
   // Format based on field type
   if (field.type === 'currency') {
-    return formatCurrencyField(value, field as CurrencyField)
+    return formatCurrencyFieldResult(value, field as CurrencyField)
   }
 
   if (field.type === 'date' || field.type === 'datetime' || field.type === 'time') {
-    return formatDateField(value, field as DateField)
+    return formatDateFieldResult(value, field as DateField)
   }
 
   // Return undefined for types that don't need formatting yet
