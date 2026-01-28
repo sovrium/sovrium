@@ -1107,45 +1107,9 @@ jobs:
 
           echo "   Selected agent: $AGENT"
 
-          # Write comment to temp file to avoid YAML parsing issues
+          # Generate failure comment using TypeScript (replaces 38 lines of bash template logic)
           # Format matches spec: docs/development/tdd-automation-pipeline.md#system-prompt-templates
-          {
-            echo "@claude $AGENT"
-            echo ""
-            echo "You are operating in the TDD automation pipeline. Use the $AGENT_WORKFLOW agent workflow."
-            echo ""
-            printf '%s\n' '**Context:**'
-            echo "- Spec: \`$SPEC_ID\`"
-            echo "- File: \`$TARGET_SPEC\`"
-            echo "- Attempt: $NEW_ATTEMPT/$MAX_ATTEMPTS"
-            echo "- Branch: \`$BRANCH\`"
-            echo "- Failure Type: \`$FAILURE_TYPE\`"
-            echo ""
-            # Instructions vary by failure type
-            printf '%s\n' '**Instructions:**'
-            if [ "$FAILURE_TYPE" = "quality_only" ]; then
-              echo "1. Run \`bun run quality\` to identify the specific quality issues"
-              echo "2. Fix lint, format, or type errors in the production code"
-              echo "3. Do NOT modify test files - this is a quality issue, not a test failure"
-              echo "4. Run \`bun run quality\` again to verify all issues are fixed"
-              echo "5. Run \`bun test:e2e -- $TARGET_SPEC\` to confirm tests pass"
-              echo "6. Commit with message: \"fix: resolve quality issues for $SPEC_ID\""
-              echo "7. Push to origin (MANDATORY for pipeline to continue)"
-            else
-              echo "1. Analyze the test to understand what it expects"
-              echo "2. Verify required schemas exist (use Skill tool if missing)"
-              echo "3. Implement minimal code to pass the test"
-              echo "4. Run \`bun test:e2e -- $TARGET_SPEC\` to verify tests pass"
-              echo "5. Commit with message: \"fix: implement $SPEC_ID\""
-              echo "6. Push to origin (MANDATORY for pipeline to continue)"
-            fi
-            echo ""
-            printf '%s\n' '**Constraints:**'
-            echo "- NEVER modify test logic or assertions"
-            echo "- NEVER ask clarifying questions (autonomous mode)"
-            echo "- Maximum 3 iterations before reporting failure"
-            echo "- Follow functional programming patterns (no push/mutation)"
-          } > /tmp/claude_comment.txt
+          bun run scripts/tdd-automation/workflows/test/generate-failure-comment.ts > /tmp/claude_comment.txt
 
           gh pr comment "$PR_NUMBER" --body-file /tmp/claude_comment.txt
 

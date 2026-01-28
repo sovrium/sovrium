@@ -222,60 +222,24 @@ jobs:
       - name: Post credit usage comment (always)
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          # Pass credit metrics as environment variables
+          credits-ok: ${{ steps.credits.outputs.credits-ok }}
+          limit-type: ${{ steps.credits.outputs.limit-type }}
+          daily-runs: ${{ steps.credits.outputs.daily-runs }}
+          weekly-runs: ${{ steps.credits.outputs.weekly-runs }}
+          actual-daily: ${{ steps.credits.outputs.actual-daily }}
+          actual-weekly: ${{ steps.credits.outputs.actual-weekly }}
+          daily-limit: ${{ steps.credits.outputs.daily-limit }}
+          weekly-limit: ${{ steps.credits.outputs.weekly-limit }}
+          daily-remaining: ${{ steps.credits.outputs.daily-remaining }}
+          weekly-remaining: ${{ steps.credits.outputs.weekly-remaining }}
+          daily-percent: ${{ steps.credits.outputs.daily-percent }}
+          weekly-percent: ${{ steps.credits.outputs.weekly-percent }}
+          hours-until-daily-reset: ${{ steps.credits.outputs.hours-until-daily-reset }}
+          days-until-weekly-reset: ${{ steps.credits.outputs.days-until-weekly-reset }}
         run: |
-          # Always post credit usage comment for transparency
-          # Extract metrics from previous step
-          CREDITS_OK="${{ steps.credits.outputs.credits-ok }}"
-          LIMIT_TYPE="${{ steps.credits.outputs.limit-type }}"
-          DAILY_RUNS="${{ steps.credits.outputs.daily-runs }}"
-          WEEKLY_RUNS="${{ steps.credits.outputs.weekly-runs }}"
-          ACTUAL_DAILY="${{ steps.credits.outputs.actual-daily }}"
-          ACTUAL_WEEKLY="${{ steps.credits.outputs.actual-weekly }}"
-          DAILY_LIMIT="${{ steps.credits.outputs.daily-limit }}"
-          WEEKLY_LIMIT="${{ steps.credits.outputs.weekly-limit }}"
-          DAILY_REMAINING="${{ steps.credits.outputs.daily-remaining }}"
-          WEEKLY_REMAINING="${{ steps.credits.outputs.weekly-remaining }}"
-          DAILY_PERCENT="${{ steps.credits.outputs.daily-percent }}"
-          WEEKLY_PERCENT="${{ steps.credits.outputs.weekly-percent }}"
-          HOURS_RESET="${{ steps.credits.outputs.hours-until-daily-reset }}"
-          DAYS_RESET="${{ steps.credits.outputs.days-until-weekly-reset }}"
-
-          # Determine comment header based on status
-          {
-            if [ "$CREDITS_OK" != "true" ]; then
-              # Limit exceeded
-              if [ "$LIMIT_TYPE" = "daily" ]; then
-                echo "## ⏸️ Daily Credit Limit Reached"
-                echo ""
-                echo "TDD automation paused until daily limit resets in **${HOURS_RESET} hours**."
-              else
-                echo "## ⏸️ Weekly Credit Limit Reached"
-                echo ""
-                echo "TDD automation paused until weekly limit resets in **${DAYS_RESET} days**."
-              fi
-            elif [ "$DAILY_PERCENT" -ge 80 ] || [ "$WEEKLY_PERCENT" -ge 80 ]; then
-              # Warning: approaching limit
-              echo "## ⚠️ Warning: Approaching Credit Limit"
-              echo ""
-              if [ "$DAILY_PERCENT" -ge 80 ]; then
-                echo "Daily usage is at **${DAILY_PERCENT}%** of limit. Execution will continue but monitor usage closely."
-              else
-                echo "Weekly usage is at **${WEEKLY_PERCENT}%** of limit. Execution will continue but monitor usage closely."
-              fi
-            else
-              # Under limits
-              echo "## ✅ Credits Available"
-              echo ""
-              echo "Claude Code execution proceeding. Current usage is below warning thresholds."
-            fi
-            echo ""
-            echo "### 📊 Current Usage (Actual Costs)"
-            echo ""
-            echo "| Period | Usage | Limit | Remaining | % Used | Runs | Reset In |"
-            echo "|--------|-------|-------|-----------|--------|------|----------|"
-            echo "| **Daily** | \$$ACTUAL_DAILY | \$$DAILY_LIMIT | \$$DAILY_REMAINING | $DAILY_PERCENT% | $DAILY_RUNS | ${HOURS_RESET}h |"
-            echo "| **Weekly** | \$$ACTUAL_WEEKLY | \$$WEEKLY_LIMIT | \$$WEEKLY_REMAINING | $WEEKLY_PERCENT% | $WEEKLY_RUNS | ${DAYS_RESET}d |"
-          } > /tmp/credit_usage.md
+          # Generate credit usage comment using TypeScript (replaces 60 lines of bash)
+          bun run scripts/tdd-automation/workflows/claude-code/generate-credit-comment.ts > /tmp/credit_usage.md
 
           # Post comment (always)
           gh pr comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body-file /tmp/credit_usage.md
@@ -461,94 +425,17 @@ jobs:
           CLAUDE_ARGS="--max-turns $MAX_TURNS --allowedTools \"$ALLOWED_TOOLS\" --disallowedTools \"$DISALLOWED_TOOLS\""
           echo "claude-args=$CLAUDE_ARGS" >> "$GITHUB_OUTPUT"
 
-          # Build prompt based on context and agent type
+          # Generate prompt using TypeScript (replaces 85+ lines of bash template logic)
           # CRITICAL: Must explicitly instruct Claude Code to invoke Task tool with subagent_type
           # Why: Agents are not activated by text instructions alone. They must be explicitly
           # invoked via the Task tool for their specialized system prompts and behaviors to activate.
           # Tool restrictions (--allowedTools) apply to the base assistant, not automatically to agents.
-          if [ "$HAS_CONFLICT" = "true" ]; then
-            {
-              echo "⚠️ **MERGE CONFLICT DETECTED**"
-              echo ""
-              echo "Conflicted files: \`$CONFLICT_FILES\`"
-              echo ""
-              echo "**Step 1: Resolve conflicts first**"
-              echo "1. Run: \`git fetch origin main && git merge origin/main\`"
-              echo "2. Carefully resolve each conflict:"
-              echo "   - For DOMAIN MODEL conflicts: prefer main (newer schema)"
-              echo "   - For TEST FILE conflicts: merge both test cases"
-              echo "   - For CONFIG conflicts: prefer main"
-              echo "3. After resolving, run full quality + regression tests"
-              echo "4. If unsure about ANY conflict, add comment: \`// TODO human review needed\`"
-              echo "5. Commit the resolved merge"
-              echo ""
-              echo "**Step 2: Use Task tool to invoke specialized agent**"
-              echo ""
-              echo "After resolving conflicts, invoke the \`$AGENT_TYPE\` agent via the Task tool:"
-              echo ""
-              if [ "$AGENT_TYPE" = "codebase-refactor-auditor" ]; then
-                echo "- Agent type: \`codebase-refactor-auditor\`"
-                echo "- Spec: \`$SPEC_ID\`"
-                echo "- Instructions: Fix quality issues (lint, format, type errors)"
-              else
-                echo "- Agent type: \`e2e-test-fixer\`"
-                echo "- Spec: \`$SPEC_ID\`"
-                echo "- Test file: \`$SPEC_FILE\`"
-                echo "- Instructions: Implement feature to make tests pass"
-              fi
-            } > /tmp/claude_prompt.txt
-          else
-            # Generate agent invocation prompt based on agent type
-            if [ "$AGENT_TYPE" = "codebase-refactor-auditor" ]; then
-              {
-                echo "Use the Task tool to invoke the \`codebase-refactor-auditor\` agent to fix quality issues for this spec."
-                echo ""
-                echo "**Context:**"
-                echo "- Spec: \`$SPEC_ID\`"
-                echo "- Branch: \`tdd/$(echo "$SPEC_ID" | tr '[:upper:]' '[:lower:]')\`"
-                echo "- Failure type: Quality issues only (tests pass, but quality check fails)"
-                echo ""
-                echo "**Instructions for the agent:**"
-                echo "1. Run \`bun run quality\` to identify specific quality issues"
-                echo "2. Fix lint, format, or type errors in production code"
-                echo "3. Do NOT modify test files - this is a quality issue, not a test failure"
-                echo "4. Run \`bun run quality\` again to verify all issues are fixed"
-                echo "5. Run \`bun test:e2e -- $SPEC_FILE\` to confirm tests still pass"
-                echo "6. Commit with message: \"fix: resolve quality issues for $SPEC_ID\""
-                echo "7. Push to origin (MANDATORY for pipeline to continue)"
-                echo ""
-                echo "**Constraints:**"
-                echo "- NEVER modify test logic or assertions"
-                echo "- NEVER ask clarifying questions (autonomous mode)"
-                echo "- Maximum 3 iterations before reporting failure"
-                echo "- Follow functional programming patterns (no push/mutation)"
-              } > /tmp/claude_prompt.txt
-            else
-              {
-                echo "Use the Task tool to invoke the \`e2e-test-fixer\` agent to implement this spec."
-                echo ""
-                echo "**Context:**"
-                echo "- Spec: \`$SPEC_ID\`"
-                echo "- Test file: \`$SPEC_FILE\`"
-                echo "- Branch: \`tdd/$(echo "$SPEC_ID" | tr '[:upper:]' '[:lower:]')\`"
-                echo ""
-                echo "**Instructions for the agent:**"
-                echo "1. Analyze the test to understand what it expects"
-                echo "2. Verify required schemas exist (use Skill tool if missing)"
-                echo "3. Implement minimal code to pass the test"
-                echo "4. Run \`bun test:e2e -- $SPEC_FILE\` to verify tests pass"
-                echo "5. Run \`bun run quality\` to ensure code quality"
-                echo "6. Commit with message: \"fix: implement $SPEC_ID\""
-                echo "7. Push to origin (MANDATORY for pipeline to continue)"
-                echo ""
-                echo "**Constraints:**"
-                echo "- NEVER modify test logic or assertions"
-                echo "- NEVER ask clarifying questions (autonomous mode)"
-                echo "- Maximum 3 iterations before reporting failure"
-                echo "- Follow functional programming patterns (no push/mutation)"
-              } > /tmp/claude_prompt.txt
-            fi
-          fi
+          agent_type="$AGENT_TYPE" \
+          spec_id="$SPEC_ID" \
+          spec_file="$SPEC_FILE" \
+          has_conflict="$HAS_CONFLICT" \
+          conflict_files="$CONFLICT_FILES" \
+          bun run scripts/tdd-automation/workflows/claude-code/generate-prompt.ts > /tmp/claude_prompt.txt
 
           # Store prompt for action
           PROMPT=$(cat /tmp/claude_prompt.txt)

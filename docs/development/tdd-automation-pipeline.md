@@ -1398,13 +1398,13 @@ The TDD automation pipeline follows a strict separation of concerns:
 
 See `scripts/tdd-automation/` directory for complete implementation:
 
-| Directory    | Purpose                                        | Key Files                                                             |
-| ------------ | ---------------------------------------------- | --------------------------------------------------------------------- |
-| `core/`      | Domain types, errors, configuration, utilities | `types.ts`, `errors.ts`, `config.ts`, `schema-priority-calculator.ts` |
-| `services/`  | Effect service interfaces and implementations  | `github-api.ts`, `git-operations.ts`, `cost-tracker.ts`               |
-| `programs/`  | Composable Effect programs for workflow logic  | `check-credit-limits.ts`, `find-active-tdd-pr.ts`, `create-tdd-pr.ts` |
-| `workflows/` | CLI entry points called by YAML workflows      | `pr-creator/`, `test/`, `claude-code/`, `merge-watchdog/`             |
-| `layers/`    | Dependency injection (live, test)              | `live.ts`, `test.ts`                                                  |
+| Directory    | Purpose                                        | Key Files                                                                                                     |
+| ------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `core/`      | Domain types, errors, configuration, utilities | `types.ts`, `errors.ts`, `config.ts`, `schema-priority-calculator.ts`                                         |
+| `services/`  | Effect service interfaces and implementations  | `github-api.ts`, `git-operations.ts`, `cost-tracker.ts`, `credit-comment-generator.ts`, `agent-prompt-generator.ts`, `failure-comment-generator.ts` |
+| `programs/`  | Composable Effect programs for workflow logic  | `check-credit-limits.ts`, `find-active-tdd-pr.ts`, `create-tdd-pr.ts`                                         |
+| `workflows/` | CLI entry points called by YAML workflows      | `pr-creator/`, `test/`, `claude-code/`, `merge-watchdog/`                                                     |
+| `layers/`    | Dependency injection (live, test)              | `live.ts`, `test.ts`                                                                                          |
 
 **Error Types:** See `scripts/tdd-automation/core/errors.ts` for all `Data.TaggedError` definitions
 **Service Interfaces:** See `scripts/tdd-automation/services/*.ts` for service method signatures
@@ -1428,6 +1428,46 @@ Programs compose services to implement business logic using `Effect.gen`.
 | `incrementAttempt`     | `scripts/tdd-automation/programs/increment-attempt.ts`      | Increment PR title attempt count  |
 
 **Implementation:** See program files in `scripts/tdd-automation/programs/` for concrete implementations following the Effect.gen pattern with dependency injection.
+
+---
+
+### Comment Generation Services
+
+Three TypeScript services replace complex bash template logic for generating GitHub PR comments:
+
+| Service                        | File                                                              | Purpose                                              | Replaces (Lines)                     |
+| ------------------------------ | ----------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------ |
+| `generateCreditComment`        | `scripts/tdd-automation/services/credit-comment-generator.ts`     | Generate credit usage markdown for PR comments       | ~60 lines bash in `claude-code.yml`  |
+| `generateAgentPrompt`          | `scripts/tdd-automation/services/agent-prompt-generator.ts`       | Generate Claude Code agent invocation prompts        | ~85 lines bash in `claude-code.yml`  |
+| `generateFailureComment`       | `scripts/tdd-automation/services/failure-comment-generator.ts`    | Generate failure recovery prompts for test failures  | ~38 lines bash in `test.yml`         |
+
+**Key Benefits:**
+
+- **Type Safety**: Environment variables parsed and validated with Effect Schema
+- **Testability**: 30+ unit tests covering all comment generation logic
+- **Maintainability**: Centralized comment templates with reusable functions
+- **Error Handling**: Type-safe errors with `Effect.try` for parsing failures
+
+**Usage Pattern:**
+
+```typescript
+// Workflow calls CLI entry point with env vars
+env:
+  credits-ok: ${{ steps.credits.outputs.credits-ok }}
+  daily-runs: ${{ steps.credits.outputs.daily-runs }}
+  # ... other metrics
+run: |
+  bun run scripts/tdd-automation/workflows/claude-code/generate-credit-comment.ts > /tmp/credit_usage.md
+  gh pr comment "${{ github.event.issue.number }}" --body-file /tmp/credit_usage.md
+```
+
+**CLI Entry Points:**
+
+- `scripts/tdd-automation/workflows/claude-code/generate-credit-comment.ts`
+- `scripts/tdd-automation/workflows/claude-code/generate-prompt.ts`
+- `scripts/tdd-automation/workflows/test/generate-failure-comment.ts`
+
+**Test Coverage:** Each service has comprehensive unit tests verifying comment generation, environment parsing, and error handling.
 
 ---
 
