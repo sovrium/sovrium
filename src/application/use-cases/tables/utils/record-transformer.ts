@@ -139,7 +139,7 @@ export const transformRecord = (
   >(
     (acc, [key, value]) => ({
       ...acc,
-      [key]: processFieldValue(key, value, options),
+      [key]: processFieldValue(key, value, options) as RecordFieldValue | FormattedFieldValue,
     }),
     {}
   )
