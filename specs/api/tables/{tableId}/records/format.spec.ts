@@ -713,7 +713,7 @@ test.describe('Record Display Formatting', () => {
   // Attachment Metadata Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-FORMAT-019: should return attachment with MIME type restriction info',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
