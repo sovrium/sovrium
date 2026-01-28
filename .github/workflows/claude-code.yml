@@ -416,16 +416,47 @@ jobs:
           if [ "$BEHIND" -gt 0 ]; then
             echo "📥 Main branch has $BEHIND new commits, merging..."
 
-            if ! git merge origin/main --no-edit 2>/dev/null; then
-              echo "has-conflict=true" >> "$GITHUB_OUTPUT"
-              git diff --name-only --diff-filter=U > /tmp/conflicted_files.txt
-              CONFLICT_FILES=$(cat /tmp/conflicted_files.txt | tr '\n' ', ' | sed 's/,$//')
-              echo "conflict-files=$CONFLICT_FILES" >> "$GITHUB_OUTPUT"
-              # Only abort if merge is actually in progress
-              if [ -f .git/MERGE_HEAD ]; then
-                git merge --abort
+            if ! git merge origin/main --no-edit 2>&1 | tee /tmp/merge_output.txt; then
+              echo "⚠️ Merge failed. Analyzing failure type..."
+
+              # Check for actual merge conflicts using git status
+              # Conflict markers: UU (both modified), AA (both added), DD (both deleted),
+              # AU (added by us), UA (added by them), DU (deleted by us), UD (deleted by them)
+              if git status --porcelain | grep -q '^UU\|^AA\|^DD\|^AU\|^UA\|^DU\|^UD'; then
+                # Actual conflicts detected
+                echo "has-conflict=true" >> "$GITHUB_OUTPUT"
+                git diff --name-only --diff-filter=U > /tmp/conflicted_files.txt
+                CONFLICT_FILES=$(cat /tmp/conflicted_files.txt | tr '\n' ', ' | sed 's/,$//')
+                echo "conflict-files=$CONFLICT_FILES" >> "$GITHUB_OUTPUT"
+
+                # Abort merge if in progress
+                if [ -f .git/MERGE_HEAD ]; then
+                  git merge --abort
+                fi
+
+                echo "⚠️ Merge conflict detected in: $CONFLICT_FILES"
+                echo "📝 Conflict markers found in git status - requires manual resolution"
+              else
+                # No conflicts - merge failed for other reasons
+                echo "has-conflict=false" >> "$GITHUB_OUTPUT"
+
+                # Abort merge if in progress
+                if [ -f .git/MERGE_HEAD ]; then
+                  git merge --abort
+                fi
+
+                # Log error details
+                echo "❌ Merge failed but no conflicts detected"
+                echo "Merge output:"
+                cat /tmp/merge_output.txt
+
+                echo "Git status:"
+                git status --porcelain
+
+                # Fail the workflow - this is not a conflict, it's an error
+                echo "::error::Merge with origin/main failed without conflicts. This may indicate a git error, network issue, or other problem. See logs for details."
+                exit 1
               fi
-              echo "⚠️ Merge conflict detected in: $CONFLICT_FILES"
             else
               echo "has-conflict=false" >> "$GITHUB_OUTPUT"
               git push origin HEAD
@@ -477,14 +508,18 @@ jobs:
           CLAUDE_ARGS="--max-turns $MAX_TURNS --allowedTools \"$ALLOWED_TOOLS\" --disallowedTools \"$DISALLOWED_TOOLS\""
           echo "claude-args=$CLAUDE_ARGS" >> "$GITHUB_OUTPUT"
 
-          # Build prompt based on context
+          # Build prompt based on context and agent type
+          # CRITICAL: Must explicitly instruct Claude Code to invoke Task tool with subagent_type
+          # Why: Agents are not activated by text instructions alone. They must be explicitly
+          # invoked via the Task tool for their specialized system prompts and behaviors to activate.
+          # Tool restrictions (--allowedTools) apply to the base assistant, not automatically to agents.
           if [ "$HAS_CONFLICT" = "true" ]; then
             {
               echo "⚠️ **MERGE CONFLICT DETECTED**"
               echo ""
               echo "Conflicted files: \`$CONFLICT_FILES\`"
               echo ""
-              echo "**Resolve conflicts first:**"
+              echo "**Step 1: Resolve conflicts first**"
               echo "1. Run: \`git fetch origin main && git merge origin/main\`"
               echo "2. Carefully resolve each conflict:"
               echo "   - For DOMAIN MODEL conflicts: prefer main (newer schema)"
@@ -494,13 +529,72 @@ jobs:
               echo "4. If unsure about ANY conflict, add comment: \`// TODO human review needed\`"
               echo "5. Commit the resolved merge"
               echo ""
-              echo "**Then proceed with the original task:**"
+              echo "**Step 2: Use Task tool to invoke specialized agent**"
               echo ""
-              echo "$ORIGINAL_COMMENT"
+              echo "After resolving conflicts, invoke the \`$AGENT_TYPE\` agent via the Task tool:"
+              echo ""
+              if [ "$AGENT_TYPE" = "codebase-refactor-auditor" ]; then
+                echo "- Agent type: \`codebase-refactor-auditor\`"
+                echo "- Spec: \`$SPEC_ID\`"
+                echo "- Instructions: Fix quality issues (lint, format, type errors)"
+              else
+                echo "- Agent type: \`e2e-test-fixer\`"
+                echo "- Spec: \`$SPEC_ID\`"
+                echo "- Test file: \`$SPEC_FILE\`"
+                echo "- Instructions: Implement feature to make tests pass"
+              fi
             } > /tmp/claude_prompt.txt
           else
-            # Use original comment as prompt (already contains full instructions from test.yml)
-            echo "$ORIGINAL_COMMENT" > /tmp/claude_prompt.txt
+            # Generate agent invocation prompt based on agent type
+            if [ "$AGENT_TYPE" = "codebase-refactor-auditor" ]; then
+              {
+                echo "Use the Task tool to invoke the \`codebase-refactor-auditor\` agent to fix quality issues for this spec."
+                echo ""
+                echo "**Context:**"
+                echo "- Spec: \`$SPEC_ID\`"
+                echo "- Branch: \`tdd/$(echo "$SPEC_ID" | tr '[:upper:]' '[:lower:]')\`"
+                echo "- Failure type: Quality issues only (tests pass, but quality check fails)"
+                echo ""
+                echo "**Instructions for the agent:**"
+                echo "1. Run \`bun run quality\` to identify specific quality issues"
+                echo "2. Fix lint, format, or type errors in production code"
+                echo "3. Do NOT modify test files - this is a quality issue, not a test failure"
+                echo "4. Run \`bun run quality\` again to verify all issues are fixed"
+                echo "5. Run \`bun test:e2e -- $SPEC_FILE\` to confirm tests still pass"
+                echo "6. Commit with message: \"fix: resolve quality issues for $SPEC_ID\""
+                echo "7. Push to origin (MANDATORY for pipeline to continue)"
+                echo ""
+                echo "**Constraints:**"
+                echo "- NEVER modify test logic or assertions"
+                echo "- NEVER ask clarifying questions (autonomous mode)"
+                echo "- Maximum 3 iterations before reporting failure"
+                echo "- Follow functional programming patterns (no push/mutation)"
+              } > /tmp/claude_prompt.txt
+            else
+              {
+                echo "Use the Task tool to invoke the \`e2e-test-fixer\` agent to implement this spec."
+                echo ""
+                echo "**Context:**"
+                echo "- Spec: \`$SPEC_ID\`"
+                echo "- Test file: \`$SPEC_FILE\`"
+                echo "- Branch: \`tdd/$(echo "$SPEC_ID" | tr '[:upper:]' '[:lower:]')\`"
+                echo ""
+                echo "**Instructions for the agent:**"
+                echo "1. Analyze the test to understand what it expects"
+                echo "2. Verify required schemas exist (use Skill tool if missing)"
+                echo "3. Implement minimal code to pass the test"
+                echo "4. Run \`bun test:e2e -- $SPEC_FILE\` to verify tests pass"
+                echo "5. Run \`bun run quality\` to ensure code quality"
+                echo "6. Commit with message: \"fix: implement $SPEC_ID\""
+                echo "7. Push to origin (MANDATORY for pipeline to continue)"
+                echo ""
+                echo "**Constraints:**"
+                echo "- NEVER modify test logic or assertions"
+                echo "- NEVER ask clarifying questions (autonomous mode)"
+                echo "- Maximum 3 iterations before reporting failure"
+                echo "- Follow functional programming patterns (no push/mutation)"
+              } > /tmp/claude_prompt.txt
+            fi
           fi
 
           # Store prompt for action
