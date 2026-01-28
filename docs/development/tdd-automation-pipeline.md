@@ -651,6 +651,23 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                   │                 └───────────┬─────────────┘                                       ║
 ║                   │                             │                                                     ║
 ║                   │                             ▼                                                     ║
+║                   │                ┌──────────────────────────────────────┐                           ║
+║                   │                │ STEP 2.5: Wait for test workflow     │                           ║
+║                   │                │                                      │                           ║
+║                   │                │ Query test.yml runs on PR branch:    │                           ║
+║                   │                │   gh api workflows/test.yml/runs     │                           ║
+║                   │                │     --status=in_progress             │                           ║
+║                   │                │                                      │                           ║
+║                   │                │ If running:                          │                           ║
+║                   │                │   - Wait up to 15 minutes            │                           ║
+║                   │                │   - Check every 30 seconds           │                           ║
+║                   │                │   - Timeout → proceed anyway         │                           ║
+║                   │                │                                      │                           ║
+║                   │                │ Purpose: Prevent parallel execution  │                           ║
+║                   │                │ of test.yml and claude-code.yml      │                           ║
+║                   │                └──────────────┬───────────────────────┘                           ║
+║                   │                               │                                                   ║
+║                   │                               ▼                                                   ║
 ║                   │                ┌─────────────────────────┐                                        ║
 ║                   │                │ STEP 3: Sync with main  │                                        ║
 ║                   │                │                         │                                        ║
@@ -1053,15 +1070,24 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 
 **Execution Flow:**
 
-| Step               | Action                                             |
-| ------------------ | -------------------------------------------------- |
-| 1. Validate        | Check commenter, label, credits                    |
-| 2. Sync            | `git fetch && git merge origin/main`               |
-| 3. Detect conflict | If conflict → add label, post comment, **exit**    |
-| 4. Execute action  | Run `anthropics/claude-code-action@v1`             |
-| 5. Handle result   | Push changes if any, update PR title attempt count |
+| Step                     | Action                                                              |
+| ------------------------ | ------------------------------------------------------------------- |
+| 1. Validate              | Check commenter, label, credits                                     |
+| 2. Checkout              | Checkout PR branch                                                  |
+| 2.5. Wait for test       | Wait for any running `test.yml` workflows (max 15 min)              |
+| 3. Sync                  | `git fetch && git merge origin/main`                                |
+| 4. Detect conflict       | If conflict → add label, post comment, **exit**                     |
+| 5. Execute action        | Run `anthropics/claude-code-action@v1`                              |
+| 6. Final sync            | Merge any new commits from main after execution                     |
+| 7. Handle result         | Push changes if any, update PR title attempt count                  |
 
-**Note**: Branch syncing (Step 2) is handled automatically by this workflow via merge strategy. The test workflow (`.github/workflows/test.yml`) does NOT check if the branch is behind main - syncing happens when Claude Code is triggered via `@claude` comment.
+**Notes:**
+
+- **Step 2.5 (Wait for test)**: Prevents parallel execution of `test.yml` and `claude-code.yml`. If test workflow is running when Claude Code is triggered, we wait up to 15 minutes for it to complete. This avoids race conditions where both workflows modify the branch simultaneously.
+
+- **Step 3 (Initial sync)**: Branch syncing is handled automatically by this workflow via merge strategy. The test workflow (`.github/workflows/test.yml`) does NOT check if the branch is behind main - syncing happens when Claude Code is triggered via `@claude` comment.
+
+- **Step 6 (Final sync)**: Handles race condition where main branch advances during Claude Code's long execution (20-45 minutes). Without this step, the PR branch would be stale before `test.yml` runs.
 
 **Agent Selection (via prompt):**
 
