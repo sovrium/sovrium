@@ -157,6 +157,7 @@ function countSignificantChanges(baseRef: string): Effect.Effect<number, never> 
     // Filter out non-significant lines:
     // - Lines starting with +++ or ---  (file headers)
     // - Lines containing .fixme( or .skip(
+    // - Paired additions that match deletions except for .fixme()/.skip() removal
     // - Empty lines (just + or -)
     const lines = diffOutput.split('\n')
     let significantCount = 0
@@ -172,13 +173,38 @@ function countSignificantChanges(baseRef: string): Effect.Effect<number, never> 
         continue
       }
 
-      // Skip .fixme() and .skip() changes
-      if (line.includes('.fixme(') || line.includes('.skip(')) {
+      // Skip empty changes (just whitespace after +/-)
+      if (line.slice(1).trim() === '') {
         continue
       }
 
-      // Skip empty changes (just whitespace after +/-)
-      if (line.slice(1).trim() === '') {
+      // Skip deletions containing .fixme() or .skip()
+      if (line.startsWith('-') && (line.includes('.fixme(') || line.includes('.skip('))) {
+        continue
+      }
+
+      // For additions: check if this is a paired .fixme()/.skip() removal
+      // Pattern: deletion has .fixme()/.skip(), addition is identical without it
+      if (line.startsWith('+') && !line.includes('.fixme(') && !line.includes('.skip(')) {
+        const cleanedLine = line.slice(1).trim()
+
+        // Check if there's a matching deletion with .fixme() or .skip() added back
+        // Example: "test('should work'," → "test.fixme('should work'," or "test.skip('should work',"
+        const withFixme = cleanedLine.replace(/^test\(/, 'test.fixme(')
+        const withSkip = cleanedLine.replace(/^test\(/, 'test.skip(')
+
+        // Search for matching deletion in the diff output
+        const deletionLineFixme = `-  ${withFixme}`
+        const deletionLineSkip = `-  ${withSkip}`
+
+        if (diffOutput.includes(deletionLineFixme) || diffOutput.includes(deletionLineSkip)) {
+          // This is a paired .fixme()/.skip() removal - skip it
+          continue
+        }
+      }
+
+      // Skip additions containing .fixme() or .skip() (adding new fixme'd tests)
+      if (line.startsWith('+') && (line.includes('.fixme(') || line.includes('.skip('))) {
         continue
       }
 

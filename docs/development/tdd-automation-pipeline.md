@@ -63,18 +63,18 @@ Note: Max attempts default is 5 (configurable per spec)
 
 ### Workflows Summary
 
-| Workflow    | File                                | Trigger                                                            |
-| ----------- | ----------------------------------- | ------------------------------------------------------------------ |
+| Workflow    | File                                | Trigger                                                             |
+| ----------- | ----------------------------------- | ------------------------------------------------------------------- |
 | PR Creator  | `.github/workflows/pr-creator.yml`  | Hourly cron + test.yml success on main + manual (workflow_dispatch) |
-| Test        | `.github/workflows/test.yml`        | Push to main + PR events (opened, synchronize, reopened, closed)  |
-| Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                                              |
+| Test        | `.github/workflows/test.yml`        | Push to main + PR events (opened, synchronize, reopened, closed)    |
+| Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                                               |
 
 ### Cost Limits
 
-| Threshold  | Per-Run | Daily | Weekly | Action                                                |
-| ---------- | ------- | ----- | ------ | ----------------------------------------------------- |
-| Hard Limit | $5.00   | $100  | $500   | Claude Code stops / Skip workflow / Skip workflow     |
-| Warning    | N/A     | $80   | $400   | N/A / Log warning (80%) / Log warning (80%)           |
+| Threshold  | Per-Run | Daily | Weekly | Action                                            |
+| ---------- | ------- | ----- | ------ | ------------------------------------------------- |
+| Hard Limit | $5.00   | $100  | $500   | Claude Code stops / Skip workflow / Skip workflow |
+| Warning    | N/A     | $80   | $400   | N/A / Log warning (80%) / Log warning (80%)       |
 
 **Per-Run**: Enforced by Claude Code CLI (`--max-budget-usd`), not workflow
 **Daily/Weekly**: Enforced by workflow credit check before execution
