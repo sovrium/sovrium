@@ -203,13 +203,16 @@ jobs:
   # 8 shards running in parallel, each with 2 workers = 16 effective workers
   # ============================================================================
 
-  # E2E for test-only changes: Run only target spec (fast path)
+  # E2E for test-only changes or .fixme() removal: Run only target spec (fast path)
+  # - is_test_only: Test file changed (typecheck + E2E target)
+  # - is_fixme_removal_only: .fixme() removed (typecheck skipped, E2E target only)
   e2e-target:
     name: E2E Target Spec
     if: |
       github.event_name == 'pull_request' &&
       github.event.action != 'closed' &&
-      needs.detect-change-type.outputs.is_test_only == 'true'
+      (needs.detect-change-type.outputs.is_test_only == 'true' ||
+       needs.detect-change-type.outputs.is_fixme_removal_only == 'true')
     needs: [detect-change-type, typecheck]
     runs-on: ubuntu-latest
     timeout-minutes: 10
