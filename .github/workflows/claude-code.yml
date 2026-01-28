@@ -577,8 +577,8 @@ jobs:
           ERROR_MESSAGE: ${{ steps.parse-result.outputs.error-message }}
           SPEC_ID: ${{ needs.validate.outputs.spec-id }}
         run: |
-          # Simplified error handling: ALL errors → post comment → add label → close PR
-          # No automatic retries - manual intervention required for all failures
+          # Simplified error handling: ALL errors → post comment → add label → trigger PR Creator
+          # PR stays open for manual review - other specs continue processing automatically
 
           echo "❌ Claude Code execution failed: $RESULT_SUBTYPE"
 
@@ -608,13 +608,15 @@ jobs:
             echo "3. Remove \`tdd-automation:manual-intervention\` label"
             echo "4. Post \`@claude\` comment to retry"
             echo ""
+            echo "**Note**: This PR remains open for review. Other specs will continue processing automatically."
+            echo ""
             echo "---"
-            echo "_TDD Automation paused for this spec_"
+            echo "_TDD Automation paused for this spec - pipeline continues with next spec_"
           } > /tmp/error_comment.md
 
           gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/error_comment.md
 
-          # Close PR
-          gh pr close "$PR_NUMBER" --repo "${{ github.repository }}" --comment "Closed: Claude Code execution failed - manual intervention required"
+          # Trigger PR Creator to pick up next spec
+          gh workflow run pr-creator.yml --repo "${{ github.repository }}"
 
-          echo "✅ Error handled - PR closed with manual-intervention label"
+          echo "✅ Error handled - PR kept open with manual-intervention label, PR Creator triggered for next spec"

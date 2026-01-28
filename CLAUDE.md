@@ -291,9 +291,9 @@ sovrium/
 
 **State Management**:
 - PR-based state via labels and title format
-- PR Title: `[TDD] Implement <spec-id> | Attempt X/5`
+- PR Title: `[TDD] Implement <spec-id>`
 - Serial processing: Only one active TDD PR at a time
-- 5-attempt rule: After 5 failures, PR gets `tdd-automation:manual-intervention` label
+- Error handling: ALL errors add `manual-intervention` label, keep PR open, trigger PR Creator
 
 **Quick Commands**:
 ```bash
