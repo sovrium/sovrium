@@ -1001,6 +1001,7 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 - **Detection logic**: `detect-change-type` job analyzes git diff and counts "significant" lines (non-`.fixme()`, non-file headers, non-empty). If significant changes = 0, sets `is_fixme_removal_only=true`.
 - **Skip condition**: TypeCheck job checks `needs.detect-change-type.outputs.is_fixme_removal_only != 'true'` before running.
 - **Other jobs still run**: Lint (for spec formatting), Unit Tests (unaffected), and E2E Tests (to verify the spec passes).
+- **E2E Target Dependency Handling**: The `e2e-target` job uses `always()` + result check to run even when `typecheck` is skipped. GitHub Actions skips jobs when dependencies are skipped, so we explicitly check `needs.typecheck.result == 'skipped'` to allow execution.
 
 **Rationale**: .fixme() removal activates a test but doesn't change its implementation. TypeScript validation adds no value since no code changed, only test execution status.
 
