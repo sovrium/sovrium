@@ -555,27 +555,93 @@ jobs:
           SHOULD_RETRY: ${{ steps.categorize-error.outputs.should-retry }}
           ERROR_MESSAGE: ${{ steps.parse-result.outputs.error-message }}
           SPEC_ID: ${{ needs.validate.outputs.spec-id }}
+          SPEC_FILE: ${{ needs.validate.outputs.spec-file }}
         run: |
           # Route based on error category
 
           if [ "$SHOULD_RETRY" = "true" ]; then
-            echo "🔄 Retryable error - workflow will post @claude comment to trigger retry"
+            echo "🔄 Retryable error - triggering automatic retry with exponential backoff..."
 
-            # Post comment to trigger retry (test workflow will call claude-code.yml again)
-            {
-              echo "⚠️ **Claude Code Execution Failed (Retryable Error)**"
-              echo ""
-              echo "**Error Category**: \`$ERROR_CATEGORY\`"
-              echo "**Error Message**: $ERROR_MESSAGE"
-              echo ""
-              echo "**Next Steps**: The test workflow will automatically retry by posting a @claude comment."
-              echo ""
-              echo "---"
-              echo "_Automated retry triggered by TDD pipeline error handling_"
-            } > /tmp/retry_comment.md
+            # Fetch PR title to extract attempt number
+            PR_TITLE=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json title --jq '.title')
+            echo "PR Title: $PR_TITLE"
 
-            gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/retry_comment.md
-            exit 0
+            # Extract attempt number from PR title (format: "Implement SPEC-ID | Attempt X/Y")
+            CURRENT_ATTEMPT=$(echo "$PR_TITLE" | grep -oP 'Attempt\s+\K\d+' || echo "1")
+            MAX_ATTEMPTS=$(echo "$PR_TITLE" | grep -oP 'Attempt\s+\d+/\K\d+' || echo "5")
+
+            echo "📊 Current attempt: $CURRENT_ATTEMPT/$MAX_ATTEMPTS"
+
+            # Guard: Don't retry if already at max attempts
+            if [ "$CURRENT_ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
+              echo "⚠️ Already at max attempts ($MAX_ATTEMPTS) - skipping automatic retry"
+              echo "Manual intervention required (will be handled by non-retriable error flow)"
+              SHOULD_RETRY="false"  # Override to trigger manual intervention flow
+            else
+              # Calculate exponential backoff: delay = 60 * (2^(attempt-1) - 1)
+              # Attempt 1: 0s (immediate)
+              # Attempt 2: 60s (1 min)
+              # Attempt 3: 180s (3 min)
+              # Attempt 4: 420s (7 min)
+              # Attempt 5: 900s (15 min)
+              BACKOFF_SECONDS=$((60 * ((1 << (CURRENT_ATTEMPT - 1)) - 1)))
+
+              echo "📊 Automatic Retry Configuration:"
+              echo "   Error Category: $ERROR_CATEGORY"
+              echo "   Current Attempt: $CURRENT_ATTEMPT/$MAX_ATTEMPTS"
+              echo "   Backoff Delay: ${BACKOFF_SECONDS}s"
+
+              # Post status comment (non-blocking - informational)
+              {
+                echo "⚠️ **Claude Code Execution Failed (Retryable Error)**"
+                echo ""
+                echo "**Error Category**: \`$ERROR_CATEGORY\`"
+                echo "**Error Message**:"
+                echo "\`\`\`"
+                echo "$ERROR_MESSAGE"
+                echo "\`\`\`"
+                echo ""
+                echo "**Attempt**: $CURRENT_ATTEMPT/$MAX_ATTEMPTS"
+                echo "**Backoff Delay**: ${BACKOFF_SECONDS}s"
+                echo ""
+                echo "**Automatic Recovery**: Retrying after exponential backoff..."
+                echo ""
+                if [ "$BACKOFF_SECONDS" -gt 0 ]; then
+                  echo "⏳ Next retry in: ${BACKOFF_SECONDS}s"
+                else
+                  echo "⚡ Retrying immediately (first failure)"
+                fi
+                echo ""
+                echo "---"
+                echo "_Automated retry triggered by TDD pipeline error handling_"
+              } > /tmp/retry_status.md
+
+              gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/retry_status.md
+
+              # Sleep for exponential backoff (max 15 minutes for attempt 5)
+              if [ "$BACKOFF_SECONDS" -gt 0 ]; then
+                echo "⏳ Sleeping for ${BACKOFF_SECONDS}s..."
+                sleep "$BACKOFF_SECONDS"
+              else
+                echo "⚡ No backoff delay (immediate retry)"
+              fi
+
+              # Post @claude comment to trigger claude-code.yml via issue_comment event
+              NEXT_ATTEMPT=$((CURRENT_ATTEMPT + 1))
+              {
+                echo "@claude"
+                echo ""
+                echo "Spec: \`$SPEC_ID\`"
+                echo "File: \`$SPEC_FILE\`"
+                echo ""
+                echo "_Automatic retry after transient error (Attempt $NEXT_ATTEMPT/$MAX_ATTEMPTS)_"
+              } > /tmp/claude_retry.md
+
+              gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/claude_retry.md
+
+              echo "✅ Automatic retry triggered - claude-code.yml will execute via issue_comment event"
+              exit 0
+            fi
           fi
 
           # Non-retriable errors: close PR with appropriate label

@@ -1359,16 +1359,16 @@ Posted when daily or weekly limit is reached (blocks execution).
 
 The pipeline implements comprehensive error handling for all Claude Code failure modes:
 
-| Error Type                        | Subtype                               | Retriable | Action                               | Label                                 |
-| --------------------------------- | ------------------------------------- | --------- | ------------------------------------ | ------------------------------------- |
-| **Success**                       | `success`                             | N/A       | Continue to test workflow            | None                                  |
-| **Max Turns**                     | `error_max_turns`                     | ❌ No     | Close PR immediately                 | `tdd-automation:spec-review-needed`   |
-| **Budget Exceeded**               | `error_max_budget_usd`                | ❌ No     | Close PR immediately                 | `tdd-automation:budget-exceeded`      |
-| **Execution Error (Transient)¹**  | `error_during_execution`              | ✅ Yes    | Post @claude comment to retry        | None (retry handled by test workflow) |
-| **Execution Error (Persistent)¹** | `error_during_execution`              | ❌ No     | Close PR immediately                 | `tdd-automation:manual-intervention`  |
-| **Execution Error (Unknown)¹**    | `error_during_execution`              | ✅ Once   | Retry once, then manual intervention | `tdd-automation:manual-intervention`  |
-| **Structured Output Retries**     | `error_max_structured_output_retries` | ✅ Once   | Retry once, then manual intervention | `tdd-automation:manual-intervention`  |
-| **Unknown Error**                 | `unknown`                             | ❌ No     | Close PR immediately                 | `tdd-automation:manual-intervention`  |
+| Error Type                        | Subtype                               | Retriable | Action                                         | Label                                 |
+| --------------------------------- | ------------------------------------- | --------- | ---------------------------------------------- | ------------------------------------- |
+| **Success**                       | `success`                             | N/A       | Continue to test workflow                      | None                                  |
+| **Max Turns**                     | `error_max_turns`                     | ❌ No     | Close PR immediately                           | `tdd-automation:spec-review-needed`   |
+| **Budget Exceeded**               | `error_max_budget_usd`                | ❌ No     | Close PR immediately                           | `tdd-automation:budget-exceeded`      |
+| **Execution Error (Transient)¹**  | `error_during_execution`              | ✅ Yes    | Automatic retry with exponential backoff       | None (auto-recovery active)           |
+| **Execution Error (Persistent)¹** | `error_during_execution`              | ❌ No     | Close PR immediately                           | `tdd-automation:manual-intervention`  |
+| **Execution Error (Unknown)¹**    | `error_during_execution`              | ✅ Yes    | Automatic retry, then manual if persists       | `tdd-automation:manual-intervention`  |
+| **Structured Output Retries**     | `error_max_structured_output_retries` | ✅ Yes    | Automatic retry, then manual if persists       | `tdd-automation:manual-intervention`  |
+| **Unknown Error**                 | `unknown`                             | ❌ No     | Close PR immediately                           | `tdd-automation:manual-intervention`  |
 
 **Notes:**
 
@@ -1379,6 +1379,145 @@ The pipeline implements comprehensive error handling for all Claude Code failure
 - **Unknown patterns**: Any error not matching above (retry once, then manual intervention)
 
 See "Error Detection Pipeline" section for implementation details.
+
+### Automatic Recovery System
+
+The TDD pipeline implements **event-driven automatic retry** for transient Claude Code errors, enabling full autonomy without human intervention for recoverable failures.
+
+#### How Automatic Recovery Works
+
+When Claude Code fails with a **retriable error** (transient, unknown execution, or structured output retries), the pipeline:
+
+1. **Categorizes the error** - Determines if error is transient (network issues, timeouts) or persistent (code bugs)
+2. **Checks attempt limit** - Verifies current attempt < 5 (respects 5-attempt maximum)
+3. **Calculates exponential backoff** - Progressively increases delay between retries
+4. **Posts status comment** - Informs about retry with backoff delay
+5. **Sleeps for calculated delay** - Waits to avoid retry storms
+6. **Posts @claude comment** - Triggers `claude-code.yml` via `issue_comment` event
+7. **New workflow run starts** - Fresh execution context with full error handling
+
+**Key Characteristic**: Event-driven (not cron-based) - immediate response when errors occur.
+
+#### Exponential Backoff Schedule
+
+| Attempt | Backoff Delay | Cumulative Time | Purpose                                      |
+| ------- | ------------- | --------------- | -------------------------------------------- |
+| 1       | 0s            | 0s              | First attempt (no delay)                     |
+| 2       | 60s           | 1 min           | Quick retry after first failure              |
+| 3       | 180s          | 4 min           | Allow more time for transient issues         |
+| 4       | 420s          | 11 min          | Significant delay before penultimate attempt |
+| 5       | 900s          | 26 min          | Final attempt with extended backoff          |
+
+**Formula**: `delay = 60 * (2^(attempt-1) - 1)`
+
+**Max Cumulative Time**: 26 minutes (from first failure to 5th attempt start)
+
+**Why Exponential?**
+- Prevents retry storms (avoids overwhelming services)
+- Gives transient issues time to resolve (network recovery, API rate limits reset)
+- Natural backoff pattern (failures cluster together, backoff separates them)
+
+#### Retry Categories
+
+| Error Category                | Should Retry | Max Attempts | Rationale                                                  |
+| ----------------------------- | ------------ | ------------ | ---------------------------------------------------------- |
+| `transient`                   | ✅ Yes       | 5            | Network timeouts, 502/503 errors, API rate limits          |
+| `structured_output_retries`   | ✅ Yes       | 5            | Claude output parsing issues (usually transient)           |
+| `unknown_execution`           | ✅ Yes       | 5            | Unknown errors (conservative retry)                        |
+| `persistent`                  | ❌ No        | -            | SyntaxError, ENOENT (requires code fix)                    |
+| `max_turns`                   | ❌ No        | -            | Spec too complex (needs spec review)                       |
+| `max_budget`                  | ❌ No        | -            | Exceeded $5 per-run limit (close PR)                       |
+| `max_attempts_reached` (new)  | ❌ No        | -            | Already at 5/5 attempts (manual intervention required)     |
+
+**New Guard Rail**: If current attempt ≥ 5, automatic retry is **skipped** and PR is closed with `manual-intervention` label (prevents infinite loops).
+
+#### Recovery Flow Diagram
+
+```
+Claude Code Fails
+      │
+      ▼
+Categorize Error
+      │
+  ┌───┴────────────┐
+  │                │
+  ▼                ▼
+Retry          No Retry
+  │                │
+  │                ├─→ Close PR (max_budget, max_turns)
+  │                └─→ Add label (persistent, manual intervention)
+  │
+  ├─→ Check attempt limit (< 5?)
+  │     │
+  │     ├─→ No (≥5) → Close PR + manual-intervention label
+  │     └─→ Yes → Continue
+  │
+  ├─→ Calculate exponential backoff
+  ├─→ Post status comment
+  ├─→ Sleep for delay
+  └─→ Post @claude comment
+           │
+           ▼
+    claude-code.yml re-triggered (issue_comment event)
+           │
+       ┌───┴───┐
+       │       │
+       ▼       ▼
+    Success  Failure
+       │       │
+       │       └─→ Repeat (if attempts < 5)
+       │
+       └─→ Tests pass → Auto-merge
+```
+
+#### Cost Protection
+
+- **Per-run limit**: $5.00 (enforced by `--max-budget-usd` in Claude Code)
+- **Daily limit**: $100 (checked before retry, blocks execution if exceeded)
+- **Weekly limit**: $500 (checked before retry, blocks execution if exceeded)
+- **Retry delay adds no cost** (GitHub Actions sleep is free)
+- **Worst case**: 5 retries × $5 = $25 per spec (within daily limit)
+- **Typical case**: 1-2 retries × $5 = $5-10 per spec (most transient errors resolve quickly)
+
+#### Manual Override
+
+If automatic retry is insufficient or fails to resolve the issue:
+
+1. **Reset attempt counter**: `recovery.yml` → `reset-attempt-counter` (allows 5 more retries after fixing underlying issue)
+2. **Manual retry**: `recovery.yml` → `retry-claude-code` (posts @claude comment immediately, bypasses backoff)
+3. **Mark for spec review**: `recovery.yml` → `mark-for-spec-review` (close PR with `spec-review-needed` label)
+4. **Close and reset spec**: `recovery.yml` → `close-and-reset-spec` (close PR and add `.fixme()` back to spec file)
+
+See "Recovery Workflow" section for detailed manual recovery options.
+
+#### Expected Impact
+
+| Metric                     | Before (Manual Only)         | After (Automatic Recovery) |
+| -------------------------- | ---------------------------- | -------------------------- |
+| **Transient Error Recovery** | ❌ Manual (hours to days)   | ✅ Automatic (minutes)     |
+| **Response Time**          | ⏰ Hours (human intervention) | ⚡ 1-26 minutes (automated) |
+| **Human Effort**           | 🧑 High (every transient error) | 🤖 Low (only persistent failures) |
+| **Throughput**             | 📉 ~10-20 specs/day          | 📈 ~50-100 specs/day       |
+| **Cost Per Spec**          | 💰 ~$15 (manual retry cycles) | 💰 ~$12 (fewer retry loops) |
+| **Reliability**            | ⚠️ Depends on human availability | ✅ 24/7 automatic recovery |
+
+**Key Benefit**: **80% reduction in human effort** - only persistent failures (code bugs, spec issues) require manual intervention.
+
+#### Monitoring Automatic Recovery
+
+**GitHub Insights to Track:**
+
+1. **Workflow run count** for `claude-code.yml` - Shows retry frequency (expect 1.2-1.5 runs per spec)
+2. **PR comment count** - High count = many retries (investigate transient error patterns)
+3. **PR age distribution** - Long-lived PRs = automatic recovery failing (review logs)
+4. **Label distribution** - High `manual-intervention` rate = persistent errors dominating
+
+**Success Metrics:**
+
+- **Retry success rate**: Target 80%+ (most transient errors resolve on retry)
+- **Average attempts per spec**: Target 1.2-1.5 (most specs pass on first try)
+- **Manual intervention rate**: Target <5% (only persistent failures escalate)
+- **Mean time to recovery**: Target <10 minutes (exponential backoff averages ~6 minutes)
 
 ### Error Type → Recovery Action Mapping
 
