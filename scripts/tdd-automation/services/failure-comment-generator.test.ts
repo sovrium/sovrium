@@ -36,14 +36,23 @@ describe('Failure Comment Generator', () => {
       expect(result).toContain('- Attempt: 2/5')
       expect(result).toContain('- Branch: `tdd/ui-tables-001`')
       expect(result).toContain('- Failure Type: `quality_only`')
-      expect(result).toContain('1. Run `bun run quality` to identify the specific quality issues')
-      expect(result).toContain('2. Fix lint, format, or type errors in the production code')
+      expect(result).toContain('1. Run `bun run quality` to identify specific quality issues')
+      expect(result).toContain('2. Fix lint, format, or type errors in production code')
       expect(result).toContain(
-        '3. Do NOT modify test files - this is a quality issue, not a test failure'
+        '3. Review recent changes for architecture compliance and best practices'
+      )
+      expect(result).toContain('4. Eliminate code duplication if found in modified files')
+      expect(result).toContain(
+        '5. Do NOT modify test files - this is a quality issue, not a test failure'
+      )
+      expect(result).toContain('6. Run `bun run quality` again to verify all issues are fixed')
+      expect(result).toContain(
+        '7. Run `bun test:e2e -- specs/ui/tables/table-creation.spec.ts` to confirm tests still pass'
       )
       expect(result).toContain(
-        '6. Commit with message: "fix: resolve quality issues for UI-TABLES-001"'
+        '8. Commit with message: "fix: resolve quality issues for UI-TABLES-001"'
       )
+      expect(result).toContain('9. Push to origin (MANDATORY for pipeline to continue)')
       expect(result).toContain('- NEVER modify test logic or assertions')
       expect(result).toContain('- Maximum 3 iterations before reporting failure')
     })
@@ -70,12 +79,12 @@ describe('Failure Comment Generator', () => {
       expect(result).toContain('- Branch: `tdd/api-users-002`')
       expect(result).toContain('- Failure Type: `target_only`')
       expect(result).toContain('1. Analyze the test to understand what it expects')
-      expect(result).toContain('2. Verify required schemas exist (use Skill tool if missing)')
-      expect(result).toContain('3. Implement minimal code to pass the test')
+      expect(result).toContain('2. Implement minimal code to pass the test')
       expect(result).toContain(
-        '4. Run `bun test:e2e -- specs/api/users/user-update.spec.ts` to verify tests pass'
+        '3. Run `bun test:e2e -- specs/api/users/user-update.spec.ts` to verify tests pass'
       )
-      expect(result).toContain('5. Commit with message: "fix: implement API-USERS-002"')
+      expect(result).toContain('4. Commit with message: "fix: implement API-USERS-002"')
+      expect(result).toContain('5. Push to origin (MANDATORY for pipeline to continue)')
       expect(result).toContain('- NEVER modify test logic or assertions')
     })
 
