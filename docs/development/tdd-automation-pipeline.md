@@ -70,6 +70,7 @@ Note: Max attempts default is 5 (configurable per spec)
 | Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                                               |
 
 **Note on Spec Progress Updates**: The `test` workflow includes an `update-spec-progress` job that automatically updates `SPEC-PROGRESS.md` when all tests pass on `main` branch. This job:
+
 - Runs only on `push` events to `main` (not on PRs)
 - Requires explicit success signal from `test` job via `outputs.all-passed`
 - Uses `bun run analyze:spec` to scan and update spec completion status
