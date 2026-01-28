@@ -191,6 +191,8 @@ export interface FormatResult {
   readonly displayValue: string
   readonly timezone?: string
   readonly allowedFileTypes?: readonly string[]
+  readonly maxFileSize?: number
+  readonly maxFileSizeDisplay?: string
 }
 
 /**
@@ -319,16 +321,42 @@ function isAttachmentType(type: string): boolean {
 }
 
 /**
- * Format attachment field and create FormatResult with allowedFileTypes
+ * Format bytes to human-readable file size string
+ *
+ * @param bytes - File size in bytes
+ * @returns Formatted file size string (e.g., "5 MB", "1.5 GB")
+ */
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B'
+
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+  // For MB and above, show clean integers (5 MB, not 5.0 MB)
+  // For KB, show one decimal place if needed
+  const value = bytes / Math.pow(k, i)
+  const formatted = i >= 2 ? Math.round(value) : Math.round(value * 10) / 10
+
+  return `${formatted} ${sizes[i]}`
+}
+
+/**
+ * Format attachment field and create FormatResult with allowedFileTypes, maxFileSize, and maxFileSizeDisplay
  */
 function formatAttachmentFieldResult(
   value: unknown,
-  field: Readonly<{ allowedFileTypes?: readonly string[] }>
+  field: Readonly<{ allowedFileTypes?: readonly string[]; maxFileSize?: number }>
 ): FormatResult | undefined {
-  if (!field.allowedFileTypes) return undefined
+  // Only format if we have metadata to add
+  if (!field.allowedFileTypes && !field.maxFileSize) return undefined
+
   return {
     displayValue: String(value ?? ''),
-    allowedFileTypes: field.allowedFileTypes,
+    ...(field.allowedFileTypes ? { allowedFileTypes: field.allowedFileTypes } : {}),
+    ...(field.maxFileSize !== undefined
+      ? { maxFileSize: field.maxFileSize, maxFileSizeDisplay: formatBytes(field.maxFileSize) }
+      : {}),
   }
 }
 
@@ -368,7 +396,10 @@ export function formatFieldForDisplay(
   }
 
   if (isAttachmentType(field.type)) {
-    return formatAttachmentFieldResult(value, field as { allowedFileTypes?: readonly string[] })
+    return formatAttachmentFieldResult(
+      value,
+      field as { allowedFileTypes?: readonly string[]; maxFileSize?: number }
+    )
   }
 
   // Return undefined for types that don't need formatting yet

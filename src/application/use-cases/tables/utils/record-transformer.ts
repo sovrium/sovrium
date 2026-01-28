@@ -27,6 +27,8 @@ export interface FormattedFieldValue {
   readonly displayValue?: string
   readonly timezone?: string
   readonly allowedFileTypes?: readonly string[]
+  readonly maxFileSize?: number
+  readonly maxFileSizeDisplay?: string
 }
 
 /**
@@ -106,6 +108,10 @@ const processFieldValue = (
     displayValue: formatResult.displayValue,
     ...(formatResult.timezone ? { timezone: formatResult.timezone } : {}),
     ...(formatResult.allowedFileTypes ? { allowedFileTypes: formatResult.allowedFileTypes } : {}),
+    ...(formatResult.maxFileSize !== undefined ? { maxFileSize: formatResult.maxFileSize } : {}),
+    ...(formatResult.maxFileSizeDisplay
+      ? { maxFileSizeDisplay: formatResult.maxFileSizeDisplay }
+      : {}),
   }
 }
 
