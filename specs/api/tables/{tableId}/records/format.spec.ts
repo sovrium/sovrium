@@ -672,7 +672,7 @@ test.describe('Record Display Formatting', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-FORMAT-018: should format duration in decimal format',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
