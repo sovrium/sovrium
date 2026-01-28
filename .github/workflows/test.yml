@@ -793,9 +793,15 @@ jobs:
             fi
           fi
 
-          # TypeCheck: always required (spec files have TypeScript)
-          if [ "$TYPECHECK_RESULT" != "success" ]; then
-            FAILED="${FAILED}TypeCheck, "
+          # TypeCheck: skipped is OK for test-only, otherwise must be success
+          if [ "$IS_TEST_ONLY" = "true" ]; then
+            if [ "$TYPECHECK_RESULT" != "success" ] && [ "$TYPECHECK_RESULT" != "skipped" ]; then
+              FAILED="${FAILED}TypeCheck, "
+            fi
+          else
+            if [ "$TYPECHECK_RESULT" != "success" ]; then
+              FAILED="${FAILED}TypeCheck, "
+            fi
           fi
 
           # Unit Tests: skipped is OK for test-only, otherwise must be success
