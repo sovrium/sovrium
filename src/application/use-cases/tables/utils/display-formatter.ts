@@ -148,17 +148,16 @@ function formatDate(value: unknown, field: DateField): string {
 
     // Format time based on timeFormat setting
     const timeFormat = field.timeFormat ?? '24-hour'
-    let formattedTime: string
-
-    if (timeFormat === '12-hour') {
-      // Convert to 12-hour format with AM/PM
-      const period = hours >= 12 ? 'PM' : 'AM'
-      const hours12 = hours % 12 || 12 // Convert 0 to 12, keep 1-12
-      formattedTime = `${hours12}:${String(minutes).padStart(2, '0')} ${period}`
-    } else {
-      // Use 24-hour format
-      formattedTime = `${hours}:${String(minutes).padStart(2, '0')}`
-    }
+    const formattedTime =
+      timeFormat === '12-hour'
+        ? // Convert to 12-hour format with AM/PM
+          (() => {
+            const period = hours >= 12 ? 'PM' : 'AM'
+            const hours12 = hours % 12 || 12 // Convert 0 to 12, keep 1-12
+            return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`
+          })()
+        : // Use 24-hour format
+          `${hours}:${String(minutes).padStart(2, '0')}`
 
     return `${formattedDate} ${formattedTime}`
   }
