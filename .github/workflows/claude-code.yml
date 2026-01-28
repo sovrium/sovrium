@@ -106,8 +106,6 @@ jobs:
           WEEKLY_RUNS=$(jq 'length' /tmp/successful_runs.json)
 
           # Extract actual costs from Claude Code execution results
-          # Create arrays to store costs and run details
-          declare -A run_costs
           DAILY_TOTAL=0
           WEEKLY_TOTAL=0
           DAILY_RUNS_COUNT=0
@@ -148,9 +146,6 @@ jobs:
               echo "    ✅ Actual cost extracted: \$$COST"
             fi
 
-            # Store cost for this run
-            run_costs[$run_id]=$COST
-
             # Add to weekly total
             WEEKLY_TOTAL=$(echo "$WEEKLY_TOTAL + $COST" | bc)
             WEEKLY_RUNS_COUNT=$((WEEKLY_RUNS_COUNT + 1))
@@ -189,11 +184,6 @@ jobs:
           # Time until reset
           HOURS_UNTIL_DAILY_RESET=$(( 24 - $(date -u +%H) ))
           DAYS_UNTIL_WEEKLY_RESET=$(( 7 - $(date -u +%u) ))
-
-          # Save run costs for comment generation
-          for run_id in "${!run_costs[@]}"; do
-            echo "${run_id}=${run_costs[$run_id]}" >> /tmp/run_costs.txt
-          done
 
           # Store all metrics for comment
           echo "daily-runs=$DAILY_RUNS_COUNT" >> "$GITHUB_OUTPUT"
@@ -250,14 +240,6 @@ jobs:
           HOURS_RESET="${{ steps.credits.outputs.hours-until-daily-reset }}"
           DAYS_RESET="${{ steps.credits.outputs.days-until-weekly-reset }}"
 
-          # Load run costs from temp file
-          declare -A run_costs_map
-          if [ -f /tmp/run_costs.txt ]; then
-            while IFS='=' read -r run_id cost; do
-              run_costs_map[$run_id]=$cost
-            done < /tmp/run_costs.txt
-          fi
-
           # Determine comment header based on status
           {
             if [ "$CREDITS_OK" != "true" ]; then
@@ -293,35 +275,6 @@ jobs:
             echo "|--------|-------|-------|-----------|--------|------|----------|"
             echo "| **Daily** | \$$ACTUAL_DAILY | \$$DAILY_LIMIT | \$$DAILY_REMAINING | $DAILY_PERCENT% | $DAILY_RUNS | ${HOURS_RESET}h |"
             echo "| **Weekly** | \$$ACTUAL_WEEKLY | \$$WEEKLY_LIMIT | \$$WEEKLY_REMAINING | $WEEKLY_PERCENT% | $WEEKLY_RUNS | ${DAYS_RESET}d |"
-            echo ""
-            echo "### 📋 Recent Runs (Last 10)"
-            echo ""
-            echo "| Run | Date | Spec ID | Cost |"
-            echo "|-----|------|---------|------|"
-
-            # Generate run details table with actual costs
-            jq -r '.[] | "\(.databaseId)|\(.createdAt)|\(.displayTitle)"' /tmp/successful_runs.json | head -10 | while IFS='|' read -r run_id created_at title; do
-              # Format date
-              run_date=$(date -u -d "$created_at" '+%Y-%m-%d %H:%M' 2>/dev/null || echo "$created_at")
-
-              # Extract spec ID from title (format: "Implement SPEC-ID")
-              spec_id=$(echo "$title" | grep -oP 'Implement \K[A-Z]+-[A-Z]+-[A-Z]+-[A-Z0-9-]+' || echo "N/A")
-
-              # Get actual cost for this run
-              if [ -n "${run_costs_map[$run_id]}" ]; then
-                cost="\$${run_costs_map[$run_id]}"
-              else
-                cost="\$15.00 (estimated)"
-              fi
-
-              echo "| [#$run_id](https://github.com/${{ github.repository }}/actions/runs/$run_id) | $run_date | \`$spec_id\` | $cost |"
-            done
-
-            echo ""
-            echo "---"
-            echo "*💰 Costs extracted from Claude Code execution results*"
-            echo ""
-            echo "*📅 Last updated: $(date -u '+%Y-%m-%d %H:%M UTC')*"
           } > /tmp/credit_usage.md
 
           # Post comment (always)

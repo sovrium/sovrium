@@ -1287,21 +1287,12 @@ Posted when daily or weekly limit is reached (blocks execution).
 | **Daily**  | $42.15  | $100  | $57.85    | 42%    | 54   | 18h      |
 | **Weekly** | $123.67 | $500  | $376.33   | 25%    | 158  | 5d       |
 
-**Recent Runs Table (Last 10):**
-
-| Run    | Date             | Spec ID          | Cost  |
-| ------ | ---------------- | ---------------- | ----- |
-| [#123] | 2026-01-28 10:30 | `API-USERS-001`  | $0.78 |
-| [#124] | 2026-01-28 11:15 | `API-POSTS-002`  | $1.23 |
-| [#125] | 2026-01-28 12:00 | `API-TABLES-003` | $0.54 |
-
 **Notes:**
 
 - Actual costs extracted from Claude Code execution results
 - Comment posted before Claude Code runs (not after)
 - Provides transparency for all TDD PRs, not just when limits are hit
-- "(estimated)" suffix shown only when actual cost unavailable
-- Link to run details for verification
+- Concise format focuses on critical budget information for decision-making
 
 ---
 
