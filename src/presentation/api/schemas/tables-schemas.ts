@@ -172,8 +172,6 @@ export const getRecordResponseSchema = z
     fields: z
       .record(z.string(), formattedFieldValueSchema)
       .describe('User-defined field values (may include display formatting)'),
-    createdBy: z.string().optional().describe('User who created the record'),
-    updatedBy: z.string().optional().describe('User who last updated the record'),
   })
   .extend(timestampSchema.shape)
 
