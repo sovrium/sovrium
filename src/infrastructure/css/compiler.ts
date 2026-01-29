@@ -120,10 +120,12 @@ const compileCSSInternal = (theme?: Theme): Effect.Effect<CompiledCSS, CSSCompil
       try: async () => {
         // Verify PostCSS and Tailwind plugin are available
         if (!postcss || typeof postcss !== 'function') {
-          throw new Error('PostCSS is not available')
+          // eslint-disable-next-line unicorn/no-useless-promise-resolve-reject
+          return Promise.reject(new Error('PostCSS is not available'))
         }
         if (!tailwindcss || typeof tailwindcss !== 'function') {
-          throw new Error('Tailwind CSS plugin is not available')
+          // eslint-disable-next-line unicorn/no-useless-promise-resolve-reject
+          return Promise.reject(new Error('Tailwind CSS plugin is not available'))
         }
 
         const processor = postcss([tailwindcss()])
