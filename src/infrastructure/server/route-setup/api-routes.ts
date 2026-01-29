@@ -13,6 +13,15 @@ import {
   healthResponseSchema,
   type HealthResponse,
 } from '@/presentation/api/schemas/health-schemas'
+import {
+  extractClientIp,
+  isTablesRateLimitExceeded,
+  recordTablesRateLimitRequest,
+  getTablesRateLimitRetryAfter,
+  isActivityRateLimitExceeded,
+  recordActivityRateLimitRequest,
+  getActivityRateLimitRetryAfter,
+} from './auth-route-utils'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
@@ -23,6 +32,90 @@ class HealthResponseValidationError extends Data.TaggedError('HealthResponseVali
   readonly message: string
   readonly cause?: unknown
 }> {}
+
+/**
+ * Apply rate limiting middleware for table API endpoints
+ * Returns a Hono app with rate limiting middleware applied
+ */
+const applyTablesRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> => {
+  return honoApp
+    .use('/api/tables', async (c, next) => {
+      const ip = extractClientIp(c.req.header('x-forwarded-for'))
+      const method = c.req.method
+      const path = '/api/tables'
+
+      if (isTablesRateLimitExceeded(method, path, ip)) {
+        const retryAfter = getTablesRateLimitRetryAfter(method, path, ip)
+        return c.json({ error: 'Too many requests', message: 'Too many requests' }, 429, {
+          'Retry-After': retryAfter.toString(),
+        })
+      }
+
+      recordTablesRateLimitRequest(method, path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
+
+      // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
+      await next()
+    })
+    .use('/api/tables/*', async (c, next) => {
+      const ip = extractClientIp(c.req.header('x-forwarded-for'))
+      const method = c.req.method
+      const { path } = c.req
+
+      if (isTablesRateLimitExceeded(method, path, ip)) {
+        const retryAfter = getTablesRateLimitRetryAfter(method, path, ip)
+        return c.json({ error: 'Too many requests', message: 'Too many requests' }, 429, {
+          'Retry-After': retryAfter.toString(),
+        })
+      }
+
+      recordTablesRateLimitRequest(method, path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
+
+      // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
+      await next()
+    })
+}
+
+/**
+ * Apply rate limiting middleware for activity API endpoints
+ * Returns a Hono app with rate limiting middleware applied
+ */
+const applyActivityRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> => {
+  return honoApp
+    .use('/api/activity', async (c, next) => {
+      const ip = extractClientIp(c.req.header('x-forwarded-for'))
+      const method = c.req.method
+      const path = '/api/activity'
+
+      if (isActivityRateLimitExceeded(method, path, ip)) {
+        const retryAfter = getActivityRateLimitRetryAfter(method, path, ip)
+        return c.json({ error: 'Too many requests', message: 'Too many requests' }, 429, {
+          'Retry-After': retryAfter.toString(),
+        })
+      }
+
+      recordActivityRateLimitRequest(method, path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
+
+      // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
+      await next()
+    })
+    .use('/api/activity/*', async (c, next) => {
+      const ip = extractClientIp(c.req.header('x-forwarded-for'))
+      const method = c.req.method
+      const { path } = c.req
+
+      if (isActivityRateLimitExceeded(method, path, ip)) {
+        const retryAfter = getActivityRateLimitRetryAfter(method, path, ip)
+        return c.json({ error: 'Too many requests', message: 'Too many requests' }, 429, {
+          'Retry-After': retryAfter.toString(),
+        })
+      }
+
+      recordActivityRateLimitRequest(method, path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
+
+      // eslint-disable-next-line functional/no-expression-statements -- Hono middleware requires calling next()
+      await next()
+    })
+}
 
 /**
  * Create API routes using method chaining pattern
@@ -102,19 +195,24 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
     }
   })
 
+  // Apply rate limiting middleware BEFORE auth middleware
+  // This prevents auth bypass by rate limiting all requests first
+  // Middleware order: rate limiting → authMiddleware (extracts session) → requireAuth (enforces auth)
+  const honoWithTablesRateLimit = applyTablesRateLimitMiddleware(honoWithHealth)
+  const honoWithActivityRateLimit = applyActivityRateLimitMiddleware(honoWithTablesRateLimit)
+
   // Apply auth middleware to protected routes
   // This extracts session from Better Auth and attaches to context
-  // Middleware order: authMiddleware (extracts session) → requireAuth (enforces auth)
   // Only enforce authentication if auth is configured in app schema
   const honoWithAuth = app.auth
-    ? honoWithHealth
+    ? honoWithActivityRateLimit
         .use('/api/tables', authMiddleware(auth))
         .use('/api/tables', requireAuth())
         .use('/api/tables/*', authMiddleware(auth))
         .use('/api/tables/*', requireAuth())
         .use('/api/activity', authMiddleware(auth))
         .use('/api/activity', requireAuth())
-    : honoWithHealth
+    : honoWithActivityRateLimit
 
   // Chain table routes (always register, returns empty array if no tables configured)
   // Routes now have access to session via c.var.session

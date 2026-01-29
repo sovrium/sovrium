@@ -14,6 +14,7 @@ import {
   extractClientIp,
   isAuthRateLimitExceeded,
   recordAuthRateLimitRequest,
+  getAuthRateLimitRetryAfter,
 } from './auth-route-utils'
 import type { App } from '@/domain/models/app'
 
@@ -98,11 +99,10 @@ const applyAuthRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> =
       const { path } = c.req
 
       if (isAuthRateLimitExceeded(path, ip)) {
-        return c.json(
-          { error: 'Too many requests', message: 'Too many requests' },
-          429,
-          { 'Retry-After': '60' } // Retry after 60 seconds (window duration)
-        )
+        const retryAfter = getAuthRateLimitRetryAfter(path, ip)
+        return c.json({ error: 'Too many requests', message: 'Too many requests' }, 429, {
+          'Retry-After': retryAfter.toString(),
+        })
       }
 
       recordAuthRateLimitRequest(path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update

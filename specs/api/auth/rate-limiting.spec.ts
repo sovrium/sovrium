@@ -106,8 +106,8 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       })
       expect(blockedResponse.status()).toBe(429)
 
-      // THEN: Wait for default window to expire (assumes 60 seconds)
-      await new Promise((resolve) => setTimeout(resolve, 60_100))
+      // THEN: Wait for window to expire (5 seconds configured in fixtures + 1 second buffer)
+      await new Promise((resolve) => setTimeout(resolve, 6000))
 
       const response = await request.post('/api/auth/sign-in/email', {
         data: { email: 'user@example.com', password: 'TestPassword123!' },
@@ -319,8 +319,8 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       })
 
       await test.step('API-AUTH-RATE-002: Resets sign-in rate limit after window expires', async () => {
-        // WHEN: Wait for default window to expire (assumes 60 seconds)
-        await new Promise((resolve) => setTimeout(resolve, 60_100))
+        // WHEN: Wait for window to expire (5 seconds configured in fixtures + 1 second buffer)
+        await new Promise((resolve) => setTimeout(resolve, 6000))
 
         const response = await request.post('/api/auth/sign-in/email', {
           data: { email: 'user@example.com', password: 'TestPassword123!' },
