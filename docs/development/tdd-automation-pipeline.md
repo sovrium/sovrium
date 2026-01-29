@@ -29,7 +29,7 @@ This pipeline automates TDD implementation using **GitHub's native features** (P
 - ✅ **Branch names as backup ID** - label accident recovery
 - ✅ **Merge strategy** for main sync - safer than rebase
 - ✅ **Manual-intervention label** - all errors pause for human review
-- ✅ **$100/day, $500/week limits** with 80% warning alerts
+- ✅ **$200/day, $1000/week limits** with 80% warning alerts
 
 ---
 
@@ -86,8 +86,8 @@ Note: Max attempts default is 5 (configurable per spec)
 
 | Threshold  | Per-Run | Daily | Weekly | Action                                            |
 | ---------- | ------- | ----- | ------ | ------------------------------------------------- |
-| Hard Limit | $5.00   | $100  | $500   | Claude Code stops / Skip workflow / Skip workflow |
-| Warning    | N/A     | $80   | $400   | N/A / Log warning (80%) / Log warning (80%)       |
+| Hard Limit | $10.00  | $200  | $1000  | Claude Code stops / Skip workflow / Skip workflow |
+| Warning    | N/A     | $160  | $800   | N/A / Log warning (80%) / Log warning (80%)       |
 
 **Per-Run**: Enforced by Claude Code CLI (`--max-budget-usd`), not workflow
 **Daily/Weekly**: Enforced by workflow credit check before execution
@@ -369,7 +369,7 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                    │                       │                       │                                  ║
 ║                    ▼                       ▼                       ▼                                  ║
 ║           ┌───────────────┐       ┌───────────────┐       ┌───────────────┐                          ║
-║           │ daily >= $100 │       │ daily >= $80  │       │ daily < $80   │                          ║
+║           │ daily >= $200 │       │ daily >= $160 │       │ daily < $160  │                          ║
 ║           │ HARD LIMIT    │       │ WARNING       │       │ OK            │                          ║
 ║           └───────┬───────┘       └───────┬───────┘       └───────┬───────┘                          ║
 ║                   │                       │                       │                                   ║
@@ -382,7 +382,7 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                   │                       │                       │                                   ║
 ║                   │                       └───────────────────────┤                                   ║
 ║                   │                                               │                                   ║
-║                   │              (same check for weekly: $500/$400)                                   ║
+║                   │              (same check for weekly: $1000/$800)                                  ║
 ║                   │                                               │                                   ║
 ║                   │               ┌───────────────────────────────┘                                   ║
 ║                   │               │                                                                   ║
@@ -975,7 +975,7 @@ TERMINAL STATES:
 
 **Pre-conditions (all must be true):**
 
-1. Credit usage within limits (daily < $100, weekly < $500)
+1. Credit usage within limits (daily < $200, weekly < $1000)
 2. No active TDD PR without `manual-intervention` label
 3. At least one `.fixme()` spec exists
 
@@ -1283,8 +1283,8 @@ Track execution errors from result JSON:
 
 | Check  | Warning | Hard Limit | Action             |
 | ------ | ------- | ---------- | ------------------ |
-| Daily  | $80     | $100       | Log warning / Skip |
-| Weekly | $400    | $500       | Log warning / Skip |
+| Daily  | $160    | $200       | Log warning / Skip |
+| Weekly | $800    | $1000      | Log warning / Skip |
 
 ### Credit Usage Comment (Always Posted)
 
@@ -1314,8 +1314,8 @@ Posted when daily or weekly limit is reached (blocks execution).
 
 | Period     | Usage   | Limit | Remaining | % Used | Runs | Reset In |
 | ---------- | ------- | ----- | --------- | ------ | ---- | -------- |
-| **Daily**  | $42.15  | $100  | $57.85    | 42%    | 54   | 18h      |
-| **Weekly** | $123.67 | $500  | $376.33   | 25%    | 158  | 5d       |
+| **Daily**  | $42.15  | $200  | $157.85   | 21%    | 54   | 18h      |
+| **Weekly** | $123.67 | $1000 | $876.33   | 12%    | 158  | 5d       |
 
 **Notes:**
 
@@ -1460,9 +1460,9 @@ All errors are handled identically, regardless of type. These subtypes are repor
 
 #### Cost Protection
 
-- **Per-run limit**: $5.00 (enforced by `--max-budget-usd` in Claude Code)
-- **Daily limit**: $100 (checked before execution, blocks workflow if exceeded)
-- **Weekly limit**: $500 (checked before execution, blocks workflow if exceeded)
+- **Per-run limit**: $10.00 (enforced by `--max-budget-usd` in Claude Code)
+- **Daily limit**: $200 (checked before execution, blocks workflow if exceeded)
+- **Weekly limit**: $1000 (checked before execution, blocks workflow if exceeded)
 - **Cost tracking**: Actual Claude Code costs extracted from workflow logs and displayed in credit usage comments
 
 #### Manual Recovery Process
@@ -1672,17 +1672,17 @@ _Automated closure by TDD pipeline error handling_
 
 ### Per-Run Budget Protection
 
-**Budget Limit**: $5.00 per Claude Code execution
+**Budget Limit**: $10.00 per Claude Code execution
 
 **Configuration**: Added to `claude_args` in `.github/workflows/claude-code.yml`:
 
 ```yaml
-claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd 5.00
+claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd 10.00
 ```
 
 **Behavior**:
 
-- Claude Code stops execution when approaching $5.00
+- Claude Code stops execution when approaching $10.00
 - Returns `error_max_budget_usd` result subtype
 - Pipeline adds `tdd-automation:manual-intervention` label and posts error details
 - Daily/weekly limits still enforced (defense in depth)
@@ -1690,7 +1690,7 @@ claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd 5.00
 **Rationale**:
 
 - Prevents runaway costs from single spec
-- Complements daily ($100) and weekly ($500) limits
+- Complements daily ($200) and weekly ($1000) limits
 - Conservative limit encourages efficient spec design
 
 ### Error Messages and Comments
@@ -1773,7 +1773,7 @@ All TDD errors now follow a single, simplified recovery flow:
 
 #### Scenario 5: Budget Limit Hit, Need to Increase or Simplify
 
-**Symptom**: Claude Code failed with `error_max_budget_usd` (hit $5.00 per-run limit). Spec might be legitimately complex and need higher budget, or might need simplification.
+**Symptom**: Claude Code failed with `error_max_budget_usd` (hit $10.00 per-run limit). Spec might be legitimately complex and need higher budget, or might need simplification.
 
 **Analysis Steps**:
 
@@ -1783,7 +1783,7 @@ All TDD errors now follow a single, simplified recovery flow:
 
 **Action Options**:
 
-- **If spec is valid but expensive**: Increase `MAX_BUDGET_PER_RUN` in claude-code.yml (e.g., $5 → $10)
+- **If spec is valid but expensive**: Increase `MAX_BUDGET_PER_RUN` in claude-code.yml (e.g., $10 → $15)
 - **If spec is too complex**: Use `mark-for-spec-review` to simplify spec
 - **If uncertain**: Manual implementation, then adjust budget/spec based on learnings
 
@@ -1890,19 +1890,19 @@ Next Spec Processed
 
 **Three-Layer Defense**:
 
-1. **Per-Run Budget** ($5.00)
+1. **Per-Run Budget** ($10.00)
    - Immediate protection against runaway costs
    - Prevents single spec from consuming entire daily budget
    - Enforced by Claude Code CLI (`--max-budget-usd`)
 
-2. **Daily Limit** ($100)
+2. **Daily Limit** ($200)
    - Aggregate limit across all executions
-   - 20 executions at $5.00 each (realistic)
+   - 20 executions at $10.00 each (realistic)
    - Enforced by validation job (blocks execution)
 
-3. **Weekly Limit** ($500)
+3. **Weekly Limit** ($1000)
    - Rolling 7-day window
-   - 100 executions at $5.00 each
+   - 100 executions at $10.00 each
    - Enforced by validation job (blocks execution)
 
 **Monitoring**:
@@ -1910,7 +1910,7 @@ Next Spec Processed
 - Credit usage comment posted before every execution
 - Shows actual costs (not estimates)
 - Displays remaining budget and reset timers
-- 80% warning thresholds ($80 daily, $400 weekly)
+- 80% warning thresholds ($160 daily, $800 weekly)
 
 ---
 
@@ -1949,8 +1949,8 @@ Next Spec Processed
 | Label names            | `tdd-automation`, `:manual-intervention`        | Simplified to 2 labels (2026-01-28)                  |
 | Branch naming          | `tdd/<spec-id>`                                 | Simple, serves as backup identifier                  |
 | @claude comment format | Agent-specific with file paths                  | Enables correct agent selection                      |
-| Credit limits          | $100/day, $500/week (+ $5/run)                  | Three-layer defense: per-run, daily, weekly          |
-| Per-run budget limit   | $5.00                                           | Prevents runaway costs from single spec              |
+| Credit limits          | $200/day, $1000/week (+ $10/run)                | Three-layer defense: per-run, daily, weekly          |
+| Per-run budget limit   | $10.00                                          | Prevents runaway costs from single spec              |
 | Cost tracking          | Actual costs from Claude Code result JSON       | Accurate tracking vs. $15 estimates                  |
 | Cost parsing           | JSON result + multi-pattern fallback            | Handles format changes gracefully                    |
 | Sync strategy          | Merge (not rebase)                              | Safer, no force-push, better for automation          |
@@ -1963,9 +1963,10 @@ Next Spec Processed
 
 ### Commit Detection After Push (SHA Comparison Strategy)
 
-**Problem Identified (2026-01-29)**: The original implementation used `git rev-list --count HEAD..origin/branch` which had a **backwards comparison** - it counted how many commits the *remote* was ahead of *local*, not the other way around. This caused false positives when Claude Code succeeded but git push failed silently.
+**Problem Identified (2026-01-29)**: The original implementation used `git rev-list --count HEAD..origin/branch` which had a **backwards comparison** - it counted how many commits the _remote_ was ahead of _local_, not the other way around. This caused false positives when Claude Code succeeded but git push failed silently.
 
 **Root Cause**: The comparison was inverted. After a successful push:
+
 - `HEAD..origin/branch` (incorrect) → 0 commits (remote matches local) → interpreted as "no commits pushed"
 - `origin/branch..HEAD` (what we wanted) → would show commits if push failed
 
@@ -2004,22 +2005,22 @@ fi
 
 #### Why SHA Comparison Is Better
 
-| Approach            | Pros                                    | Cons                                     |
-| ------------------- | --------------------------------------- | ---------------------------------------- |
-| **Commit Counting** | Shows how many commits differ           | Direction matters (easy to get backwards) |
+| Approach            | Pros                                            | Cons                                       |
+| ------------------- | ----------------------------------------------- | ------------------------------------------ |
+| **Commit Counting** | Shows how many commits differ                   | Direction matters (easy to get backwards)  |
 | **SHA Comparison**  | Unambiguous (equal = synced, not = out of sync) | Doesn't show magnitude without extra steps |
 
-**Key Insight**: We don't need to know *how many* commits differ - we just need to know if the push succeeded. SHA comparison answers that directly.
+**Key Insight**: We don't need to know _how many_ commits differ - we just need to know if the push succeeded. SHA comparison answers that directly.
 
 #### Expected Scenarios
 
-| Scenario                  | Local SHA | Remote SHA | Output           | Meaning                                         |
-| ------------------------- | --------- | ---------- | ---------------- | ----------------------------------------------- |
-| **Successful push**       | abc123    | abc123     | `has-commits=true` | Claude Code pushed successfully                 |
-| **Push failed silently**  | abc123    | def456     | `has-commits=false` | Local ahead, commits not on remote (diagnostic) |
-| **Concurrent modification** | abc123  | def456     | `has-commits=unknown` | Remote ahead (unexpected, warn)                 |
-| **Diverged branches**     | abc123    | def456     | `has-commits=unknown` | Both ahead (conflict, needs manual resolution)  |
-| **Fetch failure**         | N/A       | N/A        | `has-commits=unknown` | Network/branch issue (error handling)           |
+| Scenario                    | Local SHA | Remote SHA | Output                | Meaning                                         |
+| --------------------------- | --------- | ---------- | --------------------- | ----------------------------------------------- |
+| **Successful push**         | abc123    | abc123     | `has-commits=true`    | Claude Code pushed successfully                 |
+| **Push failed silently**    | abc123    | def456     | `has-commits=false`   | Local ahead, commits not on remote (diagnostic) |
+| **Concurrent modification** | abc123    | def456     | `has-commits=unknown` | Remote ahead (unexpected, warn)                 |
+| **Diverged branches**       | abc123    | def456     | `has-commits=unknown` | Both ahead (conflict, needs manual resolution)  |
+| **Fetch failure**           | N/A       | N/A        | `has-commits=unknown` | Network/branch issue (error handling)           |
 
 #### Diagnostic Information
 
@@ -2033,7 +2034,7 @@ echo "Local ahead:  $LOCAL_AHEAD commits"
 echo "Remote ahead: $REMOTE_AHEAD commits"
 ```
 
-This helps operators understand *why* the SHAs differ without affecting the pass/fail decision.
+This helps operators understand _why_ the SHAs differ without affecting the pass/fail decision.
 
 #### Benefits
 

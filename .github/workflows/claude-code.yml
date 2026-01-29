@@ -102,7 +102,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           # Secondary credit check (defense in depth with pr-creator.yml)
-          # Cost limits: $100/day, $500/week (see docs/development/tdd-automation-pipeline.md)
+          # Cost limits: $200/day, $1000/week (see docs/development/tdd-automation-pipeline.md)
 
           # Query successful claude-code.yml runs with full details from past 7 days
           gh run list --repo "${{ github.repository }}" --workflow="claude-code.yml" \
@@ -178,10 +178,10 @@ jobs:
           ACTUAL_WEEKLY_CENTS=$(printf "%.0f" "$(echo "$ACTUAL_WEEKLY * 100" | bc)")
 
           # Calculate limits (in cents for comparison)
-          DAILY_LIMIT=100
-          WEEKLY_LIMIT=500
-          DAILY_WARNING=80
-          WEEKLY_WARNING=400
+          DAILY_LIMIT=200
+          WEEKLY_LIMIT=1000
+          DAILY_WARNING=160
+          WEEKLY_WARNING=800
           DAILY_LIMIT_CENTS=$((DAILY_LIMIT * 100))
           WEEKLY_LIMIT_CENTS=$((WEEKLY_LIMIT * 100))
 
@@ -503,7 +503,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: ${{ steps.agent-config.outputs.prompt }}
-          claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd 5.00
+          claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd 10.00
           track_progress: true
           use_sticky_comment: true
 
@@ -516,7 +516,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: ${{ steps.agent-config.outputs.prompt }}
-          claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd 5.00
+          claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd 10.00
           track_progress: true
           use_sticky_comment: true
 
