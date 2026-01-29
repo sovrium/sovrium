@@ -108,7 +108,7 @@ Note: Max attempts default is 5 (configurable per spec)
 | `claude_args`             | See agent configurations below           | CLI-compatible arguments                        |
 | `timeout_minutes`         | `45` (default), configurable per-spec    | Read from `@tdd-timeout` comment in spec file   |
 
-**Required Permissions:** See `.github/workflows/claude-code.yml` for complete permissions configuration (contents, pull-requests, issues, actions).
+**Required Permissions:** See `.github/workflows/claude-code.yml` for complete permissions configuration (contents, pull-requests, issues, actions, id-token).
 
 ---
 

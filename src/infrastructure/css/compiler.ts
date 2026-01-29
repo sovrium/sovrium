@@ -106,16 +106,44 @@ const compileCSSInternal = (theme?: Theme): Effect.Effect<CompiledCSS, CSSCompil
     // Build SOURCE_CSS with theme
     const sourceCSS = buildSourceCSS(theme)
 
+    // Diagnostic logging for CI debugging
+    yield* Console.log(`CSS Compiler - Source CSS length: ${sourceCSS.length} bytes`)
+    yield* Console.log(
+      `CSS Compiler - Contains @import 'tailwindcss': ${sourceCSS.includes("@import 'tailwindcss'")}`
+    )
+    yield* Console.log(
+      `CSS Compiler - Contains @import 'tw-animate-css': ${sourceCSS.includes("@import 'tw-animate-css'")}`
+    )
+
     // Process CSS through PostCSS with Tailwind plugin
     const result = yield* Effect.tryPromise({
       try: async () => {
+        // Verify PostCSS and Tailwind plugin are available
+        if (!postcss || typeof postcss !== 'function') {
+          throw new Error('PostCSS is not available')
+        }
+        if (!tailwindcss || typeof tailwindcss !== 'function') {
+          throw new Error('Tailwind CSS plugin is not available')
+        }
+
         const processor = postcss([tailwindcss()])
         return await processor.process(sourceCSS, {
           from: process.cwd() + '/src/styles/global.css', // Source context for import resolution
           to: undefined, // No output file (in-memory compilation)
         })
       },
-      catch: (error) => new CSSCompilationError(error),
+      catch: (error) => {
+        // Enhanced error logging for CI debugging
+        console.error('CSS Compilation Error Details:')
+        console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error)
+        console.error('Error message:', error instanceof Error ? error.message : String(error))
+        if (error instanceof Error && error.stack) {
+          console.error('Error stack:', error.stack)
+        }
+        console.error('Source CSS preview (first 500 chars):', sourceCSS.slice(0, 500))
+
+        return new CSSCompilationError(error)
+      },
     })
 
     yield* Console.log('CSS compiled and cached')

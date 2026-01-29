@@ -9,6 +9,14 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Required permissions for Claude Code Action (credit check probe)
+permissions:
+  contents: write         # Required to push branches
+  pull-requests: write    # Required to create/manage PRs
+  issues: write          # Required to add labels to PRs
+  actions: read          # Required to read workflow runs
+  id-token: write        # Required for OIDC authentication (Claude Code Action)
+
 jobs:
   check-credits:
     runs-on: ubuntu-latest
