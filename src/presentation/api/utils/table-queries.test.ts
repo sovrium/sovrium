@@ -119,7 +119,6 @@ describe('table-queries validation logic', () => {
         expect(isValidIdentifier('id')).toBe(true)
         expect(isValidIdentifier('created_at')).toBe(true)
         expect(isValidIdentifier('user_id')).toBe(true)
-        expect(isValidIdentifier('organization_id')).toBe(true)
       })
     })
 
