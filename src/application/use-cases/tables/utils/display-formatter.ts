@@ -112,9 +112,10 @@ function formatCurrency(value: number, field: CurrencyField): string {
  *
  * @param value - The date value (string or Date object)
  * @param field - The date field configuration
+ * @param timezoneOverride - Optional timezone override from query parameter
  * @returns Formatted date string
  */
-function formatDate(value: unknown, field: DateField): string {
+function formatDate(value: unknown, field: DateField, timezoneOverride?: string): string {
   // Parse the date value
   const date =
     value instanceof Date ? value : typeof value === 'string' ? new Date(value) : new Date()
@@ -124,10 +125,53 @@ function formatDate(value: unknown, field: DateField): string {
     return ''
   }
 
+  // Determine which timezone to use (query param takes precedence)
+  const timezone = timezoneOverride || field.timeZone
+
+  // Convert to target timezone if specified and not 'local'
+  const targetDate = (() => {
+    if (!timezone || timezone === 'local') {
+      return date
+    }
+
+    try {
+      // Format the date in the target timezone using Intl.DateTimeFormat
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: false,
+      })
+
+      const parts = formatter.formatToParts(date)
+      const year = parts.find((p) => p.type === 'year')?.value ?? ''
+      const month = parts.find((p) => p.type === 'month')?.value ?? ''
+      const day = parts.find((p) => p.type === 'day')?.value ?? ''
+      const hour = parts.find((p) => p.type === 'hour')?.value ?? ''
+      const minute = parts.find((p) => p.type === 'minute')?.value ?? ''
+
+      // Create a new date object with the converted values
+      return new Date(
+        parseInt(year, 10),
+        parseInt(month, 10) - 1,
+        parseInt(day, 10),
+        parseInt(hour, 10),
+        parseInt(minute, 10)
+      )
+    } catch {
+      // If timezone is invalid, use original date
+      return date
+    }
+  })()
+
   // Get date components
-  const year = date.getFullYear()
-  const month = date.getMonth() + 1 // getMonth() returns 0-11
-  const day = date.getDate()
+  const year = targetDate.getFullYear()
+  const month = targetDate.getMonth() + 1 // getMonth() returns 0-11
+  const day = targetDate.getDate()
 
   // Format based on dateFormat setting
   const dateFormat = field.dateFormat ?? 'US'
@@ -144,8 +188,8 @@ function formatDate(value: unknown, field: DateField): string {
   // Append time if includeTime is true OR if field type is 'datetime'
   const shouldIncludeTime = field.includeTime || field.type === 'datetime'
   if (shouldIncludeTime) {
-    const hours = date.getHours()
-    const minutes = date.getMinutes()
+    const hours = targetDate.getHours()
+    const minutes = targetDate.getMinutes()
 
     // Format time based on timeFormat setting
     const timeFormat = field.timeFormat ?? '24-hour'
@@ -180,8 +224,12 @@ function formatCurrencyField(value: unknown, field: CurrencyField): string | und
 /**
  * Format date/datetime/time field value
  */
-function formatDateField(value: unknown, field: DateField): string | undefined {
-  return formatDate(value, field)
+function formatDateField(
+  value: unknown,
+  field: DateField,
+  timezoneOverride?: string
+): string | undefined {
+  return formatDate(value, field, timezoneOverride)
 }
 
 /**
@@ -190,6 +238,7 @@ function formatDateField(value: unknown, field: DateField): string | undefined {
 export interface FormatResult {
   readonly displayValue: string
   readonly timezone?: string
+  readonly displayTimezone?: string
   readonly allowedFileTypes?: readonly string[]
   readonly maxFileSize?: number
   readonly maxFileSizeDisplay?: string
@@ -206,15 +255,20 @@ function formatCurrencyFieldResult(value: unknown, field: CurrencyField): Format
 /**
  * Format a date field and create FormatResult with optional timezone
  */
-function formatDateFieldResult(value: unknown, field: DateField): FormatResult | undefined {
-  const displayValue = formatDateField(value, field)
+function formatDateFieldResult(
+  value: unknown,
+  field: DateField,
+  timezoneOverride?: string
+): FormatResult | undefined {
+  const displayValue = formatDateField(value, field, timezoneOverride)
   if (displayValue === undefined) return undefined
 
-  // Include timezone metadata if timeZone is set
-  if (field.timeZone) {
-    return { displayValue, timezone: field.timeZone }
+  // Include timezone metadata
+  return {
+    displayValue,
+    ...(field.timeZone ? { timezone: field.timeZone } : {}),
+    ...(timezoneOverride ? { displayTimezone: timezoneOverride } : {}),
   }
-  return { displayValue }
 }
 
 /**
@@ -367,13 +421,15 @@ function formatAttachmentFieldResult(
  * @param value - The field value
  * @param app - The application schema
  * @param tableName - The table name
+ * @param timezoneOverride - Optional timezone override from query parameter
  * @returns Formatted display value with optional timezone, or undefined if no formatting needed
  */
 export function formatFieldForDisplay(
   fieldName: string,
   value: unknown,
   app: App,
-  tableName: string
+  tableName: string,
+  timezoneOverride?: string
 ): FormatResult | undefined {
   // Find the table and field
   const table = app.tables?.find((t) => t.name === tableName)
@@ -388,7 +444,7 @@ export function formatFieldForDisplay(
   }
 
   if (isDateRelatedType(field.type)) {
-    return formatDateFieldResult(value, field as DateField)
+    return formatDateFieldResult(value, field as DateField, timezoneOverride)
   }
 
   if (field.type === 'duration') {

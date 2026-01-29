@@ -67,6 +67,7 @@ export async function handleListRecords(c: Context, app: App) {
   const parsedFilter = parsedFilterResult.filter
   const includeDeleted = c.req.query('includeDeleted') === 'true'
   const format = c.req.query('format') === 'display' ? ('display' as const) : undefined
+  const timezone = c.req.query('timezone')
 
   return runEffect(
     c,
@@ -78,6 +79,7 @@ export async function handleListRecords(c: Context, app: App) {
       filter: parsedFilter,
       includeDeleted,
       format,
+      timezone,
     }),
     listRecordsResponseSchema
   )

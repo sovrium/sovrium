@@ -806,7 +806,7 @@ test.describe('Record Display Formatting', () => {
   // Timezone Override Tests (Query Parameter)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-FORMAT-021: should override display timezone via query parameter',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
