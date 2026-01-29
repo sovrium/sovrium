@@ -410,7 +410,7 @@ test.describe('API Record-Level Permissions', () => {
       expect(response.status()).toBe(200)
 
       const responseData = await response.json()
-      expect(responseData.record.fields.subject).toBe('Help with billing')
+      expect(responseData.fields.subject).toBe('Help with billing')
     }
   )
 
@@ -718,7 +718,7 @@ test.describe('API Record-Level Permissions', () => {
         // THEN: Admin can see the record (role-based read)
         expect(response.status()).toBe(200)
         const data = await response.json()
-        expect(data.record.fields.subject).toBe('Help with billing')
+        expect(data.fields.subject).toBe('Help with billing')
       })
 
       await test.step('API-TABLES-PERMISSIONS-RECORD-007: Custom owner field works correctly', async () => {
