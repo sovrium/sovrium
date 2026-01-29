@@ -47,8 +47,8 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'This is a test comment', NOW(), NOW())
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
+        VALUES ('comment_1', '1', '1', 'user_1', 'This is a test comment', NOW(), NOW())
       `)
 
       // WHEN: User requests comment by ID
@@ -63,7 +63,6 @@ test.describe('Get single comment by ID', () => {
       expect(data.comment.userId).toBe('user_1')
       expect(data.comment.recordId).toBe('1')
       expect(data.comment.tableId).toBe('1')
-      expect(data.comment.organizationId).toBe('org_123')
       expect(data.comment).toHaveProperty('createdAt')
       expect(data.comment).toHaveProperty('updatedAt')
       expect(data.comment.user).toMatchObject({
@@ -126,8 +125,8 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Private Task')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Private comment')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Private comment')
       `)
 
       // WHEN: Unauthenticated user attempts to fetch comment
@@ -142,7 +141,7 @@ test.describe('Get single comment by ID', () => {
     'API-TABLES-RECORDS-COMMENTS-GET-004: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: User from different organization
+      // GIVEN: Comment owned by different user
       await startServerWithSchema({
         name: 'test-app',
         auth: { emailAndPassword: true },
@@ -152,26 +151,26 @@ test.describe('Get single comment by ID', () => {
             name: 'tasks',
             fields: [
               { id: 1, name: 'title', type: 'single-line-text', required: true },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 2, name: 'owner_id', type: 'single-line-text' },
             ],
           },
         ],
       })
       await createAuthenticatedUser()
       await executeQuery(`
-        INSERT INTO tasks (id, title, organization_id) VALUES (1, 'Task in Org 456', 'org_456')
+        INSERT INTO tasks (id, title, owner_id) VALUES (1, 'Task owned by user_2', 'user_2')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_456', 'user_2', 'Comment in org 456')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_2', 'Comment by user_2')
       `)
 
-      // WHEN: User from org_123 attempts to fetch comment from org_456
+      // WHEN: user_1 attempts to fetch comment on record owned by user_2
       const response = await request.get('/api/tables/4/records/1/comments/comment_1', {
         headers: {},
       })
 
-      // THEN: Returns 404 Not Found (don't leak existence across orgs)
+      // THEN: Returns 404 Not Found (don't leak existence for cross-owner access)
       expect(response.status()).toBe(404)
 
       const data = await response.json()
@@ -200,8 +199,8 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Deleted comment', NOW())
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Deleted comment', NOW())
       `)
 
       // WHEN: User attempts to fetch soft-deleted comment
@@ -236,8 +235,8 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Confidential comment')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Confidential comment')
       `)
 
       // WHEN: User without permission attempts to fetch comment
@@ -275,8 +274,8 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
       `)
 
       // WHEN: User fetches the edited comment
@@ -325,8 +324,8 @@ test.describe('Get single comment by ID', () => {
             INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
           `)
         await executeQuery(`
-            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
-            VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'This is a test comment', NOW(), NOW())
+            INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
+            VALUES ('comment_1', '1', '1', 'user_1', 'This is a test comment', NOW(), NOW())
           `)
 
         // WHEN: User requests comment by ID
@@ -341,7 +340,6 @@ test.describe('Get single comment by ID', () => {
         expect(data.comment.userId).toBe('user_1')
         expect(data.comment.recordId).toBe('1')
         expect(data.comment.tableId).toBe('1')
-        expect(data.comment.organizationId).toBe('org_123')
         expect(data.comment).toHaveProperty('createdAt')
         expect(data.comment).toHaveProperty('updatedAt')
         expect(data.comment.user).toMatchObject({
@@ -365,8 +363,8 @@ test.describe('Get single comment by ID', () => {
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-003: Returns 401 for unauthenticated request', async () => {
         // GIVEN: Record with comment in authenticated app
         await executeQuery(`
-            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-            VALUES ('comment_2', '1', '1', 'org_123', 'user_1', 'Private comment')
+            INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+            VALUES ('comment_2', '1', '1', 'user_1', 'Private comment')
           `)
 
         // WHEN: Unauthenticated user attempts to fetch comment
@@ -376,19 +374,19 @@ test.describe('Get single comment by ID', () => {
         expect(response.status()).toBe(401)
       })
 
-      await test.step('API-TABLES-RECORDS-COMMENTS-GET-004: Returns 404 for cross-organization access', async () => {
-        // GIVEN: User from different organization
+      await test.step('API-TABLES-RECORDS-COMMENTS-GET-004: Returns 404 for cross-owner access', async () => {
+        // GIVEN: Comment by different user
         await executeQuery(`
-            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-            VALUES ('comment_3', '1', '1', 'org_456', 'user_2', 'Comment in org 456')
+            INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+            VALUES ('comment_3', '1', '1', 'user_2', 'Comment by user_2')
           `)
 
-        // WHEN: User from org_123 attempts to fetch comment from org_456
+        // WHEN: user_1 attempts to fetch comment on record owned by user_2
         const response = await request.get('/api/tables/8/records/1/comments/comment_3', {
           headers: {},
         })
 
-        // THEN: Returns 404 Not Found (don't leak existence across orgs)
+        // THEN: Returns 404 Not Found (don't leak existence for cross-owner access)
         expect(response.status()).toBe(404)
 
         const data = await response.json()
@@ -398,8 +396,8 @@ test.describe('Get single comment by ID', () => {
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-005: Returns 404 for soft-deleted comment', async () => {
         // GIVEN: Record with soft-deleted comment
         await executeQuery(`
-            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
-            VALUES ('comment_4', '1', '1', 'org_123', 'user_1', 'Deleted comment', NOW())
+            INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
+            VALUES ('comment_4', '1', '1', 'user_1', 'Deleted comment', NOW())
           `)
 
         // WHEN: User attempts to fetch soft-deleted comment
@@ -415,8 +413,8 @@ test.describe('Get single comment by ID', () => {
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-006: Returns 403 for unauthorized access', async () => {
         // GIVEN: User without read permission for the record
         await executeQuery(`
-            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-            VALUES ('comment_5', '1', '1', 'org_123', 'user_1', 'Confidential comment')
+            INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+            VALUES ('comment_5', '1', '1', 'user_1', 'Confidential comment')
           `)
 
         // WHEN: User without permission attempts to fetch comment
@@ -432,8 +430,8 @@ test.describe('Get single comment by ID', () => {
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-007: Shows updated timestamp for edited comments', async () => {
         // GIVEN: Record with an edited comment (updatedAt > createdAt)
         await executeQuery(`
-            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
-            VALUES ('comment_6', '1', '1', 'org_123', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
+            INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
+            VALUES ('comment_6', '1', '1', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
           `)
 
         // WHEN: User fetches the edited comment

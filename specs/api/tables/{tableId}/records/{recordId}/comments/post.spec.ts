@@ -11,17 +11,17 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for Create comment on a record
  *
  * Domain: api
- * Spec Count: 11
+ * Spec Count: 10
  *
  * Comments Feature:
  * - Authentication required (no anonymous comments)
- * - Organization-scoped (multi-tenant)
+ * - Owner-scoped (user-level multi-tenancy)
  * - Validates content (not empty, max length)
  * - Supports @mentions stored as @[user_id]
- * - Auto-injects user_id and organization_id from session
+ * - Auto-injects user_id from session
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (11 tests) - Exhaustive coverage
+ * 1. @spec tests - One per acceptance criterion (10 tests) - Exhaustive coverage
  * 2. @regression test - ONE optimized integration test - Critical workflow validation
  */
 
@@ -77,7 +77,6 @@ test.describe('Create comment on a record', () => {
       expect(data.comment.userId).toBe('user_1')
       expect(data.comment.recordId).toBe('1')
       expect(data.comment.tableId).toBe('1')
-      expect(data.comment.organizationId).toBe('org_123')
       expect(data.comment.createdAt).toBeDefined()
 
       // Verify comment exists in database
@@ -296,7 +295,7 @@ test.describe('Create comment on a record', () => {
     'API-TABLES-RECORDS-COMMENTS-CREATE-007: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: User from different organization
+      // GIVEN: Record owned by different user
       await startServerWithSchema({
         name: 'test-app',
         auth: { emailAndPassword: true },
@@ -306,27 +305,27 @@ test.describe('Create comment on a record', () => {
             name: 'tasks',
             fields: [
               { id: 1, name: 'title', type: 'single-line-text', required: true },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 2, name: 'owner_id', type: 'single-line-text' },
             ],
           },
         ],
       })
       await createAuthenticatedUser()
       await executeQuery(`
-        INSERT INTO tasks (id, title, organization_id) VALUES (1, 'Task in Org 456', 'org_456')
+        INSERT INTO tasks (id, title, owner_id) VALUES (1, 'Task owned by user_2', 'user_2')
       `)
 
-      // WHEN: User from org_123 attempts to comment on org_456's record
+      // WHEN: user_1 attempts to comment on user_2's record
       const response = await request.post('/api/tables/7/records/1/comments', {
         headers: {
           'Content-Type': 'application/json',
         },
         data: {
-          content: 'Cross-org comment attempt',
+          content: 'Cross-owner comment attempt',
         },
       })
 
-      // THEN: Returns 404 Not Found (don't leak existence across orgs)
+      // THEN: Returns 404 Not Found (prevent owner enumeration)
       expect(response.status()).toBe(404)
 
       const data = await response.json()
@@ -422,57 +421,6 @@ test.describe('Create comment on a record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-COMMENTS-CREATE-010: should auto-inject organization_id from session',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: Authenticated user in organization
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true },
-        tables: [
-          {
-            id: 10,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'title', type: 'single-line-text', required: true }],
-          },
-        ],
-      })
-      await createAuthenticatedUser()
-      await executeQuery(`
-        INSERT INTO tasks (id, title) VALUES (1, 'Task One')
-      `)
-      await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
-      `)
-      await executeQuery(`
-        INSERT INTO organizations (id, name, slug) VALUES ('org_123', 'Test Org', 'test-org')
-      `)
-
-      // WHEN: User creates comment (organization_id auto-injected from session)
-      const response = await request.post('/api/tables/10/records/1/comments', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          content: 'Comment in organization',
-        },
-      })
-
-      // THEN: Comment created with correct organization_id from session
-      expect(response.status()).toBe(201)
-
-      const data = await response.json()
-      expect(data.comment.organizationId).toBe('org_123')
-
-      // Verify in database
-      const result = await executeQuery(`
-        SELECT organization_id FROM system.record_comments WHERE id = '${data.comment.id}'
-      `)
-      expect(result.rows[0].organization_id).toBe('org_123')
-    }
-  )
-
-  test.fixme(
     'API-TABLES-RECORDS-COMMENTS-CREATE-011: should include user metadata in response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -522,7 +470,7 @@ test.describe('Create comment on a record', () => {
 
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly ONE test)
-  // Generated from 11 @spec tests - covers: creation, mentions, validation, auth, permissions, auto-injection
+  // Generated from 10 @spec tests - covers: creation, mentions, validation, auth, permissions, auto-injection
   // ============================================================================
 
   test.fixme(
@@ -540,7 +488,7 @@ test.describe('Create comment on a record', () => {
               fields: [
                 { id: 1, name: 'title', type: 'single-line-text', required: true },
                 { id: 2, name: 'status', type: 'single-line-text' },
-                { id: 3, name: 'organization_id', type: 'single-line-text' },
+                { id: 3, name: 'owner_id', type: 'single-line-text' },
               ],
             },
             {
@@ -552,9 +500,9 @@ test.describe('Create comment on a record', () => {
         })
         await createAuthenticatedUser()
         await executeQuery(`
-          INSERT INTO tasks (id, title, status, organization_id) VALUES
-            (1, 'Task One', 'active', 'org_123'),
-            (2, 'Task in Org 456', 'active', 'org_456')
+          INSERT INTO tasks (id, title, status, owner_id) VALUES
+            (1, 'Task One', 'active', 'user_1'),
+            (2, 'Task owned by user_2', 'active', 'user_2')
         `)
         await executeQuery(`
           INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
@@ -563,9 +511,6 @@ test.describe('Create comment on a record', () => {
           INSERT INTO users (id, name, email, image) VALUES
             ('user_1', 'Alice Johnson', 'alice@example.com', 'https://example.com/alice.jpg'),
             ('user_2', 'Bob Smith', 'bob@example.com', NULL)
-        `)
-        await executeQuery(`
-          INSERT INTO organizations (id, name, slug) VALUES ('org_123', 'Test Org', 'test-org')
         `)
       })
 
@@ -582,7 +527,6 @@ test.describe('Create comment on a record', () => {
         expect(data.comment.userId).toBe('user_1')
         expect(data.comment.recordId).toBe('1')
         expect(data.comment.tableId).toBe('12')
-        expect(data.comment.organizationId).toBe('org_123')
         expect(data.comment.createdAt).toBeDefined()
 
         // Verify in database
@@ -668,9 +612,6 @@ test.describe('Create comment on a record', () => {
             ('user_1', 'Alice Johnson', 'alice@example.com', 'https://example.com/alice.jpg'),
             ('user_2', 'Bob Smith', 'bob@example.com', NULL)
         `)
-        await executeQuery(`
-          INSERT INTO organizations (id, name, slug) VALUES ('org_123', 'Test Org', 'test-org')
-        `)
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-006: Return 404 for non-existent record', async () => {
@@ -684,11 +625,11 @@ test.describe('Create comment on a record', () => {
         expect(data.error).toBe('Record not found')
       })
 
-      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-007: Return 404 for cross-organization access', async () => {
-        // User from org_123 attempts to comment on org_456's record
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-007: Return 404 for cross-owner access', async () => {
+        // user_1 attempts to comment on user_2's record
         const response = await request.post('/api/tables/12/records/2/comments', {
           headers: { 'Content-Type': 'application/json' },
-          data: { content: 'Cross-org comment attempt' },
+          data: { content: 'Cross-owner comment attempt' },
         })
 
         expect(response.status()).toBe(404)
@@ -721,22 +662,6 @@ test.describe('Create comment on a record', () => {
           SELECT user_id FROM system.record_comments WHERE id = '${data.comment.id}'
         `)
         expect(result.rows[0].user_id).toBe('user_1')
-      })
-
-      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-010: Auto-inject organization_id from session', async () => {
-        const response = await request.post('/api/tables/12/records/1/comments', {
-          headers: { 'Content-Type': 'application/json' },
-          data: { content: 'Comment in organization' },
-        })
-
-        expect(response.status()).toBe(201)
-        const data = await response.json()
-        expect(data.comment.organizationId).toBe('org_123')
-
-        const result = await executeQuery(`
-          SELECT organization_id FROM system.record_comments WHERE id = '${data.comment.id}'
-        `)
-        expect(result.rows[0].organization_id).toBe('org_123')
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-011: Include user metadata in response', async () => {

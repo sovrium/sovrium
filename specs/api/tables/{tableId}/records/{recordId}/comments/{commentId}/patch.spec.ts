@@ -51,8 +51,8 @@ test.describe('Update comment', () => {
         INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Original comment', NOW(), NOW())
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Original comment', NOW(), NOW())
       `)
 
       // WHEN: User updates their own comment
@@ -112,8 +112,8 @@ test.describe('Update comment', () => {
           ('user_3', 'Carol', 'carol@example.com')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Hey @[user_2], check this out')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Hey @[user_2], check this out')
       `)
 
       // WHEN: User updates comment with new @mention
@@ -155,8 +155,8 @@ test.describe('Update comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Original comment')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Original comment')
       `)
 
       // WHEN: User attempts to update with empty content
@@ -199,8 +199,8 @@ test.describe('Update comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Original comment')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Original comment')
       `)
 
       // WHEN: User attempts to update with content exceeding max length
@@ -244,8 +244,8 @@ test.describe('Update comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Original comment')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Original comment')
       `)
 
       // WHEN: Unauthenticated user attempts to update comment
@@ -289,8 +289,8 @@ test.describe('Update comment', () => {
           ('user_2', 'Bob', 'bob@example.com')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_2', 'Comment by Bob')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_2', 'Comment by Bob')
       `)
 
       // WHEN: Different user attempts to edit comment
@@ -355,7 +355,7 @@ test.describe('Update comment', () => {
     'API-TABLES-RECORDS-COMMENTS-UPDATE-008: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: User from different organization
+      // GIVEN: Comment on record owned by different user
       await startServerWithSchema({
         name: 'test-app',
         auth: { emailAndPassword: true },
@@ -365,31 +365,31 @@ test.describe('Update comment', () => {
             name: 'tasks',
             fields: [
               { id: 1, name: 'title', type: 'single-line-text', required: true },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 2, name: 'owner_id', type: 'single-line-text' },
             ],
           },
         ],
       })
       await createAuthenticatedUser()
       await executeQuery(`
-        INSERT INTO tasks (id, title, organization_id) VALUES (1, 'Task in Org 456', 'org_456')
+        INSERT INTO tasks (id, title, owner_id) VALUES (1, 'Task owned by user_2', 'user_2')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_456', 'user_2', 'Comment in org 456')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_2', 'Comment by user_2')
       `)
 
-      // WHEN: User from org_123 attempts to update comment from org_456
+      // WHEN: user_1 attempts to update comment on record owned by user_2
       const response = await request.patch('/api/tables/8/records/1/comments/comment_1', {
         headers: {
           'Content-Type': 'application/json',
         },
         data: {
-          content: 'Cross-org update attempt',
+          content: 'Cross-owner update attempt',
         },
       })
 
-      // THEN: Returns 404 Not Found (don't leak existence across orgs)
+      // THEN: Returns 404 Not Found (don't leak existence for cross-owner access)
       expect(response.status()).toBe(404)
 
       const data = await response.json()
@@ -418,8 +418,8 @@ test.describe('Update comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Deleted comment', NOW())
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Deleted comment', NOW())
       `)
 
       // WHEN: User attempts to update soft-deleted comment
@@ -465,8 +465,8 @@ test.describe('Update comment', () => {
           ('user_1', 'Alice Johnson', 'alice@example.com', 'https://example.com/alice.jpg')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Original comment')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Original comment')
       `)
 
       // WHEN: User updates their comment
@@ -511,7 +511,7 @@ test.describe('Update comment', () => {
               name: 'tasks',
               fields: [
                 { id: 1, name: 'title', type: 'single-line-text', required: true },
-                { id: 2, name: 'organization_id', type: 'single-line-text' },
+                { id: 2, name: 'owner_id', type: 'single-line-text' },
               ],
             },
           ],
@@ -521,9 +521,9 @@ test.describe('Update comment', () => {
 
       await test.step('Setup: Insert test records, users, and comments', async () => {
         await executeQuery(`
-          INSERT INTO tasks (id, title, organization_id) VALUES
-            (1, 'Task in Current Org', NULL),
-            (2, 'Task in Different Org', 'org_456')
+          INSERT INTO tasks (id, title, owner_id) VALUES
+            (1, 'Task owned by user_1', NULL),
+            (2, 'Task owned by user_2', 'user_2')
         `)
         await executeQuery(`
           INSERT INTO users (id, name, email, image) VALUES
@@ -532,12 +532,12 @@ test.describe('Update comment', () => {
             ('user_3', 'Carol White', 'carol@example.com', NULL)
         `)
         await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at, deleted_at)
+          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at, deleted_at)
           VALUES
-            ('comment_1', '1', '1', 'org_123', 'user_1', 'Original comment by Alice', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour', NULL),
-            ('comment_2', '1', '1', 'org_123', 'user_2', 'Comment by Bob', NOW(), NOW(), NULL),
-            ('comment_3', '1', '1', 'org_123', 'user_1', 'Deleted comment', NOW(), NOW(), NOW()),
-            ('comment_4', '2', '1', 'org_456', 'user_2', 'Cross-org comment', NOW(), NOW(), NULL)
+            ('comment_1', '1', '1', 'user_1', 'Original comment by Alice', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour', NULL),
+            ('comment_2', '1', '1', 'user_2', 'Comment by Bob', NOW(), NOW(), NULL),
+            ('comment_3', '1', '1', 'user_1', 'Deleted comment', NOW(), NOW(), NOW()),
+            ('comment_4', '2', '1', 'user_2', 'Cross-owner comment', NOW(), NOW(), NULL)
         `)
       })
 
@@ -639,10 +639,10 @@ test.describe('Update comment', () => {
         expect(data.error).toBe('Comment not found')
       })
 
-      await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-008: Return 404 Not Found for cross-organization access', async () => {
+      await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-008: Return 404 Not Found for cross-owner access', async () => {
         const response = await request.patch('/api/tables/11/records/2/comments/comment_4', {
           headers: { 'Content-Type': 'application/json' },
-          data: { content: 'Cross-org update attempt' },
+          data: { content: 'Cross-owner update attempt' },
         })
 
         expect(response.status()).toBe(404)

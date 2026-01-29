@@ -52,8 +52,8 @@ test.describe('Delete comment', () => {
         INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Comment to delete')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Comment to delete')
       `)
 
       // WHEN: User deletes their own comment
@@ -96,8 +96,8 @@ test.describe('Delete comment', () => {
           ('user_2', 'Bob', 'bob@example.com', 'member')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_2', 'Comment by Bob')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_2', 'Comment by Bob')
       `)
 
       // WHEN: Admin deletes another user's comment
@@ -136,8 +136,8 @@ test.describe('Delete comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Comment to delete')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Comment to delete')
       `)
 
       // WHEN: Unauthenticated user attempts to delete comment
@@ -174,8 +174,8 @@ test.describe('Delete comment', () => {
           ('user_2', 'Bob', 'bob@example.com', 'member')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_2', 'Comment by Bob')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_2', 'Comment by Bob')
       `)
 
       // WHEN: Different non-admin user attempts to delete comment
@@ -226,7 +226,7 @@ test.describe('Delete comment', () => {
     'API-TABLES-RECORDS-COMMENTS-DELETE-006: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: User from different organization
+      // GIVEN: Comment on record owned by different user
       await startServerWithSchema({
         name: 'test-app',
         auth: { emailAndPassword: true },
@@ -236,26 +236,26 @@ test.describe('Delete comment', () => {
             name: 'tasks',
             fields: [
               { id: 1, name: 'title', type: 'single-line-text', required: true },
-              { id: 2, name: 'organization_id', type: 'single-line-text' },
+              { id: 2, name: 'owner_id', type: 'single-line-text' },
             ],
           },
         ],
       })
       await createAuthenticatedUser()
       await executeQuery(`
-        INSERT INTO tasks (id, title, organization_id) VALUES (1, 'Task in Org 456', 'org_456')
+        INSERT INTO tasks (id, title, owner_id) VALUES (1, 'Task owned by user_2', 'user_2')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_456', 'user_2', 'Comment in org 456')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_2', 'Comment by user_2')
       `)
 
-      // WHEN: User from org_123 attempts to delete comment from org_456
+      // WHEN: user_1 attempts to delete comment on record owned by user_2
       const response = await request.delete('/api/tables/6/records/1/comments/comment_1', {
         headers: {},
       })
 
-      // THEN: Returns 404 Not Found (don't leak existence across orgs)
+      // THEN: Returns 404 Not Found (don't leak existence for cross-owner access)
       expect(response.status()).toBe(404)
 
       const data = await response.json()
@@ -284,8 +284,8 @@ test.describe('Delete comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Already deleted comment', NOW())
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Already deleted comment', NOW())
       `)
 
       // WHEN: User attempts to delete already-deleted comment
@@ -320,8 +320,8 @@ test.describe('Delete comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Comment to soft-delete')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Comment to soft-delete')
       `)
 
       // WHEN: User deletes comment (default behavior)
@@ -363,8 +363,8 @@ test.describe('Delete comment', () => {
         INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Comment to delete')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Comment to delete')
       `)
 
       // WHEN: User deletes comment
@@ -421,13 +421,13 @@ test.describe('Delete comment', () => {
             ('admin_1', 'Admin User', 'admin@example.com', 'admin')
         `)
         await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
+          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
           VALUES
-            ('comment_1', '1', '1', 'org_123', 'user_1', 'Comment by Alice'),
-            ('comment_2', '1', '1', 'org_123', 'user_2', 'Comment by Bob'),
-            ('comment_3', '1', '1', 'org_123', 'user_1', 'Another comment by Alice'),
-            ('comment_4', '1', '1', 'org_123', 'user_1', 'Yet another comment by Alice'),
-            ('comment_5', '1', '1', 'org_123', 'user_1', 'Comment for GET verification')
+            ('comment_1', '1', '1', 'user_1', 'Comment by Alice'),
+            ('comment_2', '1', '1', 'user_2', 'Comment by Bob'),
+            ('comment_3', '1', '1', 'user_1', 'Another comment by Alice'),
+            ('comment_4', '1', '1', 'user_1', 'Yet another comment by Alice'),
+            ('comment_5', '1', '1', 'user_1', 'Comment for GET verification')
         `)
       })
 
@@ -478,13 +478,13 @@ test.describe('Delete comment', () => {
         expect(data.error).toBe('Comment not found')
       })
 
-      await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-006: User from different organization attempts to delete comment and returns 404 Not Found', async () => {
+      await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-006: User attempts to delete comment on record owned by different user and returns 404 Not Found', async () => {
         await executeQuery(`
-            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-            VALUES ('comment_org_456', '1', '1', 'org_456', 'user_2', 'Comment in org 456')
+            INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+            VALUES ('comment_cross_owner', '1', '1', 'user_2', 'Comment by different user')
           `)
         const response = await request.delete(
-          '/api/tables/10/records/1/comments/comment_org_456',
+          '/api/tables/10/records/1/comments/comment_cross_owner',
           {}
         )
         expect(response.status()).toBe(404)
@@ -495,8 +495,8 @@ test.describe('Delete comment', () => {
 
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-007: User attempts to delete already-deleted comment and returns 404 Not Found', async () => {
         await executeQuery(`
-            INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
-            VALUES ('comment_deleted', '1', '1', 'org_123', 'user_1', 'Already deleted comment', NOW())
+            INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
+            VALUES ('comment_deleted', '1', '1', 'user_1', 'Already deleted comment', NOW())
           `)
         const response = await request.delete(
           '/api/tables/10/records/1/comments/comment_deleted',
