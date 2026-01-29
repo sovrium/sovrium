@@ -176,7 +176,6 @@ test.describe('List all tables', () => {
       expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('code')
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
       expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to list tables')
     }

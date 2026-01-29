@@ -114,7 +114,7 @@ export function sanitizeError(error: unknown, requestId?: string): SanitizedErro
         return {
           error: 'Forbidden',
           code: 'FORBIDDEN',
-          message: 'You do not have permission to perform this action',
+          message: error.message,
         }
       case 'ValidationError':
         return {

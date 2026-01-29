@@ -186,6 +186,7 @@ async function requireAuthHandler(c: ContextWithSession, next: Next) {
     return c.json(
       {
         success: false,
+        error: 'Unauthorized',
         message: 'Authentication required',
         code: 'UNAUTHORIZED',
       },

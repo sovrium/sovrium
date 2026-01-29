@@ -57,7 +57,7 @@ export function createListTablesProgram(
       userRole as (typeof ALLOWED_ROLES_TO_LIST_TABLES)[number]
     )
   ) {
-    return Effect.fail(new ForbiddenListTablesError('FORBIDDEN_LIST_TABLES'))
+    return Effect.fail(new ForbiddenListTablesError('You do not have permission to list tables'))
   }
 
   // Filter tables based on user's read permissions
@@ -113,14 +113,18 @@ export function createGetTableProgram(
 
     // If no read permission is configured, deny access by default (secure by default)
     if (!readPermission) {
-      return yield* Effect.fail(new ForbiddenError('FORBIDDEN'))
+      return yield* Effect.fail(
+        new ForbiddenError('You do not have permission to access this table')
+      )
     }
 
     // Check role-based permissions
     if (readPermission.type === 'roles') {
       const allowedRoles = readPermission.roles || []
       if (!allowedRoles.includes(userRole)) {
-        return yield* Effect.fail(new ForbiddenError('FORBIDDEN'))
+        return yield* Effect.fail(
+          new ForbiddenError('You do not have permission to access this table')
+        )
       }
     }
 
