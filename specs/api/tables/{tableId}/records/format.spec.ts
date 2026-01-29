@@ -882,7 +882,7 @@ test.describe('Record Display Formatting', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-FORMAT-023: should reject invalid timezone in query parameter',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
