@@ -543,9 +543,9 @@ test.describe('Batch create records', () => {
 
       // Salary field not in response for all records
       // THEN: assertion
-      expect(data.records[0]).not.toHaveProperty('salary')
-      expect(data.records[1]).not.toHaveProperty('salary')
-      expect(data.records[2]).not.toHaveProperty('salary')
+      expect(data.records[0].fields).not.toHaveProperty('salary')
+      expect(data.records[1].fields).not.toHaveProperty('salary')
+      expect(data.records[2].fields).not.toHaveProperty('salary')
     }
   )
 
@@ -893,9 +893,9 @@ test.describe('Batch create records', () => {
         const data = await response.json()
         expect(data.created).toBe(3)
         // Salary field not in response for all records
-        expect(data.records[0]).not.toHaveProperty('salary')
-        expect(data.records[1]).not.toHaveProperty('salary')
-        expect(data.records[2]).not.toHaveProperty('salary')
+        expect(data.records[0].fields).not.toHaveProperty('salary')
+        expect(data.records[1].fields).not.toHaveProperty('salary')
+        expect(data.records[2].fields).not.toHaveProperty('salary')
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-POST-012: should return 400 for duplicate unique field values', async () => {

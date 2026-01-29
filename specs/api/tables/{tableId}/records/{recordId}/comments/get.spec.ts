@@ -53,11 +53,11 @@ test.describe('List comments on a record', () => {
         INSERT INTO tasks (id, title, status) VALUES (1, 'Task One', 'in-progress')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
         VALUES
-          ('comment_1', '1', '1', 'org_123', 'user_1', 'First comment', NOW() - INTERVAL '2 hours'),
-          ('comment_2', '1', '1', 'org_123', 'user_2', 'Second comment', NOW() - INTERVAL '1 hour'),
-          ('comment_3', '1', '1', 'org_123', 'user_1', 'Third comment', NOW())
+          ('comment_1', '1', '1', 'user_1', 'First comment', NOW() - INTERVAL '2 hours'),
+          ('comment_2', '1', '1', 'user_2', 'Second comment', NOW() - INTERVAL '1 hour'),
+          ('comment_3', '1', '1', 'user_1', 'Third comment', NOW())
       `)
 
       // WHEN: User requests all comments for the record
@@ -186,10 +186,10 @@ test.describe('List comments on a record', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task with deleted comments')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
         VALUES
-          ('comment_1', '1', '1', 'org_123', 'user_1', 'Active comment', NULL),
-          ('comment_2', '1', '1', 'org_123', 'user_1', 'Deleted comment', NOW())
+          ('comment_1', '1', '1', 'user_1', 'Active comment', NULL),
+          ('comment_2', '1', '1', 'user_1', 'Deleted comment', NOW())
       `)
 
       // WHEN: User lists comments without includeDeleted parameter
@@ -231,10 +231,10 @@ test.describe('List comments on a record', () => {
           ('user_2', 'Bob Smith', 'bob@example.com')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
         VALUES
-          ('comment_1', '1', '1', 'org_123', 'user_1', 'Comment by Alice'),
-          ('comment_2', '1', '1', 'org_123', 'user_2', 'Comment by Bob')
+          ('comment_1', '1', '1', 'user_1', 'Comment by Alice'),
+          ('comment_2', '1', '1', 'user_2', 'Comment by Bob')
       `)
 
       // WHEN: User lists comments
@@ -281,10 +281,10 @@ test.describe('List comments on a record', () => {
       // Insert 15 comments
       const values = Array.from({ length: 15 }, (_, i) => {
         const commentId = i + 1
-        return `('comment_${commentId}', '1', '1', 'org_123', 'user_1', 'Comment ${commentId}', NOW() - INTERVAL '${15 - commentId} hours')`
+        return `('comment_${commentId}', '1', '1', 'user_1', 'Comment ${commentId}', NOW() - INTERVAL '${15 - commentId} hours')`
       }).join(',')
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
         VALUES ${values}
       `)
 
@@ -332,18 +332,17 @@ test.describe('List comments on a record', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task with sorted comments')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
         VALUES
-          ('comment_1', '1', '1', 'org_123', 'user_1', 'Oldest', NOW() - INTERVAL '3 days'),
-          ('comment_2', '1', '1', 'org_123', 'user_1', 'Middle', NOW() - INTERVAL '2 days'),
-          ('comment_3', '1', '1', 'org_123', 'user_1', 'Newest', NOW())
+          ('comment_1', '1', '1', 'user_1', 'Oldest', NOW() - INTERVAL '3 days'),
+          ('comment_2', '1', '1', 'user_1', 'Middle', NOW() - INTERVAL '2 days'),
+          ('comment_3', '1', '1', 'user_1', 'Newest', NOW())
       `)
 
       // WHEN: User requests comments sorted oldest first
       const response = await request.get('/api/tables/9/records/1/comments', {
         params: {
-          sort: 'createdAt',
-          order: 'asc',
+          sort: 'createdAt:asc',
         },
       })
 
@@ -381,8 +380,8 @@ test.describe('List comments on a record', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task with edited comment')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
       `)
 
       // WHEN: User lists comments
@@ -423,8 +422,8 @@ test.describe('List comments on a record', () => {
         INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
       `)
       await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'org_123', 'user_1', 'Confidential comment')
+        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', 'user_1', 'Confidential comment')
       `)
 
       // WHEN: User without read permission attempts to list comments
@@ -481,11 +480,11 @@ test.describe('List comments on a record', () => {
           INSERT INTO tasks (id, title, status) VALUES (1, 'Task One', 'in-progress')
         `)
         await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
+          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
           VALUES
-            ('comment_1', '1', '1', 'org_123', 'user_1', 'First comment', NOW() - INTERVAL '2 hours'),
-            ('comment_2', '1', '1', 'org_123', 'user_2', 'Second comment', NOW() - INTERVAL '1 hour'),
-            ('comment_3', '1', '1', 'org_123', 'user_1', 'Third comment', NOW())
+            ('comment_1', '1', '1', 'user_1', 'First comment', NOW() - INTERVAL '2 hours'),
+            ('comment_2', '1', '1', 'user_2', 'Second comment', NOW() - INTERVAL '1 hour'),
+            ('comment_3', '1', '1', 'user_1', 'Third comment', NOW())
         `)
 
         const response = await request.get('/api/tables/1/records/1/comments', {})
@@ -535,10 +534,10 @@ test.describe('List comments on a record', () => {
           INSERT INTO tasks (id, title) VALUES (5, 'Task with deleted comments')
         `)
         await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, deleted_at)
+          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
           VALUES
-            ('comment_active', '5', '1', 'org_123', 'user_1', 'Active comment', NULL),
-            ('comment_deleted', '5', '1', 'org_123', 'user_1', 'Deleted comment', NOW())
+            ('comment_active', '5', '1', 'user_1', 'Active comment', NULL),
+            ('comment_deleted', '5', '1', 'user_1', 'Deleted comment', NOW())
         `)
 
         const response = await request.get('/api/tables/1/records/5/comments', {})
@@ -555,10 +554,10 @@ test.describe('List comments on a record', () => {
           INSERT INTO tasks (id, title) VALUES (6, 'Collaborative Task')
         `)
         await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
+          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
           VALUES
-            ('comment_alice', '6', '1', 'org_123', 'user_1', 'Comment by Alice'),
-            ('comment_bob', '6', '1', 'org_123', 'user_2', 'Comment by Bob')
+            ('comment_alice', '6', '1', 'user_1', 'Comment by Alice'),
+            ('comment_bob', '6', '1', 'user_2', 'Comment by Bob')
         `)
 
         const response = await request.get('/api/tables/1/records/6/comments', {})
@@ -585,10 +584,10 @@ test.describe('List comments on a record', () => {
         // Insert 15 comments
         const values = Array.from({ length: 15 }, (_, i) => {
           const commentId = i + 1
-          return `('comment_page_${commentId}', '7', '1', 'org_123', 'user_1', 'Comment ${commentId}', NOW() - INTERVAL '${15 - commentId} hours')`
+          return `('comment_page_${commentId}', '7', '1', 'user_1', 'Comment ${commentId}', NOW() - INTERVAL '${15 - commentId} hours')`
         }).join(',')
         await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
+          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
           VALUES ${values}
         `)
 
@@ -616,17 +615,16 @@ test.describe('List comments on a record', () => {
           INSERT INTO tasks (id, title) VALUES (8, 'Task with sorted comments')
         `)
         await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at)
+          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
           VALUES
-            ('comment_oldest', '8', '1', 'org_123', 'user_1', 'Oldest', NOW() - INTERVAL '3 days'),
-            ('comment_middle', '8', '1', 'org_123', 'user_1', 'Middle', NOW() - INTERVAL '2 days'),
-            ('comment_newest', '8', '1', 'org_123', 'user_1', 'Newest', NOW())
+            ('comment_oldest', '8', '1', 'user_1', 'Oldest', NOW() - INTERVAL '3 days'),
+            ('comment_middle', '8', '1', 'user_1', 'Middle', NOW() - INTERVAL '2 days'),
+            ('comment_newest', '8', '1', 'user_1', 'Newest', NOW())
         `)
 
         const response = await request.get('/api/tables/1/records/8/comments', {
           params: {
-            sort: 'createdAt',
-            order: 'asc',
+            sort: 'createdAt:asc',
           },
         })
 
@@ -645,8 +643,8 @@ test.describe('List comments on a record', () => {
           INSERT INTO tasks (id, title) VALUES (9, 'Task with edited comment')
         `)
         await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content, created_at, updated_at)
-          VALUES ('comment_edited', '9', '1', 'org_123', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
+          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
+          VALUES ('comment_edited', '9', '1', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
         `)
 
         const response = await request.get('/api/tables/1/records/9/comments', {})
@@ -666,8 +664,8 @@ test.describe('List comments on a record', () => {
           INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
         `)
         await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, organization_id, user_id, content)
-          VALUES ('comment_confidential', '1', '2', 'org_123', 'user_1', 'Confidential comment')
+          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+          VALUES ('comment_confidential', '1', '2', 'user_1', 'Confidential comment')
         `)
 
         const response = await request.get('/api/tables/2/records/1/comments', {})

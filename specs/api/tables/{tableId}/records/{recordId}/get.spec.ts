@@ -260,9 +260,9 @@ test.describe('Get record by ID', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data).toHaveProperty('id')
-      expect(data).toHaveProperty('name')
-      expect(data).toHaveProperty('email')
-      expect(data).not.toHaveProperty('salary')
+      expect(data.fields).toHaveProperty('name')
+      expect(data.fields).toHaveProperty('email')
+      expect(data.fields).not.toHaveProperty('salary')
     }
   )
 
@@ -304,10 +304,10 @@ test.describe('Get record by ID', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data).toHaveProperty('id')
-      expect(data).toHaveProperty('name')
-      expect(data).not.toHaveProperty('email')
-      expect(data).not.toHaveProperty('phone')
-      expect(data).not.toHaveProperty('salary')
+      expect(data.fields).toHaveProperty('name')
+      expect(data.fields).not.toHaveProperty('email')
+      expect(data.fields).not.toHaveProperty('phone')
+      expect(data.fields).not.toHaveProperty('salary')
     }
   )
 
@@ -348,9 +348,9 @@ test.describe('Get record by ID', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data).toHaveProperty('id')
-      expect(data).toHaveProperty('title')
-      expect(data).toHaveProperty('created_at')
-      expect(data).toHaveProperty('updated_at')
+      expect(data.fields).toHaveProperty('title')
+      expect(data.fields).toHaveProperty('created_at')
+      expect(data.fields).toHaveProperty('updated_at')
     }
   )
 
@@ -434,12 +434,12 @@ test.describe('Get record by ID', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data.record).toBeDefined()
-      expect(data.record.id).toBe(1)
-      expect(data.record.fields.title).toBe('Deleted Task')
-      expect(data.record.fields.status).toBe('completed')
+      expect(data).toBeDefined()
+      expect(data.id).toBe(1)
+      expect(data.fields.title).toBe('Deleted Task')
+      expect(data.fields.status).toBe('completed')
       // THEN: deleted_at field is populated
-      expect(data.record.fields.deleted_at).toBeTruthy()
+      expect(data.fields.deleted_at).toBeTruthy()
     }
   )
 
@@ -637,11 +637,11 @@ test.describe('Get record by ID', () => {
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data.record).toBeDefined()
-        expect(data.record.id).toBe(2)
-        expect(data.record.fields.title).toBe('Deleted Task')
-        expect(data.record.fields.status).toBe('completed')
-        expect(data.record.fields.deleted_at).toBeTruthy()
+        expect(data).toBeDefined()
+        expect(data.id).toBe(2)
+        expect(data.fields.title).toBe('Deleted Task')
+        expect(data.fields.status).toBe('completed')
+        expect(data.fields.deleted_at).toBeTruthy()
       })
     }
   )

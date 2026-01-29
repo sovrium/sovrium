@@ -691,9 +691,9 @@ test.describe('Upsert records (create or update)', () => {
 
       // Salary field not in response for all records
       // THEN: assertion
-      expect(data.records[0]).not.toHaveProperty('salary')
-      expect(data.records[1]).not.toHaveProperty('salary')
-      expect(data.records[2]).not.toHaveProperty('salary')
+      expect(data.records[0].fields).not.toHaveProperty('salary')
+      expect(data.records[1].fields).not.toHaveProperty('salary')
+      expect(data.records[2].fields).not.toHaveProperty('salary')
     }
   )
 
@@ -945,9 +945,9 @@ test.describe('Upsert records (create or update)', () => {
         expect(data.created).toBe(1)
         expect(data.updated).toBe(2)
         // Verify field filtering applied across all records
-        expect(data.records[0]).not.toHaveProperty('salary')
-        expect(data.records[1]).not.toHaveProperty('salary')
-        expect(data.records[2]).not.toHaveProperty('salary')
+        expect(data.records[0].fields).not.toHaveProperty('salary')
+        expect(data.records[1].fields).not.toHaveProperty('salary')
+        expect(data.records[2].fields).not.toHaveProperty('salary')
       })
     }
   )

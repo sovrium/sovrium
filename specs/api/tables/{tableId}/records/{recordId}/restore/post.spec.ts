@@ -177,6 +177,7 @@ test.describe('Restore record', () => {
 
       const data = await response.json()
       expect(data.error).toBeDefined()
+      expect(data.message).toBeDefined()
 
       // THEN: Record remains soft-deleted
       const result = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=1`)
@@ -466,6 +467,7 @@ test.describe('Restore record', () => {
         expect(response.status()).toBe(401)
         const data = await response.json()
         expect(data.error).toBeDefined()
+        expect(data.message).toBeDefined()
 
         // Verify record remains soft-deleted
         const result = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=3`)

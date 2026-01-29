@@ -27,7 +27,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   test.fixme(
     'API-ACTIVITY-RECORD-HISTORY-001: should return 200 with chronological change history',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Table with a record and multiple activities
       await startServerWithSchema({
         name: 'test-app',
@@ -59,7 +59,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       `)
 
       // WHEN: User requests record history
-      const response = await page.request.get('/api/tables/1/records/1/history')
+      const response = await request.get('/api/tables/1/records/1/history')
 
       // THEN: Returns chronological change history
       expect(response.status()).toBe(200)
@@ -79,7 +79,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   test(
     'API-ACTIVITY-RECORD-HISTORY-002: should return 401 when user is not authenticated',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: Application with auth enabled but user not signed in
       await startServerWithSchema({
         name: 'test-app',
@@ -98,7 +98,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       })
 
       // WHEN: Unauthenticated user requests record history
-      const response = await page.request.get('/api/tables/1/records/1/history')
+      const response = await request.get('/api/tables/1/records/1/history')
 
       // THEN: Returns 401 Unauthorized
       expect(response.status()).toBe(401)
@@ -111,7 +111,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   test(
     'API-ACTIVITY-RECORD-HISTORY-003: should return 404 when table does not exist',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Application with authenticated user but no table ID 9999
       await startServerWithSchema({
         name: 'test-app',
@@ -121,7 +121,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       await createAuthenticatedUser()
 
       // WHEN: User requests history for non-existent table
-      const response = await page.request.get('/api/tables/9999/records/1/history')
+      const response = await request.get('/api/tables/9999/records/1/history')
 
       // THEN: Returns 404 Not Found
       expect(response.status()).toBe(404)
@@ -134,7 +134,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   test.fixme(
     'API-ACTIVITY-RECORD-HISTORY-004: should return 404 when record does not exist',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Table exists but record ID 99999 does not
       await startServerWithSchema({
         name: 'test-app',
@@ -155,7 +155,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       await createAuthenticatedUser()
 
       // WHEN: User requests history for non-existent record
-      const response = await page.request.get('/api/tables/1/records/99999/history')
+      const response = await request.get('/api/tables/1/records/99999/history')
 
       // THEN: Returns 404 Not Found
       expect(response.status()).toBe(404)
@@ -168,7 +168,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   test.fixme(
     'API-ACTIVITY-RECORD-HISTORY-005: should return empty history when no activities exist',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Table with record but no activity logs
       await startServerWithSchema({
         name: 'test-app',
@@ -190,7 +190,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       await executeQuery(`INSERT INTO tasks (id, title) VALUES (1, 'Task 1')`)
 
       // WHEN: User requests history for record with no activities
-      const response = await page.request.get('/api/tables/1/records/1/history')
+      const response = await request.get('/api/tables/1/records/1/history')
 
       // THEN: Returns empty history array
       expect(response.status()).toBe(200)
@@ -203,7 +203,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   test.fixme(
     'API-ACTIVITY-RECORD-HISTORY-006: should include user metadata for each activity',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Record with activities from multiple users
       await startServerWithSchema({
         name: 'test-app',
@@ -233,7 +233,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       `)
 
       // WHEN: User requests record history
-      const response = await page.request.get('/api/tables/1/records/1/history')
+      const response = await request.get('/api/tables/1/records/1/history')
 
       // THEN: Each activity includes user metadata
       expect(response.status()).toBe(200)
@@ -248,7 +248,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   test.fixme(
     'API-ACTIVITY-RECORD-HISTORY-007: should exclude activities older than 1 year (retention policy)',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Record with activities older and newer than 1 year
       await startServerWithSchema({
         name: 'test-app',
@@ -278,7 +278,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       `)
 
       // WHEN: User requests record history
-      const response = await page.request.get('/api/tables/1/records/1/history')
+      const response = await request.get('/api/tables/1/records/1/history')
 
       // THEN: Returns only activities within 1 year retention period
       expect(response.status()).toBe(200)
@@ -292,7 +292,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   test.fixme(
     'API-ACTIVITY-RECORD-HISTORY-008: should support pagination for record history',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Record with many activities (30 activities)
       await startServerWithSchema({
         name: 'test-app',
@@ -324,25 +324,24 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
         `INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at) VALUES ${insertValues}`
       )
 
-      // WHEN: User requests second page of history with pageSize 10
-      const response = await page.request.get('/api/tables/1/records/1/history?page=2&pageSize=10')
+      // WHEN: User requests second page of history with limit 10 and offset 10
+      const response = await request.get('/api/tables/1/records/1/history?limit=10&offset=10')
 
       // THEN: Returns paginated history
       expect(response.status()).toBe(200)
 
       const data = await response.json()
       expect(data.history).toHaveLength(10)
-      expect(data.pagination.page).toBe(2)
-      expect(data.pagination.pageSize).toBe(10)
+      expect(data.pagination.limit).toBe(10)
+      expect(data.pagination.offset).toBe(10)
       expect(data.pagination.total).toBe(30)
-      expect(data.pagination.totalPages).toBe(3)
     }
   )
 
   test.fixme(
     'API-ACTIVITY-RECORD-HISTORY-009: should show complete lifecycle including delete',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Record that was created, updated, and deleted
       await startServerWithSchema({
         name: 'test-app',
@@ -372,7 +371,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       `)
 
       // WHEN: User requests history for deleted record
-      const response = await page.request.get('/api/tables/1/records/1/history')
+      const response = await request.get('/api/tables/1/records/1/history')
 
       // THEN: Returns complete lifecycle including delete action
       expect(response.status()).toBe(200)
@@ -389,7 +388,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   test(
     'API-ACTIVITY-RECORD-HISTORY-010: should return 401 Unauthorized when auth is not configured',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: Application with auth configured but user not authenticated
       await startServerWithSchema({
         name: 'test-app',
@@ -408,7 +407,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       })
 
       // WHEN: Unauthenticated user requests record history
-      const response = await page.request.get('/api/tables/1/records/1/history')
+      const response = await request.get('/api/tables/1/records/1/history')
 
       // THEN: Returns 401 Unauthorized (activity APIs always require auth)
       expect(response.status()).toBe(401)
@@ -422,7 +421,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   test.fixme(
     'API-ACTIVITY-RECORD-HISTORY-REGRESSION: user can view complete change history for a record',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // Setup: Start server with activity logging
       await startServerWithSchema({
         name: 'test-app',
@@ -444,7 +443,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
 
       await test.step('API-ACTIVITY-RECORD-HISTORY-002: Returns 401 when user is not authenticated', async () => {
         // WHEN: Unauthenticated user requests record history
-        const response = await page.request.get('/api/tables/1/records/1/history')
+        const response = await request.get('/api/tables/1/records/1/history')
 
         // THEN: Returns 401 Unauthorized
         expect(response.status()).toBe(401)
@@ -470,7 +469,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
 
       await test.step('API-ACTIVITY-RECORD-HISTORY-001: Returns 200 with chronological change history', async () => {
         // WHEN: User requests record history
-        const response = await page.request.get('/api/tables/1/records/42/history')
+        const response = await request.get('/api/tables/1/records/42/history')
 
         // THEN: Returns chronological change history
         expect(response.status()).toBe(200)
@@ -488,7 +487,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
 
       await test.step('API-ACTIVITY-RECORD-HISTORY-006: Includes user metadata for each activity', async () => {
         // WHEN: User requests record history
-        const response = await page.request.get('/api/tables/1/records/42/history')
+        const response = await request.get('/api/tables/1/records/42/history')
 
         // THEN: Each activity includes user metadata
         expect(response.status()).toBe(200)
@@ -498,23 +497,21 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       })
 
       await test.step('API-ACTIVITY-RECORD-HISTORY-008: Supports pagination for record history', async () => {
-        // WHEN: User requests second page of history with pageSize 2
-        const response = await page.request.get(
-          '/api/tables/1/records/42/history?page=1&pageSize=2'
-        )
+        // WHEN: User requests history with limit 2 and offset 0
+        const response = await request.get('/api/tables/1/records/42/history?limit=2&offset=0')
 
         // THEN: Returns paginated history
         expect(response.status()).toBe(200)
         const data = await response.json()
         expect(data.history).toHaveLength(2)
-        expect(data.pagination.page).toBe(1)
+        expect(data.pagination.limit).toBe(2)
+        expect(data.pagination.offset).toBe(0)
         expect(data.pagination.total).toBe(4)
-        expect(data.pagination.totalPages).toBe(2)
       })
 
       await test.step('API-ACTIVITY-RECORD-HISTORY-004: Returns 404 when record does not exist', async () => {
         // WHEN: User requests history for non-existent record
-        const response = await page.request.get('/api/tables/1/records/99999/history')
+        const response = await request.get('/api/tables/1/records/99999/history')
 
         // THEN: Returns 404 Not Found
         expect(response.status()).toBe(404)

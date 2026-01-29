@@ -239,7 +239,7 @@ test.describe('Create new record', () => {
       })
 
       // WHEN: Unauthenticated user attempts to create record
-      const response = await request.post('/api/tables/1/records', {
+      const response = await request.post('/api/tables/4/records', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -353,7 +353,7 @@ test.describe('Create new record', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'email', type: 'email' },
-              { id: 3, name: 'salary', type: 'decimal' },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
           },
         ],
@@ -382,8 +382,8 @@ test.describe('Create new record', () => {
       expect(data).toHaveProperty('id')
       expect(data.fields.name).toBe('John Doe')
       expect(data.fields.email).toBe('john@example.com')
-      // Decimal fields are returned as strings from PostgreSQL to preserve precision
-      expect(data.fields.salary).toBe('75000')
+      // Currency fields are returned as numbers
+      expect(data.fields.salary).toBe(75_000)
     }
   )
 
@@ -402,7 +402,7 @@ test.describe('Create new record', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'email', type: 'email' },
-              { id: 3, name: 'salary', type: 'decimal' },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
             permissions: {
               fields: [
@@ -670,7 +670,7 @@ test.describe('Create new record', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'email', type: 'email' },
-              { id: 3, name: 'salary', type: 'decimal' },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
             permissions: {
               fields: [
@@ -724,7 +724,7 @@ test.describe('Create new record', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text', required: true },
               { id: 2, name: 'email', type: 'email' },
-              { id: 3, name: 'salary', type: 'decimal', default: 50_000 },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD', default: 50_000 },
             ],
           },
         ],
@@ -867,7 +867,7 @@ test.describe('Create new record', () => {
             fields: [
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'email', type: 'email' },
-              { id: 3, name: 'salary', type: 'decimal', default: 50_000 },
+              { id: 3, name: 'salary', type: 'currency', currency: 'USD', default: 50_000 },
             ],
           },
           {

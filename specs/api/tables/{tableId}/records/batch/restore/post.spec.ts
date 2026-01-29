@@ -206,6 +206,7 @@ test.describe('Batch Restore records', () => {
 
       const data = await response.json()
       expect(data.error).toBeDefined()
+      expect(data.message).toBeDefined()
 
       // THEN: Records remain soft-deleted
       const result = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=1`)
@@ -373,6 +374,7 @@ test.describe('Batch Restore records', () => {
 
         const data = await response.json()
         expect(data.error).toBeDefined()
+        expect(data.message).toBeDefined()
 
         // Records remain soft-deleted
         const result = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=1`)

@@ -342,6 +342,7 @@ test.describe('API Session Context Integration', () => {
 
       const data = await response.json()
       expect(data.error).toBeDefined()
+      expect(data.message).toBeDefined()
     }
   )
 

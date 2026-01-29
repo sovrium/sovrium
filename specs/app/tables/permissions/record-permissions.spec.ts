@@ -92,7 +92,7 @@ test.describe('Record-Level Permissions', () => {
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='documents' AND policyname='user_read_own'"
       )
       // THEN: assertion
-      expect(policyCount.count).toBe('1')
+      expect(policyCount.rows[0].count).toBe('1')
 
       // User 1 can only SELECT their own records
       const user1Count = await executeQuery([
@@ -101,7 +101,7 @@ test.describe('Record-Level Permissions', () => {
         'SELECT COUNT(*) as count FROM documents',
       ])
       // THEN: assertion
-      expect(user1Count.count).toBe('2')
+      expect(user1Count.rows[0].count).toBe('2')
 
       // User 2 can only SELECT their own records
       const user2Count = await executeQuery([
@@ -110,7 +110,7 @@ test.describe('Record-Level Permissions', () => {
         'SELECT COUNT(*) as count FROM documents',
       ])
       // THEN: assertion
-      expect(user2Count.count).toBe('1')
+      expect(user2Count.rows[0].count).toBe('1')
 
       // User 1 sees titles of their documents
       const user1Titles = await executeQuery([
@@ -186,7 +186,7 @@ test.describe('Record-Level Permissions', () => {
         "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='articles' AND policyname='user_delete_draft'"
       )
       // THEN: assertion
-      expect(policyCount.count).toBe('1')
+      expect(policyCount.rows[0].count).toBe('1')
 
       // User 1 can DELETE their draft article
       const user1Delete = await executeQuery([
@@ -290,7 +290,7 @@ test.describe('Record-Level Permissions', () => {
         'SELECT COUNT(*) as count FROM projects',
       ])
       // THEN: assertion
-      expect(engCount.count).toBe('1')
+      expect(engCount.rows[0].count).toBe('1')
 
       // Engineering user sees Project A (active)
       const engProject = await executeQuery([
@@ -299,7 +299,7 @@ test.describe('Record-Level Permissions', () => {
         'SELECT name FROM projects',
       ])
       // THEN: assertion
-      expect(engProject.name).toBe('Project A')
+      expect(engProject.rows[0].name).toBe('Project A')
 
       // Marketing user sees only active Marketing projects
       const mktProject = await executeQuery([
@@ -308,7 +308,7 @@ test.describe('Record-Level Permissions', () => {
         'SELECT name FROM projects',
       ])
       // THEN: assertion
-      expect(mktProject.name).toBe('Project C')
+      expect(mktProject.rows[0].name).toBe('Project C')
     }
   )
 
@@ -376,7 +376,7 @@ test.describe('Record-Level Permissions', () => {
         'SELECT COUNT(*) as count FROM employees',
       ])
       // THEN: assertion
-      expect(engCount.count).toBe('2')
+      expect(engCount.rows[0].count).toBe('2')
 
       // Engineering user sees Alice and Charlie
       const engEmployees = await executeQuery([
@@ -394,7 +394,7 @@ test.describe('Record-Level Permissions', () => {
         'SELECT name FROM employees',
       ])
       // THEN: assertion
-      expect(mktEmployee.name).toBe('Bob')
+      expect(mktEmployee.rows[0].name).toBe('Bob')
     }
   )
 
@@ -470,7 +470,7 @@ test.describe('Record-Level Permissions', () => {
         'SELECT COUNT(*) as count FROM tickets',
       ])
       // THEN: assertion
-      expect(user1Count.count).toBe('3')
+      expect(user1Count.rows[0].count).toBe('3')
 
       // User 1 sees Ticket 1 (created), Ticket 2 (assigned), Ticket 3 (both)
       const user1Tickets = await executeQuery([
@@ -646,7 +646,7 @@ test.describe('Record-Level Permissions', () => {
           `SET LOCAL app.user_id = '${user1.user.id}'`,
           'SELECT COUNT(*) as count FROM documents',
         ])
-        expect(user1Count.count).toBe('2')
+        expect(user1Count.rows[0].count).toBe('2')
 
         // User 2 can only SELECT their own records
         const user2Count = await executeQuery([
@@ -654,7 +654,7 @@ test.describe('Record-Level Permissions', () => {
           `SET LOCAL app.user_id = '${user2.user.id}'`,
           'SELECT COUNT(*) as count FROM documents',
         ])
-        expect(user2Count.count).toBe('1')
+        expect(user2Count.rows[0].count).toBe('1')
       })
 
       await test.step('APP-TABLES-RECORD-PERMISSIONS-002: Deny DELETE on published records', async () => {
@@ -708,7 +708,7 @@ test.describe('Record-Level Permissions', () => {
           "SET LOCAL app.user_department = 'Engineering'",
           'SELECT COUNT(*) as count FROM projects',
         ])
-        expect(engCount.count).toBe('1')
+        expect(engCount.rows[0].count).toBe('1')
       })
 
       await test.step('APP-TABLES-RECORD-PERMISSIONS-004: Filter by user department custom property', async () => {
@@ -728,7 +728,7 @@ test.describe('Record-Level Permissions', () => {
           "SET LOCAL app.user_department = 'Engineering'",
           'SELECT COUNT(*) as count FROM employees',
         ])
-        expect(engCount.count).toBe('2')
+        expect(engCount.rows[0].count).toBe('2')
 
         // Marketing user sees Marketing employees only
         const mktEmployee = await executeQuery([
@@ -736,7 +736,7 @@ test.describe('Record-Level Permissions', () => {
           "SET LOCAL app.user_department = 'Marketing'",
           'SELECT name FROM employees',
         ])
-        expect(mktEmployee.name).toBe('Bob')
+        expect(mktEmployee.rows[0].name).toBe('Bob')
       })
 
       await test.step('APP-TABLES-RECORD-PERMISSIONS-005: Filter records with complex OR condition', async () => {
@@ -756,7 +756,7 @@ test.describe('Record-Level Permissions', () => {
           `SET LOCAL app.user_id = '${user1.user.id}'`,
           'SELECT COUNT(*) as count FROM tickets',
         ])
-        expect(user1Count.count).toBe('3')
+        expect(user1Count.rows[0].count).toBe('3')
 
         // User 2 sees their tickets
         const user2Tickets = await executeQuery([

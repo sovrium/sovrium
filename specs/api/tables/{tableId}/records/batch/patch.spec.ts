@@ -53,7 +53,7 @@ test.describe('Batch update records', () => {
       await createAuthenticatedUser()
 
       // WHEN: Batch update both records with returnRecords=true
-      const response = await request.patch('/api/tables/16/records/batch', {
+      const response = await request.patch('/api/tables/1/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -581,8 +581,8 @@ test.describe('Batch update records', () => {
 
       // Salary field not in response
       // THEN: assertion
-      expect(data.records[0]).not.toHaveProperty('salary')
-      expect(data.records[1]).not.toHaveProperty('salary')
+      expect(data.records[0].fields).not.toHaveProperty('salary')
+      expect(data.records[1].fields).not.toHaveProperty('salary')
     }
   )
 
@@ -960,8 +960,8 @@ test.describe('Batch update records', () => {
         const data = await response.json()
         expect(data.updated).toBe(2)
 
-        expect(data.records[0]).not.toHaveProperty('salary')
-        expect(data.records[1]).not.toHaveProperty('salary')
+        expect(data.records[0].fields).not.toHaveProperty('salary')
+        expect(data.records[1].fields).not.toHaveProperty('salary')
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-PATCH-012: Updates only found records', async () => {

@@ -105,13 +105,14 @@ test.describe('GET /trash endpoint', () => {
       })
 
       // WHEN: Unauthenticated user requests trash
-      const response = await request.get('/api/tables/1/trash')
+      const response = await request.get('/api/tables/2/trash')
 
       // THEN: Returns 401 Unauthorized
       expect(response.status()).toBe(401)
 
       const data = await response.json()
       expect(data.error).toBeDefined()
+      expect(data.message).toBeDefined()
     }
   )
 

@@ -128,6 +128,7 @@ test.describe('Batch delete records', () => {
 
       const data = await response.json()
       expect(data.error).toBeDefined()
+      expect(data.message).toBeDefined()
 
       // THEN: Record remains active due to transaction rollback
       const rollbackCheck = await executeQuery(`
@@ -616,6 +617,7 @@ test.describe('Batch delete records', () => {
 
         const data = await response.json()
         expect(data.error).toBeDefined()
+        expect(data.message).toBeDefined()
 
         const rollbackCheck = await executeQuery(`
           SELECT deleted_at FROM users WHERE id=3
