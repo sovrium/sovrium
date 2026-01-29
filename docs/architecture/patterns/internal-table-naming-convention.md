@@ -206,7 +206,6 @@ System-wide audit logging and comments:
 export const activityLogs = pgTable('_sovrium_activity_logs', {
   id: text('id').primaryKey(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  organizationId: text('organization_id').references(() => organizations.id),
   userId: text('user_id').references(() => users.id),
   action: text('action').notNull().$type<ActivityAction>(),
   tableName: text('table_name').notNull(),
@@ -221,7 +220,6 @@ export const recordComments = pgTable('_sovrium_record_comments', {
   id: text('id').primaryKey(),
   recordId: text('record_id').notNull(),
   tableId: text('table_id').notNull(),
-  organizationId: text('organization_id').notNull(),
   userId: text('user_id').notNull(),
   content: text('content').notNull(),
   // ... other fields

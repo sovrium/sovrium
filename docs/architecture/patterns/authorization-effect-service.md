@@ -78,7 +78,7 @@ export const makeAuthorizationService = Layer.succeed(
     checkTablePermission: (user, tableId, operation) =>
       Effect.gen(function* () {
         // Fetch table permissions from database
-        const permissions = yield* getTablePermissions(tableId, user.organizationId)
+        const permissions = yield* getTablePermissions(tableId, user.userId)
 
         // Check if user role has permission for operation
         const hasPermission = permissions[user.role]?.table?.[operation] ?? false
@@ -89,7 +89,7 @@ export const makeAuthorizationService = Layer.succeed(
     checkFieldPermission: (user, tableId, fieldName, access) =>
       Effect.gen(function* () {
         // Fetch table permissions from database
-        const permissions = yield* getTablePermissions(tableId, user.organizationId)
+        const permissions = yield* getTablePermissions(tableId, user.userId)
 
         // Check field-level permission
         const fieldPermissions = permissions[user.role]?.fields?.[fieldName]
@@ -101,7 +101,7 @@ export const makeAuthorizationService = Layer.succeed(
     getReadableFields: (user, tableId) =>
       Effect.gen(function* () {
         // Fetch table permissions
-        const permissions = yield* getTablePermissions(tableId, user.organizationId)
+        const permissions = yield* getTablePermissions(tableId, user.userId)
 
         // Get all table fields
         const allFields = yield* getTableFields(tableId)
@@ -118,7 +118,7 @@ export const makeAuthorizationService = Layer.succeed(
     getWritableFields: (user, tableId) =>
       Effect.gen(function* () {
         // Fetch table permissions
-        const permissions = yield* getTablePermissions(tableId, user.organizationId)
+        const permissions = yield* getTablePermissions(tableId, user.userId)
 
         // Get all table fields
         const allFields = yield* getTableFields(tableId)

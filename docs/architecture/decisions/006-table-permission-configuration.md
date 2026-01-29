@@ -367,7 +367,7 @@ export const getPermissions = (tableId: number, role: string) =>
 1. **Default Permission Logic**: Ensure fallback permissions are sensible (viewer-level restrictive)
 2. **Cache Invalidation**: Verify cache invalidates on permission updates
 3. **Performance**: Monitor permission lookup latency (target < 10ms with cache)
-4. **Multi-Tenancy**: Verify organization isolation (users cannot set permissions for other orgs)
+4. **Multi-Tenancy**: Verify owner isolation (users cannot set permissions for other orgs)
 
 ---
 

@@ -45,7 +45,7 @@ SQL Query → RLS Policy → Row Filtering → (Filtered Results)
 
 - Row-level filtering based on ownership
 - Field-level visibility enforcement
-- Organization isolation
+- owner isolation
 - Defense against application bugs
 
 **Implementation**: PostgreSQL RLS policies generated from table permission config
@@ -120,7 +120,7 @@ Better Auth allows the role, then RLS filters the rows.
 
 ```
 Request → Better Auth: hasPermission('projects:read') → ALLOWED
-       → RLS: organization_id = current_org → Returns 5 of 100 rows
+       → RLS: owner_id = current_org → Returns 5 of 100 rows
 ```
 
 **Test Example** (from `rls-enforcement.spec.ts`):
@@ -146,7 +146,7 @@ Request → Better Auth: hasPermission('records:read') → ALLOWED
 test.fixme('API-TABLES-FIELD-PERMISSIONS-008: should demonstrate dual-layer field filtering')
 ```
 
-### Pattern 4: Organization Isolation
+### Pattern 4: Owner Isolation
 
 Both layers verify organization membership independently.
 
@@ -154,7 +154,7 @@ Both layers verify organization membership independently.
 
 ```
 Request → Better Auth: User is authenticated, has member role → ALLOWED
-       → RLS: organization_id = 'org_456' ≠ user's 'org_123' → No rows returned
+       → RLS: owner_id = 'org_456' ≠ user's 'org_123' → No rows returned
 ```
 
 **Test Example** (from `organization-isolation.spec.ts`):
@@ -260,10 +260,10 @@ RLS policies are generated from table permissions:
 export function generateRLSPolicy(table: Table): string {
   const policies: string[] = []
 
-  // Organization isolation
+  // owner isolation
   policies.push(`
     CREATE POLICY org_isolation ON ${table.name}
-      USING (organization_id = current_setting('app.org_id')::text);
+      USING (owner_id = current_setting('app.owner_id')::text);
   `)
 
   // Owner-based access
@@ -302,7 +302,7 @@ Before each query, set the RLS context:
 export async function setRLSContext(db: DrizzleDB, user: User) {
   await db.execute(sql`
     SET LOCAL app.user_id = ${user.id};
-    SET LOCAL app.org_id = ${user.organizationId};
+    SET LOCAL app.owner_id = ${user.userId};
     SET LOCAL app.user_role = ${user.role};
   `)
 }
@@ -396,7 +396,7 @@ test.fixme(
 ### Optimization Tips
 
 1. **Better Auth first**: Reject unauthorized roles before database query
-2. **RLS indexes**: Index columns used in RLS policies (`organization_id`, `owner_id`)
+2. **RLS indexes**: Index columns used in RLS policies (`owner_id`, `owner_id`)
 3. **Session variable caching**: Set RLS context once per transaction, not per query
 4. **Skip RLS for trusted queries**: Use `SECURITY DEFINER` for admin operations
 
@@ -415,7 +415,6 @@ The following spec files contain dual-layer tests:
 ## Related Documentation
 
 - [Better Auth Integration](./authorization-better-auth-integration.md) - Session extraction, roles
-- [Organization Isolation](./authorization-organization-isolation.md) - Multi-tenancy patterns
 - [Field-Level Permissions](./authorization-field-level-permissions.md) - Column access control
 - [API Routes Authorization](./authorization-api-routes.md) - Route-level middleware
 - [Error Handling](./authorization-error-handling.md) - 401/403/404 conventions

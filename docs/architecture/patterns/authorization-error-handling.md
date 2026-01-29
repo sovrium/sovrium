@@ -80,20 +80,20 @@ if (READONLY_FIELDS.includes(field)) {
 
 **When to use**: Resource doesn't exist OR belongs to different organization
 
-**CRITICAL**: Always return 404 for cross-org access (never 403)
+**CRITICAL**: Always return 404 for unauthorized access (never 403)
 
 ```typescript
-// Organization isolation check
+// owner isolation check
 const record = await db.query.records.findFirst({
-  where: and(eq(records.id, recordId), eq(records.organization_id, user.organizationId)),
+  where: and(eq(records.id, recordId), eq(records.owner_id, user.userId)),
 })
 
 if (!record) {
-  return c.json({ error: 'Record not found' }, 404) // Could be missing OR cross-org
+  return c.json({ error: 'Record not found' }, 404) // Could be missing OR unauthorized
 }
 ```
 
-**Why 404 instead of 403 for cross-org?**
+**Why 404 instead of 403 for unauthorized?**
 
 - 403 reveals that the record exists but belongs to another organization
 - 404 hides whether the record exists at all
@@ -238,7 +238,7 @@ app.post('/tables/:tableId/records', requireAuth, async (c) => {
     }
 
     // Create record
-    const record = yield* createRecord(tableId, body, user.organizationId)
+    const record = yield* createRecord(tableId, body, user.userId)
 
     // Filter response
     const filtered = yield* authService.filterResponseFields(user, tableId, record)
@@ -271,7 +271,7 @@ app.post('/tables/:tableId/records', requireAuth, async (c) => {
 Follow this order to prevent information leakage:
 
 1. **Authentication** (401) - Check user is authenticated
-2. **Organization Isolation** (404) - Check record belongs to user's org
+2. **Owner Isolation** (404) - Check record belongs to user's org
 3. **Table-Level Permissions** (403) - Check user can perform operation
 4. **Field-Level Permissions** (403) - Check user can access specific fields
 
@@ -282,13 +282,13 @@ app.patch('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
 
   // 1. Authentication (handled by requireAuth middleware)
 
-  // 2. Organization isolation (404)
+  // 2. owner isolation (404)
   const record = await db.query.records.findFirst({
-    where: and(eq(records.id, recordId), eq(records.organization_id, user.organizationId)),
+    where: and(eq(records.id, recordId), eq(records.owner_id, user.userId)),
   })
 
   if (!record) {
-    return c.json({ error: 'Record not found' }, 404) // Could be missing OR cross-org
+    return c.json({ error: 'Record not found' }, 404) // Could be missing OR unauthorized
   }
 
   // 3. Table-level permission (403)
@@ -342,7 +342,7 @@ app.post('/tables/:tableId/records/batch', requireAuth, async (c) => {
   const result = await db.transaction(async (tx) => {
     return await tx
       .insert(records)
-      .values(recordsToCreate.map((r) => ({ ...r, organization_id: user.organizationId })))
+      .values(recordsToCreate.map((r) => ({ ...r, owner_id: user.userId })))
       .returning()
   })
 
@@ -391,7 +391,7 @@ app.post('/tables/:tableId/records/batch', requireAuth, async (c) => {
     "setup": {
       "authUser": {
         "id": 3,
-        "organizationId": "org_123",
+        "userId": "org_123",
         "role": "viewer"
       },
       "tableConfig": {
@@ -421,17 +421,17 @@ app.post('/tables/:tableId/records/batch', requireAuth, async (c) => {
 {
   "id": "API-TABLES-RECORDS-GET-ORG-ISOLATION-001",
   "given": "A user attempts to access record from different organization",
-  "when": "User GETs record with mismatched organization_id",
+  "when": "User GETs record with mismatched owner_id",
   "then": "Returns 404 Not Found (not 403)",
   "validation": {
     "setup": {
       "authUser": {
         "id": 2,
-        "organizationId": "org_123",
+        "userId": "org_123",
         "role": "admin"
       },
       "fixtures": {
-        "records": [{ "id": 1, "organization_id": "org_999", "name": "Record from other org" }]
+        "records": [{ "id": 1, "owner_id": "org_999", "name": "Record from other org" }]
       }
     },
     "assertions": [
@@ -448,4 +448,3 @@ app.post('/tables/:tableId/records/batch', requireAuth, async (c) => {
 - Better Auth Integration: `authorization-better-auth-integration.md`
 - Effect Service Implementation: `authorization-effect-service.md`
 - Field-Level Permissions: `authorization-field-level-permissions.md`
-- Organization Isolation: `authorization-organization-isolation.md`

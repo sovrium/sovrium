@@ -143,7 +143,7 @@ Every `api-key-auth.spec.ts` file should include:
 - ✅ 200 when user role allows action
 - ❌ 403 when user role denies action
 
-### Organization Isolation
+### owner isolation
 
 - ✅ Returns only user's organization data
 - ❌ 404 for cross-organization access (not 403, prevents enumeration)

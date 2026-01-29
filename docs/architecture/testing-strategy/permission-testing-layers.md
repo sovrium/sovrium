@@ -12,7 +12,7 @@ Tests PostgreSQL RLS policy generation from domain models.
 
 - RLS policy existence and correctness
 - Policy SQL definitions
-- Session variable usage (`app.user_id`, `app.organization_id`, `app.user_role`)
+- Session variable usage (`app.user_id`, `app.owner_id`, `app.user_role`)
 - Field-level permission metadata
 
 **Key spec files:**

@@ -124,7 +124,7 @@ app.get('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
 
   // Fetch record with org isolation
   const record = await db.query.records.findFirst({
-    where: and(eq(records.id, recordId), eq(records.organization_id, user.organizationId)),
+    where: and(eq(records.id, recordId), eq(records.owner_id, user.userId)),
   })
 
   if (!record) {
@@ -150,7 +150,7 @@ app.get('/tables/:tableId/records', requireAuth, async (c) => {
 
   // Fetch records with org isolation
   const records = await db.query.records.findMany({
-    where: eq(records.organization_id, user.organizationId),
+    where: eq(records.owner_id, user.userId),
   })
 
   // Filter fields for all records
@@ -221,7 +221,7 @@ app.post('/tables/:tableId/records', requireAuth, async (c) => {
   // Create record with auto-injected org ID
   const record = await db.insert(records).values({
     ...body,
-    organization_id: user.organizationId,
+    owner_id: user.userId,
   })
 
   // Filter response fields
@@ -245,7 +245,7 @@ app.patch('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
 
   // Check org ownership
   const existingRecord = await db.query.records.findFirst({
-    where: and(eq(records.id, recordId), eq(records.organization_id, user.organizationId)),
+    where: and(eq(records.id, recordId), eq(records.owner_id, user.userId)),
   })
 
   if (!existingRecord) {
@@ -259,7 +259,7 @@ app.patch('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
   }
 
   // Validate readonly fields
-  const READONLY_FIELDS = ['id', 'created_at', 'updated_at', 'organization_id']
+  const READONLY_FIELDS = ['id', 'created_at', 'updated_at', 'owner_id']
   for (const field of Object.keys(body)) {
     if (READONLY_FIELDS.includes(field)) {
       return c.json({ error: 'Forbidden', message: `Cannot modify readonly field: ${field}` }, 403)
@@ -330,7 +330,7 @@ app.post('/tables/:tableId/records/batch', requireAuth, async (c) => {
   const result = await db.transaction(async (tx) => {
     return await tx
       .insert(records)
-      .values(recordsToCreate.map((r) => ({ ...r, organization_id: user.organizationId })))
+      .values(recordsToCreate.map((r) => ({ ...r, owner_id: user.userId })))
       .returning()
   })
 
@@ -398,7 +398,7 @@ const canWriteSSN = writableFields.includes('ssn')
     "setup": {
       "authUser": {
         "id": 2,
-        "organizationId": "org_123",
+        "userId": "org_123",
         "role": "member"
       },
       "tableConfig": {
@@ -436,7 +436,7 @@ const canWriteSSN = writableFields.includes('ssn')
     "setup": {
       "authUser": {
         "id": 2,
-        "organizationId": "org_123",
+        "userId": "org_123",
         "role": "member"
       },
       "tableConfig": {
@@ -471,4 +471,3 @@ const canWriteSSN = writableFields.includes('ssn')
 - API Routes Authorization: `authorization-api-routes.md`
 - Better Auth Integration: `authorization-better-auth-integration.md`
 - Effect Service Implementation: `authorization-effect-service.md`
-- Organization Isolation: `authorization-organization-isolation.md`

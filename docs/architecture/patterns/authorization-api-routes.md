@@ -7,7 +7,7 @@ This document describes how to implement authorization in Hono API routes for ta
 1. Authentication (401 if missing)
 2. Table-level permissions (403 if forbidden)
 3. Field-level permissions (403 for protected fields, filtering for responses)
-4. Organization isolation (404 for cross-org access)
+4. Owner isolation (404 for unauthorized access)
 
 ## Architecture Layers
 
@@ -24,7 +24,7 @@ This document describes how to implement authorization in Hono API routes for ta
 │  - Check table-level permissions            │
 │  - Check field-level permissions            │
 │  - Filter response fields                   │
-│  - Apply organization isolation             │
+│  - Apply owner isolation             │
 └─────────────────────────────────────────────┘
                     ↓
 ┌─────────────────────────────────────────────┐
@@ -51,7 +51,7 @@ export const requireAuth = createMiddleware(async (c, next) => {
   }
 
   c.set('user', session.user)
-  c.set('organizationId', session.user.organizationId)
+  c.set('userId', session.user.userId)
 
   await next()
 })
@@ -113,28 +113,28 @@ const filteredRecords = records.map((record) =>
 return c.json({ records: filteredRecords })
 ```
 
-### 5. Enforce Organization Isolation
+### 5. Enforce Owner Isolation
 
 ```typescript
-// Add organization filter to all queries
-const userOrgId = c.get('organizationId')
+// Add owner filter to all queries
+const userId = c.get('userId')
 
-// For CREATE - auto-inject organization_id
+// For CREATE - auto-inject owner_id
 const recordData = {
   ...body,
-  organization_id: userOrgId, // Always use authenticated user's org
+  owner_id: userId, // Always use authenticated user's ID
 }
 
-// For READ/UPDATE/DELETE - filter by organization
+// For READ/UPDATE/DELETE - filter by owner
 const record = await db.query.records.findFirst({
   where: and(
     eq(records.id, recordId),
-    eq(records.organization_id, userOrgId) // Organization isolation
+    eq(records.owner_id, userId) // Owner isolation
   ),
 })
 
 if (!record) {
-  return c.json({ error: 'Record not found' }, 404) // Not 403 - prevents org enumeration
+  return c.json({ error: 'Record not found' }, 404) // Not 403 - prevents owner enumeration
 }
 ```
 
@@ -143,14 +143,14 @@ if (!record) {
 **CRITICAL**: Always check permissions in this order to prevent information leakage:
 
 1. **Authentication** (401) - Check if user is authenticated
-2. **Organization Isolation** (404) - Check if record belongs to user's org
+2. **Owner Isolation** (404) - Check if record belongs to user
 3. **Table-Level Permissions** (403) - Check if user can perform operation
 4. **Field-Level Permissions** (403) - Check if user can access specific fields
 
 **Why this order?**
 
-- Returning 403 before checking org isolation would reveal that a record exists in another org
-- Always return 404 for cross-org access, never 403
+- Returning 403 before checking owner isolation would reveal that a record exists for another user
+- Always return 404 for unauthorized access, never 403
 
 ## Error Response Format
 
@@ -194,22 +194,19 @@ for (const field of Object.keys(body)) {
 }
 ```
 
-## Organization Override Prevention
+## Owner Override Prevention
 
-Users cannot create or update records for a different organization:
+Users cannot create or update records for a different owner:
 
 ```typescript
-// Prevent organization_id override
-if (body.organization_id && body.organization_id !== userOrgId) {
-  return c.json(
-    { error: 'Forbidden', message: 'Cannot create records for different organization' },
-    403
-  )
+// Prevent owner_id override
+if (body.owner_id && body.owner_id !== userId) {
+  return c.json({ error: 'Forbidden', message: 'Cannot create records for different owner' }, 403)
 }
 
-// Prevent changing organization_id on updates
-if (existingRecord.organization_id !== userOrgId) {
-  return c.json({ error: 'Forbidden', message: 'Cannot change organization_id' }, 403)
+// Prevent changing owner_id on updates
+if (existingRecord.owner_id !== userId) {
+  return c.json({ error: 'Forbidden', message: 'Cannot change owner_id' }, 403)
 }
 ```
 
@@ -239,15 +236,13 @@ app.post('/tables/:tableId/records/batch', requireAuth, async (c) => {
   for (const record of records) {
     // Check field-level permissions
     // Check readonly fields
-    // Check organization_id
+    // Check owner_id
   }
 
   // Start transaction
   const result = await db.transaction(async (tx) => {
-    // Insert all records with auto-injected organization_id
-    return await tx
-      .insert(records)
-      .values(records.map((r) => ({ ...r, organization_id: userOrgId })))
+    // Insert all records with auto-injected owner_id
+    return await tx.insert(records).values(records.map((r) => ({ ...r, owner_id: userId })))
   })
 
   return c.json({ created: result.length })
@@ -270,6 +265,5 @@ Every authorization spec must verify:
 - Better Auth Integration: `authorization-better-auth-integration.md`
 - Effect Service Implementation: `authorization-effect-service.md`
 - Field-Level Permissions: `authorization-field-level-permissions.md`
-- Organization Isolation: `authorization-organization-isolation.md`
 - Error Handling: `authorization-error-handling.md`
 - Implementation Examples: `authorization-implementation-examples.md`

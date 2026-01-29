@@ -75,7 +75,7 @@ export const organizations = pgTable('_sovrium_auth_organizations', {
 
 export const members = pgTable('_sovrium_auth_members', {
   id: text('id').primaryKey(),
-  organizationId: text('organization_id')
+  userId: text('owner_id')
     .notNull()
     .references(() => organizations.id, { onDelete: 'cascade' }),
   userId: text('user_id')
@@ -87,7 +87,7 @@ export const members = pgTable('_sovrium_auth_members', {
 
 export const invitations = pgTable('_sovrium_auth_invitations', {
   id: text('id').primaryKey(),
-  organizationId: text('organization_id')
+  userId: text('owner_id')
     .notNull()
     .references(() => organizations.id, { onDelete: 'cascade' }),
   email: text('email').notNull(),
@@ -159,9 +159,11 @@ Click here to accept the invitation: {url}
 
 - ✅ Users can create organizations
 - ✅ Users can invite members to organizations
-- ✅ Session includes `activeOrganizationId`
+- ✅ Session includes organization context
 - ✅ Multi-tenant data isolation possible
 - ✅ Organization-based RBAC
+
+> **Note**: Sovrium currently uses owner-based isolation (user-level multi-tenancy) instead of the organization plugin. This provides simpler access control where records are owned by individual users.
 
 **Configuration in App Schema**:
 
@@ -188,7 +190,7 @@ interface Session {
     id: string
     email: string
     name: string
-    organizationId: string // From organization plugin
+    userId: string // From organization plugin
     role: 'owner' | 'admin' | 'member' | 'viewer'
   }
   session: {
@@ -224,7 +226,7 @@ export const requireAuth = createMiddleware(async (c, next) => {
 
   // Store user context in Hono context
   c.set('user', session.user)
-  c.set('organizationId', session.user.organizationId)
+  c.set('userId', session.user.userId)
   c.set('role', session.user.role)
 
   await next()
@@ -269,17 +271,17 @@ Organization ID from Better Auth is used for:
 
 ```typescript
 // Get organization ID from authenticated user
-const userOrgId = c.get('organizationId')
+const userId = c.get('userId')
 
 // Use in database queries
 const records = await db.query.records.findMany({
-  where: eq(records.organization_id, userOrgId),
+  where: eq(records.owner_id, userId),
 })
 
 // Auto-inject on create
 const newRecord = await db.insert(records).values({
   ...recordData,
-  organization_id: userOrgId,
+  owner_id: userId,
 })
 ```
 
@@ -295,7 +297,7 @@ const app = new Hono()
 app.get('/tables/:tableId/records', requireAuth, async (c) => {
   // Extract user context from Hono context
   const user = c.get('user')
-  const organizationId = c.get('organizationId')
+  const userId = c.get('userId')
   const role = c.get('role')
 
   // Use in authorization checks
@@ -305,9 +307,9 @@ app.get('/tables/:tableId/records', requireAuth, async (c) => {
     return c.json({ error: 'Forbidden' }, 403)
   }
 
-  // Use organizationId in query filters
+  // Use userId in query filters
   const records = await db.query.records.findMany({
-    where: eq(records.organization_id, organizationId),
+    where: eq(records.owner_id, userId),
   })
 
   return c.json({ records })
@@ -363,7 +365,7 @@ return c.json({ error: 'Unauthorized', message: 'Invalid authentication token' }
 
 Better Auth Organization plugin ensures:
 
-- Users always have an `organizationId` in session
+- Users always have an `userId` in session
 - Users can only belong to one organization (based on config)
 - Organization membership is validated on each request
 
@@ -378,7 +380,7 @@ For E2E tests, create test sessions:
 const testUser = {
   id: 1,
   email: 'test@example.com',
-  organizationId: 'org_123',
+  userId: 'org_123',
   role: 'admin',
 }
 
@@ -403,7 +405,7 @@ The authorization service receives user context from Better Auth:
 // Authorization service receives user object
 interface User {
   id: string
-  organizationId: string
+  userId: string
   role: 'owner' | 'admin' | 'member' | 'viewer'
 }
 
@@ -414,7 +416,7 @@ async function checkTablePermission(
   operation: 'read' | 'create' | 'update' | 'delete'
 ): Promise<boolean> {
   // Fetch table permissions configuration
-  const permissions = await getTablePermissions(tableId, user.organizationId)
+  const permissions = await getTablePermissions(tableId, user.userId)
 
   // Check if user role has permission for operation
   return permissions[user.role]?.table?.[operation] ?? false
@@ -425,4 +427,3 @@ async function checkTablePermission(
 
 - API Routes Authorization: `authorization-api-routes.md`
 - Effect Service Implementation: `authorization-effect-service.md`
-- Organization Isolation: `authorization-organization-isolation.md`

@@ -45,16 +45,16 @@
 
 ## Authorization & Multi-Tenancy
 
-**Strategy**: RBAC (Role-Based Access Control) + Field-Level Permissions + Organization Isolation
+**Strategy**: RBAC (Role-Based Access Control) + Field-Level Permissions + Owner Isolation
 
 | Concept | Description |
 |---------|-------------|
-| **Roles** | owner, admin, member, viewer (4 default roles per organization) |
-| **Organization Isolation** | Multi-tenant with `organization_id` filtering on all queries |
+| **Roles** | owner, admin, member, viewer (4 default roles) |
+| **Owner Isolation** | Multi-tenant with `owner_id` filtering on all queries |
 | **Field-Level Permissions** | Granular read/write control per field based on role |
-| **Security** | Return 404 for cross-org access attempts (prevents enumeration) |
+| **Security** | Return 404 for unauthorized access attempts (prevents enumeration) |
 
-**Documentation**: See `@docs/architecture/patterns/authorization-*.md` (7 comprehensive guides)
+**Documentation**: See `@docs/architecture/patterns/authorization-*.md` (6 comprehensive guides)
 
 ## Essential Commands
 

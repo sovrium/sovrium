@@ -8,7 +8,7 @@
 
 Sovrium requires fine-grained access control for table records APIs with:
 
-- Multi-tenant organization isolation
+- Multi-tenant owner isolation
 - Role-based access control (RBAC) with Better Auth
 - Table-level operation permissions (CRUD)
 - Field-level read/write permissions
@@ -21,13 +21,13 @@ We will implement a layered authorization strategy:
 ### 1. Authentication Layer (Better Auth)
 
 - Use Better Auth 1.3.34 with Organization plugin
-- Extract user context (id, organizationId, role) from session
+- Extract user context (id, userId, role) from session
 - Middleware validates all requests require authentication
 
 ### 2. Authorization Service (Effect.ts)
 
 - Application layer service using Effect.ts for typed error handling
-- Centralized permission checks: table-level, field-level, organization isolation
+- Centralized permission checks: table-level, field-level, owner isolation
 - Dependency injection via Effect Layer
 
 ### 3. Permission Model (RBAC + FBAC)
@@ -55,11 +55,11 @@ We will implement a layered authorization strategy:
 - If field not listed: `read: true`, `write: true`
 - Empty `fields: {}` grants full field access
 
-### 4. Organization Isolation (Multi-Tenancy)
+### 4. owner isolation (Multi-Tenancy)
 
-- Database-level isolation with `organization_id` column on all tables
-- Auto-inject `organization_id` on CREATE
-- Filter by `organization_id` on READ/UPDATE/DELETE
+- Database-level isolation with `owner_id` column on all tables
+- Auto-inject `owner_id` on CREATE
+- Filter by `owner_id` on READ/UPDATE/DELETE
 - Return 404 (not 403) for cross-org access to prevent enumeration
 
 ### 5. Permission Check Order
@@ -67,7 +67,7 @@ We will implement a layered authorization strategy:
 Critical order to prevent information leakage:
 
 1. **Authentication** (401) - Check user is authenticated
-2. **Organization Isolation** (404) - Check record belongs to user's org
+2. **owner isolation** (404) - Check record belongs to user's org
 3. **Table-Level Permissions** (403) - Check user can perform operation
 4. **Field-Level Permissions** (403) - Check user can access specific fields
 
