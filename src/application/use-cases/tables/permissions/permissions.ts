@@ -170,3 +170,31 @@ export function hasDeletePermission(
   if (deletePermission?.type !== 'roles') return true
   return isRoleAllowed(deletePermission, userRole)
 }
+
+/**
+ * Check if user has read permission for a table
+ * Returns true if permission granted, false if denied
+ */
+export function hasReadPermission(
+  table: Readonly<{ permissions?: Readonly<{ read?: unknown }> }> | undefined,
+  userRole: string
+): boolean {
+  const readPermission = table?.permissions?.read as
+    | { type: 'roles'; roles?: string[] }
+    | { type?: string }
+    | undefined
+
+  // Viewers have restricted access by default - deny read operations unless explicitly allowed
+  if (userRole === 'viewer') {
+    if (readPermission?.type === 'roles') {
+      const allowedRoles = (readPermission as { type: 'roles'; roles?: string[] }).roles || []
+      return allowedRoles.includes(userRole)
+    }
+    return false
+  }
+
+  // For non-viewers, allow if no role-based restrictions or role is in allowed list
+  if (readPermission?.type !== 'roles') return true
+  const allowedRoles = (readPermission as { type: 'roles'; roles?: string[] }).roles || []
+  return allowedRoles.includes(userRole)
+}

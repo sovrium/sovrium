@@ -139,7 +139,7 @@ test.describe('Get record by ID', () => {
   test(
     'API-TABLES-RECORDS-GET-004: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User without read permission
       await startServerWithSchema({
         name: 'test-app',
@@ -157,8 +157,15 @@ test.describe('Get record by ID', () => {
         VALUES (1, 'Secret Information')
       `)
 
-      // Create authenticated viewer (limited permissions)
-      await createAuthenticatedViewer()
+      // Create authenticated user and set role to viewer manually
+      const viewer = await createAuthenticatedUser()
+
+      // Set viewer role manually (admin plugin not enabled in this test)
+      await executeQuery(`
+        UPDATE auth.user
+        SET role = 'viewer'
+        WHERE email = '${viewer.user.email}'
+      `)
 
       // WHEN: User without permission attempts to fetch record
       const response = await request.get('/api/tables/4/records/1', {})
