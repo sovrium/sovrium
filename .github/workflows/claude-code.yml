@@ -661,45 +661,108 @@ jobs:
           gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/success_comment.md
           echo "✅ Success comment with metrics posted"
 
+      - name: Detect No Commits Pushed (Silent Failure)
+        id: check-commits
+        if: always() && (steps.parse-result.outputs.result-subtype == 'success' || steps.parse-result.outputs.result-subtype == 'unknown')
+        run: |
+          # Safety check: Verify commits were actually pushed
+          # Catches cases where Claude Code "succeeds" but pushes nothing
+
+          git fetch origin ${{ needs.validate.outputs.pr-branch }}
+          COMMITS_AHEAD=$(git rev-list --count HEAD..origin/${{ needs.validate.outputs.pr-branch }} 2>/dev/null || echo "error")
+
+          if [ "$COMMITS_AHEAD" = "error" ]; then
+            echo "has-commits=unknown" >> "$GITHUB_OUTPUT"
+            echo "⚠️ Warning: Cannot determine commit status"
+            exit 0
+          fi
+
+          if [ "$COMMITS_AHEAD" -eq 0 ]; then
+            echo "has-commits=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️ No commits pushed - potential silent failure"
+          else
+            echo "has-commits=true" >> "$GITHUB_OUTPUT"
+            echo "✅ Commits detected: $COMMITS_AHEAD ahead of origin"
+          fi
+
       - name: Handle Claude Code Error
-        if: steps.parse-result.outputs.result-subtype != 'success'
+        if: steps.parse-result.outputs.result-subtype != 'success' || steps.check-commits.outputs.has-commits == 'false'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ needs.validate.outputs.pr-number }}
           RESULT_SUBTYPE: ${{ steps.parse-result.outputs.result-subtype }}
           ERROR_MESSAGE: ${{ steps.parse-result.outputs.error-message }}
           SPEC_ID: ${{ needs.validate.outputs.spec-id }}
+          NO_COMMITS: ${{ steps.check-commits.outputs.has-commits == 'false' }}
         run: |
           # Simplified error handling: ALL errors → post comment → add label → trigger PR Creator
           # PR stays open for manual review - other specs continue processing automatically
 
-          echo "❌ Claude Code execution failed: $RESULT_SUBTYPE"
+          if [ "$NO_COMMITS" = "true" ]; then
+            echo "❌ Claude Code execution succeeded but no commits were pushed (silent failure)"
+            ACTUAL_ERROR="no_commits_pushed"
+          else
+            echo "❌ Claude Code execution failed: $RESULT_SUBTYPE"
+            ACTUAL_ERROR="$RESULT_SUBTYPE"
+          fi
 
           # Add manual-intervention label
           gh pr edit "$PR_NUMBER" --repo "${{ github.repository }}" --add-label "tdd-automation:manual-intervention"
 
           # Post error comment with execution metrics
-          {
-            echo "❌ **Claude Code Execution Failed**"
-            echo ""
-            echo "**Error Type**: \`$RESULT_SUBTYPE\`"
-            echo "**Spec ID**: \`$SPEC_ID\`"
-            echo ""
-            echo "**Error Details**:"
-            echo "\`\`\`"
-            echo "$ERROR_MESSAGE"
-            echo "\`\`\`"
-            echo ""
-            echo "**Execution Metrics**:"
-            echo "- **Duration**: ${{ steps.extract-metrics.outputs.duration-formatted }}"
-            echo "- **Turns**: ${{ steps.extract-metrics.outputs.num-turns }}"
-            echo "- **Total Cost**: \$${{ steps.extract-metrics.outputs.total-cost }}"
-            echo ""
-            echo "**Note**: This PR remains open for review. Other specs will continue processing automatically."
-            echo ""
-            echo "---"
-            echo "_TDD Automation paused for this spec - pipeline continues with next spec_"
-          } > /tmp/error_comment.md
+          if [ "$NO_COMMITS" = "true" ]; then
+            {
+              echo "❌ **Claude Code Silent Failure Detected**"
+              echo ""
+              echo "**Issue**: Claude Code reported success but no commits were pushed."
+              echo "**Spec ID**: \`$SPEC_ID\`"
+              echo ""
+              echo "**Possible Causes**:"
+              echo "- Agent completed execution without making changes"
+              echo "- Git push failed silently"
+              echo "- Workflow timeout during push"
+              echo ""
+              echo "**Execution Metrics**:"
+              echo "- **Duration**: ${{ steps.extract-metrics.outputs.duration-formatted }}"
+              echo "- **Turns**: ${{ steps.extract-metrics.outputs.num-turns }}"
+              echo "- **Total Cost**: \$${{ steps.extract-metrics.outputs.total-cost }}"
+              echo ""
+              echo "**Next Steps**:"
+              echo "1. Review Claude Code execution logs"
+              echo "2. Check if implementation was attempted"
+              echo "3. Remove \`tdd-automation:manual-intervention\` label after investigation"
+              echo "4. Post \`@claude\` comment to retry if needed"
+              echo ""
+              echo "---"
+              echo "_TDD Automation paused for this spec - pipeline continues with next spec_"
+            } > /tmp/error_comment.md
+          else
+            {
+              echo "❌ **Claude Code Execution Failed**"
+              echo ""
+              echo "**Error Type**: \`$ACTUAL_ERROR\`"
+              echo "**Spec ID**: \`$SPEC_ID\`"
+              echo ""
+              echo "**Error Details**:"
+              echo "\`\`\`"
+              echo "$ERROR_MESSAGE"
+              echo "\`\`\`"
+              echo ""
+              echo "**Execution Metrics**:"
+              echo "- **Duration**: ${{ steps.extract-metrics.outputs.duration-formatted }}"
+              echo "- **Turns**: ${{ steps.extract-metrics.outputs.num-turns }}"
+              echo "- **Total Cost**: \$${{ steps.extract-metrics.outputs.total-cost }}"
+              echo ""
+              echo "**Next Steps**:"
+              echo "1. Review error details above"
+              echo "2. Check execution logs for root cause"
+              echo "3. Remove \`tdd-automation:manual-intervention\` label after fixing"
+              echo "4. Post \`@claude\` comment to retry"
+              echo ""
+              echo "---"
+              echo "_TDD Automation paused for this spec - pipeline continues with next spec_"
+            } > /tmp/error_comment.md
+          fi
 
           gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/error_comment.md
 
@@ -707,6 +770,60 @@ jobs:
           gh workflow run pr-creator.yml --repo "${{ github.repository }}"
 
           echo "✅ Error handled - PR kept open with manual-intervention label, PR Creator triggered for next spec"
+
+      - name: Catch-All Error Handler (Workflow Failures)
+        id: catch-all-error
+        if: failure() # Runs only if any previous step failed
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          PR_NUMBER: ${{ needs.validate.outputs.pr-number }}
+          SPEC_ID: ${{ needs.validate.outputs.spec-id }}
+        run: |
+          # Catch-all safety net for unexpected workflow failures
+          # Adds manual-intervention label if not already added
+
+          echo "⚠️ Workflow failure detected - checking if manual-intervention label exists"
+
+          # Check if label already added by previous step
+          LABELS=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json labels --jq '.labels[].name')
+          if echo "$LABELS" | grep -q "tdd-automation:manual-intervention"; then
+            echo "✅ manual-intervention label already present - skipping"
+            exit 0
+          fi
+
+          echo "🏷️ Adding manual-intervention label (catch-all handler)"
+
+          # Add manual-intervention label
+          gh pr edit "$PR_NUMBER" --repo "${{ github.repository }}" --add-label "tdd-automation:manual-intervention"
+
+          # Post generic error comment
+          {
+            echo "❌ **Workflow Execution Error**"
+            echo ""
+            echo "**Spec ID**: \`$SPEC_ID\`"
+            echo ""
+            echo "**Issue**: The workflow encountered an unexpected error during execution."
+            echo ""
+            echo "**Possible Causes**:"
+            echo "- Workflow timeout (exceeded ${{ needs.validate.outputs.timeout }} minutes)"
+            echo "- Claude Code action crash"
+            echo "- Git operation failure"
+            echo "- GitHub API error"
+            echo ""
+            echo "**Next Steps**:"
+            echo "1. Review workflow logs for detailed error messages"
+            echo "2. Check GitHub Actions run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "3. Remove \`tdd-automation:manual-intervention\` label after investigation"
+            echo "4. Post \`@claude\` comment to retry if issue is resolved"
+            echo ""
+            echo "---"
+            echo "_TDD Automation paused for this spec - pipeline continues with next spec_"
+          } | gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file -
+
+          # Trigger PR Creator to pick up next spec
+          gh workflow run pr-creator.yml --repo "${{ github.repository }}"
+
+          echo "✅ Catch-all error handled - manual-intervention label added"
 
       - name: Final sync with main branch
         id: final-sync

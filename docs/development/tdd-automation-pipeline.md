@@ -1328,63 +1328,129 @@ Posted when daily or weekly limit is reached (blocks execution).
 
 ## Error Handling
 
-### Claude Code Error Types
+### Automatic Error Detection and Labeling
 
-The pipeline implements **simplified** error handling for all Claude Code failure modes:
+The pipeline implements **comprehensive automatic error detection** that catches all failure scenarios and applies the `tdd-automation:manual-intervention` label. This ensures PRs requiring human review are never silently ignored.
 
-| Error Type    | Subtype         | Action                                            | Label                                |
-| ------------- | --------------- | ------------------------------------------------- | ------------------------------------ |
-| **Success**   | `success`       | Continue to test workflow                         | None                                 |
-| **Any Error** | All other types | Post error comment, add label, trigger PR Creator | `tdd-automation:manual-intervention` |
+#### Error Detection Scenarios
 
-**Simplified Error Handling** (implemented 2026-01-28):
+The workflow automatically detects and handles these error scenarios:
+
+| Scenario                      | Detection Method                                     | Label Applied                        | Comment Posted |
+| ----------------------------- | ---------------------------------------------------- | ------------------------------------ | -------------- |
+| **Claude Code execution fail** | `result-subtype != 'success'`                        | `tdd-automation:manual-intervention` | ✅ Detailed error |
+| **No commits pushed**          | Git check shows 0 commits after "success"            | `tdd-automation:manual-intervention` | ✅ Silent failure |
+| **Workflow timeout**           | Job exceeds timeout limit                            | `tdd-automation:manual-intervention` | ✅ Timeout error |
+| **Action crash**               | Claude Code action fails to start/complete           | `tdd-automation:manual-intervention` | ✅ Crash details |
+| **Merge conflict**             | Git merge with main fails (conflict markers detected)| `tdd-automation:manual-intervention` | ✅ Conflict files |
+| **Git operation error**        | Git push/pull fails for non-conflict reasons         | `tdd-automation:manual-intervention` | ✅ Generic error |
+
+#### Three-Layer Error Detection
+
+**Layer 1: Claude Code Result Parsing** (lines 551-595)
+- Parses execution result JSON from Claude Code action
+- Detects: `error_max_turns`, `error_max_budget_usd`, `error_during_execution`, `error_max_structured_output_retries`
+
+**Layer 2: Silent Failure Detection** (lines 664-710, NEW)
+- Checks if commits were actually pushed after "success"
+- Detects: Agent reported success but made no changes
+- Catches: Git push failures, workflow issues
+
+**Layer 3: Catch-All Safety Net** (lines 711-755, NEW)
+- Runs if any workflow step fails (`if: failure()`)
+- Detects: Timeouts, crashes, unexpected errors
+- Ensures: No error escapes without label
+
+#### Error Handling Flow
+
+All errors follow the same simplified flow:
+
+1. **Detect error** (via result parsing, commit check, or workflow failure)
+2. **Add manual-intervention label** (blocks PR Creator from retrying this spec)
+3. **Post detailed comment** (error type, metrics, next steps)
+4. **Trigger PR Creator** (continues with next spec)
+5. **Keep PR open** (awaits human review)
+
+**Simplified Error Handling** (enhanced 2026-01-29):
 
 All errors follow the same flow:
 
-1. Post detailed error comment to PR (includes error type and message)
+1. Post detailed error comment to PR (includes error type, metrics, next steps)
 2. Add `tdd-automation:manual-intervention` label
-3. Disable auto-merge
-4. Trigger PR Creator to pick up next spec
+3. Trigger PR Creator to pick up next spec
+4. Keep PR open for human review
 
-**Rationale**: Complex error categorization was removed in favor of a single, predictable flow. Human review is required for all failures, regardless of error type.
+**Rationale**: Three-layer detection ensures no error goes unlabeled. All failures require human review, with clear next steps provided in comments.
 
-### Error Handling System
+### Error Types and Detection Logic
 
 The TDD pipeline implements **simplified error handling** where ALL Claude Code errors result in the same action - post error comment, add manual-intervention label, keep PR open, and trigger PR Creator to process next spec.
 
-#### Retry Categories
+#### Detected Error Types
 
-| Error Category              | Action                                      | Rationale                                              |
-| --------------------------- | ------------------------------------------- | ------------------------------------------------------ |
-| `transient`                 | Add label, keep PR open, trigger PR Creator | Network timeouts, 502/503 errors, API rate limits      |
-| `structured_output_retries` | Add label, keep PR open, trigger PR Creator | Claude output parsing issues (usually transient)       |
-| `unknown_execution`         | Add label, keep PR open, trigger PR Creator | Unknown errors (conservative approach)                 |
-| `persistent`                | Add label, keep PR open, trigger PR Creator | SyntaxError, ENOENT (requires code fix)                |
-| `max_turns`                 | Add label, keep PR open, trigger PR Creator | Spec too complex (needs spec review)                   |
-| `max_budget`                | Add label, keep PR open, trigger PR Creator | Exceeded $5 per-run limit (manual intervention needed) |
+All errors are handled identically, regardless of type. These subtypes are reported for informational purposes only:
 
-**Simplified Error Handling**: ALL errors result in the same action - add `manual-intervention` label, keep PR open for review, and trigger PR Creator to process next spec. The pipeline continues automatically while failed specs await human review.
+| Error Subtype                           | Description                                          | Handling                         |
+| --------------------------------------- | ---------------------------------------------------- | -------------------------------- |
+| `error_max_turns`                       | Exceeded max turns (50 for e2e-test-fixer)           | Label + comment + next spec      |
+| `error_max_budget_usd`                  | Exceeded $5 per-run budget limit                     | Label + comment + next spec      |
+| `error_during_execution`                | Agent encountered error during execution             | Label + comment + next spec      |
+| `error_max_structured_output_retries`   | Claude output parsing failed repeatedly              | Label + comment + next spec      |
+| `no_commits_pushed` (NEW)               | Execution succeeded but no commits were pushed       | Label + comment + next spec      |
+| `unknown` (NEW)                         | Workflow-level failure (timeout, crash, git error)   | Label + comment + next spec      |
+
+**Key Insight**: Error categorization is informational only. All errors trigger identical handling to ensure consistency and simplicity.
 
 #### Error Handling Flow
 
 ```
-Claude Code Fails
-      │
-      ▼
-Post Error Comment
-      │
-      ▼
-Add manual-intervention Label
-      │
-      ▼
-Keep PR Open
-      │
-      ▼
-Trigger PR Creator
-      │
-      ▼
-Next Spec Processed
-(failed spec awaits manual review)
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 1: Parse Claude Code Result                           │
+│ ├─ success → Continue to final sync                         │
+│ └─ error_* → Handle error                                   │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 2: Check Commits Pushed (even if "success")           │
+│ ├─ Commits found → Continue to final sync                   │
+│ └─ No commits → Handle as silent failure                    │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 3: Catch-All Workflow Failures                        │
+│ ├─ if: failure() → Handle unexpected errors                 │
+│ └─ Checks if label already added (avoid duplicates)         │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ┌──────────────────┐
+                    │ Handle All Errors│
+                    └────────┬─────────┘
+                             │
+        ┌────────────────────┼────────────────────┐
+        │                    │                    │
+        ▼                    ▼                    ▼
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│ Post Comment │    │ Add Label    │    │ Trigger PR   │
+│ with details │    │ manual-      │    │ Creator      │
+│ & next steps │    │ intervention │    │              │
+└──────────────┘    └──────────────┘    └──────────────┘
+        │                    │                    │
+        └────────────────────┼────────────────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │ Keep PR Open     │
+                    │ (awaits review)  │
+                    └──────────────────┘
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │ Next Spec        │
+                    │ Processed        │
+                    └──────────────────┘
 ```
 
 **Key Behavior**: ALL errors follow this single path - no automatic retries, no PR closure. Human reviews failed specs while pipeline continues with other specs.
@@ -1409,21 +1475,48 @@ All errors follow this single, simplified recovery flow.
 
 ### Error Recovery Guide
 
-This section describes how to respond to different error scenarios.
+This section describes how to respond to different error scenarios detected by the three-layer error detection system.
+
+#### Recovery by Error Type
 
 | Error Scenario                            | Auto Action                                      | Manual Recovery                                          |
 | ----------------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
-| **Any error** (all types)                 | Post error comment + `manual-intervention` label | Review error, fix issue, remove label, post `@claude`    |
-| **Merge conflict** (main branch updated)  | `manual-intervention` label                      | Review error, fix conflict, remove label, post `@claude` |
-| **Stuck merge** (checks passed, no merge) | Test workflow re-enables auto-merge              | Usually resolves automatically                           |
+| **Claude Code execution error**           | Post error comment + `manual-intervention` label | Review error logs, fix spec/code, remove label, retry    |
+| **No commits pushed** (silent failure)    | Post silent failure comment + label              | Review logs, check why no changes, remove label, retry   |
+| **Workflow timeout**                      | Post timeout comment + label                     | Increase `@tdd-timeout`, remove label, retry              |
+| **Action crash** (SDK/infrastructure)     | Post crash comment + label                       | Report to Anthropic, wait for fix, retry                  |
+| **Merge conflict** (main branch updated)  | Post conflict comment + label                    | Resolve conflicts manually, remove label, retry           |
+| **Git operation error**                   | Post git error comment + label                   | Check git logs, fix issue, remove label, retry            |
 
-**Manual Recovery Steps**:
+#### Standard Manual Recovery Steps
 
-1. **Check error details** in the PR comment posted by Claude Code
-2. **Investigate root cause** - spec issue? codebase bug? infrastructure?
-3. **Fix the underlying problem**
-4. **Remove `tdd-automation:manual-intervention` label**
+For ALL error types:
+
+1. **Check error details** in the PR comment posted by the workflow
+2. **Investigate root cause**:
+   - Spec issue? (unclear requirements, incorrect assertions)
+   - Codebase bug? (missing dependencies, broken imports)
+   - Infrastructure? (GitHub API, network, timeout)
+3. **Fix the underlying problem** (update spec, fix code, adjust timeout)
+4. **Remove `tdd-automation:manual-intervention` label** (via GitHub UI)
 5. **Post `@claude` comment** to trigger retry
+
+#### Common Error Scenarios and Solutions
+
+**Scenario: No Commits Pushed**
+- **Symptom**: Claude Code reports success but PR has no new commits
+- **Causes**: Git push failed silently, agent made no changes, workflow timeout during push
+- **Solution**: Review execution logs, check git status, ensure agent made intended changes
+
+**Scenario: Workflow Timeout**
+- **Symptom**: Job exceeds configured timeout (default 45 minutes)
+- **Causes**: Spec too complex, slow Claude Code execution, network issues
+- **Solution**: Add `@tdd-timeout 60` annotation to spec file, or simplify spec
+
+**Scenario: Merge Conflict**
+- **Symptom**: Cannot merge main branch (conflict markers detected)
+- **Causes**: Main branch updated during execution, overlapping changes
+- **Solution**: Manually resolve conflicts in affected files, commit, push
 
 **When Manual Recovery is NOT Needed**:
 
