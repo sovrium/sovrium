@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect } from 'bun:test'
+import { test } from 'bun:test'
 import { Effect } from 'effect'
 import { Logger, LoggerLive, LoggerSilent, logError, logInfo, logWarning } from './logger'
 

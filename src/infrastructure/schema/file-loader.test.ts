@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect, describe, beforeAll, afterAll } from 'bun:test'
-import { loadSchemaFromFile, fileExists, readFileContent } from './file-loader'
 import { mkdir, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
+import { test, expect, describe, beforeAll, afterAll } from 'bun:test'
+import { loadSchemaFromFile, fileExists, readFileContent } from './file-loader'
 
 const TEST_DIR = join(import.meta.dir, '__test_fixtures__')
 const TEST_JSON_FILE = join(TEST_DIR, 'test-schema.json')

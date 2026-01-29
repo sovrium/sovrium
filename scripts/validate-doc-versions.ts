@@ -17,9 +17,9 @@
  *   bun run validate:docs:versions
  */
 
-import { readFileSync } from 'fs'
-import { join } from 'path'
-import { exit } from 'process'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { exit } from 'node:process'
 
 // Color codes for terminal output
 const colors = {
@@ -152,7 +152,7 @@ function validateDocumentation(): ValidationError[] {
 
     try {
       content = readFileSync(filePath, 'utf-8')
-    } catch (error) {
+    } catch {
       console.log(`${colors.yellow}⚠️  Skipping ${docFile} (file not found)${colors.reset}`)
       continue
     }

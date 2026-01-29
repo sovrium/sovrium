@@ -11,8 +11,8 @@ import {
   ListActivityLogs,
   ListActivityLogsLayer,
 } from '@/application/use-cases/list-activity-logs'
-import { sanitizeError, getStatusCode } from '@/presentation/api/utils/error-sanitizer'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
+import { sanitizeError, getStatusCode } from '@/presentation/api/utils/error-sanitizer'
 import type { Hono } from 'hono'
 
 /**
@@ -58,7 +58,10 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
     const session = getSessionContext(c)
 
     if (!session) {
-      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+      return c.json(
+        { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
+        401
+      )
     }
 
     const program = ListActivityLogs({
@@ -77,8 +80,9 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
 
       return c.json(
         {
-          error: sanitized.error,
-          message: sanitized.message,
+          success: false,
+          message: sanitized.message ?? sanitized.error,
+          code: sanitized.code,
         },
         statusCode
       )

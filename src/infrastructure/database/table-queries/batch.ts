@@ -138,14 +138,10 @@ async function validateRecordsForRestore(
         sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
       )) as readonly Record<string, unknown>[]
 
-      if (checkResult.length === 0) {
-        return { recordId, error: 'not found' }
-      }
+      if (checkResult.length === 0) return { recordId, error: 'not found' }
 
       const record = checkResult[0]
-      if (!record?.deleted_at) {
-        return { recordId, error: 'not deleted' }
-      }
+      if (!record?.deleted_at) return { recordId, error: 'not deleted' }
 
       return { recordId, error: undefined }
     })
@@ -199,7 +195,7 @@ function checkRestorePermissionWithEffect(
 function validateRecordsForRestoreWithEffect(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
   tx: any,
-  tableIdent: ReturnType<typeof sql.identifier>,
+  tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Effect.Effect<void, SessionContextError> {
   return Effect.tryPromise({
@@ -217,7 +213,7 @@ function validateRecordsForRestoreWithEffect(
 function executeRestoreQuery(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
   tx: any,
-  tableIdent: ReturnType<typeof sql.identifier>,
+  tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   tableName: string,
   recordIds: readonly string[]
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
@@ -283,7 +279,7 @@ function extractFieldsFromUpdate(update: {
   readonly id: string
   readonly [key: string]: unknown
 }): Record<string, unknown> {
-  const { id, fields: nestedFields, ...flatFields } = update
+  const { id: _id, fields: nestedFields, ...flatFields } = update
   // If 'fields' property exists (nested format), use it; otherwise use flat fields
   return nestedFields && typeof nestedFields === 'object' && !Array.isArray(nestedFields)
     ? (nestedFields as Record<string, unknown>)
@@ -313,7 +309,9 @@ function fetchRecordBeforeUpdate(
 /**
  * Build UPDATE SET clause with validated column names
  */
-function buildUpdateSetClause(fields: Record<string, unknown>): ReturnType<typeof sql.join> {
+function buildUpdateSetClause(
+  fields: Record<string, unknown>
+): Readonly<ReturnType<typeof sql.join>> {
   const entries = Object.entries(fields)
   const setClauses = entries.map(([key, value]) => {
     validateColumnName(key)
@@ -330,7 +328,7 @@ function executeRecordUpdate(
   tx: any,
   tableName: string,
   recordId: string,
-  setClause: ReturnType<typeof sql.join>
+  setClause: Readonly<ReturnType<typeof sql.join>>
 ): Effect.Effect<Record<string, unknown> | undefined, never> {
   return Effect.tryPromise({
     try: async () => {
@@ -357,9 +355,7 @@ function updateSingleRecordInBatch(
     const fieldsToUpdate = extractFieldsFromUpdate(update)
     const entries = Object.entries(fieldsToUpdate)
 
-    if (entries.length === 0) {
-      return undefined
-    }
+    if (entries.length === 0) return undefined
 
     const recordBefore = yield* fetchRecordBeforeUpdate(tx, tableName, update.id)
     const setClause = buildUpdateSetClause(fieldsToUpdate)
@@ -452,7 +448,7 @@ async function validateRecordsForDelete(
 function validateRecordsForDeleteWithEffect(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tx: any,
-  tableIdent: ReturnType<typeof sql.identifier>,
+  tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Effect.Effect<void, SessionContextError> {
   return Effect.tryPromise({
@@ -470,7 +466,7 @@ function validateRecordsForDeleteWithEffect(
 function fetchRecordsBeforeDelete(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tx: any,
-  tableIdent: ReturnType<typeof sql.identifier>,
+  tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
   return Effect.tryPromise({
@@ -513,31 +509,22 @@ function checkSoftDeleteSupport(
 function executeDeleteQuery(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tx: any,
-  tableIdent: ReturnType<typeof sql.identifier>,
   tableName: string,
   recordIds: readonly string[],
   hasSoftDelete: boolean
 ): Effect.Effect<number, SessionContextError> {
   return Effect.tryPromise({
     try: async () => {
+      const tableIdent = sql.identifier(tableName)
       const idParams = sql.join(
         recordIds.map((id) => sql`${id}`),
         sql.raw(', ')
       )
-
-      if (hasSoftDelete) {
-        // Soft delete: set deleted_at timestamp
-        const result = (await tx.execute(
-          sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) RETURNING id`
-        )) as readonly Record<string, unknown>[]
-        return result.length
-      } else {
-        // Hard delete: remove records
-        const result = (await tx.execute(
-          sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
-        )) as readonly Record<string, unknown>[]
-        return result.length
-      }
+      const query = hasSoftDelete
+        ? sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) RETURNING id`
+        : sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
+      const result = (await tx.execute(query)) as readonly Record<string, unknown>[]
+      return result.length
     },
     catch: (error) => new SessionContextError(`Failed to delete records in ${tableName}`, error),
   })
@@ -590,13 +577,7 @@ export function batchDeleteRecords(
       const recordsBefore = yield* fetchRecordsBeforeDelete(tx, tableIdent, recordIds)
       const hasSoftDelete = yield* checkSoftDeleteSupport(tx, tableName)
 
-      const deletedCount = yield* executeDeleteQuery(
-        tx,
-        tableIdent,
-        tableName,
-        recordIds,
-        hasSoftDelete
-      )
+      const deletedCount = yield* executeDeleteQuery(tx, tableName, recordIds, hasSoftDelete)
 
       yield* logDeleteActivities(session, tableName, recordsBefore)
 

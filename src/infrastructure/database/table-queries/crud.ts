@@ -244,7 +244,7 @@ export function createRecord(
  * @param fields - Fields to update
  * @returns Effect resolving to updated record
  */
-// eslint-disable-next-line max-lines-per-function -- Complex update operation with before-state fetch, update, and activity logging
+
 /**
  * Validate fields object is not empty
  */
@@ -285,7 +285,7 @@ function fetchRecordBeforeUpdateCRUD(
  */
 function buildUpdateSetClauseCRUD(
   entries: readonly [string, unknown][]
-): ReturnType<typeof sql.join> {
+): Readonly<ReturnType<typeof sql.join>> {
   const setClauses = entries.map(([key, value]) => {
     validateColumnName(key)
     return sql`${sql.identifier(key)} = ${value}`
@@ -301,7 +301,7 @@ function executeRecordUpdateCRUD(
   tx: any,
   tableName: string,
   recordId: string,
-  setClause: ReturnType<typeof sql.join>
+  setClause: Readonly<ReturnType<typeof sql.join>>
 ): Effect.Effect<Record<string, unknown>, SessionContextError> {
   return Effect.tryPromise({
     try: async () => {
@@ -335,15 +335,17 @@ function logRecordUpdateActivity(
   session: Readonly<Session>,
   tableName: string,
   recordId: string,
-  recordBefore: Record<string, unknown> | undefined,
-  updatedRecord: Record<string, unknown>
+  changes: {
+    readonly before: Record<string, unknown> | undefined
+    readonly after: Record<string, unknown>
+  }
 ): Effect.Effect<void, never> {
   return logActivity({
     session,
     tableName,
     action: 'update',
     recordId,
-    changes: { before: recordBefore, after: updatedRecord },
+    changes,
   })
 }
 
@@ -362,7 +364,10 @@ export function updateRecord(
       const setClause = buildUpdateSetClauseCRUD(entries)
       const updatedRecord = yield* executeRecordUpdateCRUD(tx, tableName, recordId, setClause)
 
-      yield* logRecordUpdateActivity(session, tableName, recordId, recordBefore, updatedRecord)
+      yield* logRecordUpdateActivity(session, tableName, recordId, {
+        before: recordBefore,
+        after: updatedRecord,
+      })
 
       return updatedRecord
     })

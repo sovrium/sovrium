@@ -14,8 +14,8 @@
 
 import { Layer } from 'effect'
 import { CostTrackerLive } from '../services/cost-tracker'
-import { GitHubApiLive } from '../services/github-api'
 import { GitOperationsLive } from '../services/git-operations'
+import { GitHubApiLive } from '../services/github-api'
 
 /**
  * Production layer with all live service implementations
@@ -37,4 +37,6 @@ import { GitOperationsLive } from '../services/git-operations'
  * )
  * ```
  */
-export const LiveLayer = Layer.mergeAll(GitHubApiLive, CostTrackerLive, GitOperationsLive)
+export const LiveLayer = Layer.mergeAll(CostTrackerLive, GitOperationsLive).pipe(
+  Layer.provideMerge(GitHubApiLive)
+)

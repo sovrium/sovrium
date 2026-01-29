@@ -46,7 +46,7 @@ mock.module('@/infrastructure/database', () => ({
     }
   },
   UniqueConstraintViolationError: class UniqueConstraintViolationError extends Error {
-    constructor(message: string, constraint: string) {
+    constructor(message: string, _constraint: string) {
       super(message)
     }
   },
@@ -73,7 +73,7 @@ mock.module('./delete-helpers', () => ({
 }))
 
 mock.module('./activity-log-helpers', () => ({
-  logActivity: () => Effect.succeed(undefined),
+  logActivity: () => Effect.void,
 }))
 
 mock.module('@/infrastructure/database/filter-operators', () => ({
@@ -96,7 +96,7 @@ describe('listRecords', () => {
         }),
       }
 
-      const { withSessionContext } = await import('@/infrastructure/database')
+      const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
       mock.module('@/infrastructure/database', () => ({
         withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
           fn(mockTx),
@@ -137,7 +137,7 @@ describe('listRecords', () => {
         }),
       }
 
-      const { withSessionContext } = await import('@/infrastructure/database')
+      const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
       mock.module('@/infrastructure/database', () => ({
         withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
           fn(mockTx),
@@ -182,7 +182,7 @@ describe('listRecords', () => {
         }),
       }
 
-      const { withSessionContext } = await import('@/infrastructure/database')
+      const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
       mock.module('@/infrastructure/database', () => ({
         withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
           fn(mockTx),
@@ -225,7 +225,7 @@ describe('listRecords', () => {
         }),
       }
 
-      const { withSessionContext } = await import('@/infrastructure/database')
+      const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
       mock.module('@/infrastructure/database', () => ({
         withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
           fn(mockTx),
@@ -271,7 +271,7 @@ describe('listRecords', () => {
     //     }),
     //   }
 
-    //   const { withSessionContext } = await import('@/infrastructure/database')
+    //   const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
     //   mock.module('@/infrastructure/database', () => ({
     //     withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
     //       fn(mockTx),
@@ -306,7 +306,7 @@ describe('listRecords', () => {
         }),
       }
 
-      const { withSessionContext } = await import('@/infrastructure/database')
+      const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
       mock.module('@/infrastructure/database', () => ({
         withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
           fn(mockTx),
@@ -350,7 +350,7 @@ describe('listTrash', () => {
       }),
     }
 
-    const { withSessionContext } = await import('@/infrastructure/database')
+    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
     mock.module('@/infrastructure/database', () => ({
       withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
         fn(mockTx),
@@ -384,7 +384,7 @@ describe('listTrash', () => {
       }),
     }
 
-    const { withSessionContext } = await import('@/infrastructure/database')
+    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
     mock.module('@/infrastructure/database', () => ({
       withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
         fn(mockTx),
@@ -410,7 +410,7 @@ describe('getRecord', () => {
       execute: mock(async () => [{ id: 'record-123', name: 'Alice', email: 'alice@example.com' }]),
     }
 
-    const { withSessionContext } = await import('@/infrastructure/database')
+    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
     mock.module('@/infrastructure/database', () => ({
       withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
         fn(mockTx),
@@ -435,7 +435,7 @@ describe('getRecord', () => {
       execute: mock(async () => []),
     }
 
-    const { withSessionContext } = await import('@/infrastructure/database')
+    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
     mock.module('@/infrastructure/database', () => ({
       withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
         fn(mockTx),
@@ -509,7 +509,7 @@ describe('updateRecord', () => {
       }),
     }
 
-    const { withSessionContext } = await import('@/infrastructure/database')
+    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
     mock.module('@/infrastructure/database', () => ({
       withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
         fn(mockTx),
@@ -563,7 +563,7 @@ describe('updateRecord', () => {
       }),
     }
 
-    const { withSessionContext } = await import('@/infrastructure/database')
+    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
     mock.module('@/infrastructure/database', () => ({
       withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
         fn(mockTx),
@@ -664,7 +664,7 @@ describe('restoreRecord', () => {
       }),
     }
 
-    const { withSessionContext } = await import('@/infrastructure/database')
+    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
     mock.module('@/infrastructure/database', () => ({
       withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
         fn(mockTx),
@@ -698,7 +698,7 @@ describe('restoreRecord', () => {
       }),
     }
 
-    const { withSessionContext } = await import('@/infrastructure/database')
+    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
     mock.module('@/infrastructure/database', () => ({
       withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
         fn(mockTx),
@@ -731,7 +731,7 @@ describe('restoreRecord', () => {
       }),
     }
 
-    const { withSessionContext } = await import('@/infrastructure/database')
+    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
     mock.module('@/infrastructure/database', () => ({
       withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
         fn(mockTx),

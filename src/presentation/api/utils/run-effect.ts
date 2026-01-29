@@ -69,14 +69,25 @@ function handleErrorResponse(c: Context, error: unknown) {
 export async function runEffect<T, S>(
   c: Context,
   program: Effect.Effect<T, Error>,
-  schema: ParseableSchema<S>,
+  schema?: ParseableSchema<S>,
   successStatus: number = 200
 ) {
   try {
-    const result = await Effect.runPromise(program)
-    const validated = schema.parse(result)
+    // Use Effect.either to preserve tagged error types (_tag property)
+    // Effect.runPromise wraps errors in FiberFailure which strips _tag,
+    // preventing error sanitizer from mapping to correct HTTP status codes.
+    // Effect.either converts failures to Either.Left, preserving the original error.
+    const either = await Effect.runPromise(Effect.either(program))
+
+    if (either._tag === 'Left') {
+      return handleErrorResponse(c, either.left)
+    }
+
+    const validated = schema ? schema.parse(either.right) : either.right
     return c.json(validated, successStatus as ContentfulStatusCode)
   } catch (error) {
+    // Catches defects (Effect.die), schema validation errors,
+    // and other unexpected runtime errors
     return handleErrorResponse(c, error)
   }
 }

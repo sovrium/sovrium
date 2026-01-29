@@ -42,7 +42,10 @@ const applyAuthCheckMiddleware = (
 
       // Return 401 if no valid session (BEFORE any parameter validation)
       if (!session) {
-        return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+        return c.json(
+          { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
+          401
+        )
       }
 
       // Session exists - proceed to next handler
@@ -52,7 +55,10 @@ const applyAuthCheckMiddleware = (
       // If session check fails, return 401 (assume unauthenticated)
       // MIDDLEWARE LOGGING: Operational error monitoring (Hono middleware uses async/await, not Effect)
       console.error('[Auth Middleware] Session check error:', error)
-      return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+      return c.json(
+        { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
+        401
+      )
     }
   })
 }
@@ -66,7 +72,14 @@ const applyRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> => {
     const ip = extractClientIp(c.req.header('x-forwarded-for'))
 
     if (isRateLimitExceeded(ip)) {
-      return c.json({ error: 'Too many requests' }, 429)
+      return c.json(
+        {
+          success: false,
+          message: 'Too many requests. Please try again later.',
+          code: 'RATE_LIMITED',
+        },
+        429
+      )
     }
 
     recordRateLimitRequest(ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
@@ -100,9 +113,15 @@ const applyAuthRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> =
 
       if (isAuthRateLimitExceeded(path, ip)) {
         const retryAfter = getAuthRateLimitRetryAfter(path, ip)
-        return c.json({ error: 'Too many requests', message: 'Too many requests' }, 429, {
-          'Retry-After': retryAfter.toString(),
-        })
+        return c.json(
+          {
+            success: false,
+            message: 'Too many requests. Please try again later.',
+            code: 'RATE_LIMITED',
+          },
+          429,
+          { 'Retry-After': retryAfter.toString() }
+        )
       }
 
       recordAuthRateLimitRequest(path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update

@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect, describe, mock } from 'bun:test'
-import { Effect, Context, Layer } from 'effect'
+import { test, expect, describe } from 'bun:test'
+import { Effect, Layer } from 'effect'
 import { Email, EmailLive, EmailError, EmailConnectionError } from './email-service'
 
 describe('Email Context Tag', () => {

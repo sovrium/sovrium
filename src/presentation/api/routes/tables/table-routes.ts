@@ -17,8 +17,8 @@ import {
   getTableResponseSchema,
   getTablePermissionsResponseSchema,
 } from '@/presentation/api/schemas/tables-schemas'
-import { runEffect } from '@/presentation/api/utils/run-effect'
 import { getSessionContext, getTableContext } from '@/presentation/api/utils/context-helpers'
+import { runEffect } from '@/presentation/api/utils/run-effect'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 

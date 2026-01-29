@@ -43,6 +43,7 @@ export const errorResponseSchema = z.object({
       'UNAUTHORIZED',
       'FORBIDDEN',
       'NOT_FOUND',
+      'VALIDATION_ERROR',
       'CONFLICT',
       'RATE_LIMITED',
       'INTERNAL_ERROR',

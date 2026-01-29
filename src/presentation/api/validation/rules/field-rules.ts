@@ -88,6 +88,20 @@ export function validateRequiredFields(
 }
 
 /**
+ * Check if a field permission restricts writing based on user role
+ */
+function hasWriteRoleRestriction(
+  fieldPermission: { write?: { type?: string; roles?: readonly string[] } } | null | undefined,
+  userRole: string
+): boolean {
+  if (fieldPermission?.write?.type === 'roles') {
+    const allowedRoles = fieldPermission.write.roles ?? []
+    return !allowedRoles.includes(userRole)
+  }
+  return false
+}
+
+/**
  * Filter fields based on write permissions
  * Returns only fields the user is allowed to write
  */
@@ -105,23 +119,14 @@ export function filterAllowedFields(
     // System-protected fields that cannot be modified
     const SYSTEM_PROTECTED_FIELDS = new Set(['user_id', 'owner_id'])
 
-    // Get forbidden fields based on field-level permissions
-    const forbiddenFields: string[] = []
-
-    for (const fieldName of Object.keys(fields)) {
+    // Get forbidden fields based on field-level permissions (functional filter pattern)
+    const forbiddenFields: readonly string[] = Object.keys(fields).filter((fieldName) => {
       const field = table?.fields?.find((f) => f.name === fieldName)
+      if (!field) return false
 
-      if (!field) continue
-
-      // Check field-level write permissions from table.permissions.fields
       const fieldPermission = table?.permissions?.fields?.find((fp) => fp.field === fieldName)
-      if (fieldPermission?.write?.type === 'roles') {
-        const allowedRoles = fieldPermission.write.roles || []
-        if (!allowedRoles.includes(ctx.userRole)) {
-          forbiddenFields.push(fieldName)
-        }
-      }
-    }
+      return hasWriteRoleRestriction(fieldPermission, ctx.userRole)
+    })
 
     // Filter out forbidden and system-protected fields
     const allowedData = Object.fromEntries(
@@ -131,7 +136,7 @@ export function filterAllowedFields(
       )
     )
 
-    return { allowedData, forbiddenFields: forbiddenFields as readonly string[] }
+    return { allowedData, forbiddenFields }
   })
 }
 

@@ -106,13 +106,15 @@ function processSessionResult(
   } else {
     // Session binding validation failed - log for security monitoring
     // MIDDLEWARE LOGGING: Security monitoring for session hijacking attempts (Hono middleware uses async/await, not Effect)
-    console.warn('[AUTH] Session binding validation failed', {
-      sessionId: sessionResult.session.id,
-      expectedIP: sessionResult.session.ipAddress,
-      currentIP,
-      expectedUserAgent: sessionResult.session.userAgent,
-      currentUserAgent,
-    })
+    console.warn(
+      `[AUTH] Session binding validation failed: ${JSON.stringify({
+        sessionId: sessionResult.session.id,
+        expectedIP: sessionResult.session.ipAddress,
+        currentIP,
+        expectedUserAgent: sessionResult.session.userAgent,
+        currentUserAgent,
+      })}`
+    )
   }
 }
 
@@ -166,7 +168,7 @@ export function authMiddleware(auth: any) {
       }
     } catch (error) {
       // MIDDLEWARE LOGGING: Operational error monitoring (Hono middleware uses async/await, not Effect)
-      console.error('[AUTH] Session extraction failed:', error)
+      console.error('[AUTH] Session extraction failed', error)
     }
 
     // eslint-disable-next-line functional/no-expression-statements -- Required for middleware to continue to next handler
@@ -183,8 +185,9 @@ async function requireAuthHandler(c: ContextWithSession, next: Next) {
   if (!session) {
     return c.json(
       {
-        error: 'Unauthorized',
+        success: false,
         message: 'Authentication required',
+        code: 'UNAUTHORIZED',
       },
       401
     )

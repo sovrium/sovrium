@@ -6,7 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { ValidationError, PermissionError, ValidationContext } from '../../middleware/validation'
 import {
   validateReadonlyIdField,
   validateDefaultFields,
@@ -14,6 +13,11 @@ import {
   filterAllowedFields,
   validateFieldWritePermissions,
 } from './field-rules'
+import type {
+  ValidationError,
+  PermissionError,
+  ValidationContext,
+} from '../../middleware/validation'
 
 /**
  * Validate fields for record creation

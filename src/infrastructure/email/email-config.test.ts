@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect, describe, beforeEach, afterEach, mock } from 'bun:test'
+import { test, expect, describe, beforeEach, afterEach } from 'bun:test'
 import { getEmailConfigFromEffect } from './email-config'
 
 describe('getEmailConfigFromEffect', () => {

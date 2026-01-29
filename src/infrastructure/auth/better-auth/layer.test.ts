@@ -6,7 +6,7 @@
  */
 
 import { test, expect, describe, mock } from 'bun:test'
-import { Effect, Context, Layer } from 'effect'
+import { Effect, Layer } from 'effect'
 import { createAuthLayer, Auth, AuthError } from './layer'
 import type { Auth as AuthConfig } from '@/domain/models/app/auth'
 
@@ -123,18 +123,14 @@ describe('Auth service - getSession', () => {
             catch: (error) => new AuthError(error),
           }),
         requireSession: (headers) =>
-          Effect.gen(function* () {
-            const session = yield* Effect.tryPromise({
-              try: () => mockAuthInstance.api.getSession({ headers }),
-              catch: (error) => new AuthError(error),
-            })
-
-            if (!session) {
-              return yield* Effect.fail(new AuthError('Unauthorized'))
-            }
-
-            return session
-          }),
+          Effect.tryPromise({
+            try: () => mockAuthInstance.api.getSession({ headers }),
+            catch: (error) => new AuthError(error),
+          }).pipe(
+            Effect.flatMap((session) =>
+              session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
+            )
+          ),
       })
     )
 
@@ -169,18 +165,14 @@ describe('Auth service - getSession', () => {
             catch: (error) => new AuthError(error),
           }),
         requireSession: (headers) =>
-          Effect.gen(function* () {
-            const session = yield* Effect.tryPromise({
-              try: () => mockAuthInstance.api.getSession({ headers }),
-              catch: (error) => new AuthError(error),
-            })
-
-            if (!session) {
-              return yield* Effect.fail(new AuthError('Unauthorized'))
-            }
-
-            return session
-          }),
+          Effect.tryPromise({
+            try: () => mockAuthInstance.api.getSession({ headers }),
+            catch: (error) => new AuthError(error),
+          }).pipe(
+            Effect.flatMap((session) =>
+              session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
+            )
+          ),
       })
     )
 
@@ -216,18 +208,14 @@ describe('Auth service - getSession', () => {
             catch: (error) => new AuthError(error),
           }),
         requireSession: (headers) =>
-          Effect.gen(function* () {
-            const session = yield* Effect.tryPromise({
-              try: () => mockAuthInstance.api.getSession({ headers }),
-              catch: (error) => new AuthError(error),
-            })
-
-            if (!session) {
-              return yield* Effect.fail(new AuthError('Unauthorized'))
-            }
-
-            return session
-          }),
+          Effect.tryPromise({
+            try: () => mockAuthInstance.api.getSession({ headers }),
+            catch: (error) => new AuthError(error),
+          }).pipe(
+            Effect.flatMap((session) =>
+              session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
+            )
+          ),
       })
     )
 
@@ -273,18 +261,14 @@ describe('Auth service - requireSession', () => {
             catch: (error) => new AuthError(error),
           }),
         requireSession: (headers) =>
-          Effect.gen(function* () {
-            const session = yield* Effect.tryPromise({
-              try: () => mockAuthInstance.api.getSession({ headers }),
-              catch: (error) => new AuthError(error),
-            })
-
-            if (!session) {
-              return yield* Effect.fail(new AuthError('Unauthorized'))
-            }
-
-            return session
-          }),
+          Effect.tryPromise({
+            try: () => mockAuthInstance.api.getSession({ headers }),
+            catch: (error) => new AuthError(error),
+          }).pipe(
+            Effect.flatMap((session) =>
+              session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
+            )
+          ),
       })
     )
 
@@ -318,18 +302,14 @@ describe('Auth service - requireSession', () => {
             catch: (error) => new AuthError(error),
           }),
         requireSession: (headers) =>
-          Effect.gen(function* () {
-            const session = yield* Effect.tryPromise({
-              try: () => mockAuthInstance.api.getSession({ headers }),
-              catch: (error) => new AuthError(error),
-            })
-
-            if (!session) {
-              return yield* Effect.fail(new AuthError('Unauthorized'))
-            }
-
-            return session
-          }),
+          Effect.tryPromise({
+            try: () => mockAuthInstance.api.getSession({ headers }),
+            catch: (error) => new AuthError(error),
+          }).pipe(
+            Effect.flatMap((session) =>
+              session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
+            )
+          ),
       })
     )
 
@@ -369,18 +349,14 @@ describe('Auth service - requireSession', () => {
             catch: (error) => new AuthError(error),
           }),
         requireSession: (headers) =>
-          Effect.gen(function* () {
-            const session = yield* Effect.tryPromise({
-              try: () => mockAuthInstance.api.getSession({ headers }),
-              catch: (error) => new AuthError(error),
-            })
-
-            if (!session) {
-              return yield* Effect.fail(new AuthError('Unauthorized'))
-            }
-
-            return session
-          }),
+          Effect.tryPromise({
+            try: () => mockAuthInstance.api.getSession({ headers }),
+            catch: (error) => new AuthError(error),
+          }).pipe(
+            Effect.flatMap((session) =>
+              session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
+            )
+          ),
       })
     )
 

@@ -206,7 +206,7 @@ describe('verifications table', () => {
       id: 'verification-456',
       identifier: 'bob@example.com',
       value: 'verification-token',
-      expiresAt: new Date(Date.now() + 3600000), // 1 hour from now
+      expiresAt: new Date(Date.now() + 3_600_000), // 1 hour from now
       createdAt: new Date(),
       updatedAt: new Date(),
     }

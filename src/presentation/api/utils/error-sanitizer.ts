@@ -11,12 +11,14 @@
  * These codes are safe to expose to clients and map to standard HTTP status codes.
  */
 export type ErrorCode =
-  | 'AUTHENTICATION_REQUIRED'
+  | 'UNAUTHORIZED'
   | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'VALIDATION_ERROR'
   | 'CONFLICT'
+  | 'RATE_LIMITED'
   | 'INTERNAL_ERROR'
+  | 'SERVICE_UNAVAILABLE'
 
 /**
  * Sanitized error response for clients
@@ -108,6 +110,7 @@ export function sanitizeError(error: unknown, requestId?: string): SanitizedErro
   if (isSafeError(error)) {
     switch (error._tag) {
       case 'ForbiddenError':
+      case 'ForbiddenListTablesError':
         return {
           error: 'Forbidden',
           code: 'FORBIDDEN',
@@ -162,7 +165,7 @@ export function sanitizeError(error: unknown, requestId?: string): SanitizedErro
  */
 export function getStatusCode(code: ErrorCode): number {
   switch (code) {
-    case 'AUTHENTICATION_REQUIRED':
+    case 'UNAUTHORIZED':
       return 401
     case 'FORBIDDEN':
       return 403
@@ -172,7 +175,11 @@ export function getStatusCode(code: ErrorCode): number {
       return 400
     case 'CONFLICT':
       return 409
+    case 'RATE_LIMITED':
+      return 429
     case 'INTERNAL_ERROR':
       return 500
+    case 'SERVICE_UNAVAILABLE':
+      return 503
   }
 }

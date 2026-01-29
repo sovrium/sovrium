@@ -41,14 +41,20 @@ const applyTablesRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono>
   return honoApp
     .use('/api/tables', async (c, next) => {
       const ip = extractClientIp(c.req.header('x-forwarded-for'))
-      const method = c.req.method
+      const { method } = c.req
       const path = '/api/tables'
 
       if (isTablesRateLimitExceeded(method, path, ip)) {
         const retryAfter = getTablesRateLimitRetryAfter(method, path, ip)
-        return c.json({ error: 'Too many requests', message: 'Too many requests' }, 429, {
-          'Retry-After': retryAfter.toString(),
-        })
+        return c.json(
+          {
+            success: false,
+            message: 'Too many requests. Please try again later.',
+            code: 'RATE_LIMITED',
+          },
+          429,
+          { 'Retry-After': retryAfter.toString() }
+        )
       }
 
       recordTablesRateLimitRequest(method, path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
@@ -58,14 +64,20 @@ const applyTablesRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono>
     })
     .use('/api/tables/*', async (c, next) => {
       const ip = extractClientIp(c.req.header('x-forwarded-for'))
-      const method = c.req.method
+      const { method } = c.req
       const { path } = c.req
 
       if (isTablesRateLimitExceeded(method, path, ip)) {
         const retryAfter = getTablesRateLimitRetryAfter(method, path, ip)
-        return c.json({ error: 'Too many requests', message: 'Too many requests' }, 429, {
-          'Retry-After': retryAfter.toString(),
-        })
+        return c.json(
+          {
+            success: false,
+            message: 'Too many requests. Please try again later.',
+            code: 'RATE_LIMITED',
+          },
+          429,
+          { 'Retry-After': retryAfter.toString() }
+        )
       }
 
       recordTablesRateLimitRequest(method, path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
@@ -83,14 +95,20 @@ const applyActivityRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hon
   return honoApp
     .use('/api/activity', async (c, next) => {
       const ip = extractClientIp(c.req.header('x-forwarded-for'))
-      const method = c.req.method
+      const { method } = c.req
       const path = '/api/activity'
 
       if (isActivityRateLimitExceeded(method, path, ip)) {
         const retryAfter = getActivityRateLimitRetryAfter(method, path, ip)
-        return c.json({ error: 'Too many requests', message: 'Too many requests' }, 429, {
-          'Retry-After': retryAfter.toString(),
-        })
+        return c.json(
+          {
+            success: false,
+            message: 'Too many requests. Please try again later.',
+            code: 'RATE_LIMITED',
+          },
+          429,
+          { 'Retry-After': retryAfter.toString() }
+        )
       }
 
       recordActivityRateLimitRequest(method, path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update
@@ -100,14 +118,20 @@ const applyActivityRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hon
     })
     .use('/api/activity/*', async (c, next) => {
       const ip = extractClientIp(c.req.header('x-forwarded-for'))
-      const method = c.req.method
+      const { method } = c.req
       const { path } = c.req
 
       if (isActivityRateLimitExceeded(method, path, ip)) {
         const retryAfter = getActivityRateLimitRetryAfter(method, path, ip)
-        return c.json({ error: 'Too many requests', message: 'Too many requests' }, 429, {
-          'Retry-After': retryAfter.toString(),
-        })
+        return c.json(
+          {
+            success: false,
+            message: 'Too many requests. Please try again later.',
+            code: 'RATE_LIMITED',
+          },
+          429,
+          { 'Retry-After': retryAfter.toString() }
+        )
       }
 
       recordActivityRateLimitRequest(method, path, ip) // eslint-disable-line functional/no-expression-statements -- Rate limiting state update

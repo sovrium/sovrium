@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect, describe, mock, beforeEach } from 'bun:test'
+import { test, expect, describe } from 'bun:test'
 import { createEmailHandlers } from './email-handlers'
 import type { Auth } from '@/domain/models/app/auth'
 
