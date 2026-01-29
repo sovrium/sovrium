@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import type { ContentfulStatusCode } from 'hono/utils/http-status'
+
 /**
  * Sanitized error codes for client responses
  *
@@ -163,7 +165,7 @@ export function sanitizeError(error: unknown, requestId?: string): SanitizedErro
  * @param code - The error code
  * @returns HTTP status code
  */
-export function getStatusCode(code: ErrorCode): number {
+export function getStatusCode(code: ErrorCode): ContentfulStatusCode {
   switch (code) {
     case 'UNAUTHORIZED':
       return 401

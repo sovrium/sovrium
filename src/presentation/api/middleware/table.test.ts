@@ -81,8 +81,9 @@ describe('validateTable middleware', () => {
       expect(responses).toHaveLength(1)
       expect(responses[0]?.status).toBe(400)
       expect(responses[0]?.data).toMatchObject({
-        error: 'Bad Request',
+        success: false,
         message: 'Table ID parameter required',
+        code: 'VALIDATION_ERROR',
       })
       expect(next.called).toBe(false)
     })
@@ -100,7 +101,9 @@ describe('validateTable middleware', () => {
       expect(responses).toHaveLength(1)
       expect(responses[0]?.status).toBe(404)
       expect(responses[0]?.data).toMatchObject({
-        error: 'Table not found',
+        success: false,
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
       })
       expect(next.called).toBe(false)
     })
@@ -176,8 +179,9 @@ describe('enrichUserRole middleware', () => {
       expect(responses).toHaveLength(1)
       expect(responses[0]?.status).toBe(401)
       expect(responses[0]?.data).toMatchObject({
-        error: 'Unauthorized',
+        success: false,
         message: 'Authentication required',
+        code: 'AUTHENTICATION_REQUIRED',
       })
       expect(next.called).toBe(false)
     })

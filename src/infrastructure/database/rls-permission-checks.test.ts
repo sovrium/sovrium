@@ -38,7 +38,7 @@ describe('isPublicPermission', () => {
 
   test('returns false for non-public permissions', () => {
     expect(isPublicPermission({ type: 'authenticated' })).toBe(false)
-    expect(isPublicPermission({ type: 'owner' })).toBe(false)
+    expect(isPublicPermission({ type: 'owner', field: 'user_id' })).toBe(false)
     expect(isPublicPermission({ type: 'roles', roles: ['admin'] })).toBe(false)
   })
 

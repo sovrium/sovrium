@@ -37,7 +37,8 @@ class HealthResponseValidationError extends Data.TaggedError('HealthResponseVali
  * Apply rate limiting middleware for table API endpoints
  * Returns a Hono app with rate limiting middleware applied
  */
-const applyTablesRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> => {
+// eslint-disable-next-line functional/prefer-immutable-types -- Hono types are mutable by library design
+const applyTablesRateLimitMiddleware = (honoApp: Hono): Hono => {
   return honoApp
     .use('/api/tables', async (c, next) => {
       const ip = extractClientIp(c.req.header('x-forwarded-for'))
@@ -91,7 +92,8 @@ const applyTablesRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono>
  * Apply rate limiting middleware for activity API endpoints
  * Returns a Hono app with rate limiting middleware applied
  */
-const applyActivityRateLimitMiddleware = (honoApp: Readonly<Hono>): Readonly<Hono> => {
+// eslint-disable-next-line functional/prefer-immutable-types -- Hono types are mutable by library design
+const applyActivityRateLimitMiddleware = (honoApp: Hono): Hono => {
   return honoApp
     .use('/api/activity', async (c, next) => {
       const ip = extractClientIp(c.req.header('x-forwarded-for'))

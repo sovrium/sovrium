@@ -47,6 +47,9 @@ import {
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
+/** Session type derived from table context to respect layer boundaries */
+type SessionContext = ReturnType<typeof getTableContext>['session']
+
 /**
  * Validate timezone string using Intl.DateTimeFormat
  * Returns true if timezone is valid, false otherwise
@@ -128,7 +131,11 @@ export async function handleListTrash(c: Context, app: App) {
  * Check create permission for table and user role
  * Returns error response if permission denied, undefined otherwise
  */
-function checkCreatePermission(table: unknown, userRole: string, c: Context) {
+function checkCreatePermission(
+  table: Parameters<typeof hasCreatePermission>[0],
+  userRole: string,
+  c: Context
+) {
   if (!hasCreatePermission(table, userRole)) {
     return c.json(
       {
@@ -243,7 +250,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
  * Execute permanent delete and return response
  */
 async function executePermanentDelete(
-  session: unknown,
+  session: SessionContext,
   tableName: string,
   recordId: string,
   c: Context
@@ -270,11 +277,11 @@ async function executeSoftDelete({
   app,
   c,
 }: {
-  session: unknown
-  tableName: string
-  recordId: string
-  app: App
-  c: Context
+  readonly session: SessionContext
+  readonly tableName: string
+  readonly recordId: string
+  readonly app: App
+  readonly c: Context
 }) {
   const deleteResult = await Effect.runPromise(
     deleteRecordProgram(session, tableName, recordId, app)

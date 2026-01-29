@@ -223,7 +223,7 @@ function printResults(errors: ValidationError[]): void {
   const errorsByFile = errors.reduce(
     (acc, error) => {
       if (!acc[error.file]) acc[error.file] = []
-      acc[error.file].push(error)
+      acc[error.file]!.push(error)
       return acc
     },
     {} as Record<string, ValidationError[]>

@@ -303,7 +303,7 @@ function fetchRecordBeforeUpdate(
       return result[0]
     },
     catch: () => undefined,
-  })
+  }).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
 }
 
 /**
@@ -338,7 +338,7 @@ function executeRecordUpdate(
       return result[0]
     },
     catch: () => undefined,
-  })
+  }).pipe(Effect.catchAll(() => Effect.succeed(undefined)))
 }
 
 /**

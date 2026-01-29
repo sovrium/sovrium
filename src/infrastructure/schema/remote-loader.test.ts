@@ -11,10 +11,8 @@ import { fetchRemoteSchema } from './remote-loader'
 const validSchema = {
   name: 'Test App',
   description: 'Test description',
-  metadata: {
-    theme: 'default',
-    pages: [],
-  },
+  theme: { colors: { primary: '#000' } },
+  pages: [],
 }
 
 describe('remote-loader', () => {
@@ -33,7 +31,7 @@ describe('remote-loader', () => {
 
       expect(schema.name).toBe('Test App')
       expect(schema.description).toBe('Test description')
-      expect(schema.metadata.theme).toBe('default')
+      expect(schema.theme).toEqual({ colors: { primary: '#000' } })
       expect(mockFetch).toHaveBeenCalledTimes(1)
       expect(mockFetch).toHaveBeenCalledWith('https://example.com/schema.json')
     })
@@ -41,9 +39,10 @@ describe('remote-loader', () => {
     test('fetches and parses YAML from remote URL with text/yaml content type', async () => {
       const yamlContent = `name: Test App
 description: Test description
-metadata:
-  theme: default
-  pages: []`
+theme:
+  colors:
+    primary: '#000'
+pages: []`
 
       const mockFetch = mock(async () => ({
         ok: true,
@@ -58,7 +57,7 @@ metadata:
 
       expect(schema.name).toBe('Test App')
       expect(schema.description).toBe('Test description')
-      expect(schema.metadata.theme).toBe('default')
+      expect(schema.theme).toEqual({ colors: { primary: '#000' } })
       expect(mockFetch).toHaveBeenCalledTimes(1)
     })
 
@@ -81,9 +80,10 @@ metadata:
     test('detects YAML format from URL extension when content type is missing', async () => {
       const yamlContent = `name: Test App
 description: Test description
-metadata:
-  theme: default
-  pages: []`
+theme:
+  colors:
+    primary: '#000'
+pages: []`
 
       const mockFetch = mock(async () => ({
         ok: true,

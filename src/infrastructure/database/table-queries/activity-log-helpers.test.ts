@@ -11,8 +11,10 @@ import { logActivity } from './activity-log-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 // Mock the database module
-const mockDbExecute = mock(async () => [])
-const mockDbInsert = mock(() => ({
+
+const mockDbExecute: any = mock(async () => [])
+
+const mockDbInsert: any = mock(() => ({
   values: mock(async () => ({})),
 }))
 
@@ -36,7 +38,7 @@ mock.module('@/infrastructure/database/drizzle/schema/activity-log', () => ({
 describe('logActivity', () => {
   const mockSession: Readonly<Session> = {
     userId: 'user-123',
-    sessionToken: 'token',
+    token: 'token',
     expiresAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -44,7 +46,6 @@ describe('logActivity', () => {
     ipAddress: null,
     userAgent: null,
     impersonatedBy: null,
-    activeOrganizationId: 'org-456',
   }
 
   describe('when logging successful operations', () => {

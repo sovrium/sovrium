@@ -119,7 +119,7 @@ describe('sanitizeFields', () => {
 describe('buildInsertClauses', () => {
   const mockSession: Readonly<Session> = {
     userId: 'session-user-123',
-    sessionToken: 'token',
+    token: 'token',
     expiresAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -127,7 +127,6 @@ describe('buildInsertClauses', () => {
     ipAddress: null,
     userAgent: null,
     impersonatedBy: null,
-    activeOrganizationId: null,
   }
 
   describe('when table has owner_id column', () => {

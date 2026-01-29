@@ -381,7 +381,7 @@ describe('generateRLSPolicyStatements', () => {
       permissions: {
         fields: [
           {
-            name: 'private_info',
+            field: 'private_info',
             read: { type: 'roles', roles: ['admin'] },
             write: { type: 'roles', roles: ['admin'] },
           },
@@ -408,7 +408,7 @@ describe('generateRLSPolicyStatements', () => {
       permissions: {
         fields: [
           {
-            name: 'data',
+            field: 'data',
             read: { type: 'owner', field: 'owner_id' },
             write: { type: 'owner', field: 'owner_id' },
           },

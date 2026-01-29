@@ -40,7 +40,7 @@ describe('buildSocialProviders', () => {
   })
 
   test('returns empty object when oauth.providers is empty', () => {
-    const authConfig: Auth = { oauth: { providers: [] } }
+    const authConfig: Auth = { oauth: { providers: [] as unknown as ['google'] } }
     const result = buildSocialProviders(authConfig)
     expect(result).toEqual({})
   })
@@ -97,7 +97,7 @@ describe('buildSocialProviders', () => {
     process.env.FACEBOOK_CLIENT_ID = 'fb-id'
     process.env.FACEBOOK_CLIENT_SECRET = 'fb-secret'
 
-    const authConfig: Auth = { oauth: { providers: ['facebook'] } }
+    const authConfig: Auth = { oauth: { providers: ['facebook' as 'google'] } }
     const result = buildSocialProviders(authConfig)
 
     expect(result).toEqual({

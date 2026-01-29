@@ -398,15 +398,7 @@ describe('rls-policy-core', () => {
     test('generates tableName_custom_ prefix for custom permission', () => {
       const permission: TablePermission = {
         type: 'custom',
-        condition: {
-          and: [
-            {
-              field: 'status',
-              operator: 'eq',
-              value: 'published',
-            },
-          ],
-        },
+        condition: '{userId} = owner_id AND status = published',
       }
 
       const name = generatePolicyName('articles', 'read', permission)

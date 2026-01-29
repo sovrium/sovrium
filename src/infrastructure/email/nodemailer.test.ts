@@ -110,7 +110,7 @@ describe('createTransporter', () => {
 
     const transporter = createTransporter(config)
 
-    expect(transporter.options.host).toBe('smtp.gmail.com')
+    expect((transporter.options as Record<string, unknown>).host).toBe('smtp.gmail.com')
   })
 
   test('transporter has port from config', () => {
@@ -130,7 +130,7 @@ describe('createTransporter', () => {
 
     const transporter = createTransporter(config)
 
-    expect(transporter.options.port).toBe(2525)
+    expect((transporter.options as Record<string, unknown>).port).toBe(2525)
   })
 
   test('transporter has secure flag from config', () => {
@@ -150,7 +150,7 @@ describe('createTransporter', () => {
 
     const transporter = createTransporter(config)
 
-    expect(transporter.options.secure).toBe(true)
+    expect((transporter.options as Record<string, unknown>).secure).toBe(true)
   })
 
   test('transporter has auth credentials from config', () => {
@@ -170,7 +170,7 @@ describe('createTransporter', () => {
 
     const transporter = createTransporter(config)
 
-    expect(transporter.options.auth).toEqual({
+    expect((transporter.options as Record<string, unknown>).auth).toEqual({
       user: 'myuser',
       pass: 'mypass',
     })

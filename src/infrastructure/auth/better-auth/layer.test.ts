@@ -111,28 +111,26 @@ describe('Auth service - getSession', () => {
       handler: mock(() => Promise.resolve(new Response())),
     }
 
-    // Create layer with mock
-    const testLayer = Layer.succeed(
-      Auth,
-      Auth.of({
-        api: mockAuthInstance.api as any,
-        handler: mockAuthInstance.handler as any,
-        getSession: (headers) =>
-          Effect.tryPromise({
-            try: () => mockAuthInstance.api.getSession({ headers }),
-            catch: (error) => new AuthError(error),
-          }),
-        requireSession: (headers) =>
-          Effect.tryPromise({
-            try: () => mockAuthInstance.api.getSession({ headers }),
-            catch: (error) => new AuthError(error),
-          }).pipe(
-            Effect.flatMap((session) =>
-              session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
-            )
-          ),
-      })
-    )
+    // Create layer with mock (cast to any for test mock compatibility)
+
+    const testLayer = Layer.succeed(Auth, {
+      api: mockAuthInstance.api,
+      handler: mockAuthInstance.handler,
+      getSession: (_headers: Headers) =>
+        Effect.tryPromise({
+          try: () => mockAuthInstance.api.getSession(),
+          catch: (error: unknown) => new AuthError(error),
+        }),
+      requireSession: (_headers: Headers) =>
+        Effect.tryPromise({
+          try: () => mockAuthInstance.api.getSession(),
+          catch: (error: unknown) => new AuthError(error),
+        }).pipe(
+          Effect.flatMap((session) =>
+            session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
+          )
+        ),
+    } as any)
 
     const program = Effect.gen(function* () {
       const auth = yield* Auth
@@ -142,7 +140,7 @@ describe('Auth service - getSession', () => {
 
     const result = await Effect.runPromise(program.pipe(Effect.provide(testLayer)))
 
-    expect(result).toEqual(mockSession)
+    expect(result).toEqual(mockSession as any)
     expect(mockAuthInstance.api.getSession).toHaveBeenCalledTimes(1)
   })
 
@@ -154,27 +152,24 @@ describe('Auth service - getSession', () => {
       handler: mock(() => Promise.resolve(new Response())),
     }
 
-    const testLayer = Layer.succeed(
-      Auth,
-      Auth.of({
-        api: mockAuthInstance.api as any,
-        handler: mockAuthInstance.handler as any,
-        getSession: (headers) =>
-          Effect.tryPromise({
-            try: () => mockAuthInstance.api.getSession({ headers }),
-            catch: (error) => new AuthError(error),
-          }),
-        requireSession: (headers) =>
-          Effect.tryPromise({
-            try: () => mockAuthInstance.api.getSession({ headers }),
-            catch: (error) => new AuthError(error),
-          }).pipe(
-            Effect.flatMap((session) =>
-              session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
-            )
-          ),
-      })
-    )
+    const testLayer = Layer.succeed(Auth, {
+      api: mockAuthInstance.api,
+      handler: mockAuthInstance.handler,
+      getSession: (_headers: Headers) =>
+        Effect.tryPromise({
+          try: () => mockAuthInstance.api.getSession(),
+          catch: (error: unknown) => new AuthError(error),
+        }),
+      requireSession: (_headers: Headers) =>
+        Effect.tryPromise({
+          try: () => mockAuthInstance.api.getSession(),
+          catch: (error: unknown) => new AuthError(error),
+        }).pipe(
+          Effect.flatMap((session) =>
+            session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
+          )
+        ),
+    } as any)
 
     const program = Effect.gen(function* () {
       const auth = yield* Auth
@@ -197,27 +192,24 @@ describe('Auth service - getSession', () => {
       handler: mock(() => Promise.resolve(new Response())),
     }
 
-    const testLayer = Layer.succeed(
-      Auth,
-      Auth.of({
-        api: mockAuthInstance.api as any,
-        handler: mockAuthInstance.handler as any,
-        getSession: (headers) =>
-          Effect.tryPromise({
-            try: () => mockAuthInstance.api.getSession({ headers }),
-            catch: (error) => new AuthError(error),
-          }),
-        requireSession: (headers) =>
-          Effect.tryPromise({
-            try: () => mockAuthInstance.api.getSession({ headers }),
-            catch: (error) => new AuthError(error),
-          }).pipe(
-            Effect.flatMap((session) =>
-              session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
-            )
-          ),
-      })
-    )
+    const testLayer = Layer.succeed(Auth, {
+      api: mockAuthInstance.api,
+      handler: mockAuthInstance.handler,
+      getSession: (_headers: Headers) =>
+        Effect.tryPromise({
+          try: () => mockAuthInstance.api.getSession(),
+          catch: (error: unknown) => new AuthError(error),
+        }),
+      requireSession: (_headers: Headers) =>
+        Effect.tryPromise({
+          try: () => mockAuthInstance.api.getSession(),
+          catch: (error: unknown) => new AuthError(error),
+        }).pipe(
+          Effect.flatMap((session) =>
+            session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
+          )
+        ),
+    } as any)
 
     const program = Effect.gen(function* () {
       const auth = yield* Auth
@@ -250,27 +242,24 @@ describe('Auth service - requireSession', () => {
       handler: mock(() => Promise.resolve(new Response())),
     }
 
-    const testLayer = Layer.succeed(
-      Auth,
-      Auth.of({
-        api: mockAuthInstance.api as any,
-        handler: mockAuthInstance.handler as any,
-        getSession: (headers) =>
-          Effect.tryPromise({
-            try: () => mockAuthInstance.api.getSession({ headers }),
-            catch: (error) => new AuthError(error),
-          }),
-        requireSession: (headers) =>
-          Effect.tryPromise({
-            try: () => mockAuthInstance.api.getSession({ headers }),
-            catch: (error) => new AuthError(error),
-          }).pipe(
-            Effect.flatMap((session) =>
-              session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
-            )
-          ),
-      })
-    )
+    const testLayer = Layer.succeed(Auth, {
+      api: mockAuthInstance.api,
+      handler: mockAuthInstance.handler,
+      getSession: (_headers: Headers) =>
+        Effect.tryPromise({
+          try: () => mockAuthInstance.api.getSession(),
+          catch: (error: unknown) => new AuthError(error),
+        }),
+      requireSession: (_headers: Headers) =>
+        Effect.tryPromise({
+          try: () => mockAuthInstance.api.getSession(),
+          catch: (error: unknown) => new AuthError(error),
+        }).pipe(
+          Effect.flatMap((session) =>
+            session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
+          )
+        ),
+    } as any)
 
     const program = Effect.gen(function* () {
       const auth = yield* Auth
@@ -280,7 +269,7 @@ describe('Auth service - requireSession', () => {
 
     const result = await Effect.runPromise(program.pipe(Effect.provide(testLayer)))
 
-    expect(result).toEqual(mockSession)
+    expect(result).toEqual(mockSession as any)
   })
 
   test('fails when no session', async () => {
@@ -291,27 +280,24 @@ describe('Auth service - requireSession', () => {
       handler: mock(() => Promise.resolve(new Response())),
     }
 
-    const testLayer = Layer.succeed(
-      Auth,
-      Auth.of({
-        api: mockAuthInstance.api as any,
-        handler: mockAuthInstance.handler as any,
-        getSession: (headers) =>
-          Effect.tryPromise({
-            try: () => mockAuthInstance.api.getSession({ headers }),
-            catch: (error) => new AuthError(error),
-          }),
-        requireSession: (headers) =>
-          Effect.tryPromise({
-            try: () => mockAuthInstance.api.getSession({ headers }),
-            catch: (error) => new AuthError(error),
-          }).pipe(
-            Effect.flatMap((session) =>
-              session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
-            )
-          ),
-      })
-    )
+    const testLayer = Layer.succeed(Auth, {
+      api: mockAuthInstance.api,
+      handler: mockAuthInstance.handler,
+      getSession: (_headers: Headers) =>
+        Effect.tryPromise({
+          try: () => mockAuthInstance.api.getSession(),
+          catch: (error: unknown) => new AuthError(error),
+        }),
+      requireSession: (_headers: Headers) =>
+        Effect.tryPromise({
+          try: () => mockAuthInstance.api.getSession(),
+          catch: (error: unknown) => new AuthError(error),
+        }).pipe(
+          Effect.flatMap((session) =>
+            session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
+          )
+        ),
+    } as any)
 
     const program = Effect.gen(function* () {
       const auth = yield* Auth
@@ -338,27 +324,24 @@ describe('Auth service - requireSession', () => {
       handler: mock(() => Promise.resolve(new Response())),
     }
 
-    const testLayer = Layer.succeed(
-      Auth,
-      Auth.of({
-        api: mockAuthInstance.api as any,
-        handler: mockAuthInstance.handler as any,
-        getSession: (headers) =>
-          Effect.tryPromise({
-            try: () => mockAuthInstance.api.getSession({ headers }),
-            catch: (error) => new AuthError(error),
-          }),
-        requireSession: (headers) =>
-          Effect.tryPromise({
-            try: () => mockAuthInstance.api.getSession({ headers }),
-            catch: (error) => new AuthError(error),
-          }).pipe(
-            Effect.flatMap((session) =>
-              session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
-            )
-          ),
-      })
-    )
+    const testLayer = Layer.succeed(Auth, {
+      api: mockAuthInstance.api,
+      handler: mockAuthInstance.handler,
+      getSession: (_headers: Headers) =>
+        Effect.tryPromise({
+          try: () => mockAuthInstance.api.getSession(),
+          catch: (error: unknown) => new AuthError(error),
+        }),
+      requireSession: (_headers: Headers) =>
+        Effect.tryPromise({
+          try: () => mockAuthInstance.api.getSession(),
+          catch: (error: unknown) => new AuthError(error),
+        }).pipe(
+          Effect.flatMap((session) =>
+            session ? Effect.succeed(session) : Effect.fail(new AuthError('Unauthorized'))
+          )
+        ),
+    } as any)
 
     const program = Effect.gen(function* () {
       const auth = yield* Auth
@@ -385,15 +368,12 @@ describe('Auth service - api and handler', () => {
       signOut: mock(async () => ({})),
     }
 
-    const testLayer = Layer.succeed(
-      Auth,
-      Auth.of({
-        api: mockApi as any,
-        handler: mock(() => Promise.resolve(new Response())) as any,
-        getSession: () => Effect.succeed(null),
-        requireSession: () => Effect.fail(new AuthError('Unauthorized')),
-      })
-    )
+    const testLayer = Layer.succeed(Auth, {
+      api: mockApi,
+      handler: mock(() => Promise.resolve(new Response())),
+      getSession: () => Effect.succeed(null),
+      requireSession: () => Effect.fail(new AuthError('Unauthorized')),
+    } as any)
 
     const program = Effect.gen(function* () {
       const auth = yield* Auth
@@ -402,24 +382,24 @@ describe('Auth service - api and handler', () => {
 
     const api = await Effect.runPromise(program.pipe(Effect.provide(testLayer)))
 
-    expect(api).toBe(mockApi)
-    expect(api.getSession).toBeDefined()
-    expect(api.signIn).toBeDefined()
-    expect(api.signOut).toBeDefined()
+    expect(api).toBe(mockApi as any)
+
+    expect((api as any).getSession).toBeDefined()
+
+    expect((api as any).signIn).toBeDefined()
+
+    expect((api as any).signOut).toBeDefined()
   })
 
   test('exposes handler function', async () => {
     const mockHandler = mock(() => Promise.resolve(new Response()))
 
-    const testLayer = Layer.succeed(
-      Auth,
-      Auth.of({
-        api: {} as any,
-        handler: mockHandler as any,
-        getSession: () => Effect.succeed(null),
-        requireSession: () => Effect.fail(new AuthError('Unauthorized')),
-      })
-    )
+    const testLayer = Layer.succeed(Auth, {
+      api: {},
+      handler: mockHandler,
+      getSession: () => Effect.succeed(null),
+      requireSession: () => Effect.fail(new AuthError('Unauthorized')),
+    } as any)
 
     const program = Effect.gen(function* () {
       const auth = yield* Auth

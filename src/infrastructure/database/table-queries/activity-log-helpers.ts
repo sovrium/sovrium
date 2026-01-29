@@ -20,7 +20,7 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 export function logActivity(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
-  readonly action: 'create' | 'update' | 'delete'
+  readonly action: 'create' | 'update' | 'delete' | 'restore'
   readonly recordId: string
   readonly changes: {
     readonly before?: Record<string, unknown>

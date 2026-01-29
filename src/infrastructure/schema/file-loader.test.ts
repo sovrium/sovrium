@@ -20,10 +20,8 @@ const NONEXISTENT_FILE = join(TEST_DIR, 'nonexistent.json')
 const validSchema = {
   name: 'Test App',
   description: 'Test description',
-  metadata: {
-    theme: 'default',
-    pages: [],
-  },
+  theme: { colors: { primary: '#000' } },
+  pages: [],
 }
 
 describe('file-loader', () => {
@@ -37,9 +35,10 @@ describe('file-loader', () => {
     // Create test YAML file (.yaml)
     const yamlContent = `name: Test App
 description: Test description
-metadata:
-  theme: default
-  pages: []`
+theme:
+  colors:
+    primary: '#000'
+pages: []`
     await writeFile(TEST_YAML_FILE, yamlContent)
 
     // Create test YAML file (.yml)
@@ -60,8 +59,8 @@ metadata:
 
       expect(schema.name).toBe('Test App')
       expect(schema.description).toBe('Test description')
-      expect(schema.metadata.theme).toBe('default')
-      expect(schema.metadata.pages).toEqual([])
+      expect(schema.theme).toEqual({ colors: { primary: '#000' } })
+      expect(schema.pages).toEqual([])
     })
 
     test('loads and parses YAML file with .yaml extension', async () => {
@@ -69,8 +68,8 @@ metadata:
 
       expect(schema.name).toBe('Test App')
       expect(schema.description).toBe('Test description')
-      expect(schema.metadata.theme).toBe('default')
-      expect(schema.metadata.pages).toEqual([])
+      expect(schema.theme).toEqual({ colors: { primary: '#000' } })
+      expect(schema.pages).toEqual([])
     })
 
     test('loads and parses YAML file with .yml extension', async () => {
@@ -78,8 +77,8 @@ metadata:
 
       expect(schema.name).toBe('Test App')
       expect(schema.description).toBe('Test description')
-      expect(schema.metadata.theme).toBe('default')
-      expect(schema.metadata.pages).toEqual([])
+      expect(schema.theme).toEqual({ colors: { primary: '#000' } })
+      expect(schema.pages).toEqual([])
     })
 
     test('throws error when file does not exist', async () => {

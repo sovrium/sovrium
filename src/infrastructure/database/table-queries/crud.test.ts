@@ -22,7 +22,7 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 // Mock session
 const mockSession: Readonly<Session> = {
   userId: 'user-123',
-  sessionToken: 'token',
+  token: 'token',
   expiresAt: new Date(),
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -30,7 +30,6 @@ const mockSession: Readonly<Session> = {
   ipAddress: null,
   userAgent: null,
   impersonatedBy: null,
-  activeOrganizationId: 'org-456',
 }
 
 // Mock withSessionContext to isolate crud function logic
