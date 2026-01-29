@@ -31,7 +31,6 @@ import type {
 // Re-export from table-operations
 export {
   TableNotFoundError,
-  ForbiddenListTablesError,
   createListTablesProgram,
   createGetTableProgram,
   createGetPermissionsProgram,

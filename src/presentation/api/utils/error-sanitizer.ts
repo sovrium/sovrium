@@ -112,7 +112,6 @@ export function sanitizeError(error: unknown, requestId?: string): SanitizedErro
   if (isSafeError(error)) {
     switch (error._tag) {
       case 'ForbiddenError':
-      case 'ForbiddenListTablesError':
         return {
           error: 'Forbidden',
           code: 'FORBIDDEN',

@@ -117,10 +117,7 @@ async function enrichUserRoleHandler(c: Context, next: Next) {
 
   // Defensive check (should not happen if requireAuth() used before)
   if (!session) {
-    return c.json(
-      { success: false, message: 'Authentication required', code: 'AUTHENTICATION_REQUIRED' },
-      401
-    )
+    return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
   }
 
   const userRole = await getUserRole(session.userId)

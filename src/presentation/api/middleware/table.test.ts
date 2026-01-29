@@ -181,7 +181,7 @@ describe('enrichUserRole middleware', () => {
       expect(responses[0]?.data).toMatchObject({
         success: false,
         message: 'Authentication required',
-        code: 'AUTHENTICATION_REQUIRED',
+        code: 'UNAUTHORIZED',
       })
       expect(next.called).toBe(false)
     })

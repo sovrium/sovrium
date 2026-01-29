@@ -29,18 +29,6 @@ export class TableNotFoundError extends Error {
   }
 }
 
-/**
- * Error when listing tables is forbidden
- */
-export class ForbiddenListTablesError extends Error {
-  readonly _tag = 'ForbiddenListTablesError'
-
-  constructor(message: string) {
-    super(message)
-    this.name = 'ForbiddenListTablesError'
-  }
-}
-
 /* eslint-enable functional/no-expression-statements */
 
 // Constants
@@ -57,7 +45,7 @@ export function createListTablesProgram(
       userRole as (typeof ALLOWED_ROLES_TO_LIST_TABLES)[number]
     )
   ) {
-    return Effect.fail(new ForbiddenListTablesError('You do not have permission to list tables'))
+    return Effect.fail(new ForbiddenError('You do not have permission to list tables'))
   }
 
   // Filter tables based on user's read permissions

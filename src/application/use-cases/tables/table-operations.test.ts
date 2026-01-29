@@ -7,6 +7,7 @@
 
 import { test, expect, describe } from 'bun:test'
 import { Effect, Exit, Cause } from 'effect'
+import { ForbiddenError } from '@/infrastructure/database/session-context'
 import {
   createListTablesProgram,
   createGetTableProgram,
@@ -15,7 +16,6 @@ import {
   getViewProgram,
   getViewRecordsProgram,
   TableNotFoundError,
-  ForbiddenListTablesError,
 } from './table-operations'
 import type { App } from '@/domain/models/app'
 
@@ -113,7 +113,7 @@ describe('table-operations', () => {
         const failureOption = Cause.failureOption(exit.cause)
         expect(failureOption._tag).toBe('Some')
         if (failureOption._tag === 'Some') {
-          expect(failureOption.value).toBeInstanceOf(ForbiddenListTablesError)
+          expect(failureOption.value).toBeInstanceOf(ForbiddenError)
         }
       }
     })
@@ -153,7 +153,7 @@ describe('table-operations', () => {
         const failureOption = Cause.failureOption(exit.cause)
         expect(failureOption._tag).toBe('Some')
         if (failureOption._tag === 'Some') {
-          expect(failureOption.value).toBeInstanceOf(ForbiddenListTablesError)
+          expect(failureOption.value).toBeInstanceOf(ForbiddenError)
         }
       }
     })
