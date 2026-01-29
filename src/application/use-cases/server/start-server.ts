@@ -11,6 +11,7 @@ import { PageRenderer } from '@/application/ports/page-renderer'
 import { ServerFactory } from '@/application/ports/server-factory'
 import { bootstrapAdmin } from '@/application/use-cases/auth/bootstrap-admin'
 import { AppSchema } from '@/domain/models/app'
+import { Logger } from '@/infrastructure/logging/logger'
 import type { ServerInstance } from '@/application/models/server'
 import type { App } from '@/domain/models/app'
 import type { Auth } from '@/infrastructure/auth/better-auth'
@@ -86,13 +87,12 @@ export const startServer = (
 
     // Bootstrap admin account BEFORE starting the server
     // This ensures admin user exists before server signals "ready"
+    const logger = yield* Logger
     yield* bootstrapAdmin(validatedApp).pipe(
-      Effect.catchAll((error) => {
+      Effect.catchAll((error) =>
         // Log bootstrap errors but don't fail server startup
-        return Effect.sync(() => {
-          console.error('⚠️ Admin bootstrap error:', error.message)
-        })
-      })
+        logger.warn('Admin bootstrap error', error.message)
+      )
     )
 
     // Create server using injected dependencies

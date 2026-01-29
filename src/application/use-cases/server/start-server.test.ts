@@ -12,6 +12,7 @@ import { PageRenderer } from '@/application/ports/page-renderer'
 import { ServerFactory } from '@/application/ports/server-factory'
 import { Auth } from '@/infrastructure/auth/better-auth'
 import { Database } from '@/infrastructure/database/drizzle/layer'
+import { LoggerSilent } from '@/infrastructure/logging/logger'
 import { startServer } from './start-server'
 import type { ServerInstance } from '@/application/models/server'
 
@@ -60,9 +61,15 @@ const MockDatabase = Layer.succeed(Database, {
 } as any)
 
 /**
- * Test Layer composition (MockServerFactory + MockPageRenderer + MockAuth + MockDatabase)
+ * Test Layer composition (MockServerFactory + MockPageRenderer + MockAuth + MockDatabase + LoggerSilent)
  */
-const TestLayer = Layer.mergeAll(MockServerFactory, MockPageRenderer, MockAuth, MockDatabase)
+const TestLayer = Layer.mergeAll(
+  MockServerFactory,
+  MockPageRenderer,
+  MockAuth,
+  MockDatabase,
+  LoggerSilent
+)
 
 describe('startServer', () => {
   test('should start server with valid app configuration', async () => {

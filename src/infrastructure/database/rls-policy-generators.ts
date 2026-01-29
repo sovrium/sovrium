@@ -620,11 +620,5 @@ const selectPolicyGenerator = (
 export const generateRLSPolicyStatements = (table: Table): readonly string[] => {
   const generator = selectPolicyGenerator(table)
   const statements = generator(table)
-  console.log(`[RLS-GEN] Table: ${table.name}`)
-  console.log(`[RLS-GEN] Policies count: ${statements.length}`)
-  console.log(`[RLS-GEN] ALL policies:`)
-  statements.forEach((stmt, i) => {
-    console.log(`  [${i}] ${stmt}`)
-  })
   return statements
 }

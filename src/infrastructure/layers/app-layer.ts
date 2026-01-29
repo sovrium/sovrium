@@ -11,6 +11,7 @@ import { CSSCompilerLive } from '@/infrastructure/css/css-compiler-live'
 import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
 import { DevToolsLayerOptional } from '@/infrastructure/devtools'
 import { PageRendererLive } from '@/infrastructure/layers/page-renderer-layer'
+import { LoggerLive } from '@/infrastructure/logging/logger'
 import { ServerFactoryLive } from '@/infrastructure/server/server-factory-live'
 import { StaticSiteGeneratorLive } from '@/infrastructure/server/static-site-generator-live'
 import type { Auth as AuthConfig } from '@/domain/models/app/auth'
@@ -46,7 +47,8 @@ export const createAppLayer = (authConfig?: AuthConfig) =>
     PageRendererLive,
     CSSCompilerLive,
     StaticSiteGeneratorLive,
-    DevToolsLayerOptional
+    DevToolsLayerOptional,
+    LoggerLive
   )
 
 /**

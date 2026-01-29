@@ -187,10 +187,8 @@ function validateFieldsForCreate({
 }
 
 export async function handleCreateRecord(c: Context, app: App) {
-  console.log('[DEBUG] handleCreateRecord called - method:', c.req.method, 'path:', c.req.path)
   // Session, tableName, and userRole are guaranteed by middleware chain
   const { session, tableName, userRole } = getTableContext(c)
-  console.log('[DEBUG] session:', session?.userId, 'tableName:', tableName, 'userRole:', userRole)
 
   const result = await validateRequest(c, createRecordRequestSchema)
   if (!result.success) return result.response
@@ -211,8 +209,6 @@ export async function handleCreateRecord(c: Context, app: App) {
     c,
   })
   if (!validation || 'status' in validation) return validation
-
-  console.log('[DEBUG] About to call runEffect with fields:', validation.allowedData)
   return await runEffect(
     c,
     createRecordProgram({ session, tableName, fields: validation.allowedData, app, userRole }),
