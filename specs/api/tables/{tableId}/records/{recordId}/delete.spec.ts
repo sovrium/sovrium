@@ -195,7 +195,6 @@ test.describe('Delete record', () => {
       expect(data).toHaveProperty('code')
       expect(data).toHaveProperty('message')
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
       expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to delete records in this table')
 
@@ -252,7 +251,6 @@ test.describe('Delete record', () => {
       expect(data).toHaveProperty('code')
       expect(data).toHaveProperty('message')
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
       expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to delete records in this table')
     }
@@ -516,7 +514,6 @@ test.describe('Delete record', () => {
 
       const data = await response.json()
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
       expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('Only admins and owners can permanently delete records')
 

@@ -143,8 +143,9 @@ test.describe('Restore record', () => {
       expect(response.status()).toBe(400)
 
       const data = await response.json()
-      expect(data.error).toBe('Bad Request')
+      expect(data.success).toBe(false)
       expect(data.message).toBe('Record is not deleted')
+      expect(data.code).toBe('VALIDATION_ERROR')
     }
   )
 

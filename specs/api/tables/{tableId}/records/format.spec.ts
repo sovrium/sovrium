@@ -478,8 +478,8 @@ test.describe('Record Display Formatting', () => {
       // Create authenticated user
       await createAuthenticatedUser()
 
-      // WHEN: requesting record with display formatting
-      const response = await request.get('/api/tables/1/records?format=display')
+      // WHEN: requesting record with display formatting (UTC timezone for consistent results)
+      const response = await request.get('/api/tables/1/records?format=display&timezone=UTC')
 
       // THEN: time is displayed in 12-hour format with AM/PM
       expect(response.status()).toBe(200)
@@ -515,8 +515,8 @@ test.describe('Record Display Formatting', () => {
       // Create authenticated user
       await createAuthenticatedUser()
 
-      // WHEN: requesting record with display formatting
-      const response = await request.get('/api/tables/1/records?format=display')
+      // WHEN: requesting record with display formatting (UTC timezone for consistent results)
+      const response = await request.get('/api/tables/1/records?format=display&timezone=UTC')
 
       // THEN: time is displayed in 24-hour format (14:30)
       expect(response.status()).toBe(200)
@@ -915,7 +915,7 @@ test.describe('Record Display Formatting', () => {
       // THEN: API rejects with 400 Bad Request
       expect(response.status()).toBe(400)
       const data = await response.json()
-      expect(data.error).toMatch(/invalid timezone/i)
+      expect(data.message).toMatch(/invalid timezone/i)
     }
   )
 
@@ -1106,7 +1106,7 @@ test.describe('Record Display Formatting', () => {
         // THEN: API rejects with 400 Bad Request
         expect(response.status()).toBe(400)
         const data = await response.json()
-        expect(data.error).toMatch(/invalid timezone/i)
+        expect(data.message).toMatch(/invalid timezone/i)
       })
     }
   )

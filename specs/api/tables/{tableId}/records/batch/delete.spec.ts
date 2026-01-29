@@ -127,7 +127,7 @@ test.describe('Batch delete records', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data.error).toBeDefined()
+      expect(data.success).toBe(false)
       expect(data.message).toBeDefined()
 
       // THEN: Record remains active due to transaction rollback
