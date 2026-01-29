@@ -179,7 +179,7 @@ test.describe('Get record by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-GET-005: should return all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
