@@ -1959,6 +1959,89 @@ Next Spec Processed
 | Retry strategy         | Transient errors retry, persistent errors close | Avoid infinite loops, clear failure path             |
 | Unknown errors         | Retry once, then manual intervention            | Conservative approach for unexpected failures        |
 | Recovery actions       | Manual workflow_dispatch triggers               | Flexible recovery without pipeline re-runs           |
+| Commit detection       | SHA comparison (not commit counting)            | Accurate push verification, handles divergence       |
+
+### Commit Detection After Push (SHA Comparison Strategy)
+
+**Problem Identified (2026-01-29)**: The original implementation used `git rev-list --count HEAD..origin/branch` which had a **backwards comparison** - it counted how many commits the *remote* was ahead of *local*, not the other way around. This caused false positives when Claude Code succeeded but git push failed silently.
+
+**Root Cause**: The comparison was inverted. After a successful push:
+- `HEAD..origin/branch` (incorrect) → 0 commits (remote matches local) → interpreted as "no commits pushed"
+- `origin/branch..HEAD` (what we wanted) → would show commits if push failed
+
+**Solution**: Replace commit counting with **SHA comparison** for unambiguous push verification.
+
+#### Implementation (claude-code.yml, lines ~664-714)
+
+```yaml
+# Fetch remote branch to get latest SHA
+git fetch origin ${{ needs.validate.outputs.pr-branch }}
+
+# Get SHAs for comparison
+LOCAL_SHA=$(git rev-parse HEAD)
+REMOTE_SHA=$(git rev-parse origin/${{ needs.validate.outputs.pr-branch }})
+
+if [ "$LOCAL_SHA" = "$REMOTE_SHA" ]; then
+  # SUCCESS: Local and remote are in sync (push succeeded)
+  echo "has-commits=true" >> "$GITHUB_OUTPUT"
+else
+  # Determine which is ahead for diagnostics
+  LOCAL_AHEAD=$(git rev-list --count origin/branch..HEAD)
+  REMOTE_AHEAD=$(git rev-list --count HEAD..origin/branch)
+
+  if [ "$LOCAL_AHEAD" -gt 0 ] && [ "$REMOTE_AHEAD" -eq 0 ]; then
+    # FAILURE: Local has commits that weren't pushed
+    echo "has-commits=false" >> "$GITHUB_OUTPUT"
+  elif [ "$REMOTE_AHEAD" -gt 0 ]; then
+    # UNEXPECTED: Remote is ahead (concurrent modifications)
+    echo "has-commits=unknown" >> "$GITHUB_OUTPUT"
+  else
+    # DIVERGED: Both ahead (conflict state)
+    echo "has-commits=unknown" >> "$GITHUB_OUTPUT"
+  fi
+fi
+```
+
+#### Why SHA Comparison Is Better
+
+| Approach            | Pros                                    | Cons                                     |
+| ------------------- | --------------------------------------- | ---------------------------------------- |
+| **Commit Counting** | Shows how many commits differ           | Direction matters (easy to get backwards) |
+| **SHA Comparison**  | Unambiguous (equal = synced, not = out of sync) | Doesn't show magnitude without extra steps |
+
+**Key Insight**: We don't need to know *how many* commits differ - we just need to know if the push succeeded. SHA comparison answers that directly.
+
+#### Expected Scenarios
+
+| Scenario                  | Local SHA | Remote SHA | Output           | Meaning                                         |
+| ------------------------- | --------- | ---------- | ---------------- | ----------------------------------------------- |
+| **Successful push**       | abc123    | abc123     | `has-commits=true` | Claude Code pushed successfully                 |
+| **Push failed silently**  | abc123    | def456     | `has-commits=false` | Local ahead, commits not on remote (diagnostic) |
+| **Concurrent modification** | abc123  | def456     | `has-commits=unknown` | Remote ahead (unexpected, warn)                 |
+| **Diverged branches**     | abc123    | def456     | `has-commits=unknown` | Both ahead (conflict, needs manual resolution)  |
+| **Fetch failure**         | N/A       | N/A        | `has-commits=unknown` | Network/branch issue (error handling)           |
+
+#### Diagnostic Information
+
+When SHAs differ, the implementation provides **actionable diagnostics** using commit counting:
+
+```bash
+LOCAL_AHEAD=$(git rev-list --count origin/branch..HEAD)   # Correct direction
+REMOTE_AHEAD=$(git rev-list --count HEAD..origin/branch)  # Correct direction
+
+echo "Local ahead:  $LOCAL_AHEAD commits"
+echo "Remote ahead: $REMOTE_AHEAD commits"
+```
+
+This helps operators understand *why* the SHAs differ without affecting the pass/fail decision.
+
+#### Benefits
+
+1. **Correctness**: SHA comparison cannot be backwards (equal = equal, period)
+2. **Clarity**: "Are local and remote the same?" is clearer than "How many commits in X..Y?"
+3. **Robustness**: Handles all edge cases (divergence, concurrent modifications)
+4. **Diagnostics**: Commit counts added only when useful (for debugging)
+5. **Maintainability**: Simpler logic, harder to break
 
 ---
 

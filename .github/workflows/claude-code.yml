@@ -666,23 +666,58 @@ jobs:
         if: always() && (steps.parse-result.outputs.result-subtype == 'success' || steps.parse-result.outputs.result-subtype == 'unknown')
         run: |
           # Safety check: Verify commits were actually pushed
-          # Catches cases where Claude Code "succeeds" but pushes nothing
+          # Uses SHA comparison instead of commit counting to avoid backwards comparison bug
+          #
+          # Expected scenarios:
+          # 1. Local HEAD = Remote → Successful push → has-commits=true
+          # 2. Local ahead of Remote → Push failed → has-commits=false (diagnostic info)
+          # 3. Remote ahead of Local → Unexpected state → has-commits=unknown (warning)
+          # 4. Fetch failure → Error handling → has-commits=unknown
 
-          git fetch origin ${{ needs.validate.outputs.pr-branch }}
-          COMMITS_AHEAD=$(git rev-list --count HEAD..origin/${{ needs.validate.outputs.pr-branch }} 2>/dev/null || echo "error")
-
-          if [ "$COMMITS_AHEAD" = "error" ]; then
+          # Fetch remote branch to get latest SHA
+          if ! git fetch origin ${{ needs.validate.outputs.pr-branch }} 2>/dev/null; then
             echo "has-commits=unknown" >> "$GITHUB_OUTPUT"
-            echo "⚠️ Warning: Cannot determine commit status"
+            echo "⚠️ Warning: Cannot fetch remote branch for commit verification"
+            echo "This may indicate network issues or branch deletion."
             exit 0
           fi
 
-          if [ "$COMMITS_AHEAD" -eq 0 ]; then
-            echo "has-commits=false" >> "$GITHUB_OUTPUT"
-            echo "⚠️ No commits pushed - potential silent failure"
-          else
+          # Get SHAs for comparison
+          LOCAL_SHA=$(git rev-parse HEAD)
+          REMOTE_SHA=$(git rev-parse origin/${{ needs.validate.outputs.pr-branch }})
+
+          echo "🔍 Commit Verification:"
+          echo "  Local HEAD:  $LOCAL_SHA"
+          echo "  Remote HEAD: $REMOTE_SHA"
+
+          if [ "$LOCAL_SHA" = "$REMOTE_SHA" ]; then
+            # SUCCESS: Local and remote are in sync (push succeeded)
             echo "has-commits=true" >> "$GITHUB_OUTPUT"
-            echo "✅ Commits detected: $COMMITS_AHEAD ahead of origin"
+            echo "✅ Commits pushed successfully - local and remote are in sync"
+          else
+            # Determine which is ahead to provide actionable diagnostics
+            LOCAL_AHEAD=$(git rev-list --count origin/${{ needs.validate.outputs.pr-branch }}..HEAD 2>/dev/null || echo "0")
+            REMOTE_AHEAD=$(git rev-list --count HEAD..origin/${{ needs.validate.outputs.pr-branch }} 2>/dev/null || echo "0")
+
+            echo "  Local ahead:  $LOCAL_AHEAD commits"
+            echo "  Remote ahead: $REMOTE_AHEAD commits"
+
+            if [ "$LOCAL_AHEAD" -gt 0 ] && [ "$REMOTE_AHEAD" -eq 0 ]; then
+              # FAILURE: Local has commits that weren't pushed
+              echo "has-commits=false" >> "$GITHUB_OUTPUT"
+              echo "⚠️ Push failure detected - local has $LOCAL_AHEAD unpushed commit(s)"
+              echo "This indicates Claude Code succeeded but git push failed silently."
+            elif [ "$REMOTE_AHEAD" -gt 0 ]; then
+              # UNEXPECTED: Remote is ahead (should not happen in normal flow)
+              echo "has-commits=unknown" >> "$GITHUB_OUTPUT"
+              echo "⚠️ Unexpected state - remote is $REMOTE_AHEAD commit(s) ahead of local"
+              echo "This may indicate concurrent modifications or workflow timing issues."
+            else
+              # DIVERGED: Both ahead (conflict state)
+              echo "has-commits=unknown" >> "$GITHUB_OUTPUT"
+              echo "⚠️ Branches have diverged - local: +$LOCAL_AHEAD, remote: +$REMOTE_AHEAD"
+              echo "This indicates a merge conflict or concurrent workflow execution."
+            fi
           fi
 
       - name: Handle Claude Code Error
