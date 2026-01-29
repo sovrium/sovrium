@@ -1709,6 +1709,7 @@ test.describe('Languages Configuration', () => {
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
       test.setTimeout(90_000) // Extended timeout: multiple server restarts
+
       await test.step('APP-LANGUAGES-001: Uses English as the only available language', async () => {
         await startServerWithSchema({
           name: 'test-app',
