@@ -925,7 +925,7 @@ jobs:
 
       - name: Analyze spec progress
         if: steps.check-update.outputs.should-update == 'true'
-        run: bun run analyze:spec
+        run: bun run analyze:specs
 
       - name: Commit spec progress updates
         if: steps.check-update.outputs.should-update == 'true'

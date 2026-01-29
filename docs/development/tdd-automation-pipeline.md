@@ -73,7 +73,7 @@ Note: Max attempts default is 5 (configurable per spec)
 
 - Runs only on `push` events to `main` (not on PRs)
 - Requires explicit success signal from `test` job via `outputs.all-passed`
-- Uses `bun run analyze:spec` to scan and update spec completion status
+- Uses `bun run analyze:specs` to scan and update spec completion status
 - Commits changes with `[skip ci]` to avoid triggering new workflow runs
 
 **Note on Concurrency Control**: The `test` workflow uses a hybrid concurrency strategy to balance fast feedback with workflow completion:
