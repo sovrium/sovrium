@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 // eslint-disable-next-line boundaries/element-types -- Type-only imports don't create runtime dependencies (architectural exception)
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
-import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { Context } from 'hono'
 
 // ============================================================================
@@ -139,9 +139,11 @@ export const handleBatchRestoreError = (c: Context, error: unknown) => {
 /**
  * Extract session from Hono context
  * Returns undefined if no session exists
+ *
+ * @deprecated Use getSessionContext from @/presentation/api/utils/context-helpers instead
  */
 export const getSessionFromContext = (c: Context): Readonly<Session> | undefined => {
-  return (c as ContextWithSession).var?.session
+  return getSessionContext(c)
 }
 
 /**

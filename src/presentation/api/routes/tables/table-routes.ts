@@ -17,9 +17,8 @@ import {
   getTableResponseSchema,
   getTablePermissionsResponseSchema,
 } from '@/presentation/api/schemas/tables-schemas'
+import { getSessionContext, getTableContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
-import type { ContextWithSession } from '@/presentation/api/middleware/auth'
-import type { ContextWithTableAndRole } from '@/presentation/api/middleware/table'
 import type { Context, Hono } from 'hono'
 
 // Handler for GET /api/tables
@@ -27,7 +26,7 @@ import type { Context, Hono } from 'hono'
 // (requireAuth ensures session exists, but validateTable/enrichUserRole don't run)
 async function handleListTables(c: Context, app: App) {
   // Session is guaranteed by requireAuth() middleware (non-null assertion safe)
-  const session = (c as ContextWithSession).var.session!
+  const session = getSessionContext(c)!
 
   // Fetch userRole manually since enrichUserRole middleware doesn't run on /api/tables
   const userRole = await getUserRole(session.userId)
@@ -61,7 +60,7 @@ async function handleListTables(c: Context, app: App) {
 // Handler for GET /api/tables/:tableId
 async function handleGetTable(c: Context, app: App) {
   // Session, tableId, and userRole are guaranteed by middleware chain
-  const { tableId, userRole } = (c as ContextWithTableAndRole).var
+  const { tableId, userRole } = getTableContext(c)
 
   try {
     const program = createGetTableProgram(tableId, app, userRole)
@@ -96,7 +95,7 @@ async function handleGetTable(c: Context, app: App) {
 // Handler for GET /api/tables/:tableId/permissions
 async function handleGetPermissions(c: Context, app: App) {
   // Session, tableId, and userRole are guaranteed by middleware chain
-  const { tableId, userRole } = (c as ContextWithTableAndRole).var
+  const { tableId, userRole } = getTableContext(c)
 
   try {
     const program = createGetPermissionsProgram(tableId, app, userRole)

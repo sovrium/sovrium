@@ -28,10 +28,10 @@ import {
   upsertRecordsResponseSchema,
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
+import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { handleBatchRestoreError } from './utils'
 import type { App } from '@/domain/models/app'
-import type { ContextWithTableAndRole } from '@/presentation/api/middleware/table'
 import type { Context, Hono } from 'hono'
 
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
@@ -41,7 +41,7 @@ import type { Context, Hono } from 'hono'
  */
 async function handleBatchRestore(c: Context, _app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
+  const { session, tableName, userRole } = getTableContext(c)
 
   // Authorization check BEFORE validation (viewer role cannot restore)
   if (userRole === 'viewer') {
@@ -72,7 +72,7 @@ async function handleBatchRestore(c: Context, _app: App) {
  */
 async function handleBatchCreate(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
+  const { session, tableName, userRole } = getTableContext(c)
 
   const result = await validateRequest(c, batchCreateRecordsRequestSchema)
   if (!result.success) return result.response
@@ -116,7 +116,7 @@ async function handleBatchCreate(c: Context, app: App) {
  */
 async function handleBatchUpdate(c: Context, _app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName } = (c as ContextWithTableAndRole).var
+  const { session, tableName } = getTableContext(c)
 
   const result = await validateRequest(c, batchUpdateRecordsRequestSchema)
   if (!result.success) return result.response
@@ -133,7 +133,7 @@ async function handleBatchUpdate(c: Context, _app: App) {
  */
 async function handleBatchDelete(c: Context, _app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName } = (c as ContextWithTableAndRole).var
+  const { session, tableName } = getTableContext(c)
 
   const result = await validateRequest(c, batchDeleteRecordsRequestSchema)
   if (!result.success) return result.response

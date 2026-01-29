@@ -64,10 +64,8 @@ const toISOString = (value: unknown): string => {
 /**
  * Convert string numbers to numeric values
  */
-const parseNumericString = (
-  value: unknown,
-  processedValue: Readonly<RecordFieldValue>
-): Readonly<RecordFieldValue> => {
+// eslint-disable-next-line functional/prefer-immutable-types -- RecordFieldValue must be mutable to match FormattedFieldValue interface
+const parseNumericString = (value: unknown, processedValue: RecordFieldValue): RecordFieldValue => {
   if (typeof value === 'string' && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))) {
     return parseFloat(value)
   }
@@ -77,10 +75,12 @@ const parseNumericString = (
 /**
  * Build formatted field value with optional metadata
  */
+/* eslint-disable functional/prefer-immutable-types -- RecordFieldValue must be mutable to match FormattedFieldValue interface */
 function buildFormattedValue(
-  fieldValue: Readonly<RecordFieldValue>,
+  fieldValue: RecordFieldValue,
   formatResult: Readonly<FormatResult>
 ): FormattedFieldValue {
+  /* eslint-enable functional/prefer-immutable-types */
   const base: FormattedFieldValue = {
     value: fieldValue,
     displayValue: formatResult.displayValue,

@@ -30,6 +30,7 @@ import {
   createRecordResponseSchema,
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
+import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import {
   validateRequiredFields,
   checkReadonlyIdField,
@@ -45,7 +46,6 @@ import {
   executeUpdate,
 } from './record-update-handler'
 import type { App } from '@/domain/models/app'
-import type { ContextWithTableAndRole } from '@/presentation/api/middleware/table'
 import type { Context } from 'hono'
 
 /**
@@ -56,7 +56,8 @@ function isValidTimezone(timezone: string): boolean {
   try {
     // Attempt to create a DateTimeFormat with the timezone
     // This will throw if the timezone is invalid
-    const _formatter = Intl.DateTimeFormat('en-US', { timeZone: timezone })
+    // eslint-disable-next-line functional/no-expression-statements -- Required for validation side-effect
+    Intl.DateTimeFormat('en-US', { timeZone: timezone })
     return true
   } catch {
     return false
@@ -66,7 +67,7 @@ function isValidTimezone(timezone: string): boolean {
 export async function handleListRecords(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain:
   // requireAuth() → validateTable() → enrichUserRole()
-  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
+  const { session, tableName, userRole } = getTableContext(c)
 
   const parsedFilterResult = parseFilterParameter({
     filterParam: c.req.query('filter'),
@@ -113,7 +114,7 @@ export async function handleListRecords(c: Context, app: App) {
 
 export async function handleListTrash(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
+  const { session, tableName, userRole } = getTableContext(c)
 
   return runEffect(
     c,
@@ -122,16 +123,11 @@ export async function handleListTrash(c: Context, app: App) {
   )
 }
 
-export async function handleCreateRecord(c: Context, app: App) {
-  console.log('[DEBUG] handleCreateRecord called - method:', c.req.method, 'path:', c.req.path)
-  // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
-  console.log('[DEBUG] session:', session?.userId, 'tableName:', tableName, 'userRole:', userRole)
-
-  const result = await validateRequest(c, createRecordRequestSchema)
-  if (!result.success) return result.response
-
-  const table = app.tables?.find((t) => t.name === tableName)
+/**
+ * Check create permission for table and user role
+ * Returns error response if permission denied, undefined otherwise
+ */
+function checkCreatePermission(table: unknown, userRole: string, c: Context) {
   if (!hasCreatePermission(table, userRole)) {
     return c.json(
       {
@@ -141,10 +137,28 @@ export async function handleCreateRecord(c: Context, app: App) {
       403
     )
   }
+  return undefined
+}
 
-  // Check for readonly system fields (id, fields with defaults)
-  const requestedFields = result.data.fields
-
+/**
+ * Validate field permissions and requirements for record creation
+ * Returns error response if validation fails, undefined otherwise
+ */
+function validateFieldsForCreate({
+  app,
+  table,
+  tableName,
+  userRole,
+  requestedFields,
+  c,
+}: {
+  app: App
+  table: unknown
+  tableName: string
+  userRole: string
+  requestedFields: Record<string, unknown>
+  c: Context
+}) {
   // Check readonly 'id' field
   const idError = checkReadonlyIdField(requestedFields, c)
   if (idError) return idError
@@ -158,7 +172,7 @@ export async function handleCreateRecord(c: Context, app: App) {
     app,
     tableName,
     userRole,
-    result.data.fields
+    requestedFields
   )
 
   // Check for forbidden fields
@@ -169,10 +183,39 @@ export async function handleCreateRecord(c: Context, app: App) {
   const validationError = validateRequiredFields(table, allowedData, c)
   if (validationError) return validationError
 
-  console.log('[DEBUG] About to call runEffect with fields:', allowedData)
+  return { allowedData }
+}
+
+export async function handleCreateRecord(c: Context, app: App) {
+  console.log('[DEBUG] handleCreateRecord called - method:', c.req.method, 'path:', c.req.path)
+  // Session, tableName, and userRole are guaranteed by middleware chain
+  const { session, tableName, userRole } = getTableContext(c)
+  console.log('[DEBUG] session:', session?.userId, 'tableName:', tableName, 'userRole:', userRole)
+
+  const result = await validateRequest(c, createRecordRequestSchema)
+  if (!result.success) return result.response
+
+  const table = app.tables?.find((t) => t.name === tableName)
+
+  // Check table-level create permission
+  const permissionError = checkCreatePermission(table, userRole, c)
+  if (permissionError) return permissionError
+
+  // Validate fields
+  const validation = validateFieldsForCreate({
+    app,
+    table,
+    tableName,
+    userRole,
+    requestedFields: result.data.fields,
+    c,
+  })
+  if (!validation || 'status' in validation) return validation
+
+  console.log('[DEBUG] About to call runEffect with fields:', validation.allowedData)
   return await runEffect(
     c,
-    createRecordProgram({ session, tableName, fields: allowedData, app, userRole }),
+    createRecordProgram({ session, tableName, fields: validation.allowedData, app, userRole }),
     createRecordResponseSchema,
     201
   )
@@ -180,7 +223,7 @@ export async function handleCreateRecord(c: Context, app: App) {
 
 export async function handleGetRecord(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
+  const { session, tableName, userRole } = getTableContext(c)
   const recordId = c.req.param('recordId')
 
   const table = app.tables?.find((t) => t.name === tableName)
@@ -206,7 +249,7 @@ export async function handleGetRecord(c: Context, app: App) {
 
 export async function handleUpdateRecord(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
+  const { session, tableName, userRole } = getTableContext(c)
 
   const result = await validateRequest(c, updateRecordRequestSchema)
   if (!result.success) return result.response
@@ -242,9 +285,58 @@ export async function handleUpdateRecord(c: Context, app: App) {
   })
 }
 
+/**
+ * Execute permanent delete and return response
+ */
+async function executePermanentDelete(
+  session: unknown,
+  tableName: string,
+  recordId: string,
+  c: Context
+) {
+  const deleteResult = await Effect.runPromise(
+    permanentlyDeleteRecordProgram(session, tableName, recordId)
+  )
+
+  if (!deleteResult) {
+    return c.json({ error: 'Record not found' }, 404)
+  }
+
+  // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
+  return c.body(null, 204)
+}
+
+/**
+ * Execute soft delete and return response
+ */
+async function executeSoftDelete({
+  session,
+  tableName,
+  recordId,
+  app,
+  c,
+}: {
+  session: unknown
+  tableName: string
+  recordId: string
+  app: App
+  c: Context
+}) {
+  const deleteResult = await Effect.runPromise(
+    deleteRecordProgram(session, tableName, recordId, app)
+  )
+
+  if (!deleteResult) {
+    return c.json({ error: 'Record not found' }, 404)
+  }
+
+  // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
+  return c.body(null, 204)
+}
+
 export async function handleDeleteRecord(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
+  const { session, tableName, userRole } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
   if (!hasDeletePermission(table, userRole)) {
@@ -272,34 +364,16 @@ export async function handleDeleteRecord(c: Context, app: App) {
       )
     }
 
-    const deleteResult = await Effect.runPromise(
-      permanentlyDeleteRecordProgram(session, tableName, recordId)
-    )
-
-    if (!deleteResult) {
-      return c.json({ error: 'Record not found' }, 404)
-    }
-
-    // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
-    return c.body(null, 204)
+    return executePermanentDelete(session, tableName, recordId, c)
   }
 
   // Regular soft delete
-  const deleteResult = await Effect.runPromise(
-    deleteRecordProgram(session, tableName, recordId, app)
-  )
-
-  if (!deleteResult) {
-    return c.json({ error: 'Record not found' }, 404)
-  }
-
-  // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
-  return c.body(null, 204)
+  return executeSoftDelete({ session, tableName, recordId, app, c })
 }
 
 export async function handleRestoreRecord(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
+  const { session, tableName, userRole } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
   if (!hasCreatePermission(table, userRole)) {

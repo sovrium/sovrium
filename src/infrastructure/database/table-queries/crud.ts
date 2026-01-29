@@ -244,50 +244,81 @@ export function createRecord(
  * @param fields - Fields to update
  * @returns Effect resolving to updated record
  */
+// eslint-disable-next-line max-lines-per-function -- Complex update operation with before-state fetch, update, and activity logging
 export function updateRecord(
   session: Readonly<Session>,
   tableName: string,
   recordId: string,
   fields: Readonly<Record<string, unknown>>
 ): Effect.Effect<Record<string, unknown>, SessionContextError> {
+  // eslint-disable-next-line max-lines-per-function -- Nested Effect.gen for complex update logic
   return withSessionContext(session, (tx) =>
-    Effect.tryPromise({
-      try: async () => {
-        validateTableName(tableName)
-        const entries = Object.entries(fields)
+    // eslint-disable-next-line max-lines-per-function -- Generator function for Effect.gen composition
+    Effect.gen(function* () {
+      validateTableName(tableName)
+      const entries = Object.entries(fields)
 
-        if (entries.length === 0) {
-          // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for empty fields
-          throw new Error('Cannot update record with no fields')
-        }
+      if (entries.length === 0) {
+        return yield* Effect.fail(
+          new SessionContextError('Cannot update record with no fields', undefined)
+        )
+      }
 
-        // Build SET clause with validated columns and parameterized values
-        const setClauses = entries.map(([key, value]) => {
-          validateColumnName(key)
-          return sql`${sql.identifier(key)} = ${value}`
-        })
-        const setClause = sql.join(setClauses, sql.raw(', '))
+      // Fetch record before update for activity logging
+      const recordBefore = yield* Effect.tryPromise({
+        try: async () => {
+          const result = (await tx.execute(
+            sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${recordId} LIMIT 1`
+          )) as readonly Record<string, unknown>[]
+          return result[0]
+        },
+        catch: (error) => new SessionContextError(`Failed to fetch record ${recordId}`, error),
+      })
 
-        const result = (await tx.execute(
-          sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
-        )) as readonly Record<string, unknown>[]
+      // Build SET clause with validated columns and parameterized values
+      const setClauses = entries.map(([key, value]) => {
+        validateColumnName(key)
+        return sql`${sql.identifier(key)} = ${value}`
+      })
+      const setClause = sql.join(setClauses, sql.raw(', '))
 
-        // If RLS blocked the update, result will be empty
-        if (result.length === 0) {
-          // eslint-disable-next-line functional/no-throw-statements -- RLS blocking requires error propagation
-          throw new Error(`Record not found or access denied`)
-        }
+      const updatedRecord = yield* Effect.tryPromise({
+        try: async () => {
+          const result = (await tx.execute(
+            sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
+          )) as readonly Record<string, unknown>[]
 
-        return result[0]!
-      },
-      catch: (error) => {
-        // Preserve "not found" or "access denied" in wrapper message for API error handling
-        const errorMsg = error instanceof Error ? error.message : String(error)
-        if (errorMsg.includes('not found') || errorMsg.includes('access denied')) {
-          return new SessionContextError(errorMsg, error)
-        }
-        return new SessionContextError(`Failed to update record ${recordId} in ${tableName}`, error)
-      },
+          // If RLS blocked the update, result will be empty
+          if (result.length === 0) {
+            // eslint-disable-next-line functional/no-throw-statements -- RLS blocking requires error propagation
+            throw new Error(`Record not found or access denied`)
+          }
+
+          return result[0]!
+        },
+        catch: (error) => {
+          // Preserve "not found" or "access denied" in wrapper message for API error handling
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          if (errorMsg.includes('not found') || errorMsg.includes('access denied')) {
+            return new SessionContextError(errorMsg, error)
+          }
+          return new SessionContextError(
+            `Failed to update record ${recordId} in ${tableName}`,
+            error
+          )
+        },
+      })
+
+      // Log activity for record update
+      yield* logActivity({
+        session,
+        tableName,
+        action: 'update',
+        recordId,
+        changes: { before: recordBefore, after: updatedRecord },
+      })
+
+      return updatedRecord
     })
   )
 }
@@ -437,38 +468,57 @@ export function restoreRecord(
   recordId: string
 ): Effect.Effect<Record<string, unknown> | null, SessionContextError> {
   return withSessionContext(session, (tx) =>
-    Effect.tryPromise({
-      try: async () => {
-        validateTableName(tableName)
-        const tableIdent = sql.identifier(tableName)
+    Effect.gen(function* () {
+      validateTableName(tableName)
+      const tableIdent = sql.identifier(tableName)
 
-        // Check if record exists (including soft-deleted records)
-        const checkResult = (await tx.execute(
-          sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
-        )) as readonly Record<string, unknown>[]
+      // Check if record exists (including soft-deleted records)
+      const checkResult = yield* Effect.tryPromise({
+        try: async () => {
+          const result = (await tx.execute(
+            sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
+          )) as readonly Record<string, unknown>[]
+          return result
+        },
+        catch: (error) =>
+          new SessionContextError(`Failed to check record ${recordId} in ${tableName}`, error),
+      })
 
-        if (checkResult.length === 0) {
-          // eslint-disable-next-line unicorn/no-null -- Null is intentional for non-existent records
-          return null // Record not found
-        }
+      if (checkResult.length === 0) {
+        // eslint-disable-next-line unicorn/no-null -- Null is intentional for non-existent records
+        return null // Record not found
+      }
 
-        const record = checkResult[0]
+      const record = checkResult[0]
 
-        // Check if record is soft-deleted
-        if (!record?.deleted_at) {
-          // Record exists but is not deleted - return error via special marker
-          return { _error: 'not_deleted' } as Record<string, unknown>
-        }
+      // Check if record is soft-deleted
+      if (!record?.deleted_at) {
+        // Record exists but is not deleted - return error via special marker
+        return { _error: 'not_deleted' } as Record<string, unknown>
+      }
 
-        // Restore record by clearing deleted_at
-        const result = (await tx.execute(
-          sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId} RETURNING *`
-        )) as readonly Record<string, unknown>[]
+      // Restore record by clearing deleted_at
+      const restoredRecord = yield* Effect.tryPromise({
+        try: async () => {
+          const result = (await tx.execute(
+            sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId} RETURNING *`
+          )) as readonly Record<string, unknown>[]
+          return result[0] ?? {}
+        },
+        catch: (error) =>
+          new SessionContextError(`Failed to restore record ${recordId} from ${tableName}`, error),
+      })
 
-        return result[0] ?? {}
-      },
-      catch: (error) =>
-        new SessionContextError(`Failed to restore record ${recordId} from ${tableName}`, error),
+      // Log activity for record restoration
+      yield* logActivity({
+        session,
+        tableName,
+        action: 'restore',
+        recordId,
+        changes: { after: restoredRecord },
+      })
+
+      return restoredRecord
     })
   )
 }

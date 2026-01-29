@@ -198,7 +198,7 @@ function formatDate(value: unknown, field: DateField, timezoneOverride?: string)
     return ''
   }
 
-  const timezone = timezoneOverride || field.timeZone
+  const timezone = timezoneOverride || field.timeZone || 'local'
   const targetDate = convertToTimezone(date, timezone)
 
   const year = targetDate.getFullYear()

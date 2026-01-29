@@ -8,6 +8,7 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { withSessionContext, SessionContextError, ForbiddenError } from '@/infrastructure/database'
+import { logActivity } from './activity-log-helpers'
 import { validateTableName, validateColumnName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -58,28 +59,48 @@ export function batchCreateRecords(
   recordsData: readonly Record<string, unknown>[]
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
   return withSessionContext(session, (tx) =>
-    Effect.tryPromise({
-      try: async () => {
-        validateTableName(tableName)
+    Effect.gen(function* () {
+      validateTableName(tableName)
 
-        if (recordsData.length === 0) {
-          // eslint-disable-next-line functional/no-throw-statements -- Validation requires throwing for empty batch
-          throw new Error('Cannot create batch with no records')
-        }
-
-        const recordResults = await recordsData.reduce(
-          async (accPromise, fields) => {
-            const acc = await accPromise
-            const record = await createSingleRecord(tx, tableName, fields)
-            return record ? [...acc, record] : acc
-          },
-          Promise.resolve([] as readonly Record<string, unknown>[])
+      if (recordsData.length === 0) {
+        return yield* Effect.fail(
+          new SessionContextError('Cannot create batch with no records', undefined)
         )
+      }
 
-        return recordResults
-      },
-      catch: (error) =>
-        new SessionContextError(`Failed to batch create records in ${tableName}`, error),
+      // Process records sequentially with immutable array building
+      const createdRecords = yield* Effect.reduce(
+        recordsData,
+        [] as readonly Record<string, unknown>[],
+        (acc, fields) =>
+          Effect.gen(function* () {
+            const record = yield* Effect.tryPromise({
+              try: async () => {
+                const result = await createSingleRecord(tx, tableName, fields)
+                return result
+              },
+              catch: (error) =>
+                new SessionContextError(`Failed to create record in ${tableName}`, error),
+            })
+
+            if (record) {
+              // Log activity for created record
+              yield* logActivity({
+                session,
+                tableName,
+                action: 'create',
+                recordId: String(record.id),
+                changes: { after: record },
+              })
+
+              return [...acc, record]
+            }
+
+            return acc
+          })
+      )
+
+      return createdRecords
     })
   )
 }
@@ -154,44 +175,65 @@ async function validateRecordsForRestore(
  * @param recordIds - Array of record IDs to restore
  * @returns Effect resolving to number of restored records or error
  */
+// eslint-disable-next-line max-lines-per-function -- Complex batch operation with validation, restoration, and logging
 export function batchRestoreRecords(
   session: Readonly<Session>,
   tableName: string,
   recordIds: readonly string[]
 ): Effect.Effect<number, SessionContextError | ForbiddenError> {
   return withSessionContext(session, (tx) =>
-    Effect.tryPromise({
-      try: async () => {
-        validateTableName(tableName)
-        const tableIdent = sql.identifier(tableName)
+    Effect.gen(function* () {
+      validateTableName(tableName)
+      const tableIdent = sql.identifier(tableName)
 
-        // eslint-disable-next-line functional/no-expression-statements -- Permission check with side effects
-        await checkRestorePermission(tx)
-        // eslint-disable-next-line functional/no-expression-statements -- Validation function with side effects
-        await validateRecordsForRestore(tx, tableIdent, recordIds)
+      // Check restore permission
+      yield* Effect.tryPromise({
+        try: () => checkRestorePermission(tx),
+        catch: (error) => {
+          if (error instanceof Error && error.name === 'ForbiddenError') {
+            return new ForbiddenError(error.message)
+          }
+          return new SessionContextError('Permission check failed', error)
+        },
+      })
 
-        // All records validated - restore them all using parameterized IN clause
-        const idParams = sql.join(
-          recordIds.map((id) => sql`${id}`),
-          sql.raw(', ')
-        )
-        const result = (await tx.execute(
-          sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id IN (${idParams}) RETURNING id`
-        )) as readonly Record<string, unknown>[]
+      // Validate records for restore
+      yield* Effect.tryPromise({
+        try: () => validateRecordsForRestore(tx, tableIdent, recordIds),
+        catch: (error) => {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          return new SessionContextError(`Validation failed: ${errorMessage}`, error)
+        },
+      })
 
-        return result.length
-      },
-      catch: (error) => {
-        // Re-throw ForbiddenError unchanged (authorization failure)
-        if (error instanceof Error && error.name === 'ForbiddenError') {
-          return new ForbiddenError(error.message)
-        }
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        return new SessionContextError(
-          `Failed to batch restore records in ${tableName}: ${errorMessage}`,
-          error
-        )
-      },
+      // All records validated - restore them all using parameterized IN clause
+      const restoredRecords = yield* Effect.tryPromise({
+        try: async () => {
+          const idParams = sql.join(
+            recordIds.map((id) => sql`${id}`),
+            sql.raw(', ')
+          )
+          const result = (await tx.execute(
+            sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id IN (${idParams}) RETURNING *`
+          )) as readonly Record<string, unknown>[]
+          return result
+        },
+        catch: (error) =>
+          new SessionContextError(`Failed to restore records in ${tableName}`, error),
+      })
+
+      // Log activity for each restored record
+      yield* Effect.forEach(restoredRecords, (record) =>
+        logActivity({
+          session,
+          tableName,
+          action: 'restore',
+          recordId: String(record.id),
+          changes: { after: record },
+        })
+      )
+
+      return restoredRecords.length
     })
   )
 }
@@ -208,19 +250,24 @@ export function batchRestoreRecords(
  * @param updates - Array of records with id and fields to update (supports both nested and flat format)
  * @returns Effect resolving to array of updated records
  */
+// eslint-disable-next-line max-lines-per-function -- Complex batch operation with before-state fetch, update, and logging
 export function batchUpdateRecords(
   session: Readonly<Session>,
   tableName: string,
   updates: readonly { readonly id: string; readonly [key: string]: unknown }[]
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+  // eslint-disable-next-line max-lines-per-function -- Nested Effect.gen for complex batch update logic
   return withSessionContext(session, (tx) =>
-    Effect.tryPromise({
-      try: async () => {
-        validateTableName(tableName)
+    // eslint-disable-next-line max-lines-per-function -- Generator function for Effect.gen composition
+    Effect.gen(function* () {
+      validateTableName(tableName)
 
-        // Update each record individually with RLS enforcement
-        const updatedRecords = await Promise.all(
-          updates.map(async (update) => {
+      // Process updates sequentially with immutable array building
+      const updatedRecords = yield* Effect.reduce(
+        updates,
+        [] as readonly Record<string, unknown>[],
+        (acc, update) =>
+          Effect.gen(function* () {
             // Extract fields - handle both nested format { id, fields: {...} } and flat format { id, ...fields }
             const { id, fields: nestedFields, ...flatFields } = update
             // If 'fields' property exists (nested format), use it; otherwise use flat fields
@@ -232,9 +279,19 @@ export function batchUpdateRecords(
             const entries = Object.entries(fieldsToUpdate)
 
             if (entries.length === 0) {
-              // eslint-disable-next-line unicorn/no-null -- Null for skipped records
-              return null
+              return acc
             }
+
+            // Fetch record before update for activity logging
+            const recordBefore = yield* Effect.tryPromise({
+              try: async () => {
+                const result = (await tx.execute(
+                  sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${id} LIMIT 1`
+                )) as readonly Record<string, unknown>[]
+                return result[0]
+              },
+              catch: () => undefined,
+            })
 
             // Build SET clause with validated columns and parameterized values
             const setClauses = entries.map(([key, value]) => {
@@ -243,27 +300,35 @@ export function batchUpdateRecords(
             })
             const setClause = sql.join(setClauses, sql.raw(', '))
 
-            const query = sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${id} RETURNING *`
+            const updatedRecord = yield* Effect.tryPromise({
+              try: async () => {
+                const result = (await tx.execute(
+                  sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${id} RETURNING *`
+                )) as readonly Record<string, unknown>[]
+                return result[0]
+              },
+              catch: () => undefined,
+            })
 
-            try {
-              const result = (await tx.execute(query)) as readonly Record<string, unknown>[]
+            // If update succeeded and record was found
+            if (updatedRecord) {
+              // Log activity for record update
+              yield* logActivity({
+                session,
+                tableName,
+                action: 'update',
+                recordId: String(id),
+                changes: { before: recordBefore, after: updatedRecord },
+              })
 
-              // If RLS blocked the update, result will be empty - skip this record
-              // eslint-disable-next-line unicorn/no-null -- Null for records blocked by RLS
-              return result[0] ?? null
-            } catch {
-              // If update fails (e.g., RLS policy), skip this record
-              // eslint-disable-next-line unicorn/no-null -- Null for failed updates
-              return null
+              return [...acc, updatedRecord]
             }
-          })
-        )
 
-        // Filter out null values (records blocked by RLS or failed updates)
-        return updatedRecords.filter((record): record is Record<string, unknown> => record !== null)
-      },
-      catch: (error) =>
-        new SessionContextError(`Failed to batch update records in ${tableName}`, error),
+            return acc
+          })
+      )
+
+      return updatedRecords
     })
   )
 }
@@ -311,55 +376,92 @@ async function validateRecordsForDelete(
  * @param recordIds - Array of record IDs to delete
  * @returns Effect resolving to number of deleted records
  */
+// eslint-disable-next-line max-lines-per-function -- Complex batch operation with validation, before-state fetch, deletion, and logging
 export function batchDeleteRecords(
   session: Readonly<Session>,
   tableName: string,
   recordIds: readonly string[]
 ): Effect.Effect<number, SessionContextError> {
+  // eslint-disable-next-line max-lines-per-function -- Nested Effect.gen for complex batch delete logic
   return withSessionContext(session, (tx) =>
-    Effect.tryPromise({
-      try: async () => {
-        validateTableName(tableName)
-        const tableIdent = sql.identifier(tableName)
+    // eslint-disable-next-line max-lines-per-function -- Generator function for Effect.gen composition
+    Effect.gen(function* () {
+      validateTableName(tableName)
+      const tableIdent = sql.identifier(tableName)
 
-        // Validate all records exist before deleting any
-        // eslint-disable-next-line functional/no-expression-statements -- Validation function with side effects
-        await validateRecordsForDelete(tx, tableIdent, recordIds)
+      // Validate all records exist before deleting any
+      yield* Effect.tryPromise({
+        try: () => validateRecordsForDelete(tx, tableIdent, recordIds),
+        catch: (error) => {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+          return new SessionContextError(`Validation failed: ${errorMessage}`, error)
+        },
+      })
 
-        // Check if table has deleted_at column for soft delete
-        const columnCheck = (await tx.execute(
-          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
-        )) as readonly Record<string, unknown>[]
-
-        // Build parameterized IN clause
-        const idParams = sql.join(
-          recordIds.map((id) => sql`${id}`),
-          sql.raw(', ')
-        )
-
-        if (columnCheck.length > 0) {
-          // Soft delete: set deleted_at timestamp
+      // Fetch records before deletion for activity logging
+      const recordsBefore = yield* Effect.tryPromise({
+        try: async () => {
+          const idParams = sql.join(
+            recordIds.map((id) => sql`${id}`),
+            sql.raw(', ')
+          )
           const result = (await tx.execute(
-            sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) RETURNING id`
+            sql`SELECT * FROM ${tableIdent} WHERE id IN (${idParams})`
           )) as readonly Record<string, unknown>[]
+          return result
+        },
+        catch: (error) => new SessionContextError(`Failed to fetch records before deletion`, error),
+      })
 
-          return result.length
-        } else {
-          // Hard delete: remove records
-          const result = (await tx.execute(
-            sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
+      // Check if table has deleted_at column for soft delete
+      const hasSoftDelete = yield* Effect.tryPromise({
+        try: async () => {
+          const columnCheck = (await tx.execute(
+            sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
           )) as readonly Record<string, unknown>[]
+          return columnCheck.length > 0
+        },
+        catch: (error) => new SessionContextError('Failed to check deleted_at column', error),
+      })
 
-          return result.length
-        }
-      },
-      catch: (error) => {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        return new SessionContextError(
-          `Failed to batch delete records in ${tableName}: ${errorMessage}`,
-          error
-        )
-      },
+      // Build parameterized IN clause
+      const idParams = sql.join(
+        recordIds.map((id) => sql`${id}`),
+        sql.raw(', ')
+      )
+
+      const deletedCount = yield* Effect.tryPromise({
+        try: async () => {
+          if (hasSoftDelete) {
+            // Soft delete: set deleted_at timestamp
+            const result = (await tx.execute(
+              sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) RETURNING id`
+            )) as readonly Record<string, unknown>[]
+            return result.length
+          } else {
+            // Hard delete: remove records
+            const result = (await tx.execute(
+              sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
+            )) as readonly Record<string, unknown>[]
+            return result.length
+          }
+        },
+        catch: (error) =>
+          new SessionContextError(`Failed to delete records in ${tableName}`, error),
+      })
+
+      // Log activity for each deleted record
+      yield* Effect.forEach(recordsBefore, (record) =>
+        logActivity({
+          session,
+          tableName,
+          action: 'delete',
+          recordId: String(record.id),
+          changes: { before: record },
+        })
+      )
+
+      return deletedCount
     })
   )
 }

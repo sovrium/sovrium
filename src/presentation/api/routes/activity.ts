@@ -11,7 +11,7 @@ import {
   ListActivityLogs,
   ListActivityLogsLayer,
 } from '@/application/use-cases/list-activity-logs'
-import type { ContextWithSession } from '@/presentation/api/middleware/auth'
+import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { Hono } from 'hono'
 
 /**
@@ -54,7 +54,7 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
  */
 export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
   return honoApp.get('/api/activity', async (c) => {
-    const { session } = (c as ContextWithSession).var
+    const session = getSessionContext(c)
 
     if (!session) {
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
