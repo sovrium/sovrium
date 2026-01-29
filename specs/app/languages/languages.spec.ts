@@ -1706,8 +1706,9 @@ test.describe('Languages Configuration', () => {
 
   test(
     'APP-LANGUAGES-REGRESSION: user can complete full languages workflow',
-    { tag: '@regression', timeout: 90_000 }, // Extended timeout: multiple server restarts
+    { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
+      test.setTimeout(90_000) // Extended timeout: multiple server restarts
       await test.step('APP-LANGUAGES-001: Uses English as the only available language', async () => {
         await startServerWithSchema({
           name: 'test-app',
