@@ -27,23 +27,31 @@
 
 ```bash
 # Already in package.json
-bun add zod                    # 4.2.1 - Schema validation
+bun add zod                    # 4.3.6 - Schema validation
 bun add @hono/zod-openapi      # 1.2.0 - OpenAPI schema generation
-bun add @hono/zod-validator    # 0.7.4 - Hono request validation
+bun add @hono/zod-validator    # 0.7.6 - Hono request validation
 bun add @hookform/resolvers    # 5.2.2 - React Hook Form + Zod integration
 ```
 
 ## ESLint Enforcement
 
-### Restriction Rule (eslint.config.ts lines 1096-1126)
+**Configuration Location**: `eslint/infrastructure.config.ts` (modular ESLint setup)
+
+> **Note**: Sovrium uses a modular ESLint configuration split across multiple files in the `eslint/` directory. The main `eslint.config.ts` (44 lines) imports all modular configs. Zod restrictions are defined in `eslint/infrastructure.config.ts` lines 72-108.
+
+### Restriction Rule (eslint/infrastructure.config.ts lines 72-96)
 
 ```typescript
-// Zod is FORBIDDEN in src/ except API models and presentation layer
+// Zod Restriction - Forbid Zod usage in src/ (except presentation layer)
+// Project standard: Effect Schema for server validation
+// EXCEPTION: src/presentation allows Zod for:
+// - API schemas and OpenAPI/Hono integration (src/presentation/api/schemas)
+// - Client forms (React Hook Form)
+// - API route validation (@hono/zod-validator)
 {
   files: ['src/**/*.{ts,tsx}'],
   ignores: [
-    'src/presentation/api/schemas/**/*.{ts,tsx}', // Exception for API models
-    'src/presentation/**/*.{ts,tsx}', // Exception for presentation layer
+    'src/presentation/**/*.{ts,tsx}', // Exception for presentation layer (forms, API routes, OpenAPI)
   ],
   rules: {
     'no-restricted-imports': [
@@ -52,38 +60,38 @@ bun add @hookform/resolvers    # 5.2.2 - React Hook Form + Zod integration
         paths: [
           {
             name: 'zod',
-            message: 'Zod is restricted in src/ - use Effect Schema for server validation. EXCEPTIONS: Zod is allowed in src/presentation/api/schemas for OpenAPI/Hono integration AND src/presentation for client forms.'
+            message:
+              'Zod is restricted in src/ - use Effect Schema for server validation. EXCEPTION: Zod is allowed in src/presentation for OpenAPI/Hono integration and client forms.',
           },
           {
             name: '@hono/zod-validator',
-            message: 'Zod validator is restricted - use Effect Schema. EXCEPTION: Allowed in src/presentation/api/schemas and src/presentation/api/routes for API validation.'
-          }
-        ]
-      }
-    ]
-  }
+            message:
+              'Zod validator is restricted in src/ - use Effect Schema for validation. EXCEPTION: @hono/zod-validator is allowed in src/presentation/api/routes for API validation.',
+          },
+        ],
+      },
+    ],
+  },
 }
 ```
 
-### Exception Rules (eslint.config.ts lines 1128-1147)
+### Exception Rule (eslint/infrastructure.config.ts lines 98-108)
 
 ```typescript
-// API models in src/presentation/api/schemas can use Zod for OpenAPI/Hono integration
-{
-  files: ['src/presentation/api/schemas/**/*.{ts,tsx}'],
-  rules: {
-    'no-restricted-imports': 'off', // Allow Zod and @hono/zod-validator
-  }
-}
-
-// Presentation layer can use Zod for client forms and API routes
+// Zod Allowed - Presentation layer exception
+// Presentation layer can use Zod for:
+// - Client-side form validation (React Hook Form)
+// - API route validation (@hono/zod-validator)
+// - OpenAPI schema generation
 {
   files: ['src/presentation/**/*.{ts,tsx}'],
   rules: {
     'no-restricted-imports': 'off', // Allow Zod, @hono/zod-validator, @hookform/resolvers
-  }
+  },
 }
 ```
+
+**Key Architecture Decision**: The ESLint configuration uses a **single unified presentation layer exception** (`src/presentation/**/*.{ts,tsx}`) rather than separate granular exceptions. This simplifies the rule while maintaining architectural boundaries — presentation layer code can use Zod for all its needs (API schemas, forms, route validation), while domain/application/infrastructure layers must use Effect Schema.
 
 ## Where to Use Zod
 

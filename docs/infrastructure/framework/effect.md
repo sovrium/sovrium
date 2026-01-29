@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Version**: ^3.19.14 (minimum 3.19.14, allows patch/minor updates)
+**Version**: ^3.19.15 (minimum 3.19.15, allows patch/minor updates)
 **Purpose**: Comprehensive typed functional programming library for building robust, composable, and maintainable TypeScript applications with explicit error handling, dependency injection, and structured concurrency
 
 Effect.ts is a powerful library that brings advanced functional programming patterns to TypeScript. It provides a complete toolkit for managing complexity in modern applications through type-safe effects, composable operations, and declarative error handling.
@@ -818,7 +818,7 @@ export const DevToolsLayerOptional = isDevToolsEnabled() ? DevToolsLayer : Layer
 
 **Stability Note**: Experimental packages may have breaking changes between minor versions. Version tracking is important for upgrade planning.
 
-### @effect/language-service (^0.64.1)
+### @effect/language-service (^0.72.0)
 
 TypeScript language service plugin providing enhanced IDE support for Effect.ts code.
 

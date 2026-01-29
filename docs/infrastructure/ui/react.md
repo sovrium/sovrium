@@ -2,8 +2,8 @@
 
 ## Overview
 
-**Version**: ^19.2.3
-**React DOM Version**: ^19.2.3
+**Version**: ^19.2.4
+**React DOM Version**: ^19.2.4
 **Purpose**: Declarative, component-based JavaScript library for building fast, interactive user interfaces with a focus on composability, reusability, and developer experience
 
 React is a modern UI library created by Facebook (Meta) that revolutionized web development with its component-based architecture and virtual DOM. React 19 introduces significant improvements including the React Compiler for automatic optimization, Actions for simplified form handling, and enhanced server-side rendering capabilities.
@@ -298,8 +298,8 @@ React 19 is already installed in Sovrium:
 ```json
 {
   "dependencies": {
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3"
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   }
 }
 ```

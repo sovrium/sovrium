@@ -46,17 +46,17 @@ No additional installation needed.
 Bun provides native PostgreSQL support via the built-in `bun:sql` module (added in Bun 1.2.0, with Drizzle support since v0.39.0):
 
 ```typescript
-// src/db/index.ts
+// src/infrastructure/database/drizzle/db-bun.ts
 import { drizzle } from 'drizzle-orm/bun-sql'
+import * as schema from './schema'
 
-// Simplest form (recommended for most cases)
-export const db = drizzle(process.env.DATABASE_URL!)
+// Current Sovrium setup (recommended)
+export const db = drizzle({
+  connection: { url: process.env.DATABASE_URL! },
+  schema,
+})
+
 export type DrizzleDB = typeof db
-
-// Alternative: With connection options
-// export const db = drizzle({
-//   connection: { url: process.env.DATABASE_URL! }
-// })
 
 // Alternative: With explicit client configuration
 // import { SQL } from 'bun'
@@ -66,7 +66,7 @@ export type DrizzleDB = typeof db
 //   idleTimeout: 60, // Idle timeout in seconds
 //   connectionTimeout: 30, // Connection timeout in seconds
 // })
-// export const db = drizzle({ client })
+// export const db = drizzle({ client, schema })
 ```
 
 **Environment Variables**:
@@ -93,8 +93,12 @@ export { db }
 
 ```typescript
 import { drizzle } from 'drizzle-orm/bun-sql'
+import * as schema from './schema'
 
-export const db = drizzle(process.env.DATABASE_URL!)
+export const db = drizzle({
+  connection: { url: process.env.DATABASE_URL! },
+  schema,
+})
 ```
 
 **Node.js Runtime** (`db-node.ts`):

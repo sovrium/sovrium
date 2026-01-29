@@ -37,7 +37,7 @@
 {
   "compilerOptions": {
     // Environment & Features
-    "lib": ["ESNext"], // Latest JavaScript features
+    "lib": ["ESNext", "DOM", "DOM.Iterable"], // Latest JavaScript features + DOM types for React
     "target": ["ESNext"], // No downleveling needed
     "module": "Preserve", // Preserves original module syntax
     "moduleDetection": "force", // Treat all files as modules

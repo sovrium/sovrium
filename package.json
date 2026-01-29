@@ -78,6 +78,7 @@
     "export:openapi": "bun run scripts/export-openapi.ts",
     "analyze:specs": "bun run scripts/analyze-specs.ts",
     "validate:specs": "bun run scripts/validate-specs.ts",
+    "validate:docs:versions": "bun run scripts/validate-doc-versions.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

@@ -3,9 +3,8 @@
 ## Overview
 
 **Version**: ^4.1.18
-**PostCSS Integration**: @tailwindcss/postcss ^4.1.18
-**PostCSS Version**: ^8.5.6 (flexible range, minimum 8.5.6)
-**CSS Compiler**: Custom programmatic compiler (`src/infrastructure/css/compiler.ts`)
+**PostCSS Package**: @tailwindcss/postcss ^4.1.18 (installed as dependency, not actively used)
+**CSS Compiler**: Custom programmatic compiler (`src/infrastructure/css/compiler.ts`) — Sovrium uses programmatic compilation instead of PostCSS configuration
 **Purpose**: Modern utility-first CSS framework for rapidly building custom user interfaces with exceptional performance
 
 Tailwind CSS is a highly customizable, low-level CSS framework that provides utility classes for building designs directly in HTML/JSX. Version 4 represents a complete rewrite with a new engine, CSS-first configuration, and significantly improved performance.
@@ -72,6 +71,17 @@ Tailwind CSS v4 is already installed in Sovrium:
 - `tailwind-merge`: Utility for merging Tailwind classes (version ^3.4.0)
 
 No additional installation needed.
+
+> **⚠️ CRITICAL ARCHITECTURAL NOTE**: Sovrium **DOES NOT** use the standard Tailwind v4 PostCSS integration described in most Tailwind documentation. Instead, Sovrium uses a **programmatic CSS compilation approach** where CSS is generated dynamically at runtime from domain theme models. This means:
+>
+> - ❌ **NO `postcss.config.js` file** - Not used in Sovrium
+> - ❌ **NO `tailwind.config.js` file** - Configuration is programmatic, not static
+> - ❌ **NO static CSS source files** - CSS generated on-demand per theme
+> - ✅ **Programmatic compilation** - `src/infrastructure/css/compiler.ts` handles all CSS generation
+> - ✅ **Theme-aware** - CSS adapts to `app.theme` configuration
+> - ✅ **Effect.ts integration** - Compilation uses Effect for error handling and caching
+>
+> See the section below for complete details on how CSS compilation actually works in Sovrium.
 
 ## Sovrium CSS Compilation Architecture
 
@@ -310,7 +320,13 @@ Use `@layer` to organize custom styles:
 
 ## PostCSS Configuration
 
-Tailwind v4 integrates via PostCSS. Create `postcss.config.js`:
+> **⚠️ IMPORTANT - NOT APPLICABLE TO SOVRIUM**: This section describes the **standard Tailwind v4 PostCSS integration**, which Sovrium **DOES NOT USE**. Sovrium uses **programmatic CSS compilation** via `src/infrastructure/css/compiler.ts` instead of PostCSS configuration files. See the "Sovrium CSS Compilation Architecture" section above for how CSS is actually generated in this project. The information below is provided for reference only if you need to understand standard Tailwind v4 setup.
+
+---
+
+**Standard Tailwind v4 Setup** (not used in Sovrium):
+
+Tailwind v4 typically integrates via PostCSS. In a standard setup, you would create `postcss.config.js`:
 
 ```javascript
 // postcss.config.js

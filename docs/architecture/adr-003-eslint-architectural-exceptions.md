@@ -8,6 +8,7 @@
 ## Context and Problem Statement
 
 The Sovrium codebase contains 204 ESLint disable comments across various files. Without clear architectural guidance, developers may either:
+
 - Over-use eslint-disable comments when refactoring would be appropriate
 - Under-use eslint-disable comments when architectural exceptions are justified
 
@@ -32,11 +33,13 @@ These eslint-disable comments are **architecturally justified** and should be pr
 #### 1.1 functional/no-expression-statements (49 instances)
 
 **Why Allowed**:
+
 - Side effects required for state mutations, database operations, middleware
 - Hono routes, database updates, Effect.forEach operations
 - Integration with imperative APIs (Hono, Drizzle ORM, Better Auth)
 
 **Pattern**:
+
 ```typescript
 // Hono middleware (presentation layer)
 await next() // eslint-disable-line functional/no-expression-statements
@@ -49,11 +52,13 @@ await next() // eslint-disable-line functional/no-expression-statements
 #### 1.2 drizzle/enforce-delete-with-where (29 instances)
 
 **Why Allowed**:
+
 - Intentional bulk delete operations (delete all records in table)
 - Migration scripts, table truncation, test cleanup
 - Explicit intent documented in code
 
 **Pattern**:
+
 ```typescript
 // Test cleanup
 await tx.delete(usersTable) // eslint-disable-line drizzle/enforce-delete-with-where
@@ -66,11 +71,13 @@ await tx.delete(usersTable) // eslint-disable-line drizzle/enforce-delete-with-w
 #### 1.3 functional/no-throw-statements (17 instances)
 
 **Why Allowed**:
+
 - Required for Effect.tryPromise error handling pattern
 - `throw new Error()` inside try callback for Effect.tryPromise
 - Standard Effect.ts integration pattern
 
 **Pattern**:
+
 ```typescript
 Effect.tryPromise({
   try: async () => {
@@ -80,7 +87,7 @@ Effect.tryPromise({
     }
     return result
   },
-  catch: (error) => new CustomError(error)
+  catch: (error) => new CustomError(error),
 })
 ```
 
@@ -91,11 +98,13 @@ Effect.tryPromise({
 #### 1.4 functional/prefer-immutable-types (10 instances)
 
 **Why Allowed**:
+
 - External API constraints (Hono Context, Better Auth types)
 - Third-party type compatibility
 - Middleware requiring mutable context
 
 **Pattern**:
+
 ```typescript
 // eslint-disable-next-line functional/prefer-immutable-types
 export function middleware(c: Context, next: Next)
@@ -108,11 +117,13 @@ export function middleware(c: Context, next: Next)
 #### 1.5 boundaries/element-types (4 instances)
 
 **Why Allowed**:
+
 - Type-only imports (documented architectural exception)
 - Import Session type from infrastructure in presentation
 - Zero runtime dependency (TypeScript only)
 
 **Pattern**:
+
 ```typescript
 // eslint-disable-next-line boundaries/element-types -- Type-only imports don't create runtime dependencies
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -125,13 +136,16 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 #### 1.6 unicorn/no-null (4 instances)
 
 **Why Allowed**:
+
 - Third-party API requirements (database NULL values)
 - Drizzle ORM, Better Auth session checks
 - External API contract enforcement
 
 **Pattern**:
+
 ```typescript
-if (session === null) { // eslint-disable-line unicorn/no-null
+if (session === null) {
+  // eslint-disable-line unicorn/no-null
   return c.json({ error: 'Unauthorized' }, 401)
 }
 ```
@@ -143,17 +157,20 @@ if (session === null) { // eslint-disable-line unicorn/no-null
 #### 1.7 File-Level Exceptions for Complex Generators (4 instances)
 
 **Why Allowed**:
+
 - Inherently complex domain logic (rendering, generation, transformation)
 - Splitting would hurt readability by fragmenting coherent algorithms
 - Presentation/application layer complexity
 
 **Files**:
+
 - `component-renderer.tsx`: Complex React component renderer (423 lines)
 - `responsive-props-merger.ts`: Responsive design utility with signature overloading (195 lines)
 - `static-language-generators.ts`: Multi-language static site generator (181 lines)
 - `static-url-rewriter.ts`: URL rewriting with path manipulation (241 lines)
 
 **Pattern**:
+
 ```typescript
 /* eslint-disable max-params, max-lines-per-function, complexity -- Complex multi-language generators require explicit dependencies */
 ```
@@ -165,15 +182,18 @@ if (session === null) { // eslint-disable-line unicorn/no-null
 #### 1.8 TypeScript Function Overload Pattern (4 instances)
 
 **Why Allowed**:
+
 - TypeScript best practice for function overloading
 - Config object signature (preferred) + individual parameters signature (backwards compatibility)
 - Implementation must handle both signatures
 
 **Files**:
+
 - `i18n-content-resolver.ts`: Config object (1 param) vs individual parameters (6 params)
 - `responsive-props-merger.ts`: Config object (1 param) vs individual parameters (5 params)
 
 **Pattern**:
+
 ```typescript
 // ✅ Preferred signature (1 parameter)
 function resolve(config: Config): Result
@@ -198,12 +218,14 @@ These eslint-disable comments indicated **code quality issues** and were elimina
 #### 2.1 max-lines-per-function (10 instances → 4 instances after refactoring)
 
 **Violations Eliminated** (6 function-level disables removed):
+
 - ✅ `batch.ts: batchUpdateRecords` (80 lines → 18 lines, 5 helper functions)
 - ✅ `batch.ts: batchRestoreRecords` (60 lines → 15 lines, 4 helper functions)
 - ✅ `batch.ts: batchDeleteRecords` (88 lines → 20 lines, 5 helper functions)
 - ✅ `crud.ts: updateRecord` (76 lines → 12 lines, 5 helper functions)
 
 **Refactoring Pattern**:
+
 ```typescript
 // BEFORE: Monolithic function with inline Effect.tryPromise
 export function batchUpdateRecords(...) {
@@ -248,6 +270,7 @@ export function batchUpdateRecords(...) {
 ```
 
 **Benefits**:
+
 - Improved composability (helper functions reusable in Effect.gen)
 - Better error messages (specific SessionContextError per operation)
 - Enhanced testability (helper functions can be unit tested independently)
@@ -313,6 +336,7 @@ No automated enforcement at this time. ESLint disable comments are allowed with 
 ### Annual Review
 
 Review this ADR annually (every January) to:
+
 1. Assess if new exception categories have emerged
 2. Verify existing exceptions are still justified
 3. Identify refactoring opportunities for previously accepted exceptions
