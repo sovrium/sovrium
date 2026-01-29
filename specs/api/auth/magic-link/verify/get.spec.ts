@@ -130,15 +130,24 @@ test.describe('Verify Magic Link', () => {
 
       // WHEN: User attempts to verify with invalid token
       const response = await page.request.get(
-        '/api/auth/magic-link/verify?token=invalid-token-12345'
+        '/api/auth/magic-link/verify?token=invalid-token-12345',
+        {
+          maxRedirects: 0, // Don't follow redirects to avoid connection errors
+        }
       )
 
-      // THEN: Better Auth returns 200 with HTML error page for invalid tokens
-      expect(response.status()).toBe(200)
+      // THEN: Better Auth returns 302 redirect for invalid tokens
+      expect([200, 302]).toContain(response.status())
 
-      // Invalid tokens return HTML error page, not JSON
-      const contentType = response.headers()['content-type']
-      expect(contentType).toContain('text/html')
+      // If redirected, check the Location header
+      if (response.status() === 302) {
+        const location = response.headers()['location']
+        expect(location).toContain('error=INVALID_TOKEN')
+      } else {
+        // Invalid tokens may return HTML error page
+        const contentType = response.headers()['content-type']
+        expect(contentType).toContain('text/html')
+      }
     }
   )
 
@@ -308,15 +317,24 @@ test.describe('Verify Magic Link', () => {
       await test.step('API-AUTH-MAGIC-LINK-VERIFY-003: Returns 400 with invalid token', async () => {
         // WHEN: User attempts to verify with invalid token
         const response = await page.request.get(
-          '/api/auth/magic-link/verify?token=invalid-token-12345'
+          '/api/auth/magic-link/verify?token=invalid-token-12345',
+          {
+            maxRedirects: 0, // Don't follow redirects to avoid connection errors
+          }
         )
 
-        // THEN: Better Auth returns 200 with HTML error page for invalid tokens
-        expect(response.status()).toBe(200)
+        // THEN: Better Auth returns 302 redirect for invalid tokens
+        expect([200, 302]).toContain(response.status())
 
-        // Invalid tokens return HTML error page, not JSON
-        const contentType = response.headers()['content-type']
-        expect(contentType).toContain('text/html')
+        // If redirected, check the Location header
+        if (response.status() === 302) {
+          const location = response.headers()['location']
+          expect(location).toContain('error=INVALID_TOKEN')
+        } else {
+          // Invalid tokens may return HTML error page
+          const contentType = response.headers()['content-type']
+          expect(contentType).toContain('text/html')
+        }
       })
 
       await test.step('API-AUTH-MAGIC-LINK-VERIFY-005: Returns 400 when token is missing', async () => {

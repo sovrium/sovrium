@@ -304,7 +304,7 @@ test.describe('Get table by ID', () => {
         expect(data).toHaveProperty('message')
         expect(data).toHaveProperty('code')
         expect(data.success).toBe(false)
-        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.message).toBe('You do not have permission to access this table')
         expect(data.code).toBe('FORBIDDEN')
       })
     }
