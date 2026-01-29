@@ -352,9 +352,18 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                              ┌─────────────────────────────┐                                          ║
 ║                              │   JOB 1: check-credits      │                                          ║
 ║                              │   ─────────────────────     │                                          ║
-║                              │   Query workflow runs from: │                                          ║
-║                              │   - Last 24 hours (daily)   │                                          ║
-║                              │   - Last 7 days (weekly)    │                                          ║
+║                              │   STEP 1: Probe credits     │                                          ║
+║                              │   - Run Claude Code minimal │                                          ║
+║                              │   - Prompt: "hi"            │                                          ║
+║                              │   - Detect: is_error=true   │                                          ║
+║                              │     AND cost=0 → exhausted  │                                          ║
+║                              └─────────────┬───────────────┘                                          ║
+║                                            │                                                          ║
+║                              ┌─────────────▼───────────────┐                                          ║
+║                              │  STEP 2: Check budget       │                                          ║
+║                              │  Query workflow runs from:  │                                          ║
+║                              │  - Last 24 hours (daily)    │                                          ║
+║                              │  - Last 7 days (weekly)     │                                          ║
 ║                              └─────────────┬───────────────┘                                          ║
 ║                                            │                                                          ║
 ║                              ┌─────────────▼───────────────┐                                          ║
@@ -1467,39 +1476,79 @@ All errors are handled identically, regardless of type. These subtypes are repor
 
 #### Credit Exhaustion Detection (Probe)
 
-In addition to budget-based credit checks, the pipeline probes the Claude Code API to detect actual credit exhaustion.
+In addition to budget-based credit checks, the pipeline probes the Claude Code API to detect actual credit exhaustion using a **workflow-based approach** (not API-based).
 
-**Probe Method**:
+**Probe Method** (`.github/workflows/pr-creator.yml` lines 30-41):
 
-- API: Direct request to Anthropic API using `CLAUDE_CODE_OAUTH_TOKEN`
-- Request: Minimal message ("hi", 1-2 tokens)
-- Model: `claude-sonnet-4-20250514` (fastest, cheapest)
-- Cost: ~$0.00002 per probe (negligible)
-- Timing: After budget check, before PR creation
+- **Action**: `anthropics/claude-code-action@v1` (same action used for TDD execution)
+- **Prompt**: `"hi"` (minimal, 1-2 tokens)
+- **Arguments**: `--max-turns 1 --max-budget-usd 0.01` (fastest, cheapest)
+- **Cost**: ~$0.01 per probe (negligible)
+- **Timing**: BEFORE budget check and BEFORE PR creation (first step in `check-credits` job)
+- **Timeout**: 2 minutes maximum
+- **Fail-safe**: `continue-on-error: true` (probe failure doesn't block workflow)
 
-**Detection Pattern**:
+**Detection Pattern** (`parse-probe` step, lines 42-81):
 
-- HTTP 429 (Rate Limit) with "credit" in error message
-- HTTP 402 (Payment Required)
-- Error response containing "credit" or "exhausted" keywords
+Exhaustion is detected when BOTH conditions are true in the execution result JSON:
+
+```
+is_error === true  AND  total_cost_usd === 0
+```
+
+**Why this pattern works**:
+
+- Normal errors (timeouts, API errors): `is_error=true` but `total_cost_usd > 0` (usage occurred)
+- Credit exhaustion: `is_error=true` AND `total_cost_usd=0` (no usage, request blocked)
+
+**Probe Result Parsing**:
+
+The workflow extracts the following from Claude Code's `execution_file` JSON:
+
+| Field            | Used For                                      | Example Value                      |
+| ---------------- | --------------------------------------------- | ---------------------------------- |
+| `is_error`       | Detect execution failure                      | `true`                             |
+| `total_cost_usd` | Differentiate exhaustion (0) from errors (>0) | `0` (exhausted) or `0.78` (normal) |
+| `errors`         | Error message details                         | `["Credits exhausted"]`            |
+
+**Environment Variable Handoff** (lines 83-94):
+
+The probe result is passed to the credit check script via environment variables:
+
+- `PROBE_EXHAUSTED=true` → Exhaustion detected (blocks workflow)
+- `PROBE_EXHAUSTED=false` → Credits available (continues)
+- `PROBE_FAILED=true` → Probe failed (graceful degradation, continues with budget check only)
 
 **Differentiation**:
 
 - `CreditLimitExceeded`: Over budget ($200/day, $1000/week) → Budget-based block
-- `CreditsExhausted`: API confirmed exhaustion → API-level block
+- `CreditsExhausted`: Workflow probe detected exhaustion (`is_error=true AND cost=0`) → API-level block
 
-**Error Handling**:
+**Error Handling (Fail-Safe Design)**:
 
-- Probe failure (network, API error): Graceful degradation (workflow proceeds with warning)
-- Probe success: Confirms API access available
-- Probe detects exhaustion: Blocks workflow with clear messaging
+1. **Probe succeeds** → Parse result, detect exhaustion or availability
+2. **Probe fails (no execution_file)** → Set `PROBE_FAILED=true`, continue with budget check only
+3. **Parse fails (invalid JSON)** → Set `PROBE_FAILED=true`, continue with budget check only
+4. **Exhaustion detected** → Fail immediately with `CreditsExhausted` error (before budget check)
+5. **Probe available** → Continue to budget check
+
+**Graceful Degradation**:
+
+If the probe step fails for ANY reason (network, API error, timeout, invalid JSON):
+
+- Workflow logs warning: `⚠️ Probe failed, assuming credits available`
+- Sets `PROBE_FAILED=true` environment variable
+- Budget check script logs: `Claude Code API probe failed, continuing with budget check only`
+- Workflow continues with traditional budget-based credit checks ($200/day, $1000/week)
 
 **Benefits**:
 
-1. Detects exhaustion beyond budget tracking
-2. Prevents wasted execution attempts
-3. Clear user messaging (actionable)
-4. Minimal cost overhead (~$0 per check)
+1. **Detects exhaustion beyond budget tracking** - Catches API-level exhaustion even if budget shows availability
+2. **Prevents wasted execution attempts** - Blocks workflow before creating PR if credits exhausted
+3. **Fail-safe design** - Probe failure doesn't break workflow (falls back to budget check)
+4. **Minimal cost overhead** - ~$0.01 per check (vs. $5-15 wasted on failed execution)
+5. **Clear user messaging** - Actionable error messages in workflow summary
+6. **No API implementation** - Uses existing Claude Code action (no custom API client needed)
 
 #### Manual Recovery Process
 
