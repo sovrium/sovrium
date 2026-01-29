@@ -33,17 +33,18 @@ Each ADR follows this structure:
 | [005](./005-authorization-strategy.md)                     | Authorization Strategy (RBAC + Field Permissions)     | Accepted | 2025-01-25 | 2025-07-01  |
 | [006](./006-table-permission-configuration.md)             | Table Permission Configuration Storage and Management | Proposed | 2025-01-25 | TBD         |
 | [007](./007-soft-delete-by-default.md)                     | Soft Delete by Default for All Tables                 | Accepted | 2025-12-16 | 2025-07-01  |
+| [008](./008-console-logging-policy.md)                     | Console Logging Policy and Logger Service Usage       | Accepted | 2026-01-29 | 2026-07-29  |
+| [009](./009-effect-schema-in-domain-layer.md)              | Effect Schema as Domain Layer Dependency              | Accepted | 2026-01-29 | 2026-07-29  |
 
 ## Planned ADRs
 
 These decisions should be documented in future ADRs:
 
 1. **Singular vs Plural Directory Names** - Why `table/` not `tables/`?
-2. **Effect Schema in Domain Layer** - Why allow this external dependency in the "pure" domain?
-3. **Layer-Based vs Feature-Based Architecture** - Why combine both patterns?
-4. **Root Aggregation Pattern** - Why have `tables.ts`, `pages.ts` files that re-export?
-5. **Strict Array Immutability** - Why enforce at ERROR level with ESLint?
-6. **Phase-Based Application Organization** - Why organize application layer by phases?
+2. **Layer-Based vs Feature-Based Architecture** - Why combine both patterns?
+3. **Root Aggregation Pattern** - Why have `tables.ts`, `pages.ts` files that re-export?
+4. **Strict Array Immutability** - Why enforce at ERROR level with ESLint?
+5. **Phase-Based Application Organization** - Why organize application layer by phases?
 
 ## Creating New ADRs
 

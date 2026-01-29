@@ -61,7 +61,6 @@ export default [
         { type: 'domain-validator', pattern: 'src/domain/validators/**/*', mode: 'file' },
         { type: 'domain-service', pattern: 'src/domain/services/**/*', mode: 'file' },
         { type: 'domain-factory', pattern: 'src/domain/factories/**/*', mode: 'file' },
-        { type: 'domain-error', pattern: 'src/domain/errors/**/*', mode: 'file' },
 
         // ==========================================
         // APPLICATION LAYER - Use Cases (Phase-based)
@@ -260,19 +259,6 @@ export default [
                 'Domain factory violation: Can only import domain models, validators, services, and other factories.',
             },
 
-            // Domain errors - Can import models only
-            {
-              from: ['domain-error'],
-              allow: [
-                'domain-model-app',
-                'domain-model-table',
-                'domain-model-page',
-                'domain-model-automation',
-              ],
-              message:
-                'Domain error violation: Can only import domain models for type definitions.',
-            },
-
             // ==========================================
             // APPLICATION LAYER - USE CASES
             // ==========================================
@@ -298,7 +284,6 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
-                'domain-error',
                 // Application layer
                 'application-port',
                 'application-service',
@@ -338,7 +323,6 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
-                'domain-error',
               ],
               message:
                 'Port violation: Can only import domain models and errors for interface definitions. Keep ports lightweight.',
@@ -355,7 +339,6 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
-                'domain-error',
                 'application-port',
                 'application-error',
                 'application-service',
@@ -392,7 +375,6 @@ export default [
                 'domain-model-table',
                 'domain-model-page',
                 'domain-model-automation',
-                'domain-error',
                 // Application errors (error classes and handlers can import each other)
                 'application-error',
                 // Application use-cases (for error type imports)
@@ -446,7 +428,6 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
-                'domain-error',
                 'application-port', // ONLY ports, NOT use-cases
                 // Allow infrastructure services to import each other
                 'infrastructure-config',
@@ -480,7 +461,6 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
-                'domain-error',
                 'application-port',
                 'infrastructure-config',
                 'infrastructure-database',
@@ -513,7 +493,6 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
-                'domain-error',
                 'application-use-case-server',
                 'application-use-case-config',
                 'application-use-case-database',
@@ -535,7 +514,6 @@ export default [
               from: ['presentation-api-middleware'],
               allow: [
                 'domain-model-app',
-                'domain-error',
                 'application-error',
                 'application-use-case', // Middleware may enrich context via application services
                 'presentation-api-middleware',
@@ -554,7 +532,6 @@ export default [
                 'domain-model-page',
                 'domain-model-automation',
                 'domain-validator',
-                'domain-error',
                 'application-use-case-server',
                 'application-use-case-config',
                 'application-use-case-database',
@@ -595,7 +572,6 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
-                'domain-error',
                 'presentation-api-util',
                 'presentation-api-middleware',
                 'presentation-util',
