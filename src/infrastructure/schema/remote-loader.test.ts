@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect, describe, mock } from 'bun:test'
+import { test, expect, describe, mock, beforeEach, afterEach } from 'bun:test'
 import { fetchRemoteSchema } from './remote-loader'
 
 const validSchema = {
@@ -15,8 +15,14 @@ const validSchema = {
   pages: [],
 }
 
+// Save and restore globalThis.fetch to prevent test pollution across files
+const originalFetch = globalThis.fetch
+
 describe('remote-loader', () => {
   describe('fetchRemoteSchema', () => {
+    afterEach(() => {
+      globalThis.fetch = originalFetch
+    })
     test('fetches and parses JSON from remote URL with application/json content type', async () => {
       const mockFetch = mock(async () => ({
         ok: true,
