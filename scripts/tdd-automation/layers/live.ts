@@ -14,6 +14,7 @@
 
 import { Layer } from 'effect'
 import { CostTrackerLive } from '../services/cost-tracker'
+import { ClaudeCodeProbeLive } from '../services/claude-code-probe'
 import { GitOperationsLive } from '../services/git-operations'
 import { GitHubApiLive } from '../services/github-api'
 
@@ -23,6 +24,7 @@ import { GitHubApiLive } from '../services/github-api'
  * Composed layers:
  * - GitHubApiLive: GitHub API operations via gh CLI
  * - CostTrackerLive: Cost parsing from workflow logs
+ * - ClaudeCodeProbeLive: Claude Code API credit exhaustion detection
  * - GitOperationsLive: Git operations via git CLI
  *
  * Usage:
@@ -34,7 +36,9 @@ import { GitHubApiLive } from '../services/github-api'
  * )
  * ```
  */
-export const LiveLayer = CostTrackerLive.pipe(
-  Layer.provideMerge(GitHubApiLive),
-  Layer.provideMerge(GitOperationsLive)
+export const LiveLayer = Layer.mergeAll(
+  GitHubApiLive,
+  CostTrackerLive,
+  ClaudeCodeProbeLive,
+  GitOperationsLive
 )

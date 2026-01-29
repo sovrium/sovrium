@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       can-proceed: ${{ steps.check.outputs.can-proceed }}
+      exhausted: ${{ steps.check.outputs.exhausted }}
       daily-spend: ${{ steps.check.outputs.daily-spend }}
       weekly-spend: ${{ steps.check.outputs.weekly-spend }}
     steps:
@@ -34,8 +35,42 @@ jobs:
         run: |
           RESULT=$(bun run scripts/tdd-automation/workflows/pr-creator/check-credits.ts 2>&1)
           echo "can-proceed=$(echo "$RESULT" | tail -1 | jq -r '.canProceed')" >> "$GITHUB_OUTPUT"
+          echo "exhausted=$(echo "$RESULT" | tail -1 | jq -r '.exhausted // false')" >> "$GITHUB_OUTPUT"
           echo "daily-spend=$(echo "$RESULT" | tail -1 | jq -r '.dailySpend')" >> "$GITHUB_OUTPUT"
           echo "weekly-spend=$(echo "$RESULT" | tail -1 | jq -r '.weeklySpend')" >> "$GITHUB_OUTPUT"
+
+      - name: Add workflow summary
+        if: always()
+        run: |
+          CAN_PROCEED="${{ steps.check.outputs.can-proceed }}"
+          EXHAUSTED="${{ steps.check.outputs.exhausted }}"
+          DAILY_SPEND="${{ steps.check.outputs.daily-spend }}"
+          WEEKLY_SPEND="${{ steps.check.outputs.weekly-spend }}"
+
+          if [ "$EXHAUSTED" = "true" ]; then
+            echo "## 🚫 Claude Code API Credits Exhausted" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "API probe confirmed credits are exhausted." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- Daily spend: \$${DAILY_SPEND}" >> $GITHUB_STEP_SUMMARY
+            echo "- Weekly spend: \$${WEEKLY_SPEND}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Action Required**: Contact Anthropic support or wait for credit reset." >> $GITHUB_STEP_SUMMARY
+          elif [ "$CAN_PROCEED" = "false" ]; then
+            echo "## ⏸️ Credit Limit Exceeded" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Budget limits reached:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- Daily spend: \$${DAILY_SPEND} / \$200" >> $GITHUB_STEP_SUMMARY
+            echo "- Weekly spend: \$${WEEKLY_SPEND} / \$1000" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ✅ Credits Available" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "TDD automation proceeding:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "- Daily spend: \$${DAILY_SPEND} / \$200" >> $GITHUB_STEP_SUMMARY
+            echo "- Weekly spend: \$${WEEKLY_SPEND} / \$1000" >> $GITHUB_STEP_SUMMARY
+          fi
 
   check-active-pr:
     needs: check-credits

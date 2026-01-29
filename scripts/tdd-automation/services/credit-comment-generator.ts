@@ -26,6 +26,7 @@ export class ParseMetricsError extends Data.TaggedError('ParseMetricsError')<{
  */
 export interface CreditMetrics {
   readonly creditsOk: boolean
+  readonly exhausted?: boolean
   readonly limitType: 'daily' | 'weekly' | 'none'
   readonly dailyRuns: number
   readonly weeklyRuns: number
@@ -46,6 +47,16 @@ export interface CreditMetrics {
  */
 function generateHeader(metrics: CreditMetrics): string {
   const lines: string[] = []
+
+  if (metrics.exhausted) {
+    lines.push('## 🚫 Claude Code API Credits Exhausted')
+    lines.push('')
+    lines.push('Claude Code API has confirmed that credits are exhausted.')
+    lines.push('TDD automation is blocked until credits are replenished.')
+    lines.push('')
+    lines.push('**Action Required**: Contact Anthropic support or wait for credit reset.')
+    return lines.join('\n')
+  }
 
   if (!metrics.creditsOk) {
     // Limit exceeded
@@ -139,6 +150,7 @@ export function parseCreditMetrics(
   return Effect.try({
     try: () => ({
       creditsOk: env['credits-ok'] === 'true' || env['creditsOk'] === 'true',
+      exhausted: env['exhausted'] === 'true',
       limitType: (env['limit-type'] || env['limitType'] || 'none') as 'daily' | 'weekly' | 'none',
       dailyRuns: parseInt(env['daily-runs'] || env['dailyRuns'] || '0', 10),
       weeklyRuns: parseInt(env['weekly-runs'] || env['weeklyRuns'] || '0', 10),

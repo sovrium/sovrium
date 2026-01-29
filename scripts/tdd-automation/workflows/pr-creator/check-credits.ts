@@ -34,6 +34,24 @@ const main = Effect.gen(function* () {
   // @effect-diagnostics effect/preferSchemaOverJson:off
   yield* Console.log(JSON.stringify(result))
 }).pipe(
+  Effect.catchTag('CreditsExhausted', (error) =>
+    Effect.gen(function* () {
+      yield* Console.error('::error::Claude Code API credits exhausted')
+      // @effect-diagnostics effect/preferSchemaOverJson:off
+      yield* Console.log(
+        JSON.stringify({
+          canProceed: false,
+          exhausted: true,
+          dailySpend: error.dailySpend,
+          weeklySpend: error.weeklySpend,
+          warnings: [
+            'Claude Code API credits exhausted',
+            `Probe result: ${error.probeResult.errorMessage ?? 'No error message'}`,
+          ],
+        })
+      )
+    })
+  ),
   Effect.catchTag('CreditLimitExceeded', (error) =>
     Effect.gen(function* () {
       yield* Console.error(`::error::Credit limit exceeded: ${error.limit}`)
@@ -41,6 +59,7 @@ const main = Effect.gen(function* () {
       yield* Console.log(
         JSON.stringify({
           canProceed: false,
+          exhausted: false,
           dailySpend: error.dailySpend,
           weeklySpend: error.weeklySpend,
           warnings: [],

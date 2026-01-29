@@ -13,10 +13,11 @@
  */
 
 import { Effect, pipe } from 'effect'
-import { CreditLimitExceeded } from '../core/errors'
+import { CreditLimitExceeded, CreditsExhausted } from '../core/errors'
 import { TDD_CONFIG } from '../core/types'
 import { CostTracker } from '../services/cost-tracker'
 import { GitHubApi } from '../services/github-api'
+import { ClaudeCodeProbe } from '../services/claude-code-probe'
 
 /**
  * Result of credit limit check
@@ -109,6 +110,36 @@ export const checkCreditLimits = Effect.gen(function* () {
   }
   if (weeklySpend >= TDD_CONFIG.WEEKLY_LIMIT) {
     return yield* new CreditLimitExceeded({ dailySpend, weeklySpend, limit: 'weekly' })
+  }
+
+  // Probe Claude Code API to confirm credits available
+  const probeResult = yield* pipe(
+    Effect.gen(function* () {
+      const probe = yield* ClaudeCodeProbe
+      return yield* probe.probe()
+    }),
+    Effect.catchTag('ClaudeCodeProbeError', (error) => {
+      // Probe failed (not exhaustion) - log warning but proceed
+      warnings.push(`Claude Code API probe failed (${error.operation}), assuming credits available`)
+      return Effect.succeed({
+        isExhausted: false,
+        rawJson: '',
+        errorMessage: undefined,
+        totalCostUsd: 0,
+      })
+    })
+  )
+
+  // Fail if probe detected exhaustion
+  if (probeResult.isExhausted) {
+    return yield* new CreditsExhausted({
+      dailySpend,
+      weeklySpend,
+      probeResult: {
+        rawJson: probeResult.rawJson,
+        errorMessage: probeResult.errorMessage,
+      },
+    })
   }
 
   return {

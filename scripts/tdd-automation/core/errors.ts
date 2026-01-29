@@ -27,6 +27,21 @@ export class CreditLimitExceeded extends Data.TaggedError('CreditLimitExceeded')
 }> {}
 
 /**
+ * Credits exhausted error
+ *
+ * Thrown when Claude Code API probe confirms credits are exhausted.
+ * Different from CreditLimitExceeded (budget-based) - this is API confirmation.
+ */
+export class CreditsExhausted extends Data.TaggedError('CreditsExhausted')<{
+  readonly dailySpend: number
+  readonly weeklySpend: number
+  readonly probeResult: {
+    readonly rawJson: string
+    readonly errorMessage?: string
+  }
+}> {}
+
+/**
  * Cost parsing failed error
  *
  * Thrown when unable to extract cost from workflow logs.
@@ -119,6 +134,7 @@ export class CSSCompilationError extends Data.TaggedError('CSSCompilationError')
  */
 export type TDDAutomationError =
   | CreditLimitExceeded
+  | CreditsExhausted
   | CostParsingFailed
   | ActiveTDDPRExists
   | NoPendingSpecs

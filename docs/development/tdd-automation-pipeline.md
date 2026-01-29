@@ -1465,6 +1465,42 @@ All errors are handled identically, regardless of type. These subtypes are repor
 - **Weekly limit**: $1000 (checked before execution, blocks workflow if exceeded)
 - **Cost tracking**: Actual Claude Code costs extracted from workflow logs and displayed in credit usage comments
 
+#### Credit Exhaustion Detection (Probe)
+
+In addition to budget-based credit checks, the pipeline probes the Claude Code API to detect actual credit exhaustion.
+
+**Probe Method**:
+
+- API: Direct request to Anthropic API using `CLAUDE_CODE_OAUTH_TOKEN`
+- Request: Minimal message ("hi", 1-2 tokens)
+- Model: `claude-sonnet-4-20250514` (fastest, cheapest)
+- Cost: ~$0.00002 per probe (negligible)
+- Timing: After budget check, before PR creation
+
+**Detection Pattern**:
+
+- HTTP 429 (Rate Limit) with "credit" in error message
+- HTTP 402 (Payment Required)
+- Error response containing "credit" or "exhausted" keywords
+
+**Differentiation**:
+
+- `CreditLimitExceeded`: Over budget ($200/day, $1000/week) → Budget-based block
+- `CreditsExhausted`: API confirmed exhaustion → API-level block
+
+**Error Handling**:
+
+- Probe failure (network, API error): Graceful degradation (workflow proceeds with warning)
+- Probe success: Confirms API access available
+- Probe detects exhaustion: Blocks workflow with clear messaging
+
+**Benefits**:
+
+1. Detects exhaustion beyond budget tracking
+2. Prevents wasted execution attempts
+3. Clear user messaging (actionable)
+4. Minimal cost overhead (~$0 per check)
+
 #### Manual Recovery Process
 
 When Claude Code fails (any error type):
