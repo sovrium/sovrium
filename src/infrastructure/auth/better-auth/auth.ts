@@ -161,6 +161,7 @@ export function createAuthInstance(authConfig?: Auth) {
 
   return betterAuth({
     secret: process.env.AUTH_SECRET,
+    baseURL: process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`,
     database: drizzleAdapter(db, {
       provider: 'pg',
       usePlural: false,
