@@ -195,6 +195,20 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Validate PostCSS dependencies
+        run: |
+          echo "Validating PostCSS and Tailwind CSS installation..."
+          bun pm ls postcss
+          bun pm ls tailwindcss
+          bun pm ls @tailwindcss/postcss
+          bun pm ls tw-animate-css
+          echo "Checking if JavaScript packages are resolvable..."
+          node -e "try { require.resolve('postcss'); console.log('✓ postcss resolved'); } catch(e) { console.error('✗ postcss NOT resolved'); process.exit(1); }"
+          node -e "try { require.resolve('tailwindcss'); console.log('✓ tailwindcss resolved'); } catch(e) { console.error('✗ tailwindcss NOT resolved'); process.exit(1); }"
+          node -e "try { require.resolve('@tailwindcss/postcss'); console.log('✓ @tailwindcss/postcss resolved'); } catch(e) { console.error('✗ @tailwindcss/postcss NOT resolved'); process.exit(1); }"
+          echo "Checking if CSS files exist..."
+          test -f node_modules/tw-animate-css/dist/tw-animate.css && echo "✓ tw-animate-css CSS file found" || (echo "✗ tw-animate-css CSS file NOT found" && exit 1)
+
       - name: Run unit tests
         run: bun test:unit
 
@@ -897,7 +911,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT_WORKFLOW }}
 
       - name: Setup Bun
         if: steps.check-update.outputs.should-update == 'true'
@@ -911,7 +925,7 @@ jobs:
 
       - name: Analyze spec progress
         if: steps.check-update.outputs.should-update == 'true'
-        run: bun run analyze:spec
+        run: bun run analyze:specs
 
       - name: Commit spec progress updates
         if: steps.check-update.outputs.should-update == 'true'
