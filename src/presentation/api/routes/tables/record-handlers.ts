@@ -47,6 +47,21 @@ import type { App } from '@/domain/models/app'
 import type { ContextWithTableAndRole } from '@/presentation/api/middleware/table'
 import type { Context } from 'hono'
 
+/**
+ * Validate timezone string using Intl.DateTimeFormat
+ * Returns true if timezone is valid, false otherwise
+ */
+function isValidTimezone(timezone: string): boolean {
+  try {
+    // Attempt to create a DateTimeFormat with the timezone
+    // This will throw if the timezone is invalid
+    Intl.DateTimeFormat('en-US', { timeZone: timezone })
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function handleListRecords(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain:
   // requireAuth() → validateTable() → enrichUserRole()
@@ -68,6 +83,16 @@ export async function handleListRecords(c: Context, app: App) {
   const includeDeleted = c.req.query('includeDeleted') === 'true'
   const format = c.req.query('format') === 'display' ? ('display' as const) : undefined
   const timezone = c.req.query('timezone')
+
+  // Validate timezone if provided
+  if (timezone && !isValidTimezone(timezone)) {
+    return c.json(
+      {
+        error: `Invalid timezone: ${timezone}`,
+      },
+      400
+    )
+  }
 
   return runEffect(
     c,
