@@ -173,7 +173,9 @@ test.describe('Create comment on a record', () => {
       expect(response.status()).toBe(400)
 
       const data = await response.json()
-      expect(data.error).toBe('Validation error')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Invalid input data')
+      expect(data.code).toBe('VALIDATION_ERROR')
       expect(data.message).toContain('content')
     }
   )
@@ -214,7 +216,9 @@ test.describe('Create comment on a record', () => {
       expect(response.status()).toBe(400)
 
       const data = await response.json()
-      expect(data.error).toBe('Validation error')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Invalid input data')
+      expect(data.code).toBe('VALIDATION_ERROR')
       expect(data.message).toContain('content')
       expect(data.message).toContain('maximum length')
     }
@@ -287,7 +291,9 @@ test.describe('Create comment on a record', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data.error).toBe('Record not found')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Resource not found')
+      expect(data.code).toBe('NOT_FOUND')
     }
   )
 
@@ -329,7 +335,9 @@ test.describe('Create comment on a record', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data.error).toBe('Record not found')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Resource not found')
+      expect(data.code).toBe('NOT_FOUND')
     }
   )
 
@@ -368,7 +376,9 @@ test.describe('Create comment on a record', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
     }
   )
 
@@ -421,7 +431,7 @@ test.describe('Create comment on a record', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-COMMENTS-CREATE-011: should include user metadata in response',
+    'API-TABLES-RECORDS-COMMENTS-CREATE-010: should include user metadata in response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Authenticated user creating a comment
@@ -560,7 +570,9 @@ test.describe('Create comment on a record', () => {
 
         expect(response.status()).toBe(400)
         const data = await response.json()
-        expect(data.error).toBe('Validation error')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Invalid input data')
+        expect(data.code).toBe('VALIDATION_ERROR')
         expect(data.message).toContain('content')
       })
 
@@ -573,7 +585,9 @@ test.describe('Create comment on a record', () => {
 
         expect(response.status()).toBe(400)
         const data = await response.json()
-        expect(data.error).toBe('Validation error')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Invalid input data')
+        expect(data.code).toBe('VALIDATION_ERROR')
         expect(data.message).toContain('content')
         expect(data.message).toContain('maximum length')
       })
@@ -622,7 +636,9 @@ test.describe('Create comment on a record', () => {
 
         expect(response.status()).toBe(404)
         const data = await response.json()
-        expect(data.error).toBe('Record not found')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Resource not found')
+        expect(data.code).toBe('NOT_FOUND')
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-007: Return 404 for cross-owner access', async () => {
@@ -634,7 +650,9 @@ test.describe('Create comment on a record', () => {
 
         expect(response.status()).toBe(404)
         const data = await response.json()
-        expect(data.error).toBe('Record not found')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Resource not found')
+        expect(data.code).toBe('NOT_FOUND')
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-008: Return 403 without permission', async () => {
@@ -645,7 +663,9 @@ test.describe('Create comment on a record', () => {
 
         expect(response.status()).toBe(403)
         const data = await response.json()
-        expect(data.error).toBe('Forbidden')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-009: Auto-inject user_id from session', async () => {
@@ -664,7 +684,7 @@ test.describe('Create comment on a record', () => {
         expect(result.rows[0].user_id).toBe('user_1')
       })
 
-      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-011: Include user metadata in response', async () => {
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-010: Include user metadata in response', async () => {
         const response = await request.post('/api/tables/12/records/1/comments', {
           headers: { 'Content-Type': 'application/json' },
           data: { content: 'My comment with user metadata' },

@@ -12,10 +12,10 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/post.json
  * Domain: api
- * Spec Count: 16
+ * Spec Count: 15
  *
  * Test Organization:
- * 1. @spec tests - One per spec in schema (16 tests) - Exhaustive acceptance criteria
+ * 1. @spec tests - One per spec in schema (15 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
  */
 
@@ -116,8 +116,12 @@ test.describe('Create new record', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toBe('Table not found')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Resource not found')
+      expect(data.code).toBe('NOT_FOUND')
     }
   )
 
@@ -159,8 +163,12 @@ test.describe('Create new record', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toBe('Validation error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Invalid input data')
+      expect(data.code).toBe('VALIDATION_ERROR')
     }
   )
 
@@ -209,8 +217,12 @@ test.describe('Create new record', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toBe('Unique constraint violation')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Resource already exists')
+      expect(data.code).toBe('CONFLICT')
 
       // Verify database still contains only original record
       const result = await executeQuery(`
@@ -291,55 +303,14 @@ test.describe('Create new record', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.error).toBe('Forbidden')
-    }
-  )
-
-  test(
-    'API-TABLES-RECORDS-CREATE-007: should return 403 Forbidden',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
-      // GIVEN: A viewer user without create permission
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { emailAndPassword: true },
-        tables: [
-          {
-            id: 6,
-            name: 'tasks',
-            fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
-            permissions: {
-              create: { type: 'roles', roles: ['admin'] }, // Only admin can create
-            },
-          },
-        ],
-      })
-
-      // Create authenticated user with default role (member/viewer)
-      await createAuthenticatedUser()
-
-      // WHEN: Viewer attempts to create a record
-      const response = await request.post('/api/tables/6/records', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          title: 'New Task',
-        },
-      })
-
-      // THEN: Returns 403 Forbidden error
-      expect(response.status()).toBe(403)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
       expect(data.message).toBe('You do not have permission to create records in this table')
+      expect(data.code).toBe('FORBIDDEN')
     }
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-008: should return 201 Created with all fields',
+    'API-TABLES-RECORDS-CREATE-007: should return 201 Created with all fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: An admin user with write access to all fields including sensitive
@@ -388,7 +359,7 @@ test.describe('Create new record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-009: should return 403 Forbidden',
+    'API-TABLES-RECORDS-CREATE-008: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: A member user attempting to create with write-protected field
@@ -436,14 +407,15 @@ test.describe('Create new record', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
       expect(data.message).toBe("Cannot write to field 'salary': insufficient permissions")
+      expect(data.code).toBe('FORBIDDEN')
       expect(data.field).toBe('salary')
     }
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-010: should return 403 Forbidden',
+    'API-TABLES-RECORDS-CREATE-009: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: A viewer user with very limited write permissions
@@ -489,13 +461,15 @@ test.describe('Create new record', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe("Cannot write to field 'email': insufficient permissions")
+      expect(data.code).toBe('FORBIDDEN')
       expect(data.field).toBe('email')
     }
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-011: should return 403 Forbidden',
+    'API-TABLES-RECORDS-CREATE-010: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: User attempts to set system-managed readonly fields
@@ -534,13 +508,14 @@ test.describe('Create new record', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
       expect(data.message).toBe("Cannot write to readonly field 'id'")
+      expect(data.code).toBe('FORBIDDEN')
     }
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-012: should return 403 for first forbidden field',
+    'API-TABLES-RECORDS-CREATE-011: should return 403 for first forbidden field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Multiple fields with different write permission levels
@@ -596,13 +571,15 @@ test.describe('Create new record', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
       expect(data).toHaveProperty('field')
     }
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-013: should auto-inject owner_id',
+    'API-TABLES-RECORDS-CREATE-012: should auto-inject owner_id',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: User creates record in table with owner_id field
@@ -656,7 +633,7 @@ test.describe('Create new record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-014: should return 201 with filtered fields',
+    'API-TABLES-RECORDS-CREATE-013: should return 201 with filtered fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Field write restrictions and table permission all apply
@@ -711,7 +688,7 @@ test.describe('Create new record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-015: should use database defaults',
+    'API-TABLES-RECORDS-CREATE-014: should use database defaults',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
       // GIVEN: User creates record with only permitted fields
@@ -763,7 +740,7 @@ test.describe('Create new record', () => {
   // ============================================================================
 
   test(
-    'API-TABLES-RECORDS-CREATE-016: should create comprehensive activity log entry',
+    'API-TABLES-RECORDS-CREATE-015: should create comprehensive activity log entry',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Application with auth and activity logging
@@ -926,8 +903,12 @@ test.describe('Create new record', () => {
         expect(response.status()).toBe(404)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
-        expect(data.error).toBe('Table not found')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Resource not found')
+        expect(data.code).toBe('NOT_FOUND')
       })
 
       await test.step('API-TABLES-RECORDS-CREATE-003: should return 400 Bad Request with validation error', async () => {
@@ -939,8 +920,12 @@ test.describe('Create new record', () => {
         expect(response.status()).toBe(400)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
-        expect(data.error).toBe('Validation error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Invalid input data')
+        expect(data.code).toBe('VALIDATION_ERROR')
       })
 
       await test.step('API-TABLES-RECORDS-CREATE-004: should return 409 Conflict', async () => {
@@ -960,8 +945,12 @@ test.describe('Create new record', () => {
         expect(response.status()).toBe(409)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
-        expect(data.error).toBe('Unique constraint violation')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Resource already exists')
+        expect(data.code).toBe('CONFLICT')
 
         const result = await executeQuery(`
           SELECT COUNT(*) as count FROM users WHERE email = 'existing@example.com'
@@ -987,23 +976,12 @@ test.describe('Create new record', () => {
         expect(response.status()).toBe(403)
 
         const data = await response.json()
-        expect(data.error).toBe('Forbidden')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-007: should return 403 Forbidden for viewer without create permission', async () => {
-        const response = await request.post('/api/tables/1/records', {
-          headers: { 'Content-Type': 'application/json' },
-          data: { title: 'New Task' },
-        })
-
-        expect(response.status()).toBe(403)
-
-        const data = await response.json()
-        expect(data.error).toBe('Forbidden')
-        expect(data.message).toBe('You do not have permission to create records in this table')
-      })
-
-      await test.step('API-TABLES-RECORDS-CREATE-008: should return 201 Created with all fields for admin', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-007: should return 201 Created with all fields for admin', async () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1022,7 +1000,7 @@ test.describe('Create new record', () => {
         expect(data.fields.salary).toBe(75_000)
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-009: should return 403 Forbidden for write-protected field', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-008: should return 403 Forbidden for write-protected field', async () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1035,12 +1013,14 @@ test.describe('Create new record', () => {
         expect(response.status()).toBe(403)
 
         const data = await response.json()
-        expect(data.error).toBe('Forbidden')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
         expect(data.message).toBe("Cannot write to field 'salary': insufficient permissions")
         expect(data.field).toBe('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-010: should return 403 Forbidden for viewer with limited write permissions', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-009: should return 403 Forbidden for viewer with limited write permissions', async () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1052,11 +1032,13 @@ test.describe('Create new record', () => {
         expect(response.status()).toBe(403)
 
         const data = await response.json()
-        expect(data.error).toBe('Forbidden')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
         expect(data.field).toBe('email')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-011: should return 403 Forbidden for readonly fields', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-010: should return 403 Forbidden for readonly fields', async () => {
         const response = await request.post('/api/tables/4/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1069,11 +1051,13 @@ test.describe('Create new record', () => {
         expect(response.status()).toBe(403)
 
         const data = await response.json()
-        expect(data.error).toBe('Forbidden')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
         expect(data.message).toBe("Cannot write to readonly field 'id'")
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-012: should return 403 for first forbidden field', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-011: should return 403 for first forbidden field', async () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1086,11 +1070,13 @@ test.describe('Create new record', () => {
         expect(response.status()).toBe(403)
 
         const data = await response.json()
-        expect(data.error).toBe('Forbidden')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
         expect(data).toHaveProperty('field')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-013: should auto-inject owner_id', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-012: should auto-inject owner_id', async () => {
         const { user } = await createAuthenticatedUser({ email: 'owner@example.com' })
 
         const response = await request.post('/api/tables/2/records', {
@@ -1110,7 +1096,7 @@ test.describe('Create new record', () => {
         expect(result.rows[0].owner_id).toBe(user.id)
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-014: should return 201 with filtered fields', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-013: should return 201 with filtered fields', async () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1127,7 +1113,7 @@ test.describe('Create new record', () => {
         expect(data.fields).not.toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-015: should use database defaults', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-014: should use database defaults', async () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -1148,7 +1134,7 @@ test.describe('Create new record', () => {
         expect(result.rows[0].salary).toBe('50000')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-016: should create comprehensive activity log entry', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-015: should create comprehensive activity log entry', async () => {
         const { user } = await createAuthenticatedUser({
           email: 'user@example.com',
         })
