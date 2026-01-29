@@ -460,7 +460,11 @@ export class MailpitHelper {
 
     while (Date.now() - startTime < timeout) {
       const emails = await this.getEmails() // Already filtered by testId
-      const email = emails.find(predicate)
+      // Sort by creation time (newest first) to get the most recent matching email
+      const sortedEmails = emails.sort(
+        (a, b) => new Date(b.Created).getTime() - new Date(a.Created).getTime()
+      )
+      const email = sortedEmails.find(predicate)
       if (email) {
         // Fetch full email details (list API doesn't include HTML/Text body)
         return this.getEmailById(email.ID)
@@ -500,7 +504,11 @@ export class MailpitHelper {
 
     while (Date.now() - startTime < timeout) {
       const emails = await this.getAllEmails() // Get ALL emails (no testId filtering)
-      const email = emails.find(predicate)
+      // Sort by creation time (newest first) to get the most recent matching email
+      const sortedEmails = emails.sort(
+        (a, b) => new Date(b.Created).getTime() - new Date(a.Created).getTime()
+      )
+      const email = sortedEmails.find(predicate)
       if (email) {
         // Fetch full email details (list API doesn't include HTML/Text body)
         return this.getEmailById(email.ID)
