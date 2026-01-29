@@ -75,6 +75,24 @@ const parseNumericString = (
 }
 
 /**
+ * Build formatted field value object from format result
+ */
+const buildFormattedFieldValue = (
+  fieldValue: Readonly<RecordFieldValue>,
+  formatResult: Readonly<NonNullable<ReturnType<typeof formatFieldForDisplay>>>
+): FormattedFieldValue => ({
+  value: fieldValue,
+  displayValue: formatResult.displayValue,
+  ...(formatResult.timezone ? { timezone: formatResult.timezone } : {}),
+  ...(formatResult.displayTimezone ? { displayTimezone: formatResult.displayTimezone } : {}),
+  ...(formatResult.allowedFileTypes ? { allowedFileTypes: formatResult.allowedFileTypes } : {}),
+  ...(formatResult.maxFileSize !== undefined ? { maxFileSize: formatResult.maxFileSize } : {}),
+  ...(formatResult.maxFileSizeDisplay
+    ? { maxFileSizeDisplay: formatResult.maxFileSizeDisplay }
+    : {}),
+})
+
+/**
  * Process a single field value with optional display formatting
  */
 const processFieldValue = (
@@ -92,7 +110,8 @@ const processFieldValue = (
   // Apply display formatting if requested
   const shouldFormat = options?.format === 'display' && options.app && options.tableName
   if (!shouldFormat) {
-    return processedValue
+    // Always parse numeric strings to numbers even without display formatting
+    return parseNumericString(value, processedValue)
   }
 
   // For display formatting, pass the original value (may be string or number from database)
@@ -111,17 +130,7 @@ const processFieldValue = (
   // For formatted fields, use the original value (preserve number type)
   const fieldValue = parseNumericString(value, processedValue)
 
-  return {
-    value: fieldValue,
-    displayValue: formatResult.displayValue,
-    ...(formatResult.timezone ? { timezone: formatResult.timezone } : {}),
-    ...(formatResult.displayTimezone ? { displayTimezone: formatResult.displayTimezone } : {}),
-    ...(formatResult.allowedFileTypes ? { allowedFileTypes: formatResult.allowedFileTypes } : {}),
-    ...(formatResult.maxFileSize !== undefined ? { maxFileSize: formatResult.maxFileSize } : {}),
-    ...(formatResult.maxFileSizeDisplay
-      ? { maxFileSizeDisplay: formatResult.maxFileSizeDisplay }
-      : {}),
-  }
+  return buildFormattedFieldValue(fieldValue, formatResult)
 }
 
 /**
