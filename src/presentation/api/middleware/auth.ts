@@ -105,6 +105,7 @@ function processSessionResult(
     c.set('session', sessionResult.session as Session)
   } else {
     // Session binding validation failed - log for security monitoring
+    // MIDDLEWARE LOGGING: Security monitoring for session hijacking attempts (Hono middleware uses async/await, not Effect)
     console.warn('[AUTH] Session binding validation failed', {
       sessionId: sessionResult.session.id,
       expectedIP: sessionResult.session.ipAddress,
@@ -164,6 +165,7 @@ export function authMiddleware(auth: any) {
         processSessionResult(c, result)
       }
     } catch (error) {
+      // MIDDLEWARE LOGGING: Operational error monitoring (Hono middleware uses async/await, not Effect)
       console.error('[AUTH] Session extraction failed:', error)
     }
 

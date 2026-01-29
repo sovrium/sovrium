@@ -125,6 +125,36 @@ expect(html).toBe('<script>console.log("test");</script>')
 
 ---
 
+### 7. Middleware Error Logging
+
+**Location**: `src/infrastructure/server/route-setup/*.ts`, `src/presentation/api/middleware/*.ts`
+
+**Why**: Hono middleware uses async/await (not Effect programs). Operational error monitoring for infrastructure failures.
+
+**Examples**:
+
+```typescript
+// MIDDLEWARE LOGGING: Operational error monitoring (Hono middleware uses async/await, not Effect)
+console.error('[Auth Middleware] Session check error:', error)
+
+// MIDDLEWARE LOGGING: Security monitoring for session hijacking attempts (Hono middleware uses async/await, not Effect)
+console.warn('[AUTH] Session binding validation failed', {
+  sessionId: sessionResult.session.id,
+  expectedIP: sessionResult.session.ipAddress,
+  currentIP,
+})
+```
+
+**Pattern**: Must include `// MIDDLEWARE LOGGING:` comment explaining operational nature and why Effect Logger is not used.
+
+**Rationale**:
+- Middleware is infrastructure layer, not business logic
+- Operational monitoring (server health) vs business events (user actions)
+- Hono middleware uses async/await, not Effect.gen programs
+- Converting to Effect would require wrapping entire middleware (architectural change)
+
+---
+
 ## Prohibited Console Usage
 
 ### ❌ Production Application Logging

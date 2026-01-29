@@ -49,6 +49,7 @@ const applyAuthCheckMiddleware = (
       await next()
     } catch (error) {
       // If session check fails, return 401 (assume unauthenticated)
+      // MIDDLEWARE LOGGING: Operational error monitoring (Hono middleware uses async/await, not Effect)
       console.error('[Auth Middleware] Session check error:', error)
       return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
     }
