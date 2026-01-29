@@ -14,9 +14,8 @@
 
 import { Layer } from 'effect'
 import { CostTrackerLive } from '../services/cost-tracker'
-import { ClaudeCodeProbeLive } from '../services/claude-code-probe'
-import { GitOperationsLive } from '../services/git-operations'
 import { GitHubApiLive } from '../services/github-api'
+import { GitOperationsLive } from '../services/git-operations'
 
 /**
  * Production layer with all live service implementations
@@ -24,8 +23,10 @@ import { GitHubApiLive } from '../services/github-api'
  * Composed layers:
  * - GitHubApiLive: GitHub API operations via gh CLI
  * - CostTrackerLive: Cost parsing from workflow logs
- * - ClaudeCodeProbeLive: Claude Code API credit exhaustion detection
  * - GitOperationsLive: Git operations via git CLI
+ *
+ * Note: Credit exhaustion detection is now handled by GitHub Actions workflow
+ * (probe step in pr-creator.yml) and passed via PROBE_EXHAUSTED env var.
  *
  * Usage:
  * ```typescript
@@ -36,9 +37,4 @@ import { GitHubApiLive } from '../services/github-api'
  * )
  * ```
  */
-export const LiveLayer = Layer.mergeAll(
-  GitHubApiLive,
-  CostTrackerLive,
-  ClaudeCodeProbeLive,
-  GitOperationsLive
-)
+export const LiveLayer = Layer.mergeAll(GitHubApiLive, CostTrackerLive, GitOperationsLive)

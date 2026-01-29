@@ -17,7 +17,6 @@ import { CreditLimitExceeded, CreditsExhausted } from '../core/errors'
 import { TDD_CONFIG } from '../core/types'
 import { CostTracker } from '../services/cost-tracker'
 import { GitHubApi } from '../services/github-api'
-import { ClaudeCodeProbe } from '../services/claude-code-probe'
 
 /**
  * Result of credit limit check
@@ -112,32 +111,23 @@ export const checkCreditLimits = Effect.gen(function* () {
     return yield* new CreditLimitExceeded({ dailySpend, weeklySpend, limit: 'weekly' })
   }
 
-  // Probe Claude Code API to confirm credits available
-  const probeResult = yield* pipe(
-    Effect.gen(function* () {
-      const probe = yield* ClaudeCodeProbe
-      return yield* probe.probe()
-    }),
-    Effect.catchTag('ClaudeCodeProbeError', (error) => {
-      // Probe failed (not exhaustion) - log warning but proceed
-      warnings.push(`Claude Code API probe failed (${error.operation}), assuming credits available`)
-      return Effect.succeed({
-        isExhausted: false,
-        rawJson: '',
-        errorMessage: undefined,
-        totalCostUsd: 0,
-      })
-    })
-  )
+  // Read probe result from GitHub Actions workflow step output (environment variables)
+  const probeExhausted = process.env['PROBE_EXHAUSTED'] === 'true'
+  const probeFailed = process.env['PROBE_FAILED'] === 'true'
 
-  // Fail if probe detected exhaustion
-  if (probeResult.isExhausted) {
+  // Log probe status
+  if (probeFailed) {
+    warnings.push('Claude Code API probe failed, continuing with budget check only')
+  }
+
+  // Fail immediately if probe detected exhaustion (before budget checks)
+  if (probeExhausted) {
     return yield* new CreditsExhausted({
       dailySpend,
       weeklySpend,
       probeResult: {
-        rawJson: probeResult.rawJson,
-        errorMessage: probeResult.errorMessage,
+        rawJson: 'Exhaustion detected via workflow probe',
+        errorMessage: 'Credits exhausted (is_error=true AND total_cost_usd=0)',
       },
     })
   }

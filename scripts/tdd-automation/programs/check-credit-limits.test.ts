@@ -8,19 +8,15 @@
 /**
  * Check Credit Limits Integration Tests
  *
- * Tests for check-credit-limits program with probe integration.
+ * Tests for check-credit-limits program with workflow-based probe integration.
+ * Probe results are read from environment variables set by GitHub Actions workflow.
  */
 
 import { test, expect } from 'bun:test'
 import { Effect, Layer } from 'effect'
-import { checkCreditLimits } from './check-credit-limits'
-import { GitHubApiLive } from '../services/github-api'
 import { CostTracker } from '../services/cost-tracker'
-import {
-  ClaudeCodeProbe,
-  ClaudeCodeProbeTest,
-  ClaudeCodeProbeError,
-} from '../services/claude-code-probe'
+import { GitHubApiLive } from '../services/github-api'
+import { checkCreditLimits } from './check-credit-limits'
 
 /**
  * Test layer for CostTracker that returns fixed cost
@@ -31,10 +27,13 @@ const CostTrackerTest = (costPerRun: number) =>
   })
 
 test('check-credit-limits - credits exhausted', async () => {
+  // Set environment variables to simulate exhausted probe result
+  process.env['PROBE_EXHAUSTED'] = 'true'
+  process.env['PROBE_FAILED'] = 'false'
+
   const TestLayer = Layer.mergeAll(
     GitHubApiLive,
-    CostTrackerTest(10), // Under limit
-    ClaudeCodeProbeTest(true) // Exhausted
+    CostTrackerTest(10) // Under limit, but probe shows exhaustion
   )
 
   const program = checkCreditLimits.pipe(Effect.provide(TestLayer), Effect.either)
@@ -46,18 +45,21 @@ test('check-credit-limits - credits exhausted', async () => {
     if (result.left._tag === 'CreditsExhausted') {
       expect(result.left.dailySpend).toBeGreaterThanOrEqual(0)
       expect(result.left.weeklySpend).toBeGreaterThanOrEqual(0)
-      expect(result.left.probeResult.rawJson).toContain('is_error')
+      expect(result.left.probeResult.errorMessage).toContain('exhausted')
     }
   }
+
+  // Cleanup
+  delete process.env['PROBE_EXHAUSTED']
+  delete process.env['PROBE_FAILED']
 })
 
 test('check-credit-limits - probe failure (graceful)', async () => {
-  const ProbeFailureLayer = Layer.succeed(ClaudeCodeProbe, {
-    probe: () =>
-      Effect.fail(new ClaudeCodeProbeError({ operation: 'execute', cause: 'mock error' })),
-  })
+  // Set environment variables to simulate probe failure
+  process.env['PROBE_EXHAUSTED'] = 'false'
+  process.env['PROBE_FAILED'] = 'true'
 
-  const TestLayer = Layer.mergeAll(GitHubApiLive, CostTrackerTest(10), ProbeFailureLayer)
+  const TestLayer = Layer.mergeAll(GitHubApiLive, CostTrackerTest(10))
   const program = checkCreditLimits.pipe(Effect.provide(TestLayer), Effect.either)
   const result = await Effect.runPromise(program)
 
@@ -67,13 +69,20 @@ test('check-credit-limits - probe failure (graceful)', async () => {
     expect(result.right.warnings.length).toBeGreaterThan(0)
     expect(result.right.warnings.some((w) => w.includes('probe failed'))).toBe(true)
   }
+
+  // Cleanup
+  delete process.env['PROBE_EXHAUSTED']
+  delete process.env['PROBE_FAILED']
 })
 
 test('check-credit-limits - under limits and credits available', async () => {
+  // Set environment variables to simulate available credits
+  process.env['PROBE_EXHAUSTED'] = 'false'
+  process.env['PROBE_FAILED'] = 'false'
+
   const TestLayer = Layer.mergeAll(
     GitHubApiLive,
-    CostTrackerTest(10), // Under limit
-    ClaudeCodeProbeTest(false) // Not exhausted
+    CostTrackerTest(10) // Under limit
   )
 
   const program = checkCreditLimits.pipe(Effect.provide(TestLayer), Effect.either)
@@ -85,4 +94,8 @@ test('check-credit-limits - under limits and credits available', async () => {
     expect(result.right.dailySpend).toBeGreaterThanOrEqual(0)
     expect(result.right.weeklySpend).toBeGreaterThanOrEqual(0)
   }
+
+  // Cleanup
+  delete process.env['PROBE_EXHAUSTED']
+  delete process.env['PROBE_FAILED']
 })

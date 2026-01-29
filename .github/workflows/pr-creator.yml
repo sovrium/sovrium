@@ -28,10 +28,65 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Probe Claude Code API for credit availability
+        id: probe-credits
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        timeout-minutes: 2
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: "hi"
+          claude_args: "--max-turns 1 --max-budget-usd 0.01"
+          track_progress: false
+          use_sticky_comment: false
+
+      - name: Parse probe result
+        id: parse-probe
+        if: always()
+        run: |
+          EXECUTION_FILE="${{ steps.probe-credits.outputs.execution_file }}"
+
+          if [ -z "$EXECUTION_FILE" ] || [ ! -f "$EXECUTION_FILE" ]; then
+            echo "probe-failed=true" >> "$GITHUB_OUTPUT"
+            echo "exhausted=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️  Probe failed (no execution file), assuming credits available"
+            exit 0
+          fi
+
+          # Parse result from execution file
+          RESULT_JSON=$(jq -r '.[] | select(.type == "result")' "$EXECUTION_FILE" 2>/dev/null)
+
+          if [ -z "$RESULT_JSON" ]; then
+            echo "probe-failed=true" >> "$GITHUB_OUTPUT"
+            echo "exhausted=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️  Probe failed (no result), assuming credits available"
+            exit 0
+          fi
+
+          IS_ERROR=$(echo "$RESULT_JSON" | jq -r '.is_error // false')
+          COST=$(echo "$RESULT_JSON" | jq -r '.total_cost_usd // 0')
+          ERROR_MSG=$(echo "$RESULT_JSON" | jq -r '.errors // [] | join(", ")')
+
+          echo "probe-failed=false" >> "$GITHUB_OUTPUT"
+          echo "is-error=$IS_ERROR" >> "$GITHUB_OUTPUT"
+          echo "cost=$COST" >> "$GITHUB_OUTPUT"
+
+          # Detect exhaustion: is_error=true AND total_cost_usd=0
+          if [ "$IS_ERROR" = "true" ] && { [ "$COST" = "0" ] || [ "$COST" = "0.0" ]; }; then
+            echo "exhausted=true" >> "$GITHUB_OUTPUT"
+            echo "🚫 Credits exhausted detected (is_error=$IS_ERROR, cost=$COST)"
+            echo "   Error: $ERROR_MSG"
+          else
+            echo "exhausted=false" >> "$GITHUB_OUTPUT"
+            echo "✅ Credits available (is_error=$IS_ERROR, cost=$COST)"
+          fi
+
       - name: Check credit limits
         id: check
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          PROBE_EXHAUSTED: ${{ steps.parse-probe.outputs.exhausted }}
+          PROBE_FAILED: ${{ steps.parse-probe.outputs.probe-failed }}
         run: |
           RESULT=$(bun run scripts/tdd-automation/workflows/pr-creator/check-credits.ts 2>&1)
           echo "can-proceed=$(echo "$RESULT" | tail -1 | jq -r '.canProceed')" >> "$GITHUB_OUTPUT"
