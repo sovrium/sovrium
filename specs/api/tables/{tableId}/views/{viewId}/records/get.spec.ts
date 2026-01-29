@@ -190,7 +190,7 @@ test.fixme(
     // GIVEN: table with view restricted to admin role
     await startServerWithSchema({
       name: 'test-app',
-      auth: { emailAndPassword: true },
+      auth: { emailAndPassword: true, admin: true },
       tables: [
         {
           id: 4,
@@ -230,7 +230,7 @@ test.fixme(
     // Setup: Create table with views and seed data
     await startServerWithSchema({
       name: 'test-app',
-      auth: { emailAndPassword: true },
+      auth: { emailAndPassword: true, admin: true },
       tables: [
         {
           id: 1,

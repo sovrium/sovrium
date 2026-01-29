@@ -38,7 +38,7 @@ test.describe('GET /trash endpoint', () => {
       // GIVEN: Table with mix of active and deleted records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -91,7 +91,7 @@ test.describe('GET /trash endpoint', () => {
       // GIVEN: Table with deleted records and auth enabled
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 2,
@@ -123,7 +123,7 @@ test.describe('GET /trash endpoint', () => {
       // GIVEN: Viewer user with no read permission on table
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 3,
@@ -164,7 +164,7 @@ test.describe('GET /trash endpoint', () => {
       // GIVEN: Table with multiple deleted records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 5,
@@ -249,7 +249,7 @@ test.describe('GET /trash endpoint', () => {
       await test.step('Setup: Start server with comprehensive configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
-          auth: { emailAndPassword: true },
+          auth: { emailAndPassword: true, admin: true },
           tables: [
             {
               id: 1,

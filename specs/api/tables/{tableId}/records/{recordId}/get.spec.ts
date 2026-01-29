@@ -35,7 +35,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Table 'users' with record ID=1
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -80,7 +80,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Table 'users' exists but record ID=9999 does not
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 2,
@@ -113,7 +113,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: An unauthenticated user with auth enabled
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 3,
@@ -145,7 +145,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: User without read permission
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 4,
@@ -190,7 +190,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Admin user with full field access
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 6,
@@ -239,7 +239,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Member user without salary field read permission
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 7,
@@ -282,7 +282,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Viewer with limited field access
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 8,
@@ -327,7 +327,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Table with readonly system fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 10,
@@ -374,7 +374,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Table with a soft-deleted record
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 11,
@@ -413,7 +413,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Table with a soft-deleted record
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 12,
@@ -465,7 +465,7 @@ test.describe('Get record by ID', () => {
       // Setup: Create comprehensive schema for all test scenarios
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
