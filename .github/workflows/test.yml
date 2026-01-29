@@ -911,7 +911,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT_WORKFLOW }}
 
       - name: Setup Bun
         if: steps.check-update.outputs.should-update == 'true'
