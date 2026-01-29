@@ -26,6 +26,7 @@ export interface FormattedFieldValue {
   readonly value: RecordFieldValue
   readonly displayValue?: string
   readonly timezone?: string
+  readonly displayTimezone?: string
   readonly allowedFileTypes?: readonly string[]
   readonly maxFileSize?: number
   readonly maxFileSizeDisplay?: string
@@ -83,6 +84,7 @@ const processFieldValue = (
     readonly format?: 'display'
     readonly app?: App
     readonly tableName?: string
+    readonly timezone?: string
   }>
 ): Readonly<RecordFieldValue | FormattedFieldValue> => {
   const processedValue = value instanceof Date ? value.toISOString() : (value as RecordFieldValue)
@@ -94,7 +96,13 @@ const processFieldValue = (
   }
 
   // For display formatting, pass the original value (may be string or number from database)
-  const formatResult = formatFieldForDisplay(key, value, options.app!, options.tableName!)
+  const formatResult = formatFieldForDisplay(
+    key,
+    value,
+    options.app!,
+    options.tableName!,
+    options.timezone
+  )
 
   if (formatResult === undefined) {
     return processedValue
@@ -107,6 +115,7 @@ const processFieldValue = (
     value: fieldValue,
     displayValue: formatResult.displayValue,
     ...(formatResult.timezone ? { timezone: formatResult.timezone } : {}),
+    ...(formatResult.displayTimezone ? { displayTimezone: formatResult.displayTimezone } : {}),
     ...(formatResult.allowedFileTypes ? { allowedFileTypes: formatResult.allowedFileTypes } : {}),
     ...(formatResult.maxFileSize !== undefined ? { maxFileSize: formatResult.maxFileSize } : {}),
     ...(formatResult.maxFileSizeDisplay
@@ -136,6 +145,7 @@ export const transformRecord = (
     readonly format?: 'display'
     readonly app?: App
     readonly tableName?: string
+    readonly timezone?: string
   }
 ): TransformedRecord => {
   // Extract system fields
@@ -173,5 +183,6 @@ export const transformRecords = (
     readonly format?: 'display'
     readonly app?: App
     readonly tableName?: string
+    readonly timezone?: string
   }
 ): readonly TransformedRecord[] => records.map((record) => transformRecord(record, options))
