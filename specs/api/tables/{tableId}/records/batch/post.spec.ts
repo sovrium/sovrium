@@ -183,7 +183,9 @@ test.describe('Batch create records', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
       expect(data).toHaveProperty('details')
 
       // Verify no records created due to transaction rollback
@@ -225,7 +227,9 @@ test.describe('Batch create records', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
       expect(data).toHaveProperty('message')
     }
   )
@@ -263,9 +267,13 @@ test.describe('Batch create records', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
       expect(data).toHaveProperty('message')
-      expect(data.error).toBe('Forbidden')
+      expect(data).toHaveProperty('code')
+      expect(data).toHaveProperty('message')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to create records in this table')
     }
   )
@@ -303,8 +311,12 @@ test.describe('Batch create records', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toBe('Forbidden')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
     }
   )
 
@@ -347,9 +359,13 @@ test.describe('Batch create records', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
       expect(data).toHaveProperty('message')
-      expect(data.error).toBe('Forbidden')
+      expect(data).toHaveProperty('code')
+      expect(data).toHaveProperty('message')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to write to field: salary')
     }
   )
@@ -390,9 +406,13 @@ test.describe('Batch create records', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
       expect(data).toHaveProperty('message')
-      expect(data.error).toBe('Forbidden')
+      expect(data).toHaveProperty('code')
+      expect(data).toHaveProperty('message')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('Cannot set readonly field: id')
     }
   )
@@ -588,7 +608,9 @@ test.describe('Batch create records', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
       expect(data).toHaveProperty('details')
 
       // Verify no records created due to rollback
@@ -635,7 +657,9 @@ test.describe('Batch create records', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
       expect(data).toHaveProperty('message')
       expect(data.error).toBe('PayloadTooLarge')
       expect(data.message).toBe('Batch size exceeds maximum of 1000 records')
@@ -732,7 +756,9 @@ test.describe('Batch create records', () => {
 
         expect(response.status()).toBe(400)
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
         expect(data).toHaveProperty('details')
 
         // Verify no records created due to transaction rollback
@@ -751,7 +777,9 @@ test.describe('Batch create records', () => {
 
         expect(response.status()).toBe(401)
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
         expect(data).toHaveProperty('message')
       })
 
@@ -769,9 +797,13 @@ test.describe('Batch create records', () => {
 
         expect(response.status()).toBe(403)
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
         expect(data).toHaveProperty('message')
-        expect(data.error).toBe('Forbidden')
+        expect(data).toHaveProperty('code')
+        expect(data).toHaveProperty('message')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
         expect(data.message).toBe('You do not have permission to create records in this table')
       })
 
@@ -789,8 +821,12 @@ test.describe('Batch create records', () => {
 
         expect(response.status()).toBe(403)
         const data = await response.json()
-        expect(data).toHaveProperty('error')
-        expect(data.error).toBe('Forbidden')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
       })
 
       await test.step('API-TABLES-RECORDS-BATCH-POST-007: should return 403 when creating with protected field', async () => {
@@ -807,9 +843,13 @@ test.describe('Batch create records', () => {
 
         expect(response.status()).toBe(403)
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
         expect(data).toHaveProperty('message')
-        expect(data.error).toBe('Forbidden')
+        expect(data).toHaveProperty('code')
+        expect(data).toHaveProperty('message')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
         expect(data.message).toBe('You do not have permission to write to field: salary')
       })
 
@@ -824,9 +864,13 @@ test.describe('Batch create records', () => {
 
         expect(response.status()).toBe(403)
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
         expect(data).toHaveProperty('message')
-        expect(data.error).toBe('Forbidden')
+        expect(data).toHaveProperty('code')
+        expect(data).toHaveProperty('message')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
         expect(data.message).toBe('Cannot set readonly field: id')
       })
 
@@ -915,7 +959,9 @@ test.describe('Batch create records', () => {
 
         expect(response.status()).toBe(400)
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
         expect(data).toHaveProperty('details')
 
         // Verify no records created due to rollback
@@ -935,7 +981,9 @@ test.describe('Batch create records', () => {
 
         expect(response.status()).toBe(413)
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
         expect(data).toHaveProperty('message')
         expect(data.error).toBe('PayloadTooLarge')
         expect(data.message).toBe('Batch size exceeds maximum of 1000 records')

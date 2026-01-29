@@ -20,14 +20,6 @@ export interface EmailVerificationData {
   readonly expiresIn?: string
 }
 
-export interface OrganizationInviteData {
-  readonly inviterName?: string
-  readonly organizationName: string
-  readonly inviteUrl: string
-  readonly role?: string
-  readonly expiresIn?: string
-}
-
 /**
  * Email CSS styles
  */
@@ -246,72 +238,6 @@ If you didn't create a Sovrium account, you can safely ignore this email.
 
   return {
     subject: 'Verify your Sovrium email address',
-    html: emailLayout(content),
-    text,
-  }
-}
-
-/**
- * Organization invitation email template
- *
- * Used when inviting users to join an organization.
- *
- * @example
- * ```typescript
- * const { subject, html, text } = organizationInviteEmail({
- *   inviterName: 'Jane',
- *   organizationName: 'Acme Corp',
- *   inviteUrl: 'https://app.sovrium.com/invite?token=...',
- *   role: 'member',
- *   expiresIn: '7 days',
- * })
- * ```
- */
-export function organizationInviteEmail(data: OrganizationInviteData): {
-  readonly subject: string
-  readonly html: string
-  readonly text: string
-} {
-  const inviter = data.inviterName ? `${data.inviterName} has` : 'You have been'
-  const role = data.role ? ` as a ${data.role}` : ''
-  const expiry = data.expiresIn ?? '7 days'
-
-  const content = `
-    <div class="content">
-      <p>Hi,</p>
-      <p>${inviter} invited you to join <strong>${data.organizationName}</strong>${role} on Sovrium.</p>
-      <p>Click the button below to accept the invitation:</p>
-      <p style="text-align: center;">
-        <a href="${data.inviteUrl}" class="button">Accept Invitation</a>
-      </p>
-      <p class="link-fallback">
-        If the button doesn't work, copy and paste this link into your browser:<br>
-        ${data.inviteUrl}
-      </p>
-      <div class="warning">
-        This invitation will expire in ${expiry}. If you don't want to join this organization, you can safely ignore this email.
-      </div>
-    </div>
-  `
-
-  const text = `
-Hi,
-
-${inviter} invited you to join ${data.organizationName}${role} on Sovrium.
-
-Accept the invitation by visiting this link:
-${data.inviteUrl}
-
-This invitation will expire in ${expiry}.
-
-If you don't want to join this organization, you can safely ignore this email.
-
----
-© ${new Date().getFullYear()} ESSENTIAL SERVICES. All rights reserved.
-`.trim()
-
-  return {
-    subject: `You've been invited to join ${data.organizationName} on Sovrium`,
     html: emailLayout(content),
     text,
   }

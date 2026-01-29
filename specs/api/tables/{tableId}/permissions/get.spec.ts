@@ -187,7 +187,9 @@ test.describe('Check table permissions', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
       expect(data).toHaveProperty('message')
     }
   )
@@ -226,8 +228,12 @@ test.describe('Check table permissions', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toBe('Table not found')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Resource not found')
+      expect(data.code).toBe('NOT_FOUND')
     }
   )
 
@@ -476,7 +482,9 @@ test.describe('Check table permissions', () => {
         expect(response.status()).toBe(401)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
         expect(data).toHaveProperty('message')
       })
 
@@ -493,8 +501,12 @@ test.describe('Check table permissions', () => {
         expect(response.status()).toBe(404)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
-        expect(data.error).toBe('Table not found')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Resource not found')
+        expect(data.code).toBe('NOT_FOUND')
       })
 
       await test.step('API-TABLES-PERMISSIONS-CHECK-005: Shows sensitive fields as blocked for member', async () => {

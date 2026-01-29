@@ -11,6 +11,7 @@ import {
   ListActivityLogs,
   ListActivityLogsLayer,
 } from '@/application/use-cases/list-activity-logs'
+import { sanitizeError, getStatusCode } from '@/presentation/api/utils/error-sanitizer'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { Hono } from 'hono'
 
@@ -68,17 +69,18 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
 
     if (result._tag === 'Left') {
       const error = result.left
-      if (error._tag === 'ForbiddenError') {
-        return c.json({ error: 'Forbidden', message: error.message }, 403)
-      }
-      // Log error for debugging
-      console.error('[Activity API Error]:', error)
+      const requestId = crypto.randomUUID()
+
+      // Sanitize error to prevent information disclosure
+      const sanitized = sanitizeError(error, requestId)
+      const statusCode = getStatusCode(sanitized.code)
+
       return c.json(
         {
-          error: 'Internal server error',
-          message: 'cause' in error ? String(error.cause) : 'Unknown error',
+          error: sanitized.error,
+          message: sanitized.message,
         },
-        500
+        statusCode
       )
     }
 

@@ -117,8 +117,12 @@ test.describe('Get table by ID', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toBe('Table not found')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Resource not found')
+      expect(data.code).toBe('NOT_FOUND')
     }
   )
 
@@ -147,7 +151,9 @@ test.describe('Get table by ID', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
       expect(data).toHaveProperty('message')
     }
   )
@@ -189,8 +195,12 @@ test.describe('Get table by ID', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
-      expect(data.error).toBe('Forbidden')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to access this table')
     }
   )
@@ -272,8 +282,12 @@ test.describe('Get table by ID', () => {
         expect(response.status()).toBe(404)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
-        expect(data.error).toBe('Table not found')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Resource not found')
+        expect(data.code).toBe('NOT_FOUND')
       })
 
       // NOTE: Step 003 (401 Unauthorized for unauthenticated request) is tested in @spec test
@@ -287,8 +301,12 @@ test.describe('Get table by ID', () => {
         expect(response.status()).toBe(403)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
-        expect(data.error).toBe('Forbidden')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
       })
     }
   )

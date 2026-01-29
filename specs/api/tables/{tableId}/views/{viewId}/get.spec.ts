@@ -64,9 +64,13 @@ test.describe('Get view details', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('code')
-      expect(data.error).toBe('View not found')
+      expect(data).toHaveProperty('code')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Resource not found')
+      expect(data.code).toBe('NOT_FOUND')
       expect(data.code).toBe('VIEW_NOT_FOUND')
     }
   )
@@ -86,9 +90,13 @@ test.describe('Get view details', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('code')
-      expect(data.error).toBe('Table not found')
+      expect(data).toHaveProperty('code')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Resource not found')
+      expect(data.code).toBe('NOT_FOUND')
       expect(data.code).toBe('TABLE_NOT_FOUND')
     }
   )
@@ -159,9 +167,13 @@ test.describe('Get view details', () => {
         expect(response.status()).toBe(404)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
         expect(data).toHaveProperty('code')
-        expect(data.error).toBe('Table not found')
+        expect(data).toHaveProperty('code')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Resource not found')
+        expect(data.code).toBe('NOT_FOUND')
         expect(data.code).toBe('TABLE_NOT_FOUND')
       })
 
@@ -173,9 +185,13 @@ test.describe('Get view details', () => {
         expect(response.status()).toBe(404)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
         expect(data).toHaveProperty('code')
-        expect(data.error).toBe('View not found')
+        expect(data).toHaveProperty('code')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Resource not found')
+        expect(data.code).toBe('NOT_FOUND')
         expect(data.code).toBe('VIEW_NOT_FOUND')
       })
 

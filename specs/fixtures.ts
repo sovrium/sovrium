@@ -518,6 +518,7 @@ export const test = base.extend<ServerFixtures>({
           DATABASE_URL: databaseUrl,
           ...smtpEnv,
           AUTH_SECRET: 'test-secret-for-e2e-testing-32chars',
+          RATE_LIMIT_WINDOW_SECONDS: '5', // Fast rate limit windows for tests (5s instead of 60s production default)
         },
         stdio: 'pipe',
       })

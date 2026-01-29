@@ -89,7 +89,9 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       expect(response.status()).toBe(401)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
     }
   )
 
@@ -112,7 +114,9 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
     }
   )
 
@@ -220,7 +224,9 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       expect(response.status()).toBe(400)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
     }
   )
 
@@ -287,7 +293,9 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
         expect(response.status()).toBe(401)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
       })
 
       // Setup: Create authenticated user and activity log
@@ -348,7 +356,9 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
         expect(response.status()).toBe(404)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
       })
 
       await test.step('API-ACTIVITY-DETAILS-006: Returns 400 when activityId is invalid format', async () => {
@@ -359,7 +369,9 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
         expect(response.status()).toBe(400)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
       })
     }
   )

@@ -25,7 +25,7 @@ import type { Auth } from '@/domain/models/app/auth'
  * - {PROVIDER}_CLIENT_ID (e.g., GOOGLE_CLIENT_ID)
  * - {PROVIDER}_CLIENT_SECRET (e.g., GOOGLE_CLIENT_SECRET)
  */
-const buildSocialProviders = (authConfig?: Auth) => {
+export const buildSocialProviders = (authConfig?: Auth) => {
   if (!authConfig?.oauth?.providers) return {}
 
   return authConfig.oauth.providers.reduce(
@@ -69,7 +69,7 @@ const drizzleSchema = {
  * Conditionally includes plugins when enabled in auth configuration.
  * If a plugin is not enabled, its endpoints will not be available (404).
  */
-const buildAuthPlugins = (
+export const buildAuthPlugins = (
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>,
   authConfig?: Auth
 ) => [
@@ -90,7 +90,7 @@ const buildAuthPlugins = (
  * This configuration keeps Better Auth's rate limiting disabled to avoid conflicts with the
  * custom middleware implementation.
  */
-function buildRateLimitConfig() {
+export function buildRateLimitConfig() {
   return {
     enabled: false, // Disabled in favor of custom Hono middleware
     window: 60,
@@ -101,7 +101,7 @@ function buildRateLimitConfig() {
 /**
  * Build email and password configuration from auth config
  */
-function buildEmailAndPasswordConfig(
+export function buildEmailAndPasswordConfig(
   authConfig: Auth | undefined,
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>
 ) {
@@ -126,7 +126,7 @@ function buildEmailAndPasswordConfig(
  * Validates password length for admin createUser endpoint (Better Auth Issue #4651 workaround).
  * The admin plugin doesn't respect emailAndPassword validation settings.
  */
-function buildAuthHooks() {
+export function buildAuthHooks() {
   return {
     before: createAuthMiddleware(async (ctx) => {
       if (ctx.path === '/admin/create-user') {

@@ -1,0 +1,480 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { test, expect } from '@/specs/fixtures'
+
+/**
+ * E2E Tests for Variable Reference
+ *
+ * Source: src/domain/models/app/page/common.ts
+ * Spec Count: 8
+ *
+ * Test Organization:
+ * 1. @spec tests - One per spec in schema (8 tests) - Exhaustive acceptance criteria
+ * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ */
+
+test.describe('Variable Reference', () => {
+  // ============================================================================
+  // SPECIFICATION TESTS (@spec)
+  // One test per spec in schema - defines EXHAUSTIVE acceptance criteria
+  // ============================================================================
+
+  test(
+    'APP-PAGES-VARREF-001: should validate variable syntax',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: a simple variable reference
+      await startServerWithSchema({
+        name: 'test-app',
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            vars: {
+              color: 'blue',
+            },
+            sections: [
+              {
+                type: 'text',
+                props: { 'data-testid': 'text' },
+                content: '$color',
+              },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: value is '$color'
+      await page.goto('/')
+
+      // THEN: it should validate and replace variable syntax
+      await expect(page.locator('[data-testid="text"]')).toHaveText('blue')
+    }
+  )
+
+  test(
+    'APP-PAGES-VARREF-002: should accept camelCase variable names',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: a variable reference with camelCase name
+      await startServerWithSchema({
+        name: 'test-app',
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            vars: {
+              primaryText: 'Welcome to our site',
+            },
+            sections: [
+              {
+                type: 'text',
+                props: { 'data-testid': 'text' },
+                content: '$primaryText',
+              },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: value is '$primaryText'
+      await page.goto('/')
+
+      // THEN: it should accept camelCase variable names
+      await expect(page.locator('[data-testid="text"]')).toHaveText('Welcome to our site')
+    }
+  )
+
+  test(
+    'APP-PAGES-VARREF-003: should accept variable at start of string',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: a string with variable at the start
+      await startServerWithSchema({
+        name: 'test-app',
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            vars: {
+              siteName: 'Sovrium',
+            },
+            sections: [
+              {
+                type: 'text',
+                props: { 'data-testid': 'text' },
+                content: '$siteName is the best',
+              },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: value is '$siteName is the best'
+      await page.goto('/')
+
+      // THEN: it should accept variable at start of string
+      await expect(page.locator('[data-testid="text"]')).toHaveText('Sovrium is the best')
+    }
+  )
+
+  test(
+    'APP-PAGES-VARREF-004: should accept variable in middle of string',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: a string with variable in the middle
+      await startServerWithSchema({
+        name: 'test-app',
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            vars: {
+              siteName: 'Sovrium',
+            },
+            sections: [
+              {
+                type: 'text',
+                props: { 'data-testid': 'text' },
+                content: 'Welcome to $siteName today',
+              },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: value is 'Welcome to $siteName today'
+      await page.goto('/')
+
+      // THEN: it should accept variable in middle of string
+      await expect(page.locator('[data-testid="text"]')).toHaveText('Welcome to Sovrium today')
+    }
+  )
+
+  test(
+    'APP-PAGES-VARREF-005: should accept variable at end of string',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: a string with variable at the end
+      await startServerWithSchema({
+        name: 'test-app',
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            vars: {
+              primaryColor: 'blue',
+            },
+            sections: [
+              {
+                type: 'text',
+                props: { 'data-testid': 'text' },
+                content: 'The color is $primaryColor',
+              },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: value is 'The color is $primaryColor'
+      await page.goto('/')
+
+      // THEN: it should accept variable at end of string
+      await expect(page.locator('[data-testid="text"]')).toHaveText('The color is blue')
+    }
+  )
+
+  test(
+    'APP-PAGES-VARREF-006: should accept multiple $variable references',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: a string with multiple variables
+      await startServerWithSchema({
+        name: 'test-app',
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            vars: {
+              productName: 'Pro Plan',
+              price: '$29.99',
+            },
+            sections: [
+              {
+                type: 'text',
+                props: { 'data-testid': 'text' },
+                content: 'The $productName costs $price',
+              },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: value is 'The $productName costs $price'
+      await page.goto('/')
+
+      // THEN: it should accept multiple $variable references
+      await expect(page.locator('[data-testid="text"]')).toHaveText('The Pro Plan costs $29.99')
+    }
+  )
+
+  test(
+    'APP-PAGES-VARREF-007: should accept alphanumeric variable names',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: a variable reference with numbers in name
+      await startServerWithSchema({
+        name: 'test-app',
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            vars: {
+              color1: 'red',
+              size2x: 'large',
+            },
+            sections: [
+              {
+                type: 'text',
+                props: { 'data-testid': 'text' },
+                content: 'Color: $color1, Size: $size2x',
+              },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: value is '$color1' or '$size2x'
+      await page.goto('/')
+
+      // THEN: it should accept alphanumeric variable names
+      await expect(page.locator('[data-testid="text"]')).toHaveText('Color: red, Size: large')
+    }
+  )
+
+  test(
+    'APP-PAGES-VARREF-008: should support variable composition patterns',
+    { tag: '@spec' },
+    async ({ page, startServerWithSchema }) => {
+      // GIVEN: complex variable combination
+      await startServerWithSchema({
+        name: 'test-app',
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            vars: {
+              icon: 'fa-home',
+              size: 'lg',
+            },
+            sections: [
+              {
+                type: 'icon',
+                props: {
+                  className: '$icon-$size',
+                },
+              },
+            ],
+          },
+        ],
+      })
+
+      // WHEN: value is '$icon-$size' for dynamic icon sizing
+      await page.goto('/')
+
+      // THEN: it should support variable composition patterns
+      await expect(page.locator('[data-testid="icon"]')).toHaveClass(/fa-home-lg/)
+    }
+  )
+
+  // ============================================================================
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test covering all 8 @spec scenarios via multi-server steps
+  // ============================================================================
+
+  test(
+    'APP-PAGES-VARREF-REGRESSION: user can complete full variable-reference workflow',
+    { tag: '@regression' },
+    async ({ page, startServerWithSchema }) => {
+      await test.step('APP-PAGES-VARREF-001: Validate variable syntax', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              vars: { color: 'blue' },
+              sections: [
+                {
+                  type: 'text',
+                  props: { 'data-testid': 'text' },
+                  content: '$color',
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="text"]')).toHaveText('blue')
+      })
+
+      await test.step('APP-PAGES-VARREF-002: Accept camelCase variable names', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              vars: { primaryText: 'Welcome to our site' },
+              sections: [
+                {
+                  type: 'text',
+                  props: { 'data-testid': 'text' },
+                  content: '$primaryText',
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="text"]')).toHaveText('Welcome to our site')
+      })
+
+      await test.step('APP-PAGES-VARREF-003: Accept variable at start of string', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              vars: { siteName: 'Sovrium' },
+              sections: [
+                {
+                  type: 'text',
+                  props: { 'data-testid': 'text' },
+                  content: '$siteName is the best',
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="text"]')).toHaveText('Sovrium is the best')
+      })
+
+      await test.step('APP-PAGES-VARREF-004: Accept variable in middle of string', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              vars: { siteName: 'Sovrium' },
+              sections: [
+                {
+                  type: 'text',
+                  props: { 'data-testid': 'text' },
+                  content: 'Welcome to $siteName today',
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="text"]')).toHaveText('Welcome to Sovrium today')
+      })
+
+      await test.step('APP-PAGES-VARREF-005: Accept variable at end of string', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              vars: { primaryColor: 'blue' },
+              sections: [
+                {
+                  type: 'text',
+                  props: { 'data-testid': 'text' },
+                  content: 'The color is $primaryColor',
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="text"]')).toHaveText('The color is blue')
+      })
+
+      await test.step('APP-PAGES-VARREF-006: Accept multiple $variable references', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              vars: { productName: 'Pro Plan', price: '$29.99' },
+              sections: [
+                {
+                  type: 'text',
+                  props: { 'data-testid': 'text' },
+                  content: 'The $productName costs $price',
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="text"]')).toHaveText('The Pro Plan costs $29.99')
+      })
+
+      await test.step('APP-PAGES-VARREF-007: Accept alphanumeric variable names', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              vars: { color1: 'red', size2x: 'large' },
+              sections: [
+                {
+                  type: 'text',
+                  props: { 'data-testid': 'text' },
+                  content: 'Color: $color1, Size: $size2x',
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="text"]')).toHaveText('Color: red, Size: large')
+      })
+
+      await test.step('APP-PAGES-VARREF-008: Support variable composition patterns', async () => {
+        await startServerWithSchema({
+          name: 'test-app',
+          pages: [
+            {
+              name: 'home',
+              path: '/',
+              vars: { icon: 'fa-home', size: 'lg' },
+              sections: [
+                {
+                  type: 'icon',
+                  props: { className: '$icon-$size' },
+                },
+              ],
+            },
+          ],
+        })
+        await page.goto('/')
+        await expect(page.locator('[data-testid="icon"]')).toHaveClass(/fa-home-lg/)
+      })
+    }
+  )
+})

@@ -17,6 +17,7 @@ import {
   getTableResponseSchema,
   getTablePermissionsResponseSchema,
 } from '@/presentation/api/schemas/tables-schemas'
+import { runEffect } from '@/presentation/api/utils/run-effect'
 import { getSessionContext, getTableContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -31,30 +32,12 @@ async function handleListTables(c: Context, app: App) {
   // Fetch userRole manually since enrichUserRole middleware doesn't run on /api/tables
   const userRole = await getUserRole(session.userId)
 
-  try {
-    const program = createListTablesProgram(userRole, app)
-    const result = await Effect.runPromise(program)
-    const validated = z.array(z.unknown()).parse(result)
-    return c.json(validated, 200)
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    if (errorMessage === 'FORBIDDEN_LIST_TABLES') {
-      return c.json(
-        {
-          error: 'Forbidden',
-          message: 'You do not have permission to list tables',
-        },
-        403
-      )
-    }
-    return c.json(
-      {
-        error: 'Internal server error',
-        message: errorMessage,
-      },
-      500
-    )
-  }
+  const program = Effect.gen(function* () {
+    const result = yield* createListTablesProgram(userRole, app)
+    return z.array(z.unknown()).parse(result)
+  })
+
+  return runEffect(c, program)
 }
 
 // Handler for GET /api/tables/:tableId
@@ -62,34 +45,14 @@ async function handleGetTable(c: Context, app: App) {
   // Session, tableId, and userRole are guaranteed by middleware chain
   const { tableId, userRole } = getTableContext(c)
 
-  try {
-    const program = createGetTableProgram(tableId, app, userRole)
-    const result = await Effect.runPromise(program)
+  const program = Effect.gen(function* () {
+    const result = yield* createGetTableProgram(tableId, app, userRole)
     const validated = getTableResponseSchema.parse(result)
     // Return the table object directly (unwrapped) to match test expectations
-    return c.json(validated.table, 200)
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    if (errorMessage === 'TABLE_NOT_FOUND') {
-      return c.json({ error: 'Table not found' }, 404)
-    }
-    if (errorMessage === 'FORBIDDEN') {
-      return c.json(
-        {
-          error: 'Forbidden',
-          message: 'You do not have permission to access this table',
-        },
-        403
-      )
-    }
-    return c.json(
-      {
-        error: 'Internal server error',
-        message: errorMessage,
-      },
-      500
-    )
-  }
+    return validated.table
+  })
+
+  return runEffect(c, program)
 }
 
 // Handler for GET /api/tables/:tableId/permissions
@@ -97,24 +60,12 @@ async function handleGetPermissions(c: Context, app: App) {
   // Session, tableId, and userRole are guaranteed by middleware chain
   const { tableId, userRole } = getTableContext(c)
 
-  try {
-    const program = createGetPermissionsProgram(tableId, app, userRole)
-    const result = await Effect.runPromise(program)
-    const validated = getTablePermissionsResponseSchema.parse(result)
-    return c.json(validated, 200)
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    if (errorMessage === 'TABLE_NOT_FOUND') {
-      return c.json({ error: 'Table not found' }, 404)
-    }
-    return c.json(
-      {
-        error: 'Internal server error',
-        message: errorMessage,
-      },
-      500
-    )
-  }
+  const program = Effect.gen(function* () {
+    const result = yield* createGetPermissionsProgram(tableId, app, userRole)
+    return getTablePermissionsResponseSchema.parse(result)
+  })
+
+  return runEffect(c, program)
 }
 
 export function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {

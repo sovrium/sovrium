@@ -101,7 +101,9 @@ test.describe('Get single comment by ID', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data.error).toBe('Comment not found')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Resource not found')
+      expect(data.code).toBe('NOT_FOUND')
     }
   )
 
@@ -174,7 +176,9 @@ test.describe('Get single comment by ID', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data.error).toBe('Comment not found')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Resource not found')
+      expect(data.code).toBe('NOT_FOUND')
     }
   )
 
@@ -210,7 +214,9 @@ test.describe('Get single comment by ID', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data.error).toBe('Comment not found')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Resource not found')
+      expect(data.code).toBe('NOT_FOUND')
     }
   )
 
@@ -246,7 +252,9 @@ test.describe('Get single comment by ID', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
     }
   )
 
@@ -357,7 +365,9 @@ test.describe('Get single comment by ID', () => {
         expect(response.status()).toBe(404)
 
         const data = await response.json()
-        expect(data.error).toBe('Comment not found')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Resource not found')
+        expect(data.code).toBe('NOT_FOUND')
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-003: Returns 401 for unauthenticated request', async () => {
@@ -390,7 +400,9 @@ test.describe('Get single comment by ID', () => {
         expect(response.status()).toBe(404)
 
         const data = await response.json()
-        expect(data.error).toBe('Comment not found')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Resource not found')
+        expect(data.code).toBe('NOT_FOUND')
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-005: Returns 404 for soft-deleted comment', async () => {
@@ -407,7 +419,9 @@ test.describe('Get single comment by ID', () => {
         expect(response.status()).toBe(404)
 
         const data = await response.json()
-        expect(data.error).toBe('Comment not found')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Resource not found')
+        expect(data.code).toBe('NOT_FOUND')
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-006: Returns 403 for unauthorized access', async () => {
@@ -424,7 +438,9 @@ test.describe('Get single comment by ID', () => {
         expect(response.status()).toBe(403)
 
         const data = await response.json()
-        expect(data.error).toBe('Forbidden')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-007: Shows updated timestamp for edited comments', async () => {

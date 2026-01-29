@@ -201,7 +201,7 @@ await sendEmail({
 
 ## Available Email Templates
 
-Three templates are provided in `src/infrastructure/email/templates.ts`:
+Two templates are provided in `src/infrastructure/email/templates.ts`:
 
 ### 1. Password Reset Email
 
@@ -220,18 +220,6 @@ emailVerificationEmail({
   userName: 'John', // Optional
   verifyUrl: 'https://...', // Required
   expiresIn: '24 hours', // Optional (default: '24 hours')
-})
-```
-
-### 3. Organization Invite
-
-```typescript
-organizationInviteEmail({
-  inviterName: 'Jane', // Optional
-  organizationName: 'Acme Corp', // Required
-  inviteUrl: 'https://...', // Required
-  role: 'member', // Optional
-  expiresIn: '7 days', // Optional (default: '7 days')
 })
 ```
 

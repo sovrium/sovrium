@@ -344,7 +344,9 @@ test.describe('API Field Permission Enforcement', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toContain('Cannot filter by field')
     }
   )

@@ -198,7 +198,9 @@ test.describe('Upsert records (create or update)', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
       expect(data).toHaveProperty('details')
 
       // Verify no records created due to transaction rollback
@@ -248,7 +250,9 @@ test.describe('Upsert records (create or update)', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
       expect(data).toHaveProperty('message')
 
       // Verify no records created or updated in database
@@ -298,7 +302,9 @@ test.describe('Upsert records (create or update)', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to create records in this table')
     }
   )
@@ -345,7 +351,9 @@ test.describe('Upsert records (create or update)', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to update records in this table')
     }
   )
@@ -385,7 +393,9 @@ test.describe('Upsert records (create or update)', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
     }
   )
 
@@ -428,7 +438,9 @@ test.describe('Upsert records (create or update)', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to write to field: salary')
     }
   )
@@ -476,7 +488,9 @@ test.describe('Upsert records (create or update)', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to write to field: salary')
     }
   )
@@ -520,7 +534,9 @@ test.describe('Upsert records (create or update)', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('Cannot set readonly field: id')
     }
   )
@@ -782,7 +798,9 @@ test.describe('Upsert records (create or update)', () => {
         })
         expect(response.status()).toBe(400)
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
         expect(data).toHaveProperty('details')
         // Verify rollback - no records created
         const countAfter = await executeQuery(`SELECT COUNT(*) as count FROM employees`)
@@ -799,7 +817,9 @@ test.describe('Upsert records (create or update)', () => {
         })
         expect(response.status()).toBe(401)
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
         expect(data).toHaveProperty('message')
       })
 
@@ -813,7 +833,9 @@ test.describe('Upsert records (create or update)', () => {
         })
         expect(response.status()).toBe(403)
         const data = await response.json()
-        expect(data.error).toBe('Forbidden')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
         expect(data.message).toBe('You do not have permission to create records in this table')
       })
 
@@ -827,7 +849,9 @@ test.describe('Upsert records (create or update)', () => {
         })
         expect(response.status()).toBe(403)
         const data = await response.json()
-        expect(data.error).toBe('Forbidden')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
         expect(data.message).toBe('You do not have permission to update records in this table')
       })
 
@@ -841,7 +865,9 @@ test.describe('Upsert records (create or update)', () => {
         })
         expect(response.status()).toBe(403)
         const data = await response.json()
-        expect(data.error).toBe('Forbidden')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
       })
 
       await test.step('API-TABLES-RECORDS-UPSERT-008: Returns 403 when creating record with protected field', async () => {
@@ -854,7 +880,9 @@ test.describe('Upsert records (create or update)', () => {
         })
         expect(response.status()).toBe(403)
         const data = await response.json()
-        expect(data.error).toBe('Forbidden')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
         expect(data.message).toBe('You do not have permission to write to field: salary')
       })
 
@@ -868,7 +896,9 @@ test.describe('Upsert records (create or update)', () => {
         })
         expect(response.status()).toBe(403)
         const data = await response.json()
-        expect(data.error).toBe('Forbidden')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
         expect(data.message).toBe('You do not have permission to write to field: salary')
       })
 
@@ -882,7 +912,9 @@ test.describe('Upsert records (create or update)', () => {
         })
         expect(response.status()).toBe(403)
         const data = await response.json()
-        expect(data.error).toBe('Forbidden')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
         expect(data.message).toBe('Cannot set readonly field: id')
       })
 

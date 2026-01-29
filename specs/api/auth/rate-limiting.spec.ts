@@ -68,7 +68,9 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       expect(response.status()).toBe(429)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
       expect(data.message).toContain('Too many requests')
     }
   )
@@ -148,7 +150,9 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       expect(response.status()).toBe(429)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
       expect(data.message).toContain('Too many requests')
     }
   )
@@ -189,7 +193,9 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       expect(response.status()).toBe(429)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
       expect(data.message).toContain('Too many requests')
     }
   )
@@ -314,7 +320,9 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         expect(response.status()).toBe(429)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
         expect(data.message).toContain('Too many requests')
       })
 
@@ -354,7 +362,9 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
         expect(response.status()).toBe(429)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
         expect(data.message).toContain('Too many requests')
       })
     }

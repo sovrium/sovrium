@@ -313,6 +313,7 @@ export async function startCliServer(
       ...(databaseUrl && { DATABASE_URL: databaseUrl }),
       ...smtpEnv, // Configure SMTP to use Mailpit
       AUTH_SECRET: 'test-secret-for-e2e-testing-32chars', // Required for auth token signing (min 32 chars)
+      RATE_LIMIT_WINDOW_SECONDS: '5', // Fast rate limit windows for tests (5s instead of 60s production default)
       ...(adminBootstrap && {
         ...(adminBootstrap.email && { AUTH_ADMIN_EMAIL: adminBootstrap.email }),
         ...(adminBootstrap.password && { AUTH_ADMIN_PASSWORD: adminBootstrap.password }),

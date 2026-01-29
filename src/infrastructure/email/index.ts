@@ -102,8 +102,6 @@ export { getEmailConfigFromEffect } from './email-config'
 export {
   passwordResetEmail,
   emailVerificationEmail,
-  organizationInviteEmail,
   type PasswordResetEmailData,
   type EmailVerificationData,
-  type OrganizationInviteData,
 } from './templates'

@@ -50,7 +50,10 @@ export function validateRequiredFields(
     .map((field) => field.name)
 
   if (missingRequiredFields.length > 0) {
-    return c.json({ error: 'Validation error' }, 400)
+    return c.json(
+      { success: false, message: 'Missing required fields', code: 'VALIDATION_ERROR' },
+      400
+    )
   }
 
   return undefined
@@ -63,8 +66,9 @@ export function checkReadonlyIdField(requestedFields: Record<string, unknown>, c
   if ('id' in requestedFields) {
     return c.json(
       {
-        error: 'Forbidden',
+        success: false,
         message: "Cannot write to readonly field 'id'",
+        code: 'FORBIDDEN',
       },
       403
     )
@@ -94,8 +98,9 @@ export function checkDefaultFields(
   if (attemptedDefaultField) {
     return c.json(
       {
-        error: 'Forbidden',
+        success: false,
         message: `Cannot write to readonly field '${attemptedDefaultField.name}'`,
+        code: 'FORBIDDEN',
       },
       403
     )
@@ -111,8 +116,9 @@ export function checkFieldWritePermissions(forbiddenFields: readonly string[], c
     const firstForbiddenField = forbiddenFields[0]
     return c.json(
       {
-        error: 'Forbidden',
+        success: false,
         message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
+        code: 'FORBIDDEN',
         field: firstForbiddenField,
       },
       403

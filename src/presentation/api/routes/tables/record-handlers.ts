@@ -32,11 +32,10 @@ import {
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import {
-  validateRequiredFields,
-  checkReadonlyIdField,
-  checkDefaultFields,
-  checkFieldWritePermissions,
-} from './create-record-helpers'
+  validateRecordCreation,
+  createValidationLayer,
+  formatValidationError,
+} from '@/presentation/api/validation'
 import { handleGetRecordError, handleRestoreRecordError } from './error-handlers'
 import { parseFilterParameter } from './filter-parser'
 import {
@@ -90,7 +89,9 @@ export async function handleListRecords(c: Context, app: App) {
   if (timezone && !isValidTimezone(timezone)) {
     return c.json(
       {
-        error: `Invalid timezone: ${timezone}`,
+        success: false,
+        message: `Invalid timezone: ${timezone}`,
+        code: 'VALIDATION_ERROR',
       },
       400
     )
@@ -131,59 +132,14 @@ function checkCreatePermission(table: unknown, userRole: string, c: Context) {
   if (!hasCreatePermission(table, userRole)) {
     return c.json(
       {
-        error: 'Forbidden',
+        success: false,
         message: 'You do not have permission to create records in this table',
+        code: 'FORBIDDEN',
       },
       403
     )
   }
   return undefined
-}
-
-/**
- * Validate field permissions and requirements for record creation
- * Returns error response if validation fails, undefined otherwise
- */
-function validateFieldsForCreate({
-  app,
-  table,
-  tableName,
-  userRole,
-  requestedFields,
-  c,
-}: {
-  app: App
-  table: unknown
-  tableName: string
-  userRole: string
-  requestedFields: Record<string, unknown>
-  c: Context
-}) {
-  // Check readonly 'id' field
-  const idError = checkReadonlyIdField(requestedFields, c)
-  if (idError) return idError
-
-  // Check fields with default values
-  const defaultFieldError = checkDefaultFields(table, requestedFields, c)
-  if (defaultFieldError) return defaultFieldError
-
-  // Check field-level write permissions
-  const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
-    app,
-    tableName,
-    userRole,
-    requestedFields
-  )
-
-  // Check for forbidden fields
-  const permissionError = checkFieldWritePermissions(forbiddenFields, c)
-  if (permissionError) return permissionError
-
-  // Validate required fields
-  const validationError = validateRequiredFields(table, allowedData, c)
-  if (validationError) return validationError
-
-  return { allowedData }
 }
 
 export async function handleCreateRecord(c: Context, app: App) {
@@ -199,19 +155,19 @@ export async function handleCreateRecord(c: Context, app: App) {
   const permissionError = checkCreatePermission(table, userRole, c)
   if (permissionError) return permissionError
 
-  // Validate fields
-  const validation = validateFieldsForCreate({
-    app,
-    table,
-    tableName,
-    userRole,
-    requestedFields: result.data.fields,
-    c,
-  })
-  if (!validation || 'status' in validation) return validation
+  // Validate fields using Effect-based validation
+  const validationLayer = createValidationLayer(app, tableName, userRole)
+  const program = validateRecordCreation(result.data.fields).pipe(Effect.provide(validationLayer))
+
+  const validationResult = await Effect.runPromise(program.pipe(Effect.either))
+
+  if (validationResult._tag === 'Left') {
+    return formatValidationError(validationResult.left, c)
+  }
+
   return await runEffect(
     c,
-    createRecordProgram({ session, tableName, fields: validation.allowedData, app, userRole }),
+    createRecordProgram({ session, tableName, fields: validationResult.right, app, userRole }),
     createRecordResponseSchema,
     201
   )
@@ -226,7 +182,9 @@ export async function handleGetRecord(c: Context, app: App) {
   if (!hasReadPermission(table, userRole)) {
     return c.json(
       {
-        error: 'Forbidden',
+        success: false,
+        message: 'You do not have permission to perform this action',
+        code: 'FORBIDDEN',
       },
       403
     )
@@ -295,7 +253,7 @@ async function executePermanentDelete(
   )
 
   if (!deleteResult) {
-    return c.json({ error: 'Record not found' }, 404)
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 
   // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
@@ -323,7 +281,7 @@ async function executeSoftDelete({
   )
 
   if (!deleteResult) {
-    return c.json({ error: 'Record not found' }, 404)
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 
   // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
@@ -338,8 +296,9 @@ export async function handleDeleteRecord(c: Context, app: App) {
   if (!hasDeletePermission(table, userRole)) {
     return c.json(
       {
-        error: 'Forbidden',
+        success: false,
         message: 'You do not have permission to delete records in this table',
+        code: 'FORBIDDEN',
       },
       403
     )
@@ -353,8 +312,9 @@ export async function handleDeleteRecord(c: Context, app: App) {
     if (userRole !== 'admin' && userRole !== 'owner') {
       return c.json(
         {
-          error: 'Forbidden',
+          success: false,
           message: 'Only admins and owners can permanently delete records',
+          code: 'FORBIDDEN',
         },
         403
       )
@@ -375,8 +335,9 @@ export async function handleRestoreRecord(c: Context, app: App) {
   if (!hasCreatePermission(table, userRole)) {
     return c.json(
       {
-        error: 'Forbidden',
+        success: false,
         message: 'You do not have permission to restore records in this table',
+        code: 'FORBIDDEN',
       },
       403
     )
@@ -390,7 +351,7 @@ export async function handleRestoreRecord(c: Context, app: App) {
     )
 
     if (!restoreResult.success) {
-      return c.json({ error: 'Record not found' }, 404)
+      return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
     }
 
     return c.json(restoreResult, 200)

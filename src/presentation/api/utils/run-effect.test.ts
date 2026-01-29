@@ -149,7 +149,7 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Operation failed | Cause: No cause details',
+        message: 'An unexpected error occurred. Please try again later.',
         code: 'INTERNAL_ERROR',
       })
     })
@@ -165,7 +165,7 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Unexpected failure | Cause: No cause details',
+        message: 'An unexpected error occurred. Please try again later.',
         code: 'INTERNAL_ERROR',
       })
     })
@@ -183,12 +183,12 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Sync error | Cause: No cause details',
+        message: 'An unexpected error occurred. Please try again later.',
         code: 'INTERNAL_ERROR',
       })
     })
 
-    test('includes error message in response', async () => {
+    test('includes sanitized error message in response', async () => {
       const c = createMockContext()
       const program = Effect.fail(new TestError('Database connection lost'))
       const schema = z.object({ data: z.string() })
@@ -198,7 +198,7 @@ describe('runEffect', () => {
       const responses = c.getJsonResponses()
       expect(responses[0]?.data).toHaveProperty(
         'message',
-        'Database connection lost | Cause: No cause details'
+        'An unexpected error occurred. Please try again later.'
       )
     })
   })
@@ -374,7 +374,7 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Schema validation failed | Cause: No cause details',
+        message: 'An unexpected error occurred. Please try again later.',
         code: 'INTERNAL_ERROR',
       })
     })
@@ -423,7 +423,7 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Promise rejected | Cause: No cause details',
+        message: 'An unexpected error occurred. Please try again later.',
         code: 'INTERNAL_ERROR',
       })
     })

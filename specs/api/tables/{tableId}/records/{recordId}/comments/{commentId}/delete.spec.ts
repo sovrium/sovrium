@@ -185,7 +185,9 @@ test.describe('Delete comment', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You can only delete your own comments or be an admin')
     }
   )
@@ -218,7 +220,9 @@ test.describe('Delete comment', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data.error).toBe('Comment not found')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Resource not found')
+      expect(data.code).toBe('NOT_FOUND')
     }
   )
 
@@ -259,7 +263,9 @@ test.describe('Delete comment', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data.error).toBe('Comment not found')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Resource not found')
+      expect(data.code).toBe('NOT_FOUND')
     }
   )
 
@@ -295,7 +301,9 @@ test.describe('Delete comment', () => {
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data.error).toBe('Comment not found')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('Resource not found')
+      expect(data.code).toBe('NOT_FOUND')
     }
   )
 
@@ -466,7 +474,9 @@ test.describe('Delete comment', () => {
         expect(response.status()).toBe(403)
 
         const data = await response.json()
-        expect(data.error).toBe('Forbidden')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('You do not have permission to perform this action')
+        expect(data.code).toBe('FORBIDDEN')
         expect(data.message).toBe('You can only delete your own comments or be an admin')
       })
 
@@ -475,7 +485,9 @@ test.describe('Delete comment', () => {
         expect(response.status()).toBe(404)
 
         const data = await response.json()
-        expect(data.error).toBe('Comment not found')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Resource not found')
+        expect(data.code).toBe('NOT_FOUND')
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-006: User attempts to delete comment on record owned by different user and returns 404 Not Found', async () => {
@@ -490,7 +502,9 @@ test.describe('Delete comment', () => {
         expect(response.status()).toBe(404)
 
         const data = await response.json()
-        expect(data.error).toBe('Comment not found')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Resource not found')
+        expect(data.code).toBe('NOT_FOUND')
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-007: User attempts to delete already-deleted comment and returns 404 Not Found', async () => {
@@ -505,7 +519,9 @@ test.describe('Delete comment', () => {
         expect(response.status()).toBe(404)
 
         const data = await response.json()
-        expect(data.error).toBe('Comment not found')
+        expect(data.success).toBe(false)
+        expect(data.message).toBe('Resource not found')
+        expect(data.code).toBe('NOT_FOUND')
       })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-008: Comment is soft-deleted by default', async () => {

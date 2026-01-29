@@ -104,7 +104,9 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       expect(response.status()).toBe(401)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
     }
   )
 
@@ -127,7 +129,9 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
     }
   )
 
@@ -161,7 +165,9 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       expect(response.status()).toBe(404)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
     }
   )
 
@@ -448,7 +454,9 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
         // THEN: Returns 401 Unauthorized
         expect(response.status()).toBe(401)
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
       })
 
       // Setup: Create users and record with history
@@ -516,7 +524,9 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
         // THEN: Returns 404 Not Found
         expect(response.status()).toBe(404)
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
       })
     }
   )

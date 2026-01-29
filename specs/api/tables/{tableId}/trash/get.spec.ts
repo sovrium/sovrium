@@ -151,7 +151,9 @@ test.describe('GET /trash endpoint', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
-      expect(data.error).toBe('Forbidden')
+      expect(data.success).toBe(false)
+      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.code).toBe('FORBIDDEN')
     }
   )
 

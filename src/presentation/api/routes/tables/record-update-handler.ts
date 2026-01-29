@@ -35,8 +35,9 @@ export function checkTableUpdatePermissionWithRole(
         allowed: false,
         response: c.json(
           {
-            error: 'Forbidden',
+            success: false,
             message: 'You do not have permission to update records in this table',
+            code: 'FORBIDDEN',
           },
           403
         ),
@@ -91,8 +92,9 @@ export async function handleNoAllowedFields(config: {
   if (attemptedForbiddenFields.length > 0) {
     return c.json(
       {
-        error: 'Forbidden',
+        success: false,
         message: `You do not have permission to modify any of the specified fields: ${attemptedForbiddenFields.join(', ')}`,
+        code: 'FORBIDDEN',
       },
       403
     )
@@ -103,7 +105,7 @@ export async function handleNoAllowedFields(config: {
     const record = await Effect.runPromise(rawGetRecordProgram(session, tableName, recordId))
 
     if (!record) {
-      return c.json({ error: 'Record not found' }, 404)
+      return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
     }
 
     return c.json({ record: transformRecord(record) }, 200)
@@ -130,7 +132,7 @@ export async function executeUpdate(config: {
 
     // Check if update affected any rows (RLS may have blocked it)
     if (!updateResult.record || Object.keys(updateResult.record).length === 0) {
-      return c.json({ error: 'Record not found' }, 404)
+      return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
     }
 
     return c.json(updateResult, 200)
@@ -163,15 +165,16 @@ async function handleUpdateError(config: {
     if (readResult !== null) {
       return c.json(
         {
-          error: 'Forbidden',
+          success: false,
           message: 'You do not have permission to update this record',
+          code: 'FORBIDDEN',
         },
         403
       )
     }
 
-    return c.json({ error: 'Record not found' }, 404)
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   } catch {
-    return c.json({ error: 'Record not found' }, 404)
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 }

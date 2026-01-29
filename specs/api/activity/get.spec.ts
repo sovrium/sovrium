@@ -89,7 +89,9 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       expect(response.status()).toBe(401)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
     }
   )
 
@@ -415,7 +417,9 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       expect(response.status()).toBe(400)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
     }
   )
 
@@ -438,7 +442,9 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       expect(response.status()).toBe(400)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
     }
   )
 
@@ -546,7 +552,9 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       expect(response.status()).toBe(400)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
     }
   )
 
@@ -707,7 +715,9 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       expect(response.status()).toBe(403)
 
       const data = await response.json()
-      expect(data).toHaveProperty('error')
+      expect(data).toHaveProperty('success')
+      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('code')
     }
   )
 
@@ -795,7 +805,9 @@ test.describe('GET /api/activity - List Activity Logs', () => {
         expect(response.status()).toBe(401)
 
         const data = await response.json()
-        expect(data).toHaveProperty('error')
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
       })
 
       // Setup: Create authenticated user and activity data

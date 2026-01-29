@@ -88,13 +88,16 @@ export function validateTable(app: App) {
     const tableId = c.req.param('tableId')
 
     if (!tableId) {
-      return c.json({ error: 'Bad Request', message: 'Table ID parameter required' }, 400)
+      return c.json(
+        { success: false, message: 'Table ID parameter required', code: 'VALIDATION_ERROR' },
+        400
+      )
     }
 
     const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
 
     if (!table) {
-      return c.json({ error: 'Table not found' }, 404)
+      return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
     }
 
     // Attach to context for downstream handlers
@@ -114,7 +117,10 @@ async function enrichUserRoleHandler(c: Context, next: Next) {
 
   // Defensive check (should not happen if requireAuth() used before)
   if (!session) {
-    return c.json({ error: 'Unauthorized', message: 'Authentication required' }, 401)
+    return c.json(
+      { success: false, message: 'Authentication required', code: 'AUTHENTICATION_REQUIRED' },
+      401
+    )
   }
 
   const userRole = await getUserRole(session.userId)
