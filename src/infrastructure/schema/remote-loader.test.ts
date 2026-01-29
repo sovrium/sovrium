@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect, describe, mock, beforeEach, afterEach } from 'bun:test'
+import { test, expect, describe, mock, afterEach } from 'bun:test'
 import { fetchRemoteSchema } from './remote-loader'
 
 const validSchema = {
