@@ -108,102 +108,112 @@ function formatCurrency(value: number, field: CurrencyField): string {
 }
 
 /**
+ * Extract date part value from formatter parts
+ */
+function extractPartValue(
+  parts: readonly Intl.DateTimeFormatPart[],
+  type: Intl.DateTimeFormatPartTypes
+): string {
+  return parts.find((p) => p.type === type)?.value ?? ''
+}
+
+/**
+ * Create date from timezone-converted parts
+ */
+function createDateFromParts(parts: readonly Intl.DateTimeFormatPart[]): Readonly<Date> {
+  const year = extractPartValue(parts, 'year')
+  const month = extractPartValue(parts, 'month')
+  const day = extractPartValue(parts, 'day')
+  const hour = extractPartValue(parts, 'hour')
+  const minute = extractPartValue(parts, 'minute')
+
+  return new Date(
+    parseInt(year, 10),
+    parseInt(month, 10) - 1,
+    parseInt(day, 10),
+    parseInt(hour, 10),
+    parseInt(minute, 10)
+  )
+}
+
+/**
+ * Convert date to target timezone
+ */
+function convertToTimezone(date: Readonly<Date>, timezone: string): Readonly<Date> {
+  if (!timezone || timezone === 'local') {
+    return date
+  }
+
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false,
+    })
+
+    const parts = formatter.formatToParts(date)
+    return createDateFromParts(parts)
+  } catch {
+    return date
+  }
+}
+
+/**
+ * Format date part based on date format setting
+ */
+function formatDatePart(year: number, month: number, day: number, dateFormat: string): string {
+  const formatMap: Record<string, string> = {
+    US: `${month}/${day}/${year}`,
+    European: `${day}/${month}/${year}`,
+    ISO: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+  }
+  return formatMap[dateFormat] ?? `${month}/${day}/${year}`
+}
+
+/**
+ * Format time part based on time format setting
+ */
+function formatTimePart(hours: number, minutes: number, timeFormat: string): string {
+  if (timeFormat === '12-hour') {
+    const period = hours >= 12 ? 'PM' : 'AM'
+    const hours12 = hours % 12 || 12
+    return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`
+  }
+  return `${hours}:${String(minutes).padStart(2, '0')}`
+}
+
+/**
  * Format a date value based on the date format configuration
- *
- * @param value - The date value (string or Date object)
- * @param field - The date field configuration
- * @param timezoneOverride - Optional timezone override from query parameter
- * @returns Formatted date string
  */
 function formatDate(value: unknown, field: DateField, timezoneOverride?: string): string {
-  // Parse the date value
   const date =
     value instanceof Date ? value : typeof value === 'string' ? new Date(value) : new Date()
 
-  // Check if date is valid
   if (isNaN(date.getTime())) {
     return ''
   }
 
-  // Determine which timezone to use (query param takes precedence)
   const timezone = timezoneOverride || field.timeZone
+  const targetDate = convertToTimezone(date, timezone)
 
-  // Convert to target timezone if specified and not 'local'
-  const targetDate = (() => {
-    if (!timezone || timezone === 'local') {
-      return date
-    }
-
-    try {
-      // Format the date in the target timezone using Intl.DateTimeFormat
-      const formatter = new Intl.DateTimeFormat('en-US', {
-        timeZone: timezone,
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: 'numeric',
-        second: 'numeric',
-        hour12: false,
-      })
-
-      const parts = formatter.formatToParts(date)
-      const year = parts.find((p) => p.type === 'year')?.value ?? ''
-      const month = parts.find((p) => p.type === 'month')?.value ?? ''
-      const day = parts.find((p) => p.type === 'day')?.value ?? ''
-      const hour = parts.find((p) => p.type === 'hour')?.value ?? ''
-      const minute = parts.find((p) => p.type === 'minute')?.value ?? ''
-
-      // Create a new date object with the converted values
-      return new Date(
-        parseInt(year, 10),
-        parseInt(month, 10) - 1,
-        parseInt(day, 10),
-        parseInt(hour, 10),
-        parseInt(minute, 10)
-      )
-    } catch {
-      // If timezone is invalid, use original date
-      return date
-    }
-  })()
-
-  // Get date components
   const year = targetDate.getFullYear()
-  const month = targetDate.getMonth() + 1 // getMonth() returns 0-11
+  const month = targetDate.getMonth() + 1
   const day = targetDate.getDate()
 
-  // Format based on dateFormat setting
   const dateFormat = field.dateFormat ?? 'US'
+  const formattedDate = formatDatePart(year, month, day, dateFormat)
 
-  // Format date using immutable mapping pattern
-  const formatMap: Record<string, string> = {
-    US: `${month}/${day}/${year}`, // US format: M/D/YYYY (no leading zeros)
-    European: `${day}/${month}/${year}`, // European format: D/M/YYYY (no leading zeros)
-    ISO: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`, // ISO format: YYYY-MM-DD (with leading zeros)
-  }
-
-  const formattedDate = formatMap[dateFormat] ?? `${month}/${day}/${year}` // Default to US format
-
-  // Append time if includeTime is true OR if field type is 'datetime'
   const shouldIncludeTime = field.includeTime || field.type === 'datetime'
   if (shouldIncludeTime) {
     const hours = targetDate.getHours()
     const minutes = targetDate.getMinutes()
-
-    // Format time based on timeFormat setting
     const timeFormat = field.timeFormat ?? '24-hour'
-    const formattedTime =
-      timeFormat === '12-hour'
-        ? // Convert to 12-hour format with AM/PM
-          (() => {
-            const period = hours >= 12 ? 'PM' : 'AM'
-            const hours12 = hours % 12 || 12 // Convert 0 to 12, keep 1-12
-            return `${hours12}:${String(minutes).padStart(2, '0')} ${period}`
-          })()
-        : // Use 24-hour format
-          `${hours}:${String(minutes).padStart(2, '0')}`
-
+    const formattedTime = formatTimePart(hours, minutes, timeFormat)
     return `${formattedDate} ${formattedTime}`
   }
 
@@ -415,22 +425,22 @@ function formatAttachmentFieldResult(
 }
 
 /**
- * Format a field value for display based on field type and configuration
- *
- * @param fieldName - The name of the field
- * @param value - The field value
- * @param app - The application schema
- * @param tableName - The table name
- * @param timezoneOverride - Optional timezone override from query parameter
- * @returns Formatted display value with optional timezone, or undefined if no formatting needed
+ * Options for formatting field display
  */
-export function formatFieldForDisplay(
-  fieldName: string,
-  value: unknown,
-  app: App,
-  tableName: string,
-  timezoneOverride?: string
-): FormatResult | undefined {
+export interface FormatFieldOptions {
+  readonly fieldName: string
+  readonly value: unknown
+  readonly app: App
+  readonly tableName: string
+  readonly timezoneOverride?: string
+}
+
+/**
+ * Format a field value for display based on field type and configuration
+ */
+export function formatFieldForDisplay(options: FormatFieldOptions): FormatResult | undefined {
+  const { fieldName, value, app, tableName, timezoneOverride } = options
+
   // Find the table and field
   const table = app.tables?.find((t) => t.name === tableName)
   if (!table) return undefined

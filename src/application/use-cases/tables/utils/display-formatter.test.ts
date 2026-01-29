@@ -38,31 +38,56 @@ describe('formatFieldForDisplay', () => {
   describe('Currency Symbols', () => {
     test('formats USD with dollar symbol', () => {
       const app = createAppWithCurrencyField({ currency: 'USD' })
-      const result = formatFieldForDisplay('price', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1,234.56')
     })
 
     test('formats EUR with euro symbol', () => {
       const app = createAppWithCurrencyField({ currency: 'EUR' })
-      const result = formatFieldForDisplay('price', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('€1,234.56')
     })
 
     test('formats GBP with pound symbol', () => {
       const app = createAppWithCurrencyField({ currency: 'GBP' })
-      const result = formatFieldForDisplay('price', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('£1,234.56')
     })
 
     test('formats JPY with yen symbol', () => {
       const app = createAppWithCurrencyField({ currency: 'JPY' })
-      const result = formatFieldForDisplay('price', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('¥1,234.56')
     })
 
     test('uses currency code for unknown currencies', () => {
       const app = createAppWithCurrencyField({ currency: 'XYZ' })
-      const result = formatFieldForDisplay('price', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('XYZ1,234.56')
     })
   })
@@ -70,25 +95,45 @@ describe('formatFieldForDisplay', () => {
   describe('Precision', () => {
     test('formats with 0 decimal places', () => {
       const app = createAppWithCurrencyField({ precision: 0 })
-      const result = formatFieldForDisplay('price', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1,235')
     })
 
     test('formats with 2 decimal places (default)', () => {
       const app = createAppWithCurrencyField({ precision: 2 })
-      const result = formatFieldForDisplay('price', 1234.567, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.567,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1,234.57')
     })
 
     test('formats with 4 decimal places', () => {
       const app = createAppWithCurrencyField({ precision: 4 })
-      const result = formatFieldForDisplay('price', 1234.567_89, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.567_89,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1,234.5679')
     })
 
     test('handles precision undefined (defaults to 2)', () => {
       const app = createAppWithCurrencyField({ precision: undefined })
-      const result = formatFieldForDisplay('price', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1,234.56')
     })
   })
@@ -96,19 +141,34 @@ describe('formatFieldForDisplay', () => {
   describe('Symbol Position', () => {
     test('places symbol before amount (default)', () => {
       const app = createAppWithCurrencyField({ symbolPosition: 'before' })
-      const result = formatFieldForDisplay('price', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1,234.56')
     })
 
     test('places symbol after amount', () => {
       const app = createAppWithCurrencyField({ symbolPosition: 'after' })
-      const result = formatFieldForDisplay('price', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('1,234.56$')
     })
 
     test('handles symbolPosition undefined (defaults to before)', () => {
       const app = createAppWithCurrencyField({ symbolPosition: undefined })
-      const result = formatFieldForDisplay('price', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1,234.56')
     })
   })
@@ -116,31 +176,56 @@ describe('formatFieldForDisplay', () => {
   describe('Negative Format', () => {
     test('formats negative with minus sign (default)', () => {
       const app = createAppWithCurrencyField({ negativeFormat: 'minus' })
-      const result = formatFieldForDisplay('price', -1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: -1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('-$1,234.56')
     })
 
     test('formats negative with parentheses', () => {
       const app = createAppWithCurrencyField({ negativeFormat: 'parentheses' })
-      const result = formatFieldForDisplay('price', -1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: -1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('($1,234.56)')
     })
 
     test('handles negativeFormat undefined (defaults to minus)', () => {
       const app = createAppWithCurrencyField({ negativeFormat: undefined })
-      const result = formatFieldForDisplay('price', -1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: -1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('-$1,234.56')
     })
 
     test('does not apply negative format to positive numbers', () => {
       const app = createAppWithCurrencyField({ negativeFormat: 'parentheses' })
-      const result = formatFieldForDisplay('price', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1,234.56')
     })
 
     test('formats zero without negative formatting', () => {
       const app = createAppWithCurrencyField({ negativeFormat: 'parentheses' })
-      const result = formatFieldForDisplay('price', 0, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 0,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$0.00')
     })
   })
@@ -148,43 +233,78 @@ describe('formatFieldForDisplay', () => {
   describe('Thousands Separator', () => {
     test('formats with comma separator (default)', () => {
       const app = createAppWithCurrencyField({ thousandsSeparator: 'comma' })
-      const result = formatFieldForDisplay('price', 1_234_567.89, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1_234_567.89,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1,234,567.89')
     })
 
     test('formats with period separator (European style)', () => {
       const app = createAppWithCurrencyField({ thousandsSeparator: 'period' })
-      const result = formatFieldForDisplay('price', 1_234_567.89, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1_234_567.89,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1.234.567,89')
     })
 
     test('formats with space separator', () => {
       const app = createAppWithCurrencyField({ thousandsSeparator: 'space' })
-      const result = formatFieldForDisplay('price', 1_234_567.89, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1_234_567.89,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1 234 567.89')
     })
 
     test('formats with no separator', () => {
       const app = createAppWithCurrencyField({ thousandsSeparator: 'none' })
-      const result = formatFieldForDisplay('price', 1_234_567.89, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1_234_567.89,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1234567.89')
     })
 
     test('handles thousandsSeparator undefined (defaults to comma)', () => {
       const app = createAppWithCurrencyField({ thousandsSeparator: undefined })
-      const result = formatFieldForDisplay('price', 1_234_567.89, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1_234_567.89,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1,234,567.89')
     })
 
     test('uses comma as decimal separator when period is thousands separator', () => {
       const app = createAppWithCurrencyField({ thousandsSeparator: 'period', precision: 2 })
-      const result = formatFieldForDisplay('price', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1.234,56')
     })
 
     test('uses period as decimal separator for non-period thousands separators', () => {
       const app = createAppWithCurrencyField({ thousandsSeparator: 'comma', precision: 2 })
-      const result = formatFieldForDisplay('price', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1,234.56')
     })
   })
@@ -192,43 +312,78 @@ describe('formatFieldForDisplay', () => {
   describe('Edge Cases', () => {
     test('formats zero correctly', () => {
       const app = createAppWithCurrencyField({})
-      const result = formatFieldForDisplay('price', 0, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 0,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$0.00')
     })
 
     test('formats very small positive numbers', () => {
       const app = createAppWithCurrencyField({ precision: 4 })
-      const result = formatFieldForDisplay('price', 0.0001, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 0.0001,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$0.0001')
     })
 
     test('formats very small negative numbers', () => {
       const app = createAppWithCurrencyField({ precision: 4 })
-      const result = formatFieldForDisplay('price', -0.0001, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: -0.0001,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('-$0.0001')
     })
 
     test('formats very large numbers', () => {
       const app = createAppWithCurrencyField({})
-      const result = formatFieldForDisplay('price', 1_234_567_890.12, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1_234_567_890.12,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1,234,567,890.12')
     })
 
     test('handles string numeric values', () => {
       const app = createAppWithCurrencyField({})
-      const result = formatFieldForDisplay('price', '1234.56', app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: '1234.56',
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1,234.56')
     })
 
     test('returns undefined for invalid numeric strings', () => {
       const app = createAppWithCurrencyField({})
-      const result = formatFieldForDisplay('price', 'invalid', app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 'invalid',
+        app,
+        tableName: 'products',
+      })
       expect(result).toBeUndefined()
     })
 
     test('returns undefined for NaN values', () => {
       const app = createAppWithCurrencyField({})
-      const result = formatFieldForDisplay('price', NaN, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: NaN,
+        app,
+        tableName: 'products',
+      })
       expect(result).toBeUndefined()
     })
   })
@@ -242,7 +397,12 @@ describe('formatFieldForDisplay', () => {
         thousandsSeparator: 'period',
         precision: 2,
       })
-      const result = formatFieldForDisplay('price', -1_234_567.89, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: -1_234_567.89,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('(1.234.567,89€)')
     })
 
@@ -251,7 +411,12 @@ describe('formatFieldForDisplay', () => {
         thousandsSeparator: 'space',
         precision: 0,
       })
-      const result = formatFieldForDisplay('price', 1_234_567, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1_234_567,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('$1 234 567')
     })
 
@@ -263,7 +428,12 @@ describe('formatFieldForDisplay', () => {
         negativeFormat: 'parentheses',
         thousandsSeparator: 'space',
       })
-      const result = formatFieldForDisplay('price', -12_345.6789, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: -12_345.6789,
+        app,
+        tableName: 'products',
+      })
       expect(result?.displayValue).toBe('(12 345.6789$)')
     })
   })
@@ -285,7 +455,12 @@ describe('formatFieldForDisplay', () => {
         ],
       } as unknown as App
 
-      const result = formatFieldForDisplay('name', 'Product Name', app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'name',
+        value: 'Product Name',
+        app,
+        tableName: 'products',
+      })
       expect(result).toBeUndefined()
     })
   })
@@ -293,13 +468,23 @@ describe('formatFieldForDisplay', () => {
   describe('Missing Table or Field', () => {
     test('returns undefined when table does not exist', () => {
       const app = createAppWithCurrencyField({})
-      const result = formatFieldForDisplay('price', 1234.56, app, 'nonexistent')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'nonexistent',
+      })
       expect(result).toBeUndefined()
     })
 
     test('returns undefined when field does not exist', () => {
       const app = createAppWithCurrencyField({})
-      const result = formatFieldForDisplay('nonexistent', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'nonexistent',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result).toBeUndefined()
     })
 
@@ -309,7 +494,12 @@ describe('formatFieldForDisplay', () => {
         tables: undefined,
       } as App
 
-      const result = formatFieldForDisplay('price', 1234.56, app, 'products')
+      const result = formatFieldForDisplay({
+        fieldName: 'price',
+        value: 1234.56,
+        app,
+        tableName: 'products',
+      })
       expect(result).toBeUndefined()
     })
   })

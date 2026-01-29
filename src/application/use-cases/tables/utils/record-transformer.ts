@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { formatFieldForDisplay } from './display-formatter'
+import { formatFieldForDisplay, type FormatResult } from './display-formatter'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -75,6 +75,30 @@ const parseNumericString = (
 }
 
 /**
+ * Build formatted field value with optional metadata
+ */
+function buildFormattedValue(
+  fieldValue: Readonly<RecordFieldValue>,
+  formatResult: Readonly<FormatResult>
+): FormattedFieldValue {
+  const base: FormattedFieldValue = {
+    value: fieldValue,
+    displayValue: formatResult.displayValue,
+  }
+
+  return {
+    ...base,
+    ...(formatResult.timezone ? { timezone: formatResult.timezone } : {}),
+    ...(formatResult.displayTimezone ? { displayTimezone: formatResult.displayTimezone } : {}),
+    ...(formatResult.allowedFileTypes ? { allowedFileTypes: formatResult.allowedFileTypes } : {}),
+    ...(formatResult.maxFileSize !== undefined ? { maxFileSize: formatResult.maxFileSize } : {}),
+    ...(formatResult.maxFileSizeDisplay
+      ? { maxFileSizeDisplay: formatResult.maxFileSizeDisplay }
+      : {}),
+  }
+}
+
+/**
  * Process a single field value with optional display formatting
  */
 const processFieldValue = (
@@ -96,13 +120,13 @@ const processFieldValue = (
   }
 
   // For display formatting, pass the original value (may be string or number from database)
-  const formatResult = formatFieldForDisplay(
-    key,
+  const formatResult = formatFieldForDisplay({
+    fieldName: key,
     value,
-    options.app!,
-    options.tableName!,
-    options.timezone
-  )
+    app: options.app!,
+    tableName: options.tableName!,
+    timezoneOverride: options.timezone,
+  })
 
   if (formatResult === undefined) {
     return processedValue
@@ -111,17 +135,7 @@ const processFieldValue = (
   // For formatted fields, use the original value (preserve number type)
   const fieldValue = parseNumericString(value, processedValue)
 
-  return {
-    value: fieldValue,
-    displayValue: formatResult.displayValue,
-    ...(formatResult.timezone ? { timezone: formatResult.timezone } : {}),
-    ...(formatResult.displayTimezone ? { displayTimezone: formatResult.displayTimezone } : {}),
-    ...(formatResult.allowedFileTypes ? { allowedFileTypes: formatResult.allowedFileTypes } : {}),
-    ...(formatResult.maxFileSize !== undefined ? { maxFileSize: formatResult.maxFileSize } : {}),
-    ...(formatResult.maxFileSizeDisplay
-      ? { maxFileSizeDisplay: formatResult.maxFileSizeDisplay }
-      : {}),
-  }
+  return buildFormattedValue(fieldValue, formatResult)
 }
 
 /**

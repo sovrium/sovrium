@@ -1336,27 +1336,30 @@ The pipeline implements **comprehensive automatic error detection** that catches
 
 The workflow automatically detects and handles these error scenarios:
 
-| Scenario                      | Detection Method                                     | Label Applied                        | Comment Posted |
-| ----------------------------- | ---------------------------------------------------- | ------------------------------------ | -------------- |
-| **Claude Code execution fail** | `result-subtype != 'success'`                        | `tdd-automation:manual-intervention` | ✅ Detailed error |
-| **No commits pushed**          | Git check shows 0 commits after "success"            | `tdd-automation:manual-intervention` | ✅ Silent failure |
-| **Workflow timeout**           | Job exceeds timeout limit                            | `tdd-automation:manual-intervention` | ✅ Timeout error |
-| **Action crash**               | Claude Code action fails to start/complete           | `tdd-automation:manual-intervention` | ✅ Crash details |
-| **Merge conflict**             | Git merge with main fails (conflict markers detected)| `tdd-automation:manual-intervention` | ✅ Conflict files |
-| **Git operation error**        | Git push/pull fails for non-conflict reasons         | `tdd-automation:manual-intervention` | ✅ Generic error |
+| Scenario                       | Detection Method                                      | Label Applied                        | Comment Posted    |
+| ------------------------------ | ----------------------------------------------------- | ------------------------------------ | ----------------- |
+| **Claude Code execution fail** | `result-subtype != 'success'`                         | `tdd-automation:manual-intervention` | ✅ Detailed error |
+| **No commits pushed**          | Git check shows 0 commits after "success"             | `tdd-automation:manual-intervention` | ✅ Silent failure |
+| **Workflow timeout**           | Job exceeds timeout limit                             | `tdd-automation:manual-intervention` | ✅ Timeout error  |
+| **Action crash**               | Claude Code action fails to start/complete            | `tdd-automation:manual-intervention` | ✅ Crash details  |
+| **Merge conflict**             | Git merge with main fails (conflict markers detected) | `tdd-automation:manual-intervention` | ✅ Conflict files |
+| **Git operation error**        | Git push/pull fails for non-conflict reasons          | `tdd-automation:manual-intervention` | ✅ Generic error  |
 
 #### Three-Layer Error Detection
 
 **Layer 1: Claude Code Result Parsing** (lines 551-595)
+
 - Parses execution result JSON from Claude Code action
 - Detects: `error_max_turns`, `error_max_budget_usd`, `error_during_execution`, `error_max_structured_output_retries`
 
 **Layer 2: Silent Failure Detection** (lines 664-710, NEW)
+
 - Checks if commits were actually pushed after "success"
 - Detects: Agent reported success but made no changes
 - Catches: Git push failures, workflow issues
 
 **Layer 3: Catch-All Safety Net** (lines 711-755, NEW)
+
 - Runs if any workflow step fails (`if: failure()`)
 - Detects: Timeouts, crashes, unexpected errors
 - Ensures: No error escapes without label
@@ -1390,14 +1393,14 @@ The TDD pipeline implements **simplified error handling** where ALL Claude Code 
 
 All errors are handled identically, regardless of type. These subtypes are reported for informational purposes only:
 
-| Error Subtype                           | Description                                          | Handling                         |
-| --------------------------------------- | ---------------------------------------------------- | -------------------------------- |
-| `error_max_turns`                       | Exceeded max turns (50 for e2e-test-fixer)           | Label + comment + next spec      |
-| `error_max_budget_usd`                  | Exceeded $5 per-run budget limit                     | Label + comment + next spec      |
-| `error_during_execution`                | Agent encountered error during execution             | Label + comment + next spec      |
-| `error_max_structured_output_retries`   | Claude output parsing failed repeatedly              | Label + comment + next spec      |
-| `no_commits_pushed` (NEW)               | Execution succeeded but no commits were pushed       | Label + comment + next spec      |
-| `unknown` (NEW)                         | Workflow-level failure (timeout, crash, git error)   | Label + comment + next spec      |
+| Error Subtype                         | Description                                        | Handling                    |
+| ------------------------------------- | -------------------------------------------------- | --------------------------- |
+| `error_max_turns`                     | Exceeded max turns (50 for e2e-test-fixer)         | Label + comment + next spec |
+| `error_max_budget_usd`                | Exceeded $5 per-run budget limit                   | Label + comment + next spec |
+| `error_during_execution`              | Agent encountered error during execution           | Label + comment + next spec |
+| `error_max_structured_output_retries` | Claude output parsing failed repeatedly            | Label + comment + next spec |
+| `no_commits_pushed` (NEW)             | Execution succeeded but no commits were pushed     | Label + comment + next spec |
+| `unknown` (NEW)                       | Workflow-level failure (timeout, crash, git error) | Label + comment + next spec |
 
 **Key Insight**: Error categorization is informational only. All errors trigger identical handling to ensure consistency and simplicity.
 
@@ -1479,14 +1482,14 @@ This section describes how to respond to different error scenarios detected by t
 
 #### Recovery by Error Type
 
-| Error Scenario                            | Auto Action                                      | Manual Recovery                                          |
-| ----------------------------------------- | ------------------------------------------------ | -------------------------------------------------------- |
-| **Claude Code execution error**           | Post error comment + `manual-intervention` label | Review error logs, fix spec/code, remove label, retry    |
-| **No commits pushed** (silent failure)    | Post silent failure comment + label              | Review logs, check why no changes, remove label, retry   |
-| **Workflow timeout**                      | Post timeout comment + label                     | Increase `@tdd-timeout`, remove label, retry              |
-| **Action crash** (SDK/infrastructure)     | Post crash comment + label                       | Report to Anthropic, wait for fix, retry                  |
-| **Merge conflict** (main branch updated)  | Post conflict comment + label                    | Resolve conflicts manually, remove label, retry           |
-| **Git operation error**                   | Post git error comment + label                   | Check git logs, fix issue, remove label, retry            |
+| Error Scenario                           | Auto Action                                      | Manual Recovery                                        |
+| ---------------------------------------- | ------------------------------------------------ | ------------------------------------------------------ |
+| **Claude Code execution error**          | Post error comment + `manual-intervention` label | Review error logs, fix spec/code, remove label, retry  |
+| **No commits pushed** (silent failure)   | Post silent failure comment + label              | Review logs, check why no changes, remove label, retry |
+| **Workflow timeout**                     | Post timeout comment + label                     | Increase `@tdd-timeout`, remove label, retry           |
+| **Action crash** (SDK/infrastructure)    | Post crash comment + label                       | Report to Anthropic, wait for fix, retry               |
+| **Merge conflict** (main branch updated) | Post conflict comment + label                    | Resolve conflicts manually, remove label, retry        |
+| **Git operation error**                  | Post git error comment + label                   | Check git logs, fix issue, remove label, retry         |
 
 #### Standard Manual Recovery Steps
 
@@ -1504,16 +1507,19 @@ For ALL error types:
 #### Common Error Scenarios and Solutions
 
 **Scenario: No Commits Pushed**
+
 - **Symptom**: Claude Code reports success but PR has no new commits
 - **Causes**: Git push failed silently, agent made no changes, workflow timeout during push
 - **Solution**: Review execution logs, check git status, ensure agent made intended changes
 
 **Scenario: Workflow Timeout**
+
 - **Symptom**: Job exceeds configured timeout (default 45 minutes)
 - **Causes**: Spec too complex, slow Claude Code execution, network issues
 - **Solution**: Add `@tdd-timeout 60` annotation to spec file, or simplify spec
 
 **Scenario: Merge Conflict**
+
 - **Symptom**: Cannot merge main branch (conflict markers detected)
 - **Causes**: Main branch updated during execution, overlapping changes
 - **Solution**: Manually resolve conflicts in affected files, commit, push

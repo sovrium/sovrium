@@ -56,7 +56,7 @@ function isValidTimezone(timezone: string): boolean {
   try {
     // Attempt to create a DateTimeFormat with the timezone
     // This will throw if the timezone is invalid
-    Intl.DateTimeFormat('en-US', { timeZone: timezone })
+    const _formatter = Intl.DateTimeFormat('en-US', { timeZone: timezone })
     return true
   } catch {
     return false
