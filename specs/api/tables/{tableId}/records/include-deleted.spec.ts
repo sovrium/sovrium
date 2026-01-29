@@ -37,7 +37,7 @@ test.describe('Include Deleted query parameter', () => {
       // GIVEN: Table with mix of active and soft-deleted records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -86,7 +86,7 @@ test.describe('Include Deleted query parameter', () => {
       // GIVEN: Table with mix of active and soft-deleted records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 2,
@@ -135,7 +135,7 @@ test.describe('Include Deleted query parameter', () => {
       // GIVEN: Member user accessing records with includeDeleted
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 3,
@@ -181,7 +181,7 @@ test.describe('Include Deleted query parameter', () => {
       // GIVEN: Table with large dataset including deleted records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 4,
@@ -248,7 +248,7 @@ test.describe('Include Deleted query parameter', () => {
       await test.step('Setup: Start server with table and mixed records', async () => {
         await startServerWithSchema({
           name: 'test-app',
-          auth: { emailAndPassword: true },
+          auth: { emailAndPassword: true, admin: true },
           tables: [
             {
               id: 1,

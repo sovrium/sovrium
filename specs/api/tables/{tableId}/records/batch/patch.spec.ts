@@ -31,7 +31,7 @@ test.describe('Batch update records', () => {
       // GIVEN: Table 'users' with records ID=1 and ID=2
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -99,7 +99,7 @@ test.describe('Batch update records', () => {
       // GIVEN: Table 'users' with records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 2,
@@ -150,7 +150,7 @@ test.describe('Batch update records', () => {
       // GIVEN: Table with NOT NULL constraint
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 3,
@@ -206,7 +206,7 @@ test.describe('Batch update records', () => {
       // GIVEN: An unauthenticated user with auth enabled
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 4,
@@ -253,7 +253,7 @@ test.describe('Batch update records', () => {
       // GIVEN: A member user without update permission
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 5,
@@ -300,7 +300,7 @@ test.describe('Batch update records', () => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 6,
@@ -345,7 +345,7 @@ test.describe('Batch update records', () => {
       // GIVEN: A member user with field-level write restrictions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 8,
@@ -400,7 +400,7 @@ test.describe('Batch update records', () => {
       // GIVEN: Table with readonly fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 9,
@@ -450,7 +450,7 @@ test.describe('Batch update records', () => {
       // GIVEN: A member user with field-level read restrictions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 11,
@@ -507,7 +507,7 @@ test.describe('Batch update records', () => {
       // GIVEN: An admin user with full permissions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 12,
@@ -558,7 +558,7 @@ test.describe('Batch update records', () => {
       // GIVEN: A member with update permission but field restrictions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 13,
@@ -613,7 +613,7 @@ test.describe('Batch update records', () => {
       // GIVEN: Some records exist, others don't
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 14,
@@ -662,7 +662,7 @@ test.describe('Batch update records', () => {
       // GIVEN: Member updates with field-level read restrictions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 15,
@@ -712,7 +712,7 @@ test.describe('Batch update records', () => {
       await test.step('Setup: Start server with employees table', async () => {
         await startServerWithSchema({
           name: 'test-app',
-          auth: { emailAndPassword: true },
+          auth: { emailAndPassword: true, admin: true },
           tables: [
             {
               id: 16,

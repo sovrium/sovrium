@@ -31,7 +31,7 @@ test.describe('Batch create records', () => {
       // GIVEN: Table 'users' exists with 0 records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -94,7 +94,7 @@ test.describe('Batch create records', () => {
       // GIVEN: Table 'users' exists
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 2,
@@ -146,7 +146,7 @@ test.describe('Batch create records', () => {
       // GIVEN: Table 'users' with email NOT NULL constraint
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 3,
@@ -202,7 +202,7 @@ test.describe('Batch create records', () => {
       // GIVEN: An unauthenticated user with auth enabled
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 4,
@@ -241,7 +241,7 @@ test.describe('Batch create records', () => {
       // GIVEN: A member user without create permission
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 5,
@@ -285,7 +285,7 @@ test.describe('Batch create records', () => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 6,
@@ -327,7 +327,7 @@ test.describe('Batch create records', () => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 8,
@@ -377,7 +377,7 @@ test.describe('Batch create records', () => {
       // GIVEN: An admin user attempting to set readonly fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 9,
@@ -424,7 +424,7 @@ test.describe('Batch create records', () => {
       // GIVEN: A member user with field-level read restrictions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 11,
@@ -476,7 +476,7 @@ test.describe('Batch create records', () => {
       // GIVEN: An admin user with full permissions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 12,
@@ -524,7 +524,7 @@ test.describe('Batch create records', () => {
       // GIVEN: A member with create permission but field restrictions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 13,
@@ -576,7 +576,7 @@ test.describe('Batch create records', () => {
       // GIVEN: Table with unique email constraint
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 14,
@@ -627,7 +627,7 @@ test.describe('Batch create records', () => {
       // GIVEN: Table exists
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 15,
@@ -677,7 +677,7 @@ test.describe('Batch create records', () => {
       // GIVEN: Consolidated configuration for all @spec tests
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,

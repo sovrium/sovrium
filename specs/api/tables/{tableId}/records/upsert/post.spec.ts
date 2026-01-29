@@ -31,7 +31,7 @@ test.describe('Upsert records (create or update)', () => {
       // GIVEN: Table 'users' with existing record (email='john@example.com', name='John')
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -100,7 +100,7 @@ test.describe('Upsert records (create or update)', () => {
       // GIVEN: Table 'users' with 0 records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 2,
@@ -159,7 +159,7 @@ test.describe('Upsert records (create or update)', () => {
       // GIVEN: Table 'users' with email NOT NULL constraint
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 3,
@@ -217,7 +217,7 @@ test.describe('Upsert records (create or update)', () => {
       // GIVEN: An unauthenticated user with auth enabled
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 4,
@@ -271,7 +271,7 @@ test.describe('Upsert records (create or update)', () => {
       // GIVEN: A member user without create permission
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 5,
@@ -316,7 +316,7 @@ test.describe('Upsert records (create or update)', () => {
       // GIVEN: A member user without update permission
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 6,
@@ -365,7 +365,7 @@ test.describe('Upsert records (create or update)', () => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 7,
@@ -406,7 +406,7 @@ test.describe('Upsert records (create or update)', () => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 9,
@@ -452,7 +452,7 @@ test.describe('Upsert records (create or update)', () => {
       // GIVEN: A member user with field-level write restrictions (salary protected)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 10,
@@ -502,7 +502,7 @@ test.describe('Upsert records (create or update)', () => {
       // GIVEN: An admin user attempting to set readonly fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 11,
@@ -548,7 +548,7 @@ test.describe('Upsert records (create or update)', () => {
       // GIVEN: A member user with field-level read restrictions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 13,
@@ -606,7 +606,7 @@ test.describe('Upsert records (create or update)', () => {
       // GIVEN: An admin user with full permissions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 14,
@@ -661,7 +661,7 @@ test.describe('Upsert records (create or update)', () => {
       // GIVEN: A member with create/update permission but field restrictions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 15,
@@ -724,7 +724,7 @@ test.describe('Upsert records (create or update)', () => {
       await test.step('Setup: Creates employees table with field-level permissions', async () => {
         await startServerWithSchema({
           name: 'test-app',
-          auth: { emailAndPassword: true },
+          auth: { emailAndPassword: true, admin: true },
           tables: [
             {
               id: 16,

@@ -35,7 +35,7 @@ test.describe('List records in table', () => {
       // GIVEN: Table 'projects' with 3 records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -82,7 +82,7 @@ test.describe('List records in table', () => {
       // GIVEN: A running server with no table ID 9999
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [],
       })
 
@@ -110,7 +110,7 @@ test.describe('List records in table', () => {
       // GIVEN: Table with 5 records (2 active, 3 completed)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 2,
@@ -161,7 +161,7 @@ test.describe('List records in table', () => {
       // GIVEN: Table with 3 records having different priorities
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 3,
@@ -210,7 +210,7 @@ test.describe('List records in table', () => {
       // GIVEN: Table with multiple fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 4,
@@ -260,7 +260,7 @@ test.describe('List records in table', () => {
       // GIVEN: Table with 100 records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 5,
@@ -303,7 +303,7 @@ test.describe('List records in table', () => {
       // GIVEN: Table with records and a predefined view
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 6,
@@ -349,7 +349,7 @@ test.describe('List records in table', () => {
       // GIVEN: Table with records having different status values
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 7,
@@ -395,7 +395,7 @@ test.describe('List records in table', () => {
       // GIVEN: Table with numeric fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 8,
@@ -449,7 +449,7 @@ test.describe('List records in table', () => {
       // GIVEN: Table with multiple fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 9,
@@ -497,7 +497,7 @@ test.describe('List records in table', () => {
       // GIVEN: Table with multiple sortable fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 10,
@@ -545,7 +545,7 @@ test.describe('List records in table', () => {
       // GIVEN: Table with view and additional filter
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 11,
@@ -590,7 +590,7 @@ test.describe('List records in table', () => {
       // GIVEN: A valid table with auth enabled
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 12,
@@ -615,7 +615,7 @@ test.describe('List records in table', () => {
       // GIVEN: User without read permission
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 13,
@@ -643,7 +643,7 @@ test.describe('List records in table', () => {
       // GIVEN: Admin user with full field access
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 15,
@@ -683,7 +683,7 @@ test.describe('List records in table', () => {
       // GIVEN: Member user without salary field read permission
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 16,
@@ -725,7 +725,7 @@ test.describe('List records in table', () => {
       // GIVEN: Viewer with limited field access
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 17,
@@ -769,7 +769,7 @@ test.describe('List records in table', () => {
       // GIVEN: User with valid permissions but no matching records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 20,
@@ -802,7 +802,7 @@ test.describe('List records in table', () => {
       // GIVEN: Member with field restrictions and large dataset
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 21,
@@ -852,7 +852,7 @@ test.describe('List records in table', () => {
       // GIVEN: User attempts to sort by restricted field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 22,
@@ -894,7 +894,7 @@ test.describe('List records in table', () => {
       // GIVEN: User attempts to filter by restricted field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 23,
@@ -938,7 +938,7 @@ test.describe('List records in table', () => {
       // GIVEN: User attempts to aggregate restricted field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 24,
@@ -983,7 +983,7 @@ test.describe('List records in table', () => {
       // GIVEN: User aggregates only accessible fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 25,
@@ -1039,7 +1039,7 @@ test.describe('List records in table', () => {
       // GIVEN: Table with mix of active and soft-deleted records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 27,
@@ -1090,7 +1090,7 @@ test.describe('List records in table', () => {
       // GIVEN: Table with mix of active and soft-deleted records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 28,
@@ -1149,7 +1149,7 @@ test.describe('List records in table', () => {
       // ========================================================================
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,

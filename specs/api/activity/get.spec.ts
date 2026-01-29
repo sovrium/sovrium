@@ -31,7 +31,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with audit logging enabled and multiple activities
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -79,7 +79,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with auth enabled but user not signed in
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
       })
 
       // WHEN: Unauthenticated user requests activity logs
@@ -102,7 +102,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with activities across multiple tables
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -154,7 +154,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with activities of different action types
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -198,7 +198,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with activities from multiple users
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -242,7 +242,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with activities across different time periods
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -285,7 +285,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with multiple activities at different times
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -333,7 +333,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with 25 activity logs
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -380,7 +380,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with no activity logs
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
       })
 
       await createAuthenticatedUser()
@@ -405,7 +405,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with authenticated user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
       })
 
       await createAuthenticatedUser()
@@ -430,7 +430,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with authenticated user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
       })
 
       await createAuthenticatedUser()
@@ -455,7 +455,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with activities and user information
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -497,7 +497,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with activities older and newer than 1 year
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -540,7 +540,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with authenticated user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
       })
 
       await createAuthenticatedUser()
@@ -594,7 +594,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Application with auth enabled and system-logged activities
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -639,7 +639,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Regular user with their own activities
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -681,7 +681,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Two regular users with separate activities
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -734,7 +734,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // GIVEN: Admin user and regular user with activities
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
@@ -782,7 +782,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
       // Setup: Start server with activity logging
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { emailAndPassword: true, admin: true },
         tables: [
           {
             id: 1,
