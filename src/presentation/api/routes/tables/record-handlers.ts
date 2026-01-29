@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import {
   hasCreatePermission,
   hasDeletePermission,
+  hasReadPermission,
 } from '@/application/use-cases/tables/permissions/permissions'
 import {
   createListRecordsProgram,
@@ -181,6 +182,16 @@ export async function handleGetRecord(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
   const { session, tableName, userRole } = (c as ContextWithTableAndRole).var
   const recordId = c.req.param('recordId')
+
+  const table = app.tables?.find((t) => t.name === tableName)
+  if (!hasReadPermission(table, userRole)) {
+    return c.json(
+      {
+        error: 'Forbidden',
+      },
+      403
+    )
+  }
 
   try {
     return await runEffect(
