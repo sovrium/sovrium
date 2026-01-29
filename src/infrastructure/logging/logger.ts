@@ -27,35 +27,43 @@ export class Logger extends Context.Tag('Logger')<
 >() {}
 
 /**
+ * Format log message with timestamp
+ */
+const formatLogMessage = (level: string, message: string): string => {
+  const timestamp = new Date().toISOString()
+  return `[${timestamp}] [${level}] ${message}`
+}
+
+/**
  * Console-based logger implementation
  *
- * Uses console.* methods for output in development
- * Can be replaced with file-based logging in production
+ * Uses console.* methods for output with structured formatting
+ * Format: [2025-01-15T10:30:00.000Z] [LEVEL] message
  */
 export const LoggerLive = Layer.succeed(Logger, {
   debug: (message, ...args) =>
     Effect.sync(() => {
       if (process.env.LOG_LEVEL === 'debug' || process.env.NODE_ENV === 'development') {
-        console.debug(`[DEBUG] ${message}`, ...args)
+        console.debug(formatLogMessage('DEBUG', message), ...args)
       }
     }),
 
   info: (message, ...args) =>
     Effect.sync(() => {
-      console.log(`[INFO] ${message}`, ...args)
+      console.log(formatLogMessage('INFO', message), ...args)
     }),
 
   warn: (message, ...args) =>
     Effect.sync(() => {
-      console.warn(`[WARN] ${message}`, ...args)
+      console.warn(formatLogMessage('WARN', message), ...args)
     }),
 
   error: (message, error) =>
     Effect.sync(() => {
       if (error) {
-        console.error(`[ERROR] ${message}`, error)
+        console.error(formatLogMessage('ERROR', message), error)
       } else {
-        console.error(`[ERROR] ${message}`)
+        console.error(formatLogMessage('ERROR', message))
       }
     }),
 })

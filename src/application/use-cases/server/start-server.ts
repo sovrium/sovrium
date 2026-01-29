@@ -72,7 +72,7 @@ export const startServer = (
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
   | Error,
-  ServerFactory | PageRenderer | Auth | Database
+  ServerFactory | PageRenderer | Auth | Database | Logger
 > =>
   Effect.gen(function* () {
     // Validate app configuration using domain model schema

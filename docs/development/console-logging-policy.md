@@ -148,6 +148,7 @@ console.warn('[AUTH] Session binding validation failed', {
 **Pattern**: Must include `// MIDDLEWARE LOGGING:` comment explaining operational nature and why Effect Logger is not used.
 
 **Rationale**:
+
 - Middleware is infrastructure layer, not business logic
 - Operational monitoring (server health) vs business events (user actions)
 - Hono middleware uses async/await, not Effect.gen programs
