@@ -9,7 +9,7 @@ import { SQL } from 'bun'
 import { Config, Effect, Console, Data, Runtime, type ConfigError } from 'effect'
 import { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
-import { logInfo } from '@/infrastructure/logging/effect-logger'
+import { logInfo } from '@/infrastructure/logging/logger'
 import {
   needsUsersTable,
   needsUpdatedByTrigger,

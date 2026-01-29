@@ -6,7 +6,7 @@
  */
 
 import { Data } from 'effect'
-import { logInfo } from '@/infrastructure/logging/effect-logger'
+import { logInfo } from '@/infrastructure/logging/logger'
 import { isUserReferenceField, isUserField } from './sql-generators'
 import type { Table } from '@/domain/models/app/table'
 

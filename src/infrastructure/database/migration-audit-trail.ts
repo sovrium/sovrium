@@ -35,7 +35,7 @@
 import { createHash } from 'node:crypto'
 import { getTableName } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { logInfo } from '@/infrastructure/logging/effect-logger'
+import { logInfo } from '@/infrastructure/logging/logger'
 import {
   sovriumMigrationHistory,
   sovriumMigrationLog,

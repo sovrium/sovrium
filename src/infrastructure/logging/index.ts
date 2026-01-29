@@ -5,4 +5,4 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-export { logError, logWarning, logInfo, logDebug, createModuleLogger } from './effect-logger'
+export { logError, logWarning, logInfo, logDebug, createModuleLogger } from './logger'
