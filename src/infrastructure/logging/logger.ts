@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Context, Effect, Layer } from 'effect'
+import { Console, Context, Effect, Layer } from 'effect'
 
 /**
  * Logger service for application-wide logging
@@ -37,35 +37,31 @@ const formatLogMessage = (level: string, message: string): string => {
 /**
  * Console-based logger implementation
  *
- * Uses console.* methods for output with structured formatting
+ * Uses Effect Console for output with structured formatting
  * Format: [2025-01-15T10:30:00.000Z] [LEVEL] message
+ *
+ * Benefits of Effect Console over console.*:
+ * - Already Effect-based (no need to wrap in Effect.sync)
+ * - Testable via Console.setConsole for mocking
+ * - Integrates with Effect DevTools and tracing
+ * - Type-safe with better TypeScript inference
  */
 export const LoggerLive = Layer.succeed(Logger, {
   debug: (message, ...args) =>
-    Effect.sync(() => {
+    Effect.gen(function* () {
       if (process.env.LOG_LEVEL === 'debug' || process.env.NODE_ENV === 'development') {
-        console.debug(formatLogMessage('DEBUG', message), ...args)
+        yield* Console.debug(formatLogMessage('DEBUG', message), ...args)
       }
     }),
 
-  info: (message, ...args) =>
-    Effect.sync(() => {
-      console.log(formatLogMessage('INFO', message), ...args)
-    }),
+  info: (message, ...args) => Console.log(formatLogMessage('INFO', message), ...args),
 
-  warn: (message, ...args) =>
-    Effect.sync(() => {
-      console.warn(formatLogMessage('WARN', message), ...args)
-    }),
+  warn: (message, ...args) => Console.warn(formatLogMessage('WARN', message), ...args),
 
   error: (message, error) =>
-    Effect.sync(() => {
-      if (error) {
-        console.error(formatLogMessage('ERROR', message), error)
-      } else {
-        console.error(formatLogMessage('ERROR', message))
-      }
-    }),
+    error
+      ? Console.error(formatLogMessage('ERROR', message), error)
+      : Console.error(formatLogMessage('ERROR', message)),
 })
 
 /**
