@@ -856,42 +856,65 @@ jobs:
 
   update-spec-progress:
     name: Update Spec Progress
-    if: |
-      needs.test.outputs.all-passed == 'true' &&
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/main'
+    if: always()  # Always evaluate after test completes
     needs: [test]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Debug condition values
+      - name: Check if update needed
+        id: check-update
         run: |
-          echo "🔍 Spec progress update triggered"
+          echo "🔍 Checking if spec progress update is needed..."
+          echo "   All tests passed: ${{ needs.test.outputs.all-passed }}"
           echo "   Event: ${{ github.event_name }}"
           echo "   Ref: ${{ github.ref }}"
-          echo "   All tests passed: ${{ needs.test.outputs.all-passed }}"
           echo ""
-          echo "✅ Proceeding with spec progress update"
+
+          if [ "${{ needs.test.outputs.all-passed }}" != "true" ]; then
+            echo "⏭️  Skipping: tests did not all pass"
+            echo "should-update=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "⏭️  Skipping: not a push event (event: ${{ github.event_name }})"
+            echo "should-update=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "⏭️  Skipping: not on main branch (ref: ${{ github.ref }})"
+            echo "should-update=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "✅ All conditions met - proceeding with spec progress update"
+          echo "should-update=true" >> "$GITHUB_OUTPUT"
 
       - name: Checkout code
+        if: steps.check-update.outputs.should-update == 'true'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.head_ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Bun
+        if: steps.check-update.outputs.should-update == 'true'
         uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: package.json
 
       - name: Install dependencies
+        if: steps.check-update.outputs.should-update == 'true'
         run: bun install --frozen-lockfile
 
       - name: Analyze spec progress
+        if: steps.check-update.outputs.should-update == 'true'
         run: bun run analyze:spec
 
       - name: Commit spec progress updates
+        if: steps.check-update.outputs.should-update == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
