@@ -185,7 +185,6 @@ export const createRecordResponseSchema = z
   .object({
     id: z.string().describe('Record identifier'),
     owner_id: z.string().optional().describe('Record owner ID (auto-set from session)'),
-    organization_id: z.string().optional().describe('Organization ID (auto-set from session)'),
     fields: z.record(z.string(), fieldValueSchema).describe('User-defined field values'),
   })
   .extend(timestampSchema.shape)

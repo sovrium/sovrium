@@ -37,7 +37,7 @@ export function validateRequiredFields(
   )
 
   // Auto-injected fields that should be excluded from required field validation
-  const autoInjectedFields = new Set(['owner_id', 'organization_id'])
+  const autoInjectedFields = new Set(['owner_id'])
 
   const missingRequiredFields = table.fields
     .filter(
