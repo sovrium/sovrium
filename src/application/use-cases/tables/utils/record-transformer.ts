@@ -64,14 +64,13 @@ const toISOString = (value: unknown): string => {
 /**
  * Convert string numbers to numeric values for numeric field types only
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- RecordFieldValue must be mutable to match FormattedFieldValue interface
 const parseNumericString = (
   value: unknown,
-  processedValue: RecordFieldValue,
-  fieldName: string,
-  app?: App,
-  tableName?: string
-): RecordFieldValue => {
+  processedValue: Readonly<RecordFieldValue>,
+  options: Readonly<{ fieldName: string; app?: App; tableName?: string }>
+): Readonly<RecordFieldValue> => {
+  const { fieldName, app, tableName } = options
+
   // Only convert if we have app schema information
   if (!app || !tableName) {
     return processedValue
@@ -139,13 +138,11 @@ const processFieldValue = (
   const processedValue = value instanceof Date ? value.toISOString() : (value as RecordFieldValue)
 
   // Convert numeric strings to numbers for numeric field types only
-  const numericValue = parseNumericString(
-    value,
-    processedValue,
-    key,
-    options?.app,
-    options?.tableName
-  )
+  const numericValue = parseNumericString(value, processedValue, {
+    fieldName: key,
+    app: options?.app,
+    tableName: options?.tableName,
+  })
 
   // Apply display formatting if requested
   const shouldFormat = options?.format === 'display' && options.app && options.tableName
@@ -166,7 +163,8 @@ const processFieldValue = (
     return numericValue
   }
 
-  return buildFormattedValue(numericValue, formatResult)
+  // Cast to mutable type for buildFormattedValue (FormattedFieldValue.value is not readonly)
+  return buildFormattedValue(numericValue as RecordFieldValue, formatResult)
 }
 
 /**
