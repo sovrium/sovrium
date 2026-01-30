@@ -143,6 +143,7 @@ interface GetRecordConfig {
   readonly recordId: string
   readonly app: App
   readonly userRole: string
+  readonly includeDeleted?: boolean
 }
 
 /**
@@ -193,10 +194,10 @@ export function createGetRecordProgram(
   config: GetRecordConfig
 ): Effect.Effect<GetRecordResponse, SessionContextError> {
   return Effect.gen(function* () {
-    const { session, tableName, recordId, app, userRole } = config
+    const { session, tableName, recordId, app, userRole, includeDeleted } = config
     const { userId } = session
 
-    const record = yield* getRecord(session, tableName, recordId)
+    const record = yield* getRecord(session, tableName, recordId, includeDeleted)
     if (!record) return yield* Effect.fail(new SessionContextError('Record not found'))
 
     // Enforce ownership check (return 404 to prevent enumeration)

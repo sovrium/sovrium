@@ -400,7 +400,7 @@ test.describe('Get record by ID', () => {
   // Soft Delete Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-GET-009: should return 404 for soft-deleted record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
