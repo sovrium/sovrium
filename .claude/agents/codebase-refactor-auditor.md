@@ -571,7 +571,7 @@ The `bun run quality` command consolidates multiple quality checks:
 - ✅ Single command for comprehensive validation
 - ✅ Smart E2E detection prevents timeout during TDD automation
 - ✅ Consistent quality baseline across all refactoring phases
-- ✅ Automated caching and optimization
+- ✅ Automated caching and optimization (disable with `--no-cache` for clean runs)
 
 ### Understanding Test Tags
 Sovrium uses Playwright test tags to categorize E2E tests by criticality:
@@ -601,10 +601,23 @@ Sovrium uses Playwright test tags to categorize E2E tests by criticality:
 bun run quality --include-effect  # Runs ESLint, TypeScript, Effect diagnostics, unit tests, @regression E2E
 # NEVER run: bun test:e2e --grep @spec (too slow - use @regression instead)
 
+# Clean baseline after config changes (ESLint, Prettier, TypeScript config updates)
+bun run quality --include-effect --no-cache  # Disables ESLint, Prettier, and TypeScript caching
+
 # Validate after refactoring (Phase 5)
 bun run quality --include-effect  # Re-validate all quality checks including Effect diagnostics
 # NEVER run: bun test:e2e --grep @spec (too slow - use @regression instead)
 ```
+
+**Available Quality Flags**:
+| Flag | Effect | Recommended For |
+|------|--------|-----------------|
+| `--include-effect` | Include Effect diagnostics (slow) | **Always** for audits |
+| `--skip-e2e` | Skip E2E tests entirely | Quick lint/type checks only |
+| `--skip-coverage` | Skip domain coverage check | When coverage is not the focus |
+| `--skip-knip` | Skip unused code detection | When Knip is not relevant |
+| `--skip-format` | Skip Prettier formatting check | When formatting is not the focus |
+| `--no-cache` | Disable ESLint, Prettier, TypeScript caching | After config changes, clean baselines |
 
 ### Baseline Recording Template
 Use this template to document test baseline state:

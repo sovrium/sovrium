@@ -81,7 +81,10 @@ bun test:e2e:update-snapshots:spec # Update @spec test snapshots only
 bun run quality                    # Check code quality with smart E2E detection
 bun run quality --skip-e2e         # Skip E2E tests entirely
 bun run quality --skip-coverage    # Skip coverage check (gradual adoption)
+bun run quality --skip-format      # Skip Prettier formatting check
+bun run quality --skip-knip        # Skip Knip unused code detection
 bun run quality --include-effect   # Include Effect diagnostics (slow, skipped by default)
+bun run quality --no-cache         # Disable all caching (ESLint, Prettier, TypeScript incremental)
 bun run generate:roadmap           # Generate roadmap from specifications
 bun run validate:docs              # Validate documentation versions match package.json
 bun run release                    # Manually trigger release (semantic-release)
@@ -129,8 +132,10 @@ git push origin main               # Triggers release ONLY with "release:" type
 |------|--------|
 | `--skip-e2e` | Skip E2E tests entirely |
 | `--skip-coverage` | Skip domain coverage check |
+| `--skip-format` | Skip Prettier formatting check |
 | `--skip-knip` | Skip unused code detection |
 | `--include-effect` | Include Effect diagnostics (slow) |
+| `--no-cache` | Disable ESLint, Prettier, and TypeScript caching (clean run) |
 
 **Coverage**: Domain layer 93.4% (enforced). Other layers not yet enforced.
 

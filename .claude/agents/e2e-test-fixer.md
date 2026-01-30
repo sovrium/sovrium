@@ -1253,6 +1253,16 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 - **Does NOT include exhaustive @spec tests** - @spec tests are too slow for routine validation (use @regression instead)
 - **Mode detection**: Uses CI mode (branch diff) on GitHub Actions, local mode (uncommitted) elsewhere
 
+**Useful Quality Flags**:
+| Flag | Effect | When to Use |
+|------|--------|-------------|
+| `--skip-e2e` | Skip E2E tests entirely | During iteration loops (fix quality first) |
+| `--skip-coverage` | Skip domain coverage check | When coverage is not relevant to the fix |
+| `--skip-knip` | Skip unused code detection | When Knip is not relevant to the fix |
+| `--skip-format` | Skip Prettier formatting check | When formatting is not the focus |
+| `--no-cache` | Disable ESLint, Prettier, TypeScript caching | After config changes or stale cache issues |
+| `--include-effect` | Include Effect diagnostics (slow) | When fixing Effect-related patterns |
+
 **Complete Validation Sequence**:
 1. `bun run quality` - Must pass 100%
 2. `bun test:e2e -- <test-file>` - ALL tests in file must pass 100%

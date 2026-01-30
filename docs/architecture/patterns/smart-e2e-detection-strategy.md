@@ -497,6 +497,25 @@ bunx playwright test specs/app/version.spec.ts
 
 **Use Case**: Debug a specific failing spec.
 
+### Clean Run (No Cache)
+
+```bash
+bun run quality --no-cache
+```
+
+**Use Case**: After config changes (ESLint, Prettier, TypeScript) where stale caches may produce incorrect results. Disables ESLint cache, Prettier cache, and TypeScript incremental mode.
+
+### All Quality Flags Reference
+
+| Flag               | Effect                                           |
+| ------------------ | ------------------------------------------------ |
+| `--skip-e2e`       | Skip E2E tests entirely                          |
+| `--skip-coverage`  | Skip domain coverage check                       |
+| `--skip-format`    | Skip Prettier formatting check                   |
+| `--skip-knip`      | Skip unused code detection                       |
+| `--include-effect` | Include Effect diagnostics (slow, ~60-120s)      |
+| `--no-cache`       | Disable ESLint, Prettier, and TypeScript caching |
+
 ## Configuration
 
 ### Adding New Mappings
