@@ -38,6 +38,7 @@ import {
 } from '@/presentation/api/validation'
 import { handleGetRecordError, handleRestoreRecordError } from './error-handlers'
 import { parseFilterParameter } from './filter-parser'
+import { parseFormulaToFilter } from './formula-parser'
 import {
   checkTableUpdatePermissionWithRole,
   filterAllowedFieldsWithRole,
@@ -120,16 +121,45 @@ export async function handleListRecords(c: Context, app: App) {
   // requireAuth() → validateTable() → enrichUserRole()
   const { session, tableName, userRole } = getTableContext(c)
 
-  const parsedFilterResult = parseFilterParameter({
-    filterParam: c.req.query('filter'),
-    app,
-    tableName,
-    userRole,
-    c,
-  })
+  // Handle filterByFormula parameter (Airtable-style syntax)
+  const filterByFormula = c.req.query('filterByFormula')
+  const hasFormulaFilter = Boolean(filterByFormula)
 
-  if (!parsedFilterResult.success) {
-    return parsedFilterResult.error
+  const filter = hasFormulaFilter
+    ? (() => {
+        const parsedFormula = parseFormulaToFilter(filterByFormula!)
+        if (!parsedFormula) {
+          return { error: true as const }
+        }
+        return { error: false as const, value: parsedFormula }
+      })()
+    : (() => {
+        // Handle standard filter parameter
+        const parsedFilterResult = parseFilterParameter({
+          filterParam: c.req.query('filter'),
+          app,
+          tableName,
+          userRole,
+          c,
+        })
+        if (!parsedFilterResult.success) {
+          return { error: true as const, response: parsedFilterResult.error }
+        }
+        return { error: false as const, value: parsedFilterResult.filter }
+      })()
+
+  if (filter.error) {
+    if ('response' in filter) {
+      return filter.response
+    }
+    return c.json(
+      {
+        success: false,
+        message: 'Invalid filterByFormula syntax',
+        code: 'VALIDATION_ERROR',
+      },
+      400
+    )
   }
 
   const { includeDeleted, format, timezone, sort, fields, limit, offset, aggregate } =
@@ -154,7 +184,7 @@ export async function handleListRecords(c: Context, app: App) {
       tableName,
       app,
       userRole,
-      filter: parsedFilterResult.filter,
+      filter: filter.value,
       includeDeleted,
       format,
       timezone,
