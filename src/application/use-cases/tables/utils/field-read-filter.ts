@@ -41,8 +41,16 @@ export function filterReadableFields<T extends Record<string, unknown>>(
 
   // Filter fields based on read permissions
   const filteredRecord = Object.keys(record).reduce<Record<string, unknown>>((acc, fieldName) => {
-    // Always preserve system fields required for API response
-    if (fieldName === 'id' || fieldName === 'created_at' || fieldName === 'updated_at') {
+    // Preserve system fields (id, created_at, updated_at) for root-level properties
+    // These will be transformed by record-transformer to root-level createdAt/updatedAt
+    // BUT if they're also defined as table fields, they should be included in fields object
+    if (fieldName === 'id') {
+      return { ...acc, [fieldName]: record[fieldName] }
+    }
+
+    // For created_at and updated_at, always include them if they're in the record
+    // They may be both system fields AND user-defined fields
+    if (fieldName === 'created_at' || fieldName === 'updated_at') {
       return { ...acc, [fieldName]: record[fieldName] }
     }
 
