@@ -127,6 +127,8 @@ interface DuplicateSpecId {
 
 interface TDDAutomationStats {
   totalFixed: number
+  fixedByPipeline: number
+  fixedManually: number
   fixedLast24h: number
   fixedLast7d: number
   fixedLast30d: number
@@ -137,6 +139,7 @@ interface TDDAutomationStats {
     specId: string
     date: string
     commitHash: string
+    source: 'tdd-pipeline' | 'manual'
   }>
 }
 
@@ -925,14 +928,21 @@ async function calculateTDDAutomationStats(totalFixme: number): Promise<TDDAutom
 
   // Pattern to match any commit containing a spec ID (e.g., APP-XXX-001)
   // Matches: "fix: implement APP-XXX-001", "test: activate APP-XXX-001", "feat: implement APP-XXX-001", etc.
+  // Also matches TDD pipeline format: "[TDD] Implement API-TABLES-RECORDS-LIST-009 | Attempt 5/5 (#7054)"
   const specIdPattern = /([A-Z]+-[A-Z0-9-]+-\d{3})/
 
   try {
     // Get all spec-related commits in the last 90 days
-    // Uses extended regex to match conventional commit types with spec IDs
-    // Includes: fix:, fix(test):, test:, feat:, refactor:, etc.
+    // Uses multiple --grep flags (implicit OR) to match:
+    // 1. Conventional commits: fix:, test:, feat:, refactor:, chore: with spec IDs
+    // 2. TDD pipeline commits: [TDD] Implement <SPEC-ID> | Attempt X/N (#PR)
+    // 3. TDD activation commits: test(tdd): activate <SPEC-ID>
     const { stdout } = await execAsync(
-      'git log --oneline --since="90 days ago" --extended-regexp --grep="^(fix|test|feat|refactor|chore)(\\([^)]*\\))?:.*[A-Z]+-[A-Z0-9-]+-[0-9]{3}" --format="%H|%aI|%s"',
+      'git log --oneline --since="90 days ago" --extended-regexp' +
+        ' --grep="^(fix|test|feat|refactor|chore)(\\([^)]*\\))?:.*[A-Z]+-[A-Z0-9-]+-[0-9]{3}"' +
+        ' --grep="^\\[TDD\\].*[A-Z]+-[A-Z0-9-]+-[0-9]{3}"' +
+        ' --grep="^test\\(tdd\\):.*[A-Z]+-[A-Z0-9-]+-[0-9]{3}"' +
+        ' --format="%H|%aI|%s"',
       { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 }
     )
 
@@ -944,16 +954,22 @@ async function calculateTDDAutomationStats(totalFixme: number): Promise<TDDAutom
         const [hash, date, ...messageParts] = line.split('|')
         const message = messageParts.join('|')
         const match = message?.match(specIdPattern)
+        // Detect source: TDD pipeline commits start with "[TDD]"
+        const source: 'tdd-pipeline' | 'manual' = message?.startsWith('[TDD]')
+          ? 'tdd-pipeline'
+          : 'manual'
         return {
           hash: hash || '',
           date: date || '',
           specId: match?.[1] || null,
+          source,
         }
       })
       .filter((c) => c.specId !== null) as Array<{
       hash: string
       date: string
       specId: string
+      source: 'tdd-pipeline' | 'manual'
     }>
 
     // Calculate time-based metrics
@@ -984,10 +1000,17 @@ async function calculateTDDAutomationStats(totalFixme: number): Promise<TDDAutom
       specId: c.specId,
       date: c.date.replace('T', ' ').substring(0, 16),
       commitHash: c.hash.substring(0, 7),
+      source: c.source,
     }))
+
+    // Count by source
+    const fixedByPipeline = commits.filter((c) => c.source === 'tdd-pipeline').length
+    const fixedManually = commits.filter((c) => c.source === 'manual').length
 
     return {
       totalFixed: commits.length,
+      fixedByPipeline,
+      fixedManually,
       fixedLast24h,
       fixedLast7d,
       fixedLast30d,
@@ -1000,6 +1023,8 @@ async function calculateTDDAutomationStats(totalFixme: number): Promise<TDDAutom
     // If git command fails, return empty stats
     return {
       totalFixed: 0,
+      fixedByPipeline: 0,
+      fixedManually: 0,
       fixedLast24h: 0,
       fixedLast7d: 0,
       fixedLast30d: 0,
@@ -1425,6 +1450,8 @@ function generateMarkdown(state: SpecState): string {
     lines.push('| Metric | Value |')
     lines.push('|--------|-------|')
     lines.push(`| Tests Fixed (90 days) | ${state.tddAutomation.totalFixed} |`)
+    lines.push(`| 🤖 Fixed by TDD Pipeline | ${state.tddAutomation.fixedByPipeline} |`)
+    lines.push(`| 👤 Fixed Manually | ${state.tddAutomation.fixedManually} |`)
     lines.push(`| Fixed Last 24h | ${state.tddAutomation.fixedLast24h} |`)
     lines.push(`| Fixed Last 7d | ${state.tddAutomation.fixedLast7d} |`)
     lines.push(`| Fixed Last 30d | ${state.tddAutomation.fixedLast30d} |`)
@@ -1440,10 +1467,11 @@ function generateMarkdown(state: SpecState): string {
       lines.push('<details>')
       lines.push('<summary>Recent Fixes (last 20)</summary>')
       lines.push('')
-      lines.push('| Spec ID | Date | Commit |')
-      lines.push('|---------|------|--------|')
+      lines.push('| Spec ID | Date | Commit | Source |')
+      lines.push('|---------|------|--------|--------|')
       for (const fix of state.tddAutomation.recentFixes) {
-        lines.push(`| \`${fix.specId}\` | ${fix.date} | \`${fix.commitHash}\` |`)
+        const sourceLabel = fix.source === 'tdd-pipeline' ? '🤖 TDD' : '👤 Manual'
+        lines.push(`| \`${fix.specId}\` | ${fix.date} | \`${fix.commitHash}\` | ${sourceLabel} |`)
       }
       lines.push('')
       lines.push('</details>')
@@ -1909,6 +1937,8 @@ async function main() {
   if (tddAutomation.totalFixed > 0 || totalFixme > 0) {
     console.log('🤖 TDD Automation:')
     console.log(`  ├─ Fixed (90d):  ${tddAutomation.totalFixed}`)
+    console.log(`  │  ├─ Pipeline:  ${tddAutomation.fixedByPipeline}`)
+    console.log(`  │  └─ Manual:    ${tddAutomation.fixedManually}`)
     console.log(`  ├─ Last 24h:     ${tddAutomation.fixedLast24h}`)
     console.log(`  ├─ Last 7d:      ${tddAutomation.fixedLast7d}`)
     console.log(`  ├─ Avg/Day:      ${tddAutomation.avgFixesPerDay}`)
