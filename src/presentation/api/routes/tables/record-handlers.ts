@@ -66,6 +66,28 @@ function isValidTimezone(timezone: string): boolean {
   }
 }
 
+type AggregateParams = {
+  readonly count?: boolean
+  readonly sum?: readonly string[]
+  readonly avg?: readonly string[]
+  readonly min?: readonly string[]
+  readonly max?: readonly string[]
+}
+
+/**
+ * Parse aggregate JSON parameter
+ */
+function parseAggregateParam(aggregateParam: string | undefined): AggregateParams | undefined {
+  if (!aggregateParam) return undefined
+
+  try {
+    return JSON.parse(aggregateParam) as AggregateParams
+  } catch {
+    // Invalid JSON, ignore aggregation
+    return undefined
+  }
+}
+
 /**
  * Parse list records query parameters
  */
@@ -77,15 +99,7 @@ function parseListRecordsParams(c: Context): {
   readonly fields: string | undefined
   readonly limit: number | undefined
   readonly offset: number | undefined
-  readonly aggregate:
-    | {
-        readonly count?: boolean
-        readonly sum?: readonly string[]
-        readonly avg?: readonly string[]
-        readonly min?: readonly string[]
-        readonly max?: readonly string[]
-      }
-    | undefined
+  readonly aggregate: AggregateParams | undefined
 } {
   const includeDeleted = c.req.query('includeDeleted') === 'true'
   const format = c.req.query('format') === 'display' ? ('display' as const) : undefined
@@ -96,21 +110,7 @@ function parseListRecordsParams(c: Context): {
   const offsetParam = c.req.query('offset')
   const limit = limitParam ? Number(limitParam) : undefined
   const offset = offsetParam ? Number(offsetParam) : undefined
-
-  // Parse aggregate parameter
-  const aggregateParam = c.req.query('aggregate')
-  const aggregate: typeof parseListRecordsParams extends (...args: readonly unknown[]) => infer R
-    ? R['aggregate']
-    : never = aggregateParam
-    ? (() => {
-        try {
-          return JSON.parse(aggregateParam)
-        } catch {
-          // Invalid JSON, ignore aggregation
-          return undefined
-        }
-      })()
-    : undefined
+  const aggregate = parseAggregateParam(c.req.query('aggregate'))
 
   return { includeDeleted, format, timezone, sort, fields, limit, offset, aggregate }
 }

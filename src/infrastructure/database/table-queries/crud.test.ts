@@ -327,7 +327,10 @@ describe('listRecords', () => {
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect(error).toHaveProperty('message')
-        expect((error as Error).message).toContain('Failed to list records from users')
+        // Error can occur at checkDeletedAtColumn or main SELECT - both are valid database errors
+        expect((error as Error).message).toMatch(
+          /Failed to (check deleted_at column for|list records from) users/
+        )
       }
     })
   })
