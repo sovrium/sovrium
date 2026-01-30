@@ -38,6 +38,7 @@ import {
 } from '@/presentation/api/validation'
 import { handleGetRecordError, handleRestoreRecordError } from './error-handlers'
 import { parseFilterParameter } from './filter-parser'
+import { parseFormulaToFilter } from './formula-parser'
 import {
   checkTableUpdatePermissionWithRole,
   filterAllowedFieldsWithRole,
@@ -115,10 +116,30 @@ function parseListRecordsParams(c: Context): {
   return { includeDeleted, format, timezone, sort, fields, limit, offset, aggregate }
 }
 
-export async function handleListRecords(c: Context, app: App) {
-  // Session, tableName, and userRole are guaranteed by middleware chain:
-  // requireAuth() → validateTable() → enrichUserRole()
-  const { session, tableName, userRole } = getTableContext(c)
+type FilterStructure =
+  | {
+      readonly and?: readonly {
+        readonly field: string
+        readonly operator: string
+        readonly value: unknown
+      }[]
+    }
+  | undefined
+
+type FilterResult =
+  | { readonly error: false; readonly value: FilterStructure }
+  | { readonly error: true; readonly response?: Response }
+
+/**
+ * Parse filter parameter from request (formula or standard filter)
+ */
+function parseFilter(c: Context, app: App, tableName: string, userRole: string): FilterResult {
+  const filterByFormula = c.req.query('filterByFormula')
+
+  if (filterByFormula) {
+    const parsedFormula = parseFormulaToFilter(filterByFormula)
+    return parsedFormula ? { error: false, value: parsedFormula } : { error: true }
+  }
 
   const parsedFilterResult = parseFilterParameter({
     filterParam: c.req.query('filter'),
@@ -128,8 +149,30 @@ export async function handleListRecords(c: Context, app: App) {
     c,
   })
 
-  if (!parsedFilterResult.success) {
-    return parsedFilterResult.error
+  return parsedFilterResult.success
+    ? { error: false, value: parsedFilterResult.filter }
+    : { error: true, response: parsedFilterResult.error }
+}
+
+export async function handleListRecords(c: Context, app: App) {
+  // Session, tableName, and userRole are guaranteed by middleware chain:
+  // requireAuth() → validateTable() → enrichUserRole()
+  const { session, tableName, userRole } = getTableContext(c)
+
+  const filter = parseFilter(c, app, tableName, userRole)
+
+  if (filter.error) {
+    return (
+      filter.response ??
+      c.json(
+        {
+          success: false,
+          message: 'Invalid filterByFormula syntax',
+          code: 'VALIDATION_ERROR',
+        },
+        400
+      )
+    )
   }
 
   const { includeDeleted, format, timezone, sort, fields, limit, offset, aggregate } =
@@ -154,7 +197,7 @@ export async function handleListRecords(c: Context, app: App) {
       tableName,
       app,
       userRole,
-      filter: parsedFilterResult.filter,
+      filter: filter.value,
       includeDeleted,
       format,
       timezone,
