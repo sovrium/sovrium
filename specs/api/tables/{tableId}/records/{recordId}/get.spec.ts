@@ -287,7 +287,7 @@ test.describe('Get record by ID', () => {
   test(
     'API-TABLES-RECORDS-GET-007: should return minimal fields for viewer',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Viewer with limited field access
       await startServerWithSchema({
         name: 'test-app',
@@ -302,6 +302,23 @@ test.describe('Get record by ID', () => {
               { id: 3, name: 'phone', type: 'phone-number' },
               { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
             ],
+            permissions: {
+              read: { type: 'roles', roles: ['owner', 'admin', 'member', 'viewer'] },
+              fields: [
+                {
+                  field: 'email',
+                  read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+                },
+                {
+                  field: 'phone',
+                  read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+                },
+                {
+                  field: 'salary',
+                  read: { type: 'roles', roles: ['owner', 'admin'] },
+                },
+              ],
+            },
           },
         ],
       })
@@ -311,7 +328,14 @@ test.describe('Get record by ID', () => {
       `)
 
       // Create authenticated viewer (minimal field access)
-      await createAuthenticatedViewer()
+      const viewer = await createAuthenticatedUser()
+
+      // Set viewer role manually
+      await executeQuery(`
+        UPDATE auth.user
+        SET role = 'viewer'
+        WHERE email = '${viewer.user.email}'
+      `)
 
       // WHEN: Viewer requests record
       const response = await request.get('/api/tables/8/records/1', {})
