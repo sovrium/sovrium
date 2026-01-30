@@ -203,7 +203,7 @@ test.describe('List records in table', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-LIST-005: should return 200 with records containing only specified fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
