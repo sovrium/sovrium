@@ -284,7 +284,7 @@ test.describe('Get record by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-GET-007: should return minimal fields for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
