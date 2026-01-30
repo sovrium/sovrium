@@ -28,6 +28,49 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { UniqueConstraintViolationError } from '@/infrastructure/database'
 
 /**
+ * Build filter conditions from user-provided filters
+ */
+function buildUserFilterConditions(filter?: {
+  readonly and?: readonly {
+    readonly field: string
+    readonly operator: string
+    readonly value: unknown
+  }[]
+}): readonly string[] {
+  if (!filter?.and || filter.and.length === 0) return []
+
+  const andConditions = filter.and ?? []
+  return andConditions
+    .map((f) => {
+      validateColumnName(f.field)
+      return generateSqlCondition(f.field, f.operator, f.value, {
+        useEscapeSqlString: true,
+      })
+    })
+    .filter((c) => c !== '')
+}
+
+/**
+ * Build ORDER BY clause from sort parameter
+ */
+function buildOrderByClause(sort?: string): Readonly<ReturnType<typeof sql.raw>> {
+  if (!sort) return sql.raw('')
+
+  const sortParts = sort.split(',').map((part) => part.trim())
+  const orderClauses = sortParts
+    .map((part) => {
+      const [field, direction] = part.split(':')
+      if (!field) return ''
+      validateColumnName(field)
+      const dir = direction?.toLowerCase() === 'desc' ? 'DESC' : 'ASC'
+      return `"${field}" ${dir}`
+    })
+    .filter((c) => c !== '')
+
+  return orderClauses.length > 0 ? sql.raw(` ORDER BY ${orderClauses.join(', ')}`) : sql.raw('')
+}
+
+/**
  * List all records from a table with session context
  *
  * Returns all accessible records (RLS policies apply automatically via session context).
@@ -38,6 +81,7 @@ import type { UniqueConstraintViolationError } from '@/infrastructure/database'
  * @param config.table - Table schema configuration (unused, kept for backward compatibility)
  * @param config.filter - Optional filter to apply to the query
  * @param config.includeDeleted - Whether to include soft-deleted records (default: false)
+ * @param config.sort - Optional sort specification (e.g., 'field:asc' or 'field:desc')
  * @returns Effect resolving to array of records
  */
 export function listRecords(config: {
@@ -52,47 +96,33 @@ export function listRecords(config: {
     }[]
   }
   readonly includeDeleted?: boolean
+  readonly sort?: string
 }): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
-  const { session, tableName, filter, includeDeleted } = config
+  const { session, tableName, filter, includeDeleted, sort } = config
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
         validateTableName(tableName)
 
-        // Check if table has deleted_at column to filter soft-deleted records
+        // Check if table has deleted_at column
         const columnCheck = (await tx.execute(
           sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
         )) as readonly Record<string, unknown>[]
 
         const hasDeletedAt = columnCheck.length > 0
 
-        // Add user-provided filters (static import - no performance overhead)
-        const userFilterConditions =
-          filter?.and && filter.and.length > 0
-            ? (() => {
-                const andConditions = filter.and ?? [] // Type narrowing
-                return andConditions
-                  .map((f) => {
-                    validateColumnName(f.field)
-                    return generateSqlCondition(f.field, f.operator, f.value, {
-                      useEscapeSqlString: true,
-                    })
-                  })
-                  .filter((c) => c !== '')
-              })()
-            : []
-
-        // Add soft delete filter if table has deleted_at column and includeDeleted is not true
+        // Build filter conditions
+        const userFilterConditions = buildUserFilterConditions(filter)
         const softDeleteCondition = hasDeletedAt && !includeDeleted ? ['deleted_at IS NULL'] : []
-
         const conditions = [...userFilterConditions, ...softDeleteCondition]
 
-        // Build final query
+        // Build query clauses
         const whereClause =
           conditions.length > 0 ? sql.raw(` WHERE ${conditions.join(' AND ')}`) : sql.raw('')
+        const orderByClause = buildOrderByClause(sort)
 
         const result = await tx.execute(
-          sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause}`
+          sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause}${orderByClause}`
         )
 
         return result as readonly Record<string, unknown>[]

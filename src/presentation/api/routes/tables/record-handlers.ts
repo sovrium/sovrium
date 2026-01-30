@@ -87,6 +87,8 @@ export async function handleListRecords(c: Context, app: App) {
   const includeDeleted = c.req.query('includeDeleted') === 'true'
   const format = c.req.query('format') === 'display' ? ('display' as const) : undefined
   const timezone = c.req.query('timezone')
+  const sort = c.req.query('sort')
+  const fields = c.req.query('fields')
 
   // Validate timezone if provided
   if (timezone && !isValidTimezone(timezone)) {
@@ -100,6 +102,10 @@ export async function handleListRecords(c: Context, app: App) {
     )
   }
 
+  // When fields parameter is used, response format is flat (no Airtable structure)
+  // Skip schema validation for field-selected responses since structure differs
+  const responseSchema = fields ? undefined : listRecordsResponseSchema
+
   return runEffect(
     c,
     createListRecordsProgram({
@@ -111,8 +117,10 @@ export async function handleListRecords(c: Context, app: App) {
       includeDeleted,
       format,
       timezone,
+      sort,
+      fields,
     }),
-    listRecordsResponseSchema
+    responseSchema
   )
 }
 

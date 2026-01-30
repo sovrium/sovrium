@@ -63,32 +63,80 @@ interface ListRecordsConfig {
   readonly includeDeleted?: boolean
   readonly format?: 'display'
   readonly timezone?: string
+  readonly sort?: string
+  readonly fields?: string
+}
+
+/**
+ * Apply field selection to transform records into flat structure
+ * When fields parameter is specified, flattens records from Airtable-style to simple key-value
+ */
+function applyFieldSelection(
+  records: readonly TransformedRecord[],
+  fields: string
+): readonly Record<string, unknown>[] {
+  const fieldNames = fields.split(',').map((f) => f.trim())
+
+  return records.map((record) => {
+    // Build result object functionally using reduce
+    const result = fieldNames.reduce<Record<string, unknown>>((acc, fieldName) => {
+      // System fields at top level
+      if (fieldName === 'id') return { ...acc, id: record.id }
+      if (fieldName === 'createdAt') return { ...acc, createdAt: record.createdAt }
+      if (fieldName === 'updatedAt') return { ...acc, updatedAt: record.updatedAt }
+
+      // User fields - flatten from fields.X to X
+      if (record.fields[fieldName] !== undefined) {
+        return { ...acc, [fieldName]: record.fields[fieldName] }
+      }
+
+      return acc
+    }, {})
+
+    return result
+  })
 }
 
 export function createListRecordsProgram(
   config: ListRecordsConfig
 ): Effect.Effect<ListRecordsResponse, SessionContextError> {
   return Effect.gen(function* () {
-    const { session, tableName, app, userRole, filter, includeDeleted, format, timezone } = config
+    const {
+      session,
+      tableName,
+      app,
+      userRole,
+      filter,
+      includeDeleted,
+      format,
+      timezone,
+      sort,
+      fields,
+    } = config
 
     // Query records with session context (RLS policies apply automatically)
-    const records = yield* listRecords({ session, tableName, filter, includeDeleted })
+    const records = yield* listRecords({ session, tableName, filter, includeDeleted, sort })
 
     // Apply field-level read permissions filtering
-    // Note: Row-level ownership filtering is handled by RLS policies
-    // Field-level filtering is handled at application layer
     const { userId } = session
     const filteredRecords = records.map((record) =>
       filterReadableFields({ app, tableName, userRole, userId, record })
     )
 
+    const transformedRecords = transformRecords(filteredRecords, {
+      format,
+      app,
+      tableName,
+      timezone,
+    }) as TransformedRecord[]
+
+    // Apply field selection if specified
+    const finalRecords = fields
+      ? (applyFieldSelection(transformedRecords, fields) as unknown as TransformedRecord[])
+      : transformedRecords
+
     return {
-      records: transformRecords(filteredRecords, {
-        format,
-        app,
-        tableName,
-        timezone,
-      }) as TransformedRecord[],
+      records: finalRecords,
       pagination: {
         page: 1,
         limit: 10,
