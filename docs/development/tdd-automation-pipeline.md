@@ -1031,6 +1031,7 @@ When creating a new TDD PR, the workflow checks if the remote branch already exi
 4. **Creates Fresh Branch**: Creates new branch from latest `main` and pushes
 
 **Rationale**: Previous TDD PRs leave branches in remote after merging. Without cleanup, subsequent `git push` fails with "non-fast-forward" error due to divergent history. This fix enables spec retries and handles edge cases where PRs were closed without cleanup.
+
 - Auto-merge: Enabled (squash)
 
 ---
