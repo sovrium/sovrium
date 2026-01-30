@@ -116,49 +116,62 @@ function parseListRecordsParams(c: Context): {
   return { includeDeleted, format, timezone, sort, fields, limit, offset, aggregate }
 }
 
+type FilterStructure =
+  | {
+      readonly and?: readonly {
+        readonly field: string
+        readonly operator: string
+        readonly value: unknown
+      }[]
+    }
+  | undefined
+
+type FilterResult =
+  | { readonly error: false; readonly value: FilterStructure }
+  | { readonly error: true; readonly response?: Response }
+
+/**
+ * Parse filter parameter from request (formula or standard filter)
+ */
+function parseFilter(c: Context, app: App, tableName: string, userRole: string): FilterResult {
+  const filterByFormula = c.req.query('filterByFormula')
+
+  if (filterByFormula) {
+    const parsedFormula = parseFormulaToFilter(filterByFormula)
+    return parsedFormula ? { error: false, value: parsedFormula } : { error: true }
+  }
+
+  const parsedFilterResult = parseFilterParameter({
+    filterParam: c.req.query('filter'),
+    app,
+    tableName,
+    userRole,
+    c,
+  })
+
+  return parsedFilterResult.success
+    ? { error: false, value: parsedFilterResult.filter }
+    : { error: true, response: parsedFilterResult.error }
+}
+
 export async function handleListRecords(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain:
   // requireAuth() → validateTable() → enrichUserRole()
   const { session, tableName, userRole } = getTableContext(c)
 
-  // Handle filterByFormula parameter (Airtable-style syntax)
-  const filterByFormula = c.req.query('filterByFormula')
-  const hasFormulaFilter = Boolean(filterByFormula)
-
-  const filter = hasFormulaFilter
-    ? (() => {
-        const parsedFormula = parseFormulaToFilter(filterByFormula!)
-        if (!parsedFormula) {
-          return { error: true as const }
-        }
-        return { error: false as const, value: parsedFormula }
-      })()
-    : (() => {
-        // Handle standard filter parameter
-        const parsedFilterResult = parseFilterParameter({
-          filterParam: c.req.query('filter'),
-          app,
-          tableName,
-          userRole,
-          c,
-        })
-        if (!parsedFilterResult.success) {
-          return { error: true as const, response: parsedFilterResult.error }
-        }
-        return { error: false as const, value: parsedFilterResult.filter }
-      })()
+  const filter = parseFilter(c, app, tableName, userRole)
 
   if (filter.error) {
-    if ('response' in filter) {
-      return filter.response
-    }
-    return c.json(
-      {
-        success: false,
-        message: 'Invalid filterByFormula syntax',
-        code: 'VALIDATION_ERROR',
-      },
-      400
+    return (
+      filter.response ??
+      c.json(
+        {
+          success: false,
+          message: 'Invalid filterByFormula syntax',
+          code: 'VALIDATION_ERROR',
+        },
+        400
+      )
     )
   }
 

@@ -23,16 +23,23 @@ function mapOperator(operator: string): string | undefined {
 /**
  * Parse a single condition from regex match
  */
-function parseCondition(match: RegExpExecArray): {
-  readonly field: string
-  readonly operator: string
-  readonly value: unknown
-} | undefined {
+function parseCondition(match: RegExpExecArray):
+  | {
+      readonly field: string
+      readonly operator: string
+      readonly value: unknown
+    }
+  | undefined {
   const field = match[1]
   const operator = match[2]
   const stringValue1 = match[3]
   const stringValue2 = match[4]
   const numberValue = match[5]
+
+  // Validate required captures
+  if (!field || !operator) {
+    return undefined
+  }
 
   // Determine value (string or number)
   const value = stringValue1 ?? stringValue2 ?? Number(numberValue)
@@ -52,16 +59,18 @@ function parseCondition(match: RegExpExecArray): {
 /**
  * Extract all conditions from formula string
  */
-function extractConditions(conditions: string): readonly {
+function extractConditions(conditions: string): Array<{
   readonly field: string
   readonly operator: string
   readonly value: unknown
-}[] {
+}> {
   // Regex to match: {field}operator'value' or {field}operatorvalue
   const conditionRegex = /\{([^}]+)\}\s*([!=<>]+)\s*(?:'([^']*)'|"([^"]*)"|(\d+))/g
 
   const matches = [...conditions.matchAll(conditionRegex)]
-  const parsedConditions = matches.map(parseCondition).filter((c) => c !== undefined)
+  const parsedConditions = matches
+    .map(parseCondition)
+    .filter((c): c is NonNullable<typeof c> => c !== undefined)
 
   return parsedConditions
 }
@@ -79,13 +88,15 @@ function extractConditions(conditions: string): readonly {
  * @param formula - Airtable-style formula string
  * @returns Filter structure compatible with existing filter system
  */
-export function parseFormulaToFilter(formula: string): {
-  readonly and?: readonly {
-    readonly field: string
-    readonly operator: string
-    readonly value: unknown
-  }[]
-} | undefined {
+export function parseFormulaToFilter(formula: string):
+  | {
+      readonly and?: Array<{
+        readonly field: string
+        readonly operator: string
+        readonly value: unknown
+      }>
+    }
+  | undefined {
   // Match AND(...) pattern
   const andMatch = formula.match(/^AND\((.*)\)$/i)
   if (!andMatch) {
