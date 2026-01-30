@@ -281,76 +281,70 @@ test.describe('List table views', () => {
     'API-TABLES-VIEWS-LIST-REGRESSION: user can complete full views list workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
-      await test.step('API-TABLES-VIEWS-LIST-004: Returns 401 when not authenticated', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true, admin: true },
-          tables: [
-            {
-              id: 1,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'title', type: 'single-line-text' },
-                {
-                  id: 2,
-                  name: 'status',
-                  type: 'single-select',
-                  options: ['active', 'completed'],
+      // Setup: Start server with tasks table and 3 views
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true, admin: true },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'title', type: 'single-line-text' },
+              {
+                id: 2,
+                name: 'status',
+                type: 'single-select',
+                options: ['active', 'completed'],
+              },
+            ],
+            views: [
+              {
+                id: 'filtered_view',
+                name: 'Filtered Tasks',
+                filters: {
+                  and: [{ field: 'status', operator: 'equals', value: 'active' }],
                 },
-              ],
-              views: [
-                {
-                  id: 'filtered_view',
-                  name: 'Filtered Tasks',
-                  filters: {
-                    and: [{ field: 'status', operator: 'equals', value: 'active' }],
-                  },
-                },
-                {
-                  id: 'sorted_view',
-                  name: 'Sorted Tasks',
-                  sorts: [{ field: 'title', direction: 'asc' }],
-                  fields: ['title', 'status'],
-                },
-                {
-                  id: 'admin_view',
-                  name: 'Admin View',
-                  permissions: { read: ['admin'] },
-                },
-              ],
-            },
-          ],
-        })
+              },
+              {
+                id: 'sorted_view',
+                name: 'Sorted Tasks',
+                sorts: [{ field: 'title', direction: 'asc' }],
+                fields: ['title', 'status'],
+              },
+              {
+                id: 'admin_view',
+                name: 'Admin View',
+                permissions: { read: ['admin'] },
+              },
+            ],
+          },
+        ],
+      })
 
-        // WHEN: Unauthenticated user requests list of views
+      // --- Step 004: 401 Unauthorized (BEFORE authentication) ---
+      await test.step('API-TABLES-VIEWS-LIST-004: Return 401 when not authenticated', async () => {
         const response = await request.get('/api/tables/1/views')
-
-        // THEN: Response should be 401 Unauthorized
         expect(response.status()).toBe(401)
         const data = await response.json()
         expect(data.success).toBe(false)
       })
 
-      await test.step('Setup: Create authenticated user', async () => {
-        await createAuthenticatedUser()
-      })
+      // --- Authenticate as member ---
+      await createAuthenticatedUser()
 
-      await test.step('API-TABLES-VIEWS-LIST-003: Returns 404 for non-existent table', async () => {
-        // WHEN: User requests views for non-existent table
-        const response = await request.get('/api/tables/9999/views', {})
-
-        // THEN: 404 Not Found
+      // --- Step 003: 404 for non-existent table ---
+      await test.step('API-TABLES-VIEWS-LIST-003: Return 404 for non-existent table', async () => {
+        const response = await request.get('/api/tables/9999/views')
         expect(response.status()).toBe(404)
         const data = await response.json()
         expect(data.success).toBe(false)
         expect(data.code).toBe('NOT_FOUND')
       })
 
-      await test.step('API-TABLES-VIEWS-LIST-001: Returns all views with complete configurations', async () => {
-        // WHEN: User requests list of views
-        const response = await request.get('/api/tables/1/views', {})
-
-        // THEN: All views returned with configurations
+      // --- Step 001: Return all views with configurations ---
+      await test.step('API-TABLES-VIEWS-LIST-001: Return all views with complete configurations', async () => {
+        const response = await request.get('/api/tables/1/views')
         expect(response.status()).toBe(200)
         const data = await response.json()
         expect(Array.isArray(data)).toBe(true)
@@ -362,14 +356,17 @@ test.describe('List table views', () => {
         }
       })
 
-      await test.step('API-TABLES-VIEWS-LIST-005: Returns only views with read permission', async () => {
-        // Note: This step depends on role-based filtering behavior
-        // Admin user should see all views, member should see fewer
-        const response = await request.get('/api/tables/1/views', {})
-
+      // --- Step 005: Permission-filtered views ---
+      await test.step('API-TABLES-VIEWS-LIST-005: Return only views with read permission for member', async () => {
+        // Member should NOT see admin_view (permissions: { read: ['admin'] })
+        const response = await request.get('/api/tables/1/views')
         expect(response.status()).toBe(200)
         const data = await response.json()
         expect(Array.isArray(data)).toBe(true)
+
+        // admin_view should be excluded for member user
+        const viewIds = data.map((v: { id: string }) => v.id)
+        expect(viewIds).not.toContain('admin_view')
       })
     }
   )

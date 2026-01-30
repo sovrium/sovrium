@@ -553,33 +553,49 @@ test.describe('Batch delete records', () => {
     'API-TABLES-RECORDS-BATCH-DELETE-REGRESSION: user can complete full batch soft delete workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      await test.step('Setup: Start server with users table and test records', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true, admin: true },
-          tables: [
-            {
-              id: 1,
-              name: 'users',
-              fields: [
-                { id: 1, name: 'email', type: 'email', required: true },
-                { id: 2, name: 'name', type: 'single-line-text' },
-                { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
-              ],
-            },
-          ],
-        })
-        await createAuthenticatedUser()
-        await executeQuery(`
-          INSERT INTO users (id, email, name, deleted_at) VALUES
-            (1, 'user1@example.com', 'User One', NULL),
-            (2, 'user2@example.com', 'User Two', NULL),
-            (3, 'user3@example.com', 'User Three', NULL),
-            (4, 'user4@example.com', 'User Four', NULL),
-            (5, 'user5@example.com', 'Already Deleted', NOW()),
-            (6, 'user6@example.com', 'User Six', NULL)
-        `)
+      // Setup: Start server with users table and test records
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true, admin: true },
+        tables: [
+          {
+            id: 1,
+            name: 'users',
+            fields: [
+              { id: 1, name: 'email', type: 'email', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
       })
+
+      // Seed test data
+      await executeQuery(`
+        INSERT INTO users (id, email, name, deleted_at) VALUES
+          (1, 'user1@example.com', 'User One', NULL),
+          (2, 'user2@example.com', 'User Two', NULL),
+          (3, 'user3@example.com', 'User Three', NULL),
+          (4, 'user4@example.com', 'User Four', NULL),
+          (5, 'user5@example.com', 'Already Deleted', NOW()),
+          (6, 'user6@example.com', 'User Six', NULL)
+      `)
+
+      // --- Step 004: 401 Unauthorized (BEFORE authentication) ---
+      await test.step('API-TABLES-RECORDS-BATCH-DELETE-004: Return 401 when not authenticated', async () => {
+        const response = await request.delete('/api/tables/1/records/batch', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { ids: [1, 2] },
+        })
+        expect(response.status()).toBe(401)
+
+        const data = await response.json()
+        expect(data.error).toBeDefined()
+        expect(data.message).toBeDefined()
+      })
+
+      // --- Authenticate as user for all subsequent test steps ---
+      await createAuthenticatedUser()
 
       await test.step('API-TABLES-RECORDS-BATCH-DELETE-001: Batch deletes IDs [1, 2] and returns 200 with deleted=2', async () => {
         const response = await request.delete('/api/tables/1/records/batch', {
@@ -693,6 +709,13 @@ test.describe('Batch delete records', () => {
         `)
         expect(result.rows[0].count).toBe('0')
       })
+
+      // --- Steps 005, 006 skipped: require different auth contexts ---
+      // API-TABLES-RECORDS-BATCH-DELETE-005 tests viewer role getting 403 Forbidden.
+      // API-TABLES-RECORDS-BATCH-DELETE-006 tests member role getting 403 for permanent delete.
+      // These need createAuthenticatedViewer/createAuthenticatedMember which would
+      // invalidate the current session for subsequent tests.
+      // Covered by @spec tests API-TABLES-RECORDS-BATCH-DELETE-005 and 006.
     }
   )
 })

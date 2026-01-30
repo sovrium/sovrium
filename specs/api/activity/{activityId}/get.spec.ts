@@ -266,7 +266,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   test.fixme(
     'API-ACTIVITY-DETAILS-REGRESSION: user can retrieve specific activity with full metadata',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // Setup: Start server with activity logging
       await startServerWithSchema({
         name: 'test-app',
@@ -285,11 +285,9 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
         ],
       })
 
-      await test.step('API-ACTIVITY-DETAILS-002: Returns 401 when user is not authenticated', async () => {
-        // WHEN: Unauthenticated user requests activity details
-        const response = await page.request.get('/api/activity/123')
-
-        // THEN: Returns 401 Unauthorized
+      // --- Step 002: 401 Unauthorized (BEFORE authentication) ---
+      await test.step('API-ACTIVITY-DETAILS-002: Return 401 when not authenticated', async () => {
+        const response = await request.get('/api/activity/123')
         expect(response.status()).toBe(401)
 
         const data = await response.json()
@@ -298,11 +296,12 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
         expect(data).toHaveProperty('code')
       })
 
-      // Setup: Create authenticated user and activity log
+      // --- Authenticate ---
       const { user } = await createAuthenticatedUser({ name: 'Charlie Davis' })
       const userId = user.id
 
-      const result = await executeQuery(`
+      // --- Insert activity logs for testing ---
+      const updateResult = await executeQuery(`
         INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES (
           '${userId}',
@@ -314,17 +313,22 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
         )
         RETURNING id
       `)
-      const activityId = result.id
+      const updateActivityId = updateResult.id
 
-      await test.step('API-ACTIVITY-DETAILS-001: Returns 200 with activity details', async () => {
-        // WHEN: User requests specific activity details
-        const response = await page.request.get(`/api/activity/${activityId}`)
+      const deleteResult = await executeQuery(`
+        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        VALUES ('${userId}', 'delete', 'tasks', 99, NULL, NOW())
+        RETURNING id
+      `)
+      const deleteActivityId = deleteResult.id
 
-        // THEN: Returns 200 with complete activity details
+      // --- Step 001: Get activity details ---
+      await test.step('API-ACTIVITY-DETAILS-001: Return 200 with activity details', async () => {
+        const response = await request.get(`/api/activity/${updateActivityId}`)
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data).toHaveProperty('id', activityId)
+        expect(data).toHaveProperty('id', updateActivityId)
         expect(data).toHaveProperty('userId', userId)
         expect(data).toHaveProperty('action', 'update')
         expect(data).toHaveProperty('tableName', 'tasks')
@@ -335,11 +339,9 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
         expect(data).toHaveProperty('createdAt')
       })
 
-      await test.step('API-ACTIVITY-DETAILS-004: Includes user metadata in activity details', async () => {
-        // WHEN: User requests activity details
-        const response = await page.request.get(`/api/activity/${activityId}`)
-
-        // THEN: Activity includes user metadata
+      // --- Step 004: User metadata ---
+      await test.step('API-ACTIVITY-DETAILS-004: Include user metadata in activity details', async () => {
+        const response = await request.get(`/api/activity/${updateActivityId}`)
         expect(response.status()).toBe(200)
 
         const data = await response.json()
@@ -348,11 +350,19 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
         expect(data.user.id).toBe(userId)
       })
 
-      await test.step('API-ACTIVITY-DETAILS-003: Returns 404 when activity does not exist', async () => {
-        // WHEN: User requests non-existent activity
-        const response = await page.request.get('/api/activity/99999')
+      // --- Step 005: Delete action with null changes ---
+      await test.step('API-ACTIVITY-DETAILS-005: Return activity with null changes for delete action', async () => {
+        const response = await request.get(`/api/activity/${deleteActivityId}`)
+        expect(response.status()).toBe(200)
 
-        // THEN: Returns 404 Not Found
+        const data = await response.json()
+        expect(data.action).toBe('delete')
+        expect(data.changes).toBeNull()
+      })
+
+      // --- Step 003: 404 for non-existent activity ---
+      await test.step('API-ACTIVITY-DETAILS-003: Return 404 when activity does not exist', async () => {
+        const response = await request.get('/api/activity/99999')
         expect(response.status()).toBe(404)
 
         const data = await response.json()
@@ -361,11 +371,9 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
         expect(data).toHaveProperty('code')
       })
 
-      await test.step('API-ACTIVITY-DETAILS-006: Returns 400 when activityId is invalid format', async () => {
-        // WHEN: User requests activity with invalid ID format
-        const response = await page.request.get('/api/activity/invalid-id')
-
-        // THEN: Returns 400 Bad Request
+      // --- Step 006: Invalid ID format ---
+      await test.step('API-ACTIVITY-DETAILS-006: Return 400 when activityId is invalid format', async () => {
+        const response = await request.get('/api/activity/invalid-id')
         expect(response.status()).toBe(400)
 
         const data = await response.json()
@@ -373,6 +381,11 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
         expect(data).toHaveProperty('message')
         expect(data).toHaveProperty('code')
       })
+
+      // --- Step 007 skipped: requires different schema (no auth configured) ---
+      // API-ACTIVITY-DETAILS-007 tests 401 when auth is not configured.
+      // This needs a completely different server configuration without auth.
+      // Covered by @spec test API-ACTIVITY-DETAILS-007.
     }
   )
 })

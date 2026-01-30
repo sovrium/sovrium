@@ -245,44 +245,42 @@ test.describe('Include Deleted query parameter', () => {
     'API-TABLES-RECORDS-INCLUDE-DELETED-REGRESSION: user can complete include-deleted workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      await test.step('Setup: Start server with table and mixed records', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true, admin: true },
-          tables: [
-            {
-              id: 1,
-              name: 'documents',
-              fields: [
-                { id: 1, name: 'title', type: 'single-line-text', required: true },
-                { id: 2, name: 'content', type: 'long-text' },
-                { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
-              ],
-            },
-          ],
-        })
-
-        // Insert 30 active records and 20 deleted records for comprehensive testing
-        const activeInserts = Array.from(
-          { length: 30 },
-          (_, i) => `(${i + 1}, 'Active Doc ${i + 1}', 'Content ${i + 1}', NULL)`
-        ).join(',')
-        const deletedInserts = Array.from(
-          { length: 20 },
-          (_, i) => `(${i + 31}, 'Deleted Doc ${i + 1}', 'Content ${i + 31}', NOW())`
-        ).join(',')
-
-        await executeQuery(
-          `INSERT INTO documents (id, title, content, deleted_at) VALUES ${activeInserts}`
-        )
-        await executeQuery(
-          `INSERT INTO documents (id, title, content, deleted_at) VALUES ${deletedInserts}`
-        )
+      // Setup: Start server with table and mixed records
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true, admin: true },
+        tables: [
+          {
+            id: 1,
+            name: 'documents',
+            fields: [
+              { id: 1, name: 'title', type: 'single-line-text', required: true },
+              { id: 2, name: 'content', type: 'long-text' },
+              { id: 3, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+          },
+        ],
       })
 
-      await test.step('Authenticate as user for basic operations', async () => {
-        await createAuthenticatedUser()
-      })
+      // Insert 30 active records and 20 deleted records for comprehensive testing
+      const activeInserts = Array.from(
+        { length: 30 },
+        (_, i) => `(${i + 1}, 'Active Doc ${i + 1}', 'Content ${i + 1}', NULL)`
+      ).join(',')
+      const deletedInserts = Array.from(
+        { length: 20 },
+        (_, i) => `(${i + 31}, 'Deleted Doc ${i + 1}', 'Content ${i + 31}', NOW())`
+      ).join(',')
+
+      await executeQuery(
+        `INSERT INTO documents (id, title, content, deleted_at) VALUES ${activeInserts}`
+      )
+      await executeQuery(
+        `INSERT INTO documents (id, title, content, deleted_at) VALUES ${deletedInserts}`
+      )
+
+      // Authenticate as user for basic operations
+      await createAuthenticatedUser()
 
       await test.step('API-TABLES-RECORDS-INCLUDE-DELETED-001: Excludes deleted records by default', async () => {
         // WHEN: User requests records without includeDeleted parameter

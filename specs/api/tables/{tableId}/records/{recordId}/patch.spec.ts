@@ -860,7 +860,9 @@ test.describe('Update record', () => {
   )
 
   // ============================================================================
-  // @regression test (exactly one) - OPTIMIZED integration
+  // REGRESSION TEST (@regression)
+  // ONE OPTIMIZED test verifying components work together efficiently
+  // Generated from 15 @spec tests - covers: CRUD, 401/403/404, permissions, readonly, activity logs
   // ============================================================================
 
   test.fixme(
@@ -898,18 +900,31 @@ test.describe('Update record', () => {
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
               { id: 4, name: 'phone', type: 'phone-number' },
             ],
+            permissions: {
+              fields: [
+                {
+                  field: 'salary',
+                  read: { type: 'roles', roles: ['admin'] },
+                  write: { type: 'roles', roles: ['admin'] },
+                },
+              ],
+            },
           },
           {
             id: 4,
             name: 'projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+            permissions: {
+              update: { type: 'roles', roles: ['admin'] },
+            },
           },
           {
             id: 5,
-            name: 'documents',
+            name: 'contacts',
             fields: [
-              { id: 1, name: 'title', type: 'single-line-text' },
-              { id: 2, name: 'content', type: 'long-text' },
+              { id: 1, name: 'name', type: 'single-line-text' },
+              { id: 2, name: 'email', type: 'email' },
+              { id: 3, name: 'phone', type: 'phone-number' },
             ],
           },
         ],
@@ -921,19 +936,31 @@ test.describe('Update record', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Important Task'), (2, 'Original Title');
         INSERT INTO employees (id, name, email, salary, phone) VALUES
           (1, 'John Doe', 'john@example.com', 75000, '555-0100'),
-          (2, 'Jane Smith', 'jane@example.com', 75000, NULL),
-          (3, 'Alice Cooper', 'alice@example.com', 75000, NULL),
-          (4, 'Bob Wilson', 'bob@example.com', 65000, NULL),
-          (5, 'Carol Davis', 'carol@example.com', 70000, '555-0100'),
-          (6, 'David Lee', 'david@example.com', 72000, NULL),
-          (7, 'Alice B', 'alice.b@example.com', 60000, NULL);
-        INSERT INTO projects (id, name) VALUES
-          (1, 'Alpha'),
-          (2, 'Alpha Project');
-        INSERT INTO documents (id, title, content) VALUES (1, 'Doc 1', 'Content');
+          (2, 'Alice Cooper', 'alice@example.com', 75000, NULL),
+          (3, 'Bob Wilson', 'bob@example.com', 65000, NULL),
+          (4, 'Carol Davis', 'carol@example.com', 70000, '555-0100'),
+          (5, 'David Lee', 'david@example.com', 72000, NULL);
+        INSERT INTO projects (id, name) VALUES (1, 'Alpha Project');
+        INSERT INTO contacts (id, name, email, phone)
+          VALUES (1, 'John Doe', 'john@example.com', '555-1234');
       `)
 
-      await test.step('API-TABLES-RECORDS-UPDATE-001: should return 200 with updated record data', async () => {
+      // 401 test BEFORE authentication (spec 003)
+      await test.step('API-TABLES-RECORDS-UPDATE-003: Return 401 Unauthorized', async () => {
+        const response = await request.patch('/api/tables/1/records/1', {
+          headers: { 'Content-Type': 'application/json' },
+          data: { email: 'test@example.com' },
+        })
+
+        expect(response.status()).toBe(401)
+        const data = await response.json()
+        expect(data.error).toBe('Unauthorized')
+      })
+
+      // Authenticate as member user (default role)
+      const { user } = await createAuthenticatedUser()
+
+      await test.step('API-TABLES-RECORDS-UPDATE-001: Return 200 with updated record data', async () => {
         const response = await request.patch('/api/tables/1/records/1', {
           headers: { 'Content-Type': 'application/json' },
           data: { email: 'new@example.com', name: 'New Name' },
@@ -954,7 +981,7 @@ test.describe('Update record', () => {
         expect(result.rows[0].name).toBe('New Name')
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-002: should return 404 Not Found', async () => {
+      await test.step('API-TABLES-RECORDS-UPDATE-002: Return 404 Not Found', async () => {
         const response = await request.patch('/api/tables/1/records/9999', {
           headers: { 'Content-Type': 'application/json' },
           data: { email: 'test@example.com' },
@@ -970,13 +997,8 @@ test.describe('Update record', () => {
         expect(data.code).toBe('NOT_FOUND')
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-003: should return 401 Unauthorized', async () => {
-        // This test requires unauthenticated request - skip in regression
-        // as regression uses authenticated context throughout
-      })
-
-      await test.step('API-TABLES-RECORDS-UPDATE-004: should return 403 for member without update permission', async () => {
-        const response = await request.patch('/api/tables/4/records/2', {
+      await test.step('API-TABLES-RECORDS-UPDATE-004: Return 403 for member without table update permission', async () => {
+        const response = await request.patch('/api/tables/4/records/1', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'Beta Project' },
         })
@@ -986,48 +1008,15 @@ test.describe('Update record', () => {
         expect(data).toHaveProperty('success')
         expect(data).toHaveProperty('message')
         expect(data).toHaveProperty('code')
-        expect(data).toHaveProperty('message')
         expect(data.success).toBe(false)
-        expect(data.message).toBe('You do not have permission to perform this action')
-        expect(data.code).toBe('FORBIDDEN')
         expect(data.message).toBe('You do not have permission to update records in this table')
-      })
-
-      await test.step('API-TABLES-RECORDS-UPDATE-005: should return 403 for viewer', async () => {
-        const response = await request.patch('/api/tables/5/records/1', {
-          headers: { 'Content-Type': 'application/json' },
-          data: { title: 'Modified Title' },
-        })
-
-        expect(response.status()).toBe(403)
-        const data = await response.json()
-        expect(data).toHaveProperty('success')
-        expect(data).toHaveProperty('message')
-        expect(data).toHaveProperty('code')
-        expect(data.success).toBe(false)
-        expect(data.message).toBe('You do not have permission to perform this action')
         expect(data.code).toBe('FORBIDDEN')
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-006: should allow admin to update sensitive fields', async () => {
+      // Skipped: spec 005 (viewer role) and 006 (admin role) require different auth contexts
+
+      await test.step('API-TABLES-RECORDS-UPDATE-007: Return 403 when updating protected field', async () => {
         const response = await request.patch('/api/tables/3/records/1', {
-          headers: { 'Content-Type': 'application/json' },
-          data: { salary: 85_000 },
-        })
-
-        expect(response.status()).toBe(200)
-        const data = await response.json()
-        expect(data).toHaveProperty('id')
-        expect(data.fields).toHaveProperty('salary')
-        expect(data.id).toBe(1)
-        expect(data.fields.salary).toBe(85_000)
-
-        const result = await executeQuery(`SELECT salary FROM employees WHERE id=1`)
-        expect(result.rows[0].salary).toBe(85_000)
-      })
-
-      await test.step('API-TABLES-RECORDS-UPDATE-007: should return 403 when updating protected field', async () => {
-        const response = await request.patch('/api/tables/3/records/2', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'Jane Updated', salary: 95_000 },
         })
@@ -1037,38 +1026,34 @@ test.describe('Update record', () => {
         expect(data).toHaveProperty('success')
         expect(data).toHaveProperty('message')
         expect(data).toHaveProperty('code')
-        expect(data).toHaveProperty('message')
         expect(data).toHaveProperty('field')
         expect(data.success).toBe(false)
-        expect(data.message).toBe('You do not have permission to perform this action')
-        expect(data.code).toBe('FORBIDDEN')
         expect(data.message).toBe("Cannot write to field 'salary': insufficient permissions")
+        expect(data.code).toBe('FORBIDDEN')
         expect(data.field).toBe('salary')
 
-        const result = await executeQuery(`SELECT salary FROM employees WHERE id=2`)
+        const result = await executeQuery(`SELECT salary FROM employees WHERE id=1`)
         expect(result.rows[0].salary).toBe(75_000)
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-008: should return 403 for readonly fields', async () => {
+      await test.step('API-TABLES-RECORDS-UPDATE-008: Return 400 for readonly fields', async () => {
         const response = await request.patch('/api/tables/2/records/1', {
           headers: { 'Content-Type': 'application/json' },
           data: { id: 999, title: 'Modified Task', created_at: '2025-01-01T00:00:00Z' },
         })
 
-        expect(response.status()).toBe(403)
+        expect(response.status()).toBe(400)
         const data = await response.json()
         expect(data).toHaveProperty('success')
         expect(data).toHaveProperty('message')
         expect(data).toHaveProperty('code')
-        expect(data).toHaveProperty('message')
         expect(data.success).toBe(false)
-        expect(data.message).toBe('You do not have permission to perform this action')
-        expect(data.code).toBe('FORBIDDEN')
         expect(data.message).toBe("Cannot write to readonly field 'id'")
+        expect(data.code).toBe('VALIDATION_ERROR')
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-009: should update only permitted fields', async () => {
-        const response = await request.patch('/api/tables/3/records/3', {
+      await test.step('API-TABLES-RECORDS-UPDATE-009: Update only permitted fields', async () => {
+        const response = await request.patch('/api/tables/3/records/2', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'Alice Updated', email: 'alice.updated@example.com' },
         })
@@ -1078,17 +1063,17 @@ test.describe('Update record', () => {
         expect(data).toHaveProperty('id')
         expect(data.fields).toHaveProperty('name')
         expect(data.fields).toHaveProperty('email')
-        expect(data.id).toBe(3)
+        expect(data.id).toBe(2)
         expect(data.fields.name).toBe('Alice Updated')
         expect(data.fields.email).toBe('alice.updated@example.com')
         expect(data.fields).not.toHaveProperty('salary')
 
-        const result = await executeQuery(`SELECT salary FROM employees WHERE id=3`)
+        const result = await executeQuery(`SELECT salary FROM employees WHERE id=2`)
         expect(result.rows[0].salary).toBe(75_000)
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-010: should enforce combined permissions', async () => {
-        const response = await request.patch('/api/tables/3/records/4', {
+      await test.step('API-TABLES-RECORDS-UPDATE-010: Enforce combined permissions', async () => {
+        const response = await request.patch('/api/tables/3/records/3', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'Bob Updated', email: 'bob.updated@example.com' },
         })
@@ -1098,14 +1083,14 @@ test.describe('Update record', () => {
         expect(data).toHaveProperty('id')
         expect(data.fields).toHaveProperty('name')
         expect(data.fields).toHaveProperty('email')
-        expect(data.id).toBe(4)
+        expect(data.id).toBe(3)
         expect(data.fields.name).toBe('Bob Updated')
         expect(data.fields.email).toBe('bob.updated@example.com')
         expect(data.fields).not.toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-011: should return 403 for first forbidden field', async () => {
-        const response = await request.patch('/api/tables/3/records/5', {
+      await test.step('API-TABLES-RECORDS-UPDATE-011: Return 403 for first forbidden field', async () => {
+        const response = await request.patch('/api/tables/3/records/4', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'Carol Updated', phone: '555-9999', salary: 80_000 },
         })
@@ -1115,17 +1100,16 @@ test.describe('Update record', () => {
         expect(data).toHaveProperty('success')
         expect(data).toHaveProperty('message')
         expect(data).toHaveProperty('code')
-        expect(data).toHaveProperty('message')
         expect(data).toHaveProperty('field')
 
-        const result = await executeQuery(`SELECT name, phone, salary FROM employees WHERE id=5`)
+        const result = await executeQuery(`SELECT name, phone, salary FROM employees WHERE id=4`)
         expect(result.rows[0].name).toBe('Carol Davis')
         expect(result.rows[0].phone).toBe('555-0100')
         expect(result.rows[0].salary).toBe(70_000)
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-012: should exclude unreadable fields from response', async () => {
-        const response = await request.patch('/api/tables/3/records/6', {
+      await test.step('API-TABLES-RECORDS-UPDATE-012: Exclude unreadable fields from response', async () => {
+        const response = await request.patch('/api/tables/3/records/5', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'David Updated' },
         })
@@ -1138,14 +1122,12 @@ test.describe('Update record', () => {
         expect(data.fields.name).toBe('David Updated')
         expect(data.fields).not.toHaveProperty('salary')
 
-        const result = await executeQuery(`SELECT salary FROM employees WHERE id=6`)
+        const result = await executeQuery(`SELECT salary FROM employees WHERE id=5`)
         expect(result.rows[0].salary).toBe(72_000)
       })
 
-      // Activity Log Tests (015-017) require authenticated user context
-      const { user } = await createAuthenticatedUser({ email: 'logger@example.com' })
-
-      await test.step('API-TABLES-RECORDS-UPDATE-013: should create activity log entry when record is updated', async () => {
+      // Activity Log Tests
+      await test.step('API-TABLES-RECORDS-UPDATE-013: Create activity log entry on record update', async () => {
         const response = await request.patch('/api/tables/2/records/2', {
           headers: { 'Content-Type': 'application/json' },
           data: { title: 'Updated Title' },
@@ -1172,15 +1154,8 @@ test.describe('Update record', () => {
         expect(changes.after.title).toBe('Updated Title')
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-014: should only log changed fields in activity log', async () => {
-        // Reset data for this test
-        await executeQuery(`
-          INSERT INTO employees (id, name, email, phone, salary)
-          VALUES (100, 'John Doe', 'john.log@example.com', '555-1234', 50000)
-          ON CONFLICT (id) DO UPDATE SET name = 'John Doe', email = 'john.log@example.com', phone = '555-1234'
-        `)
-
-        const response = await request.patch('/api/tables/3/records/100', {
+      await test.step('API-TABLES-RECORDS-UPDATE-014: Only log changed fields in activity log', async () => {
+        const response = await request.patch('/api/tables/5/records/1', {
           headers: { 'Content-Type': 'application/json' },
           data: { name: 'Jane Doe' },
         })
@@ -1189,7 +1164,7 @@ test.describe('Update record', () => {
 
         const logs = await executeQuery(`
           SELECT changes FROM system.activity_logs
-          WHERE table_name = 'employees' AND action = 'update' AND record_id = '100'
+          WHERE table_name = 'contacts' AND action = 'update' AND record_id = '1'
           ORDER BY created_at DESC
           LIMIT 1
         `)
@@ -1197,11 +1172,11 @@ test.describe('Update record', () => {
         const changes = JSON.parse(logs.rows[0].changes)
         expect(changes.before.name).toBe('John Doe')
         expect(changes.after.name).toBe('Jane Doe')
-        expect(changes.after.email).toBe('john.log@example.com')
+        expect(changes.after.email).toBe('john@example.com')
         expect(changes.after.phone).toBe('555-1234')
       })
 
-      await test.step('API-TABLES-RECORDS-UPDATE-015: should capture user_id who made the update', async () => {
+      await test.step('API-TABLES-RECORDS-UPDATE-015: Capture user_id who made the update', async () => {
         await executeQuery(`
           INSERT INTO tasks (id, title) VALUES (100, 'Item A')
           ON CONFLICT (id) DO UPDATE SET title = 'Item A'

@@ -413,89 +413,87 @@ test.describe('View Records API', () => {
     'API-TABLES-VIEW-RECORDS-REGRESSION: view records API endpoints work correctly',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      await test.step('API-TABLES-VIEW-RECORDS-007: Returns 401 when not authenticated', async () => {
-        // Setup: Create table with multiple views and seed data
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true, admin: true },
-          tables: [
-            {
-              id: 1,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'title', type: 'single-line-text' },
-                {
-                  id: 2,
-                  name: 'status',
-                  type: 'single-select',
-                  options: ['active', 'completed', 'archived'],
+      // Setup: Start server with comprehensive schema
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true, admin: true },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'title', type: 'single-line-text' },
+              {
+                id: 2,
+                name: 'status',
+                type: 'single-select',
+                options: ['active', 'completed', 'archived'],
+              },
+              {
+                id: 3,
+                name: 'priority',
+                type: 'single-select',
+                options: ['low', 'medium', 'high'],
+              },
+            ],
+            views: [
+              {
+                id: 'active_tasks',
+                name: 'Active Tasks',
+                filters: {
+                  and: [{ field: 'status', operator: 'equals', value: 'active' }],
                 },
-                {
-                  id: 3,
-                  name: 'priority',
-                  type: 'single-select',
-                  options: ['low', 'medium', 'high'],
+              },
+              {
+                id: 'sorted_tasks',
+                name: 'Sorted Tasks',
+                sorts: [{ field: 'priority', direction: 'desc' }],
+              },
+              {
+                id: 'limited_fields',
+                name: 'Limited Fields',
+                fields: ['title', 'priority'],
+              },
+              {
+                id: 'combined_view',
+                name: 'Combined View',
+                filters: {
+                  and: [{ field: 'status', operator: 'equals', value: 'active' }],
                 },
-              ],
-              views: [
-                {
-                  id: 'active_tasks',
-                  name: 'Active Tasks',
-                  filters: {
-                    and: [{ field: 'status', operator: 'equals', value: 'active' }],
-                  },
+                sorts: [{ field: 'priority', direction: 'desc' }],
+                fields: ['title', 'priority'],
+              },
+              {
+                id: 'admin_view',
+                name: 'Admin View',
+                permissions: {
+                  read: ['admin'],
                 },
-                {
-                  id: 'sorted_tasks',
-                  name: 'Sorted Tasks',
-                  sorts: [{ field: 'priority', direction: 'desc' }],
-                },
-                {
-                  id: 'limited_fields',
-                  name: 'Limited Fields',
-                  fields: ['title', 'priority'],
-                },
-                {
-                  id: 'combined_view',
-                  name: 'Combined View',
-                  filters: {
-                    and: [{ field: 'status', operator: 'equals', value: 'active' }],
-                  },
-                  sorts: [{ field: 'priority', direction: 'desc' }],
-                  fields: ['title', 'priority'],
-                },
-                {
-                  id: 'admin_view',
-                  name: 'Admin View',
-                  permissions: {
-                    read: ['admin'],
-                  },
-                },
-              ],
-            },
-          ],
-        })
+              },
+            ],
+          },
+        ],
+      })
 
-        // WHEN: Unauthenticated user requests view records
+      // Seed test data
+      await executeQuery(`
+        INSERT INTO tasks (title, status, priority) VALUES
+        ('Task A', 'active', 'low'),
+        ('Task B', 'completed', 'high'),
+        ('Task C', 'active', 'high'),
+        ('Task D', 'active', 'medium')
+      `)
+
+      // --- Step 007: 401 Unauthorized (BEFORE authentication) ---
+      await test.step('API-TABLES-VIEW-RECORDS-007: Return 401 when not authenticated', async () => {
         const response = await request.get('/api/tables/1/views/active_tasks/records')
-
-        // THEN: 401 Unauthorized
         expect(response.status()).toBe(401)
         const body = await response.json()
         expect(body.success).toBe(false)
       })
 
-      await test.step('Setup: Create authenticated admin user and seed data', async () => {
-        await createAuthenticatedUser()
-
-        await executeQuery(`
-          INSERT INTO tasks (title, status, priority) VALUES
-          ('Task A', 'active', 'low'),
-          ('Task B', 'completed', 'high'),
-          ('Task C', 'active', 'high'),
-          ('Task D', 'active', 'medium')
-        `)
-      })
+      // --- Authenticate as user for all subsequent test steps ---
+      await createAuthenticatedUser()
 
       await test.step('API-TABLES-VIEW-RECORDS-006: Returns 404 when view does not exist', async () => {
         // WHEN: User requests records for non-existent view
@@ -577,15 +575,10 @@ test.describe('View Records API', () => {
         expect(priorities).toEqual(['high', 'medium', 'low'])
       })
 
-      await test.step('API-TABLES-VIEW-RECORDS-005: Returns 403 when user lacks view read permission', async () => {
-        // Note: This step tests permission denied for viewer role
-        // The current user is admin, so we would need to switch roles
-        // For regression testing purposes, verify the admin_view exists and is accessible by admin
-        const response = await request.get('/api/tables/1/views/admin_view/records', {})
-
-        // Admin user should be able to access admin view
-        expect(response.status()).toBe(200)
-      })
+      // --- Step 005 skipped: requires viewer auth context ---
+      // API-TABLES-VIEW-RECORDS-005 tests 403 for viewer role lacking read permission.
+      // This needs createAuthenticatedViewer which would invalidate the current session.
+      // Covered by @spec test API-TABLES-VIEW-RECORDS-005.
     }
   )
 })

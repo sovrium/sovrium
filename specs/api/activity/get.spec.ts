@@ -778,7 +778,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   test.fixme(
     'API-ACTIVITY-LIST-REGRESSION: user can retrieve and filter activity logs',
     { tag: '@regression' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // Setup: Start server with activity logging
       await startServerWithSchema({
         name: 'test-app',
@@ -797,11 +797,9 @@ test.describe('GET /api/activity - List Activity Logs', () => {
         ],
       })
 
-      await test.step('API-ACTIVITY-LIST-002: Returns 401 when user is not authenticated', async () => {
-        // WHEN: Unauthenticated user requests activity logs
-        const response = await page.request.get('/api/activity')
-
-        // THEN: Returns 401 Unauthorized
+      // --- Step 002: 401 Unauthorized (BEFORE authentication) ---
+      await test.step('API-ACTIVITY-LIST-002: Return 401 when not authenticated', async () => {
+        const response = await request.get('/api/activity')
         expect(response.status()).toBe(401)
 
         const data = await response.json()
@@ -810,24 +808,33 @@ test.describe('GET /api/activity - List Activity Logs', () => {
         expect(data).toHaveProperty('code')
       })
 
-      // Setup: Create authenticated user and activity data
+      // --- Authenticate as member ---
       const { user } = await createAuthenticatedUser()
-      const userId = user.id
 
+      // --- Step 009: Empty array when no activities exist ---
+      await test.step('API-ACTIVITY-LIST-009: Return empty array when no activities exist', async () => {
+        const response = await request.get('/api/activity')
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.activities).toHaveLength(0)
+        expect(data.pagination.total).toBe(0)
+        expect(data.pagination.totalPages).toBe(0)
+      })
+
+      // Setup: Insert activity data with varied timestamps
       await executeQuery(`
         INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
         VALUES
-          ('${userId}', 'create', 'tasks', 1, '{"title": "Task 1"}', NOW() - INTERVAL '10 minutes'),
-          ('${userId}', 'update', 'tasks', 1, '{"status": {"old": "pending", "new": "active"}}', NOW() - INTERVAL '5 minutes'),
-          ('${userId}', 'create', 'tasks', 2, '{"title": "Task 2"}', NOW() - INTERVAL '3 minutes'),
-          ('${userId}', 'delete', 'tasks', 2, NULL, NOW() - INTERVAL '1 minute')
+          ('${user.id}', 'create', 'tasks', 1, '{"title": "Task 1"}', NOW() - INTERVAL '10 minutes'),
+          ('${user.id}', 'update', 'tasks', 1, '{"status": {"old": "pending", "new": "active"}}', NOW() - INTERVAL '5 minutes'),
+          ('${user.id}', 'create', 'tasks', 2, '{"title": "Task 2"}', NOW() - INTERVAL '3 minutes'),
+          ('${user.id}', 'delete', 'tasks', 2, NULL, NOW() - INTERVAL '1 minute')
       `)
 
-      await test.step('API-ACTIVITY-LIST-001: Returns 200 with paginated activity logs', async () => {
-        // WHEN: User requests activity logs
-        const response = await page.request.get('/api/activity')
-
-        // THEN: Returns 200 with paginated activity logs
+      // --- Step 001: Paginated activity logs ---
+      await test.step('API-ACTIVITY-LIST-001: Return 200 with paginated activity logs', async () => {
+        const response = await request.get('/api/activity')
         expect(response.status()).toBe(200)
 
         const data = await response.json()
@@ -837,11 +844,21 @@ test.describe('GET /api/activity - List Activity Logs', () => {
         expect(data.pagination.total).toBe(4)
       })
 
-      await test.step('API-ACTIVITY-LIST-004: Returns activities filtered by action type', async () => {
-        // WHEN: User requests activities filtered by action type 'create'
-        const response = await page.request.get('/api/activity?action=create')
+      // --- Step 007: Sort by creation date descending ---
+      await test.step('API-ACTIVITY-LIST-007: Return activities sorted by date descending', async () => {
+        const response = await request.get('/api/activity')
+        expect(response.status()).toBe(200)
 
-        // THEN: Returns only 'create' activities
+        const data = await response.json()
+        expect(data.activities).toHaveLength(4)
+        expect(new Date(data.activities[0].createdAt).getTime()).toBeGreaterThan(
+          new Date(data.activities[1].createdAt).getTime()
+        )
+      })
+
+      // --- Step 004: Filter by action type ---
+      await test.step('API-ACTIVITY-LIST-004: Return activities filtered by action type', async () => {
+        const response = await request.get('/api/activity?action=create')
         expect(response.status()).toBe(200)
 
         const data = await response.json()
@@ -849,11 +866,9 @@ test.describe('GET /api/activity - List Activity Logs', () => {
         expect(data.activities.every((a: any) => a.action === 'create')).toBe(true)
       })
 
-      await test.step('API-ACTIVITY-LIST-003: Returns activities filtered by table name', async () => {
-        // WHEN: User requests activities filtered by table name 'tasks'
-        const response = await page.request.get('/api/activity?tableName=tasks')
-
-        // THEN: Returns only activities for 'tasks' table
+      // --- Step 003: Filter by table name ---
+      await test.step('API-ACTIVITY-LIST-003: Return activities filtered by table name', async () => {
+        const response = await request.get('/api/activity?tableName=tasks')
         expect(response.status()).toBe(200)
 
         const data = await response.json()
@@ -861,17 +876,78 @@ test.describe('GET /api/activity - List Activity Logs', () => {
         expect(data.activities.every((a: any) => a.tableName === 'tasks')).toBe(true)
       })
 
-      await test.step('API-ACTIVITY-LIST-012: Includes user metadata in activity logs', async () => {
-        // WHEN: User requests activity logs
-        const response = await page.request.get('/api/activity')
+      // --- Step 006: Filter by date range ---
+      await test.step('API-ACTIVITY-LIST-006: Return activities filtered by date range', async () => {
+        // 6 minutes ago: should capture update(-5m), create(-3m), delete(-1m) but not create(-10m)
+        const startDate = new Date(Date.now() - 6 * 60 * 1000).toISOString()
+        const response = await request.get(`/api/activity?startDate=${startDate}`)
+        expect(response.status()).toBe(200)
 
-        // THEN: Activity includes user metadata (name, email)
+        const data = await response.json()
+        expect(data.activities).toHaveLength(3)
+      })
+
+      // --- Step 017: Filter by own userId ---
+      await test.step('API-ACTIVITY-LIST-017: Allow non-admin to filter by own userId', async () => {
+        const response = await request.get(`/api/activity?userId=${user.id}`)
+        expect(response.status()).toBe(200)
+
+        const data = await response.json()
+        expect(data.activities).toHaveLength(4)
+        expect(data.activities.every((a: any) => a.userId === user.id)).toBe(true)
+      })
+
+      // --- Step 012: User metadata in activity logs ---
+      await test.step('API-ACTIVITY-LIST-012: Include user metadata in activity logs', async () => {
+        const response = await request.get('/api/activity')
         expect(response.status()).toBe(200)
 
         const data = await response.json()
         expect(data.activities[0]).toHaveProperty('user')
-        expect(data.activities[0].user).toHaveProperty('id', userId)
+        expect(data.activities[0].user).toHaveProperty('id', user.id)
       })
+
+      // --- Step 010: Invalid page parameter ---
+      await test.step('API-ACTIVITY-LIST-010: Return 400 for invalid page parameter', async () => {
+        const response = await request.get('/api/activity?page=-1')
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
+      })
+
+      // --- Step 011: PageSize exceeds maximum ---
+      await test.step('API-ACTIVITY-LIST-011: Return 400 when pageSize exceeds maximum', async () => {
+        const response = await request.get('/api/activity?pageSize=200')
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
+      })
+
+      // --- Step 014: Invalid action filter ---
+      await test.step('API-ACTIVITY-LIST-014: Return 400 for invalid action filter', async () => {
+        const response = await request.get('/api/activity?action=invalid_action')
+        expect(response.status()).toBe(400)
+
+        const data = await response.json()
+        expect(data).toHaveProperty('success')
+        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('code')
+      })
+
+      // --- Steps skipped: require different auth contexts or schema ---
+      // API-ACTIVITY-LIST-005: Filter by userId (multi-user — covered by @spec)
+      // API-ACTIVITY-LIST-008: Pagination with 25+ records (covered by @spec)
+      // API-ACTIVITY-LIST-013: Retention policy (covered by @spec)
+      // API-ACTIVITY-LIST-015: No auth config 401 (different schema — covered by @spec)
+      // API-ACTIVITY-LIST-016: Null user metadata (system activities — covered by @spec)
+      // API-ACTIVITY-LIST-018: 403 other user's activities (multi-user auth — covered by @spec)
+      // API-ACTIVITY-LIST-019: Admin can filter any userId (admin auth — covered by @spec)
     }
   )
 })

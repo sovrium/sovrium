@@ -246,90 +246,80 @@ test.describe('GET /trash endpoint', () => {
     'API-TABLES-TRASH-REGRESSION: user can complete full trash workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      await test.step('Setup: Start server with comprehensive configuration', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true, admin: true },
-          tables: [
-            {
-              id: 1,
-              name: 'contacts',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'name', type: 'single-line-text', required: true },
-                { id: 3, name: 'status', type: 'single-line-text' },
-                { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: { type: 'roles', roles: ['member', 'admin', 'owner'] },
-              },
-            },
-          ],
-        })
+      // Setup: Start server with contacts table
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true, admin: true },
+        tables: [
+          {
+            id: 1,
+            name: 'contacts',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text', required: true },
+              { id: 3, name: 'status', type: 'single-line-text' },
+              { id: 4, name: 'deleted_at', type: 'deleted-at', indexed: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
 
-        // Insert test data: mix of active and deleted records
-        await executeQuery(`
-          INSERT INTO contacts (id, name, status) VALUES
+      // Setup: Insert test data (mix of active and deleted records)
+      await executeQuery(`
+        INSERT INTO contacts (id, name, status) VALUES
           (1, 'Alice', 'active'),
           (2, 'Bob', 'active'),
           (3, 'Charlie', 'archived')
-        `)
+      `)
+      await executeQuery('UPDATE contacts SET deleted_at = NOW() WHERE id IN (2, 3)')
 
-        // Soft delete records 2 and 3
-        await executeQuery('UPDATE contacts SET deleted_at = NOW() WHERE id IN (2, 3)')
-      })
-
-      await test.step('Authenticate as user for basic operations', async () => {
-        await createAuthenticatedUser()
-      })
-
-      await test.step('API-TABLES-TRASH-001: Return only soft-deleted records', async () => {
-        // WHEN: User requests trash endpoint
+      // --- Step 002: 401 Unauthorized (BEFORE authentication) ---
+      await test.step('API-TABLES-TRASH-002: Return 401 for unauthenticated requests', async () => {
         const response = await request.get('/api/tables/1/trash')
+        expect(response.status()).toBe(401)
 
-        // THEN: Returns 200 with only deleted records
+        const data = await response.json()
+        expect(data.error).toBeDefined()
+        expect(data.message).toBeDefined()
+      })
+
+      // --- Authenticate as member ---
+      await createAuthenticatedUser()
+
+      // --- Step 001: Return only soft-deleted records ---
+      await test.step('API-TABLES-TRASH-001: Return only soft-deleted records', async () => {
+        const response = await request.get('/api/tables/1/trash')
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data.records.length).toBeGreaterThan(0)
+        expect(data.records).toHaveLength(2)
 
-        // THEN: Each record has deleted_at timestamp
+        const deletedIds = data.records.map((r: { id: number }) => r.id).sort()
+        expect(deletedIds).toEqual([2, 3])
+
+        // Each record has deleted_at timestamp
         data.records.forEach((record: { fields: { deleted_at: string | null } }) => {
           expect(record.fields.deleted_at).not.toBeNull()
         })
+
+        // Active records are excluded
+        expect(data.records.find((r: { id: number }) => r.id === 1)).toBeUndefined()
       })
 
-      await test.step('API-TABLES-TRASH-002: Return 401 for unauthenticated requests', async () => {
-        // Note: In authenticated context, this tests the requirement exists
-        // Full unauthenticated testing requires separate test context
-        const response = await request.get('/api/tables/1/trash')
-        expect(response.status()).toBe(200) // Authenticated user succeeds
-      })
-
-      await test.step('API-TABLES-TRASH-003: Return 403 for viewer without read access', async () => {
-        // Note: Current user has read access (member/admin/owner)
-        // This step validates the permission structure is enforced
-        const response = await request.get('/api/tables/1/trash')
-        expect(response.status()).toBe(200) // User with permission succeeds
-      })
-
+      // --- Step 004: Pagination, filters, and sorting ---
       await test.step('API-TABLES-TRASH-004: Support pagination, filters, and sorting', async () => {
-        // WHEN: User requests trash with sorting
+        // Sorting: name ascending
         const sortedResponse = await request.get('/api/tables/1/trash', {
-          params: {
-            sort: 'name:asc',
-          },
+          params: { sort: 'name:asc' },
         })
-
-        // THEN: Records are sorted by name ascending
         expect(sortedResponse.status()).toBe(200)
         const sortedData = await sortedResponse.json()
-        expect(sortedData.records.length).toBeGreaterThan(0)
+        expect(sortedData.records).toHaveLength(2)
         expect(sortedData.records[0].fields.name).toBe('Bob')
         expect(sortedData.records[1].fields.name).toBe('Charlie')
 
-        // WHEN: User requests trash with filter
+        // Filtering: status=archived
         const filteredResponse = await request.get('/api/tables/1/trash', {
           params: {
             filter: JSON.stringify({
@@ -337,28 +327,27 @@ test.describe('GET /trash endpoint', () => {
             }),
           },
         })
-
-        // THEN: Only archived deleted records are returned
         expect(filteredResponse.status()).toBe(200)
         const filteredData = await filteredResponse.json()
         expect(filteredData.records).toHaveLength(1)
         expect(filteredData.records[0].fields.status).toBe('archived')
 
-        // WHEN: User requests trash with pagination
+        // Pagination: limit=1
         const paginatedResponse = await request.get('/api/tables/1/trash', {
-          params: {
-            limit: '1',
-            offset: '0',
-          },
+          params: { limit: '1', offset: '0' },
         })
-
-        // THEN: Pagination is respected
         expect(paginatedResponse.status()).toBe(200)
         const paginatedData = await paginatedResponse.json()
         expect(paginatedData.records).toHaveLength(1)
         expect(paginatedData.pagination.limit).toBe(1)
         expect(paginatedData.pagination.offset).toBe(0)
       })
+
+      // --- Step 003 skipped: requires viewer auth context ---
+      // API-TABLES-TRASH-003 tests viewer role getting 403 Forbidden.
+      // This needs createAuthenticatedViewer which would invalidate the current
+      // member session for subsequent tests.
+      // Covered by @spec test API-TABLES-TRASH-003.
     }
   )
 })

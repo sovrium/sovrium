@@ -436,81 +436,79 @@ test.describe('Get view details', () => {
     'API-TABLES-VIEWS-GET-REGRESSION: user can complete full view details workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
-      await test.step('API-TABLES-VIEWS-GET-008: Returns 401 when not authenticated', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true, admin: true },
-          tables: [
-            {
-              id: 1,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'title', type: 'single-line-text' },
-                {
-                  id: 2,
-                  name: 'status',
-                  type: 'single-select',
-                  options: ['active', 'completed'],
-                },
-                {
-                  id: 3,
-                  name: 'priority',
-                  type: 'single-select',
-                  options: ['low', 'medium', 'high'],
-                },
-                { id: 4, name: 'assignee', type: 'single-line-text' },
-              ],
-              views: [
-                {
-                  id: 'basic_view',
-                  name: 'Basic View',
-                },
-                {
-                  id: 'filtered_view',
-                  name: 'Filtered View',
-                  filters: {
-                    and: [
-                      { field: 'status', operator: 'equals', value: 'active' },
-                      { field: 'priority', operator: 'equals', value: 'high' },
-                    ],
-                  },
-                },
-                {
-                  id: 'sorted_view',
-                  name: 'Sorted View',
-                  sorts: [
-                    { field: 'title', direction: 'desc' },
-                    { field: 'status', direction: 'asc' },
+      // Setup: Start server with tasks table and multiple views
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true, admin: true },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'title', type: 'single-line-text' },
+              {
+                id: 2,
+                name: 'status',
+                type: 'single-select',
+                options: ['active', 'completed'],
+              },
+              {
+                id: 3,
+                name: 'priority',
+                type: 'single-select',
+                options: ['low', 'medium', 'high'],
+              },
+              { id: 4, name: 'assignee', type: 'single-line-text' },
+            ],
+            views: [
+              {
+                id: 'basic_view',
+                name: 'Basic View',
+              },
+              {
+                id: 'filtered_view',
+                name: 'Filtered View',
+                filters: {
+                  and: [
+                    { field: 'status', operator: 'equals', value: 'active' },
+                    { field: 'priority', operator: 'equals', value: 'high' },
                   ],
                 },
-                {
-                  id: 'grouped_view',
-                  name: 'Grouped View',
-                  fields: ['title', 'status', 'assignee'],
-                  groupBy: { field: 'status' },
-                },
-                {
-                  id: 'default_view',
-                  name: 'Default View',
-                  isDefault: true,
-                },
-              ],
-            },
-          ],
-        })
+              },
+              {
+                id: 'sorted_view',
+                name: 'Sorted View',
+                sorts: [
+                  { field: 'title', direction: 'desc' },
+                  { field: 'status', direction: 'asc' },
+                ],
+              },
+              {
+                id: 'grouped_view',
+                name: 'Grouped View',
+                fields: ['title', 'status', 'assignee'],
+                groupBy: { field: 'status' },
+              },
+              {
+                id: 'default_view',
+                name: 'Default View',
+                isDefault: true,
+              },
+            ],
+          },
+        ],
+      })
 
-        // WHEN: Unauthenticated user requests view details
+      // --- Step 008: 401 Unauthorized (BEFORE authentication) ---
+      await test.step('API-TABLES-VIEWS-GET-008: Return 401 when not authenticated', async () => {
         const response = await request.get('/api/tables/1/views/basic_view')
-
-        // THEN: Response should be 401 Unauthorized
         expect(response.status()).toBe(401)
         const data = await response.json()
         expect(data.success).toBe(false)
       })
 
-      await test.step('Setup: Create authenticated user', async () => {
-        await createAuthenticatedUser()
-      })
+      // --- Authenticate ---
+      await createAuthenticatedUser()
 
       await test.step('API-TABLES-VIEWS-GET-007: Returns 404 when table does not exist', async () => {
         // WHEN: User requests view for non-existent table
@@ -559,27 +557,25 @@ test.describe('Get view details', () => {
         expect(data.filters.and).toHaveLength(2)
       })
 
-      await test.step('API-TABLES-VIEWS-GET-003+004: Returns view with sorts, fields, and groupBy', async () => {
-        // WHEN: User requests view with sorts
-        const sortedResponse = await request.get('/api/tables/1/views/sorted_view', {})
+      await test.step('API-TABLES-VIEWS-GET-003: Return view with sorts configuration', async () => {
+        const response = await request.get('/api/tables/1/views/sorted_view', {})
+        expect(response.status()).toBe(200)
 
-        // THEN: Sorts should be present
-        expect(sortedResponse.status()).toBe(200)
-        const sortedData = await sortedResponse.json()
-        expect(sortedData).toHaveProperty('sorts')
-        expect(Array.isArray(sortedData.sorts)).toBe(true)
-        expect(sortedData.sorts).toHaveLength(2)
+        const data = await response.json()
+        expect(data).toHaveProperty('sorts')
+        expect(Array.isArray(data.sorts)).toBe(true)
+        expect(data.sorts).toHaveLength(2)
+      })
 
-        // WHEN: User requests view with fields and groupBy
-        const groupedResponse = await request.get('/api/tables/1/views/grouped_view', {})
+      await test.step('API-TABLES-VIEWS-GET-004: Return view with fields and groupBy configuration', async () => {
+        const response = await request.get('/api/tables/1/views/grouped_view', {})
+        expect(response.status()).toBe(200)
 
-        // THEN: Fields and groupBy should be present
-        expect(groupedResponse.status()).toBe(200)
-        const groupedData = await groupedResponse.json()
-        expect(groupedData).toHaveProperty('fields')
-        expect(groupedData).toHaveProperty('groupBy')
-        expect(groupedData.fields).toEqual(['title', 'status', 'assignee'])
-        expect(groupedData.groupBy).toEqual({ field: 'status' })
+        const data = await response.json()
+        expect(data).toHaveProperty('fields')
+        expect(data).toHaveProperty('groupBy')
+        expect(data.fields).toEqual(['title', 'status', 'assignee'])
+        expect(data.groupBy).toEqual({ field: 'status' })
       })
 
       await test.step('API-TABLES-VIEWS-GET-005: Returns view with isDefault flag', async () => {

@@ -449,35 +449,42 @@ test.describe('List comments on a record', () => {
     'API-TABLES-RECORDS-COMMENTS-LIST-REGRESSION: user can complete full list comments workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      await test.step('Setup: Initialize server with tasks table and users', async () => {
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: { emailAndPassword: true },
-          tables: [
-            {
-              id: 1,
-              name: 'tasks',
-              fields: [
-                { id: 1, name: 'title', type: 'single-line-text', required: true },
-                { id: 2, name: 'status', type: 'single-line-text' },
-              ],
-            },
-            {
-              id: 2,
-              name: 'confidential_tasks',
-              fields: [{ id: 1, name: 'title', type: 'single-line-text', required: true }],
-            },
-          ],
-        })
-        await createAuthenticatedUser()
-
-        // Insert users for comment attribution
-        await executeQuery(`
-          INSERT INTO users (id, name, email) VALUES
-            ('user_1', 'Alice Johnson', 'alice@example.com'),
-            ('user_2', 'Bob Smith', 'bob@example.com')
-        `)
+      // Setup: Initialize server with tasks table
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: { emailAndPassword: true },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'title', type: 'single-line-text', required: true },
+              { id: 2, name: 'status', type: 'single-line-text' },
+            ],
+          },
+        ],
       })
+
+      // Seed a record for 401 test
+      await executeQuery(`
+        INSERT INTO tasks (id, title) VALUES (99, 'Auth Test Task')
+      `)
+
+      // --- Step 003: 401 Unauthorized (BEFORE authentication) ---
+      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-003: Return 401 when not authenticated', async () => {
+        const response = await request.get('/api/tables/1/records/99/comments')
+        expect(response.status()).toBe(401)
+      })
+
+      // --- Authenticate as user for all subsequent test steps ---
+      await createAuthenticatedUser()
+
+      // Insert users for comment attribution
+      await executeQuery(`
+        INSERT INTO users (id, name, email) VALUES
+          ('user_1', 'Alice Johnson', 'alice@example.com'),
+          ('user_2', 'Bob Smith', 'bob@example.com')
+      `)
 
       await test.step('API-TABLES-RECORDS-COMMENTS-LIST-001: Returns 200 with comments array in chronological order', async () => {
         await executeQuery(`
@@ -515,15 +522,7 @@ test.describe('List comments on a record', () => {
         expect(data.comments).toEqual([])
       })
 
-      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-003: Returns 401 Unauthorized for unauthenticated requests', async () => {
-        await executeQuery(`
-          INSERT INTO tasks (id, title) VALUES (3, 'Private Task')
-        `)
-
-        const response = await request.get('/api/tables/1/records/3/comments')
-
-        expect(response.status()).toBe(401)
-      })
+      // Step 003 (401) is tested above BEFORE authentication
 
       await test.step('API-TABLES-RECORDS-COMMENTS-LIST-004: Returns 404 Not Found for non-existent record', async () => {
         const response = await request.get('/api/tables/1/records/9999/comments', {})
@@ -665,23 +664,11 @@ test.describe('List comments on a record', () => {
         )
       })
 
-      await test.step('API-TABLES-RECORDS-COMMENTS-LIST-010: Returns 403 Forbidden for users without read permission', async () => {
-        await executeQuery(`
-          INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
-        `)
-        await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-          VALUES ('comment_confidential', '1', '2', 'user_1', 'Confidential comment')
-        `)
-
-        const response = await request.get('/api/tables/2/records/1/comments', {})
-
-        expect(response.status()).toBe(403)
-        const data = await response.json()
-        expect(data.success).toBe(false)
-        expect(data.message).toBe('You do not have permission to perform this action')
-        expect(data.code).toBe('FORBIDDEN')
-      })
+      // --- Step 010 skipped: requires different auth context ---
+      // API-TABLES-RECORDS-COMMENTS-LIST-010 tests viewer role getting 403 Forbidden.
+      // This needs createAuthenticatedViewer and a table with permissions config,
+      // which would invalidate the current session for subsequent tests.
+      // Covered by @spec test API-TABLES-RECORDS-COMMENTS-LIST-010.
     }
   )
 })

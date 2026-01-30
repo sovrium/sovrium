@@ -519,6 +519,15 @@ test.describe('Get record by ID', () => {
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
               { id: 4, name: 'phone', type: 'phone-number' },
             ],
+            permissions: {
+              read: { type: 'authenticated' },
+              fields: [
+                {
+                  field: 'salary',
+                  read: { type: 'roles', roles: ['owner', 'admin'] },
+                },
+              ],
+            },
           },
           {
             id: 3,
@@ -535,6 +544,9 @@ test.describe('Get record by ID', () => {
             id: 4,
             name: 'confidential',
             fields: [{ id: 1, name: 'data', type: 'long-text' }],
+            permissions: {
+              read: { type: 'roles', roles: ['admin'] },
+            },
           },
         ],
       })
@@ -546,10 +558,7 @@ test.describe('Get record by ID', () => {
       `)
       await executeQuery(`
         INSERT INTO employees (id, name, email, salary, phone)
-        VALUES
-          (1, 'Alice Cooper', 'alice@example.com', 75000, '555-0200'),
-          (2, 'Bob Smith', 'bob@example.com', 85000, '555-0300'),
-          (3, 'Jane Smith', 'jane@example.com', 85000, '555-0400')
+        VALUES (1, 'Alice Cooper', 'alice@example.com', 75000, '555-0200')
       `)
       await executeQuery(`
         INSERT INTO tasks (id, title, status)
@@ -564,10 +573,17 @@ test.describe('Get record by ID', () => {
         VALUES (1, 'Secret Information')
       `)
 
-      // Create authenticated user for API requests
+      // Step 003: Test 401 BEFORE authenticating (request has no cookies yet)
+      await test.step('API-TABLES-RECORDS-GET-003: Return 401 Unauthorized', async () => {
+        const response = await request.get('/api/tables/1/records/1')
+
+        expect(response.status()).toBe(401)
+      })
+
+      // Authenticate user for remaining tests (member role by default)
       await createAuthenticatedUser()
 
-      await test.step('API-TABLES-RECORDS-GET-001: should return 200 with complete record data', async () => {
+      await test.step('API-TABLES-RECORDS-GET-001: Return 200 with complete record data', async () => {
         const response = await request.get('/api/tables/1/records/1', {})
 
         expect(response.status()).toBe(200)
@@ -580,7 +596,7 @@ test.describe('Get record by ID', () => {
         expect(data).toHaveProperty('createdAt')
       })
 
-      await test.step('API-TABLES-RECORDS-GET-002: should return 404 for non-existent record', async () => {
+      await test.step('API-TABLES-RECORDS-GET-002: Return 404 for non-existent record', async () => {
         const response = await request.get('/api/tables/1/records/9999', {})
 
         expect(response.status()).toBe(404)
@@ -591,15 +607,8 @@ test.describe('Get record by ID', () => {
         expect(data.code).toBe('NOT_FOUND')
       })
 
-      await test.step('API-TABLES-RECORDS-GET-003: should return 401 Unauthorized', async () => {
-        // Note: This test requires unauthenticated request
-        const response = await request.get('/api/tables/2/records/1')
-
-        expect(response.status()).toBe(401)
-      })
-
-      await test.step('API-TABLES-RECORDS-GET-004: should return 403 Forbidden', async () => {
-        // User without read permission on confidential table
+      await test.step('API-TABLES-RECORDS-GET-004: Return 403 Forbidden for restricted table', async () => {
+        // Member cannot read confidential table (restricted to admin)
         const response = await request.get('/api/tables/4/records/1', {})
 
         expect(response.status()).toBe(403)
@@ -610,23 +619,12 @@ test.describe('Get record by ID', () => {
         expect(data.code).toBe('FORBIDDEN')
       })
 
-      await test.step('API-TABLES-RECORDS-GET-005: should return all fields for admin', async () => {
-        // Admin user with full field access
+      // Steps 005, 007 skipped: require admin/viewer auth contexts respectively
+      // See individual @spec tests for role-based field access coverage
+
+      await test.step('API-TABLES-RECORDS-GET-006: Exclude salary field for member', async () => {
+        // Member cannot read salary field (restricted to owner/admin)
         const response = await request.get('/api/tables/2/records/1', {})
-
-        expect(response.status()).toBe(200)
-
-        const data = await response.json()
-        expect(data).toHaveProperty('id')
-        expect(data.fields).toHaveProperty('name')
-        expect(data.fields).toHaveProperty('email')
-        expect(data.fields).toHaveProperty('salary')
-        expect(data.fields.salary).toBe(75_000)
-      })
-
-      await test.step('API-TABLES-RECORDS-GET-006: should exclude salary field for member', async () => {
-        // Member user without salary field read permission
-        const response = await request.get('/api/tables/2/records/3', {})
 
         expect(response.status()).toBe(200)
 
@@ -637,22 +635,7 @@ test.describe('Get record by ID', () => {
         expect(data.fields).not.toHaveProperty('salary')
       })
 
-      await test.step('API-TABLES-RECORDS-GET-007: should return minimal fields for viewer', async () => {
-        // Viewer with limited field access
-        const response = await request.get('/api/tables/2/records/1', {})
-
-        expect(response.status()).toBe(200)
-
-        const data = await response.json()
-        expect(data).toHaveProperty('id')
-        expect(data.fields).toHaveProperty('name')
-        expect(data.fields).not.toHaveProperty('email')
-        expect(data.fields).not.toHaveProperty('phone')
-        expect(data.fields).not.toHaveProperty('salary')
-      })
-
-      await test.step('API-TABLES-RECORDS-GET-008: should include readonly fields in response', async () => {
-        // Table with readonly system fields
+      await test.step('API-TABLES-RECORDS-GET-008: Include readonly fields in response', async () => {
         const response = await request.get('/api/tables/3/records/1', {})
 
         expect(response.status()).toBe(200)
@@ -664,8 +647,7 @@ test.describe('Get record by ID', () => {
         expect(data.fields).toHaveProperty('updated_at')
       })
 
-      await test.step('API-TABLES-RECORDS-GET-009: should return 404 for soft-deleted record', async () => {
-        // Soft-deleted record without includeDeleted param
+      await test.step('API-TABLES-RECORDS-GET-009: Return 404 for soft-deleted record', async () => {
         const response = await request.get('/api/tables/3/records/2', {})
 
         expect(response.status()).toBe(404)
@@ -676,8 +658,7 @@ test.describe('Get record by ID', () => {
         expect(data.code).toBe('NOT_FOUND')
       })
 
-      await test.step('API-TABLES-RECORDS-GET-010: should return soft-deleted record with includeDeleted=true', async () => {
-        // Soft-deleted record with includeDeleted=true
+      await test.step('API-TABLES-RECORDS-GET-010: Return soft-deleted record with includeDeleted=true', async () => {
         const response = await request.get('/api/tables/3/records/2', {
           params: {
             includeDeleted: 'true',
