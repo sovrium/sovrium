@@ -2033,25 +2033,25 @@ Next Spec Processed
 
 ## Design Decisions
 
-| Decision                    | Choice                                          | Rationale                                                |
-| --------------------------- | ----------------------------------------------- | -------------------------------------------------------- |
-| **PR Creator job order**    | check-active-pr → check-credits → create-pr     | Free GitHub API check first, skip costly probe if active |
-| Cron frequency              | Hourly (backup only)                            | Chain reaction via `workflow_run` handles most cases     |
-| Max attempts                | 5 (default, configurable)                       | Increased from 3 for 230-spec reliability                |
-| Label names                 | `tdd-automation`, `:manual-intervention`        | Simplified to 2 labels (2026-01-28)                      |
-| Branch naming               | `tdd/<spec-id>`                                 | Simple, serves as backup identifier                      |
-| @claude comment format      | Agent-specific with file paths                  | Enables correct agent selection                          |
-| Credit limits               | $200/day, $1000/week (+ $10/run)                | Three-layer defense: per-run, daily, weekly              |
-| Per-run budget limit        | $10.00                                          | Prevents runaway costs from single spec                  |
-| Cost tracking               | Actual costs from Claude Code result JSON       | Accurate tracking vs. $15 estimates                      |
-| Cost parsing                | JSON result + multi-pattern fallback            | Handles format changes gracefully                        |
-| Sync strategy               | Merge (not rebase)                              | Safer, no force-push, better for automation              |
-| Conflict counting           | Not counted as attempt                          | Infrastructure issue, not code failure                   |
-| Error handling              | Pattern matching (conservative)                 | Distinguish transient vs. persistent errors              |
-| Retry strategy              | Transient errors retry, persistent errors close | Avoid infinite loops, clear failure path                 |
-| Unknown errors              | Retry once, then manual intervention            | Conservative approach for unexpected failures            |
-| Recovery actions            | Manual workflow_dispatch triggers               | Flexible recovery without pipeline re-runs               |
-| Commit detection            | SHA comparison (not commit counting)            | Accurate push verification, handles divergence           |
+| Decision                 | Choice                                          | Rationale                                                |
+| ------------------------ | ----------------------------------------------- | -------------------------------------------------------- |
+| **PR Creator job order** | check-active-pr → check-credits → create-pr     | Free GitHub API check first, skip costly probe if active |
+| Cron frequency           | Hourly (backup only)                            | Chain reaction via `workflow_run` handles most cases     |
+| Max attempts             | 5 (default, configurable)                       | Increased from 3 for 230-spec reliability                |
+| Label names              | `tdd-automation`, `:manual-intervention`        | Simplified to 2 labels (2026-01-28)                      |
+| Branch naming            | `tdd/<spec-id>`                                 | Simple, serves as backup identifier                      |
+| @claude comment format   | Agent-specific with file paths                  | Enables correct agent selection                          |
+| Credit limits            | $200/day, $1000/week (+ $10/run)                | Three-layer defense: per-run, daily, weekly              |
+| Per-run budget limit     | $10.00                                          | Prevents runaway costs from single spec                  |
+| Cost tracking            | Actual costs from Claude Code result JSON       | Accurate tracking vs. $15 estimates                      |
+| Cost parsing             | JSON result + multi-pattern fallback            | Handles format changes gracefully                        |
+| Sync strategy            | Merge (not rebase)                              | Safer, no force-push, better for automation              |
+| Conflict counting        | Not counted as attempt                          | Infrastructure issue, not code failure                   |
+| Error handling           | Pattern matching (conservative)                 | Distinguish transient vs. persistent errors              |
+| Retry strategy           | Transient errors retry, persistent errors close | Avoid infinite loops, clear failure path                 |
+| Unknown errors           | Retry once, then manual intervention            | Conservative approach for unexpected failures            |
+| Recovery actions         | Manual workflow_dispatch triggers               | Flexible recovery without pipeline re-runs               |
+| Commit detection         | SHA comparison (not commit counting)            | Accurate push verification, handles divergence           |
 
 ### PR Creator Job Ordering (Cost Optimization)
 
