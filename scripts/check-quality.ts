@@ -17,6 +17,7 @@
  *   bun run quality --skip-coverage   # Skip coverage check (gradual adoption)
  *   bun run quality --include-effect  # Include Effect diagnostics (slow, ~60-120s)
  *   bun run quality --skip-knip       # Skip Knip unused code detection
+ *   bun run quality --no-cache        # Disable all caching (ESLint, Prettier, TypeScript incremental)
  *   bun run quality src/index.ts      # Example: check specific file
  *
  * Effect Diagnostics:
@@ -43,8 +44,9 @@
  *
  * Performance optimizations:
  * - Uses fail-fast strategy: runs checks sequentially, stops immediately on first failure (saves time)
- * - Uses ESLint cache for faster subsequent runs
- * - Uses TypeScript incremental mode for faster type checking
+ * - Uses ESLint cache for faster subsequent runs (disable with --no-cache)
+ * - Uses Prettier cache for faster formatting checks (disable with --no-cache)
+ * - Uses TypeScript incremental mode for faster type checking (disable with --no-cache)
  * - Skips checks for comment-only changes (file mode)
  * - For file mode: runs ESLint, TypeScript, and unit tests in parallel
  * - Smart E2E detection prevents running all E2E tests on every change
@@ -113,6 +115,7 @@ interface QualityOptions {
   readonly includeEffect: boolean
   readonly skipKnip: boolean
   readonly skipFormat: boolean
+  readonly noCache: boolean
 }
 
 /**
@@ -127,6 +130,7 @@ const parseArgs = (): QualityOptions => {
     includeEffect: args.includes('--include-effect'),
     skipKnip: args.includes('--skip-knip'),
     skipFormat: args.includes('--skip-format'),
+    noCache: args.includes('--no-cache'),
   }
 }
 
@@ -297,7 +301,7 @@ const runCheck = (
 /**
  * Run quality checks for a specific file
  */
-const runFileChecks = (filePath: string) =>
+const runFileChecks = (filePath: string, options: QualityOptions) =>
   Effect.gen(function* () {
     const fs = yield* FileSystemService
 
@@ -325,10 +329,9 @@ const runFileChecks = (filePath: string) =>
 
     // Run checks in parallel for specific file
     // Note: TypeScript always checks entire project (incremental makes it fast)
-    const checks = [
-      runCheck(
-        'ESLint',
-        [
+    const fileEslintCmd = options.noCache
+      ? ['bunx', 'eslint', filePath, '--max-warnings', '0']
+      : [
           'bunx',
           'eslint',
           filePath,
@@ -339,10 +342,13 @@ const runFileChecks = (filePath: string) =>
           'node_modules/.cache/eslint',
           '--cache-strategy',
           'content',
-        ],
-        120_000
-      ),
-      runCheck('TypeScript', ['bunx', 'tsc', '--noEmit', '--incremental'], 60_000, [2]),
+        ]
+    const fileTscCmd = options.noCache
+      ? ['bunx', 'tsc', '--noEmit']
+      : ['bunx', 'tsc', '--noEmit', '--incremental']
+    const checks = [
+      runCheck('ESLint', fileEslintCmd, 120_000),
+      runCheck('TypeScript', fileTscCmd, 60_000, [2]),
     ]
 
     // Add test file check if it exists
@@ -569,11 +575,10 @@ const runFullChecks = (options: QualityOptions) =>
     // 1. Prettier format check (fail-fast)
     // Note: Timeout increased to 120s for CI environments where cache may be cold
     if (!options.skipFormat) {
-      const formatResult = yield* runCheck(
-        'Prettier',
-        ['bunx', 'prettier', '--check', '.', '--cache', '--cache-location', '.prettiercache'],
-        120_000
-      )
+      const prettierCmd = options.noCache
+        ? ['bunx', 'prettier', '--check', '.']
+        : ['bunx', 'prettier', '--check', '.', '--cache', '--cache-location', '.prettiercache']
+      const formatResult = yield* runCheck('Prettier', prettierCmd, 120_000)
       results.push(formatResult)
       if (!formatResult.success) {
         yield* logError('\n⚠️  Stopping checks due to Prettier failure (fail-fast mode)')
@@ -590,22 +595,21 @@ const runFullChecks = (options: QualityOptions) =>
     }
 
     // 2. ESLint check
-    const eslintResult = yield* runCheck(
-      'ESLint',
-      [
-        'bunx',
-        'eslint',
-        '.',
-        '--max-warnings',
-        '0',
-        '--cache',
-        '--cache-location',
-        'node_modules/.cache/eslint',
-        '--cache-strategy',
-        'content',
-      ],
-      120_000
-    )
+    const eslintCmd = options.noCache
+      ? ['bunx', 'eslint', '.', '--max-warnings', '0']
+      : [
+          'bunx',
+          'eslint',
+          '.',
+          '--max-warnings',
+          '0',
+          '--cache',
+          '--cache-location',
+          'node_modules/.cache/eslint',
+          '--cache-strategy',
+          'content',
+        ]
+    const eslintResult = yield* runCheck('ESLint', eslintCmd, 120_000)
     results.push(eslintResult)
     if (!eslintResult.success) {
       yield* logError('\n⚠️  Stopping checks due to ESLint failure (fail-fast mode)')
@@ -613,12 +617,10 @@ const runFullChecks = (options: QualityOptions) =>
     }
 
     // 3. TypeScript check (accept exit code 2 = warnings only from Effect language service)
-    const tscResult = yield* runCheck(
-      'TypeScript',
-      ['bunx', 'tsc', '--noEmit', '--incremental'],
-      60_000,
-      [2]
-    )
+    const tscCmd = options.noCache
+      ? ['bunx', 'tsc', '--noEmit']
+      : ['bunx', 'tsc', '--noEmit', '--incremental']
+    const tscResult = yield* runCheck('TypeScript', tscCmd, 60_000, [2])
     results.push(tscResult)
     if (!tscResult.success) {
       yield* logError('\n⚠️  Stopping checks due to TypeScript failure (fail-fast mode)')
@@ -806,7 +808,7 @@ const main = Effect.gen(function* () {
 
   if (options.file && !options.file.startsWith('--')) {
     // Single file mode
-    results = yield* runFileChecks(options.file)
+    results = yield* runFileChecks(options.file, options)
   } else {
     // Full codebase mode with smart E2E detection
     results = yield* runFullChecks(options)
