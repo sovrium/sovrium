@@ -107,7 +107,7 @@ Note: Max attempts default is 5 (configurable per spec)
 | `track_progress`          | `true`                                   | Built-in progress tracking (replaces heartbeat) |
 | `use_sticky_comment`      | `true`                                   | Updates single comment instead of creating new  |
 | `claude_args`             | See agent configurations below           | CLI-compatible arguments                        |
-| `timeout_minutes`         | `45` (default), configurable per-spec    | Read from `@tdd-timeout` comment in spec file   |
+| `timeout_minutes`         | `90` (default), configurable per-spec    | Read from `@tdd-timeout` comment in spec file   |
 
 **Required Permissions:** See `.github/workflows/claude-code.yml` for complete permissions configuration (contents, pull-requests, issues, actions, id-token).
 
@@ -275,16 +275,18 @@ Complex specs may require extended timeouts. Configure via:
 2. **Workflow Default** (in claude-code.yml):
    ```yaml
    - uses: anthropics/claude-code-action@v1
-     timeout-minutes: ${{ inputs.timeout || 45 }}
+     timeout-minutes: ${{ inputs.timeout || 90 }}
    ```
 
-**Timeout Validation**: Range is 15-90 minutes. Values outside this range default to 45 minutes.
+3. **Job-Level Buffer**: The job timeout is automatically set to `timeout + 15` minutes, ensuring error handling steps can still execute even if the Claude Code action times out.
+
+**Timeout Validation**: Range is 15-120 minutes. Values outside this range default to 90 minutes.
 
 | Spec Type           | Recommended Timeout | Rationale                        |
 | ------------------- | ------------------- | -------------------------------- |
-| Simple UI           | 30 min              | Single component, few iterations |
-| API endpoint        | 45 min (default)    | Requires route + schema + tests  |
-| Complex integration | 60 min              | Multiple layers, database, auth  |
+| Simple UI           | 45 min              | Single component, few iterations |
+| API endpoint        | 90 min (default)    | Requires route + schema + tests  |
+| Complex integration | 120 min             | Multiple layers, database, auth  |
 | Multi-file feature  | 75 min              | Cross-cutting implementation     |
 
 ---
@@ -748,7 +750,7 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                   │                │   track_progress: true              │                            ║
 ║                   │                │   use_sticky_comment: true          │                            ║
 ║                   │                │   claude_args: <agent-specific>     │                            ║
-║                   │                │   timeout_minutes: ${{ TIMEOUT }}   │  # 45 default, per-spec    ║
+║                   │                │   timeout_minutes: ${{ TIMEOUT }}   │  # 90 default, per-spec    ║
 ║                   │                └───────────────┬─────────────────────┘                            ║
 ║                   │                                │                                                  ║
 ║                   │                                ▼                                                  ║
@@ -794,7 +796,7 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                   │         │                              │                                          ║
 ║                   │         │ Purpose: Handle race         │                                          ║
 ║                   │         │ condition (main updated      │                                          ║
-║                   │         │ during 45min execution)      │                                          ║
+║                   │         │ during 90min execution)      │                                          ║
 ║                   │         └────────────┬─────────────────┘                                          ║
 ║                   │                      │                                                            ║
 ║                   │         ┌────────────┴────────────┐                                               ║
@@ -927,7 +929,7 @@ Timeline ───────────────────────�
 │  Spec file:      Branch:        test.yml:      test.yml:      claude-code:   test.yml:    │
 │  specs/api/      tdd/API-       Triggered      Posts          Agent runs     Detects      │
 │  tables/         TABLES-        by push        @claude        autonomously   all pass     │
-│  create.spec.ts  CREATE-001     event          comment        for ~45 min    Auto-merge   │
+│  create.spec.ts  CREATE-001     event          comment        for ~90 min    Auto-merge   │
 │                                                                              squash       │
 │  test.fixme(     PR Title:      Runs:          Comment:       Outputs:       PR closes    │
 │    'creates      [TDD]          - lint         @claude        - Analysis     Label        │
@@ -1092,7 +1094,7 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 
 - **Step 3 (Initial sync)**: Branch syncing is handled automatically by this workflow via merge strategy. The test workflow (`.github/workflows/test.yml`) does NOT check if the branch is behind main - syncing happens when Claude Code is triggered via `@claude` comment.
 
-- **Step 6 (Final sync)**: Handles race condition where main branch advances during Claude Code's long execution (20-45 minutes). Without this step, the PR branch would be stale before `test.yml` runs.
+- **Step 6 (Final sync)**: Handles race condition where main branch advances during Claude Code's long execution (20-90 minutes). Without this step, the PR branch would be stale before `test.yml` runs.
 
 **Agent Selection (via prompt):**
 
@@ -1600,9 +1602,9 @@ For ALL error types:
 
 **Scenario: Workflow Timeout**
 
-- **Symptom**: Job exceeds configured timeout (default 45 minutes)
+- **Symptom**: Job exceeds configured timeout (default 90 minutes)
 - **Causes**: Spec too complex, slow Claude Code execution, network issues
-- **Solution**: Add `@tdd-timeout 60` annotation to spec file, or simplify spec
+- **Solution**: Add `@tdd-timeout 120` annotation to spec file, or simplify spec
 
 **Scenario: Merge Conflict**
 
@@ -2013,7 +2015,7 @@ Next Spec Processed
   - Many specs pass with trivial implementation (<15 min)
   - Chain reaction triggers eliminate 1h cron wait between specs
   - Fast-path: passing tests trigger immediate next PR creation
-  - Average ~45 min/spec realistic (230 × 0.75h = 172h = ~7 days)
+  - Average ~60 min/spec realistic (230 × 1h = 230h = ~10 days)
     | Cost parsing fragility | Multi-pattern + $15 fallback + alert issues | ✅ High |
     | Merge conflict detection | Distinguish actual conflicts from failures + human review gate | ✅ High |
     | Comment-based retry counting | PR title-based (immutable) | ✅ High |
@@ -2137,7 +2139,7 @@ This helps operators understand _why_ the SHAs differ without affecting the pass
 Specs can include inline configuration via comments in the format:
 
 - `@tdd-max-attempts <number>` - Override default 5 attempts
-- `@tdd-timeout <minutes>` - Override default 45 min timeout
+- `@tdd-timeout <minutes>` - Override default 90 min timeout
 
 **Parsing:** See `scripts/tdd-automation/core/spec-scanner.ts` for comment parsing implementation and supported configuration keys.
 
