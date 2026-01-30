@@ -217,7 +217,7 @@ test.describe('API Record-Level Permissions', () => {
       expect(response.status()).toBe(201)
 
       const data = await response.json()
-      expect(data.owner_id).toBe(user.user.id)
+      expect(data.fields.owner_id).toBe(user.user.id)
 
       // Verify in database
       const dbResult = await executeQuery(
@@ -611,7 +611,7 @@ test.describe('API Record-Level Permissions', () => {
         // THEN: Record is created with current user as owner
         expect(response.status()).toBe(201)
         const data = await response.json()
-        expect(data.owner_id).toBe(ownerUserId)
+        expect(data.fields.owner_id).toBe(ownerUserId)
 
         // Verify in database
         const dbResult = await executeQuery(

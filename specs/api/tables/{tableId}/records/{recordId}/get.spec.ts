@@ -599,9 +599,9 @@ test.describe('Get record by ID', () => {
 
         const data = await response.json()
         expect(data).toHaveProperty('id')
-        expect(data).toHaveProperty('name')
-        expect(data).toHaveProperty('email')
-        expect(data).not.toHaveProperty('salary')
+        expect(data.fields).toHaveProperty('name')
+        expect(data.fields).toHaveProperty('email')
+        expect(data.fields).not.toHaveProperty('salary')
       })
 
       await test.step('API-TABLES-RECORDS-GET-007: should return minimal fields for viewer', async () => {
@@ -612,10 +612,10 @@ test.describe('Get record by ID', () => {
 
         const data = await response.json()
         expect(data).toHaveProperty('id')
-        expect(data).toHaveProperty('name')
-        expect(data).not.toHaveProperty('email')
-        expect(data).not.toHaveProperty('phone')
-        expect(data).not.toHaveProperty('salary')
+        expect(data.fields).toHaveProperty('name')
+        expect(data.fields).not.toHaveProperty('email')
+        expect(data.fields).not.toHaveProperty('phone')
+        expect(data.fields).not.toHaveProperty('salary')
       })
 
       await test.step('API-TABLES-RECORDS-GET-008: should include readonly fields in response', async () => {
@@ -626,9 +626,9 @@ test.describe('Get record by ID', () => {
 
         const data = await response.json()
         expect(data).toHaveProperty('id')
-        expect(data).toHaveProperty('title')
-        expect(data).toHaveProperty('created_at')
-        expect(data).toHaveProperty('updated_at')
+        expect(data.fields).toHaveProperty('title')
+        expect(data.fields).toHaveProperty('created_at')
+        expect(data.fields).toHaveProperty('updated_at')
       })
 
       await test.step('API-TABLES-RECORDS-GET-009: should return 404 for soft-deleted record', async () => {

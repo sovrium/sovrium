@@ -246,10 +246,10 @@ test.describe('List records in table', () => {
       // THEN: assertion
       expect(data.records).toHaveLength(1)
       expect(data.records[0]).toHaveProperty('id')
-      expect(data.records[0]).toHaveProperty('name')
-      expect(data.records[0]).toHaveProperty('email')
-      expect(data.records[0]).not.toHaveProperty('phone')
-      expect(data.records[0]).not.toHaveProperty('address')
+      expect(data.records[0].fields).toHaveProperty('name')
+      expect(data.records[0].fields).toHaveProperty('email')
+      expect(data.records[0].fields).not.toHaveProperty('phone')
+      expect(data.records[0].fields).not.toHaveProperty('address')
     }
   )
 
@@ -672,7 +672,7 @@ test.describe('List records in table', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.records[0]).toHaveProperty('salary')
+      expect(data.records[0].fields).toHaveProperty('salary')
     }
   )
 
@@ -712,9 +712,9 @@ test.describe('List records in table', () => {
 
       const data = await response.json()
       // THEN: assertion
-      expect(data.records[0]).toHaveProperty('name')
-      expect(data.records[0]).toHaveProperty('email')
-      expect(data.records[0]).not.toHaveProperty('salary')
+      expect(data.records[0].fields).toHaveProperty('name')
+      expect(data.records[0].fields).toHaveProperty('email')
+      expect(data.records[0].fields).not.toHaveProperty('salary')
     }
   )
 
@@ -756,9 +756,9 @@ test.describe('List records in table', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.records[0]).toHaveProperty('id')
-      expect(data.records[0]).toHaveProperty('name')
-      expect(data.records[0]).not.toHaveProperty('email')
-      expect(data.records[0]).not.toHaveProperty('salary')
+      expect(data.records[0].fields).toHaveProperty('name')
+      expect(data.records[0].fields).not.toHaveProperty('email')
+      expect(data.records[0].fields).not.toHaveProperty('salary')
     }
   )
 
@@ -841,7 +841,7 @@ test.describe('List records in table', () => {
       // THEN: assertion
       expect(data.records).toHaveLength(10)
       expect(data.pagination.offset).toBe(20)
-      expect(data.records[0]).not.toHaveProperty('salary')
+      expect(data.records[0].fields).not.toHaveProperty('salary')
     }
   )
 
@@ -1264,10 +1264,10 @@ test.describe('List records in table', () => {
         const data = await response.json()
         expect(data.records).toHaveLength(1)
         expect(data.records[0]).toHaveProperty('id')
-        expect(data.records[0]).toHaveProperty('name')
-        expect(data.records[0]).toHaveProperty('email')
-        expect(data.records[0]).not.toHaveProperty('phone')
-        expect(data.records[0]).not.toHaveProperty('address')
+        expect(data.records[0].fields).toHaveProperty('name')
+        expect(data.records[0].fields).toHaveProperty('email')
+        expect(data.records[0].fields).not.toHaveProperty('phone')
+        expect(data.records[0].fields).not.toHaveProperty('address')
       })
 
       await test.step('API-TABLES-RECORDS-LIST-006: Returns paginated records with limit and offset', async () => {
@@ -1443,7 +1443,7 @@ test.describe('List records in table', () => {
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data.records[0]).toHaveProperty('salary')
+        expect(data.records[0].fields).toHaveProperty('salary')
       })
 
       await test.step('API-TABLES-RECORDS-LIST-016: Excludes salary field for member user', async () => {
@@ -1451,9 +1451,9 @@ test.describe('List records in table', () => {
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data.records[0]).toHaveProperty('name')
-        expect(data.records[0]).toHaveProperty('email')
-        expect(data.records[0]).not.toHaveProperty('salary')
+        expect(data.records[0].fields).toHaveProperty('name')
+        expect(data.records[0].fields).toHaveProperty('email')
+        expect(data.records[0].fields).not.toHaveProperty('salary')
       })
 
       await test.step('API-TABLES-RECORDS-LIST-017: Returns minimal fields for viewer', async () => {
@@ -1468,9 +1468,9 @@ test.describe('List records in table', () => {
 
         const data = await response.json()
         expect(data.records[0]).toHaveProperty('id')
-        expect(data.records[0]).toHaveProperty('name')
-        expect(data.records[0]).not.toHaveProperty('email')
-        expect(data.records[0]).not.toHaveProperty('salary')
+        expect(data.records[0].fields).toHaveProperty('name')
+        expect(data.records[0].fields).not.toHaveProperty('email')
+        expect(data.records[0].fields).not.toHaveProperty('salary')
       })
 
       await test.step('API-TABLES-RECORDS-LIST-018: Returns empty array with 200 for no matching records', async () => {
@@ -1505,7 +1505,7 @@ test.describe('List records in table', () => {
         const data = await response.json()
         expect(data.records).toHaveLength(10)
         expect(data.pagination.offset).toBe(20)
-        expect(data.records[0]).not.toHaveProperty('salary')
+        expect(data.records[0].fields).not.toHaveProperty('salary')
       })
 
       await test.step('API-TABLES-RECORDS-LIST-020: Returns 403 when sorting by inaccessible field', async () => {
