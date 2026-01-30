@@ -812,7 +812,7 @@ test.describe('Create new record', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-CREATE-REGRESSION: user can complete full record creation workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
