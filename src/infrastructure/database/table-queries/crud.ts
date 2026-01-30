@@ -147,24 +147,42 @@ export function listTrash(
 /**
  * Get a single record by ID with session context
  *
+ * Excludes soft-deleted records by default (deleted_at IS NULL).
+ * Use includeDeleted parameter to fetch soft-deleted records.
+ *
  * @param session - Better Auth session
  * @param tableName - Name of the table
  * @param recordId - Record ID
+ * @param includeDeleted - Whether to include soft-deleted records (default: false)
  * @returns Effect resolving to record or null
  */
 export function getRecord(
   session: Readonly<Session>,
   tableName: string,
-  recordId: string
+  recordId: string,
+  includeDeleted?: boolean
 ): Effect.Effect<Record<string, unknown> | null, SessionContextError> {
   return withSessionContext(session, (tx) =>
     Effect.tryPromise({
       try: async () => {
         validateTableName(tableName)
 
+        // Check if table has deleted_at column to filter soft-deleted records
+        const columnCheck = (await tx.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
+        )) as readonly Record<string, unknown>[]
+
+        const hasDeletedAt = columnCheck.length > 0
+
+        // Build WHERE clause with soft-delete filter if applicable
+        const whereClause =
+          hasDeletedAt && !includeDeleted
+            ? sql` WHERE id = ${recordId} AND deleted_at IS NULL`
+            : sql` WHERE id = ${recordId}`
+
         // Use parameterized query for recordId (automatic via template literal)
         const result = (await tx.execute(
-          sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${recordId} LIMIT 1`
+          sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause} LIMIT 1`
         )) as readonly Record<string, unknown>[]
 
         // eslint-disable-next-line unicorn/no-null -- Null is intentional for database records that don't exist
