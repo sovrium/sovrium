@@ -89,8 +89,66 @@ export async function handleListRecords(c: Context, app: App) {
   const timezone = c.req.query('timezone')
   const sort = c.req.query('sort')
   const fields = c.req.query('fields')
+  const aggregateParam = c.req.query('aggregate')
 
-  // Validate timezone if provided
+  // Parse aggregate parameter if provided
+  // Use early return pattern to avoid let
+  if (aggregateParam) {
+    try {
+      const parsedAggregate = JSON.parse(aggregateParam) as {
+        count?: boolean
+        sum?: readonly string[]
+        avg?: readonly string[]
+      }
+      // Continue with validation below
+      const aggregate = parsedAggregate
+      // Validate timezone if provided
+      if (timezone && !isValidTimezone(timezone)) {
+        return c.json(
+          {
+            success: false,
+            message: `Invalid timezone: ${timezone}`,
+            code: 'VALIDATION_ERROR',
+          },
+          400
+        )
+      }
+
+      // When fields parameter is used, response format is flat (no Airtable structure)
+      // Skip schema validation for field-selected responses since structure differs
+      // Also skip validation when aggregations are requested (different response structure)
+      const responseSchema = fields || aggregate ? undefined : listRecordsResponseSchema
+
+      return runEffect(
+        c,
+        createListRecordsProgram({
+          session,
+          tableName,
+          app,
+          userRole,
+          filter: parsedFilter,
+          includeDeleted,
+          format,
+          timezone,
+          sort,
+          fields,
+          aggregate,
+        }),
+        responseSchema
+      )
+    } catch {
+      return c.json(
+        {
+          success: false,
+          message: 'Invalid aggregate parameter: must be valid JSON',
+          code: 'VALIDATION_ERROR',
+        },
+        400
+      )
+    }
+  }
+
+  // Validate timezone if provided (no aggregate case)
   if (timezone && !isValidTimezone(timezone)) {
     return c.json(
       {

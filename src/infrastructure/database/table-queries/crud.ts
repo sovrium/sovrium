@@ -51,6 +51,110 @@ function buildUserFilterConditions(filter?: {
 }
 
 /**
+ * Get aggregations for a table
+ *
+ * @param config - Configuration object
+ * @param config.session - Better Auth session
+ * @param config.tableName - Name of the table to query
+ * @param config.filter - Optional filter to apply
+ * @param config.includeDeleted - Whether to include soft-deleted records
+ * @param config.aggregate - Aggregation configuration
+ * @returns Effect resolving to aggregation results
+ */
+export function getAggregations(config: {
+  readonly session: Readonly<Session>
+  readonly tableName: string
+  readonly filter?: {
+    readonly and?: readonly {
+      readonly field: string
+      readonly operator: string
+      readonly value: unknown
+    }[]
+  }
+  readonly includeDeleted?: boolean
+  readonly aggregate: {
+    readonly count?: boolean
+    readonly sum?: readonly string[]
+    readonly avg?: readonly string[]
+  }
+}): Effect.Effect<Record<string, string | number | Record<string, number>>, SessionContextError> {
+  return withSessionContext(config.session, (db) => {
+    const { tableName, filter, includeDeleted, aggregate } = config
+    validateTableName(tableName)
+
+    // Build aggregation SELECT clauses
+    const aggregateClauses: readonly string[] = [
+      ...(aggregate.count ? ['COUNT(*) as count'] : []),
+      ...(aggregate.sum?.map((field) => {
+        validateColumnName(field)
+        return `SUM("${field}") as sum_${field}`
+      }) ?? []),
+      ...(aggregate.avg?.map((field) => {
+        validateColumnName(field)
+        return `AVG("${field}") as avg_${field}`
+      }) ?? []),
+    ]
+
+    if (aggregateClauses.length === 0) {
+      return Effect.succeed({})
+    }
+
+    // Build WHERE clause conditions
+    const conditions = [
+      ...(includeDeleted ? [] : ['deleted_at IS NULL']),
+      ...buildUserFilterConditions(filter),
+    ]
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+
+    const query = sql.raw(`
+      SELECT ${aggregateClauses.join(', ')}
+      FROM "${tableName}"
+      ${whereClause}
+    `)
+
+    return Effect.tryPromise({
+      try: async () => {
+        const result = (await db.execute(query)) as readonly Record<string, unknown>[]
+        const row = result[0]
+
+        if (!row) {
+          return {}
+        }
+
+        // Transform result into expected format using functional composition
+        return {
+          ...(aggregate.count ? { count: String(row.count) } : {}),
+          ...(aggregate.sum && aggregate.sum.length > 0
+            ? {
+                sum: aggregate.sum.reduce<Record<string, number>>(
+                  (acc, field) => ({
+                    ...acc,
+                    [field]: Number(row[`sum_${field}`]),
+                  }),
+                  {}
+                ),
+              }
+            : {}),
+          ...(aggregate.avg && aggregate.avg.length > 0
+            ? {
+                avg: aggregate.avg.reduce<Record<string, number>>(
+                  (acc, field) => ({
+                    ...acc,
+                    [field]: Number(row[`avg_${field}`]),
+                  }),
+                  {}
+                ),
+              }
+            : {}),
+        }
+      },
+      catch: (error) => new SessionContextError(String(error)),
+    })
+  })
+}
+
+/**
  * Build ORDER BY clause from sort parameter
  */
 function buildOrderByClause(sort?: string): Readonly<ReturnType<typeof sql.raw>> {

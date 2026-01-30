@@ -16,6 +16,7 @@ import {
   deleteRecord,
   permanentlyDeleteRecord,
   restoreRecord,
+  getAggregations,
 } from '@/infrastructure/database/table-queries'
 import { filterReadableFields } from './utils/field-read-filter'
 import { transformRecord, transformRecords } from './utils/record-transformer'
@@ -65,6 +66,11 @@ interface ListRecordsConfig {
   readonly timezone?: string
   readonly sort?: string
   readonly fields?: string
+  readonly aggregate?: {
+    readonly count?: boolean
+    readonly sum?: readonly string[]
+    readonly avg?: readonly string[]
+  }
 }
 
 /**
@@ -112,6 +118,7 @@ export function createListRecordsProgram(
       timezone,
       sort,
       fields,
+      aggregate,
     } = config
 
     // Query records with session context (RLS policies apply automatically)
@@ -135,6 +142,11 @@ export function createListRecordsProgram(
       ? (applyFieldSelection(transformedRecords, fields) as unknown as TransformedRecord[])
       : transformedRecords
 
+    // Get aggregations if requested
+    const aggregations = aggregate
+      ? yield* getAggregations({ session, tableName, filter, includeDeleted, aggregate })
+      : undefined
+
     return {
       records: finalRecords,
       pagination: {
@@ -145,6 +157,7 @@ export function createListRecordsProgram(
         hasNextPage: false,
         hasPreviousPage: false,
       },
+      ...(aggregations ? { aggregations } : {}),
     }
   })
 }
