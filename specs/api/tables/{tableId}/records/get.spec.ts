@@ -388,7 +388,7 @@ test.describe('List records in table', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-LIST-009: should return 200 with aggregation results',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
