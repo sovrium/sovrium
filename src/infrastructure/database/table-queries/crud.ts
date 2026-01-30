@@ -8,8 +8,14 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { withSessionContext, SessionContextError } from '@/infrastructure/database'
-import { generateSqlCondition } from '@/infrastructure/database/filter-operators'
 import { logActivity } from './activity-log-helpers'
+import {
+  buildAggregationSelects,
+  parseAggregationResult,
+  buildOrderByClause,
+  buildWhereClause,
+  checkDeletedAtColumn as checkDeletedAtColumnHelper,
+} from './aggregation-helpers'
 import {
   checkTableColumns,
   sanitizeFields,
@@ -23,52 +29,15 @@ import {
   executeHardDelete,
   checkDeletedAtColumn,
 } from './delete-helpers'
-import { validateTableName, validateColumnName } from './validation'
+import {
+  validateFieldsNotEmpty,
+  fetchRecordBeforeUpdateCRUD,
+  buildUpdateSetClauseCRUD,
+  executeRecordUpdateCRUD,
+} from './update-helpers'
+import { validateTableName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { UniqueConstraintViolationError } from '@/infrastructure/database'
-
-/**
- * Build filter conditions from user-provided filters
- */
-function buildUserFilterConditions(filter?: {
-  readonly and?: readonly {
-    readonly field: string
-    readonly operator: string
-    readonly value: unknown
-  }[]
-}): readonly string[] {
-  if (!filter?.and || filter.and.length === 0) return []
-
-  const andConditions = filter.and ?? []
-  return andConditions
-    .map((f) => {
-      validateColumnName(f.field)
-      return generateSqlCondition(f.field, f.operator, f.value, {
-        useEscapeSqlString: true,
-      })
-    })
-    .filter((c) => c !== '')
-}
-
-/**
- * Build ORDER BY clause from sort parameter
- */
-function buildOrderByClause(sort?: string): Readonly<ReturnType<typeof sql.raw>> {
-  if (!sort) return sql.raw('')
-
-  const sortParts = sort.split(',').map((part) => part.trim())
-  const orderClauses = sortParts
-    .map((part) => {
-      const [field, direction] = part.split(':')
-      if (!field) return ''
-      validateColumnName(field)
-      const dir = direction?.toLowerCase() === 'desc' ? 'DESC' : 'ASC'
-      return `"${field}" ${dir}`
-    })
-    .filter((c) => c !== '')
-
-  return orderClauses.length > 0 ? sql.raw(` ORDER BY ${orderClauses.join(', ')}`) : sql.raw('')
-}
 
 /**
  * List all records from a table with session context
@@ -100,158 +69,25 @@ export function listRecords(config: {
 }): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
   const { session, tableName, filter, includeDeleted, sort } = config
   return withSessionContext(session, (tx) =>
-    Effect.tryPromise({
-      try: async () => {
-        validateTableName(tableName)
+    Effect.gen(function* () {
+      validateTableName(tableName)
 
-        // Check if table has deleted_at column
-        const columnCheck = (await tx.execute(
-          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
-        )) as readonly Record<string, unknown>[]
+      const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
 
-        const hasDeletedAt = columnCheck.length > 0
+      // Build query clauses
+      const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
+      const orderByClause = buildOrderByClause(sort)
 
-        // Build filter conditions
-        const userFilterConditions = buildUserFilterConditions(filter)
-        const softDeleteCondition = hasDeletedAt && !includeDeleted ? ['deleted_at IS NULL'] : []
-        const conditions = [...userFilterConditions, ...softDeleteCondition]
+      const result = yield* Effect.tryPromise({
+        try: () =>
+          tx.execute(sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause}${orderByClause}`),
+        catch: (error) =>
+          new SessionContextError(`Failed to list records from ${tableName}`, error),
+      })
 
-        // Build query clauses
-        const whereClause =
-          conditions.length > 0 ? sql.raw(` WHERE ${conditions.join(' AND ')}`) : sql.raw('')
-        const orderByClause = buildOrderByClause(sort)
-
-        const result = await tx.execute(
-          sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause}${orderByClause}`
-        )
-
-        return result as readonly Record<string, unknown>[]
-      },
-      catch: (error) => new SessionContextError(`Failed to list records from ${tableName}`, error),
+      return result as readonly Record<string, unknown>[]
     })
   )
-}
-
-/**
- * Build SQL aggregation SELECT clauses for requested operations
- */
-function buildAggregationSelects(aggregate: {
-  readonly count?: boolean
-  readonly sum?: readonly string[]
-  readonly avg?: readonly string[]
-  readonly min?: readonly string[]
-  readonly max?: readonly string[]
-}): readonly string[] {
-  const countSelect = aggregate.count ? ['COUNT(*)::text as count'] : []
-
-  const sumSelects =
-    aggregate.sum?.map((field) => {
-      validateColumnName(field)
-      return `SUM("${field}") as sum_${field}`
-    }) ?? []
-
-  const avgSelects =
-    aggregate.avg?.map((field) => {
-      validateColumnName(field)
-      return `AVG("${field}") as avg_${field}`
-    }) ?? []
-
-  const minSelects =
-    aggregate.min?.map((field) => {
-      validateColumnName(field)
-      return `MIN("${field}") as min_${field}`
-    }) ?? []
-
-  const maxSelects =
-    aggregate.max?.map((field) => {
-      validateColumnName(field)
-      return `MAX("${field}") as max_${field}`
-    }) ?? []
-
-  return [...countSelect, ...sumSelects, ...avgSelects, ...minSelects, ...maxSelects]
-}
-
-/**
- * Parse aggregation result row into structured aggregation object
- */
-function parseAggregationResult(
-  row: Record<string, unknown>,
-  aggregate: {
-    readonly count?: boolean
-    readonly sum?: readonly string[]
-    readonly avg?: readonly string[]
-    readonly min?: readonly string[]
-    readonly max?: readonly string[]
-  }
-): {
-  readonly count?: string
-  readonly sum?: Record<string, number>
-  readonly avg?: Record<string, number>
-  readonly min?: Record<string, number>
-  readonly max?: Record<string, number>
-} {
-  const countAgg =
-    aggregate.count && row['count'] !== undefined ? { count: String(row['count']) } : {}
-
-  const sumAgg =
-    aggregate.sum && aggregate.sum.length > 0
-      ? {
-          sum: aggregate.sum.reduce<Record<string, number>>((acc, field) => {
-            const key = `sum_${field}`
-            if (row[key] !== null && row[key] !== undefined) {
-              return { ...acc, [field]: Number(row[key]) }
-            }
-            return acc
-          }, {}),
-        }
-      : {}
-
-  const avgAgg =
-    aggregate.avg && aggregate.avg.length > 0
-      ? {
-          avg: aggregate.avg.reduce<Record<string, number>>((acc, field) => {
-            const key = `avg_${field}`
-            if (row[key] !== null && row[key] !== undefined) {
-              return { ...acc, [field]: Number(row[key]) }
-            }
-            return acc
-          }, {}),
-        }
-      : {}
-
-  const minAgg =
-    aggregate.min && aggregate.min.length > 0
-      ? {
-          min: aggregate.min.reduce<Record<string, number>>((acc, field) => {
-            const key = `min_${field}`
-            if (row[key] !== null && row[key] !== undefined) {
-              return { ...acc, [field]: Number(row[key]) }
-            }
-            return acc
-          }, {}),
-        }
-      : {}
-
-  const maxAgg =
-    aggregate.max && aggregate.max.length > 0
-      ? {
-          max: aggregate.max.reduce<Record<string, number>>((acc, field) => {
-            const key = `max_${field}`
-            if (row[key] !== null && row[key] !== undefined) {
-              return { ...acc, [field]: Number(row[key]) }
-            }
-            return acc
-          }, {}),
-        }
-      : {}
-
-  return {
-    ...countAgg,
-    ...sumAgg,
-    ...avgAgg,
-    ...minAgg,
-    ...maxAgg,
-  }
 }
 
 /**
@@ -295,50 +131,25 @@ export function computeAggregations(config: {
 > {
   const { session, tableName, filter, includeDeleted, aggregate } = config
   return withSessionContext(session, (tx) =>
-    Effect.tryPromise({
-      try: async () => {
-        validateTableName(tableName)
+    Effect.gen(function* () {
+      validateTableName(tableName)
+      const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
+      const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
+      const aggregationSelects = buildAggregationSelects(aggregate)
+      if (aggregationSelects.length === 0) return {}
 
-        // Check if table has deleted_at column
-        const columnCheck = (await tx.execute(
-          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
-        )) as readonly Record<string, unknown>[]
+      const selectClause = sql.raw(aggregationSelects.join(', '))
+      const result = yield* Effect.tryPromise({
+        try: () =>
+          tx.execute(sql`SELECT ${selectClause} FROM ${sql.identifier(tableName)}${whereClause}`),
+        catch: (error) =>
+          new SessionContextError(`Failed to compute aggregations from ${tableName}`, error),
+      })
 
-        const hasDeletedAt = columnCheck.length > 0
+      const rows = result as readonly Record<string, unknown>[]
+      if (rows.length === 0) return {}
 
-        // Build filter conditions
-        const userFilterConditions = buildUserFilterConditions(filter)
-        const softDeleteCondition = hasDeletedAt && !includeDeleted ? ['deleted_at IS NULL'] : []
-        const conditions = [...userFilterConditions, ...softDeleteCondition]
-
-        // Build WHERE clause
-        const whereClause =
-          conditions.length > 0 ? sql.raw(` WHERE ${conditions.join(' AND ')}`) : sql.raw('')
-
-        // Build aggregation selects using helper function
-        const aggregationSelects = buildAggregationSelects(aggregate)
-
-        if (aggregationSelects.length === 0) {
-          return {}
-        }
-
-        const selectClause = sql.raw(aggregationSelects.join(', '))
-
-        const result = (await tx.execute(
-          sql`SELECT ${selectClause} FROM ${sql.identifier(tableName)}${whereClause}`
-        )) as readonly Record<string, unknown>[]
-
-        if (result.length === 0) {
-          return {}
-        }
-
-        const row = result[0]!
-
-        // Parse the result into structured aggregations using helper function
-        return parseAggregationResult(row, aggregate)
-      },
-      catch: (error) =>
-        new SessionContextError(`Failed to compute aggregations from ${tableName}`, error),
+      return parseAggregationResult(rows[0]!, aggregate)
     })
   )
 }
@@ -357,30 +168,24 @@ export function listTrash(
   tableName: string
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
   return withSessionContext(session, (tx) =>
-    Effect.tryPromise({
-      try: async () => {
-        validateTableName(tableName)
+    Effect.gen(function* () {
+      validateTableName(tableName)
 
-        // Check if table has deleted_at column
-        const columnCheck = (await tx.execute(
-          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
-        )) as readonly Record<string, unknown>[]
+      const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
 
-        const hasDeletedAt = columnCheck.length > 0
+      if (!hasDeletedAt) {
+        // If table doesn't have deleted_at, return empty array (no soft-deleted records)
+        return []
+      }
 
-        if (!hasDeletedAt) {
-          // If table doesn't have deleted_at, return empty array (no soft-deleted records)
-          return []
-        }
+      // Only fetch soft-deleted records (deleted_at IS NOT NULL)
+      const result = yield* Effect.tryPromise({
+        try: () =>
+          tx.execute(sql`SELECT * FROM ${sql.identifier(tableName)} WHERE deleted_at IS NOT NULL`),
+        catch: (error) => new SessionContextError(`Failed to list trash from ${tableName}`, error),
+      })
 
-        // Only fetch soft-deleted records (deleted_at IS NOT NULL)
-        const result = await tx.execute(
-          sql`SELECT * FROM ${sql.identifier(tableName)} WHERE deleted_at IS NOT NULL`
-        )
-
-        return result as readonly Record<string, unknown>[]
-      },
-      catch: (error) => new SessionContextError(`Failed to list trash from ${tableName}`, error),
+      return result as readonly Record<string, unknown>[]
     })
   )
 }
@@ -404,34 +209,29 @@ export function getRecord(
   includeDeleted?: boolean
 ): Effect.Effect<Record<string, unknown> | null, SessionContextError> {
   return withSessionContext(session, (tx) =>
-    Effect.tryPromise({
-      try: async () => {
-        validateTableName(tableName)
+    Effect.gen(function* () {
+      validateTableName(tableName)
 
-        // Check if table has deleted_at column to filter soft-deleted records
-        const columnCheck = (await tx.execute(
-          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
-        )) as readonly Record<string, unknown>[]
+      const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
 
-        const hasDeletedAt = columnCheck.length > 0
+      // Build WHERE clause with soft-delete filter if applicable
+      const whereClause =
+        hasDeletedAt && !includeDeleted
+          ? sql` WHERE id = ${recordId} AND deleted_at IS NULL`
+          : sql` WHERE id = ${recordId}`
 
-        // Build WHERE clause with soft-delete filter if applicable
-        const whereClause =
-          hasDeletedAt && !includeDeleted
-            ? sql` WHERE id = ${recordId} AND deleted_at IS NULL`
-            : sql` WHERE id = ${recordId}`
+      // Use parameterized query for recordId (automatic via template literal)
+      const result = yield* Effect.tryPromise({
+        try: () =>
+          tx.execute(sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause} LIMIT 1`),
+        catch: (error) =>
+          new SessionContextError(`Failed to get record ${recordId} from ${tableName}`, error),
+      })
 
-        // Use parameterized query for recordId (automatic via template literal)
-        const result = (await tx.execute(
-          sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause} LIMIT 1`
-        )) as readonly Record<string, unknown>[]
+      const rows = result as readonly Record<string, unknown>[]
 
-        // eslint-disable-next-line unicorn/no-null -- Null is intentional for database records that don't exist
-        return result[0] ?? null
-      },
-      catch: (error) => {
-        return new SessionContextError(`Failed to get record ${recordId} from ${tableName}`, error)
-      },
+      // eslint-disable-next-line unicorn/no-null -- Null is intentional for database records that don't exist
+      return rows[0] ?? null
     })
   )
 }
@@ -503,89 +303,6 @@ export function createRecord(
  * @param fields - Fields to update
  * @returns Effect resolving to updated record
  */
-
-/**
- * Validate fields object is not empty
- */
-function validateFieldsNotEmpty(
-  fields: Readonly<Record<string, unknown>>
-): Effect.Effect<readonly [string, unknown][], SessionContextError> {
-  const entries = Object.entries(fields)
-
-  if (entries.length === 0) {
-    return Effect.fail(new SessionContextError('Cannot update record with no fields', undefined))
-  }
-
-  return Effect.succeed(entries)
-}
-
-/**
- * Fetch record before update for activity logging (CRUD version)
- */
-function fetchRecordBeforeUpdateCRUD(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx: any,
-  tableName: string,
-  recordId: string
-): Effect.Effect<Record<string, unknown> | undefined, SessionContextError> {
-  return Effect.tryPromise({
-    try: async () => {
-      const result = (await tx.execute(
-        sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${recordId} LIMIT 1`
-      )) as readonly Record<string, unknown>[]
-      return result[0]
-    },
-    catch: (error) => new SessionContextError(`Failed to fetch record ${recordId}`, error),
-  })
-}
-
-/**
- * Build UPDATE SET clause with validated columns (CRUD version)
- */
-function buildUpdateSetClauseCRUD(
-  entries: readonly [string, unknown][]
-): Readonly<ReturnType<typeof sql.join>> {
-  const setClauses = entries.map(([key, value]) => {
-    validateColumnName(key)
-    return sql`${sql.identifier(key)} = ${value}`
-  })
-  return sql.join(setClauses, sql.raw(', '))
-}
-
-/**
- * Execute UPDATE query with RLS enforcement
- */
-function executeRecordUpdateCRUD(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx: any,
-  tableName: string,
-  recordId: string,
-  setClause: Readonly<ReturnType<typeof sql.join>>
-): Effect.Effect<Record<string, unknown>, SessionContextError> {
-  return Effect.tryPromise({
-    try: async () => {
-      const result = (await tx.execute(
-        sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
-      )) as readonly Record<string, unknown>[]
-
-      // If RLS blocked the update, result will be empty
-      if (result.length === 0) {
-        // eslint-disable-next-line functional/no-throw-statements -- RLS blocking requires error propagation
-        throw new Error(`Record not found or access denied`)
-      }
-
-      return result[0]!
-    },
-    catch: (error) => {
-      // Preserve "not found" or "access denied" in wrapper message for API error handling
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      if (errorMsg.includes('not found') || errorMsg.includes('access denied')) {
-        return new SessionContextError(errorMsg, error)
-      }
-      return new SessionContextError(`Failed to update record ${recordId} in ${tableName}`, error)
-    },
-  })
-}
 
 /**
  * Log activity for record update

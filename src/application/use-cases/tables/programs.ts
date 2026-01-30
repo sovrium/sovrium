@@ -19,12 +19,9 @@ import {
   computeAggregations,
 } from '@/infrastructure/database/table-queries'
 import { filterReadableFields } from './utils/field-read-filter'
+import { processRecords, applyPagination } from './utils/list-helpers'
 import { transformRecord, transformRecords } from './utils/record-transformer'
-import type {
-  TransformedRecord,
-  RecordFieldValue,
-  FormattedFieldValue,
-} from './utils/record-transformer'
+import type { TransformedRecord } from './utils/record-transformer'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type {
@@ -81,86 +78,6 @@ interface ListRecordsConfig {
   }
 }
 
-/**
- * Apply field selection to transform records into flat structure
- * When fields parameter is specified, returns records with only selected fields
- * Maintains Airtable-style structure: { id, fields: { ... }, createdAt, updatedAt }
- */
-function applyFieldSelection(
-  records: readonly TransformedRecord[],
-  fields: string
-): readonly TransformedRecord[] {
-  const fieldNames = fields.split(',').map((f) => f.trim())
-
-  return records.map((record) => {
-    // Build fields object with only requested fields
-    const selectedFields = fieldNames.reduce<
-      Record<string, RecordFieldValue | FormattedFieldValue>
-    >((acc, fieldName) => {
-      // Skip system fields (id, createdAt, updatedAt) - they're at root level
-      if (fieldName === 'id' || fieldName === 'createdAt' || fieldName === 'updatedAt') {
-        return acc
-      }
-
-      // Include user field if it exists
-      if (record.fields[fieldName] !== undefined) {
-        return { ...acc, [fieldName]: record.fields[fieldName] }
-      }
-
-      return acc
-    }, {})
-
-    // Return record with Airtable structure, only selected fields
-    return {
-      id: record.id,
-      fields: selectedFields,
-      createdAt: record.createdAt,
-      updatedAt: record.updatedAt,
-    }
-  })
-}
-
-/**
- * Apply pagination to records and calculate pagination metadata
- */
-function applyPagination(
-  records: readonly TransformedRecord[],
-  totalRecords: number,
-  limit?: number,
-  offset?: number
-): {
-  readonly paginatedRecords: readonly TransformedRecord[]
-  readonly pagination: {
-    readonly page: number
-    readonly limit: number
-    readonly offset: number
-    readonly total: number
-    readonly totalPages: number
-    readonly hasNextPage: boolean
-    readonly hasPreviousPage: boolean
-  }
-} {
-  const paginationLimit = limit ?? 100
-  const paginationOffset = offset ?? 0
-  const paginatedRecords = records.slice(paginationOffset, paginationOffset + paginationLimit)
-
-  const totalPages = Math.ceil(totalRecords / paginationLimit)
-  const currentPage = Math.floor(paginationOffset / paginationLimit) + 1
-
-  return {
-    paginatedRecords,
-    pagination: {
-      page: currentPage,
-      limit: paginationLimit,
-      offset: paginationOffset,
-      total: totalRecords,
-      totalPages,
-      hasNextPage: paginationOffset + paginationLimit < totalRecords,
-      hasPreviousPage: paginationOffset > 0,
-    },
-  }
-}
-
 export function createListRecordsProgram(
   config: ListRecordsConfig
 ): Effect.Effect<ListRecordsResponse, SessionContextError> {
@@ -181,44 +98,28 @@ export function createListRecordsProgram(
       aggregate,
     } = config
 
-    // Query records with session context (RLS policies apply automatically)
     const records = yield* listRecords({ session, tableName, filter, includeDeleted, sort })
 
-    // Apply field-level read permissions filtering
-    const { userId } = session
-    const filteredRecords = records.map((record) =>
-      filterReadableFields({ app, tableName, userRole, userId, record })
-    )
-
-    const transformedRecords = transformRecords(filteredRecords, {
-      format,
+    const processedRecords = processRecords({
+      records,
       app,
       tableName,
+      userRole,
+      userId: session.userId,
+      format,
       timezone,
-    }) as TransformedRecord[]
+      fields,
+    })
 
-    // Apply field selection if specified
-    const fieldsApplied = fields
-      ? applyFieldSelection(transformedRecords, fields)
-      : transformedRecords
-
-    // Apply pagination (limit/offset)
     const { paginatedRecords, pagination } = applyPagination(
-      fieldsApplied,
-      filteredRecords.length,
+      processedRecords,
+      records.length,
       limit,
       offset
     )
 
-    // Compute aggregations if requested
     const aggregations = aggregate
-      ? yield* computeAggregations({
-          session,
-          tableName,
-          filter,
-          includeDeleted,
-          aggregate,
-        })
+      ? yield* computeAggregations({ session, tableName, filter, includeDeleted, aggregate })
       : undefined
 
     return {
