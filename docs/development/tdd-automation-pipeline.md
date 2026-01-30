@@ -273,6 +273,7 @@ Complex specs may require extended timeouts. Configure via:
    ```
 
 2. **Workflow Default** (in claude-code.yml):
+
    ```yaml
    - uses: anthropics/claude-code-action@v1
      timeout-minutes: ${{ inputs.timeout || 90 }}

@@ -62,13 +62,60 @@ const toISOString = (value: unknown): string => {
 }
 
 /**
- * Convert string numbers to numeric values
- * NOTE: Disabled to preserve backward compatibility with existing tests
- * TODO: Re-enable when all tests expect numeric values for numeric field types
+ * Numeric field types that should return number values in API responses.
+ * PostgreSQL DECIMAL/NUMERIC types are returned as strings by database drivers,
+ * so we coerce them to numbers based on the field's schema type.
+ */
+const NUMERIC_FIELD_TYPES: ReadonlySet<string> = new Set([
+  'currency',
+  'number',
+  'integer',
+  'decimal',
+  'percentage',
+  'percent',
+  'rating',
+  'duration',
+])
+
+/**
+ * Look up a field's type from the app schema
+ */
+const getFieldType = (
+  app: Readonly<App>,
+  tableName: string,
+  fieldName: string
+): string | undefined => {
+  const table = app.tables?.find((t) => t.name === tableName)
+  return table?.fields.find((f) => f.name === fieldName)?.type
+}
+
+/**
+ * Coerce a string value to a number if the field type is numeric.
+ * Returns the original value unchanged for non-numeric field types.
+ */
+/* eslint-disable functional/prefer-immutable-types -- RecordFieldValue must be mutable to match FormattedFieldValue interface */
+const coerceNumericField = (
+  fieldName: string,
+  value: RecordFieldValue,
+  app: Readonly<App>,
+  tableName: string
+): RecordFieldValue => {
+  /* eslint-enable functional/prefer-immutable-types */
+  if (typeof value !== 'string') return value
+  const fieldType = getFieldType(app, tableName, fieldName)
+  if (!fieldType || !NUMERIC_FIELD_TYPES.has(fieldType)) return value
+  const num = Number(value)
+  return !isNaN(num) && isFinite(num) ? num : value
+}
+
+/**
+ * Convert string numbers to numeric values (used in display format path)
  */
 // eslint-disable-next-line functional/prefer-immutable-types -- RecordFieldValue must be mutable to match FormattedFieldValue interface
 const parseNumericString = (value: unknown, processedValue: RecordFieldValue): RecordFieldValue => {
-  // Disabled: always return processedValue as-is
+  if (typeof value === 'string' && !isNaN(parseFloat(value)) && isFinite(parseFloat(value))) {
+    return parseFloat(value)
+  }
   return processedValue
 }
 
@@ -113,10 +160,15 @@ const processFieldValue = (
 ): Readonly<RecordFieldValue | FormattedFieldValue> => {
   const processedValue = value instanceof Date ? value.toISOString() : (value as RecordFieldValue)
 
+  // Check if app schema info is available for type-aware processing
+  const hasSchemaInfo = options?.app && options?.tableName
+
   // Apply display formatting if requested
-  const shouldFormat = options?.format === 'display' && options.app && options.tableName
-  if (!shouldFormat) {
-    return processedValue
+  if (options?.format !== 'display' || !hasSchemaInfo) {
+    // Coerce numeric field types to numbers when schema info is available
+    return hasSchemaInfo
+      ? coerceNumericField(key, processedValue, options.app!, options.tableName!)
+      : processedValue
   }
 
   // For display formatting, pass the original value (may be string or number from database)
