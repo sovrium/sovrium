@@ -87,6 +87,7 @@ export async function handleListRecords(c: Context, app: App) {
   const includeDeleted = c.req.query('includeDeleted') === 'true'
   const format = c.req.query('format') === 'display' ? ('display' as const) : undefined
   const timezone = c.req.query('timezone')
+  const sort = c.req.query('sort')
 
   // Validate timezone if provided
   if (timezone && !isValidTimezone(timezone)) {
@@ -111,6 +112,7 @@ export async function handleListRecords(c: Context, app: App) {
       includeDeleted,
       format,
       timezone,
+      sort,
     }),
     listRecordsResponseSchema
   )
