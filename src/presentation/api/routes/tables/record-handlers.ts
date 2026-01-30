@@ -154,10 +154,24 @@ function parseFilter(c: Context, app: App, tableName: string, userRole: string):
     : { error: true, response: parsedFilterResult.error }
 }
 
+// eslint-disable-next-line max-lines-per-function -- Permission checks and filtering logic require length
 export async function handleListRecords(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain:
   // requireAuth() → validateTable() → enrichUserRole()
   const { session, tableName, userRole } = getTableContext(c)
+
+  // Check read permission before listing records
+  const table = app.tables?.find((t) => t.name === tableName)
+  if (!hasReadPermission(table, userRole)) {
+    return c.json(
+      {
+        success: false,
+        message: 'You do not have permission to perform this action',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
 
   const filter = parseFilter(c, app, tableName, userRole)
 

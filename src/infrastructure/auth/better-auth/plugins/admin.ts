@@ -38,8 +38,8 @@ export const parseAdminConfig = (authConfig?: Auth): AdminPluginConfig | undefin
  * - User management (list, ban, unban, impersonate)
  * - Role-based access control (admin, member, user roles)
  *
- * NOTE: Role assignment hooks are now handled via databaseHooks in auth.ts
- * because Better Auth's admin plugin doesn't support hooks in its options.
+ * NOTE: The admin plugin automatically assigns defaultRole to new users via internal databaseHooks.
+ * The firstUserAdmin feature is implemented in auth.ts via custom databaseHooks.
  */
 export const buildAdminPlugin = (authConfig?: Auth) => {
   const config = parseAdminConfig(authConfig)

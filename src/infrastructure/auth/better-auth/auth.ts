@@ -151,6 +151,59 @@ export function buildAuthHooks() {
     }),
   }
 }
+
+/**
+ * Global flag to track if the first user has been created
+ * This persists across auth instance creations within the same process
+ * but resets between test files (each test file runs in a new process)
+ */
+// eslint-disable-next-line functional/no-let -- Global flag for firstUserAdmin feature
+let globalFirstUserCreated = false
+
+/**
+ * Build database hooks to make first user an admin automatically
+ *
+ * This enables test fixtures like createAuthenticatedViewer to work by ensuring
+ * the first user created has admin privileges to call admin API endpoints.
+ *
+ * Note: firstUserAdmin is a Sovrium-specific feature, not a Better Auth native option.
+ *
+ * IMPORTANT: This uses a global module-level flag that persists across auth instance
+ * recreations but resets between test files. This ensures the first user in each test
+ * file gets admin privileges, which is necessary for test fixtures that call admin APIs.
+ */
+export function buildDatabaseHooks(authConfig?: Auth) {
+  const adminConfig = authConfig?.admin
+  const firstUserAdmin =
+    adminConfig && typeof adminConfig === 'object' ? (adminConfig.firstUserAdmin ?? true) : true
+
+  return {
+    user: {
+      create: {
+        async before(user: Record<string, unknown>) {
+          // Apply firstUserAdmin logic if enabled and this is the first user globally
+          // We check if the role is the default 'user' role or undefined, as the admin plugin
+          // may have already set defaultRole before this hook runs
+          const isDefaultRole = !user.role || user.role === 'user'
+
+          if (firstUserAdmin && !globalFirstUserCreated && isDefaultRole) {
+            // eslint-disable-next-line functional/no-expression-statements -- Mutation required for global flag
+            globalFirstUserCreated = true // Mark that first user has been created
+            return {
+              data: {
+                ...user,
+                role: 'admin',
+              },
+            }
+          }
+
+          // Otherwise, return user unchanged
+          return { data: user }
+        },
+      },
+    },
+  }
+}
 /**
  * Create Better Auth instance with dynamic configuration
  */
@@ -187,6 +240,7 @@ export function createAuthInstance(authConfig?: Auth) {
     plugins: buildAuthPlugins(handlers, authConfig),
     rateLimit: buildRateLimitConfig(),
     hooks: buildAuthHooks(),
+    databaseHooks: buildDatabaseHooks(authConfig),
   })
 }
 
