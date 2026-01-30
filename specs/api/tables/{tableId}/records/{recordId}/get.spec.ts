@@ -232,7 +232,7 @@ test.describe('Get record by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-GET-006: should exclude salary field for member',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
