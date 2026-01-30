@@ -113,8 +113,12 @@ const coerceNumericField = (
  */
 // eslint-disable-next-line functional/prefer-immutable-types -- RecordFieldValue must be mutable to match FormattedFieldValue interface
 const parseNumericString = (value: unknown, processedValue: RecordFieldValue): RecordFieldValue => {
-  // Disabled: always return processedValue as-is
-  return processedValue
+  // Coerce string numbers to numeric values for numeric field types
+  if (typeof value === 'string') {
+    const num = Number(value)
+    return !isNaN(num) && isFinite(num) ? num : processedValue
+  }
+  return typeof value === 'number' ? value : processedValue
 }
 
 /**
