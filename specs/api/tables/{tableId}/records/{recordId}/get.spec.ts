@@ -232,7 +232,7 @@ test.describe('Get record by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-GET-006: should exclude salary field for member',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -249,6 +249,15 @@ test.describe('Get record by ID', () => {
               { id: 2, name: 'email', type: 'email', required: true },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
+            permissions: {
+              read: { type: 'authenticated' },
+              fields: [
+                {
+                  field: 'salary',
+                  read: { type: 'roles', roles: ['owner', 'admin'] },
+                },
+              ],
+            },
           },
         ],
       })
@@ -275,10 +284,10 @@ test.describe('Get record by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-GET-007: should return minimal fields for viewer',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Viewer with limited field access
       await startServerWithSchema({
         name: 'test-app',
@@ -293,6 +302,23 @@ test.describe('Get record by ID', () => {
               { id: 3, name: 'phone', type: 'phone-number' },
               { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
             ],
+            permissions: {
+              read: { type: 'roles', roles: ['owner', 'admin', 'member', 'viewer'] },
+              fields: [
+                {
+                  field: 'email',
+                  read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+                },
+                {
+                  field: 'phone',
+                  read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+                },
+                {
+                  field: 'salary',
+                  read: { type: 'roles', roles: ['owner', 'admin'] },
+                },
+              ],
+            },
           },
         ],
       })
@@ -302,7 +328,14 @@ test.describe('Get record by ID', () => {
       `)
 
       // Create authenticated viewer (minimal field access)
-      await createAuthenticatedViewer()
+      const viewer = await createAuthenticatedUser()
+
+      // Set viewer role manually
+      await executeQuery(`
+        UPDATE auth.user
+        SET role = 'viewer'
+        WHERE email = '${viewer.user.email}'
+      `)
 
       // WHEN: Viewer requests record
       const response = await request.get('/api/tables/8/records/1', {})
@@ -320,7 +353,7 @@ test.describe('Get record by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-GET-008: should include readonly fields in response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -367,7 +400,7 @@ test.describe('Get record by ID', () => {
   // Soft Delete Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-GET-009: should return 404 for soft-deleted record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -406,7 +439,7 @@ test.describe('Get record by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-GET-010: should return soft-deleted record with includeDeleted=true',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
