@@ -158,8 +158,8 @@ test.describe('API Field Permission Enforcement', () => {
       const data = await response.json()
       expect(data.records).toHaveLength(1)
       expect(data.records[0].fields).toHaveProperty('name', 'Jane Smith')
-      // KEY ASSERTION: Admin can see salary field
-      expect(data.records[0].fields).toHaveProperty('salary', '95000')
+      // KEY ASSERTION: Admin can see salary field (numeric type coerced to number)
+      expect(data.records[0].fields).toHaveProperty('salary', 95_000)
     }
   )
 
@@ -469,8 +469,8 @@ test.describe('API Field Permission Enforcement', () => {
         const data = await response.json()
         expect(data.records).toHaveLength(1)
         expect(data.records[0].fields).toHaveProperty('name', 'John Doe')
-        // KEY ASSERTION: Admin can see salary field
-        expect(data.records[0].fields).toHaveProperty('salary', '75000')
+        // KEY ASSERTION: Admin can see salary field (numeric type coerced to number)
+        expect(data.records[0].fields).toHaveProperty('salary', 75_000)
       })
 
       await test.step('API-TABLES-PERMISSIONS-FIELD-003: Rejects write when user lacks field permission', async () => {

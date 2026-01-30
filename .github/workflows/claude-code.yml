@@ -36,6 +36,7 @@ jobs:
       spec-file: ${{ steps.parse.outputs.spec-file }}
       spec-id: ${{ steps.parse.outputs.spec-id }}
       timeout: ${{ steps.config.outputs.timeout }}
+      job-timeout: ${{ steps.config.outputs.job-timeout }}
     steps:
       - name: Get PR info
         id: pr-info
@@ -302,7 +303,7 @@ jobs:
         if: steps.validate.outputs.is-valid == 'true'
         run: |
           SPEC_FILE="${{ steps.parse.outputs.spec-file }}"
-          DEFAULT_TIMEOUT=45
+          DEFAULT_TIMEOUT=90
 
           if [ -n "$SPEC_FILE" ] && [ -f "$SPEC_FILE" ]; then
             # Extract @tdd-timeout annotation if present
@@ -311,8 +312,13 @@ jobs:
             TIMEOUT=$DEFAULT_TIMEOUT
           fi
 
+          # Job-level timeout adds 15-minute buffer for error handling steps
+          # This ensures error handlers can run even if Claude Code step times out
+          JOB_TIMEOUT=$((TIMEOUT + 15))
+
           echo "timeout=$TIMEOUT" >> "$GITHUB_OUTPUT"
-          echo "⏱️ Timeout: ${TIMEOUT} minutes"
+          echo "job-timeout=$JOB_TIMEOUT" >> "$GITHUB_OUTPUT"
+          echo "⏱️ Timeout: ${TIMEOUT} minutes (job timeout: ${JOB_TIMEOUT} minutes)"
 
   # ============================================================================
   # JOB 2: EXECUTE CLAUDE CODE
@@ -329,7 +335,7 @@ jobs:
     needs: validate
     if: needs.validate.outputs.is-valid == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 45 }}
+    timeout-minutes: ${{ fromJSON(needs.validate.outputs.job-timeout) || 105 }}
     steps:
       - name: Checkout PR branch
         uses: actions/checkout@v4
@@ -499,7 +505,7 @@ jobs:
         id: claude-code
         continue-on-error: true
         uses: anthropics/claude-code-action@v1
-        timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 45 }}
+        timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 90 }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: ${{ steps.agent-config.outputs.prompt }}
@@ -512,7 +518,7 @@ jobs:
         if: steps.claude-code.outcome == 'failure' && steps.claude-code.outputs.execution_file == ''
         continue-on-error: true
         uses: anthropics/claude-code-action@v1
-        timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 45 }}
+        timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 90 }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: ${{ steps.agent-config.outputs.prompt }}
@@ -554,12 +560,24 @@ jobs:
         env:
           EXECUTION_FILE: ${{ steps.final-outcome.outputs.execution_file }}
           CONCLUSION: ${{ steps.final-outcome.outputs.conclusion }}
+          CLAUDE_CODE_OUTCOME: ${{ steps.claude-code.outcome }}
+          CLAUDE_CODE_RETRY_OUTCOME: ${{ steps.claude-code-retry.outcome }}
+          CONFIGURED_TIMEOUT: ${{ needs.validate.outputs.timeout }}
         run: |
           # Parse Claude Code execution result
           # Output structure: { type: "result", subtype: "success" | "error_max_turns" | "error_max_budget_usd" | "error_during_execution" | "error_max_structured_output_retries" }
 
           RESULT_SUBTYPE=""
           ERROR_MESSAGE=""
+
+          # Detect timeout: both attempts failed/cancelled AND no execution file
+          # When a step hits timeout-minutes, GitHub Actions cancels it
+          if [ "$CLAUDE_CODE_OUTCOME" = "cancelled" ] || [ "$CLAUDE_CODE_RETRY_OUTCOME" = "cancelled" ]; then
+            echo "result-subtype=timeout" >> "$GITHUB_OUTPUT"
+            echo "error-message=Claude Code execution exceeded the configured timeout of ${CONFIGURED_TIMEOUT:-90} minutes" >> "$GITHUB_OUTPUT"
+            echo "⏱️ Claude Code execution timed out (${CONFIGURED_TIMEOUT:-90} minutes)"
+            exit 1
+          fi
 
           if [ "$CONCLUSION" = "success" ]; then
             RESULT_SUBTYPE="success"
@@ -588,9 +606,17 @@ jobs:
               exit 1
             fi
           else
-            echo "result-subtype=unknown" >> "$GITHUB_OUTPUT"
-            echo "error-message=Execution file not found" >> "$GITHUB_OUTPUT"
-            echo "❌ No execution file found"
+            # No execution file and step failed → likely timeout or crash
+            # Check if failure happened without producing any output (timeout signature)
+            if [ "$CLAUDE_CODE_OUTCOME" = "failure" ] && [ -z "$EXECUTION_FILE" ]; then
+              echo "result-subtype=timeout" >> "$GITHUB_OUTPUT"
+              echo "error-message=Claude Code execution likely timed out (no execution file produced, timeout: ${CONFIGURED_TIMEOUT:-90} min)" >> "$GITHUB_OUTPUT"
+              echo "⏱️ Likely timeout: no execution file produced"
+            else
+              echo "result-subtype=unknown" >> "$GITHUB_OUTPUT"
+              echo "error-message=Execution file not found" >> "$GITHUB_OUTPUT"
+              echo "❌ No execution file found"
+            fi
             exit 1
           fi
 
@@ -808,19 +834,20 @@ jobs:
 
       - name: Catch-All Error Handler (Workflow Failures)
         id: catch-all-error
-        if: failure() # Runs only if any previous step failed
+        if: failure() || cancelled() # Runs on step failure OR job cancellation (e.g., timeout)
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ needs.validate.outputs.pr-number }}
           SPEC_ID: ${{ needs.validate.outputs.spec-id }}
+          CONFIGURED_TIMEOUT: ${{ needs.validate.outputs.timeout }}
         run: |
-          # Catch-all safety net for unexpected workflow failures
+          # Catch-all safety net for unexpected workflow failures and timeouts
           # Adds manual-intervention label if not already added
 
-          echo "⚠️ Workflow failure detected - checking if manual-intervention label exists"
+          echo "⚠️ Workflow failure/cancellation detected - checking if manual-intervention label exists"
 
           # Check if label already added by previous step
-          LABELS=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json labels --jq '.labels[].name')
+          LABELS=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json labels --jq '.labels[].name' 2>/dev/null || echo "")
           if echo "$LABELS" | grep -q "tdd-automation:manual-intervention"; then
             echo "✅ manual-intervention label already present - skipping"
             exit 0
@@ -831,7 +858,7 @@ jobs:
           # Add manual-intervention label
           gh pr edit "$PR_NUMBER" --repo "${{ github.repository }}" --add-label "tdd-automation:manual-intervention"
 
-          # Post generic error comment
+          # Post error comment with timeout-specific guidance
           {
             echo "❌ **Workflow Execution Error**"
             echo ""
@@ -840,7 +867,7 @@ jobs:
             echo "**Issue**: The workflow encountered an unexpected error during execution."
             echo ""
             echo "**Possible Causes**:"
-            echo "- Workflow timeout (exceeded ${{ needs.validate.outputs.timeout }} minutes)"
+            echo "- Workflow timeout (exceeded ${CONFIGURED_TIMEOUT:-90} minutes)"
             echo "- Claude Code action crash"
             echo "- Git operation failure"
             echo "- GitHub API error"
@@ -848,8 +875,9 @@ jobs:
             echo "**Next Steps**:"
             echo "1. Review workflow logs for detailed error messages"
             echo "2. Check GitHub Actions run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            echo "3. Remove \`tdd-automation:manual-intervention\` label after investigation"
-            echo "4. Post \`@claude\` comment to retry if issue is resolved"
+            echo "3. If timeout: consider adding \`@tdd-timeout <minutes>\` annotation to the spec file"
+            echo "4. Remove \`tdd-automation:manual-intervention\` label after investigation"
+            echo "5. Post \`@claude\` comment to retry if issue is resolved"
             echo ""
             echo "---"
             echo "_TDD Automation paused for this spec - pipeline continues with next spec_"
