@@ -249,6 +249,15 @@ test.describe('Get record by ID', () => {
               { id: 2, name: 'email', type: 'email', required: true },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
+            permissions: {
+              read: { type: 'authenticated' },
+              fields: [
+                {
+                  field: 'salary',
+                  read: { type: 'roles', roles: ['owner', 'admin'] },
+                },
+              ],
+            },
           },
         ],
       })
