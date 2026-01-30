@@ -353,7 +353,7 @@ test.describe('Get record by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-GET-008: should include readonly fields in response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {

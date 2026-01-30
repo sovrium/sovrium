@@ -189,6 +189,41 @@ const processFieldValue = (
 }
 
 /**
+ * Check if a field is defined in the table schema
+ */
+const isTableField = (
+  fieldName: string,
+  app: Readonly<App> | undefined,
+  tableName: string | undefined
+): boolean => {
+  if (!app || !tableName) return false
+  const table = app.tables?.find((t) => t.name === tableName)
+  return Boolean(table?.fields.some((f) => f.name === fieldName))
+}
+
+/**
+ * Build fields object including created_at/updated_at if they're defined as table fields
+ */
+const buildFieldsObject = (
+  userFields: Record<string, unknown>,
+  createdAt: unknown,
+  updatedAt: unknown,
+  options?: {
+    readonly app?: App
+    readonly tableName?: string
+  }
+): Record<string, unknown> => {
+  const hasCreatedAtField = isTableField('created_at', options?.app, options?.tableName)
+  const hasUpdatedAtField = isTableField('updated_at', options?.app, options?.tableName)
+
+  return {
+    ...userFields,
+    ...(hasCreatedAtField && createdAt !== undefined ? { created_at: createdAt } : {}),
+    ...(hasUpdatedAtField && updatedAt !== undefined ? { updated_at: updatedAt } : {}),
+  }
+}
+
+/**
  * Transform a raw database record into the API response format (Airtable-style)
  *
  * This utility standardizes record transformation across all table endpoints:
@@ -215,8 +250,11 @@ export const transformRecord = (
   // Extract system fields
   const { id, created_at: createdAt, updated_at: updatedAt, ...userFields } = record
 
+  // Build user fields, potentially including created_at/updated_at if they're table fields
+  const fieldsToTransform = buildFieldsObject(userFields, createdAt, updatedAt, options)
+
   // Convert Date objects to ISO strings in user fields and optionally format for display
-  const transformedFields = Object.entries(userFields).reduce<
+  const transformedFields = Object.entries(fieldsToTransform).reduce<
     Record<string, RecordFieldValue | FormattedFieldValue>
   >(
     (acc, [key, value]) => ({
