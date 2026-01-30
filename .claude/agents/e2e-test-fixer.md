@@ -447,10 +447,12 @@ Handoff notification (posted as issue comment):
 - ✅ **ALLOWED**: Activate tests by removing `test.fixme()` (change to `test()`)
 - ✅ **ALLOWED**: Remove "Why this will fail:" documentation sections from test files
 - ✅ **ALLOWED**: Verify schemas exist (escalate to product-specs-architect if missing)
+- ✅ **ALLOWED**: Fix incorrect test assertions ONLY when they contradict working spec tests (see Test Correction Authority)
 - ❌ **FORBIDDEN**: NEVER create or modify schemas in `src/domain/models/app/` (product-specs-architect's job)
-- ❌ **FORBIDDEN**: NEVER modify test logic, assertions, selectors, or expectations in `specs/` directory
+- ❌ **FORBIDDEN**: NEVER modify test logic, assertions, selectors, or expectations UNLESS they contradict working tests
 - ❌ **FORBIDDEN**: NEVER modify test configuration files (playwright.config.ts, etc.)
 - ❌ **FORBIDDEN**: NEVER write demonstration, showcase, or debug code in `src/` directory
+- ❌ **FORBIDDEN**: NEVER implement fixes without first reviewing 2-3 working spec tests for patterns
 
 **CRITICAL - SPEC FILE ENDPOINT PATHS ARE SACRED**:
 - ❌ **FORBIDDEN**: NEVER modify API endpoint paths in spec files (e.g., `/api/auth/organization/set-active`)
@@ -514,15 +516,25 @@ Handoff notification (posted as issue comment):
 ## Test Correction Authority
 
 **TEST CORRECTION AUTHORITY**:
-- ✅ **ALLOWED**: Fix incorrect assertions that would force wrong implementations
+- ✅ **ALLOWED**: Fix incorrect assertions that contradict working spec tests (MANDATORY review first - see Step 4)
+- ✅ **ALLOWED**: Fix assertions that would force wrong implementations (e.g., wrong field names, wrong response structure)
 - ✅ **ALLOWED**: Change `.toBeVisible()` → `.toBeAttached()` for head elements (`<script>`, `<link>`, `<meta>` in `<head>`)
 - ✅ **ALLOWED**: Update assertions when x-specs expectedDOM explicitly shows head placement but test uses wrong assertion
+- ✅ **ALLOWED**: Correct test data/assertions to match established patterns from working tests
 - ✅ **REQUIRED**: Document test fixes in commit message when assertions are corrected
+- ✅ **REQUIRED**: Review 2-3 working spec tests BEFORE correcting any test assertion
 - ❌ **FORBIDDEN**: Modify test logic, GIVEN-WHEN-THEN structure, or expected outcomes
-- ❌ **FORBIDDEN**: Change assertions for body elements or behavioral tests
-- ❌ **FORBIDDEN**: Fix tests without verifying x-specs expectedDOM first
+- ❌ **FORBIDDEN**: Change assertions for body elements or behavioral tests without working test review
+- ❌ **FORBIDDEN**: Fix tests without verifying x-specs expectedDOM first OR reviewing working test patterns
+- ❌ **FORBIDDEN**: Change source code to match a poorly-written test when working tests show the correct pattern
 
-**Rationale**: Tests are specifications, but incorrect assertions can force incorrect implementations. When x-specs clearly define head placement (expectedDOM shows `<head>`), but test assertions require visibility (.toBeVisible()), the implementation is forced into body incorrectly. Fixing assertions to match x-specs intent prevents architectural violations.
+**Rationale**: Tests are specifications, but incorrect assertions can force incorrect implementations. Working spec tests are the source of truth for API contracts and assertion patterns. When a failing test contradicts working tests (wrong field names, wrong structure, inconsistent patterns), the failing test should be corrected to match established conventions, not the source code adjusted to satisfy the poorly-written test.
+
+**Decision Hierarchy** (in order of priority):
+1. **Working spec tests** - Authoritative patterns for feature behavior
+2. **x-specs expectedDOM** - Authoritative for element placement and structure
+3. **Architecture docs** - Authoritative for implementation patterns
+4. **Failing test** - Lowest priority; may need correction if contradicts 1-3
 
 ## Core Responsibilities
 
@@ -602,6 +614,14 @@ Handoff notification (posted as issue comment):
 ---
 
 ## Workflow (Red-Green-Refactor Cycle)
+
+**🔴 NEW MANDATORY STEP: Review Working Tests Before Implementation**
+
+Before implementing ANY fix for a failing test, you MUST review 2-3 working (GREEN) spec tests to understand established patterns. Working tests are the source of truth for API contracts, assertion patterns, and feature behavior. If the failing test contradicts working tests, fix the TEST not the source code.
+
+**Why**: Prevents inconsistencies where poorly-written tests force incorrect implementations that break established API contracts and patterns used by other working tests.
+
+---
 
 For each failing E2E test, follow this exact sequence:
 
@@ -982,6 +1002,94 @@ ls src/domain/models/app/{property}.ts
 - Documented fix plan with specific files and patterns
 - All required schemas existing or created
 - **Write minimal code that follows best practices from the start**
+
+**⚠️ CRITICAL - REVIEW WORKING TESTS FIRST (New Quality Rule)**:
+
+Before implementing ANY fix for a failing test, you MUST first review other **working** (GREEN) spec tests in the same file or related spec files. Working spec tests are the **source of truth** for:
+- Expected API response structure and field names
+- Assertion patterns and conventions
+- Test setup/teardown patterns
+- How the feature currently behaves
+
+**Why This Rule Exists**:
+The agent has been creating inconsistencies between tests. When a test is poorly written (e.g., wrong message strings, wrong response structure), you should NOT blindly make it pass by changing source code — you should first check how other working tests assert the same behavior and adjust the failing test to be consistent.
+
+**Protocol (MANDATORY - Do This Before Implementation)**:
+
+1. **Identify Working Tests**: Find at least 2-3 working (GREEN) @spec tests in:
+   - Same test file as the failing test
+   - Related test files testing similar features
+   - Tests that exercise the same API endpoints or components
+
+2. **Review Working Test Patterns**:
+   ```bash
+   # Run working tests to see their assertions
+   bun test:e2e -- <test-file> --grep "working test name"
+   ```
+
+   Document what you observe:
+   - What response structure do they expect? (field names, nesting, types)
+   - What assertion patterns do they use? (.toBe vs .toEqual, .toBeVisible vs .toBeAttached)
+   - What test data do they provide? (user objects, form inputs, API payloads)
+   - What HTTP status codes/headers do they check?
+
+3. **Compare with Failing Test**:
+   - Does the failing test use DIFFERENT field names than working tests?
+   - Does the failing test expect DIFFERENT response structure?
+   - Does the failing test use INCONSISTENT assertion patterns?
+   - Does the failing test contradict how working tests expect the feature to behave?
+
+4. **Fix Decision Matrix**:
+
+   | Scenario | Action | Rationale |
+   |----------|--------|-----------|
+   | **Failing test contradicts working tests** | Fix the TEST, not the source code | Working tests are the source of truth |
+   | **Failing test uses wrong field names** | Update failing test to match working tests | Consistency across test suite |
+   | **Failing test expects different structure** | Adjust failing test assertions to match working patterns | Don't break established API contracts |
+   | **Working tests all fail the same way** | Implement feature in source code | Legitimate missing feature |
+   | **No working tests exist for this feature** | Implement feature following architecture patterns | New feature - no established patterns to follow |
+
+5. **Document Your Analysis**:
+   ```markdown
+   ## Working Test Review (Step 4 Prerequisite)
+
+   ### Working Tests Reviewed
+   - specs/api/auth/sign-in.spec.ts - "should return 200 with valid credentials"
+   - specs/api/auth/sign-up.spec.ts - "should create user and return session"
+
+   ### Patterns Observed
+   - Response structure: `{ user: { id, email, name }, session: { token } }`
+   - Uses `.toEqual()` for object comparisons
+   - Checks `response.status === 200` before parsing body
+
+   ### Failing Test Comparison
+   - Failing test expects `{ userId, userEmail, userName }` (WRONG - different field names)
+   - Failing test uses `.toBe()` for object comparison (INCONSISTENT)
+
+   ### Decision
+   - Fix the failing test to match working test patterns
+   - Change assertions from `{ userId }` to `{ user: { id } }`
+   - Change `.toBe()` to `.toEqual()` for object comparison
+   ```
+
+6. **Only After Review**: Proceed with implementation following the patterns you documented
+
+**Key Rules to Internalize**:
+1. Working spec tests are the source of truth — if the failing test contradicts them, fix the TEST not the source code
+2. Never overload or break already working behavior to make a failing test pass
+3. If the failing test's assertions are inconsistent with working tests, adjust the failing test's assertions to match the established patterns
+4. Always review at least 2-3 working tests before implementing any fix
+5. Document your review in the Step 4 prerequisite section
+
+**Example - Real Scenario**:
+```
+Failing Test: expects POST /api/users to return `{ userId: 1, userName: 'Alice' }`
+Working Test 1: expects POST /api/users to return `{ user: { id: 1, name: 'Alice' } }`
+Working Test 2: expects GET /api/users/1 to return `{ user: { id: 1, name: 'Alice' } }`
+
+CORRECT ACTION: Fix the failing test to expect `{ user: { id, name } }` (match working tests)
+WRONG ACTION: Change API to return both `userId` AND `user.id` (breaks consistency)
+```
 - **CRITICAL**: Write ONLY production-ready code - NO demonstration, showcase, or debug modes
 - **CRITICAL - Functional Programming Patterns** (ESLint will FAIL otherwise):
   ```typescript
@@ -1269,16 +1377,18 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 3. `bun test:e2e:regression` - No regressions globally (run after Step 5 passes)
 
 **Your Responsibility (Manual Verification)**:
-1. ✅ **Domain Schemas Exist**: Check before implementation, create via skill if missing
-2. ✅ **Quality Checks Pass**: Run `bun run quality` BEFORE testing (MANDATORY)
-3. ✅ **ALL Tests in File Pass**: Run `bun test:e2e -- <test-file>` for the ENTIRE test file (not just one test)
-4. ✅ **No Regressions in Same File**: Verify ALL other tests in the file still pass after your changes
-5. ✅ **No Regressions Globally**: Run `bun test:e2e:regression` to catch breaking changes
-6. ✅ **Architectural Compliance**: Code placed in correct layer, follows FP principles
-7. ✅ **Infrastructure Best Practices**: Effect.ts, React 19, Hono, Drizzle patterns followed
-8. ✅ **Minimal Implementation**: Only code needed for THIS test (no over-engineering)
-9. ✅ **No Premature Refactoring**: Document duplication but don't refactor after GREEN
-10. ✅ **No Demonstration Code**: Zero showcase modes, debug visualizations, or test-only code paths in src/
+1. ✅ **Review Working Tests First**: Check 2-3 working spec tests BEFORE implementing any fix (MANDATORY - new quality rule)
+2. ✅ **Domain Schemas Exist**: Check before implementation, create via skill if missing
+3. ✅ **Quality Checks Pass**: Run `bun run quality` BEFORE testing (MANDATORY)
+4. ✅ **ALL Tests in File Pass**: Run `bun test:e2e -- <test-file>` for the ENTIRE test file (not just one test)
+5. ✅ **No Regressions in Same File**: Verify ALL other tests in the file still pass after your changes
+6. ✅ **No Regressions Globally**: Run `bun test:e2e:regression` to catch breaking changes
+7. ✅ **Architectural Compliance**: Code placed in correct layer, follows FP principles
+8. ✅ **Infrastructure Best Practices**: Effect.ts, React 19, Hono, Drizzle patterns followed
+9. ✅ **Minimal Implementation**: Only code needed for THIS test (no over-engineering)
+10. ✅ **No Premature Refactoring**: Document duplication but don't refactor after GREEN
+11. ✅ **No Demonstration Code**: Zero showcase modes, debug visualizations, or test-only code paths in src/
+12. ✅ **Test Consistency**: Failing test assertions match working test patterns (don't break established API contracts)
 
 **CRITICAL - Iteration Loop (Max 5 Attempts by Default)**:
 - If `bun run quality` fails → Fix quality issues → Re-run quality
@@ -1297,6 +1407,8 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 - **Note**: Hooks run after Edit/Write, but you MUST still run `bun run quality` manually before Step 6
 
 **Before Each Commit, Verify**:
+- ✅ Did I review 2-3 working spec tests BEFORE implementing? (MANDATORY - new quality rule)
+- ✅ Do my test assertions match patterns from working tests? (field names, structure, patterns)
 - ✅ Did `bun run quality` pass with ZERO errors?
 - ✅ Do ALL tests in the same test file pass (not just the one I fixed)?
 - ✅ Is this the minimum code to pass the test?
@@ -1306,6 +1418,7 @@ As a CREATIVE agent, **proactive communication is a core responsibility**, not a
 - ✅ Did I avoid refactoring after the test passed GREEN?
 - ✅ Did I verify schemas exist? (escalate if missing)
 - ✅ **Is the code production-ready with zero demonstration/showcase modes?**
+- ✅ Did I fix the test if it contradicted working tests instead of breaking source code?
 
 **⚠️ STOP - DO NOT COMMIT IF**:
 - `bun run quality` shows ANY errors (lint, typecheck, Effect diagnostics, format, unused code)
