@@ -354,86 +354,88 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
 ║                                                                                                       ║
 ║                              ┌─────────────────────────────┐                                          ║
-║                              │   JOB 1: check-credits      │                                          ║
+║                              │   JOB 1: check-active-pr    │                                          ║
 ║                              │   ─────────────────────     │                                          ║
-║                              │   STEP 1: Probe credits     │                                          ║
-║                              │   - Run Claude Code minimal │                                          ║
-║                              │   - Prompt: "hi"            │                                          ║
-║                              │   - Detect: is_error=true   │                                          ║
-║                              │     AND cost=0 → exhausted  │                                          ║
+║                              │   Query GitHub for PRs:     │                                          ║
+║                              │   - state: open             │                                          ║
+║                              │   - label: tdd-automation   │                                          ║
+║                              │   - NOT label: manual-      │                                          ║
+║                              │     intervention            │                                          ║
 ║                              └─────────────┬───────────────┘                                          ║
 ║                                            │                                                          ║
-║                              ┌─────────────▼───────────────┐                                          ║
-║                              │  STEP 2: Check budget       │                                          ║
-║                              │  Query workflow runs from:  │                                          ║
-║                              │  - Last 24 hours (daily)    │                                          ║
-║                              │  - Last 7 days (weekly)     │                                          ║
-║                              └─────────────┬───────────────┘                                          ║
-║                                            │                                                          ║
-║                              ┌─────────────▼───────────────┐                                          ║
-║                              │  Parse cost from logs:      │                                          ║
-║                              │  1. "Total cost: $X.XX"     │                                          ║
-║                              │  2. "Cost: $X.XX"           │                                          ║
-║                              │  3. "Session cost: X.XX USD"│                                          ║
-║                              │  4. Fallback: $15/run       │                                          ║
-║                              └─────────────┬───────────────┘                                          ║
-║                                            │                                                          ║
-║                    ┌───────────────────────┼───────────────────────┐                                  ║
-║                    │                       │                       │                                  ║
-║                    ▼                       ▼                       ▼                                  ║
-║           ┌───────────────┐       ┌───────────────┐       ┌───────────────┐                          ║
-║           │ daily >= $200 │       │ daily >= $160 │       │ daily < $160  │                          ║
-║           │ HARD LIMIT    │       │ WARNING       │       │ OK            │                          ║
-║           └───────┬───────┘       └───────┬───────┘       └───────┬───────┘                          ║
-║                   │                       │                       │                                   ║
-║                   ▼                       ▼                       │                                   ║
-║           ┌───────────────┐       ┌───────────────┐               │                                   ║
-║           │ STOP          │       │ Log warning   │               │                                   ║
-║           │ can-proceed:  │       │ Continue      │               │                                   ║
-║           │ false         │       │               │               │                                   ║
-║           └───────────────┘       └───────┬───────┘               │                                   ║
-║                   │                       │                       │                                   ║
-║                   │                       └───────────────────────┤                                   ║
+║                    ┌───────────────────────┴───────────────────────┐                                  ║
+║                    │                                               │                                  ║
+║                    ▼                                               ▼                                  ║
+║           ┌────────────────┐                                ┌────────────┐                            ║
+║           │ Active PR      │                                │ No active  │                            ║
+║           │ exists         │                                │ PR found   │                            ║
+║           └───────┬────────┘                                └─────┬──────┘                            ║
 ║                   │                                               │                                   ║
-║                   │              (same check for weekly: $1000/$800)                                  ║
-║                   │                                               │                                   ║
-║                   │               ┌───────────────────────────────┘                                   ║
-║                   │               │                                                                   ║
-║                   │               ▼                                                                   ║
-║                   │  ┌─────────────────────────────┐                                                  ║
-║                   │  │   JOB 2: check-active-pr    │                                                  ║
-║                   │  │   (needs: check-credits)    │                                                  ║
-║                   │  │   ─────────────────────     │                                                  ║
-║                   │  │   Query GitHub for PRs:     │                                                  ║
-║                   │  │   - state: open             │                                                  ║
-║                   │  │   - label: tdd-automation   │                                                  ║
-║                   │  │   - NOT label: manual-      │                                                  ║
-║                   │  │     intervention            │                                                  ║
-║                   │  └─────────────┬───────────────┘                                                  ║
-║                   │                │                                                                  ║
-║                   │    ┌───────────┴───────────┐                                                      ║
-║                   │    │                       │                                                      ║
-║                   │    ▼                       ▼                                                      ║
-║                   │ ┌────────────┐       ┌────────────┐                                               ║
-║                   │ │ Active PR  │       │ No active  │                                               ║
-║                   │ │ exists     │       │ PR found   │                                               ║
-║                   │ └─────┬──────┘       └─────┬──────┘                                               ║
-║                   │       │                    │                                                      ║
-║                   │       ▼                    │                                                      ║
-║                   │ ┌────────────┐             │                                                      ║
-║                   │ │ STOP       │             │                                                      ║
-║                   │ │ has-active:│             │                                                      ║
-║                   │ │ true       │             │                                                      ║
-║                   │ │ (wait for  │             │                                                      ║
-║                   │ │ current PR)│             │                                                      ║
-║                   │ └────────────┘             │                                                      ║
-║                   │                            │                                                      ║
-║                   │               ┌────────────┘                                                      ║
-║                   │               │                                                                   ║
-║                   │               ▼                                                                   ║
-║                   │  ┌─────────────────────────────┐                                                  ║
-║                   │  │   JOB 3: find-spec          │                                                  ║
-║                   │  │   (needs: check-active-pr)  │                                                  ║
+║                   ▼                                               │                                   ║
+║           ┌────────────────┐                                      │                                   ║
+║           │ STOP           │                                      │                                   ║
+║           │ has-active:    │                                      │                                   ║
+║           │ true           │                                      │                                   ║
+║           │ (wait for      │                                      │                                   ║
+║           │ current PR)    │                                      │                                   ║
+║           │ Skip credit    │                                      │                                   ║
+║           │ check (save $) │                                      │                                   ║
+║           └────────────────┘                                      │                                   ║
+║                                                                   │                                   ║
+║                                          ┌────────────────────────┘                                   ║
+║                                          │                                                            ║
+║                                          ▼                                                            ║
+║                   ┌─────────────────────────────┐                                                     ║
+║                   │   JOB 2: check-credits      │                                                     ║
+║                   │   (needs: check-active-pr)  │                                                     ║
+║                   │   ─────────────────────     │                                                     ║
+║                   │   STEP 1: Probe credits     │                                                     ║
+║                   │   - Run Claude Code minimal │                                                     ║
+║                   │   - Prompt: "hi"            │                                                     ║
+║                   │   - Detect: is_error=true   │                                                     ║
+║                   │     AND cost=0 → exhausted  │                                                     ║
+║                   └─────────────┬───────────────┘                                                     ║
+║                                 │                                                                     ║
+║                   ┌─────────────▼───────────────┐                                                     ║
+║                   │  STEP 2: Check budget       │                                                     ║
+║                   │  Query workflow runs from:  │                                                     ║
+║                   │  - Last 24 hours (daily)    │                                                     ║
+║                   │  - Last 7 days (weekly)     │                                                     ║
+║                   └─────────────┬───────────────┘                                                     ║
+║                                 │                                                                     ║
+║                   ┌─────────────▼───────────────┐                                                     ║
+║                   │  Parse cost from logs:      │                                                     ║
+║                   │  1. "Total cost: $X.XX"     │                                                     ║
+║                   │  2. "Cost: $X.XX"           │                                                     ║
+║                   │  3. "Session cost: X.XX USD"│                                                     ║
+║                   │  4. Fallback: $15/run       │                                                     ║
+║                   └─────────────┬───────────────┘                                                     ║
+║                                 │                                                                     ║
+║         ┌───────────────────────┼───────────────────────┐                                             ║
+║         │                       │                       │                                             ║
+║         ▼                       ▼                       ▼                                             ║
+║  ┌───────────────┐       ┌───────────────┐       ┌───────────────┐                                   ║
+║  │ daily >= $200 │       │ daily >= $160 │       │ daily < $160  │                                   ║
+║  │ HARD LIMIT    │       │ WARNING       │       │ OK            │                                   ║
+║  └───────┬───────┘       └───────┬───────┘       └───────┬───────┘                                   ║
+║          │                       │                       │                                            ║
+║          ▼                       ▼                       │                                            ║
+║  ┌───────────────┐       ┌───────────────┐               │                                            ║
+║  │ STOP          │       │ Log warning   │               │                                            ║
+║  │ can-proceed:  │       │ Continue      │               │                                            ║
+║  │ false         │       │               │               │                                            ║
+║  └───────────────┘       └───────┬───────┘               │                                            ║
+║          │                       │                       │                                            ║
+║          │                       └───────────────────────┤                                            ║
+║          │                                               │                                            ║
+║          │              (same check for weekly: $1000/$800)                                           ║
+║          │                                               │                                            ║
+║          │               ┌───────────────────────────────┘                                            ║
+║          │               │                                                                            ║
+║          │               ▼                                                                            ║
+║          │  ┌─────────────────────────────┐                                                           ║
+║          │  │   JOB 3: find-spec          │                                                           ║
+║          │  │   (needs: check-credits)    │                                                           ║
 ║                   │  │   ─────────────────────     │                                                  ║
 ║                   │  │   Run priority calculator:  │                                                  ║
 ║                   │  │   scripts/tdd-automation/   │                                                  ║
@@ -988,16 +990,16 @@ TERMINAL STATES:
 
 **Pre-conditions (all must be true):**
 
-1. Credit usage within limits (daily < $200, weekly < $1000)
-2. No active TDD PR without `manual-intervention` label
+1. No active TDD PR without `manual-intervention` label
+2. Credit usage within limits (daily < $200, weekly < $1000)
 3. At least one `.fixme()` spec exists
 
 **Jobs:**
 
 | Job               | Purpose                                | Outputs                        |
 | ----------------- | -------------------------------------- | ------------------------------ |
-| `check-credits`   | Verify Claude Code spend within limits | `can-proceed`, `daily-spend`   |
 | `check-active-pr` | Ensure no other TDD PR is processing   | `has-active`                   |
+| `check-credits`   | Verify Claude Code spend within limits | `can-proceed`, `daily-spend`   |
 | `create-pr`       | Find next spec → create branch → PR    | PR with `tdd-automation` label |
 
 > **Note**: The diagram shows `find-spec` as a logical step (JOB 3). In implementation, it's a step within the `create-pr` job to simplify job output passing. The 4 logical steps in the diagram map to 3 GitHub Actions jobs.
@@ -1487,8 +1489,8 @@ In addition to budget-based credit checks, the pipeline probes the Claude Code A
 - **Action**: `anthropics/claude-code-action@v1` (same action used for TDD execution)
 - **Prompt**: `"hi"` (minimal, 1-2 tokens)
 - **Arguments**: `--max-turns 1 --max-budget-usd 0.01` (fastest, cheapest)
-- **Cost**: ~$0.01 per probe (negligible)
-- **Timing**: BEFORE budget check and BEFORE PR creation (first step in `check-credits` job)
+- **Cost**: ~$0.01 per probe (only when no active PR exists)
+- **Timing**: AFTER active PR check, BEFORE budget check (first step in `check-credits` job)
 - **Timeout**: 2 minutes maximum
 - **Fail-safe**: `continue-on-error: true` (probe failure doesn't block workflow)
 
@@ -2031,24 +2033,63 @@ Next Spec Processed
 
 ## Design Decisions
 
-| Decision               | Choice                                          | Rationale                                            |
-| ---------------------- | ----------------------------------------------- | ---------------------------------------------------- |
-| Cron frequency         | Hourly (backup only)                            | Chain reaction via `workflow_run` handles most cases |
-| Max attempts           | 5 (default, configurable)                       | Increased from 3 for 230-spec reliability            |
-| Label names            | `tdd-automation`, `:manual-intervention`        | Simplified to 2 labels (2026-01-28)                  |
-| Branch naming          | `tdd/<spec-id>`                                 | Simple, serves as backup identifier                  |
-| @claude comment format | Agent-specific with file paths                  | Enables correct agent selection                      |
-| Credit limits          | $200/day, $1000/week (+ $10/run)                | Three-layer defense: per-run, daily, weekly          |
-| Per-run budget limit   | $10.00                                          | Prevents runaway costs from single spec              |
-| Cost tracking          | Actual costs from Claude Code result JSON       | Accurate tracking vs. $15 estimates                  |
-| Cost parsing           | JSON result + multi-pattern fallback            | Handles format changes gracefully                    |
-| Sync strategy          | Merge (not rebase)                              | Safer, no force-push, better for automation          |
-| Conflict counting      | Not counted as attempt                          | Infrastructure issue, not code failure               |
-| Error handling         | Pattern matching (conservative)                 | Distinguish transient vs. persistent errors          |
-| Retry strategy         | Transient errors retry, persistent errors close | Avoid infinite loops, clear failure path             |
-| Unknown errors         | Retry once, then manual intervention            | Conservative approach for unexpected failures        |
-| Recovery actions       | Manual workflow_dispatch triggers               | Flexible recovery without pipeline re-runs           |
-| Commit detection       | SHA comparison (not commit counting)            | Accurate push verification, handles divergence       |
+| Decision                    | Choice                                          | Rationale                                                |
+| --------------------------- | ----------------------------------------------- | -------------------------------------------------------- |
+| **PR Creator job order**    | check-active-pr → check-credits → create-pr     | Free GitHub API check first, skip costly probe if active |
+| Cron frequency              | Hourly (backup only)                            | Chain reaction via `workflow_run` handles most cases     |
+| Max attempts                | 5 (default, configurable)                       | Increased from 3 for 230-spec reliability                |
+| Label names                 | `tdd-automation`, `:manual-intervention`        | Simplified to 2 labels (2026-01-28)                      |
+| Branch naming               | `tdd/<spec-id>`                                 | Simple, serves as backup identifier                      |
+| @claude comment format      | Agent-specific with file paths                  | Enables correct agent selection                          |
+| Credit limits               | $200/day, $1000/week (+ $10/run)                | Three-layer defense: per-run, daily, weekly              |
+| Per-run budget limit        | $10.00                                          | Prevents runaway costs from single spec                  |
+| Cost tracking               | Actual costs from Claude Code result JSON       | Accurate tracking vs. $15 estimates                      |
+| Cost parsing                | JSON result + multi-pattern fallback            | Handles format changes gracefully                        |
+| Sync strategy               | Merge (not rebase)                              | Safer, no force-push, better for automation              |
+| Conflict counting           | Not counted as attempt                          | Infrastructure issue, not code failure                   |
+| Error handling              | Pattern matching (conservative)                 | Distinguish transient vs. persistent errors              |
+| Retry strategy              | Transient errors retry, persistent errors close | Avoid infinite loops, clear failure path                 |
+| Unknown errors              | Retry once, then manual intervention            | Conservative approach for unexpected failures            |
+| Recovery actions            | Manual workflow_dispatch triggers               | Flexible recovery without pipeline re-runs               |
+| Commit detection            | SHA comparison (not commit counting)            | Accurate push verification, handles divergence           |
+
+### PR Creator Job Ordering (Cost Optimization)
+
+**Decision**: Check for active PRs BEFORE checking credits (2026-01-30)
+
+**Rationale**: The `check-active-pr` job uses a free GitHub API call, while `check-credits` makes a costly Claude Code API probe (~$0.01 per run). By checking for active PRs first, we avoid unnecessary API costs when serial processing constraints already prevent PR creation.
+
+**Cost Savings**:
+
+- **Without optimization**: Every PR Creator run pays ~$0.01 probe cost
+- **With optimization**: Probe cost only paid when no active PR exists
+- **Expected savings**: ~50-70% of runs skip credit check (active PR already in progress)
+- **Annual savings**: Assuming hourly cron triggers: ~$40-60/year
+
+**Implementation Details**:
+
+1. `check-active-pr` job runs first (no dependencies)
+   - Queries GitHub API for open TDD PRs without `manual-intervention` label
+   - Outputs `has-active: true/false`
+   - **Cost**: Free (GitHub API call)
+
+2. `check-credits` job runs second (`needs: check-active-pr`)
+   - Only executes if `check-active-pr.outputs.has-active == 'false'`
+   - Probes Claude Code API with minimal prompt ("hi")
+   - Detects credit exhaustion and checks budget limits
+   - **Cost**: ~$0.01 per probe (only when needed)
+
+3. `create-pr` job runs third (`needs: [check-active-pr, check-credits]`)
+   - Only executes if both conditions met:
+     - No active PR (`has-active == 'false'`)
+     - Credits available (`can-proceed == 'true'`)
+
+**Trade-offs**:
+
+- ✅ **Pro**: Significant cost savings (~50-70% reduction in probe costs)
+- ✅ **Pro**: Faster workflow execution when active PR exists (skips credit probe)
+- ✅ **Pro**: No functional changes (same preconditions enforced)
+- ❌ **Con**: None identified (strictly better than original order)
 
 ### Commit Detection After Push (SHA Comparison Strategy)
 

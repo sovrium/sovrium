@@ -18,7 +18,44 @@ permissions:
   id-token: write        # Required for OIDC authentication (Claude Code Action)
 
 jobs:
+  check-active-pr:
+    runs-on: ubuntu-latest
+    outputs:
+      has-active: ${{ steps.check.outputs.has-active }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check for active TDD PR
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          RESULT=$(bun run scripts/tdd-automation/workflows/pr-creator/check-active-pr.ts 2>&1)
+          HAS_ACTIVE=$(echo "$RESULT" | tail -1 | jq -r '.hasActivePR')
+          echo "has-active=$HAS_ACTIVE" >> "$GITHUB_OUTPUT"
+
+      - name: Add workflow summary
+        if: steps.check.outputs.has-active == 'true'
+        run: |
+          echo "## ⏸️ Active TDD PR Exists" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Serial processing constraint: another TDD PR is currently in progress." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Skipping credit check** to save API costs (~\$0.01 per probe)." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Workflow will retry after current PR completes." >> $GITHUB_STEP_SUMMARY
+
   check-credits:
+    needs: check-active-pr
+    if: needs.check-active-pr.outputs.has-active == 'false'
     runs-on: ubuntu-latest
     outputs:
       can-proceed: ${{ steps.check.outputs.can-proceed }}
@@ -135,35 +172,9 @@ jobs:
             echo "- Weekly spend: \$${WEEKLY_SPEND} / \$1000" >> $GITHUB_STEP_SUMMARY
           fi
 
-  check-active-pr:
-    needs: check-credits
-    if: needs.check-credits.outputs.can-proceed == 'true'
-    runs-on: ubuntu-latest
-    outputs:
-      has-active: ${{ steps.check.outputs.has-active }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Check for active TDD PR
-        id: check
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
-        run: |
-          RESULT=$(bun run scripts/tdd-automation/workflows/pr-creator/check-active-pr.ts 2>&1)
-          HAS_ACTIVE=$(echo "$RESULT" | tail -1 | jq -r '.hasActivePR')
-          echo "has-active=$HAS_ACTIVE" >> "$GITHUB_OUTPUT"
-
   create-pr:
-    needs: [check-credits, check-active-pr]
-    if: needs.check-active-pr.outputs.has-active == 'false'
+    needs: [check-active-pr, check-credits]
+    if: needs.check-credits.outputs.can-proceed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
