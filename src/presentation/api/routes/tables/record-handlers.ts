@@ -66,6 +66,31 @@ function isValidTimezone(timezone: string): boolean {
   }
 }
 
+/**
+ * Parse list records query parameters
+ */
+function parseListRecordsParams(c: Context): {
+  readonly includeDeleted: boolean
+  readonly format: 'display' | undefined
+  readonly timezone: string | undefined
+  readonly sort: string | undefined
+  readonly fields: string | undefined
+  readonly limit: number | undefined
+  readonly offset: number | undefined
+} {
+  const includeDeleted = c.req.query('includeDeleted') === 'true'
+  const format = c.req.query('format') === 'display' ? ('display' as const) : undefined
+  const timezone = c.req.query('timezone')
+  const sort = c.req.query('sort')
+  const fields = c.req.query('fields')
+  const limitParam = c.req.query('limit')
+  const offsetParam = c.req.query('offset')
+  const limit = limitParam ? Number(limitParam) : undefined
+  const offset = offsetParam ? Number(offsetParam) : undefined
+
+  return { includeDeleted, format, timezone, sort, fields, limit, offset }
+}
+
 export async function handleListRecords(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain:
   // requireAuth() → validateTable() → enrichUserRole()
@@ -83,12 +108,8 @@ export async function handleListRecords(c: Context, app: App) {
     return parsedFilterResult.error
   }
 
-  const parsedFilter = parsedFilterResult.filter
-  const includeDeleted = c.req.query('includeDeleted') === 'true'
-  const format = c.req.query('format') === 'display' ? ('display' as const) : undefined
-  const timezone = c.req.query('timezone')
-  const sort = c.req.query('sort')
-  const fields = c.req.query('fields')
+  const { includeDeleted, format, timezone, sort, fields, limit, offset } =
+    parseListRecordsParams(c)
 
   // Validate timezone if provided
   if (timezone && !isValidTimezone(timezone)) {
@@ -102,10 +123,6 @@ export async function handleListRecords(c: Context, app: App) {
     )
   }
 
-  // When fields parameter is used, response format is flat (no Airtable structure)
-  // Skip schema validation for field-selected responses since structure differs
-  const responseSchema = fields ? undefined : listRecordsResponseSchema
-
   return runEffect(
     c,
     createListRecordsProgram({
@@ -113,14 +130,16 @@ export async function handleListRecords(c: Context, app: App) {
       tableName,
       app,
       userRole,
-      filter: parsedFilter,
+      filter: parsedFilterResult.filter,
       includeDeleted,
       format,
       timezone,
       sort,
       fields,
+      limit,
+      offset,
     }),
-    responseSchema
+    listRecordsResponseSchema
   )
 }
 

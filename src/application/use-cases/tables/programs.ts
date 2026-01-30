@@ -19,7 +19,11 @@ import {
 } from '@/infrastructure/database/table-queries'
 import { filterReadableFields } from './utils/field-read-filter'
 import { transformRecord, transformRecords } from './utils/record-transformer'
-import type { TransformedRecord } from './utils/record-transformer'
+import type {
+  TransformedRecord,
+  RecordFieldValue,
+  FormattedFieldValue,
+} from './utils/record-transformer'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type {
@@ -65,27 +69,32 @@ interface ListRecordsConfig {
   readonly timezone?: string
   readonly sort?: string
   readonly fields?: string
+  readonly limit?: number
+  readonly offset?: number
 }
 
 /**
  * Apply field selection to transform records into flat structure
- * When fields parameter is specified, flattens records from Airtable-style to simple key-value
+ * When fields parameter is specified, returns records with only selected fields
+ * Maintains Airtable-style structure: { id, fields: { ... }, createdAt, updatedAt }
  */
 function applyFieldSelection(
   records: readonly TransformedRecord[],
   fields: string
-): readonly Record<string, unknown>[] {
+): readonly TransformedRecord[] {
   const fieldNames = fields.split(',').map((f) => f.trim())
 
   return records.map((record) => {
-    // Build result object functionally using reduce
-    const result = fieldNames.reduce<Record<string, unknown>>((acc, fieldName) => {
-      // System fields at top level
-      if (fieldName === 'id') return { ...acc, id: record.id }
-      if (fieldName === 'createdAt') return { ...acc, createdAt: record.createdAt }
-      if (fieldName === 'updatedAt') return { ...acc, updatedAt: record.updatedAt }
+    // Build fields object with only requested fields
+    const selectedFields = fieldNames.reduce<
+      Record<string, RecordFieldValue | FormattedFieldValue>
+    >((acc, fieldName) => {
+      // Skip system fields (id, createdAt, updatedAt) - they're at root level
+      if (fieldName === 'id' || fieldName === 'createdAt' || fieldName === 'updatedAt') {
+        return acc
+      }
 
-      // User fields - flatten from fields.X to X
+      // Include user field if it exists
       if (record.fields[fieldName] !== undefined) {
         return { ...acc, [fieldName]: record.fields[fieldName] }
       }
@@ -93,8 +102,55 @@ function applyFieldSelection(
       return acc
     }, {})
 
-    return result
+    // Return record with Airtable structure, only selected fields
+    return {
+      id: record.id,
+      fields: selectedFields,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+    }
   })
+}
+
+/**
+ * Apply pagination to records and calculate pagination metadata
+ */
+function applyPagination(
+  records: readonly TransformedRecord[],
+  totalRecords: number,
+  limit?: number,
+  offset?: number
+): {
+  readonly paginatedRecords: readonly TransformedRecord[]
+  readonly pagination: {
+    readonly page: number
+    readonly limit: number
+    readonly offset: number
+    readonly total: number
+    readonly totalPages: number
+    readonly hasNextPage: boolean
+    readonly hasPreviousPage: boolean
+  }
+} {
+  const paginationLimit = limit ?? 100
+  const paginationOffset = offset ?? 0
+  const paginatedRecords = records.slice(paginationOffset, paginationOffset + paginationLimit)
+
+  const totalPages = Math.ceil(totalRecords / paginationLimit)
+  const currentPage = Math.floor(paginationOffset / paginationLimit) + 1
+
+  return {
+    paginatedRecords,
+    pagination: {
+      page: currentPage,
+      limit: paginationLimit,
+      offset: paginationOffset,
+      total: totalRecords,
+      totalPages,
+      hasNextPage: paginationOffset + paginationLimit < totalRecords,
+      hasPreviousPage: paginationOffset > 0,
+    },
+  }
 }
 
 export function createListRecordsProgram(
@@ -112,6 +168,8 @@ export function createListRecordsProgram(
       timezone,
       sort,
       fields,
+      limit,
+      offset,
     } = config
 
     // Query records with session context (RLS policies apply automatically)
@@ -131,20 +189,21 @@ export function createListRecordsProgram(
     }) as TransformedRecord[]
 
     // Apply field selection if specified
-    const finalRecords = fields
-      ? (applyFieldSelection(transformedRecords, fields) as unknown as TransformedRecord[])
+    const fieldsApplied = fields
+      ? applyFieldSelection(transformedRecords, fields)
       : transformedRecords
 
+    // Apply pagination (limit/offset)
+    const { paginatedRecords, pagination } = applyPagination(
+      fieldsApplied,
+      filteredRecords.length,
+      limit,
+      offset
+    )
+
     return {
-      records: finalRecords,
-      pagination: {
-        page: 1,
-        limit: 10,
-        total: filteredRecords.length,
-        totalPages: Math.ceil(filteredRecords.length / 10),
-        hasNextPage: false,
-        hasPreviousPage: false,
-      },
+      records: [...paginatedRecords] as TransformedRecord[],
+      pagination,
     }
   })
 }
@@ -176,6 +235,7 @@ export function createListTrashProgram(
       pagination: {
         page: 1,
         limit: 10,
+        offset: 0,
         total: filteredRecords.length,
         totalPages: Math.ceil(filteredRecords.length / 10),
         hasNextPage: false,

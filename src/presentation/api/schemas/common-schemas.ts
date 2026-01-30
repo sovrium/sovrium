@@ -15,6 +15,7 @@ import { z } from 'zod'
 export const paginationSchema = z.object({
   page: z.number().int().min(1).describe('Current page number (1-indexed)'),
   limit: z.number().int().min(1).max(100).describe('Items per page'),
+  offset: z.number().int().min(0).describe('Offset from start of results'),
   total: z.number().int().min(0).describe('Total number of items'),
   totalPages: z.number().int().min(0).describe('Total number of pages'),
   hasNextPage: z.boolean().describe('Whether there are more pages'),
