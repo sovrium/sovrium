@@ -64,14 +64,25 @@ interface ListRecordsConfig {
   readonly format?: 'display'
   readonly timezone?: string
   readonly sort?: string
+  readonly fields?: string
 }
 
 export function createListRecordsProgram(
   config: ListRecordsConfig
 ): Effect.Effect<ListRecordsResponse, SessionContextError> {
   return Effect.gen(function* () {
-    const { session, tableName, app, userRole, filter, includeDeleted, format, timezone, sort } =
-      config
+    const {
+      session,
+      tableName,
+      app,
+      userRole,
+      filter,
+      includeDeleted,
+      format,
+      timezone,
+      sort,
+      fields,
+    } = config
 
     // Query records with session context (RLS policies apply automatically)
     const records = yield* listRecords({ session, tableName, filter, includeDeleted, sort })
@@ -84,13 +95,40 @@ export function createListRecordsProgram(
       filterReadableFields({ app, tableName, userRole, userId, record })
     )
 
+    const transformedRecords = transformRecords(filteredRecords, {
+      format,
+      app,
+      tableName,
+      timezone,
+    }) as TransformedRecord[]
+
+    // Apply field selection if specified
+    // When fields parameter is used, return flat structure instead of Airtable-style
+    const finalRecords = fields
+      ? (transformedRecords.map((record) => {
+          const fieldNames = fields.split(',').map((f) => f.trim())
+
+          // Build result object functionally using reduce
+          const result = fieldNames.reduce<Record<string, unknown>>((acc, fieldName) => {
+            // System fields at top level
+            if (fieldName === 'id') return { ...acc, id: record.id }
+            if (fieldName === 'createdAt') return { ...acc, createdAt: record.createdAt }
+            if (fieldName === 'updatedAt') return { ...acc, updatedAt: record.updatedAt }
+
+            // User fields - flatten from fields.X to X
+            if (record.fields[fieldName] !== undefined) {
+              return { ...acc, [fieldName]: record.fields[fieldName] }
+            }
+
+            return acc
+          }, {})
+
+          return result
+        }) as TransformedRecord[])
+      : transformedRecords
+
     return {
-      records: transformRecords(filteredRecords, {
-        format,
-        app,
-        tableName,
-        timezone,
-      }) as TransformedRecord[],
+      records: finalRecords,
       pagination: {
         page: 1,
         limit: 10,
