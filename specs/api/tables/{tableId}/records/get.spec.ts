@@ -75,7 +75,7 @@ test.describe('List records in table', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-LIST-002: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
