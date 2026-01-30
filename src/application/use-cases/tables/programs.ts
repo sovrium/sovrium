@@ -206,7 +206,7 @@ export function createGetRecordProgram(
     }
 
     const filteredRecord = filterReadableFields({ app, tableName, userRole, userId, record })
-    const transformed = transformRecord(filteredRecord)
+    const transformed = transformRecord(filteredRecord, { app, tableName })
 
     // Return flattened format (id, fields, timestamps at root level)
     // Parse id as number to match test expectations
