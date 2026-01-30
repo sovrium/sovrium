@@ -240,6 +240,8 @@ jobs:
 
       - name: Create branch and remove .fixme()
         if: steps.next-spec.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           SPEC_ID="${{ steps.next-spec.outputs.spec-id }}"
           SPEC_FILE="${{ steps.next-spec.outputs.spec-file }}"
@@ -250,6 +252,25 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Check if remote branch exists
+          if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null 2>&1; then
+            echo "⚠️ Remote branch $BRANCH already exists. Checking for open PRs..."
+
+            # Safety check: Verify no open PR exists for this branch
+            OPEN_PRS=$(gh pr list --head "$BRANCH" --state open --json number --jq '. | length')
+
+            if [ "$OPEN_PRS" -gt 0 ]; then
+              echo "❌ ERROR: Open PR(s) exist for branch $BRANCH. Cannot delete."
+              echo "This is a safety check to prevent overwriting active TDD branches."
+              echo "Manual intervention required: Close or merge the existing PR first."
+              exit 1
+            fi
+
+            echo "✅ No open PRs found for $BRANCH. Deleting stale remote branch..."
+            git push origin --delete "$BRANCH" || echo "⚠️ Branch deletion failed (may not exist on remote)"
+          fi
+
+          # Create new branch from latest main
           git checkout -b "$BRANCH"
 
           # Remove .fixme() from the specific test line only

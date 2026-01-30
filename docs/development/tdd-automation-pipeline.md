@@ -474,8 +474,13 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                   │                ▼                                                                  ║
 ║                   │  ┌─────────────────────────────┐                                                  ║
 ║                   │  │ STEP 1: Create branch       │                                                  ║
+║                   │  │ Safety: Check remote branch │                                                  ║
+║                   │  │ - If exists: verify no open │                                                  ║
+║                   │  │   PRs (prevents overwrite)  │                                                  ║
+║                   │  │ - Delete stale branch if    │                                                  ║
+║                   │  │   safe to do so             │                                                  ║
 ║                   │  │ git checkout -b tdd/<id>    │                                                  ║
-║                   │  │ git push -u origin tdd/<id> │                                                  ║
+║                   │  │ git push origin tdd/<id>    │                                                  ║
 ║                   │  └─────────────┬───────────────┘                                                  ║
 ║                   │                │                                                                  ║
 ║                   │                ▼                                                                  ║
@@ -1015,6 +1020,17 @@ TERMINAL STATES:
 - Branch: `tdd/<spec-id>`
 - Title: `[TDD] Implement <spec-id> | Attempt 1/5`
 - Label: `tdd-automation`
+
+**Stale Branch Handling (2026-01-30):**
+
+When creating a new TDD PR, the workflow checks if the remote branch already exists (e.g., from a previous PR that was merged or closed). If found, the workflow:
+
+1. **Safety Check**: Queries GitHub for open PRs on the branch via `gh pr list --head "$BRANCH" --state open`
+2. **Prevents Overwrite**: If open PRs exist, exits with error (protects active TDD work)
+3. **Deletes Stale Branch**: If no open PRs, deletes the stale remote branch via `git push origin --delete "$BRANCH"`
+4. **Creates Fresh Branch**: Creates new branch from latest `main` and pushes
+
+**Rationale**: Previous TDD PRs leave branches in remote after merging. Without cleanup, subsequent `git push` fails with "non-fast-forward" error due to divergent history. This fix enables spec retries and handles edge cases where PRs were closed without cleanup.
 - Auto-merge: Enabled (squash)
 
 ---
@@ -2036,6 +2052,7 @@ Next Spec Processed
 | Decision                 | Choice                                          | Rationale                                                |
 | ------------------------ | ----------------------------------------------- | -------------------------------------------------------- |
 | **PR Creator job order** | check-active-pr → check-credits → create-pr     | Free GitHub API check first, skip costly probe if active |
+| **Stale branch cleanup** | Delete remote if no open PRs, then push fresh   | Prevents non-fast-forward errors on spec retries         |
 | Cron frequency           | Hourly (backup only)                            | Chain reaction via `workflow_run` handles most cases     |
 | Max attempts             | 5 (default, configurable)                       | Increased from 3 for 230-spec reliability                |
 | Label names              | `tdd-automation`, `:manual-intervention`        | Simplified to 2 labels (2026-01-28)                      |
