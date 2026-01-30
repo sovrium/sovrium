@@ -158,6 +158,16 @@ export const deleteTableResponseSchema = z.object({
 export const listRecordsResponseSchema = z.object({
   records: z.array(recordSchema).describe('List of records'),
   pagination: paginationSchema.optional().describe('Pagination metadata'),
+  aggregations: z
+    .object({
+      count: z.string().optional().describe('Total count of records'),
+      sum: z.record(z.string(), z.number()).optional().describe('Sum aggregations by field'),
+      avg: z.record(z.string(), z.number()).optional().describe('Average aggregations by field'),
+      min: z.record(z.string(), z.number()).optional().describe('Minimum aggregations by field'),
+      max: z.record(z.string(), z.number()).optional().describe('Maximum aggregations by field'),
+    })
+    .optional()
+    .describe('Aggregation results'),
 })
 
 /**

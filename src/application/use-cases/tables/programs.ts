@@ -16,6 +16,7 @@ import {
   deleteRecord,
   permanentlyDeleteRecord,
   restoreRecord,
+  computeAggregations,
 } from '@/infrastructure/database/table-queries'
 import { filterReadableFields } from './utils/field-read-filter'
 import { transformRecord, transformRecords } from './utils/record-transformer'
@@ -71,6 +72,13 @@ interface ListRecordsConfig {
   readonly fields?: string
   readonly limit?: number
   readonly offset?: number
+  readonly aggregate?: {
+    readonly count?: boolean
+    readonly sum?: readonly string[]
+    readonly avg?: readonly string[]
+    readonly min?: readonly string[]
+    readonly max?: readonly string[]
+  }
 }
 
 /**
@@ -170,6 +178,7 @@ export function createListRecordsProgram(
       fields,
       limit,
       offset,
+      aggregate,
     } = config
 
     // Query records with session context (RLS policies apply automatically)
@@ -201,9 +210,21 @@ export function createListRecordsProgram(
       offset
     )
 
+    // Compute aggregations if requested
+    const aggregations = aggregate
+      ? yield* computeAggregations({
+          session,
+          tableName,
+          filter,
+          includeDeleted,
+          aggregate,
+        })
+      : undefined
+
     return {
       records: [...paginatedRecords] as TransformedRecord[],
       pagination,
+      ...(aggregations ? { aggregations } : {}),
     }
   })
 }

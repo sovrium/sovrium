@@ -77,6 +77,15 @@ function parseListRecordsParams(c: Context): {
   readonly fields: string | undefined
   readonly limit: number | undefined
   readonly offset: number | undefined
+  readonly aggregate:
+    | {
+        readonly count?: boolean
+        readonly sum?: readonly string[]
+        readonly avg?: readonly string[]
+        readonly min?: readonly string[]
+        readonly max?: readonly string[]
+      }
+    | undefined
 } {
   const includeDeleted = c.req.query('includeDeleted') === 'true'
   const format = c.req.query('format') === 'display' ? ('display' as const) : undefined
@@ -88,7 +97,22 @@ function parseListRecordsParams(c: Context): {
   const limit = limitParam ? Number(limitParam) : undefined
   const offset = offsetParam ? Number(offsetParam) : undefined
 
-  return { includeDeleted, format, timezone, sort, fields, limit, offset }
+  // Parse aggregate parameter
+  const aggregateParam = c.req.query('aggregate')
+  const aggregate: typeof parseListRecordsParams extends (...args: readonly unknown[]) => infer R
+    ? R['aggregate']
+    : never = aggregateParam
+    ? (() => {
+        try {
+          return JSON.parse(aggregateParam)
+        } catch {
+          // Invalid JSON, ignore aggregation
+          return undefined
+        }
+      })()
+    : undefined
+
+  return { includeDeleted, format, timezone, sort, fields, limit, offset, aggregate }
 }
 
 export async function handleListRecords(c: Context, app: App) {
@@ -108,7 +132,7 @@ export async function handleListRecords(c: Context, app: App) {
     return parsedFilterResult.error
   }
 
-  const { includeDeleted, format, timezone, sort, fields, limit, offset } =
+  const { includeDeleted, format, timezone, sort, fields, limit, offset, aggregate } =
     parseListRecordsParams(c)
 
   // Validate timezone if provided
@@ -138,6 +162,7 @@ export async function handleListRecords(c: Context, app: App) {
       fields,
       limit,
       offset,
+      aggregate,
     }),
     listRecordsResponseSchema
   )

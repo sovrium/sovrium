@@ -133,6 +133,217 @@ export function listRecords(config: {
 }
 
 /**
+ * Build SQL aggregation SELECT clauses for requested operations
+ */
+function buildAggregationSelects(aggregate: {
+  readonly count?: boolean
+  readonly sum?: readonly string[]
+  readonly avg?: readonly string[]
+  readonly min?: readonly string[]
+  readonly max?: readonly string[]
+}): readonly string[] {
+  const countSelect = aggregate.count ? ['COUNT(*)::text as count'] : []
+
+  const sumSelects =
+    aggregate.sum?.map((field) => {
+      validateColumnName(field)
+      return `SUM("${field}") as sum_${field}`
+    }) ?? []
+
+  const avgSelects =
+    aggregate.avg?.map((field) => {
+      validateColumnName(field)
+      return `AVG("${field}") as avg_${field}`
+    }) ?? []
+
+  const minSelects =
+    aggregate.min?.map((field) => {
+      validateColumnName(field)
+      return `MIN("${field}") as min_${field}`
+    }) ?? []
+
+  const maxSelects =
+    aggregate.max?.map((field) => {
+      validateColumnName(field)
+      return `MAX("${field}") as max_${field}`
+    }) ?? []
+
+  return [...countSelect, ...sumSelects, ...avgSelects, ...minSelects, ...maxSelects]
+}
+
+/**
+ * Parse aggregation result row into structured aggregation object
+ */
+function parseAggregationResult(
+  row: Record<string, unknown>,
+  aggregate: {
+    readonly count?: boolean
+    readonly sum?: readonly string[]
+    readonly avg?: readonly string[]
+    readonly min?: readonly string[]
+    readonly max?: readonly string[]
+  }
+): {
+  readonly count?: string
+  readonly sum?: Record<string, number>
+  readonly avg?: Record<string, number>
+  readonly min?: Record<string, number>
+  readonly max?: Record<string, number>
+} {
+  const countAgg =
+    aggregate.count && row['count'] !== undefined ? { count: String(row['count']) } : {}
+
+  const sumAgg =
+    aggregate.sum && aggregate.sum.length > 0
+      ? {
+          sum: aggregate.sum.reduce<Record<string, number>>((acc, field) => {
+            const key = `sum_${field}`
+            if (row[key] !== null && row[key] !== undefined) {
+              return { ...acc, [field]: Number(row[key]) }
+            }
+            return acc
+          }, {}),
+        }
+      : {}
+
+  const avgAgg =
+    aggregate.avg && aggregate.avg.length > 0
+      ? {
+          avg: aggregate.avg.reduce<Record<string, number>>((acc, field) => {
+            const key = `avg_${field}`
+            if (row[key] !== null && row[key] !== undefined) {
+              return { ...acc, [field]: Number(row[key]) }
+            }
+            return acc
+          }, {}),
+        }
+      : {}
+
+  const minAgg =
+    aggregate.min && aggregate.min.length > 0
+      ? {
+          min: aggregate.min.reduce<Record<string, number>>((acc, field) => {
+            const key = `min_${field}`
+            if (row[key] !== null && row[key] !== undefined) {
+              return { ...acc, [field]: Number(row[key]) }
+            }
+            return acc
+          }, {}),
+        }
+      : {}
+
+  const maxAgg =
+    aggregate.max && aggregate.max.length > 0
+      ? {
+          max: aggregate.max.reduce<Record<string, number>>((acc, field) => {
+            const key = `max_${field}`
+            if (row[key] !== null && row[key] !== undefined) {
+              return { ...acc, [field]: Number(row[key]) }
+            }
+            return acc
+          }, {}),
+        }
+      : {}
+
+  return {
+    ...countAgg,
+    ...sumAgg,
+    ...avgAgg,
+    ...minAgg,
+    ...maxAgg,
+  }
+}
+
+/**
+ * Compute aggregations on records from a table with session context
+ *
+ * @param config - Configuration object
+ * @param config.session - Better Auth session
+ * @param config.tableName - Name of the table to query
+ * @param config.filter - Optional filter to apply to the query
+ * @param config.includeDeleted - Whether to include soft-deleted records (default: false)
+ * @param config.aggregate - Aggregation configuration
+ * @returns Effect resolving to aggregation results
+ */
+export function computeAggregations(config: {
+  readonly session: Readonly<Session>
+  readonly tableName: string
+  readonly filter?: {
+    readonly and?: readonly {
+      readonly field: string
+      readonly operator: string
+      readonly value: unknown
+    }[]
+  }
+  readonly includeDeleted?: boolean
+  readonly aggregate: {
+    readonly count?: boolean
+    readonly sum?: readonly string[]
+    readonly avg?: readonly string[]
+    readonly min?: readonly string[]
+    readonly max?: readonly string[]
+  }
+}): Effect.Effect<
+  {
+    readonly count?: string
+    readonly sum?: Record<string, number>
+    readonly avg?: Record<string, number>
+    readonly min?: Record<string, number>
+    readonly max?: Record<string, number>
+  },
+  SessionContextError
+> {
+  const { session, tableName, filter, includeDeleted, aggregate } = config
+  return withSessionContext(session, (tx) =>
+    Effect.tryPromise({
+      try: async () => {
+        validateTableName(tableName)
+
+        // Check if table has deleted_at column
+        const columnCheck = (await tx.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
+        )) as readonly Record<string, unknown>[]
+
+        const hasDeletedAt = columnCheck.length > 0
+
+        // Build filter conditions
+        const userFilterConditions = buildUserFilterConditions(filter)
+        const softDeleteCondition = hasDeletedAt && !includeDeleted ? ['deleted_at IS NULL'] : []
+        const conditions = [...userFilterConditions, ...softDeleteCondition]
+
+        // Build WHERE clause
+        const whereClause =
+          conditions.length > 0 ? sql.raw(` WHERE ${conditions.join(' AND ')}`) : sql.raw('')
+
+        // Build aggregation selects using helper function
+        const aggregationSelects = buildAggregationSelects(aggregate)
+
+        if (aggregationSelects.length === 0) {
+          return {}
+        }
+
+        const selectClause = sql.raw(aggregationSelects.join(', '))
+
+        const result = (await tx.execute(
+          sql`SELECT ${selectClause} FROM ${sql.identifier(tableName)}${whereClause}`
+        )) as readonly Record<string, unknown>[]
+
+        if (result.length === 0) {
+          return {}
+        }
+
+        const row = result[0]!
+
+        // Parse the result into structured aggregations using helper function
+        return parseAggregationResult(row, aggregate)
+      },
+      catch: (error) =>
+        new SessionContextError(`Failed to compute aggregations from ${tableName}`, error),
+    })
+  )
+}
+
+/**
  * List soft-deleted records from a table with session context
  *
  * Returns all accessible soft-deleted records (RLS policies apply automatically via session context).
