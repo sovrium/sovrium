@@ -230,7 +230,7 @@ test.describe('List table views', () => {
   test.fixme(
     'API-TABLES-VIEWS-LIST-005: should only return views the user has read permission for',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
       // GIVEN: A table with 2 views — one admin-only, one unrestricted
       await startServerWithSchema({
         name: 'test-app',
@@ -256,7 +256,7 @@ test.describe('List table views', () => {
       })
 
       // Authenticate as member (not admin)
-      await createAuthenticatedUser({ role: 'member' })
+      await createAuthenticatedMember()
 
       // WHEN: Member user requests list of views
       const response = await request.get('/api/tables/1/views', {})

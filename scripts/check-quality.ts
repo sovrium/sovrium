@@ -348,7 +348,7 @@ const runFileChecks = (filePath: string, options: QualityOptions) =>
       : ['bunx', 'tsc', '--noEmit', '--incremental']
     const checks = [
       runCheck('ESLint', fileEslintCmd, 120_000),
-      runCheck('TypeScript', fileTscCmd, 60_000, [2]),
+      runCheck('TypeScript', fileTscCmd, 60_000),
     ]
 
     // Add test file check if it exists
@@ -616,11 +616,11 @@ const runFullChecks = (options: QualityOptions) =>
       return results
     }
 
-    // 3. TypeScript check (accept exit code 2 = warnings only from Effect language service)
+    // 3. TypeScript check
     const tscCmd = options.noCache
       ? ['bunx', 'tsc', '--noEmit']
       : ['bunx', 'tsc', '--noEmit', '--incremental']
-    const tscResult = yield* runCheck('TypeScript', tscCmd, 60_000, [2])
+    const tscResult = yield* runCheck('TypeScript', tscCmd, 60_000)
     results.push(tscResult)
     if (!tscResult.success) {
       yield* logError('\n⚠️  Stopping checks due to TypeScript failure (fail-fast mode)')

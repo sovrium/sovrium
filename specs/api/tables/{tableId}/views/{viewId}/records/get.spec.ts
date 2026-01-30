@@ -295,7 +295,7 @@ test.describe('View Records API', () => {
   test.fixme(
     'API-TABLES-VIEW-RECORDS-005: should return 403 when user lacks view read permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
       // GIVEN: A table with a view restricted to admin role
       await startServerWithSchema({
         name: 'test-app',
@@ -319,7 +319,7 @@ test.describe('View Records API', () => {
       })
 
       // Create a viewer user (non-admin)
-      await createAuthenticatedUser({ role: 'viewer' })
+      await createAuthenticatedViewer()
 
       // WHEN: Viewer user attempts to access admin-restricted view records
       const response = await request.get('/api/tables/1/views/admin_view/records', {})
