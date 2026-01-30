@@ -152,7 +152,7 @@ export function sanitizeError(error: unknown, requestId?: string): SanitizedErro
   return {
     error: 'Internal Server Error',
     code: 'INTERNAL_ERROR',
-    message: 'Internal Server Error',
+    message: 'An unexpected error occurred. Please try again later.',
   }
 }
 

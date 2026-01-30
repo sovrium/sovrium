@@ -221,7 +221,7 @@ test.describe('Create new record', () => {
       expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('code')
       expect(data.success).toBe(false)
-      expect(data.message).toBe('Internal Server Error')
+      expect(data.message).toBe('An unexpected error occurred. Please try again later.')
       expect(data.code).toBe('INTERNAL_ERROR')
 
       // Verify database still contains only original record

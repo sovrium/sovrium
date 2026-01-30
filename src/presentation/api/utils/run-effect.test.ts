@@ -149,7 +149,7 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Internal Server Error',
+        message: 'An unexpected error occurred. Please try again later.',
         code: 'INTERNAL_ERROR',
       })
     })
@@ -165,7 +165,7 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Internal Server Error',
+        message: 'An unexpected error occurred. Please try again later.',
         code: 'INTERNAL_ERROR',
       })
     })
@@ -183,7 +183,7 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Internal Server Error',
+        message: 'An unexpected error occurred. Please try again later.',
         code: 'INTERNAL_ERROR',
       })
     })
@@ -196,7 +196,10 @@ describe('runEffect', () => {
       await runEffect(c, program, schema)
 
       const responses = c.getJsonResponses()
-      expect(responses[0]?.data).toHaveProperty('message', 'Internal Server Error')
+      expect(responses[0]?.data).toHaveProperty(
+        'message',
+        'An unexpected error occurred. Please try again later.'
+      )
     })
   })
 
@@ -371,7 +374,7 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Internal Server Error',
+        message: 'An unexpected error occurred. Please try again later.',
         code: 'INTERNAL_ERROR',
       })
     })
@@ -420,7 +423,7 @@ describe('runEffect', () => {
       expect(responses[0]?.status).toBe(500)
       expect(responses[0]?.data).toMatchObject({
         success: false,
-        message: 'Internal Server Error',
+        message: 'An unexpected error occurred. Please try again later.',
         code: 'INTERNAL_ERROR',
       })
     })
