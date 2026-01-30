@@ -209,14 +209,14 @@ const isTableField = (
  * Build fields object including created_at/updated_at if they're defined as table fields
  */
 const buildFieldsObject = (
-  userFields: Record<string, unknown>,
+  userFields: Readonly<Record<string, unknown>>,
   createdAt: unknown,
   updatedAt: unknown,
   options?: {
     readonly app?: App
     readonly tableName?: string
   }
-): Record<string, unknown> => {
+): Readonly<Record<string, unknown>> => {
   const hasCreatedAtField = isTableField('created_at', options?.app, options?.tableName)
   const hasUpdatedAtField = isTableField('updated_at', options?.app, options?.tableName)
 
@@ -243,7 +243,7 @@ const buildFieldsObject = (
  * @returns Transformed record for API response
  */
 export const transformRecord = (
-  record: Record<string, unknown>,
+  record: Readonly<Record<string, unknown>>,
   options?: {
     readonly format?: 'display'
     readonly app?: App
