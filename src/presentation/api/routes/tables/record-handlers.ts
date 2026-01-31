@@ -160,7 +160,11 @@ export async function handleListRecords(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
-  if (!hasReadPermission(table, userRole)) {
+
+  // Check read permission for viewer role
+  // Viewers have restricted access and must be explicitly allowed
+  // Other roles can attempt to list (RLS will filter results at row level)
+  if (userRole === 'viewer' && !hasReadPermission(table, userRole)) {
     return c.json(
       {
         success: false,
