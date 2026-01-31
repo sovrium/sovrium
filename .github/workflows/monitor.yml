@@ -70,14 +70,17 @@ jobs:
 
             echo "  Time since last update: ${TIME_SINCE_UPDATE} minutes"
 
-            # Check if PR has failed checks
-            CHECK_STATUS=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json statusCheckRollup --jq '.statusCheckRollup[-1].conclusion' 2>/dev/null || echo "UNKNOWN")
+            # Check if PR has ANY failed checks (robust approach)
+            # Note: We check for ANY failure because statusCheckRollup array order is not deterministic.
+            # Post-processing jobs (like "TDD Handle Failure") that succeed after the main test fails
+            # can appear last in the array, masking the actual failure status.
+            FAILED_CHECKS=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json statusCheckRollup --jq '[.statusCheckRollup[] | select(.conclusion == "FAILURE")] | length' 2>/dev/null || echo "0")
 
-            echo "  Latest check status: $CHECK_STATUS"
+            echo "  Failed checks count: $FAILED_CHECKS"
 
-            # Skip if checks are passing or pending
-            if [ "$CHECK_STATUS" != "FAILURE" ]; then
-              echo "  ✅ Checks not failed - skipping"
+            # Skip if no checks have failed
+            if [ "$FAILED_CHECKS" -eq 0 ]; then
+              echo "  ✅ No failed checks - skipping"
               continue
             fi
 
