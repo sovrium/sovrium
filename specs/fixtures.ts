@@ -766,18 +766,33 @@ export const test = base.extend<ServerFixtures>({
   },
 
   createAuthenticatedViewer: async (
-    { createAuthenticatedUser, executeQuery, signIn },
+    { createAuthenticatedUser, page, signIn, executeQuery },
     use,
-    _testInfo
+    testInfo
   ) => {
     await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
       // Create user first
       const user = await createAuthenticatedUser(data)
 
-      // Set role to viewer using direct database update
-      await executeQuery(`UPDATE auth.user SET role = 'viewer' WHERE id = $1`, [user.user.id])
+      const serverUrl = (testInfo as any)._serverUrl
+      if (!serverUrl) {
+        throw new Error('Server not started.')
+      }
 
-      // Re-authenticate to get session with updated role
+      // Try admin API first (requires Better Auth admin plugin)
+      const response = await page.request.post('/api/auth/admin/set-role', {
+        data: {
+          userId: user.user.id,
+          role: 'viewer',
+        },
+      })
+
+      if (!response.ok()) {
+        // Fallback: Direct database update if admin API not available
+        await executeQuery(`UPDATE auth.user SET role = 'viewer' WHERE id = $1`, [user.user.id])
+      }
+
+      // Re-authenticate after role change (set-role API revokes all sessions)
       const testId = data?.email || user.user.email
       const password = data?.password || 'TestPassword123!'
       const signInResult = await signIn({ email: testId, password })
