@@ -174,6 +174,9 @@ export function hasDeletePermission(
 /**
  * Check if user has read permission for a table
  * Returns true if permission granted, false if denied
+ *
+ * Note: Viewers are allowed table-level read access by default.
+ * Field-level permissions (via shouldExcludeFieldByDefault) restrict which fields they can see.
  */
 export function hasReadPermission(
   table: Readonly<{ permissions?: Readonly<{ read?: unknown }> }> | undefined,
@@ -184,17 +187,13 @@ export function hasReadPermission(
     | { type?: string }
     | undefined
 
-  // Viewers have restricted access by default - deny read operations unless explicitly allowed
-  if (userRole === 'viewer') {
-    if (readPermission?.type === 'roles') {
-      const allowedRoles = (readPermission as { type: 'roles'; roles?: string[] }).roles || []
-      return allowedRoles.includes(userRole)
-    }
-    return false
+  // If explicit role-based permissions are defined, check if user role is in allowed roles
+  if (readPermission?.type === 'roles') {
+    const allowedRoles = (readPermission as { type: 'roles'; roles?: string[] }).roles || []
+    return allowedRoles.includes(userRole)
   }
 
-  // For non-viewers, allow if no role-based restrictions or role is in allowed list
-  if (readPermission?.type !== 'roles') return true
-  const allowedRoles = (readPermission as { type: 'roles'; roles?: string[] }).roles || []
-  return allowedRoles.includes(userRole)
+  // Default: allow read access for all authenticated users (including viewers)
+  // Field-level filtering in filterReadableFields handles which fields viewers can see
+  return true
 }
