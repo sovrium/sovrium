@@ -28,10 +28,34 @@ function shouldExcludeFieldByDefault(
   const field = table?.fields.find((f) => f.name === fieldName)
   if (!field) return false
 
-  // Restrict salary fields for member and viewer roles
-  // This implements default field-level access control
-  if (fieldName === 'salary' && field.type === 'currency') {
-    return userRole === 'member' || userRole === 'viewer'
+  // Viewer role: most restrictive access (only name and basic text fields)
+  if (userRole === 'viewer') {
+    // Viewer can only read basic name/title fields
+    const allowedFieldTypes = ['single-line-text']
+    const allowedFieldNames = ['name', 'title']
+
+    // Exclude email, phone, salary, and other sensitive fields
+    if (field.type === 'email' || field.type === 'phone-number' || field.type === 'currency') {
+      return true
+    }
+
+    // Only allow specific field names or types
+    if (!allowedFieldNames.includes(fieldName) && !allowedFieldTypes.includes(field.type)) {
+      return true
+    }
+
+    // For single-line-text, only allow if it's a name/title field
+    if (field.type === 'single-line-text' && !allowedFieldNames.includes(fieldName)) {
+      return true
+    }
+  }
+
+  // Member role: restrict sensitive financial data
+  if (userRole === 'member') {
+    // Restrict salary fields for member roles
+    if (fieldName === 'salary' && field.type === 'currency') {
+      return true
+    }
   }
 
   return false
