@@ -1130,33 +1130,66 @@ jobs:
           CURRENT_RUN_ID="${{ github.run_id }}"
           CURRENT_RUN_STARTED_AT="${{ github.event.repository.updated_at }}"
 
+          # ==============================================================================
+          # STALENESS PROTECTION (Fix for PR #7059 phantom run issue)
+          # ==============================================================================
+          # GitHub Actions runs can get stuck in "in_progress" status due to infrastructure
+          # issues (e.g., runner crashes, network timeouts, GitHub service disruptions).
+          # These "phantom runs" can block TDD automation indefinitely by appearing active
+          # when they're actually dead.
+          #
+          # Solution: Only count runs as active if their `updated_at` timestamp is within
+          # the last 30 minutes. Runs that haven't updated in 30+ minutes are considered
+          # stale and ignored.
+          #
+          # Why 30 minutes?
+          # - Normal test.yml runs complete in 5-15 minutes
+          # - Claude Code runs complete in 10-20 minutes
+          # - 30 minutes provides 2x buffer for slow runs
+          # - Phantom runs stuck for hours won't block automation
+          # ==============================================================================
+
+          # Calculate staleness threshold (30 minutes ago in UTC ISO 8601 format)
+          STALENESS_THRESHOLD=$(date -u -d '30 minutes ago' +"%Y-%m-%dT%H:%M:%SZ")
+
+          echo "🕒 Staleness threshold: $STALENESS_THRESHOLD"
+          echo "   (Runs not updated in 30+ minutes are ignored as phantom runs)"
+
+          # Query test.yml runs with staleness filter
+          # Only count runs as active if:
+          # 1. Not the current run (id != CURRENT_RUN_ID)
+          # 2. Updated within last 30 minutes (updated_at > STALENESS_THRESHOLD)
           PENDING_TEST_RUNS=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?status=queued&branch=$BRANCH" \
-            --jq ".workflow_runs | map(select(.id != $CURRENT_RUN_ID)) | length")
+            --jq --arg threshold "$STALENESS_THRESHOLD" --arg current_id "$CURRENT_RUN_ID" \
+            '.workflow_runs | map(select(.id != ($current_id | tonumber) and .updated_at > $threshold)) | length')
 
           IN_PROGRESS_TEST_RUNS=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?status=in_progress&branch=$BRANCH" \
-            --jq ".workflow_runs | map(select(.id != $CURRENT_RUN_ID)) | length")
+            --jq --arg threshold "$STALENESS_THRESHOLD" --arg current_id "$CURRENT_RUN_ID" \
+            '.workflow_runs | map(select(.id != ($current_id | tonumber) and .updated_at > $threshold)) | length')
 
-          # Check for active Claude Code runs with timestamp comparison (Fix #1)
-          # Only skip if Claude Code run started AFTER current test failure
+          # Check for active Claude Code runs with staleness filter
+          # Only skip if Claude Code run started AFTER current test failure AND is not stale
           ACTIVE_CLAUDE_RUNS=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=queued&branch=$BRANCH" \
-            --jq '.workflow_runs')
+            --jq --arg threshold "$STALENESS_THRESHOLD" \
+            '.workflow_runs | map(select(.updated_at > $threshold))')
 
           IN_PROGRESS_CLAUDE=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=in_progress&branch=$BRANCH" \
-            --jq '.workflow_runs')
+            --jq --arg threshold "$STALENESS_THRESHOLD" \
+            '.workflow_runs | map(select(.updated_at > $threshold))')
 
-          # Combine queued and in_progress Claude Code runs
+          # Combine queued and in_progress Claude Code runs (both already filtered for staleness)
           ALL_CLAUDE_RUNS=$(echo "$ACTIVE_CLAUDE_RUNS $IN_PROGRESS_CLAUDE" | jq -s 'add')
 
           # Filter Claude Code runs that started AFTER this test run
@@ -1168,8 +1201,8 @@ jobs:
           TOTAL_CLAUDE_RUNS=$(echo "$ALL_CLAUDE_RUNS" | jq 'length')
 
           echo "📊 Status:"
-          echo "   Other test.yml runs (queued/running): $TOTAL_PENDING_TESTS"
-          echo "   Total Claude Code runs (queued/running): $TOTAL_CLAUDE_RUNS"
+          echo "   Other test.yml runs (queued/running, updated <30min): $TOTAL_PENDING_TESTS"
+          echo "   Total Claude Code runs (queued/running, updated <30min): $TOTAL_CLAUDE_RUNS"
           echo "   Claude Code runs started after this test: $NEWER_CLAUDE_RUNS"
 
           # Store counts for notification step

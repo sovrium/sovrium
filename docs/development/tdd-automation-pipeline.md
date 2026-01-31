@@ -1113,12 +1113,14 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 
 - **Parallel execution prevention**: Handled by `test.yml` workflow. Only the **last** test.yml execution on a PR will post `@claude` comment. If multiple test runs are queued/running (e.g., from main branch updates), earlier runs skip triggering Claude Code - only the final run with the latest failure triggers execution.
 
-  **Race Condition Protections (3 layers)**:
+  **Race Condition Protections (4 layers)**:
   1. **Smarter Timestamp-Based Check**: `test.yml` compares timestamps of active Claude Code runs. Only skips triggering if an active Claude Code run started AFTER the current test failure. This prevents skipping when the active run is handling an old failure.
 
   2. **Skipped Trigger Notification**: When automation decides not to trigger Claude Code due to active runs, a PR comment is posted explaining why (with current status: pending test runs count, active Claude Code count, next action). This prevents silent failures and provides visibility.
 
-  3. **Timeout-Based Fallback**: A scheduled workflow (hourly) checks TDD PRs that have been in failed state for >30 minutes without Claude Code activity. Automatically adds `tdd-automation:manual-intervention` label and posts an explanatory comment if automation has stalled.
+  3. **Staleness Filter (Phantom Run Protection)**: When checking for active test.yml or claude-code.yml runs, only count runs as "active" if their `updated_at` timestamp is within the last 30 minutes. This prevents GitHub Actions infrastructure phantom runs (stuck in `in_progress` status indefinitely) from blocking the pipeline. Phantom runs older than 30 minutes are ignored, allowing new runs to trigger Claude Code correctly.
+
+  4. **Timeout-Based Fallback**: A scheduled workflow (hourly) checks TDD PRs that have been in failed state for >30 minutes without Claude Code activity. Automatically adds `tdd-automation:manual-intervention` label and posts an explanatory comment if automation has stalled.
 
 - **Step 3 (Initial sync)**: Branch syncing is handled automatically by this workflow via merge strategy. The test workflow (`.github/workflows/test.yml`) does NOT check if the branch is behind main - syncing happens when Claude Code is triggered via `@claude` comment.
 
@@ -2171,6 +2173,7 @@ Next Spec Processed
     | Infrastructure failures | Classification + auto-retry (no count) | ✅ High |
     | Long-running specs | Per-spec `@tdd-max-attempts`, `@tdd-timeout` | ✅ High |
     | Label accidents | Branch name as backup identifier | ✅ High |
+    | Phantom runs blocking pipeline | 30-minute staleness filter on workflow status checks | ✅ High |
 
 ---
 
@@ -2314,9 +2317,116 @@ This helps operators understand _why_ the SHAs differ without affecting the pass
 
 1. **Correctness**: SHA comparison cannot be backwards (equal = equal, period)
 2. **Clarity**: "Are local and remote the same?" is clearer than "How many commits in X..Y?"
-3. **Robustness**: Handles all edge cases (divergence, concurrent modifications)
-4. **Diagnostics**: Commit counts added only when useful (for debugging)
-5. **Maintainability**: Simpler logic, harder to break
+
+---
+
+### Phantom Run Protection (Staleness Filter)
+
+**Problem Identified (2026-01-31)**: GitHub Actions infrastructure occasionally leaves workflow runs stuck in `in_progress` status indefinitely due to runner failures, network issues, or service disruptions. These "phantom runs" block the TDD pipeline because `test.yml` checks for active runs before triggering Claude Code.
+
+**Root Cause**: When checking for active workflows, the original implementation only filtered by `status=in_progress` without considering how long ago the run was last updated. A phantom run stuck for hours would still count as "active", preventing new runs from triggering Claude Code.
+
+**Impact**:
+
+- TDD automation stalls waiting for phantom runs that will never complete
+- Monitor workflow's 30-minute timeout eventually adds `manual-intervention` label
+- Manual intervention required to clear phantom runs and restart automation
+- Reduces pipeline reliability and requires human babysitting
+
+**Solution**: Add a **staleness filter** that ignores runs older than 30 minutes when checking for active workflows.
+
+#### Implementation (test.yml, lines ~1118-1194)
+
+```yaml
+# Calculate staleness threshold (30 minutes ago)
+# Phantom runs stuck in in_progress state will have updated_at older than this
+STALENESS_THRESHOLD=$(date -u -d '30 minutes ago' +"%Y-%m-%dT%H:%M:%SZ")
+
+echo "🕒 Staleness threshold: $STALENESS_THRESHOLD"
+echo "   (Runs not updated in 30+ minutes are ignored as phantom runs)"
+
+# Query test.yml runs with staleness filter
+# Only count runs as active if updated within last 30 minutes
+PENDING_TEST_RUNS=$(gh api \
+  -H "Accept: application/vnd.github+json" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?status=queued&branch=$BRANCH" \
+  --jq --arg threshold "$STALENESS_THRESHOLD" --arg current_id "$CURRENT_RUN_ID" \
+  '.workflow_runs | map(select(.id != ($current_id | tonumber) and .updated_at > $threshold)) | length')
+
+IN_PROGRESS_TEST_RUNS=$(gh api \
+  -H "Accept: application/vnd.github+json" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?status=in_progress&branch=$BRANCH" \
+  --jq --arg threshold "$STALENESS_THRESHOLD" --arg current_id "$CURRENT_RUN_ID" \
+  '.workflow_runs | map(select(.id != ($current_id | tonumber) and .updated_at > $threshold)) | length')
+
+# Same staleness filter for Claude Code runs
+ACTIVE_CLAUDE_RUNS=$(gh api \
+  -H "Accept: application/vnd.github+json" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=queued&branch=$BRANCH" \
+  --jq --arg threshold "$STALENESS_THRESHOLD" \
+  '.workflow_runs | map(select(.updated_at > $threshold))')
+
+IN_PROGRESS_CLAUDE=$(gh api \
+  -H "Accept: application/vnd.github+json" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=in_progress&branch=$BRANCH" \
+  --jq --arg threshold "$STALENESS_THRESHOLD" \
+  '.workflow_runs | map(select(.updated_at > $threshold))')
+```
+
+#### Why 30 Minutes?
+
+| Threshold | Pros                                      | Cons                                      |
+| --------- | ----------------------------------------- | ----------------------------------------- |
+| **15min** | Faster detection of phantom runs          | False positives (normal runs take 10-15m) |
+| **30min** | ✅ Safe (normal runs <20m, phantoms >30m) | Slower detection                          |
+| **60min** | Very conservative, no false positives     | Too slow to detect issues                 |
+
+**Decision**: 30 minutes balances safety with detection speed. Normal test.yml runs complete in 10-20 minutes, so a 30-minute threshold gives ample margin while still detecting phantom runs before the hourly monitor check.
+
+#### Expected Scenarios
+
+| Scenario                          | `updated_at`      | Age     | Counted as Active? | Reasoning                                                   |
+| --------------------------------- | ----------------- | ------- | ------------------ | ----------------------------------------------------------- |
+| **Normal active run**             | 5 minutes ago     | 5 min   | ✅ Yes             | Recently updated, legitimately in progress                  |
+| **Slow but active run**           | 25 minutes ago    | 25 min  | ✅ Yes             | Still within threshold, may be running complex tests        |
+| **Phantom run (runner crashed)**  | 2 hours ago       | 120 min | ❌ No              | Stuck indefinitely, GitHub infrastructure issue             |
+| **Phantom run (network timeout)** | 45 minutes ago    | 45 min  | ❌ No              | Beyond threshold, likely stuck                              |
+| **Queued run waiting for runner** | 10 seconds ago    | <1 min  | ✅ Yes             | Freshly queued, will start soon                             |
+| **Run canceled by user**          | N/A (not queried) | N/A     | ❌ No              | `status=canceled`, not in `queued` or `in_progress` queries |
+
+#### Interaction with Monitor Workflow
+
+The staleness filter complements the monitor workflow:
+
+1. **Immediate protection (staleness filter)**: Prevents phantom runs from blocking new test failures
+2. **Delayed protection (monitor workflow)**: Detects when automation stalled for other reasons (30-minute timeout)
+
+**Together**: Covers both infrastructure phantom runs (staleness filter) and logic bugs (monitor workflow).
+
+#### Benefits
+
+1. **Pipeline resilience**: Infrastructure failures don't permanently block automation
+2. **Reduced manual intervention**: Phantom runs self-heal without human action
+3. **Faster recovery**: New runs trigger Claude Code immediately instead of waiting for hourly monitor
+4. **Clear diagnostics**: Log messages show which runs are ignored as stale ("updated <30min ago")
+
+#### Diagnostic Output
+
+```
+🕒 Staleness threshold: 2026-01-31T10:30:00Z
+   (Runs not updated in 30+ minutes are ignored as phantom runs)
+📊 Status:
+   Other test.yml runs (queued/running, updated <30min): 0
+   Total Claude Code runs (queued/running, updated <30min): 1
+   Claude Code runs started after this test: 0
+✅ This is the last test run and no newer Claude Code runs - will trigger execution
+```
+
+This shows operators exactly which runs are considered active vs. stale, making debugging easier. 3. **Robustness**: Handles all edge cases (divergence, concurrent modifications) 4. **Diagnostics**: Commit counts added only when useful (for debugging) 5. **Maintainability**: Simpler logic, harder to break
 
 ---
 
