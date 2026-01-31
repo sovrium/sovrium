@@ -51,7 +51,7 @@ export interface StalenessCheckResult {
   /** Whether Claude Code should be triggered */
   readonly shouldTrigger: boolean
   /** Reason for skipping (if shouldTrigger is false) */
-  readonly skipReason?: 'pending_tests' | 'newer_claude_run'
+  readonly skipReason?: 'pending_tests' | 'active_claude_run'
   /** Number of pending test.yml runs (non-stale) */
   readonly pendingTests: number
   /** Total active claude-code.yml runs (non-stale) */
@@ -220,10 +220,10 @@ export const checkStaleness = (config: StalenessCheckConfig) =>
       }
     }
 
-    if (newerClaudeCount > 0) {
+    if (activeClaude > 0) {
       return {
         shouldTrigger: false,
-        skipReason: 'newer_claude_run' as const,
+        skipReason: 'active_claude_run' as const,
         pendingTests,
         activeClaude,
         newerClaudeRuns: newerClaudeCount,
