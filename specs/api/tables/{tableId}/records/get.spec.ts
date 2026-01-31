@@ -848,7 +848,7 @@ test.describe('List records in table', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-LIST-020: should return 403 when sorting by inaccessible field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
