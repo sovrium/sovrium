@@ -239,7 +239,15 @@ export const GitHubApiLive = Layer.succeed(GitHubApi, {
   postComment: (prNumber, body) =>
     Effect.tryPromise({
       try: async () => {
-        await Bun.$`gh pr comment ${prNumber} --body "${body}"`.quiet()
+        // Use temp file to safely handle markdown with special characters
+        const tempFile = `/tmp/pr_comment_${prNumber}_${Date.now()}.md`
+        await Bun.write(tempFile, body)
+        try {
+          await Bun.$`gh pr comment ${prNumber} --body-file ${tempFile}`.quiet()
+        } finally {
+          // Clean up temp file
+          await Bun.$`rm -f ${tempFile}`.quiet()
+        }
       },
       catch: (error) => new GitHubApiError({ operation: 'postComment', cause: error }),
     }),

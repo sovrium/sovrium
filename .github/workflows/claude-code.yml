@@ -97,152 +97,50 @@ jobs:
             echo "⚠️ Warning: spec-file is empty - comment may not match expected format"
           fi
 
-      - name: Check credit limits
-        id: credits
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
-        run: |
-          # Secondary credit check (defense in depth with pr-creator.yml)
-          # Cost limits: $200/day, $1000/week (see docs/development/tdd-automation-pipeline.md)
-
-          # Query successful claude-code.yml runs with full details from past 7 days
-          gh run list --repo "${{ github.repository }}" --workflow="claude-code.yml" \
-            --created ">$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)" \
-            --json databaseId,conclusion,createdAt,displayTitle,status --limit 100 > /tmp/all_runs.json
-
-          # Filter successful runs
-          jq '[.[] | select(.conclusion == "success")]' /tmp/all_runs.json > /tmp/successful_runs.json
-
-          # Calculate daily runs (past 24 hours)
-          DAILY_CUTOFF=$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)
-          DAILY_RUNS=$(jq "[.[] | select(.createdAt > \"$DAILY_CUTOFF\")] | length" /tmp/successful_runs.json)
-          WEEKLY_RUNS=$(jq 'length' /tmp/successful_runs.json)
-
-          # Extract actual costs from Claude Code execution results
-          DAILY_TOTAL=0
-          WEEKLY_TOTAL=0
-          DAILY_RUNS_COUNT=0
-          WEEKLY_RUNS_COUNT=0
-
-          echo "📊 Extracting actual costs from workflow logs..."
-
-          # Process each successful run
-          while IFS='|' read -r run_id created_at; do
-            echo "  Fetching logs for run $run_id..."
-
-            # Fetch workflow logs and extract cost
-            LOGS=$(gh run view "$run_id" --repo "${{ github.repository }}" --log 2>/dev/null || echo "")
-
-            # Try pattern 1: "total_cost_usd": <number> (Claude Code result JSON)
-            COST=$(echo "$LOGS" | grep -oP '"total_cost_usd":\s*\K[0-9]+(\.[0-9]+)?' | head -1 || echo "")
-
-            # Try pattern 2: Total cost: $X.XX (legacy log format)
-            if [ -z "$COST" ]; then
-              COST=$(echo "$LOGS" | grep -oP 'Total cost: \$\K[0-9]+(\.[0-9]+)?' | head -1 || echo "")
-            fi
-
-            # Try pattern 3: Cost: $X.XX (alternative short format)
-            if [ -z "$COST" ]; then
-              COST=$(echo "$LOGS" | grep -oP 'Cost: \$\K[0-9]+(\.[0-9]+)?' | head -1 || echo "")
-            fi
-
-            # Try pattern 4: Session cost: X.XX USD (legacy format)
-            if [ -z "$COST" ]; then
-              COST=$(echo "$LOGS" | grep -oP 'Session cost: \K[0-9]+(\.[0-9]+)? USD' | sed 's/ USD//' | head -1 || echo "")
-            fi
-
-            # Fallback: $15 estimate if no pattern matched
-            if [ -z "$COST" ]; then
-              COST="15.00"
-              echo "    ⚠️ No cost found in logs, using fallback estimate: \$15.00"
-            else
-              echo "    ✅ Actual cost extracted: \$$COST"
-            fi
-
-            # Add to weekly total
-            WEEKLY_TOTAL=$(echo "$WEEKLY_TOTAL + $COST" | bc)
-            WEEKLY_RUNS_COUNT=$((WEEKLY_RUNS_COUNT + 1))
-
-            # Add to daily total if within 24h
-            if [[ "$created_at" > "$DAILY_CUTOFF" ]]; then
-              DAILY_TOTAL=$(echo "$DAILY_TOTAL + $COST" | bc)
-              DAILY_RUNS_COUNT=$((DAILY_RUNS_COUNT + 1))
-            fi
-          done < <(jq -r '.[] | "\(.databaseId)|\(.createdAt)"' /tmp/successful_runs.json)
-
-          # Round totals to 2 decimal places
-          ACTUAL_DAILY=$(printf "%.2f" "$DAILY_TOTAL")
-          ACTUAL_WEEKLY=$(printf "%.2f" "$WEEKLY_TOTAL")
-
-          # Convert to integers for comparison (multiply by 100 to avoid float issues)
-          ACTUAL_DAILY_CENTS=$(printf "%.0f" "$(echo "$ACTUAL_DAILY * 100" | bc)")
-          ACTUAL_WEEKLY_CENTS=$(printf "%.0f" "$(echo "$ACTUAL_WEEKLY * 100" | bc)")
-
-          # Calculate limits (in cents for comparison)
-          DAILY_LIMIT=200
-          WEEKLY_LIMIT=1000
-          DAILY_WARNING=160
-          WEEKLY_WARNING=800
-          DAILY_LIMIT_CENTS=$((DAILY_LIMIT * 100))
-          WEEKLY_LIMIT_CENTS=$((WEEKLY_LIMIT * 100))
-
-          # Calculate remaining budget
-          DAILY_REMAINING=$(echo "$DAILY_LIMIT - $ACTUAL_DAILY" | bc)
-          WEEKLY_REMAINING=$(echo "$WEEKLY_LIMIT - $ACTUAL_WEEKLY" | bc)
-
-          # Calculate usage percentages
-          DAILY_PERCENT=$(printf "%.0f" "$(echo "$ACTUAL_DAILY * 100 / $DAILY_LIMIT" | bc -l)")
-          WEEKLY_PERCENT=$(printf "%.0f" "$(echo "$ACTUAL_WEEKLY * 100 / $WEEKLY_LIMIT" | bc -l)")
-
-          # Time until reset
-          HOURS_UNTIL_DAILY_RESET=$(( 24 - $(date -u +%H) ))
-          DAYS_UNTIL_WEEKLY_RESET=$(( 7 - $(date -u +%u) ))
-
-          # Store all metrics for comment
-          echo "daily-runs=$DAILY_RUNS_COUNT" >> "$GITHUB_OUTPUT"
-          echo "weekly-runs=$WEEKLY_RUNS_COUNT" >> "$GITHUB_OUTPUT"
-          echo "actual-daily=$ACTUAL_DAILY" >> "$GITHUB_OUTPUT"
-          echo "actual-weekly=$ACTUAL_WEEKLY" >> "$GITHUB_OUTPUT"
-          echo "daily-limit=$DAILY_LIMIT" >> "$GITHUB_OUTPUT"
-          echo "weekly-limit=$WEEKLY_LIMIT" >> "$GITHUB_OUTPUT"
-          echo "daily-remaining=$DAILY_REMAINING" >> "$GITHUB_OUTPUT"
-          echo "weekly-remaining=$WEEKLY_REMAINING" >> "$GITHUB_OUTPUT"
-          echo "daily-percent=$DAILY_PERCENT" >> "$GITHUB_OUTPUT"
-          echo "weekly-percent=$WEEKLY_PERCENT" >> "$GITHUB_OUTPUT"
-          echo "hours-until-daily-reset=$HOURS_UNTIL_DAILY_RESET" >> "$GITHUB_OUTPUT"
-          echo "days-until-weekly-reset=$DAYS_UNTIL_WEEKLY_RESET" >> "$GITHUB_OUTPUT"
-
-          echo "📊 Credit Usage Metrics (Actual Costs):"
-          echo "  Daily:  \$${ACTUAL_DAILY}/\$${DAILY_LIMIT} USD ($DAILY_PERCENT%) - $DAILY_RUNS_COUNT runs - Reset in ${HOURS_UNTIL_DAILY_RESET}h"
-          echo "  Weekly: \$${ACTUAL_WEEKLY}/\$${WEEKLY_LIMIT} USD ($WEEKLY_PERCENT%) - $WEEKLY_RUNS_COUNT runs - Reset in ${DAYS_UNTIL_WEEKLY_RESET}d"
-
-          # Check if limits exceeded (use cent comparison to avoid float issues)
-          if [ "$ACTUAL_DAILY_CENTS" -ge "$DAILY_LIMIT_CENTS" ] || [ "$ACTUAL_WEEKLY_CENTS" -ge "$WEEKLY_LIMIT_CENTS" ]; then
-            echo "credits-ok=false" >> "$GITHUB_OUTPUT"
-            if [ "$ACTUAL_DAILY_CENTS" -ge "$DAILY_LIMIT_CENTS" ]; then
-              echo "limit-type=daily" >> "$GITHUB_OUTPUT"
-              echo "⛔ Daily credit limit (\$$DAILY_LIMIT) reached"
-            else
-              echo "limit-type=weekly" >> "$GITHUB_OUTPUT"
-              echo "⛔ Weekly credit limit (\$$WEEKLY_LIMIT) reached"
-            fi
-          else
-            echo "credits-ok=true" >> "$GITHUB_OUTPUT"
-            echo "limit-type=none" >> "$GITHUB_OUTPUT"
-            echo "✅ Credits OK"
-          fi
-
-      - name: Setup Bun (for credit comment script)
+      # Setup for TypeScript-based credit check and comment scripts
+      - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: package.json
 
-      - uses: actions/checkout@v4
+      - name: Checkout TDD automation scripts
+        uses: actions/checkout@v4
         with:
           sparse-checkout: |
-            scripts/tdd-automation/workflows/claude-code/
-            scripts/tdd-automation/services/
+            scripts/tdd-automation/
             package.json
+            bun.lock
+          sparse-checkout-cone-mode: false
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check credit limits
+        id: credits
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          # Configure limits (override defaults in TDD_CONFIG)
+          TDD_DAILY_LIMIT: "200"
+          TDD_WEEKLY_LIMIT: "1000"
+        run: |
+          # Run TypeScript credit check (replaces ~130 lines of bash)
+          RESULT=$(bun run scripts/tdd-automation/workflows/claude-code/check-credits.ts 2>&1 | tail -1)
+
+          # Parse JSON output and set workflow outputs
+          echo "credits-ok=$(echo "$RESULT" | jq -r '.creditsOk')" >> "$GITHUB_OUTPUT"
+          echo "limit-type=$(echo "$RESULT" | jq -r '.limitType')" >> "$GITHUB_OUTPUT"
+          echo "daily-runs=0" >> "$GITHUB_OUTPUT"
+          echo "weekly-runs=0" >> "$GITHUB_OUTPUT"
+          echo "actual-daily=$(echo "$RESULT" | jq -r '.dailySpend')" >> "$GITHUB_OUTPUT"
+          echo "actual-weekly=$(echo "$RESULT" | jq -r '.weeklySpend')" >> "$GITHUB_OUTPUT"
+          echo "daily-limit=$(echo "$RESULT" | jq -r '.dailyLimit')" >> "$GITHUB_OUTPUT"
+          echo "weekly-limit=$(echo "$RESULT" | jq -r '.weeklyLimit')" >> "$GITHUB_OUTPUT"
+          echo "daily-remaining=$(echo "$RESULT" | jq -r '.dailyRemaining')" >> "$GITHUB_OUTPUT"
+          echo "weekly-remaining=$(echo "$RESULT" | jq -r '.weeklyRemaining')" >> "$GITHUB_OUTPUT"
+          echo "daily-percent=$(echo "$RESULT" | jq -r '.dailyPercent')" >> "$GITHUB_OUTPUT"
+          echo "weekly-percent=$(echo "$RESULT" | jq -r '.weeklyPercent')" >> "$GITHUB_OUTPUT"
+          echo "hours-until-daily-reset=$(echo "$RESULT" | jq -r '.hoursUntilDailyReset')" >> "$GITHUB_OUTPUT"
+          echo "days-until-weekly-reset=$(echo "$RESULT" | jq -r '.daysUntilWeeklyReset')" >> "$GITHUB_OUTPUT"
 
       - name: Post credit usage comment (always)
         env:
