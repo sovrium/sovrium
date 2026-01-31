@@ -37,122 +37,21 @@ import {
   formatValidationError,
 } from '@/presentation/api/validation'
 import { handleGetRecordError, handleRestoreRecordError } from './error-handlers'
-import { parseFilterParameter } from './filter-parser'
-import { parseFormulaToFilter } from './formula-parser'
+import { parseFilter } from './list-records-filter'
+import { parseListRecordsParams } from './param-parsers'
 import {
   checkTableUpdatePermissionWithRole,
   filterAllowedFieldsWithRole,
   handleNoAllowedFields,
   executeUpdate,
 } from './record-update-handler'
+import { validateSortPermission } from './sort-validation'
+import { validateTimezoneParam } from './timezone-validation'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
 /** Session type derived from table context to respect layer boundaries */
 type SessionContext = ReturnType<typeof getTableContext>['session']
-
-/**
- * Validate timezone string using Intl.DateTimeFormat
- * Returns true if timezone is valid, false otherwise
- */
-function isValidTimezone(timezone: string): boolean {
-  try {
-    // Attempt to create a DateTimeFormat with the timezone
-    // This will throw if the timezone is invalid
-    // eslint-disable-next-line functional/no-expression-statements -- Required for validation side-effect
-    Intl.DateTimeFormat('en-US', { timeZone: timezone })
-    return true
-  } catch {
-    return false
-  }
-}
-
-type AggregateParams = {
-  readonly count?: boolean
-  readonly sum?: readonly string[]
-  readonly avg?: readonly string[]
-  readonly min?: readonly string[]
-  readonly max?: readonly string[]
-}
-
-/**
- * Parse aggregate JSON parameter
- */
-function parseAggregateParam(aggregateParam: string | undefined): AggregateParams | undefined {
-  if (!aggregateParam) return undefined
-
-  try {
-    return JSON.parse(aggregateParam) as AggregateParams
-  } catch {
-    // Invalid JSON, ignore aggregation
-    return undefined
-  }
-}
-
-/**
- * Parse list records query parameters
- */
-function parseListRecordsParams(c: Context): {
-  readonly includeDeleted: boolean
-  readonly format: 'display' | undefined
-  readonly timezone: string | undefined
-  readonly sort: string | undefined
-  readonly fields: string | undefined
-  readonly limit: number | undefined
-  readonly offset: number | undefined
-  readonly aggregate: AggregateParams | undefined
-} {
-  const includeDeleted = c.req.query('includeDeleted') === 'true'
-  const format = c.req.query('format') === 'display' ? ('display' as const) : undefined
-  const timezone = c.req.query('timezone')
-  const sort = c.req.query('sort')
-  const fields = c.req.query('fields')
-  const limitParam = c.req.query('limit')
-  const offsetParam = c.req.query('offset')
-  const limit = limitParam ? Number(limitParam) : undefined
-  const offset = offsetParam ? Number(offsetParam) : undefined
-  const aggregate = parseAggregateParam(c.req.query('aggregate'))
-
-  return { includeDeleted, format, timezone, sort, fields, limit, offset, aggregate }
-}
-
-type FilterStructure =
-  | {
-      readonly and?: readonly {
-        readonly field: string
-        readonly operator: string
-        readonly value: unknown
-      }[]
-    }
-  | undefined
-
-type FilterResult =
-  | { readonly error: false; readonly value: FilterStructure }
-  | { readonly error: true; readonly response?: Response }
-
-/**
- * Parse filter parameter from request (formula or standard filter)
- */
-function parseFilter(c: Context, app: App, tableName: string, userRole: string): FilterResult {
-  const filterByFormula = c.req.query('filterByFormula')
-
-  if (filterByFormula) {
-    const parsedFormula = parseFormulaToFilter(filterByFormula)
-    return parsedFormula ? { error: false, value: parsedFormula } : { error: true }
-  }
-
-  const parsedFilterResult = parseFilterParameter({
-    filterParam: c.req.query('filter'),
-    app,
-    tableName,
-    userRole,
-    c,
-  })
-
-  return parsedFilterResult.success
-    ? { error: false, value: parsedFilterResult.filter }
-    : { error: true, response: parsedFilterResult.error }
-}
 
 /**
  * Check viewer read permission - viewers have restricted access
@@ -171,23 +70,6 @@ function checkViewerReadPermission(
         code: 'FORBIDDEN',
       },
       403
-    )
-  }
-  return undefined
-}
-
-/**
- * Validate timezone and return error response if invalid
- */
-function validateTimezoneParam(timezone: string | undefined, c: Context) {
-  if (timezone && !isValidTimezone(timezone)) {
-    return c.json(
-      {
-        success: false,
-        message: `Invalid timezone: ${timezone}`,
-        code: 'VALIDATION_ERROR',
-      },
-      400
     )
   }
   return undefined
@@ -217,6 +99,10 @@ export async function handleListRecords(c: Context, app: App) {
 
   const timezoneError = validateTimezoneParam(timezone, c)
   if (timezoneError) return timezoneError
+
+  // Validate sort permission
+  const sortError = validateSortPermission({ sort, app, tableName, userRole, c })
+  if (sortError) return sortError
 
   return runEffect(
     c,
