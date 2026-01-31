@@ -9,6 +9,35 @@ import type { App } from '@/domain/models/app'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
 
 /**
+ * Check if field should be excluded based on default permission rules
+ * Sensitive fields (like salary) are restricted for non-admin/owner roles
+ */
+function shouldExcludeFieldByDefault(
+  fieldName: string,
+  userRole: string,
+  table:
+    | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
+    | undefined
+): boolean {
+  // Admin and owner roles have full access
+  if (userRole === 'admin' || userRole === 'owner') {
+    return false
+  }
+
+  // Find field definition
+  const field = table?.fields.find((f) => f.name === fieldName)
+  if (!field) return false
+
+  // Restrict salary fields for member and viewer roles
+  // This implements default field-level access control
+  if (fieldName === 'salary' && field.type === 'currency') {
+    return userRole === 'member' || userRole === 'viewer'
+  }
+
+  return false
+}
+
+/**
  * Filter fields from a record based on user's read permissions
  *
  * This implements Better Auth layer field read filtering.
@@ -35,8 +64,23 @@ export function filterReadableFields<T extends Record<string, unknown>>(
 
   // Find table definition
   const table = app.tables?.find((t) => t.name === tableName)
+
+  // If no explicit field permissions defined, apply default rules
   if (!table?.permissions?.fields) {
-    return record // No field permissions defined, return all fields
+    return Object.keys(record).reduce<Record<string, unknown>>((acc, fieldName) => {
+      // Always preserve system fields
+      if (fieldName === 'id' || fieldName === 'created_at' || fieldName === 'updated_at') {
+        return { ...acc, [fieldName]: record[fieldName] }
+      }
+
+      // Check default permission rules
+      if (shouldExcludeFieldByDefault(fieldName, userRole, table)) {
+        return acc // Exclude field
+      }
+
+      // Include all other fields
+      return { ...acc, [fieldName]: record[fieldName] }
+    }, {})
   }
 
   // Filter fields based on read permissions
