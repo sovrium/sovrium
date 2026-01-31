@@ -72,6 +72,7 @@ Note: Max attempts default is 5 (configurable per spec)
 | Test        | `.github/workflows/test.yml`        | Push to main + PR events (opened, synchronize, reopened, closed)    |
 | Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                                               |
 | Monitor     | `.github/workflows/monitor.yml`     | Hourly cron + manual (workflow_dispatch)                            |
+| Branch Sync | `.github/workflows/branch-sync.yml` | Push to main + manual (workflow_dispatch)                           |
 
 **Note on Spec Progress Updates**: The `test` workflow includes an `update-spec-progress` job that automatically updates `SPEC-PROGRESS.md` when all tests pass on `main` branch. This job:
 
@@ -1257,9 +1258,52 @@ All errors now follow this single path instead of complex categorization and mul
 
 ---
 
+### Branch Sync Workflow (`.github/workflows/branch-sync.yml`)
+
+**Purpose**: Proactively sync TDD branches with main to prevent staleness
+
+**Triggers**:
+
+- Push to main branch (automatic)
+- Manual via workflow_dispatch
+
+**Behavior**:
+
+1. **Find Active TDD PRs**: Query for open PRs with `tdd-automation` label (excluding `manual-intervention`)
+2. **Check Sync Status**: For each PR, check if branch is behind main
+3. **Attempt Merge**: Merge main into TDD branch using `git merge origin/main --no-edit`
+4. **Handle Results**:
+   - **Success**: Push merged branch, post success comment
+   - **Conflict**: Add `manual-intervention` label, post conflict resolution instructions
+   - **Push Failure**: Add `manual-intervention` label, post error comment
+
+**Key Features**:
+
+- Uses merge strategy (matches `claude-code.yml` strategy)
+- Detects and reports conflicting files
+- Posts detailed comments with resolution steps
+- Prevents stale branches from blocking TDD automation
+
+**Error Handling**:
+
+- Conflicts → `manual-intervention` label + conflict comment
+- Push failures → `manual-intervention` label + error comment
+- Aborts merge cleanly on conflict detection
+
+**Example Scenarios**:
+
+| Scenario                   | Action                    | Label Added?              | Comment Posted?    |
+| -------------------------- | ------------------------- | ------------------------- | ------------------ |
+| Branch up to date          | Skip (no action)          | No                        | No                 |
+| Branch behind, no conflict | Merge + push              | No                        | Yes (success)      |
+| Branch behind, conflict    | Abort merge, detect files | Yes (manual-intervention) | Yes (instructions) |
+| Merge success, push fail   | N/A (permissions issue)   | Yes (manual-intervention) | Yes (error)        |
+
+---
+
 ### Merge Watchdog (Removed 2026-01-28)
 
-**Status**: Removed as redundant
+**Status**: Removed as redundant (replaced by Branch Sync workflow)
 
 **Why removed**:
 
