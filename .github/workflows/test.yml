@@ -957,6 +957,8 @@ jobs:
 
       - name: Commit spec progress updates
         if: steps.check-update.outputs.should-update == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -970,6 +972,10 @@ jobs:
             git commit -m "chore: update spec progress [skip ci]"
             git push
             echo "✅ SPEC-PROGRESS.md updated and pushed"
+
+            # Trigger branch-sync workflow since [skip ci] prevents automatic triggers
+            echo "📡 Triggering branch-sync workflow to sync TDD branches..."
+            gh workflow run branch-sync.yml --ref main || echo "⚠️ Failed to trigger branch-sync (non-fatal)"
           fi
 
   # ============================================================================
