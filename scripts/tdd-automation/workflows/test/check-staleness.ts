@@ -92,10 +92,11 @@ const main = Effect.gen(function* () {
       yield* Console.error(
         '   The last test.yml run will trigger Claude Code with the most recent failure'
       )
-    } else if (result.skipReason === 'newer_claude_run') {
+    } else if (result.skipReason === 'active_claude_run') {
       yield* Console.error(
-        `⏭️ Skipping @claude comment: Claude Code run handling newer failure (${result.newerClaudeRuns} workflow(s) started after this test)`
+        `⏭️ Skipping @claude comment: ${result.activeClaude} Claude Code run(s) already active on this branch`
       )
+      yield* Console.error('   Waiting for active run to complete before triggering another')
     }
   } else {
     yield* Console.error(
