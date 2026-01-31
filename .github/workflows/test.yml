@@ -911,6 +911,10 @@ jobs:
           echo "   All tests passed: ${{ needs.test.outputs.all-passed }}"
           echo "   Event: ${{ github.event_name }}"
           echo "   Ref: ${{ github.ref }}"
+
+          # Get commit message for PR merge detection
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          echo "   Commit message: $COMMIT_MSG"
           echo ""
 
           if [ "${{ needs.test.outputs.all-passed }}" != "true" ]; then
@@ -931,7 +935,18 @@ jobs:
             exit 0
           fi
 
+          # Check if commit is a PR merge (contains "Merge pull request #" or "(#123)" pattern)
+          if ! echo "$COMMIT_MSG" | grep -qE "(Merge pull request #[0-9]+|\(#[0-9]+\))"; then
+            echo "⏭️  Skipping: not a PR merge commit (direct push to main)"
+            echo "   Spec progress updates only occur via merged PRs"
+            echo "should-update=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           echo "✅ All conditions met - proceeding with spec progress update"
+          echo "   ✓ Tests passed"
+          echo "   ✓ Push event to main branch"
+          echo "   ✓ PR merge commit detected"
           echo "should-update=true" >> "$GITHUB_OUTPUT"
 
       - name: Checkout code
