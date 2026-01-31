@@ -43,17 +43,17 @@ export interface CostTrackerService {
 export class CostTracker extends Context.Tag('CostTracker')<CostTracker, CostTrackerService>() {}
 
 /**
- * Cost parsing regex patterns (priority order)
+ * Cost parsing regex patterns (priority order, case-insensitive)
  *
  * Claude Code outputs cost in various formats:
- * - "Total cost: $12.34"
+ * - "Total Cost: $12.34" (note: capital C in actual output)
  * - "Cost: $12.34"
- * - "Session cost: $12.34"
+ * - "Session Cost: $12.34"
  */
 const COST_PATTERNS = [
-  /Total cost: \$(\d+(?:\.\d+)?)/,
-  /Cost: \$(\d+(?:\.\d+)?)/,
-  /Session cost: \$(\d+(?:\.\d+)?)/,
+  /Total cost: \$(\d+(?:\.\d+)?)/i,
+  /Cost: \$(\d+(?:\.\d+)?)/i,
+  /Session cost: \$(\d+(?:\.\d+)?)/i,
 ]
 
 /**
