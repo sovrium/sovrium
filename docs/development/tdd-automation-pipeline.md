@@ -15,6 +15,9 @@
 7. [Risks & Mitigations](#risks--mitigations)
 8. [Design Decisions](#design-decisions)
 9. [Effect-Based Implementation Architecture](#effect-based-implementation-architecture)
+   - [Unit Test Coverage](#unit-test-coverage)
+   - [Developer Guide: Adding a New TDD Program](#developer-guide-adding-a-new-tdd-program)
+   - [Environment Variable Reference](#environment-variable-reference)
 
 ---
 
@@ -69,6 +72,7 @@ Note: Max attempts default is 5 (configurable per spec)
 | Test        | `.github/workflows/test.yml`        | Push to main + PR events (opened, synchronize, reopened, closed)    |
 | Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                                               |
 | Monitor     | `.github/workflows/monitor.yml`     | Hourly cron + manual (workflow_dispatch)                            |
+| Branch Sync | `.github/workflows/branch-sync.yml` | Push to main + manual (workflow_dispatch)                           |
 
 **Note on Spec Progress Updates**: The `test` workflow includes an `update-spec-progress` job that automatically updates `SPEC-PROGRESS.md` when all tests pass on `main` branch. This job:
 
@@ -1254,9 +1258,52 @@ All errors now follow this single path instead of complex categorization and mul
 
 ---
 
+### Branch Sync Workflow (`.github/workflows/branch-sync.yml`)
+
+**Purpose**: Proactively sync TDD branches with main to prevent staleness
+
+**Triggers**:
+
+- Push to main branch (automatic)
+- Manual via workflow_dispatch
+
+**Behavior**:
+
+1. **Find Active TDD PRs**: Query for open PRs with `tdd-automation` label (excluding `manual-intervention`)
+2. **Check Sync Status**: For each PR, check if branch is behind main
+3. **Attempt Merge**: Merge main into TDD branch using `git merge origin/main --no-edit`
+4. **Handle Results**:
+   - **Success**: Push merged branch, post success comment
+   - **Conflict**: Add `manual-intervention` label, post conflict resolution instructions
+   - **Push Failure**: Add `manual-intervention` label, post error comment
+
+**Key Features**:
+
+- Uses merge strategy (matches `claude-code.yml` strategy)
+- Detects and reports conflicting files
+- Posts detailed comments with resolution steps
+- Prevents stale branches from blocking TDD automation
+
+**Error Handling**:
+
+- Conflicts → `manual-intervention` label + conflict comment
+- Push failures → `manual-intervention` label + error comment
+- Aborts merge cleanly on conflict detection
+
+**Example Scenarios**:
+
+| Scenario                   | Action                    | Label Added?              | Comment Posted?    |
+| -------------------------- | ------------------------- | ------------------------- | ------------------ |
+| Branch up to date          | Skip (no action)          | No                        | No                 |
+| Branch behind, no conflict | Merge + push              | No                        | Yes (success)      |
+| Branch behind, conflict    | Abort merge, detect files | Yes (manual-intervention) | Yes (instructions) |
+| Merge success, push fail   | N/A (permissions issue)   | Yes (manual-intervention) | Yes (error)        |
+
+---
+
 ### Merge Watchdog (Removed 2026-01-28)
 
-**Status**: Removed as redundant
+**Status**: Removed as redundant (replaced by Branch Sync workflow)
 
 **Why removed**:
 
@@ -2617,3 +2664,222 @@ Workflows call TypeScript CLI entry points instead of inline bash. See:
 | **IDE Support**    | None                | Full autocomplete, go-to-definition |
 | **Code Review**    | Hard to verify      | Easy to reason about                |
 | **Maintenance**    | Fragile             | Robust and scalable                 |
+
+---
+
+### Unit Test Coverage
+
+The TDD automation TypeScript programs have comprehensive unit tests using Bun's test framework.
+
+**Test Files:**
+
+| Test File                                    | Tests | Coverage Focus                                       |
+| -------------------------------------------- | ----- | ---------------------------------------------------- |
+| `core/parse-pr-title.test.ts`                | 25    | PR title parsing, spec ID extraction, branch parsing |
+| `core/update-pr-title.test.ts`               | 8     | Attempt increment, title format validation           |
+| `programs/increment-attempt.test.ts`         | 9     | Max attempts, manual-intervention label, comments    |
+| `programs/check-credit-limits.test.ts`       | 3     | Daily/weekly limits, warnings                        |
+| `services/credit-comment-generator.test.ts`  | 6     | Credit usage markdown generation                     |
+| `services/failure-comment-generator.test.ts` | 6     | Failure recovery prompts                             |
+| `services/agent-prompt-generator.test.ts`    | 2     | Claude Code agent prompts                            |
+
+**Running Tests:**
+
+```bash
+# Run all TDD automation tests
+bun test scripts/tdd-automation/
+
+# Run specific test file
+bun test scripts/tdd-automation/core/parse-pr-title.test.ts
+
+# Run with watch mode
+bun test --watch scripts/tdd-automation/
+```
+
+**Test Patterns Used:**
+
+1. **Mock Layer Pattern** - Create mock `Layer.succeed(GitHubApi, {...})` for dependency injection
+2. **Effect.either** - Test error cases by converting Effect to Either type
+3. **Call Tracking** - Track API calls made by programs to verify side effects
+
+```typescript
+// Example: Mock layer with call tracking
+function createMockGitHubApi(options: { prTitle: string }) {
+  const calls = { updatePRTitle: [], addLabel: [], postComment: [] }
+
+  const layer = Layer.succeed(GitHubApi, {
+    getPR: (prNumber) => Effect.succeed({ title: options.prTitle, ... }),
+    updatePRTitle: (prNumber, title) => {
+      calls.updatePRTitle.push({ prNumber, title })
+      return Effect.succeed(undefined)
+    },
+    // ... other methods
+  })
+
+  return { layer, calls }
+}
+
+// Verify side effects
+expect(calls.updatePRTitle).toHaveLength(1)
+expect(calls.addLabel[0]?.label).toBe('tdd-automation:manual-intervention')
+```
+
+**Test Limitations:**
+
+- `programs/staleness-check.ts` uses `Bun.$` directly for GitHub API calls, making it harder to unit test without refactoring
+- Workflow CLI entry points (`workflows/*/`) are integration-tested via actual workflow runs
+
+---
+
+### Developer Guide: Adding a New TDD Program
+
+Follow this pattern when adding new business logic to the TDD automation pipeline:
+
+**Step 1: Define Error Types** (if needed)
+
+```typescript
+// core/errors.ts
+export class MyNewError extends Data.TaggedError('MyNewError')<{
+  readonly message: string
+  readonly context?: unknown
+}> {}
+```
+
+**Step 2: Create Effect Program**
+
+```typescript
+// programs/my-new-program.ts
+import { Effect } from 'effect'
+import { GitHubApi } from '../services/github-api'
+import { MyNewError } from '../core/errors'
+
+export interface MyProgramResult {
+  readonly success: boolean
+  readonly data: string
+}
+
+export const myNewProgram = (
+  input: string
+): Effect.Effect<MyProgramResult, MyNewError | GitHubApiError, GitHubApi> =>
+  Effect.gen(function* () {
+    const github = yield* GitHubApi
+
+    // Business logic here
+    const result = yield* github.someOperation(input)
+
+    return { success: true, data: result }
+  })
+```
+
+**Step 3: Create CLI Entry Point** (for workflow integration)
+
+```typescript
+// workflows/<workflow-name>/my-entry-point.ts
+import { Effect, Console } from 'effect'
+import { myNewProgram } from '../../programs/my-new-program'
+import { GitHubApiLive } from '../../services/github-api'
+
+const main = Effect.gen(function* () {
+  const input = process.env['MY_INPUT']
+
+  if (!input) {
+    yield* Console.error('MY_INPUT environment variable not set')
+    yield* Console.log(JSON.stringify({ error: 'missing input' }))
+    return
+  }
+
+  const result = yield* myNewProgram(input).pipe(
+    Effect.catchAll((error) => {
+      yield * Console.error(`Error: ${error._tag}`)
+      return Effect.succeed({ success: false, error: error._tag })
+    })
+  )
+
+  // Output JSON for workflow parsing (stdout)
+  yield* Console.log(JSON.stringify(result))
+})
+
+Effect.runPromise(Effect.provide(main, GitHubApiLive))
+```
+
+**Step 4: Add Unit Tests**
+
+```typescript
+// programs/my-new-program.test.ts
+import { describe, test, expect } from 'bun:test'
+import { Effect, Layer } from 'effect'
+import { GitHubApi } from '../services/github-api'
+import { myNewProgram } from './my-new-program'
+
+function createMockGitHubApi(options: { /* mock config */ }) {
+  return Layer.succeed(GitHubApi, {
+    someOperation: (input) => Effect.succeed('mocked result'),
+    // ... other required methods
+  })
+}
+
+describe('myNewProgram', () => {
+  test('returns success for valid input', async () => {
+    const layer = createMockGitHubApi({})
+    const program = myNewProgram('test-input').pipe(Effect.provide(layer))
+    const result = await Effect.runPromise(program)
+
+    expect(result.success).toBe(true)
+  })
+
+  test('handles errors correctly', async () => {
+    // Test error paths with Effect.either
+  })
+})
+```
+
+**Step 5: Integrate with YAML Workflow**
+
+```yaml
+# .github/workflows/my-workflow.yml
+- name: Run my program
+  id: my-step
+  env:
+    MY_INPUT: ${{ github.event.inputs.some_value }}
+  run: |
+    result=$(bun run scripts/tdd-automation/workflows/my-workflow/my-entry-point.ts)
+    echo "result=$result" >> $GITHUB_OUTPUT
+```
+
+**Key Conventions:**
+
+- **JSON Output**: CLI scripts output JSON to stdout for workflow parsing, logs go to stderr
+- **Fail-Open**: Non-critical errors should log warnings but allow workflow to continue
+- **Environment Variables**: All config passed via env vars, not CLI args
+- **Effect.gen**: Use generator syntax for composable, readable programs
+
+---
+
+### Environment Variable Reference
+
+| Variable                 | Used By              | Default  | Purpose                                |
+| ------------------------ | -------------------- | -------- | -------------------------------------- |
+| `GITHUB_TOKEN`           | All workflows        | Required | GitHub API authentication              |
+| `ANTHROPIC_API_KEY`      | claude-code.yml      | Required | Claude API authentication              |
+| `GH_PAT_WORKFLOW`        | test.yml             | Required | Branch protection bypass for main push |
+| `TDD_DAILY_LIMIT`        | check-credits.ts     | `200`    | Daily spend limit in dollars           |
+| `TDD_WEEKLY_LIMIT`       | check-credits.ts     | `1000`   | Weekly spend limit in dollars          |
+| `TDD_MAX_ATTEMPTS`       | increment-attempt.ts | `5`      | Max Claude Code attempts per spec      |
+| `PROBE_EXHAUSTED`        | check-credits.ts     | `false`  | Credit probe detected exhaustion       |
+| `PROBE_FAILED`           | check-credits.ts     | `false`  | Credit probe request failed            |
+| `CURRENT_RUN_ID`         | check-staleness.ts   | Required | Current workflow run ID                |
+| `CURRENT_RUN_STARTED_AT` | check-staleness.ts   | Required | Current run start timestamp            |
+| `BRANCH`                 | check-staleness.ts   | Required | Branch being tested                    |
+| `GITHUB_REPOSITORY`      | Multiple             | Auto     | Repository in `owner/repo` format      |
+
+**Configuration (core/config.ts):**
+
+```typescript
+export const TDD_CONFIG = {
+  DAILY_LIMIT: Number(process.env['TDD_DAILY_LIMIT'] ?? 200),
+  WEEKLY_LIMIT: Number(process.env['TDD_WEEKLY_LIMIT'] ?? 1000),
+  MAX_ATTEMPTS: Number(process.env['TDD_MAX_ATTEMPTS'] ?? 5),
+  STALE_THRESHOLD_MINUTES: 30,
+  MANUAL_INTERVENTION_LABEL: 'tdd-automation:manual-intervention',
+}
+```

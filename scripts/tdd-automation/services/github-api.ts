@@ -15,6 +15,7 @@
 import { Context, Effect, Layer } from 'effect'
 import { GitHubApiError } from '../core/errors'
 import { parseTDDPRTitle } from '../core/parse-pr-title'
+import { withRetry, DEFAULT_RETRY_CONFIG, type RetryConfig } from '../core/retry'
 import { TDD_LABELS } from '../core/types'
 import type { TDDPullRequest } from '../core/types'
 
@@ -239,7 +240,15 @@ export const GitHubApiLive = Layer.succeed(GitHubApi, {
   postComment: (prNumber, body) =>
     Effect.tryPromise({
       try: async () => {
-        await Bun.$`gh pr comment ${prNumber} --body "${body}"`.quiet()
+        // Use temp file to safely handle markdown with special characters
+        const tempFile = `/tmp/pr_comment_${prNumber}_${Date.now()}.md`
+        await Bun.write(tempFile, body)
+        try {
+          await Bun.$`gh pr comment ${prNumber} --body-file ${tempFile}`.quiet()
+        } finally {
+          // Clean up temp file
+          await Bun.$`rm -f ${tempFile}`.quiet()
+        }
       },
       catch: (error) => new GitHubApiError({ operation: 'postComment', cause: error }),
     }),
@@ -251,4 +260,185 @@ export const GitHubApiLive = Layer.succeed(GitHubApi, {
       },
       catch: (error) => new GitHubApiError({ operation: 'enableAutoMerge', cause: error }),
     }),
+})
+
+/**
+ * Helper to wrap a GitHubApi operation with retry logic
+ */
+function wrapWithRetry<A>(
+  effect: Effect.Effect<A, GitHubApiError>,
+  config: RetryConfig = DEFAULT_RETRY_CONFIG
+): Effect.Effect<A, GitHubApiError> {
+  return withRetry(effect, config)
+}
+
+/**
+ * Live implementation with automatic retry for transient failures
+ *
+ * Uses DEFAULT_RETRY_CONFIG (3 attempts, exponential backoff, 1s initial delay)
+ * for all operations to handle GitHub API rate limits and network issues.
+ */
+export const GitHubApiLiveWithRetry = Layer.succeed(GitHubApi, {
+  listTDDPRs: () =>
+    wrapWithRetry(
+      Effect.tryPromise({
+        try: async () => {
+          const result =
+            await Bun.$`gh pr list --label "${TDD_LABELS.AUTOMATION}" --state open --json number,title,headRefName,labels`.quiet()
+          const prs = JSON.parse(result.stdout.toString()) as Array<{
+            number: number
+            title: string
+            headRefName: string
+            labels: Array<{ name: string }>
+          }>
+
+          return prs.map((pr) => {
+            const parsed = parseTDDPRTitle(pr.title)
+            return {
+              number: pr.number,
+              title: pr.title,
+              branch: pr.headRefName,
+              specId: parsed?.specId ?? '',
+              attempt: parsed?.attempt ?? 0,
+              maxAttempts: parsed?.maxAttempts ?? 5,
+              labels: pr.labels.map((l) => l.name),
+              hasManualInterventionLabel: pr.labels.some(
+                (l) => l.name === TDD_LABELS.MANUAL_INTERVENTION
+              ),
+            } satisfies TDDPullRequest
+          })
+        },
+        catch: (error) => new GitHubApiError({ operation: 'listTDDPRs', cause: error }),
+      })
+    ),
+
+  getPR: (prNumber) =>
+    wrapWithRetry(
+      Effect.tryPromise({
+        try: async () => {
+          const result =
+            await Bun.$`gh pr view ${prNumber} --json number,title,headRefName,state,labels`.quiet()
+          const pr = JSON.parse(result.stdout.toString()) as {
+            number: number
+            title: string
+            headRefName: string
+            state: string
+            labels: Array<{ name: string }>
+          }
+
+          return {
+            number: pr.number,
+            title: pr.title,
+            branch: pr.headRefName,
+            state: pr.state.toLowerCase() as 'open' | 'closed' | 'merged',
+            labels: pr.labels.map((l) => l.name),
+          }
+        },
+        catch: (error) => new GitHubApiError({ operation: 'getPR', cause: error }),
+      })
+    ),
+
+  getWorkflowRuns: ({ workflow, createdAfter, status }) =>
+    wrapWithRetry(
+      Effect.tryPromise({
+        try: async () => {
+          const createdFilter = `>${createdAfter.toISOString()}`
+          const statusFilter = status === 'all' ? '' : `--status ${status}`
+
+          const result =
+            await Bun.$`gh run list --workflow="${workflow}" --created "${createdFilter}" ${statusFilter} --json databaseId,name,conclusion,createdAt,updatedAt,url`.quiet()
+          const runs = JSON.parse(result.stdout.toString()) as Array<{
+            databaseId: number
+            name: string
+            conclusion: string | null
+            createdAt: string
+            updatedAt: string
+            url: string
+          }>
+
+          return runs.map((run) => ({
+            id: String(run.databaseId),
+            name: run.name,
+            conclusion: run.conclusion as WorkflowRun['conclusion'],
+            createdAt: new Date(run.createdAt),
+            updatedAt: new Date(run.updatedAt),
+            htmlUrl: run.url,
+          }))
+        },
+        catch: (error) => new GitHubApiError({ operation: 'getWorkflowRuns', cause: error }),
+      })
+    ),
+
+  getRunLogs: (runId) =>
+    wrapWithRetry(
+      Effect.tryPromise({
+        try: async () => {
+          const result = await Bun.$`gh run view ${runId} --log`.quiet()
+          return result.stdout.toString()
+        },
+        catch: (error) => new GitHubApiError({ operation: 'getRunLogs', cause: error }),
+      })
+    ),
+
+  createPR: ({ title, body, branch, base, labels }) =>
+    wrapWithRetry(
+      Effect.tryPromise({
+        try: async () => {
+          const labelsArg = labels.length > 0 ? `--label "${labels.join(',')}"` : ''
+
+          const result =
+            await Bun.$`gh pr create --title "${title}" --body "${body}" --head "${branch}" --base "${base}" ${labelsArg} --json number,url`.quiet()
+          const pr = JSON.parse(result.stdout.toString()) as { number: number; url: string }
+
+          return { number: pr.number, url: pr.url }
+        },
+        catch: (error) => new GitHubApiError({ operation: 'createPR', cause: error }),
+      })
+    ),
+
+  updatePRTitle: (prNumber, title) =>
+    wrapWithRetry(
+      Effect.tryPromise({
+        try: async () => {
+          await Bun.$`gh pr edit ${prNumber} --title "${title}"`.quiet()
+        },
+        catch: (error) => new GitHubApiError({ operation: 'updatePRTitle', cause: error }),
+      })
+    ),
+
+  addLabel: (prNumber, label) =>
+    wrapWithRetry(
+      Effect.tryPromise({
+        try: async () => {
+          await Bun.$`gh pr edit ${prNumber} --add-label "${label}"`.quiet()
+        },
+        catch: (error) => new GitHubApiError({ operation: 'addLabel', cause: error }),
+      })
+    ),
+
+  postComment: (prNumber, body) =>
+    wrapWithRetry(
+      Effect.tryPromise({
+        try: async () => {
+          const tempFile = `/tmp/pr_comment_${prNumber}_${Date.now()}.md`
+          await Bun.write(tempFile, body)
+          try {
+            await Bun.$`gh pr comment ${prNumber} --body-file ${tempFile}`.quiet()
+          } finally {
+            await Bun.$`rm -f ${tempFile}`.quiet()
+          }
+        },
+        catch: (error) => new GitHubApiError({ operation: 'postComment', cause: error }),
+      })
+    ),
+
+  enableAutoMerge: (prNumber, mergeMethod) =>
+    wrapWithRetry(
+      Effect.tryPromise({
+        try: async () => {
+          await Bun.$`gh pr merge ${prNumber} --${mergeMethod} --auto`.quiet()
+        },
+        catch: (error) => new GitHubApiError({ operation: 'enableAutoMerge', cause: error }),
+      })
+    ),
 })

@@ -1,0 +1,204 @@
+name: Branch Sync
+
+# Automatically sync TDD branches with main to prevent staleness
+# Triggered when main branch is updated
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  sync-tdd-branches:
+    name: Sync TDD Branches with Main
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT_WORKFLOW }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Find active TDD PRs
+        id: find-prs
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          # Find open TDD PRs without manual-intervention label
+          PR_LIST=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --label "tdd-automation" \
+            --json number,headRefName,labels \
+            --jq '[.[] | select(.labels | map(.name) | contains(["tdd-automation:manual-intervention"]) | not) | {number, branch: .headRefName}]')
+
+          echo "Found TDD PRs: $PR_LIST"
+
+          # Use heredoc for JSON to handle special characters properly
+          {
+            echo "pr_list<<EOF"
+            echo "$PR_LIST"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          # Count PRs
+          PR_COUNT=$(echo "$PR_LIST" | jq 'length')
+          echo "pr_count=$PR_COUNT" >> $GITHUB_OUTPUT
+
+          if [ "$PR_COUNT" -eq 0 ]; then
+            echo "✅ No active TDD PRs to sync"
+          else
+            echo "📋 Found $PR_COUNT TDD PR(s) to sync"
+          fi
+
+      - name: Sync each TDD branch
+        if: steps.find-prs.outputs.pr_count != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          PR_LIST: ${{ steps.find-prs.outputs.pr_list }}
+        run: |
+          echo "$PR_LIST" | jq -c '.[]' | while IFS= read -r pr; do
+            PR_NUMBER=$(echo "$pr" | jq -r '.number')
+            BRANCH=$(echo "$pr" | jq -r '.branch')
+
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "📦 Syncing PR #$PR_NUMBER ($BRANCH)"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            # Checkout the TDD branch
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+
+            # Check if branch is behind main
+            BEHIND_COUNT=$(git rev-list --count HEAD..origin/main)
+
+            if [ "$BEHIND_COUNT" -eq 0 ]; then
+              echo "✅ Branch is up to date with main (0 commits behind)"
+              continue
+            fi
+
+            echo "📊 Branch is $BEHIND_COUNT commit(s) behind main"
+
+            # Attempt merge (not rebase - matches pipeline strategy)
+            echo "🔄 Merging main into $BRANCH..."
+
+            if git merge origin/main --no-edit; then
+              echo "✅ Merge successful"
+
+              # Push the merged branch
+              if git push origin "$BRANCH"; then
+                echo "✅ Pushed updated branch"
+
+                # Post success comment using heredoc
+                cat > /tmp/comment.md << COMMENT_EOF
+          ✅ **Branch automatically synced with main**
+
+          Main branch was updated with new commits. This branch has been automatically merged with the latest changes.
+
+          **Changes:**
+          - Merged $BEHIND_COUNT commit(s) from main
+          - No conflicts detected
+
+          The TDD automation will continue as normal.
+          COMMENT_EOF
+                gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/comment.md || echo "⚠️ Failed to post comment (non-critical)"
+              else
+                echo "❌ Failed to push merged branch"
+
+                # Add manual-intervention label
+                gh pr edit "$PR_NUMBER" --repo "${{ github.repository }}" --add-label "tdd-automation:manual-intervention"
+
+                # Post error comment using heredoc
+                cat > /tmp/comment.md << COMMENT_EOF
+          ❌ **Automatic branch sync failed**
+
+          Failed to push merged changes to \`$BRANCH\`. This may indicate a permissions issue.
+
+          **Action Required:**
+          1. Manually sync the branch:
+             \`\`\`bash
+             git checkout $BRANCH
+             git merge origin/main
+             git push
+             \`\`\`
+          2. Remove the \`manual-intervention\` label
+          3. Post \`@claude\` comment to resume automation
+          COMMENT_EOF
+                gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/comment.md
+              fi
+            else
+              echo "⚠️ Merge conflict detected"
+
+              # Abort the merge
+              git merge --abort || true
+
+              # Get list of conflicting files
+              git merge origin/main --no-commit --no-ff 2>&1 | \
+                grep -E "CONFLICT|Merge conflict" | \
+                sed 's/^CONFLICT (.*): //' | \
+                sed 's/Merge conflict in //' > /tmp/conflicts.txt || echo "Unable to extract conflict files" > /tmp/conflicts.txt
+
+              git merge --abort || true
+
+              CONFLICTS=$(cat /tmp/conflicts.txt)
+
+              # Add manual-intervention label
+              gh pr edit "$PR_NUMBER" --repo "${{ github.repository }}" --add-label "tdd-automation:manual-intervention"
+
+              # Post conflict comment using heredoc
+              cat > /tmp/comment.md << COMMENT_EOF
+          ⚠️ **Merge conflict detected during automatic sync**
+
+          Main branch was updated, but this branch has conflicts that require manual resolution.
+
+          **Conflicting areas:**
+          \`\`\`
+          $CONFLICTS
+          \`\`\`
+
+          **Resolution Steps:**
+          1. Checkout the branch:
+             \`\`\`bash
+             git checkout $BRANCH
+             git merge origin/main
+             \`\`\`
+          2. Resolve conflicts in the listed files
+          3. Complete the merge:
+             \`\`\`bash
+             git add .
+             git commit
+             git push
+             \`\`\`
+          4. Remove the \`manual-intervention\` label
+          5. Post \`@claude\` comment to resume automation
+
+          **Note:** The TDD automation is paused until conflicts are resolved.
+          COMMENT_EOF
+              gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/comment.md
+            fi
+          done
+
+      - name: Summary
+        if: steps.find-prs.outputs.pr_count != '0'
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "✅ TDD Branch Sync Complete"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "Processed ${{ steps.find-prs.outputs.pr_count }} TDD PR(s)"
+          echo ""
+          echo "PRs with conflicts have been labeled with 'manual-intervention'"
+          echo "and require manual resolution before TDD automation can continue."
