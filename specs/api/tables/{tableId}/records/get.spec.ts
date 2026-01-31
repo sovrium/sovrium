@@ -621,6 +621,9 @@ test.describe('List records in table', () => {
             id: 13,
             name: 'confidential',
             fields: [{ id: 1, name: 'data', type: 'long-text' }],
+            permissions: {
+              read: { type: 'roles', roles: ['admin', 'owner', 'member'] },
+            },
           },
         ],
       })
@@ -795,10 +798,10 @@ test.describe('List records in table', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-LIST-019: should paginate with field filtering',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: Member with field restrictions and large dataset
       await startServerWithSchema({
         name: 'test-app',
@@ -823,8 +826,8 @@ test.describe('List records in table', () => {
         INSERT INTO employees (name, salary) VALUES ${insertValues}
       `)
 
-      // Create authenticated user
-      await createAuthenticatedUser()
+      // Create authenticated member
+      await createAuthenticatedMember()
 
       // WHEN: Member requests paginated records
       const response = await request.get('/api/tables/21/records', {
