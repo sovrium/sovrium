@@ -765,17 +765,21 @@ export const test = base.extend<ServerFixtures>({
     })
   },
 
-  createAuthenticatedViewer: async ({ createAuthenticatedUser, page, signIn }, use, testInfo) => {
+  createAuthenticatedViewer: async (
+    { createAuthenticatedUser, page, signIn, executeQuery },
+    use,
+    testInfo
+  ) => {
     await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
       // Create user first
       const user = await createAuthenticatedUser(data)
 
-      // Set role to viewer
       const serverUrl = (testInfo as any)._serverUrl
       if (!serverUrl) {
         throw new Error('Server not started.')
       }
 
+      // Try admin API first (requires Better Auth admin plugin)
       const response = await page.request.post('/api/auth/admin/set-role', {
         data: {
           userId: user.user.id,
@@ -784,14 +788,11 @@ export const test = base.extend<ServerFixtures>({
       })
 
       if (!response.ok()) {
-        throw new Error(
-          `Admin API endpoint not available (status: ${response.status()}). ` +
-            `To use createAuthenticatedViewer, configure Better Auth admin plugin in your test schema. ` +
-            `Alternative: use createAuthenticatedUser() and set role manually via executeQuery()`
-        )
+        // Fallback: Direct database update if admin API not available
+        await executeQuery(`UPDATE auth.user SET role = 'viewer' WHERE id = $1`, [user.user.id])
       }
 
-      // Re-authenticate after session revocation (set-role revokes all sessions)
+      // Re-authenticate after role change (set-role API revokes all sessions)
       const testId = data?.email || user.user.email
       const password = data?.password || 'TestPassword123!'
       const signInResult = await signIn({ email: testId, password })

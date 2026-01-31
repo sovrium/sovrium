@@ -159,6 +159,22 @@ export async function handleListRecords(c: Context, app: App) {
   // requireAuth() → validateTable() → enrichUserRole()
   const { session, tableName, userRole } = getTableContext(c)
 
+  const table = app.tables?.find((t) => t.name === tableName)
+
+  // Check read permission for viewer role
+  // Viewers have restricted access and must be explicitly allowed
+  // Other roles can attempt to list (RLS will filter results at row level)
+  if (userRole === 'viewer' && !hasReadPermission(table, userRole)) {
+    return c.json(
+      {
+        success: false,
+        message: 'You do not have permission to perform this action',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
+
   const filter = parseFilter(c, app, tableName, userRole)
 
   if (filter.error) {
