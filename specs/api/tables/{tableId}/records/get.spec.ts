@@ -608,7 +608,7 @@ test.describe('List records in table', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-LIST-014: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
