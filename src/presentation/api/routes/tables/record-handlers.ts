@@ -159,6 +159,18 @@ export async function handleListRecords(c: Context, app: App) {
   // requireAuth() → validateTable() → enrichUserRole()
   const { session, tableName, userRole } = getTableContext(c)
 
+  const table = app.tables?.find((t) => t.name === tableName)
+  if (!hasReadPermission(table, userRole)) {
+    return c.json(
+      {
+        success: false,
+        message: 'You do not have permission to perform this action',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
+
   const filter = parseFilter(c, app, tableName, userRole)
 
   if (filter.error) {
