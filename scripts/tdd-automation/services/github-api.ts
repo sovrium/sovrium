@@ -201,8 +201,53 @@ export const GitHubApiLive = Layer.succeed(GitHubApi, {
   getRunLogs: (runId) =>
     Effect.tryPromise({
       try: async () => {
-        const result = await Bun.$`gh run view ${runId} --log`.quiet()
-        return result.stdout.toString()
+        // Note: `gh run view --log` can fail silently in CI environments.
+        // The GitHub API /actions/runs/{id}/logs returns a ZIP archive.
+        // We download, extract, and concatenate all log files.
+
+        const tempDir = `/tmp/gh_run_logs_${runId}_${Date.now()}`
+        const zipFile = `${tempDir}/logs.zip`
+
+        try {
+          // Create temp directory
+          await Bun.$`mkdir -p ${tempDir}`.quiet()
+
+          // Get repository from environment or default
+          const repo = process.env.GITHUB_REPOSITORY ?? 'sovrium/sovrium'
+
+          // Download logs ZIP via GitHub API (follows 302 redirect automatically)
+          await Bun.$`gh api repos/${repo}/actions/runs/${runId}/logs > ${zipFile}`.quiet()
+
+          // Check if download succeeded
+          const zipExists = await Bun.file(zipFile).exists()
+          if (!zipExists) {
+            return '' // Return empty string, cost tracker will handle the error
+          }
+
+          // Extract ZIP (may contain multiple job/step log files)
+          await Bun.$`unzip -q -o ${zipFile} -d ${tempDir}`.quiet()
+
+          // Find all log/text files and concatenate
+          const findResult =
+            await Bun.$`find ${tempDir} -type f \( -name "*.txt" -o -name "*log*" \) 2>/dev/null`.quiet()
+          const logFiles = findResult.stdout.toString().trim().split('\n').filter(Boolean)
+
+          let allLogs = ''
+          for (const file of logFiles) {
+            if (file === zipFile) continue // Skip the zip file itself
+            try {
+              const content = await Bun.file(file).text()
+              allLogs += content + '\n'
+            } catch {
+              // Skip files that can't be read
+            }
+          }
+
+          return allLogs
+        } finally {
+          // Clean up temp directory
+          await Bun.$`rm -rf ${tempDir}`.quiet()
+        }
       },
       catch: (error) => new GitHubApiError({ operation: 'getRunLogs', cause: error }),
     }),
@@ -373,8 +418,54 @@ export const GitHubApiLiveWithRetry = Layer.succeed(GitHubApi, {
     wrapWithRetry(
       Effect.tryPromise({
         try: async () => {
-          const result = await Bun.$`gh run view ${runId} --log`.quiet()
-          return result.stdout.toString()
+          // Note: `gh run view --log` can fail silently in CI environments.
+          // The GitHub API /actions/runs/{id}/logs returns a ZIP archive.
+          // We download, extract, and concatenate all log files.
+
+          const tempDir = `/tmp/gh_run_logs_${runId}_${Date.now()}`
+          const zipFile = `${tempDir}/logs.zip`
+
+          try {
+            // Create temp directory
+            await Bun.$`mkdir -p ${tempDir}`.quiet()
+
+            // Get repository from environment or default
+            const repo = process.env.GITHUB_REPOSITORY ?? 'sovrium/sovrium'
+
+            // Download logs ZIP via GitHub API (follows 302 redirect automatically)
+            // Download logs ZIP via GitHub API (follows 302 redirect automatically)
+            await Bun.$`gh api repos/${repo}/actions/runs/${runId}/logs > ${zipFile}`.quiet()
+
+            // Check if download succeeded
+            const zipExists = await Bun.file(zipFile).exists()
+            if (!zipExists) {
+              return '' // Return empty string, cost tracker will handle the error
+            }
+
+            // Extract ZIP (may contain multiple job/step log files)
+            await Bun.$`unzip -q -o ${zipFile} -d ${tempDir}`.quiet()
+
+            // Find all log/text files and concatenate
+            const findResult =
+              await Bun.$`find ${tempDir} -type f \( -name "*.txt" -o -name "*log*" \) 2>/dev/null`.quiet()
+            const logFiles = findResult.stdout.toString().trim().split('\n').filter(Boolean)
+
+            let allLogs = ''
+            for (const file of logFiles) {
+              if (file === zipFile) continue // Skip the zip file itself
+              try {
+                const content = await Bun.file(file).text()
+                allLogs += content + '\n'
+              } catch {
+                // Skip files that can't be read
+              }
+            }
+
+            return allLogs
+          } finally {
+            // Clean up temp directory
+            await Bun.$`rm -rf ${tempDir}`.quiet()
+          }
         },
         catch: (error) => new GitHubApiError({ operation: 'getRunLogs', cause: error }),
       })
