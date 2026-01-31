@@ -37,21 +37,193 @@ import {
   formatValidationError,
 } from '@/presentation/api/validation'
 import { handleGetRecordError, handleRestoreRecordError } from './error-handlers'
-import { parseFilter } from './list-records-filter'
-import { parseListRecordsParams } from './param-parsers'
+import { parseFilterParameter } from './filter-parser'
+import { parseFormulaToFilter } from './formula-parser'
 import {
   checkTableUpdatePermissionWithRole,
   filterAllowedFieldsWithRole,
   handleNoAllowedFields,
   executeUpdate,
 } from './record-update-handler'
-import { validateSortPermission } from './sort-validation'
-import { validateTimezoneParam } from './timezone-validation'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
 /** Session type derived from table context to respect layer boundaries */
 type SessionContext = ReturnType<typeof getTableContext>['session']
+
+/**
+ * Validate timezone string using Intl.DateTimeFormat
+ * Returns true if timezone is valid, false otherwise
+ */
+function isValidTimezone(timezone: string): boolean {
+  try {
+    // Attempt to create a DateTimeFormat with the timezone
+    // This will throw if the timezone is invalid
+    // eslint-disable-next-line functional/no-expression-statements -- Required for validation side-effect
+    Intl.DateTimeFormat('en-US', { timeZone: timezone })
+    return true
+  } catch {
+    return false
+  }
+}
+
+type AggregateParams = {
+  readonly count?: boolean
+  readonly sum?: readonly string[]
+  readonly avg?: readonly string[]
+  readonly min?: readonly string[]
+  readonly max?: readonly string[]
+}
+
+/**
+ * Parse aggregate JSON parameter
+ */
+function parseAggregateParam(aggregateParam: string | undefined): AggregateParams | undefined {
+  if (!aggregateParam) return undefined
+
+  try {
+    return JSON.parse(aggregateParam) as AggregateParams
+  } catch {
+    // Invalid JSON, ignore aggregation
+    return undefined
+  }
+}
+
+/**
+ * Parse list records query parameters
+ */
+function parseListRecordsParams(c: Context): {
+  readonly includeDeleted: boolean
+  readonly format: 'display' | undefined
+  readonly timezone: string | undefined
+  readonly sort: string | undefined
+  readonly fields: string | undefined
+  readonly limit: number | undefined
+  readonly offset: number | undefined
+  readonly aggregate: AggregateParams | undefined
+} {
+  const includeDeleted = c.req.query('includeDeleted') === 'true'
+  const format = c.req.query('format') === 'display' ? ('display' as const) : undefined
+  const timezone = c.req.query('timezone')
+  const sort = c.req.query('sort')
+  const fields = c.req.query('fields')
+  const limitParam = c.req.query('limit')
+  const offsetParam = c.req.query('offset')
+  const limit = limitParam ? Number(limitParam) : undefined
+  const offset = offsetParam ? Number(offsetParam) : undefined
+  const aggregate = parseAggregateParam(c.req.query('aggregate'))
+
+  return { includeDeleted, format, timezone, sort, fields, limit, offset, aggregate }
+}
+
+type FilterStructure =
+  | {
+      readonly and?: readonly {
+        readonly field: string
+        readonly operator: string
+        readonly value: unknown
+      }[]
+    }
+  | undefined
+
+type FilterResult =
+  | { readonly error: false; readonly value: FilterStructure }
+  | { readonly error: true; readonly response?: Response }
+
+/**
+ * Validate filter parameter - ensure user has permission to read filter fields
+ */
+function validateFilterParam(
+  filter: FilterStructure,
+  table:
+    | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
+    | undefined,
+  userRole: string,
+  c: Context
+) {
+  if (!filter) return undefined
+
+  // Extract field names from filter structure
+  const filterFields = filter.and?.map((condition) => condition.field) ?? []
+
+  // Check if user has permission to read each filter field
+  for (const fieldName of filterFields) {
+    if (shouldExcludeFieldByDefault(fieldName, userRole, table)) {
+      return c.json(
+        {
+          success: false,
+          message: `You do not have permission to perform this action. Cannot filter by field '${fieldName}'`,
+          code: 'FORBIDDEN',
+        },
+        403
+      )
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Validate aggregate parameter - ensure user has permission to read aggregated fields
+ */
+function validateAggregateParam(
+  aggregate: AggregateParams | undefined,
+  table:
+    | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
+    | undefined,
+  userRole: string,
+  c: Context
+) {
+  if (!aggregate) return undefined
+
+  // Extract all field names from aggregate operations
+  const aggregateFields = [
+    ...(aggregate.sum ?? []),
+    ...(aggregate.avg ?? []),
+    ...(aggregate.min ?? []),
+    ...(aggregate.max ?? []),
+  ]
+
+  // Check if user has permission to read each aggregated field
+  for (const fieldName of aggregateFields) {
+    if (shouldExcludeFieldByDefault(fieldName, userRole, table)) {
+      return c.json(
+        {
+          success: false,
+          message: `You do not have permission to perform this action. Cannot aggregate field '${fieldName}'`,
+          code: 'FORBIDDEN',
+        },
+        403
+      )
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Parse filter parameter from request (formula or standard filter)
+ */
+function parseFilter(c: Context, app: App, tableName: string, userRole: string): FilterResult {
+  const filterByFormula = c.req.query('filterByFormula')
+
+  if (filterByFormula) {
+    const parsedFormula = parseFormulaToFilter(filterByFormula)
+    return parsedFormula ? { error: false, value: parsedFormula } : { error: true }
+  }
+
+  const parsedFilterResult = parseFilterParameter({
+    filterParam: c.req.query('filter'),
+    app,
+    tableName,
+    userRole,
+    c,
+  })
+
+  return parsedFilterResult.success
+    ? { error: false, value: parsedFilterResult.filter }
+    : { error: true, response: parsedFilterResult.error }
+}
 
 /**
  * Check viewer read permission - viewers have restricted access
@@ -72,6 +244,109 @@ function checkViewerReadPermission(
       403
     )
   }
+  return undefined
+}
+
+/**
+ * Validate timezone and return error response if invalid
+ */
+function validateTimezoneParam(timezone: string | undefined, c: Context) {
+  if (timezone && !isValidTimezone(timezone)) {
+    return c.json(
+      {
+        success: false,
+        message: `Invalid timezone: ${timezone}`,
+        code: 'VALIDATION_ERROR',
+      },
+      400
+    )
+  }
+  return undefined
+}
+
+/**
+ * Check if field should be excluded based on default permission rules
+ * Matches logic from field-read-filter.ts
+ */
+function shouldExcludeFieldByDefault(
+  fieldName: string,
+  userRole: string,
+  table:
+    | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
+    | undefined
+): boolean {
+  // Admin and owner roles have full access
+  if (userRole === 'admin' || userRole === 'owner') {
+    return false
+  }
+
+  // Find field definition
+  const field = table?.fields.find((f) => f.name === fieldName)
+  if (!field) return false
+
+  // Viewer role: most restrictive access (only name and basic text fields)
+  if (userRole === 'viewer') {
+    // Viewer can only read basic name/title fields
+    const allowedFieldTypes = ['single-line-text']
+    const allowedFieldNames = ['name', 'title']
+
+    // Exclude email, phone, salary, and other sensitive fields
+    if (field.type === 'email' || field.type === 'phone-number' || field.type === 'currency') {
+      return true
+    }
+
+    // Only allow specific field names or types
+    if (!allowedFieldNames.includes(fieldName) && !allowedFieldTypes.includes(field.type)) {
+      return true
+    }
+
+    // For single-line-text, only allow if it's a name/title field
+    if (field.type === 'single-line-text' && !allowedFieldNames.includes(fieldName)) {
+      return true
+    }
+  }
+
+  // Member role: restrict sensitive financial data
+  if (userRole === 'member') {
+    // Restrict salary fields for member roles
+    if (fieldName === 'salary' && field.type === 'currency') {
+      return true
+    }
+  }
+
+  return false
+}
+
+/**
+ * Validate sort parameter - ensure user has permission to read sort fields
+ */
+function validateSortParam(
+  sort: string | undefined,
+  table:
+    | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
+    | undefined,
+  userRole: string,
+  c: Context
+) {
+  if (!sort) return undefined
+
+  // Parse sort parameter (e.g., "priority:desc" or "priority:desc,created_at:asc")
+  const sortFields = sort.split(',').map((s) => s.split(':')[0])
+
+  // Check if user has permission to read each sort field
+  for (const fieldName of sortFields) {
+    if (shouldExcludeFieldByDefault(fieldName, userRole, table)) {
+      return c.json(
+        {
+          success: false,
+          message: `You do not have permission to perform this action. Cannot sort by field '${fieldName}'`,
+          code: 'FORBIDDEN',
+        },
+        403
+      )
+    }
+  }
+
   return undefined
 }
 
@@ -100,9 +375,14 @@ export async function handleListRecords(c: Context, app: App) {
   const timezoneError = validateTimezoneParam(timezone, c)
   if (timezoneError) return timezoneError
 
-  // Validate sort permission
-  const sortError = validateSortPermission({ sort, app, tableName, userRole, c })
+  const sortError = validateSortParam(sort, table, userRole, c)
   if (sortError) return sortError
+
+  const filterError = validateFilterParam(filter.value, table, userRole, c)
+  if (filterError) return filterError
+
+  const aggregateError = validateAggregateParam(aggregate, table, userRole, c)
+  if (aggregateError) return aggregateError
 
   return runEffect(
     c,
