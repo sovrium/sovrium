@@ -639,7 +639,7 @@ test.describe('List records in table', () => {
   test(
     'API-TABLES-RECORDS-LIST-015: should return all fields for admin',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Admin user with full field access
       await startServerWithSchema({
         name: 'test-app',
@@ -661,8 +661,8 @@ test.describe('List records in table', () => {
         VALUES ('John Doe', 'john@example.com', 75000)
       `)
 
-      // Create authenticated admin
-      await createAuthenticatedAdmin()
+      // Create authenticated user (first user is admin with firstUserAdmin: true)
+      await createAuthenticatedUser()
 
       // WHEN: Admin requests records
       const response = await request.get('/api/tables/15/records', {})
