@@ -193,6 +193,92 @@ function validateTimezoneParam(timezone: string | undefined, c: Context) {
   return undefined
 }
 
+/**
+ * Check if field should be excluded based on default permission rules
+ * Matches logic from field-read-filter.ts
+ */
+function shouldExcludeFieldByDefault(
+  fieldName: string,
+  userRole: string,
+  table:
+    | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
+    | undefined
+): boolean {
+  // Admin and owner roles have full access
+  if (userRole === 'admin' || userRole === 'owner') {
+    return false
+  }
+
+  // Find field definition
+  const field = table?.fields.find((f) => f.name === fieldName)
+  if (!field) return false
+
+  // Viewer role: most restrictive access (only name and basic text fields)
+  if (userRole === 'viewer') {
+    // Viewer can only read basic name/title fields
+    const allowedFieldTypes = ['single-line-text']
+    const allowedFieldNames = ['name', 'title']
+
+    // Exclude email, phone, salary, and other sensitive fields
+    if (field.type === 'email' || field.type === 'phone-number' || field.type === 'currency') {
+      return true
+    }
+
+    // Only allow specific field names or types
+    if (!allowedFieldNames.includes(fieldName) && !allowedFieldTypes.includes(field.type)) {
+      return true
+    }
+
+    // For single-line-text, only allow if it's a name/title field
+    if (field.type === 'single-line-text' && !allowedFieldNames.includes(fieldName)) {
+      return true
+    }
+  }
+
+  // Member role: restrict sensitive financial data
+  if (userRole === 'member') {
+    // Restrict salary fields for member roles
+    if (fieldName === 'salary' && field.type === 'currency') {
+      return true
+    }
+  }
+
+  return false
+}
+
+/**
+ * Validate sort parameter - ensure user has permission to read sort fields
+ */
+function validateSortParam(
+  sort: string | undefined,
+  table:
+    | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
+    | undefined,
+  userRole: string,
+  c: Context
+) {
+  if (!sort) return undefined
+
+  // Parse sort parameter (e.g., "priority:desc" or "priority:desc,created_at:asc")
+  const sortFields = sort.split(',').map((s) => s.split(':')[0])
+
+  // Check if user has permission to read each sort field
+  for (const fieldName of sortFields) {
+    if (shouldExcludeFieldByDefault(fieldName, userRole, table)) {
+      return c.json(
+        {
+          success: false,
+          message: `You do not have permission to perform this action. Cannot sort by field '${fieldName}'`,
+          code: 'FORBIDDEN',
+        },
+        403
+      )
+    }
+  }
+
+  return undefined
+}
+
 export async function handleListRecords(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
   const table = app.tables?.find((t) => t.name === tableName)
@@ -217,6 +303,9 @@ export async function handleListRecords(c: Context, app: App) {
 
   const timezoneError = validateTimezoneParam(timezone, c)
   if (timezoneError) return timezoneError
+
+  const sortError = validateSortParam(sort, table, userRole, c)
+  if (sortError) return sortError
 
   return runEffect(
     c,
