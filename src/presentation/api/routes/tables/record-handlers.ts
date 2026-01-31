@@ -154,16 +154,15 @@ function parseFilter(c: Context, app: App, tableName: string, userRole: string):
     : { error: true, response: parsedFilterResult.error }
 }
 
-export async function handleListRecords(c: Context, app: App) {
-  // Session, tableName, and userRole are guaranteed by middleware chain:
-  // requireAuth() → validateTable() → enrichUserRole()
-  const { session, tableName, userRole } = getTableContext(c)
-
-  const table = app.tables?.find((t) => t.name === tableName)
-
-  // Check read permission for viewer role
-  // Viewers have restricted access and must be explicitly allowed
-  // Other roles can attempt to list (RLS will filter results at row level)
+/**
+ * Check viewer read permission - viewers have restricted access
+ * Returns error response if permission denied, undefined otherwise
+ */
+function checkViewerReadPermission(
+  table: Parameters<typeof hasReadPermission>[0],
+  userRole: string,
+  c: Context
+) {
   if (userRole === 'viewer' && !hasReadPermission(table, userRole)) {
     return c.json(
       {
@@ -174,27 +173,13 @@ export async function handleListRecords(c: Context, app: App) {
       403
     )
   }
+  return undefined
+}
 
-  const filter = parseFilter(c, app, tableName, userRole)
-
-  if (filter.error) {
-    return (
-      filter.response ??
-      c.json(
-        {
-          success: false,
-          message: 'Invalid filterByFormula syntax',
-          code: 'VALIDATION_ERROR',
-        },
-        400
-      )
-    )
-  }
-
-  const { includeDeleted, format, timezone, sort, fields, limit, offset, aggregate } =
-    parseListRecordsParams(c)
-
-  // Validate timezone if provided
+/**
+ * Validate timezone and return error response if invalid
+ */
+function validateTimezoneParam(timezone: string | undefined, c: Context) {
   if (timezone && !isValidTimezone(timezone)) {
     return c.json(
       {
@@ -205,6 +190,33 @@ export async function handleListRecords(c: Context, app: App) {
       400
     )
   }
+  return undefined
+}
+
+export async function handleListRecords(c: Context, app: App) {
+  const { session, tableName, userRole } = getTableContext(c)
+  const table = app.tables?.find((t) => t.name === tableName)
+
+  // Check viewer permission (other roles filtered by RLS at row level)
+  const permissionError = checkViewerReadPermission(table, userRole, c)
+  if (permissionError) return permissionError
+
+  const filter = parseFilter(c, app, tableName, userRole)
+  if (filter.error) {
+    return (
+      filter.response ??
+      c.json(
+        { success: false, message: 'Invalid filterByFormula syntax', code: 'VALIDATION_ERROR' },
+        400
+      )
+    )
+  }
+
+  const { includeDeleted, format, timezone, sort, fields, limit, offset, aggregate } =
+    parseListRecordsParams(c)
+
+  const timezoneError = validateTimezoneParam(timezone, c)
+  if (timezoneError) return timezoneError
 
   return runEffect(
     c,
