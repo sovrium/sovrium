@@ -718,7 +718,7 @@ test.describe('List records in table', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-LIST-017: should return minimal fields for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
