@@ -1,0 +1,182 @@
+name: Monitor
+
+# Timeout-based fallback for stale TDD PRs (Fix #3)
+# Checks TDD PRs that have been in failed state for >30 minutes without Claude Code activity
+
+on:
+  schedule:
+    # Run every hour to detect stale TDD PRs
+    - cron: '0 * * * *'
+  workflow_dispatch: # Allow manual trigger for testing
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  actions: read
+
+jobs:
+  monitor-stale-prs:
+    name: Monitor Stale TDD PRs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/tdd-automation/
+            package.json
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check for stale TDD PRs
+        id: check-stale
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          echo "🔍 Checking for stale TDD PRs (failed for >30 min without Claude Code activity)..."
+
+          # Get all open TDD PRs without manual-intervention label
+          STALE_PRS=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --state open \
+            --label "tdd-automation" \
+            --json number,title,headRefName,labels,updatedAt \
+            --jq '[.[] | select(.labels | map(.name) | contains(["tdd-automation:manual-intervention"]) | not)]')
+
+          echo "Found $(echo "$STALE_PRS" | jq 'length') active TDD PRs"
+
+          # For each PR, check if it's stale
+          STALE_COUNT=0
+          echo "$STALE_PRS" | jq -c '.[]' | while read -r pr; do
+            PR_NUMBER=$(echo "$pr" | jq -r '.number')
+            PR_BRANCH=$(echo "$pr" | jq -r '.headRefName')
+            PR_UPDATED=$(echo "$pr" | jq -r '.updatedAt')
+
+            echo ""
+            echo "Checking PR #$PR_NUMBER (branch: $PR_BRANCH)..."
+
+            # Calculate time since last update
+            CURRENT_TIME=$(date -u +%s)
+            PR_UPDATED_TIME=$(date -u -d "$PR_UPDATED" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$PR_UPDATED" +%s)
+            TIME_SINCE_UPDATE=$(( (CURRENT_TIME - PR_UPDATED_TIME) / 60 ))
+
+            echo "  Time since last update: ${TIME_SINCE_UPDATE} minutes"
+
+            # Check if PR has failed checks
+            CHECK_STATUS=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json statusCheckRollup --jq '.statusCheckRollup[-1].conclusion' 2>/dev/null || echo "UNKNOWN")
+
+            echo "  Latest check status: $CHECK_STATUS"
+
+            # Skip if checks are passing or pending
+            if [ "$CHECK_STATUS" != "FAILURE" ]; then
+              echo "  ✅ Checks not failed - skipping"
+              continue
+            fi
+
+            # Check if stale (>30 minutes since failure)
+            if [ "$TIME_SINCE_UPDATE" -lt 30 ]; then
+              echo "  ⏳ Not stale yet (${TIME_SINCE_UPDATE}/30 min) - skipping"
+              continue
+            fi
+
+            # Check for recent Claude Code activity on this branch
+            RECENT_CLAUDE_RUNS=$(gh api \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?branch=$PR_BRANCH&created=>$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-30M +%Y-%m-%dT%H:%M:%SZ)" \
+              --jq '.workflow_runs | length' 2>/dev/null || echo "0")
+
+            echo "  Recent Claude Code runs (last 30 min): $RECENT_CLAUDE_RUNS"
+
+            if [ "$RECENT_CLAUDE_RUNS" -gt 0 ]; then
+              echo "  ✅ Claude Code activity detected - not stale"
+              continue
+            fi
+
+            # PR is stale - add to intervention list
+            echo "  ⚠️ STALE: Failed for ${TIME_SINCE_UPDATE} min with no Claude Code activity"
+            echo "$PR_NUMBER" >> /tmp/stale_prs.txt
+            STALE_COUNT=$((STALE_COUNT + 1))
+          done
+
+          if [ -f /tmp/stale_prs.txt ]; then
+            STALE_LIST=$(cat /tmp/stale_prs.txt | tr '\n' ' ')
+            echo "stale-prs=$STALE_LIST" >> "$GITHUB_OUTPUT"
+            echo "has-stale=true" >> "$GITHUB_OUTPUT"
+            echo ""
+            echo "⚠️ Found $STALE_COUNT stale PR(s): $STALE_LIST"
+          else
+            echo "has-stale=false" >> "$GITHUB_OUTPUT"
+            echo "✅ No stale PRs found"
+          fi
+
+      - name: Add manual intervention to stale PRs
+        if: steps.check-stale.outputs.has-stale == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          STALE_PRS: ${{ steps.check-stale.outputs.stale-prs }}
+        run: |
+          echo "🏷️ Adding manual-intervention label to stale PRs..."
+
+          for PR_NUMBER in $STALE_PRS; do
+            echo ""
+            echo "Processing PR #$PR_NUMBER..."
+
+            # Add manual-intervention label
+            if gh pr edit "$PR_NUMBER" --repo "${{ github.repository }}" --add-label "tdd-automation:manual-intervention"; then
+              echo "  ✅ Label added"
+            else
+              echo "  ⚠️ Failed to add label"
+              continue
+            fi
+
+            # Post timeout notification comment
+            {
+              echo "## ⏱️ TDD Automation Timeout"
+              echo ""
+              echo "**Issue**: This PR has been in failed state for more than 30 minutes without Claude Code activity."
+              echo ""
+              echo "**Possible Causes**:"
+              echo "- Race condition prevented automation from triggering"
+              echo "- Previous Claude Code run failed silently"
+              echo "- Infrastructure issue blocked execution"
+              echo ""
+              echo "**Next Steps**:"
+              echo "1. Review the test failure logs"
+              echo "2. Check if any Claude Code runs completed recently"
+              echo "3. Remove the \`tdd-automation:manual-intervention\` label"
+              echo "4. Post \`@claude\` comment to retry"
+              echo ""
+              echo "**Fallback Mechanism**: This notification was triggered by the timeout-based fallback (hourly monitor)."
+              echo ""
+              echo "---"
+              echo "_🤖 Monitor - Timeout Handler_"
+            } > /tmp/timeout_comment.md
+
+            # Post comment with retry logic
+            for attempt in {1..3}; do
+              echo "  📝 Posting timeout comment (attempt $attempt/3)..."
+              if timeout 60 gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/timeout_comment.md; then
+                echo "  ✅ Comment posted"
+                break
+              fi
+
+              if [ $attempt -lt 3 ]; then
+                echo "  ⚠️ Retry in 10s..."
+                sleep 10
+              else
+                echo "  ❌ Failed after 3 attempts"
+              fi
+            done
+          done
+
+          echo ""
+          echo "✅ Processed all stale PRs"

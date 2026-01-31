@@ -310,13 +310,45 @@ jobs:
           echo "Priority: $PRIORITY" >> /tmp/pr_body.md
           echo "Max Attempts: $MAX_ATTEMPTS" >> /tmp/pr_body.md
 
-          gh pr create \
-            --title "$TITLE" \
-            --body-file /tmp/pr_body.md \
-            --label "tdd-automation" \
-            --base main \
-            --head "$BRANCH"
+          # Create PR with timeout and retry logic
+          for attempt in {1..3}; do
+            echo "📝 Creating PR (attempt $attempt/3)..."
+            if timeout 60 gh pr create \
+              --title "$TITLE" \
+              --body-file /tmp/pr_body.md \
+              --label "tdd-automation" \
+              --base main \
+              --head "$BRANCH"; then
+              echo "✅ PR created successfully"
+              break
+            fi
 
-          # Enable auto-merge
-          PR_NUMBER=$(gh pr list --head "$BRANCH" --json number --jq '.[0].number')
-          gh pr merge "$PR_NUMBER" --squash --auto || true
+            if [ $attempt -lt 3 ]; then
+              echo "::warning::PR creation failed (attempt $attempt/3), retrying in 10s..."
+              sleep 10
+            else
+              echo "::error::Failed to create PR after 3 attempts"
+              exit 1
+            fi
+          done
+
+          # Enable auto-merge with timeout and retry logic
+          PR_NUMBER=$(timeout 30 gh pr list --head "$BRANCH" --json number --jq '.[0].number' || echo "")
+          if [ -n "$PR_NUMBER" ]; then
+            for attempt in {1..3}; do
+              echo "🔄 Enabling auto-merge for PR #$PR_NUMBER (attempt $attempt/3)..."
+              if timeout 60 gh pr merge "$PR_NUMBER" --squash --auto; then
+                echo "✅ Auto-merge enabled successfully"
+                break
+              fi
+
+              if [ $attempt -lt 3 ]; then
+                echo "::warning::Enable auto-merge failed (attempt $attempt/3), retrying in 10s..."
+                sleep 10
+              else
+                echo "::warning::Failed to enable auto-merge after 3 attempts"
+              fi
+            done
+          else
+            echo "::error::Could not retrieve PR number for auto-merge"
+          fi

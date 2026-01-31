@@ -68,6 +68,7 @@ Note: Max attempts default is 5 (configurable per spec)
 | PR Creator  | `.github/workflows/pr-creator.yml`  | Hourly cron + test.yml success on main + manual (workflow_dispatch) |
 | Test        | `.github/workflows/test.yml`        | Push to main + PR events (opened, synchronize, reopened, closed)    |
 | Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                                               |
+| Monitor     | `.github/workflows/monitor.yml`     | Hourly cron + manual (workflow_dispatch)                            |
 
 **Note on Spec Progress Updates**: The `test` workflow includes an `update-spec-progress` job that automatically updates `SPEC-PROGRESS.md` when all tests pass on `main` branch. This job:
 
@@ -1112,6 +1113,13 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 
 - **Parallel execution prevention**: Handled by `test.yml` workflow. Only the **last** test.yml execution on a PR will post `@claude` comment. If multiple test runs are queued/running (e.g., from main branch updates), earlier runs skip triggering Claude Code - only the final run with the latest failure triggers execution.
 
+  **Race Condition Protections (3 layers)**:
+  1. **Smarter Timestamp-Based Check**: `test.yml` compares timestamps of active Claude Code runs. Only skips triggering if an active Claude Code run started AFTER the current test failure. This prevents skipping when the active run is handling an old failure.
+
+  2. **Skipped Trigger Notification**: When automation decides not to trigger Claude Code due to active runs, a PR comment is posted explaining why (with current status: pending test runs count, active Claude Code count, next action). This prevents silent failures and provides visibility.
+
+  3. **Timeout-Based Fallback**: A scheduled workflow (hourly) checks TDD PRs that have been in failed state for >30 minutes without Claude Code activity. Automatically adds `tdd-automation:manual-intervention` label and posts an explanatory comment if automation has stalled.
+
 - **Step 3 (Initial sync)**: Branch syncing is handled automatically by this workflow via merge strategy. The test workflow (`.github/workflows/test.yml`) does NOT check if the branch is behind main - syncing happens when Claude Code is triggered via `@claude` comment.
 
 - **Step 6 (Final sync)**: Handles race condition where main branch advances during Claude Code's long execution (20-90 minutes). Without this step, the PR branch would be stale before `test.yml` runs.
@@ -1162,6 +1170,66 @@ Previously, conflicts triggered Claude Code execution with special prompts. This
 - Documentation mismatch (docs said "pause for human review" but workflow continued)
 
 Now, conflicts immediately pause automation and wait for human resolution.
+
+---
+
+### 4. Monitor Workflow
+
+**File**: `.github/workflows/monitor.yml`
+
+**Purpose**: Timeout-based fallback for detecting and handling stale TDD PRs that have been in failed state for >30 minutes without Claude Code activity.
+
+**Triggers:**
+
+- `schedule`: Hourly cron (`0 * * * *`)
+- `workflow_dispatch`: Manual trigger
+
+**Pre-conditions:**
+
+1. PR has `tdd-automation` label
+2. PR does NOT have `tdd-automation:manual-intervention` label
+3. PR checks are in FAILURE state
+4. PR has been updated >30 minutes ago
+5. No Claude Code runs in the past 30 minutes
+
+**Execution Flow:**
+
+| Step                         | Action                                                |
+| ---------------------------- | ----------------------------------------------------- |
+| 1. Query TDD PRs             | Get all open TDD PRs without manual-intervention      |
+| 2. Check staleness           | Filter PRs failed for >30 min without Claude activity |
+| 3. Add label                 | Add `tdd-automation:manual-intervention` label        |
+| 4. Post timeout notification | Explain timeout detection and next steps              |
+
+**Notes:**
+
+- **Prevents silent failures**: Detects when race condition logic incorrectly skips triggering Claude Code
+- **30-minute threshold**: Balances false positives (Claude Code can take 20-90 min) with timely intervention
+- **Hourly frequency**: Reduces API load while providing reasonable detection latency
+- **Complements Fix #2**: Works together with skipped trigger notifications for complete visibility
+
+**Timeout Notification Comment:**
+
+```markdown
+## ⏱️ TDD Automation Timeout
+
+**Issue**: This PR has been in failed state for more than 30 minutes without Claude Code activity.
+
+**Possible Causes:**
+
+- Race condition prevented automation from triggering
+- Previous Claude Code run failed silently
+- Infrastructure issue blocked execution
+
+**Next Steps:**
+
+1. Review the test failure logs
+2. Check if any Claude Code runs completed recently
+3. Remove the `tdd-automation:manual-intervention` label
+4. Post `@claude` comment to retry
+
+**Fallback Mechanism**: This notification was triggered by the timeout-based fallback (hourly monitor).
+```
 
 ---
 
@@ -1489,6 +1557,64 @@ All errors are handled identically, regardless of type. These subtypes are repor
 ```
 
 **Key Behavior**: ALL errors follow this single path - no automatic retries, no PR closure. Human reviews failed specs while pipeline continues with other specs.
+
+#### GitHub CLI Timeout Protection
+
+To prevent workflow jobs from hanging indefinitely when GitHub API is unresponsive, all `gh` CLI commands have timeout and retry safeguards:
+
+**Configuration**:
+
+- **Step timeout**: 3-5 minutes (via `timeout-minutes` on critical steps)
+- **Command timeout**: 60 seconds per attempt (via `timeout 60 gh ...`)
+- **Retry attempts**: 3 attempts with 10-second delays between retries
+- **Failure handling**: Error messages logged with `::warning::` or `::error::` annotations
+
+**Commands Protected**:
+
+All GitHub CLI commands in workflows are wrapped with timeout and retry logic:
+
+- `gh pr comment` (post comments)
+- `gh pr edit` (add/remove labels)
+- `gh pr merge` (enable/disable auto-merge)
+- `gh workflow run` (trigger workflows)
+- `gh api` (API calls)
+
+**Example Pattern** (from `test.yml` and `claude-code.yml`):
+
+```bash
+# Post comment with timeout and retry logic
+for attempt in {1..3}; do
+  echo "📝 Posting comment (attempt $attempt/3)..."
+  if timeout 60 gh pr comment "$PR_NUMBER" --body-file /tmp/comment.txt; then
+    echo "✅ Comment posted successfully"
+    break
+  fi
+
+  if [ $attempt -lt 3 ]; then
+    echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
+    sleep 10
+  else
+    echo "::error::Failed to post comment after 3 attempts"
+    exit 1
+  fi
+done
+```
+
+**Behavior on Timeout**:
+
+- **Critical operations** (triggering Claude Code): Exit with error if all retries fail
+- **Non-critical operations** (posting comments, adding labels): Log warning and continue
+- **Workflow-level timeout**: Step timeouts prevent entire job from hanging beyond 5 minutes
+
+**Why This Matters**:
+
+Without timeouts, `gh` commands can hang indefinitely when GitHub API is slow or unresponsive, causing:
+
+- Zombie workflow jobs burning CI minutes
+- TDD pipeline stalling without error notification
+- Manual intervention required to cancel stuck jobs
+
+**Impact**: The pipeline now fails fast with clear error messages instead of silently hanging.
 
 #### Cost Protection
 

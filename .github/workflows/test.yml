@@ -727,7 +727,7 @@ jobs:
 
           **What this means**:
           - The test failures are caused by CI environment issues, not your code changes
-          - The TDD Monitor will automatically retry this PR
+          - The Monitor will automatically retry this PR
           - No code changes are needed to fix this
 
           **Common causes**:
@@ -743,7 +743,22 @@ jobs:
           EOF
 
           envsubst < /tmp/infra-error.md > /tmp/infra-error-final.md
-          gh pr comment "$PR_NUMBER" --body-file /tmp/infra-error-final.md
+
+          # Post comment with timeout and retry logic
+          for attempt in {1..3}; do
+            echo "📝 Posting infrastructure error comment (attempt $attempt/3)..."
+            if timeout 60 gh pr comment "$PR_NUMBER" --body-file /tmp/infra-error-final.md; then
+              echo "✅ Comment posted successfully"
+              break
+            fi
+
+            if [ $attempt -lt 3 ]; then
+              echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
+              sleep 10
+            else
+              echo "::error::Failed to post comment after 3 attempts"
+            fi
+          done
 
       - name: Fail if E2E tests failed
         if: steps.check.outputs.e2e_failed == 'true'
@@ -853,15 +868,28 @@ jobs:
           github.event_name == 'pull_request' &&
           contains(github.event.pull_request.labels.*.name, 'tdd-automation') &&
           !contains(github.event.pull_request.labels.*.name, 'tdd-automation:manual-intervention')
+        timeout-minutes: 3
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           echo "✅ All checks passed, ensuring auto-merge is enabled"
-          gh pr merge "$PR_NUMBER" --squash --auto || {
-            echo "⚠️ Could not enable auto-merge (may already be enabled or PR not mergeable)"
-            exit 0
-          }
+
+          # Enable auto-merge with timeout and retry logic
+          for attempt in {1..3}; do
+            echo "🔄 Enabling auto-merge (attempt $attempt/3)..."
+            if timeout 60 gh pr merge "$PR_NUMBER" --squash --auto; then
+              echo "✅ Auto-merge enabled successfully"
+              break
+            fi
+
+            if [ $attempt -lt 3 ]; then
+              echo "::warning::Enable auto-merge failed (attempt $attempt/3), retrying in 10s..."
+              sleep 10
+            else
+              echo "::warning::Could not enable auto-merge after 3 attempts (may already be enabled or PR not mergeable)"
+            fi
+          done
 
   # ============================================================================
   # SPEC PROGRESS AUTO-UPDATE
@@ -948,7 +976,7 @@ jobs:
   # TDD AUTOMATION JOBS
   #
   # These jobs handle TDD lifecycle events that must run IMMEDIATELY on PR events.
-  # They complement tdd-monitor.yml which provides SCHEDULED RECOVERY as backup.
+  # They complement monitor.yml which provides SCHEDULED RECOVERY as backup.
   #
 
   delete-tdd-branch:
@@ -1100,6 +1128,7 @@ jobs:
           # Query test.yml runs for this PR's branch
           # Get runs that are queued or in_progress (after this one started)
           CURRENT_RUN_ID="${{ github.run_id }}"
+          CURRENT_RUN_STARTED_AT="${{ github.event.repository.updated_at }}"
 
           PENDING_TEST_RUNS=$(gh api \
             -H "Accept: application/vnd.github+json" \
@@ -1113,43 +1142,115 @@ jobs:
             "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?status=in_progress&branch=$BRANCH" \
             --jq ".workflow_runs | map(select(.id != $CURRENT_RUN_ID)) | length")
 
-          # Also check for pending Claude Code runs (if already triggered)
-          PENDING_CLAUDE_RUNS=$(gh api \
+          # Check for active Claude Code runs with timestamp comparison (Fix #1)
+          # Only skip if Claude Code run started AFTER current test failure
+          ACTIVE_CLAUDE_RUNS=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=queued&branch=$BRANCH" \
-            --jq '.workflow_runs | length')
+            --jq '.workflow_runs')
 
-          IN_PROGRESS_CLAUDE_RUNS=$(gh api \
+          IN_PROGRESS_CLAUDE=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=in_progress&branch=$BRANCH" \
-            --jq '.workflow_runs | length')
+            --jq '.workflow_runs')
 
+          # Combine queued and in_progress Claude Code runs
+          ALL_CLAUDE_RUNS=$(echo "$ACTIVE_CLAUDE_RUNS $IN_PROGRESS_CLAUDE" | jq -s 'add')
+
+          # Filter Claude Code runs that started AFTER this test run
+          NEWER_CLAUDE_RUNS=$(echo "$ALL_CLAUDE_RUNS" | jq --arg current_time "$CURRENT_RUN_STARTED_AT" \
+            '[.[] | select(.created_at > $current_time)] | length')
+
+          # Total counts for reporting
           TOTAL_PENDING_TESTS=$((PENDING_TEST_RUNS + IN_PROGRESS_TEST_RUNS))
-          TOTAL_PENDING_CLAUDE=$((PENDING_CLAUDE_RUNS + IN_PROGRESS_CLAUDE_RUNS))
+          TOTAL_CLAUDE_RUNS=$(echo "$ALL_CLAUDE_RUNS" | jq 'length')
 
           echo "📊 Status:"
           echo "   Other test.yml runs (queued/running): $TOTAL_PENDING_TESTS"
-          echo "   Claude Code runs (queued/running): $TOTAL_PENDING_CLAUDE"
+          echo "   Total Claude Code runs (queued/running): $TOTAL_CLAUDE_RUNS"
+          echo "   Claude Code runs started after this test: $NEWER_CLAUDE_RUNS"
+
+          # Store counts for notification step
+          echo "pending-tests=$TOTAL_PENDING_TESTS" >> "$GITHUB_OUTPUT"
+          echo "active-claude=$TOTAL_CLAUDE_RUNS" >> "$GITHUB_OUTPUT"
 
           # Only trigger Claude Code if:
           # 1. No other test.yml runs are pending (we're the last one)
-          # 2. No Claude Code is already running (avoid duplicates)
+          # 2. No Claude Code runs started AFTER this test failure (smarter timestamp check)
           if [ "$TOTAL_PENDING_TESTS" -gt 0 ]; then
             echo "⏭️ Skipping @claude comment: $TOTAL_PENDING_TESTS test run(s) pending after this one"
             echo "   The last test.yml run will trigger Claude Code with the most recent failure"
             echo "should-trigger=false" >> "$GITHUB_OUTPUT"
-          elif [ "$TOTAL_PENDING_CLAUDE" -gt 0 ]; then
-            echo "⏭️ Skipping @claude comment: Claude Code already running or queued ($TOTAL_PENDING_CLAUDE workflow(s))"
+            echo "skip-reason=pending_tests" >> "$GITHUB_OUTPUT"
+          elif [ "$NEWER_CLAUDE_RUNS" -gt 0 ]; then
+            echo "⏭️ Skipping @claude comment: Claude Code run handling newer failure ($NEWER_CLAUDE_RUNS workflow(s) started after this test)"
             echo "should-trigger=false" >> "$GITHUB_OUTPUT"
+            echo "skip-reason=newer_claude_run" >> "$GITHUB_OUTPUT"
           else
-            echo "✅ This is the last test run and no Claude Code pending - will trigger execution"
+            echo "✅ This is the last test run and no newer Claude Code runs - will trigger execution"
             echo "should-trigger=true" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Post skipped trigger notification (Fix #2)
+        if: steps.increment.outputs.exceeded == 'false' && steps.check-last-run.outputs.should-trigger == 'false'
+        timeout-minutes: 3
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SKIP_REASON: ${{ steps.check-last-run.outputs.skip-reason }}
+          PENDING_TESTS: ${{ steps.check-last-run.outputs.pending-tests }}
+          ACTIVE_CLAUDE: ${{ steps.check-last-run.outputs.active-claude }}
+        run: |
+          echo "📝 Posting skipped trigger notification..."
+
+          # Generate notification message based on skip reason
+          if [ "$SKIP_REASON" = "pending_tests" ]; then
+            REASON_TEXT="Another test run is in progress or queued"
+            NEXT_ACTION="The last test.yml run will trigger Claude Code with the most recent failure"
+          else
+            REASON_TEXT="A Claude Code run handling a newer failure is already active"
+            NEXT_ACTION="Automation will resume after the active run completes"
+          fi
+
+          # Create notification comment
+          {
+            echo "## ⏭️ TDD Automation Paused"
+            echo ""
+            echo "**Reason**: $REASON_TEXT"
+            echo ""
+            echo "**Current Status:**"
+            echo "- Pending test runs: $PENDING_TESTS"
+            echo "- Active Claude Code runs: $ACTIVE_CLAUDE"
+            echo ""
+            echo "**Next Action**: $NEXT_ACTION"
+            echo ""
+            echo "If this doesn't resolve automatically within 30 minutes, the timeout-based fallback will add the \`tdd-automation:manual-intervention\` label."
+            echo ""
+            echo "---"
+            echo "_🤖 TDD Automation Race Condition Handler_"
+          } > /tmp/skipped_trigger.md
+
+          # Post comment with retry logic
+          for attempt in {1..3}; do
+            echo "📝 Posting notification (attempt $attempt/3)..."
+            if timeout 60 gh pr comment "$PR_NUMBER" --body-file /tmp/skipped_trigger.md; then
+              echo "✅ Notification posted successfully"
+              break
+            fi
+
+            if [ $attempt -lt 3 ]; then
+              echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
+              sleep 10
+            else
+              echo "::error::Failed to post notification after 3 attempts"
+            fi
+          done
+
       - name: Trigger Claude Code on failure
         if: steps.increment.outputs.exceeded == 'false' && steps.check-last-run.outputs.should-trigger == 'true'
+        timeout-minutes: 5
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -1181,10 +1282,26 @@ jobs:
           # Format matches spec: docs/development/tdd-automation-pipeline.md#system-prompt-templates
           bun run scripts/tdd-automation/workflows/test/generate-failure-comment.ts > /tmp/claude_comment.txt
 
-          gh pr comment "$PR_NUMBER" --body-file /tmp/claude_comment.txt
+          # Post comment with timeout and retry logic (60s per attempt, 3 attempts)
+          for attempt in {1..3}; do
+            echo "📝 Posting comment (attempt $attempt/3)..."
+            if timeout 60 gh pr comment "$PR_NUMBER" --body-file /tmp/claude_comment.txt; then
+              echo "✅ Comment posted successfully"
+              break
+            fi
+
+            if [ $attempt -lt 3 ]; then
+              echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
+              sleep 10
+            else
+              echo "::error::Failed to post comment after 3 attempts - Claude Code not triggered"
+              exit 1
+            fi
+          done
 
       - name: Move to manual intervention
         if: steps.increment.outputs.exceeded == 'true'
+        timeout-minutes: 5
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -1193,11 +1310,37 @@ jobs:
         run: |
           echo "⚠️ Max attempts ($MAX_ATTEMPTS) exceeded - moving to manual intervention"
 
-          # Add manual intervention label
-          gh pr edit "$PR_NUMBER" --add-label "tdd-automation:manual-intervention"
+          # Add manual intervention label with timeout
+          for attempt in {1..3}; do
+            echo "🏷️ Adding manual-intervention label (attempt $attempt/3)..."
+            if timeout 60 gh pr edit "$PR_NUMBER" --add-label "tdd-automation:manual-intervention"; then
+              echo "✅ Label added successfully"
+              break
+            fi
 
-          # Disable auto-merge
-          gh pr merge "$PR_NUMBER" --disable-auto || true
+            if [ $attempt -lt 3 ]; then
+              echo "::warning::Label add failed (attempt $attempt/3), retrying in 10s..."
+              sleep 10
+            else
+              echo "::error::Failed to add label after 3 attempts"
+            fi
+          done
+
+          # Disable auto-merge with timeout
+          for attempt in {1..3}; do
+            echo "🔒 Disabling auto-merge (attempt $attempt/3)..."
+            if timeout 60 gh pr merge "$PR_NUMBER" --disable-auto; then
+              echo "✅ Auto-merge disabled successfully"
+              break
+            fi
+
+            if [ $attempt -lt 3 ]; then
+              echo "::warning::Disable auto-merge failed (attempt $attempt/3), retrying in 10s..."
+              sleep 10
+            else
+              echo "::warning::Failed to disable auto-merge after 3 attempts (may not be enabled)"
+            fi
+          done
 
           # Post comment (using temp file to avoid YAML parsing issues)
           {
@@ -1217,4 +1360,18 @@ jobs:
             echo "This PR will not auto-merge until manual intervention is complete."
           } > /tmp/manual_comment.txt
 
-          gh pr comment "$PR_NUMBER" --body-file /tmp/manual_comment.txt
+          # Post comment with timeout and retry logic
+          for attempt in {1..3}; do
+            echo "📝 Posting manual intervention comment (attempt $attempt/3)..."
+            if timeout 60 gh pr comment "$PR_NUMBER" --body-file /tmp/manual_comment.txt; then
+              echo "✅ Comment posted successfully"
+              break
+            fi
+
+            if [ $attempt -lt 3 ]; then
+              echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
+              sleep 10
+            else
+              echo "::error::Failed to post comment after 3 attempts"
+            fi
+          done
