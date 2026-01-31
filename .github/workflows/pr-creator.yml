@@ -22,6 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       has-active: ${{ steps.check.outputs.has-active }}
+      has-active-tests: ${{ steps.check-tests.outputs.has-active-tests }}
     steps:
       - uses: actions/checkout@v4
 
@@ -42,7 +43,61 @@ jobs:
           HAS_ACTIVE=$(echo "$RESULT" | tail -1 | jq -r '.hasActivePR')
           echo "has-active=$HAS_ACTIVE" >> "$GITHUB_OUTPUT"
 
-      - name: Add workflow summary
+      - name: Check for running test workflows on TDD branches
+        id: check-tests
+        if: steps.check.outputs.has-active == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+        run: |
+          echo "🔍 Checking for running test workflows on TDD branches..."
+
+          # Staleness threshold: Only count runs updated within last 30 minutes
+          # This prevents "phantom runs" (stuck/hung workflows) from blocking indefinitely
+          STALENESS_THRESHOLD=$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-30M +%Y-%m-%dT%H:%M:%SZ)
+
+          echo "  Staleness threshold: $STALENESS_THRESHOLD"
+
+          # Get active test runs on TDD branches (queued or in_progress, updated recently)
+          ACTIVE_TEST_RUNS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?status=in_progress" \
+            --jq --arg threshold "$STALENESS_THRESHOLD" \
+            '[.workflow_runs[] | select(
+              .head_branch != null and
+              (.head_branch | startswith("tdd/")) and
+              .updated_at > $threshold
+            )] | length' 2>/dev/null || echo "0")
+
+          # Also check queued runs
+          QUEUED_TEST_RUNS=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?status=queued" \
+            --jq --arg threshold "$STALENESS_THRESHOLD" \
+            '[.workflow_runs[] | select(
+              .head_branch != null and
+              (.head_branch | startswith("tdd/")) and
+              .updated_at > $threshold
+            )] | length' 2>/dev/null || echo "0")
+
+          TOTAL_ACTIVE=$((ACTIVE_TEST_RUNS + QUEUED_TEST_RUNS))
+
+          echo "  In-progress test runs on TDD branches: $ACTIVE_TEST_RUNS"
+          echo "  Queued test runs on TDD branches: $QUEUED_TEST_RUNS"
+          echo "  Total active test runs: $TOTAL_ACTIVE"
+
+          if [ "$TOTAL_ACTIVE" -gt 0 ]; then
+            echo "has-active-tests=true" >> "$GITHUB_OUTPUT"
+            echo "active-count=$TOTAL_ACTIVE" >> "$GITHUB_OUTPUT"
+            echo "⏳ Active test workflows detected on TDD branches"
+          else
+            echo "has-active-tests=false" >> "$GITHUB_OUTPUT"
+            echo "active-count=0" >> "$GITHUB_OUTPUT"
+            echo "✅ No active test workflows on TDD branches"
+          fi
+
+      - name: Add workflow summary (active PR)
         if: steps.check.outputs.has-active == 'true'
         run: |
           echo "## ⏸️ Active TDD PR Exists" >> $GITHUB_STEP_SUMMARY
@@ -53,9 +108,24 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Workflow will retry after current PR completes." >> $GITHUB_STEP_SUMMARY
 
+      - name: Add workflow summary (active tests)
+        if: steps.check.outputs.has-active == 'false' && steps.check-tests.outputs.has-active-tests == 'true'
+        run: |
+          echo "## ⏳ Test Workflows Running" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Active test workflows detected on TDD branches." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Count**: ${{ steps.check-tests.outputs.active-count }} test run(s) in progress or queued" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Skipping PR creation** to avoid race conditions." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "PR Creator will run again after test completion (via \`workflow_run\` trigger)." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_Note: Only counts runs updated within the last 30 minutes (staleness filter)._" >> $GITHUB_STEP_SUMMARY
+
   check-credits:
     needs: check-active-pr
-    if: needs.check-active-pr.outputs.has-active == 'false'
+    if: needs.check-active-pr.outputs.has-active == 'false' && needs.check-active-pr.outputs.has-active-tests != 'true'
     runs-on: ubuntu-latest
     outputs:
       can-proceed: ${{ steps.check.outputs.can-proceed }}
