@@ -1163,14 +1163,14 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?status=queued&branch=$BRANCH" \
-            --jq --arg threshold "$STALENESS_THRESHOLD" --arg current_id "$CURRENT_RUN_ID" \
+            | jq --arg threshold "$STALENESS_THRESHOLD" --arg current_id "$CURRENT_RUN_ID" \
             '.workflow_runs | map(select(.id != ($current_id | tonumber) and .updated_at > $threshold)) | length')
 
           IN_PROGRESS_TEST_RUNS=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "/repos/${{ github.repository }}/actions/workflows/test.yml/runs?status=in_progress&branch=$BRANCH" \
-            --jq --arg threshold "$STALENESS_THRESHOLD" --arg current_id "$CURRENT_RUN_ID" \
+            | jq --arg threshold "$STALENESS_THRESHOLD" --arg current_id "$CURRENT_RUN_ID" \
             '.workflow_runs | map(select(.id != ($current_id | tonumber) and .updated_at > $threshold)) | length')
 
           # Check for active Claude Code runs with staleness filter
@@ -1179,14 +1179,14 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=queued&branch=$BRANCH" \
-            --jq --arg threshold "$STALENESS_THRESHOLD" \
+            | jq --arg threshold "$STALENESS_THRESHOLD" \
             '.workflow_runs | map(select(.updated_at > $threshold))')
 
           IN_PROGRESS_CLAUDE=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=in_progress&branch=$BRANCH" \
-            --jq --arg threshold "$STALENESS_THRESHOLD" \
+            | jq --arg threshold "$STALENESS_THRESHOLD" \
             '.workflow_runs | map(select(.updated_at > $threshold))')
 
           # Combine queued and in_progress Claude Code runs (both already filtered for staleness)
