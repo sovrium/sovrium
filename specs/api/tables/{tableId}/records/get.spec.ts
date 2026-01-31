@@ -621,6 +621,9 @@ test.describe('List records in table', () => {
             id: 13,
             name: 'confidential',
             fields: [{ id: 1, name: 'data', type: 'long-text' }],
+            permissions: {
+              read: { type: 'roles', roles: ['admin', 'owner', 'member'] },
+            },
           },
         ],
       })
