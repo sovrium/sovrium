@@ -129,7 +129,7 @@ export async function executeUpdate(config: {
   const { session, tableName, recordId, allowedData, app, userRole, c } = config
   try {
     const updateResult = await Effect.runPromise(
-      updateRecordProgram(session, tableName, recordId, allowedData, app, userRole)
+      updateRecordProgram(session, tableName, recordId, { fields: allowedData, app, userRole })
     )
 
     // Check if update affected any rows (RLS may have blocked it)

@@ -93,9 +93,11 @@ export function batchRestoreProgram(
 export function upsertProgram(
   session: Readonly<Session>,
   tableName: string,
-  recordsData: readonly Record<string, unknown>[],
-  fieldsToMergeOn: readonly string[],
-  returnRecords: boolean
+  params: {
+    readonly recordsData: readonly Record<string, unknown>[]
+    readonly fieldsToMergeOn: readonly string[]
+    readonly returnRecords: boolean
+  }
 ): Effect.Effect<
   {
     readonly records?: readonly TransformedRecord[]
@@ -105,9 +107,14 @@ export function upsertProgram(
   SessionContextError
 > {
   return Effect.gen(function* () {
-    const result = yield* upsertRecords(session, tableName, recordsData, fieldsToMergeOn)
+    const result = yield* upsertRecords(
+      session,
+      tableName,
+      params.recordsData,
+      params.fieldsToMergeOn
+    )
 
-    if (returnRecords) {
+    if (params.returnRecords) {
       const transformed = transformRecords(result.records)
       return {
         records: transformed,

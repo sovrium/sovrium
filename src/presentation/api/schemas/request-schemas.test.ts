@@ -356,7 +356,8 @@ describe('upsertRecordsRequestSchema', () => {
   describe('valid inputs', () => {
     test('validates record with id (update mode)', () => {
       const input = {
-        records: [{ id: 'rec123', fields: { name: 'Updated' } }],
+        records: [{ id: 'rec123', name: 'Updated' }],
+        fieldsToMergeOn: ['name'],
       }
       const result = upsertRecordsRequestSchema.parse(input)
       expect(result.records[0]?.id).toBe('rec123')
@@ -364,7 +365,8 @@ describe('upsertRecordsRequestSchema', () => {
 
     test('validates record without id (create mode)', () => {
       const input = {
-        records: [{ fields: { name: 'New Record' } }],
+        records: [{ name: 'New Record' }],
+        fieldsToMergeOn: ['name'],
       }
       const result = upsertRecordsRequestSchema.parse(input)
       expect(result.records[0]?.id).toBeUndefined()
@@ -373,10 +375,12 @@ describe('upsertRecordsRequestSchema', () => {
     test('validates mixed records with and without ids', () => {
       const input = {
         records: [
-          { id: 'rec123', fields: { name: 'Update' } },
-          { fields: { name: 'Create' } },
-          { id: 'rec456', fields: { name: 'Another Update' } },
+          { id: 'rec123', name: 'Update' },
+          { name: 'Create' },
+          { id: 'rec456', name: 'Another Update' },
         ],
+        fieldsToMergeOn: ['name'],
+        returnRecords: false,
       }
       const result = upsertRecordsRequestSchema.parse(input)
       expect(result.records).toHaveLength(3)
@@ -387,27 +391,36 @@ describe('upsertRecordsRequestSchema', () => {
 
     test('validates exactly 100 records (maximum)', () => {
       const input = {
-        records: Array.from({ length: 100 }, (_, i) => ({
-          id: i % 2 === 0 ? `rec${i}` : undefined,
-          fields: { index: i },
-        })),
+        records: Array.from({ length: 100 }, (_, i) => {
+          const record: Record<string, unknown> = { index: i }
+          if (i % 2 === 0) {
+            record.id = `rec${i}`
+          }
+          return record
+        }),
+        fieldsToMergeOn: ['index'],
+        returnRecords: true,
       }
       const result = upsertRecordsRequestSchema.parse(input)
       expect(result.records).toHaveLength(100)
     })
 
-    test('applies default empty fields when fields is missing', () => {
+    test('applies default returnRecords when not provided', () => {
       const input = {
-        records: [{ id: 'rec123' }],
+        records: [{ id: 'rec123', name: 'Test' }],
+        fieldsToMergeOn: ['name'],
       }
       const result = upsertRecordsRequestSchema.parse(input)
-      expect(result.records[0]?.fields).toEqual({})
+      expect(result.returnRecords).toBe(false)
     })
   })
 
   describe('invalid inputs', () => {
     test('rejects empty records array', () => {
-      const input = { records: [] }
+      const input = {
+        records: [],
+        fieldsToMergeOn: ['name'],
+      }
       expect(() => upsertRecordsRequestSchema.parse(input)).toThrow(
         'At least one record is required'
       )
@@ -417,19 +430,43 @@ describe('upsertRecordsRequestSchema', () => {
       const input = {
         records: Array.from({ length: 101 }, (_, i) => ({
           id: `rec${i}`,
-          fields: { index: i },
+          index: i,
         })),
+        fieldsToMergeOn: ['index'],
       }
       expect(() => upsertRecordsRequestSchema.parse(input)).toThrow('Maximum 100 records per batch')
     })
 
     test('rejects non-array records', () => {
-      const input = { records: 'invalid' }
+      const input = {
+        records: 'invalid',
+        fieldsToMergeOn: ['name'],
+      }
       expect(() => upsertRecordsRequestSchema.parse(input)).toThrow()
     })
 
     test('rejects missing records field', () => {
-      expect(() => upsertRecordsRequestSchema.parse({})).toThrow()
+      const input = {
+        fieldsToMergeOn: ['name'],
+      }
+      expect(() => upsertRecordsRequestSchema.parse(input)).toThrow()
+    })
+
+    test('rejects missing fieldsToMergeOn field', () => {
+      const input = {
+        records: [{ name: 'Test' }],
+      }
+      expect(() => upsertRecordsRequestSchema.parse(input)).toThrow()
+    })
+
+    test('rejects empty fieldsToMergeOn array', () => {
+      const input = {
+        records: [{ name: 'Test' }],
+        fieldsToMergeOn: [],
+      }
+      expect(() => upsertRecordsRequestSchema.parse(input)).toThrow(
+        'At least one merge field is required'
+      )
     })
   })
 })
@@ -488,12 +525,16 @@ describe('schema type inference', () => {
 
   test('UpsertRecordsRequest type matches schema output', () => {
     const input = {
-      records: [{ id: 'rec123', fields: { name: 'Update' } }, { fields: { name: 'Create' } }],
+      records: [{ id: 'rec123', name: 'Update' }, { name: 'Create' }],
+      fieldsToMergeOn: ['name'],
+      returnRecords: true,
     }
     const result = upsertRecordsRequestSchema.parse(input)
 
     const typed: typeof result = {
-      records: [{ id: 'rec123', fields: { name: 'Update' } }, { fields: { name: 'Create' } }],
+      records: [{ id: 'rec123', name: 'Update' }, { name: 'Create' }],
+      fieldsToMergeOn: ['name'],
+      returnRecords: true,
     }
     expect(typed).toEqual(result)
   })

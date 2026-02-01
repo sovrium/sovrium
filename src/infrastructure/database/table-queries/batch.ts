@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines -- Batch operations file contains multiple distinct operations (create, update, upsert, delete, restore) with their helper functions. Each operation requires validation, transaction handling, and activity logging. Further splitting would create artificial file boundaries and harm cohesion. */
+
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { withSessionContext, SessionContextError, ForbiddenError } from '@/infrastructure/database'
@@ -113,10 +115,11 @@ async function updateSingleRecord(
   tx: Readonly<any>,
   tableName: string,
   recordId: string,
-  fields: Record<string, unknown>,
-  fieldsToMergeOn: readonly string[]
+  params: { readonly fields: Record<string, unknown>; readonly fieldsToMergeOn: readonly string[] }
 ): Promise<Record<string, unknown> | undefined> {
-  const updateEntries = Object.entries(fields).filter(([key]) => !fieldsToMergeOn.includes(key))
+  const updateEntries = Object.entries(params.fields).filter(
+    ([key]) => !params.fieldsToMergeOn.includes(key)
+  )
   if (updateEntries.length === 0) return undefined
 
   const setExpressions = updateEntries.map(([key, value]) => {
@@ -136,6 +139,153 @@ type UpsertResult = {
   readonly records: readonly Record<string, unknown>[]
   readonly created: number
   readonly updated: number
+}
+
+/**
+ * Check if record exists based on merge fields
+ */
+function findExistingRecord(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
+  tx: any,
+  tableName: string,
+  fields: Record<string, unknown>,
+  fieldsToMergeOn: readonly string[]
+): Effect.Effect<Record<string, unknown> | undefined, SessionContextError> {
+  const whereConditions = fieldsToMergeOn.map((field) => {
+    validateColumnName(field)
+    return sql`${sql.identifier(field)} = ${fields[field]}`
+  })
+  const whereClause = sql.join(whereConditions, sql.raw(' AND '))
+
+  return Effect.tryPromise({
+    try: async () => {
+      const result = (await tx.execute(
+        sql`SELECT * FROM ${sql.identifier(tableName)} WHERE ${whereClause} LIMIT 1`
+      )) as readonly Record<string, unknown>[]
+      return result[0]
+    },
+    catch: (error) =>
+      new SessionContextError(`Failed to check existing record in ${tableName}`, error),
+  })
+}
+
+/**
+ * Handle update path in upsert
+ */
+function handleUpsertUpdate(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
+  tx: any,
+  params: {
+    readonly session: Readonly<Session>
+    readonly tableName: string
+    readonly fields: Record<string, unknown>
+    readonly fieldsToMergeOn: readonly string[]
+    readonly existing: Record<string, unknown>
+    readonly acc: UpsertResult
+  }
+): Effect.Effect<UpsertResult, SessionContextError> {
+  return Effect.gen(function* () {
+    const recordId = String(params.existing.id)
+    const updated = yield* Effect.tryPromise({
+      try: async () =>
+        updateSingleRecord(tx, params.tableName, recordId, {
+          fields: params.fields,
+          fieldsToMergeOn: params.fieldsToMergeOn,
+        }),
+      catch: (error) =>
+        new SessionContextError(`Failed to update record in ${params.tableName}`, error),
+    })
+
+    if (!updated) {
+      return {
+        records: [...params.acc.records, params.existing],
+        created: params.acc.created,
+        updated: params.acc.updated + 1,
+      }
+    }
+
+    yield* logActivity({
+      session: params.session,
+      tableName: params.tableName,
+      action: 'update',
+      recordId,
+      changes: { before: params.existing, after: updated },
+    })
+
+    return {
+      records: [...params.acc.records, updated],
+      created: params.acc.created,
+      updated: params.acc.updated + 1,
+    }
+  })
+}
+
+/**
+ * Handle create path in upsert
+ */
+function handleUpsertCreate(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
+  tx: any,
+  params: {
+    readonly session: Readonly<Session>
+    readonly tableName: string
+    readonly fields: Record<string, unknown>
+    readonly acc: UpsertResult
+  }
+): Effect.Effect<UpsertResult, SessionContextError> {
+  return Effect.gen(function* () {
+    const created = yield* Effect.tryPromise({
+      try: async () => createSingleRecord(tx, params.tableName, params.fields),
+      catch: (error) =>
+        new SessionContextError(`Failed to create record in ${params.tableName}`, error),
+    })
+
+    if (!created) return params.acc
+
+    yield* logActivity({
+      session: params.session,
+      tableName: params.tableName,
+      action: 'create',
+      recordId: String(created.id),
+      changes: { after: created },
+    })
+
+    return {
+      records: [...params.acc.records, created],
+      created: params.acc.created + 1,
+      updated: params.acc.updated,
+    }
+  })
+}
+
+/**
+ * Process single upsert operation
+ */
+function processSingleUpsert(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
+  tx: any,
+  params: {
+    readonly session: Readonly<Session>
+    readonly tableName: string
+    readonly fields: Record<string, unknown>
+    readonly fieldsToMergeOn: readonly string[]
+    readonly acc: UpsertResult
+  }
+): Effect.Effect<UpsertResult, SessionContextError> {
+  return Effect.gen(function* () {
+    const existing = yield* findExistingRecord(
+      tx,
+      params.tableName,
+      params.fields,
+      params.fieldsToMergeOn
+    )
+
+    if (existing) {
+      return yield* handleUpsertUpdate(tx, { ...params, existing })
+    }
+
+    return yield* handleUpsertCreate(tx, params)
+  })
 }
 
 /**
@@ -169,79 +319,7 @@ export function upsertRecords(
         recordsData,
         { records: [], created: 0, updated: 0 } as UpsertResult,
         (acc, fields) =>
-          Effect.gen(function* () {
-            const whereConditions = fieldsToMergeOn.map((field) => {
-              validateColumnName(field)
-              return sql`${sql.identifier(field)} = ${fields[field]}`
-            })
-            const whereClause = sql.join(whereConditions, sql.raw(' AND '))
-
-            const existingResult = yield* Effect.tryPromise({
-              try: async () =>
-                (await tx.execute(
-                  sql`SELECT * FROM ${sql.identifier(tableName)} WHERE ${whereClause} LIMIT 1`
-                )) as readonly Record<string, unknown>[],
-              catch: (error) =>
-                new SessionContextError(`Failed to check existing record in ${tableName}`, error),
-            })
-
-            if (existingResult.length > 0) {
-              const existingRecord = existingResult[0]
-              const recordId = String(existingRecord?.id)
-
-              const updatedRecord = yield* Effect.tryPromise({
-                try: async () => updateSingleRecord(tx, tableName, recordId, fields, fieldsToMergeOn),
-                catch: (error) =>
-                  new SessionContextError(`Failed to update record in ${tableName}`, error),
-              })
-
-              if (!updatedRecord) {
-                return {
-                  records: [...acc.records, existingRecord],
-                  created: acc.created,
-                  updated: acc.updated + 1,
-                }
-              }
-
-              yield* logActivity({
-                session,
-                tableName,
-                action: 'update',
-                recordId,
-                changes: { before: existingRecord, after: updatedRecord },
-              })
-
-              return {
-                records: [...acc.records, updatedRecord],
-                created: acc.created,
-                updated: acc.updated + 1,
-              }
-            } else {
-              const record = yield* Effect.tryPromise({
-                try: async () => createSingleRecord(tx, tableName, fields),
-                catch: (error) =>
-                  new SessionContextError(`Failed to create record in ${tableName}`, error),
-              })
-
-              if (record) {
-                yield* logActivity({
-                  session,
-                  tableName,
-                  action: 'create',
-                  recordId: String(record.id),
-                  changes: { after: record },
-                })
-
-                return {
-                  records: [...acc.records, record],
-                  created: acc.created + 1,
-                  updated: acc.updated,
-                }
-              }
-
-              return acc
-            }
-          })
+          processSingleUpsert(tx, { session, tableName, fields, fieldsToMergeOn, acc })
       )
 
       return result

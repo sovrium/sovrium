@@ -186,13 +186,11 @@ async function handleUpsert(c: Context, app: App) {
 
   return runEffect(
     c,
-    upsertProgram(
-      session,
-      tableName,
-      result.data.records,
-      result.data.fieldsToMergeOn,
-      result.data.returnRecords
-    ),
+    upsertProgram(session, tableName, {
+      recordsData: result.data.records,
+      fieldsToMergeOn: result.data.fieldsToMergeOn,
+      returnRecords: result.data.returnRecords,
+    }),
     upsertRecordsResponseSchema
   )
 }
