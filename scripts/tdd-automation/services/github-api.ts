@@ -242,7 +242,7 @@ export const GitHubApiLive = Layer.succeed(GitHubApi, {
 
           // Check if download succeeded
           const zipExists = await Bun.file(zipFile).exists()
-          const zipSize = zipExists ? (await Bun.file(zipFile).size) : 0
+          const zipSize = zipExists ? await Bun.file(zipFile).size : 0
           if (!zipExists || zipSize === 0) {
             return '' // Return empty string, cost tracker will handle the error
           }

@@ -12,7 +12,7 @@ import {
   batchUpdateRecords,
   batchDeleteRecords,
   upsertRecords,
-  BatchValidationError,
+  type BatchValidationError,
 } from '@/infrastructure/database/table-queries'
 import { transformRecords, type TransformedRecord } from './utils/record-transformer'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
