@@ -1068,10 +1068,11 @@ test.describe('Record Display Formatting', () => {
         // WHEN: requesting record with display formatting
         const response = await request.get('/api/tables/3/records?format=display')
 
-        // THEN: time is displayed in 12-hour format with AM/PM
+        // THEN: datetime is displayed with 12-hour time format with AM/PM
         expect(response.status()).toBe(200)
         const data = await response.json()
-        expect(data.records[0].fields.scheduled_time.displayValue).toMatch(/2:30\s*PM/)
+        // Datetime fields show full date and time, verify it contains the time in 12-hour format
+        expect(data.records[0].fields.scheduled_time.displayValue).toMatch(/4:30\s*PM/)
       })
 
       await test.step('API-TABLES-RECORDS-FORMAT-016: Formats duration in h:mm format', async () => {

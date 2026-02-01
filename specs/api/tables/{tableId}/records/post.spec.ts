@@ -1033,7 +1033,7 @@ test.describe('Create new record', () => {
         expect(data.code).toBe('VALIDATION_ERROR')
       })
 
-      await test.step('API-TABLES-RECORDS-CREATE-004: should return 500 Internal Server Error for unique constraint violation', async () => {
+      await test.step('API-TABLES-RECORDS-CREATE-004: should return 409 Internal Server Error for unique constraint violation', async () => {
         await executeQuery(`
           INSERT INTO users (email, first_name)
           VALUES ('existing@example.com', 'Jane')
@@ -1049,16 +1049,15 @@ test.describe('Create new record', () => {
           },
         })
 
-        // Unique constraint violation is not tagged, so it returns 500
-        expect(response.status()).toBe(500)
+        // Unique constraint violation now returns 409 Conflict
+        expect(response.status()).toBe(409)
 
         const data = await response.json()
         expect(data).toHaveProperty('success')
         expect(data).toHaveProperty('message')
         expect(data).toHaveProperty('code')
         expect(data.success).toBe(false)
-        expect(data.message).toBe('An unexpected error occurred. Please try again later.')
-        expect(data.code).toBe('INTERNAL_ERROR')
+        expect(data.code).toBe('CONFLICT')
 
         const result = await executeQuery(`
           SELECT COUNT(*) as count FROM users WHERE email = 'existing@example.com'

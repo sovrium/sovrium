@@ -1117,7 +1117,7 @@ test.describe('Field-Level Permissions', () => {
         // Note: Testing email field restriction (simplified schema uses email instead of verified)
         // Member attempts to update email field - Better Auth blocks
         const response = await page.request.patch('/api/tables/profiles/records/1', {
-          data: { email: 'hacker@example.com' },
+          data: { fields: { email: 'hacker@example.com' } },
         })
         expect([403, 401]).toContain(response.status())
 
@@ -1132,7 +1132,7 @@ test.describe('Field-Level Permissions', () => {
         })
 
         const adminResponse = await page.request.patch('/api/tables/profiles/records/1', {
-          data: { email: 'admin.updated@example.com' },
+          data: { fields: { email: 'admin.updated@example.com' } },
         })
         expect(adminResponse.status()).toBe(200)
 

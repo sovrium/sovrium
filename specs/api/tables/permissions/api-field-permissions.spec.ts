@@ -479,7 +479,7 @@ test.describe('API Field Permission Enforcement', () => {
         await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
         const response = await request.patch('/api/tables/1/records/1', {
           headers: { 'Content-Type': 'application/json' },
-          data: { salary: 100_000 }, // Attempting to give themselves a raise!
+          data: { fields: { salary: 100_000 } }, // Attempting to give themselves a raise!
         })
 
         // THEN: Should return 403 Forbidden (field write permission denied)
