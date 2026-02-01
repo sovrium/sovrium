@@ -163,10 +163,19 @@ export function computeAggregations(config: {
  * @param tableName - Name of the table to query
  * @returns Effect resolving to array of soft-deleted records
  */
-export function listTrash(
-  session: Readonly<Session>,
-  tableName: string
-): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+export function listTrash(config: {
+  readonly session: Readonly<Session>
+  readonly tableName: string
+  readonly filter?: {
+    readonly and?: readonly {
+      readonly field: string
+      readonly operator: string
+      readonly value: unknown
+    }[]
+  }
+  readonly sort?: string
+}): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+  const { session, tableName, filter, sort } = config
   return withSessionContext(session, (tx) =>
     Effect.gen(function* () {
       validateTableName(tableName)
@@ -178,10 +187,47 @@ export function listTrash(
         return []
       }
 
-      // Only fetch soft-deleted records (deleted_at IS NOT NULL)
+      // Build base query for soft-deleted records
+      const baseQuery = sql`SELECT * FROM ${sql.identifier(tableName)} WHERE deleted_at IS NOT NULL`
+
+      // Build filter conditions using reduce for functional style
+      const queryWithFilters = (filter?.and ?? []).reduce((query, condition) => {
+        const { field, operator, value } = condition
+        const fieldIdentifier = sql.identifier(field)
+
+        switch (operator) {
+          case 'equals':
+            return sql`${query} AND ${fieldIdentifier} = ${value}`
+          case 'notEquals':
+            return sql`${query} AND ${fieldIdentifier} != ${value}`
+          case 'contains':
+            return sql`${query} AND ${fieldIdentifier} ILIKE ${'%' + String(value) + '%'}`
+          case 'greaterThan':
+            return sql`${query} AND ${fieldIdentifier} > ${value}`
+          case 'lessThan':
+            return sql`${query} AND ${fieldIdentifier} < ${value}`
+          case 'greaterThanOrEqual':
+            return sql`${query} AND ${fieldIdentifier} >= ${value}`
+          case 'lessThanOrEqual':
+            return sql`${query} AND ${fieldIdentifier} <= ${value}`
+          default:
+            // Skip unknown operators
+            return query
+        }
+      }, baseQuery)
+
+      // Add sorting if specified
+      const query = sort
+        ? (() => {
+            const [field, order] = sort.split(':')
+            const direction = order?.toLowerCase() === 'desc' ? sql`DESC` : sql`ASC`
+            return sql`${queryWithFilters} ORDER BY ${sql.identifier(field)} ${direction}`
+          })()
+        : queryWithFilters
+
+      // Execute query
       const result = yield* Effect.tryPromise({
-        try: () =>
-          tx.execute(sql`SELECT * FROM ${sql.identifier(tableName)} WHERE deleted_at IS NOT NULL`),
+        try: () => tx.execute(query),
         catch: (error) => new SessionContextError(`Failed to list trash from ${tableName}`, error),
       })
 
