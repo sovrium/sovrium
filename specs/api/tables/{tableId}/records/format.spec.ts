@@ -973,7 +973,7 @@ test.describe('Record Display Formatting', () => {
   // @regression test - OPTIMIZED integration (exactly one test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-FORMAT-REGRESSION: record display formatting works across field types',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedUser }) => {
