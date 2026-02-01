@@ -15,17 +15,17 @@ The Islands Architecture in Sovrium uses schema-driven configuration to determin
 
 **Sovrium's Core Philosophy**: Configuration-driven applications where each app schema declares which features are interactive.
 
-| Aspect                  | Islands (Chosen)                     | Full React Hydration           | HTMX                              |
-| ----------------------- | ------------------------------------ | ------------------------------ | --------------------------------- |
-| **JavaScript Bundle**   | Only interactive components          | Entire React tree              | Minimal JS, server-driven         |
-| **Schema Integration**  | ✅ Natural fit (`interactive: true`) | ❌ All-or-nothing              | ⚠️ Requires different server arch |
-| **Progressive**         | ✅ Works without JS                  | ❌ Requires full hydration     | ✅ Works without JS               |
-| **Complex UI**          | ✅ Full React capabilities           | ✅ Full React capabilities     | ⚠️ Limited client-side logic      |
-| **Developer DX**        | ✅ Standard React components         | ✅ Standard React components   | ❌ Different paradigm             |
-| **Multi-Tenancy Ready** | ✅ Per-app island configuration      | ❌ Same bundle for all apps    | ⚠️ Different routing model        |
-| **Existing Stack**      | ✅ Extends current architecture      | ❌ Status quo (optimization)   | ❌ Requires architectural shift   |
-| **TanStack Query**      | ✅ Works seamlessly in islands       | ✅ Works everywhere            | ❌ Not compatible                 |
-| **TanStack Table**      | ✅ Works as island component         | ✅ Works everywhere            | ❌ Requires server-side rendering |
+| Aspect                  | Islands (Chosen)                     | Full React Hydration         | HTMX                              |
+| ----------------------- | ------------------------------------ | ---------------------------- | --------------------------------- |
+| **JavaScript Bundle**   | Only interactive components          | Entire React tree            | Minimal JS, server-driven         |
+| **Schema Integration**  | ✅ Natural fit (`interactive: true`) | ❌ All-or-nothing            | ⚠️ Requires different server arch |
+| **Progressive**         | ✅ Works without JS                  | ❌ Requires full hydration   | ✅ Works without JS               |
+| **Complex UI**          | ✅ Full React capabilities           | ✅ Full React capabilities   | ⚠️ Limited client-side logic      |
+| **Developer DX**        | ✅ Standard React components         | ✅ Standard React components | ❌ Different paradigm             |
+| **Multi-Tenancy Ready** | ✅ Per-app island configuration      | ❌ Same bundle for all apps  | ⚠️ Different routing model        |
+| **Existing Stack**      | ✅ Extends current architecture      | ❌ Status quo (optimization) | ❌ Requires architectural shift   |
+| **TanStack Query**      | ✅ Works seamlessly in islands       | ✅ Works everywhere          | ❌ Not compatible                 |
+| **TanStack Table**      | ✅ Works as island component         | ✅ Works everywhere          | ❌ Requires server-side rendering |
 
 ### Architectural Rationale
 
@@ -177,7 +177,9 @@ export function HomePage({ tableData, heroContent }) {
     data-props='{"data":[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]}'
   >
     <!-- Pre-rendered table HTML -->
-    <table>...</table>
+    <table>
+      ...
+    </table>
   </div>
 </div>
 ```
@@ -628,18 +630,18 @@ export const compileJS = (app: App): Effect.Effect<CompiledJS, JSCompilationErro
 
 **Detailed Breakdown** (Islands Architecture):
 
-| Component            | Size  | When Loaded                  |
-| -------------------- | ----- | ---------------------------- |
-| bootstrap.js         | 2KB   | Always (all pages)           |
-| DataTable chunk      | 15KB  | Only on pages with tables    |
-| ChartWidget chunk    | 20KB  | Only on pages with charts    |
-| SearchForm chunk     | 5KB   | Only on pages with search    |
-| Static components    | 0KB   | Server-rendered HTML only    |
-| React core (lazy)    | Split | Loaded with first island     |
-| TanStack Query       | Split | Loaded with data-fetching    |
-| Total (worst case)   | 42KB  | Page with all 3 islands      |
-| Total (average case) | 22KB  | Page with 1-2 islands        |
-| Total (best case)    | 2KB   | Static page (no islands)     |
+| Component            | Size  | When Loaded               |
+| -------------------- | ----- | ------------------------- |
+| bootstrap.js         | 2KB   | Always (all pages)        |
+| DataTable chunk      | 15KB  | Only on pages with tables |
+| ChartWidget chunk    | 20KB  | Only on pages with charts |
+| SearchForm chunk     | 5KB   | Only on pages with search |
+| Static components    | 0KB   | Server-rendered HTML only |
+| React core (lazy)    | Split | Loaded with first island  |
+| TanStack Query       | Split | Loaded with data-fetching |
+| Total (worst case)   | 42KB  | Page with all 3 islands   |
+| Total (average case) | 22KB  | Page with 1-2 islands     |
+| Total (best case)    | 2KB   | Static page (no islands)  |
 
 ### Real-World Impact
 
@@ -715,16 +717,16 @@ Tenant C (static site):   2KB average  ← Islands perfect
 
 ### CSS Compiler Parallel
 
-| Aspect           | CSS Compiler                    | JS Compiler (Islands)              |
-| ---------------- | ------------------------------- | ---------------------------------- |
-| **Input**        | App theme config                | App interactive components config  |
-| **Processing**   | PostCSS + Tailwind              | Bun.build + code splitting         |
-| **Output**       | Compiled CSS                    | Bootstrap + island chunks          |
-| **Caching**      | Theme hash                      | Island config hash                 |
-| **Serving**      | `/assets/output.css`            | `/assets/bootstrap.js` + chunks    |
-| **Effect.ts**    | `compileCSS()` Effect program   | `compileJS()` Effect program       |
-| **Schema-Driven** | `theme` object in app schema    | `interactive` flags in app schema  |
-| **Multi-Tenant** | Different CSS per app           | Different JS per app               |
+| Aspect            | CSS Compiler                  | JS Compiler (Islands)             |
+| ----------------- | ----------------------------- | --------------------------------- |
+| **Input**         | App theme config              | App interactive components config |
+| **Processing**    | PostCSS + Tailwind            | Bun.build + code splitting        |
+| **Output**        | Compiled CSS                  | Bootstrap + island chunks         |
+| **Caching**       | Theme hash                    | Island config hash                |
+| **Serving**       | `/assets/output.css`          | `/assets/bootstrap.js` + chunks   |
+| **Effect.ts**     | `compileCSS()` Effect program | `compileJS()` Effect program      |
+| **Schema-Driven** | `theme` object in app schema  | `interactive` flags in app schema |
+| **Multi-Tenant**  | Different CSS per app         | Different JS per app              |
 
 ### TanStack Query/Table as Islands
 
