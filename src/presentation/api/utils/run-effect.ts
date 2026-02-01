@@ -32,19 +32,11 @@ function handleErrorResponse(c: Context, error: unknown) {
   const sanitized = sanitizeError(error, requestId)
   const statusCode = getStatusCode(sanitized.code)
 
-  const errorData: {
-    success: false
-    message: string
-    code: string
-    details?: readonly string[]
-  } = {
-    success: false,
+  const errorData = {
+    success: false as const,
     message: sanitized.message ?? sanitized.error,
     code: sanitized.code,
-  }
-
-  if (sanitized.details) {
-    errorData.details = sanitized.details
+    ...(sanitized.details ? { details: sanitized.details } : {}),
   }
 
   return c.json(errorResponseSchema.parse(errorData), statusCode)
@@ -74,6 +66,32 @@ function handleErrorResponse(c: Context, error: unknown) {
  * )
  * ```
  */
+/**
+ * Error object for debugging
+ */
+interface DebugErrorObject {
+  readonly cause?: {
+    readonly failure?: unknown
+  }
+}
+
+/**
+ * Log Either.Left error details for debugging
+ */
+function logEitherLeftError(err: unknown): void {
+  const errorObj = err as DebugErrorObject
+  console.error('[run-effect] either.left JSON:', JSON.stringify(err, undefined, 2))
+  console.error('[run-effect] toString:', String(err))
+  console.error('[run-effect] keys:', Object.keys(err))
+  console.error('[run-effect] allKeys:', Object.getOwnPropertyNames(err))
+  console.error('[run-effect] err.cause:', errorObj.cause)
+  console.error(
+    '[run-effect] err.cause keys:',
+    errorObj.cause ? Object.keys(errorObj.cause) : 'no cause'
+  )
+  console.error('[run-effect] err.cause.failure:', errorObj.cause?.failure)
+}
+
 export async function runEffect<T, S>(
   c: Context,
   program: Effect.Effect<T, Error>,
@@ -88,14 +106,7 @@ export async function runEffect<T, S>(
     const either = await Effect.runPromise(Effect.either(program))
 
     if (either._tag === 'Left') {
-      const err = either.left as any
-      console.error('[run-effect] either.left JSON:', JSON.stringify(err, null, 2))
-      console.error('[run-effect] toString:', String(err))
-      console.error('[run-effect] keys:', Object.keys(err))
-      console.error('[run-effect] allKeys:', Object.getOwnPropertyNames(err))
-      console.error('[run-effect] err.cause:', err.cause)
-      console.error('[run-effect] err.cause keys:', err.cause ? Object.keys(err.cause) : 'no cause')
-      console.error('[run-effect] err.cause.failure:', err.cause?.failure)
+      logEitherLeftError(either.left)
       return handleErrorResponse(c, either.left)
     }
 

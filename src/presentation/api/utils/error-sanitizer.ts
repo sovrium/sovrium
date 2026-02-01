@@ -36,35 +36,6 @@ export interface SanitizedError {
 }
 
 /**
- * Tagged error types that are safe to expose
- *
- * These errors are explicitly designed to be shown to users and don't
- * contain internal system details.
- */
-interface SafeError {
-  readonly _tag: string
-  readonly message: string
-  readonly details?: readonly string[]
-}
-
-/**
- * Check if error is a known safe error type
- *
- * Safe errors are tagged errors with user-friendly messages that don't
- * expose internal system details.
- */
-function isSafeError(error: unknown): error is SafeError {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    '_tag' in error &&
-    'message' in error &&
-    typeof (error as { _tag: unknown })._tag === 'string' &&
-    typeof (error as { message: unknown }).message === 'string'
-  )
-}
-
-/**
  * Check if error indicates "not found"
  *
  * Detects various patterns that indicate a resource was not found,
@@ -76,6 +47,107 @@ function isNotFoundError(error: unknown): boolean {
     error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
 
   return errorMessage.includes('not found') || errorMessage.includes('access denied')
+}
+
+/**
+ * Error object with dynamic properties
+ */
+interface ErrorObject {
+  readonly toJSON?: () => {
+    readonly cause?: {
+      readonly failure?: {
+        readonly _tag?: string
+        readonly message?: string
+        readonly details?: readonly string[]
+      }
+    }
+  }
+  readonly _tag?: string
+  readonly message?: string
+  readonly details?: readonly string[]
+}
+
+/**
+ * Log error details for debugging (server-side only)
+ */
+function logErrorDetails(error: unknown, requestId: string | undefined): void {
+  console.error('[API Error]', { requestId, error })
+  console.error('[API Error - error type]', typeof error)
+  console.error(
+    '[API Error - error own keys]',
+    error && typeof error === 'object' ? Object.keys(error) : 'not an object'
+  )
+  console.error(
+    '[API Error - error all keys]',
+    error && typeof error === 'object' ? Object.getOwnPropertyNames(error) : 'not an object'
+  )
+  const errObj = error as ErrorObject
+  console.error('[API Error - error _tag]', errObj._tag)
+  console.error('[API Error - error message]', errObj.message)
+  console.error('[API Error - error details]', errObj.details)
+}
+
+/**
+ * Extract actual error from Effect FiberFailure wrapper
+ */
+function extractActualError(error: unknown): ErrorObject {
+  const errorObj = error as ErrorObject
+
+  // Try to extract the error from FiberFailure via toJSON()
+  if (errorObj && typeof errorObj === 'object' && errorObj.toJSON) {
+    try {
+      const jsonRep = errorObj.toJSON()
+      if (jsonRep?.cause?.failure) {
+        const actualError = jsonRep.cause.failure
+        console.error('[API Error - extracted from toJSON cause.failure]', {
+          _tag: actualError._tag,
+          message: actualError.message,
+          details: actualError.details,
+        })
+        return actualError
+      }
+    } catch (e) {
+      console.error('[API Error - toJSON extraction failed]', e)
+    }
+  }
+
+  return errorObj
+}
+
+/**
+ * Map tagged error to sanitized response
+ */
+function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedError | undefined {
+  switch (errorTag) {
+    case 'ForbiddenError':
+      return {
+        error: 'Forbidden',
+        code: 'FORBIDDEN',
+        message: actualError.message,
+      }
+    case 'ValidationError':
+      return {
+        error: 'Validation Error',
+        code: 'VALIDATION_ERROR',
+        message: actualError.message ?? 'Invalid input data',
+        details: actualError.details,
+      }
+    case 'UniqueConstraintViolationError':
+      return {
+        error: 'Conflict',
+        code: 'CONFLICT',
+        message: 'Resource already exists',
+      }
+    case 'NotFoundError':
+    case 'TableNotFoundError':
+      return {
+        error: 'Not Found',
+        code: 'NOT_FOUND',
+        message: 'Resource not found',
+      }
+    default:
+      return undefined
+  }
 }
 
 /**
@@ -107,81 +179,15 @@ function isNotFoundError(error: unknown): boolean {
  * ```
  */
 export function sanitizeError(error: unknown, requestId?: string): SanitizedError {
-  // Log full error for debugging (server-side only, never exposed to client)
-  console.error('[API Error]', { requestId, error })
-  console.error('[API Error - error type]', typeof error)
-  console.error(
-    '[API Error - error own keys]',
-    error && typeof error === 'object' ? Object.keys(error) : 'not an object'
-  )
-  console.error(
-    '[API Error - error all keys]',
-    error && typeof error === 'object' ? Object.getOwnPropertyNames(error) : 'not an object'
-  )
-  console.error('[API Error - error name]', (error as any)?.name)
-  console.error('[API Error - error _tag]', (error as any)?._tag)
-  console.error('[API Error - error message]', (error as any)?.message)
-  console.error('[API Error - error details]', (error as any)?.details)
-  console.error('[API Error - error cause]', (error as any)?.cause)
+  logErrorDetails(error, requestId)
 
-  // Extract actual error from FiberFailure nested structure
-  // Effect.either wraps errors in FiberFailure where the actual tagged error
-  // is nested in a toJSON representation (cause.failure)
-  // The cause property is NOT directly accessible - must use toJSON()
-  let actualError: any = error
-  const errorObj = error as any
-
-  // Try to extract the error from FiberFailure via toJSON()
-  if (errorObj && typeof errorObj === 'object') {
-    try {
-      // Use toJSON method if available (FiberFailure has this)
-      const jsonRep = errorObj.toJSON ? errorObj.toJSON() : errorObj
-      if (jsonRep && jsonRep.cause && jsonRep.cause.failure) {
-        actualError = jsonRep.cause.failure
-        console.error('[API Error - extracted from toJSON cause.failure]', {
-          _tag: actualError._tag,
-          message: actualError.message,
-          details: actualError.details,
-        })
-      }
-    } catch (e) {
-      console.error('[API Error - toJSON extraction failed]', e)
-    }
-  }
-
-  // Check if error has _tag property (Effect tagged errors)
-  const errorTag = actualError?._tag
+  const actualError = extractActualError(error)
+  const errorTag = actualError._tag
 
   // Handle known safe error types
   if (errorTag) {
-    switch (errorTag) {
-      case 'ForbiddenError':
-        return {
-          error: 'Forbidden',
-          code: 'FORBIDDEN',
-          message: actualError?.message,
-        }
-      case 'ValidationError':
-        return {
-          error: 'Validation Error',
-          code: 'VALIDATION_ERROR',
-          message: actualError?.message || 'Invalid input data',
-          details: actualError?.details,
-        }
-      case 'UniqueConstraintViolationError':
-        return {
-          error: 'Conflict',
-          code: 'CONFLICT',
-          message: 'Resource already exists',
-        }
-      case 'NotFoundError':
-      case 'TableNotFoundError':
-        return {
-          error: 'Not Found',
-          code: 'NOT_FOUND',
-          message: 'Resource not found',
-        }
-    }
+    const sanitized = mapTaggedError(errorTag, actualError)
+    if (sanitized) return sanitized
   }
 
   // Check for not-found patterns (includes access denied to avoid leaking existence)

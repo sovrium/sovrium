@@ -146,6 +146,25 @@ async function handleBatchDelete(c: Context, _app: App) {
 }
 
 /**
+ * Validate required fields for upsert records
+ */
+async function validateUpsertRequiredFields(
+  table: App['tables'][number] | undefined,
+  records: readonly Record<string, unknown>[]
+): Promise<Array<{ record: number; field: string; error: string }>> {
+  const { validateRequiredFieldsForRecord } = await import('./create-record-helpers')
+
+  return records.flatMap((record, index) => {
+    const missingFields = validateRequiredFieldsForRecord(table, record)
+    return missingFields.map((field: string) => ({
+      record: index,
+      field,
+      error: 'Required field is missing',
+    }))
+  })
+}
+
+/**
  * Handle upsert endpoint
  */
 async function handleUpsert(c: Context, app: App) {
@@ -185,22 +204,7 @@ async function handleUpsert(c: Context, app: App) {
   }
 
   // Validate required fields for all records
-  // Since upsert can create OR update, we check if records might be new (missing merge fields)
-  const { validateRequiredFieldsForRecord } = await import('./create-record-helpers')
-  const validationErrors: Array<{ record: number; field: string; error: string }> = []
-
-  result.data.records.forEach((record, index) => {
-    const missingFields = validateRequiredFieldsForRecord(table, record)
-    if (missingFields.length > 0) {
-      validationErrors.push(
-        ...missingFields.map((field: string) => ({
-          record: index,
-          field,
-          error: 'Required field is missing',
-        }))
-      )
-    }
-  })
+  const validationErrors = await validateUpsertRequiredFields(table, result.data.records)
 
   if (validationErrors.length > 0) {
     return c.json(

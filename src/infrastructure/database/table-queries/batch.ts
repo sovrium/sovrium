@@ -327,13 +327,11 @@ function validateMergeFieldsPresent(
   recordsData: readonly Record<string, unknown>[],
   fieldsToMergeOn: readonly string[]
 ): Effect.Effect<void, BatchValidationError> {
-  const errors: string[] = []
-
-  recordsData.forEach((record, index) => {
+  const errors = recordsData.flatMap((record, index) => {
     const missingFields = fieldsToMergeOn.filter((field) => !(field in record))
-    if (missingFields.length > 0) {
-      errors.push(`Record ${index}: Missing merge field(s) ${missingFields.join(', ')}`)
-    }
+    return missingFields.length > 0
+      ? [`Record ${index}: Missing merge field(s) ${missingFields.join(', ')}`]
+      : []
   })
 
   if (errors.length > 0) {
@@ -397,25 +395,25 @@ function validateAllRecordsHaveRequiredFields(
   recordsData: readonly Record<string, unknown>[]
 ): Effect.Effect<void, BatchValidationError> {
   return Effect.gen(function* () {
-    const errors: string[] = []
+    const allErrors = yield* Effect.reduce(
+      recordsData,
+      [] as readonly string[],
+      (acc, record, index) =>
+        Effect.tryPromise({
+          try: () => validateRequiredFieldsInRecord(tx, tableName, record, index),
+          catch: (error) =>
+            new BatchValidationError({
+              message: 'Failed to validate record',
+              details: [String(error)],
+            }),
+        }).pipe(Effect.map((recordErrors) => [...acc, ...recordErrors]))
+    )
 
-    for (let i = 0; i < recordsData.length; i++) {
-      const recordErrors = yield* Effect.tryPromise({
-        try: () => validateRequiredFieldsInRecord(tx, tableName, recordsData[i], i),
-        catch: (error) =>
-          new BatchValidationError({
-            message: 'Failed to validate record',
-            details: [String(error)],
-          }),
-      })
-      errors.push(...recordErrors)
-    }
-
-    if (errors.length > 0) {
+    if (allErrors.length > 0) {
       return yield* Effect.fail(
         new BatchValidationError({
           message: 'Batch validation failed',
-          details: errors,
+          details: allErrors,
         })
       )
     }
