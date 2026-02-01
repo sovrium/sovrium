@@ -848,7 +848,7 @@ test.describe('List records in table', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-LIST-020: should return 403 when sorting by inaccessible field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
@@ -884,13 +884,13 @@ test.describe('List records in table', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
       expect(data.code).toBe('FORBIDDEN')
+      expect(data.message).toContain('You do not have permission to perform this action')
       expect(data.message).toContain('Cannot sort by field')
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-LIST-021: should return 403 when filtering by inaccessible field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
@@ -928,13 +928,13 @@ test.describe('List records in table', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.message).toContain('You do not have permission to perform this action')
       expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toContain('Cannot filter by field')
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-LIST-022: should return 403 when aggregating inaccessible field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
@@ -973,13 +973,13 @@ test.describe('List records in table', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.message).toContain('You do not have permission to perform this action')
       expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toContain('Cannot aggregate field')
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-LIST-023: should return aggregations for accessible fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -1035,7 +1035,7 @@ test.describe('List records in table', () => {
   // Soft Delete Filtering Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-LIST-024: should exclude soft-deleted records by default',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -1143,7 +1143,7 @@ test.describe('List records in table', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-LIST-REGRESSION: user can complete full list records workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -1400,11 +1400,11 @@ test.describe('List records in table', () => {
         // Clear and setup specific data for multi-sort test
         await executeQuery(`DELETE FROM projects`)
         await executeQuery(`
-          INSERT INTO projects (priority, created_at)
+          INSERT INTO projects (name, priority, created_at)
           VALUES
-            (5, '2025-01-01'),
-            (5, '2025-01-02'),
-            (3, '2025-01-03')
+            ('Project A', 5, '2025-01-01'),
+            ('Project B', 5, '2025-01-02'),
+            ('Project C', 3, '2025-01-03')
         `)
 
         const response = await request.get('/api/tables/1/records', {

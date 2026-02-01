@@ -9,6 +9,39 @@ import type { App } from '@/domain/models/app'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
 
 /**
+ * Check if field is sensitive type (email, phone, currency)
+ */
+function isSensitiveFieldType(fieldType: string): boolean {
+  const sensitiveTypes = new Set(['email', 'phone-number', 'currency'])
+  return sensitiveTypes.has(fieldType)
+}
+
+/**
+ * Check if field should be excluded for viewer role
+ */
+function shouldExcludeForViewer(fieldName: string, fieldType: string): boolean {
+  const allowedFieldTypes = new Set(['single-line-text'])
+  const allowedFieldNames = new Set(['name', 'title'])
+
+  // Exclude sensitive field types
+  if (isSensitiveFieldType(fieldType)) {
+    return true
+  }
+
+  // Only allow specific field names or types
+  if (!allowedFieldNames.has(fieldName) && !allowedFieldTypes.has(fieldType)) {
+    return true
+  }
+
+  // For single-line-text, only allow if it's a name/title field
+  if (fieldType === 'single-line-text' && !allowedFieldNames.has(fieldName)) {
+    return true
+  }
+
+  return false
+}
+
+/**
  * Check if field should be excluded based on default permission rules
  * Sensitive fields (like salary) are restricted for non-admin/owner roles
  */
@@ -28,34 +61,14 @@ function shouldExcludeFieldByDefault(
   const field = table?.fields.find((f) => f.name === fieldName)
   if (!field) return false
 
-  // Viewer role: most restrictive access (only name and basic text fields)
+  // Viewer role: most restrictive access
   if (userRole === 'viewer') {
-    // Viewer can only read basic name/title fields
-    const allowedFieldTypes = ['single-line-text']
-    const allowedFieldNames = ['name', 'title']
-
-    // Exclude email, phone, salary, and other sensitive fields
-    if (field.type === 'email' || field.type === 'phone-number' || field.type === 'currency') {
-      return true
-    }
-
-    // Only allow specific field names or types
-    if (!allowedFieldNames.includes(fieldName) && !allowedFieldTypes.includes(field.type)) {
-      return true
-    }
-
-    // For single-line-text, only allow if it's a name/title field
-    if (field.type === 'single-line-text' && !allowedFieldNames.includes(fieldName)) {
-      return true
-    }
+    return shouldExcludeForViewer(fieldName, field.type)
   }
 
   // Member role: restrict sensitive financial data
   if (userRole === 'member') {
-    // Restrict salary fields for member roles
-    if (fieldName === 'salary' && field.type === 'currency') {
-      return true
-    }
+    return fieldName === 'salary' && field.type === 'currency'
   }
 
   return false
