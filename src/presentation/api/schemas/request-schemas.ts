@@ -133,14 +133,11 @@ export const batchRestoreRecordsRequestSchema = z.object({
  */
 export const upsertRecordsRequestSchema = z.object({
   records: z
-    .array(
-      z.object({
-        id: z.string().optional(),
-        fields: z.record(z.string(), fieldValueSchema).optional().default({}),
-      })
-    )
+    .array(z.record(z.string(), fieldValueSchema))
     .min(1, 'At least one record is required')
     .max(100, 'Maximum 100 records per batch'),
+  fieldsToMergeOn: z.array(z.string()).min(1, 'At least one merge field is required'),
+  returnRecords: z.boolean().optional().default(false),
 })
 
 // ============================================================================

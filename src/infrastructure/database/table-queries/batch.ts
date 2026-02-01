@@ -106,6 +106,150 @@ export function batchCreateRecords(
 }
 
 /**
+ * Helper to update existing record
+ */
+async function updateSingleRecord(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
+  tx: Readonly<any>,
+  tableName: string,
+  recordId: string,
+  fields: Record<string, unknown>,
+  fieldsToMergeOn: readonly string[]
+): Promise<Record<string, unknown> | undefined> {
+  const updateEntries = Object.entries(fields).filter(([key]) => !fieldsToMergeOn.includes(key))
+  if (updateEntries.length === 0) return undefined
+
+  const setExpressions = updateEntries.map(([key, value]) => {
+    validateColumnName(key)
+    return sql`${sql.identifier(key)} = ${value}`
+  })
+  const setClause = sql.join(setExpressions, sql.raw(', '))
+
+  const result = (await tx.execute(
+    sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
+  )) as readonly Record<string, unknown>[]
+
+  return result[0] ?? undefined
+}
+
+type UpsertResult = {
+  readonly records: readonly Record<string, unknown>[]
+  readonly created: number
+  readonly updated: number
+}
+
+/**
+ * Upsert records (create or update based on merge fields)
+ */
+export function upsertRecords(
+  session: Readonly<Session>,
+  tableName: string,
+  recordsData: readonly Record<string, unknown>[],
+  fieldsToMergeOn: readonly string[]
+): Effect.Effect<UpsertResult, SessionContextError> {
+  return withSessionContext(session, (tx) =>
+    Effect.gen(function* () {
+      validateTableName(tableName)
+
+      if (recordsData.length === 0) {
+        return yield* Effect.fail(
+          new SessionContextError('Cannot upsert batch with no records', undefined)
+        )
+      }
+
+      if (fieldsToMergeOn.length === 0) {
+        return yield* Effect.fail(
+          new SessionContextError('Cannot upsert without merge fields', undefined)
+        )
+      }
+
+      fieldsToMergeOn.forEach((field) => validateColumnName(field))
+
+      const result = yield* Effect.reduce(
+        recordsData,
+        { records: [], created: 0, updated: 0 } as UpsertResult,
+        (acc, fields) =>
+          Effect.gen(function* () {
+            const whereConditions = fieldsToMergeOn.map((field) => {
+              validateColumnName(field)
+              return sql`${sql.identifier(field)} = ${fields[field]}`
+            })
+            const whereClause = sql.join(whereConditions, sql.raw(' AND '))
+
+            const existingResult = yield* Effect.tryPromise({
+              try: async () =>
+                (await tx.execute(
+                  sql`SELECT * FROM ${sql.identifier(tableName)} WHERE ${whereClause} LIMIT 1`
+                )) as readonly Record<string, unknown>[],
+              catch: (error) =>
+                new SessionContextError(`Failed to check existing record in ${tableName}`, error),
+            })
+
+            if (existingResult.length > 0) {
+              const existingRecord = existingResult[0]
+              const recordId = String(existingRecord?.id)
+
+              const updatedRecord = yield* Effect.tryPromise({
+                try: async () => updateSingleRecord(tx, tableName, recordId, fields, fieldsToMergeOn),
+                catch: (error) =>
+                  new SessionContextError(`Failed to update record in ${tableName}`, error),
+              })
+
+              if (!updatedRecord) {
+                return {
+                  records: [...acc.records, existingRecord],
+                  created: acc.created,
+                  updated: acc.updated + 1,
+                }
+              }
+
+              yield* logActivity({
+                session,
+                tableName,
+                action: 'update',
+                recordId,
+                changes: { before: existingRecord, after: updatedRecord },
+              })
+
+              return {
+                records: [...acc.records, updatedRecord],
+                created: acc.created,
+                updated: acc.updated + 1,
+              }
+            } else {
+              const record = yield* Effect.tryPromise({
+                try: async () => createSingleRecord(tx, tableName, fields),
+                catch: (error) =>
+                  new SessionContextError(`Failed to create record in ${tableName}`, error),
+              })
+
+              if (record) {
+                yield* logActivity({
+                  session,
+                  tableName,
+                  action: 'create',
+                  recordId: String(record.id),
+                  changes: { after: record },
+                })
+
+                return {
+                  records: [...acc.records, record],
+                  created: acc.created + 1,
+                  updated: acc.updated,
+                }
+              }
+
+              return acc
+            }
+          })
+      )
+
+      return result
+    })
+  )
+}
+
+/**
  * Check if user has permission to restore records
  */
 async function checkRestorePermission(
