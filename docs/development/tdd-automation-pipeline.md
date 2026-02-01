@@ -1171,14 +1171,16 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 
 - **Parallel execution prevention**: Handled by `test.yml` workflow. Only the **last** test.yml execution on a PR will post `@claude` comment. If multiple test runs are queued/running (e.g., from main branch updates), earlier runs skip triggering Claude Code - only the final run with the latest failure triggers execution.
 
-  **Race Condition Protections (4 layers)**:
+  **Race Condition Protections (5 layers)**:
   1. **Smarter Timestamp-Based Check**: `test.yml` compares timestamps of active Claude Code runs. Only skips triggering if an active Claude Code run started AFTER the current test failure. This prevents skipping when the active run is handling an old failure.
 
   2. **Skipped Trigger Notification**: When automation decides not to trigger Claude Code due to active runs, a PR comment is posted explaining why (with current status: pending test runs count, active Claude Code count, next action). This prevents silent failures and provides visibility.
 
   3. **Staleness Filter (Phantom Run Protection)**: When checking for active test.yml or claude-code.yml runs, only count runs as "active" if their `updated_at` timestamp is within the last 30 minutes. This prevents GitHub Actions infrastructure phantom runs (stuck in `in_progress` status indefinitely) from blocking the pipeline. Phantom runs older than 30 minutes are ignored, allowing new runs to trigger Claude Code correctly.
 
-  4. **Timeout-Based Fallback**: A scheduled workflow (hourly) checks TDD PRs that have been in failed state for >30 minutes without Claude Code activity. Automatically adds `tdd-automation:manual-intervention` label and posts an explanatory comment if automation has stalled.
+  4. **Claude Code Workflow Check**: Before posting the `@claude` comment that triggers Claude Code, `test.yml` uses the GitHub API to check if a Claude Code workflow is already running on the same branch (`gh run list --workflow="Claude Code" --branch=<branch> --status=in_progress`). If a running Claude Code workflow is detected, the comment posting is skipped and a notification is posted explaining why. This prevents duplicate Claude Code workflows from running simultaneously on the same PR.
+
+  5. **Timeout-Based Fallback**: A scheduled workflow (hourly) checks TDD PRs that have been in failed state for >30 minutes without Claude Code activity. Automatically adds `tdd-automation:manual-intervention` label and posts an explanatory comment if automation has stalled.
 
 - **Step 3 (Initial sync)**: Branch syncing is handled automatically by this workflow via merge strategy. The test workflow (`.github/workflows/test.yml`) does NOT check if the branch is behind main - syncing happens when Claude Code is triggered via `@claude` comment.
 

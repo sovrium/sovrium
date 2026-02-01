@@ -9,7 +9,8 @@
  * GitHub API Service
  *
  * Effect service interface for GitHub API operations in TDD automation.
- * Uses gh CLI via Bun shell for all operations.
+ * Uses gh CLI via Bun shell for most operations, with direct GitHub REST API
+ * calls (fetch) for operations requiring complex query parameters (e.g., date filters).
  */
 
 import { Context, Effect, Layer } from 'effect'
@@ -111,7 +112,7 @@ export interface GitHubApiService {
 export class GitHubApi extends Context.Tag('GitHubApi')<GitHubApi, GitHubApiService>() {}
 
 /**
- * Live implementation using gh CLI via Bun shell
+ * Live implementation using gh CLI via Bun shell and GitHub REST API
  */
 export const GitHubApiLive = Layer.succeed(GitHubApi, {
   listTDDPRs: () =>
@@ -172,27 +173,60 @@ export const GitHubApiLive = Layer.succeed(GitHubApi, {
   getWorkflowRuns: ({ workflow, createdAfter, status }) =>
     Effect.tryPromise({
       try: async () => {
-        const createdFilter = `>${createdAfter.toISOString()}`
-        const statusFilter = status === 'all' ? '' : `--status ${status}`
+        // Get repository from environment or default
+        const repo = process.env.GITHUB_REPOSITORY ?? 'sovrium/sovrium'
+        const [owner, repoName] = repo.split('/')
 
-        const result =
-          await Bun.$`gh run list --workflow="${workflow}" --created "${createdFilter}" ${statusFilter} --json databaseId,name,conclusion,createdAt,updatedAt,url`.quiet()
-        const runs = JSON.parse(result.stdout.toString()) as Array<{
-          databaseId: number
-          name: string
-          conclusion: string | null
-          createdAt: string
-          updatedAt: string
-          url: string
-        }>
+        // Get GitHub token from environment
+        const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || ''
 
-        return runs.map((run) => ({
-          id: String(run.databaseId),
+        // Build query parameters
+        const params = new URLSearchParams({
+          per_page: '100', // Max allowed by GitHub API
+          created: `>=${createdAfter.toISOString()}`, // Filter by creation date
+        })
+
+        if (status !== 'all') {
+          params.set('status', status)
+        }
+
+        // Use GitHub REST API to list workflow runs
+        // Endpoint: GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs
+        const apiUrl = `https://api.github.com/repos/${owner}/${repoName}/actions/workflows/${workflow}/runs?${params.toString()}`
+
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            Authorization: token ? `Bearer ${token}` : '',
+            Accept: 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+        })
+
+        if (!response.ok) {
+          throw new Error(
+            `GitHub API request failed: ${response.status} ${response.statusText}`
+          )
+        }
+
+        const data = (await response.json()) as {
+          workflow_runs: Array<{
+            id: number
+            name: string
+            conclusion: string | null
+            created_at: string
+            updated_at: string
+            html_url: string
+          }>
+        }
+
+        return data.workflow_runs.map((run) => ({
+          id: String(run.id),
           name: run.name,
           conclusion: run.conclusion as WorkflowRun['conclusion'],
-          createdAt: new Date(run.createdAt),
-          updatedAt: new Date(run.updatedAt),
-          htmlUrl: run.url,
+          createdAt: new Date(run.created_at),
+          updatedAt: new Date(run.updated_at),
+          htmlUrl: run.html_url,
         }))
       },
       catch: (error) => new GitHubApiError({ operation: 'getWorkflowRuns', cause: error }),
@@ -410,27 +444,60 @@ export const GitHubApiLiveWithRetry = Layer.succeed(GitHubApi, {
     wrapWithRetry(
       Effect.tryPromise({
         try: async () => {
-          const createdFilter = `>${createdAfter.toISOString()}`
-          const statusFilter = status === 'all' ? '' : `--status ${status}`
+          // Get repository from environment or default
+          const repo = process.env.GITHUB_REPOSITORY ?? 'sovrium/sovrium'
+          const [owner, repoName] = repo.split('/')
 
-          const result =
-            await Bun.$`gh run list --workflow="${workflow}" --created "${createdFilter}" ${statusFilter} --json databaseId,name,conclusion,createdAt,updatedAt,url`.quiet()
-          const runs = JSON.parse(result.stdout.toString()) as Array<{
-            databaseId: number
-            name: string
-            conclusion: string | null
-            createdAt: string
-            updatedAt: string
-            url: string
-          }>
+          // Get GitHub token from environment
+          const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || ''
 
-          return runs.map((run) => ({
-            id: String(run.databaseId),
+          // Build query parameters
+          const params = new URLSearchParams({
+            per_page: '100', // Max allowed by GitHub API
+            created: `>=${createdAfter.toISOString()}`, // Filter by creation date
+          })
+
+          if (status !== 'all') {
+            params.set('status', status)
+          }
+
+          // Use GitHub REST API to list workflow runs
+          // Endpoint: GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs
+          const apiUrl = `https://api.github.com/repos/${owner}/${repoName}/actions/workflows/${workflow}/runs?${params.toString()}`
+
+          const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+              Authorization: token ? `Bearer ${token}` : '',
+              Accept: 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+            },
+          })
+
+          if (!response.ok) {
+            throw new Error(
+              `GitHub API request failed: ${response.status} ${response.statusText}`
+            )
+          }
+
+          const data = (await response.json()) as {
+            workflow_runs: Array<{
+              id: number
+              name: string
+              conclusion: string | null
+              created_at: string
+              updated_at: string
+              html_url: string
+            }>
+          }
+
+          return data.workflow_runs.map((run) => ({
+            id: String(run.id),
             name: run.name,
             conclusion: run.conclusion as WorkflowRun['conclusion'],
-            createdAt: new Date(run.createdAt),
-            updatedAt: new Date(run.updatedAt),
-            htmlUrl: run.url,
+            createdAt: new Date(run.created_at),
+            updatedAt: new Date(run.updated_at),
+            htmlUrl: run.html_url,
           }))
         },
         catch: (error) => new GitHubApiError({ operation: 'getWorkflowRuns', cause: error }),

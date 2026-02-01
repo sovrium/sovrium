@@ -1224,8 +1224,82 @@ jobs:
             fi
           done
 
-      - name: Trigger Claude Code on failure
+      - name: Check for running Claude Code workflows
+        id: check-claude-code
         if: steps.increment.outputs.exceeded == 'false' && steps.check-last-run.outputs.should-trigger == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          echo "🔍 Checking for running Claude Code workflows on branch: $BRANCH"
+
+          # Get running Claude Code workflows for this branch
+          RUNNING_WORKFLOWS=$(gh run list \
+            --workflow="Claude Code" \
+            --branch="$BRANCH" \
+            --status=in_progress \
+            --json databaseId,status,workflowName,createdAt \
+            --limit 10 | jq '. | length')
+
+          echo "   Running Claude Code workflows: $RUNNING_WORKFLOWS"
+
+          if [ "$RUNNING_WORKFLOWS" -gt 0 ]; then
+            echo "should-trigger=false" >> "$GITHUB_OUTPUT"
+            echo "skip-reason=claude_code_running" >> "$GITHUB_OUTPUT"
+            echo "⏭️ Skipping trigger - Claude Code workflow already running on this branch"
+          else
+            echo "should-trigger=true" >> "$GITHUB_OUTPUT"
+            echo "✅ No running Claude Code workflows - safe to trigger"
+          fi
+
+      - name: Post skipped trigger notification (Claude Code already running)
+        if: steps.increment.outputs.exceeded == 'false' && steps.check-last-run.outputs.should-trigger == 'true' && steps.check-claude-code.outputs.should-trigger == 'false'
+        timeout-minutes: 3
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "📝 Posting notification about skipped trigger..."
+
+          # Create notification comment
+          {
+            echo "## ⏭️ TDD Automation: Trigger Skipped"
+            echo ""
+            echo "**Reason**: A Claude Code workflow is already running on this branch."
+            echo ""
+            echo "**What this means**:"
+            echo "- Another test run triggered Claude Code before this one could"
+            echo "- The running Claude Code workflow will handle the most recent failure"
+            echo "- No duplicate workflows will be created"
+            echo ""
+            echo "**Next Steps**:"
+            echo "- Wait for the active Claude Code run to complete"
+            echo "- Tests will run automatically after Claude Code pushes changes"
+            echo "- If the issue persists after 30 minutes, the timeout-based fallback will add the \`tdd-automation:manual-intervention\` label"
+            echo ""
+            echo "---"
+            echo "_🤖 TDD Automation Race Condition Prevention_"
+          } > /tmp/skipped_claude_code_trigger.md
+
+          # Post comment with retry logic
+          for attempt in {1..3}; do
+            echo "📝 Posting notification (attempt $attempt/3)..."
+            if timeout 60 gh pr comment "$PR_NUMBER" --body-file /tmp/skipped_claude_code_trigger.md; then
+              echo "✅ Notification posted successfully"
+              break
+            fi
+
+            if [ $attempt -lt 3 ]; then
+              echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
+              sleep 10
+            else
+              echo "::error::Failed to post notification after 3 attempts"
+            fi
+          done
+
+      - name: Trigger Claude Code on failure
+        if: steps.increment.outputs.exceeded == 'false' && steps.check-last-run.outputs.should-trigger == 'true' && steps.check-claude-code.outputs.should-trigger == 'true'
         timeout-minutes: 5
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
