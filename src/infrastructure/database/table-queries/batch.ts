@@ -8,11 +8,19 @@
 /* eslint-disable max-lines -- Batch operations file contains multiple distinct operations (create, update, upsert, delete, restore) with their helper functions. Each operation requires validation, transaction handling, and activity logging. Further splitting would create artificial file boundaries and harm cohesion. */
 
 import { sql } from 'drizzle-orm'
-import { Effect } from 'effect'
+import { Effect, Data } from 'effect'
 import { withSessionContext, SessionContextError, ForbiddenError } from '@/infrastructure/database'
 import { logActivity } from './activity-log-helpers'
 import { validateTableName, validateColumnName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+
+/**
+ * Batch validation error - returned when batch validation fails
+ */
+class BatchValidationError extends Data.TaggedError('ValidationError')<{
+  readonly message: string
+  readonly details?: readonly string[]
+}> {}
 
 /**
  * Helper to create a single record within a transaction
@@ -289,6 +297,108 @@ function processSingleUpsert(
 }
 
 /**
+ * Validate merge fields are present in all records
+ */
+function validateMergeFieldsPresent(
+  recordsData: readonly Record<string, unknown>[],
+  fieldsToMergeOn: readonly string[]
+): Effect.Effect<void, BatchValidationError> {
+  const errors: string[] = []
+
+  recordsData.forEach((record, index) => {
+    const missingFields = fieldsToMergeOn.filter((field) => !(field in record))
+    if (missingFields.length > 0) {
+      errors.push(`Record ${index}: Missing merge field(s) ${missingFields.join(', ')}`)
+    }
+  })
+
+  if (errors.length > 0) {
+    return Effect.fail(
+      new BatchValidationError({
+        message: 'Batch validation failed',
+        details: errors,
+      })
+    )
+  }
+
+  return Effect.void
+}
+
+/**
+ * Validate required fields are present in record (for creates)
+ * This prevents database NOT NULL constraint violations
+ */
+async function validateRequiredFieldsInRecord(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx: any,
+  tableName: string,
+  record: Record<string, unknown>,
+  recordIndex: number
+): Promise<string[]> {
+  // Query table schema to get required fields
+  const schemaQuery = (await tx.execute(
+    sql`
+      SELECT column_name, is_nullable, column_default
+      FROM information_schema.columns
+      WHERE table_name = ${tableName}
+        AND table_schema = 'public'
+        AND is_nullable = 'NO'
+        AND column_default IS NULL
+    `
+  )) as readonly Array<{ column_name: string }>
+
+  const requiredFields = schemaQuery.map((row) => row.column_name)
+
+  // System fields that are auto-generated (exclude from validation)
+  const autoFields = new Set(['id', 'created_at', 'updated_at', 'owner_id'])
+
+  const missingFields = requiredFields.filter(
+    (field) => !autoFields.has(field) && !(field in record)
+  )
+
+  if (missingFields.length > 0) {
+    return [`Record ${recordIndex}: Missing required field(s) ${missingFields.join(', ')}`]
+  }
+
+  return []
+}
+
+/**
+ * Validate all records have required fields BEFORE processing
+ */
+function validateAllRecordsHaveRequiredFields(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  tx: any,
+  tableName: string,
+  recordsData: readonly Record<string, unknown>[]
+): Effect.Effect<void, BatchValidationError> {
+  return Effect.gen(function* () {
+    const errors: string[] = []
+
+    for (let i = 0; i < recordsData.length; i++) {
+      const recordErrors = yield* Effect.tryPromise({
+        try: () => validateRequiredFieldsInRecord(tx, tableName, recordsData[i], i),
+        catch: (error) =>
+          new BatchValidationError({
+            message: 'Failed to validate record',
+            details: [String(error)],
+          }),
+      })
+      errors.push(...recordErrors)
+    }
+
+    if (errors.length > 0) {
+      return yield* Effect.fail(
+        new BatchValidationError({
+          message: 'Batch validation failed',
+          details: errors,
+        })
+      )
+    }
+  })
+}
+
+/**
  * Upsert records (create or update based on merge fields)
  */
 export function upsertRecords(
@@ -296,7 +406,7 @@ export function upsertRecords(
   tableName: string,
   recordsData: readonly Record<string, unknown>[],
   fieldsToMergeOn: readonly string[]
-): Effect.Effect<UpsertResult, SessionContextError> {
+): Effect.Effect<UpsertResult, SessionContextError | BatchValidationError> {
   return withSessionContext(session, (tx) =>
     Effect.gen(function* () {
       validateTableName(tableName)
@@ -314,6 +424,12 @@ export function upsertRecords(
       }
 
       fieldsToMergeOn.forEach((field) => validateColumnName(field))
+
+      // Validate merge fields are present in all records BEFORE processing
+      yield* validateMergeFieldsPresent(recordsData, fieldsToMergeOn)
+
+      // Validate all records have required fields BEFORE processing
+      yield* validateAllRecordsHaveRequiredFields(tx, tableName, recordsData)
 
       const result = yield* Effect.reduce(
         recordsData,

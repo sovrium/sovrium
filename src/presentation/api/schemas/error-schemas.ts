@@ -50,6 +50,7 @@ export const errorResponseSchema = z.object({
       'SERVICE_UNAVAILABLE',
     ])
     .describe('Machine-readable error code'),
+  details: z.array(z.string()).optional().describe('Optional error details'),
 })
 
 /**

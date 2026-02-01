@@ -104,7 +104,7 @@ export function upsertProgram(
     readonly created: number
     readonly updated: number
   },
-  SessionContextError
+  SessionContextError | { readonly _tag: 'ValidationError' }
 > {
   return Effect.gen(function* () {
     const result = yield* upsertRecords(

@@ -32,14 +32,22 @@ function handleErrorResponse(c: Context, error: unknown) {
   const sanitized = sanitizeError(error, requestId)
   const statusCode = getStatusCode(sanitized.code)
 
-  return c.json(
-    errorResponseSchema.parse({
-      success: false,
-      message: sanitized.message ?? sanitized.error,
-      code: sanitized.code,
-    }),
-    statusCode
-  )
+  const errorData: {
+    success: false
+    message: string
+    code: string
+    details?: readonly string[]
+  } = {
+    success: false,
+    message: sanitized.message ?? sanitized.error,
+    code: sanitized.code,
+  }
+
+  if (sanitized.details) {
+    errorData.details = sanitized.details
+  }
+
+  return c.json(errorResponseSchema.parse(errorData), statusCode)
 }
 
 /**
@@ -80,6 +88,14 @@ export async function runEffect<T, S>(
     const either = await Effect.runPromise(Effect.either(program))
 
     if (either._tag === 'Left') {
+      const err = either.left as any
+      console.error('[run-effect] either.left JSON:', JSON.stringify(err, null, 2))
+      console.error('[run-effect] toString:', String(err))
+      console.error('[run-effect] keys:', Object.keys(err))
+      console.error('[run-effect] allKeys:', Object.getOwnPropertyNames(err))
+      console.error('[run-effect] err.cause:', err.cause)
+      console.error('[run-effect] err.cause keys:', err.cause ? Object.keys(err.cause) : 'no cause')
+      console.error('[run-effect] err.cause.failure:', err.cause?.failure)
       return handleErrorResponse(c, either.left)
     }
 

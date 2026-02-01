@@ -32,6 +32,7 @@ export interface SanitizedError {
   readonly error: string
   readonly code: ErrorCode
   readonly message?: string
+  readonly details?: readonly string[]
 }
 
 /**
@@ -43,6 +44,7 @@ export interface SanitizedError {
 interface SafeError {
   readonly _tag: string
   readonly message: string
+  readonly details?: readonly string[]
 }
 
 /**
@@ -107,21 +109,64 @@ function isNotFoundError(error: unknown): boolean {
 export function sanitizeError(error: unknown, requestId?: string): SanitizedError {
   // Log full error for debugging (server-side only, never exposed to client)
   console.error('[API Error]', { requestId, error })
+  console.error('[API Error - error type]', typeof error)
+  console.error(
+    '[API Error - error own keys]',
+    error && typeof error === 'object' ? Object.keys(error) : 'not an object'
+  )
+  console.error(
+    '[API Error - error all keys]',
+    error && typeof error === 'object' ? Object.getOwnPropertyNames(error) : 'not an object'
+  )
+  console.error('[API Error - error name]', (error as any)?.name)
+  console.error('[API Error - error _tag]', (error as any)?._tag)
+  console.error('[API Error - error message]', (error as any)?.message)
+  console.error('[API Error - error details]', (error as any)?.details)
+  console.error('[API Error - error cause]', (error as any)?.cause)
 
-  // Handle known safe error types (Effect.ts tagged errors with user-safe messages)
-  if (isSafeError(error)) {
-    switch (error._tag) {
+  // Extract actual error from FiberFailure nested structure
+  // Effect.either wraps errors in FiberFailure where the actual tagged error
+  // is nested in a toJSON representation (cause.failure)
+  // The cause property is NOT directly accessible - must use toJSON()
+  let actualError: any = error
+  const errorObj = error as any
+
+  // Try to extract the error from FiberFailure via toJSON()
+  if (errorObj && typeof errorObj === 'object') {
+    try {
+      // Use toJSON method if available (FiberFailure has this)
+      const jsonRep = errorObj.toJSON ? errorObj.toJSON() : errorObj
+      if (jsonRep && jsonRep.cause && jsonRep.cause.failure) {
+        actualError = jsonRep.cause.failure
+        console.error('[API Error - extracted from toJSON cause.failure]', {
+          _tag: actualError._tag,
+          message: actualError.message,
+          details: actualError.details,
+        })
+      }
+    } catch (e) {
+      console.error('[API Error - toJSON extraction failed]', e)
+    }
+  }
+
+  // Check if error has _tag property (Effect tagged errors)
+  const errorTag = actualError?._tag
+
+  // Handle known safe error types
+  if (errorTag) {
+    switch (errorTag) {
       case 'ForbiddenError':
         return {
           error: 'Forbidden',
           code: 'FORBIDDEN',
-          message: error.message,
+          message: actualError?.message,
         }
       case 'ValidationError':
         return {
           error: 'Validation Error',
           code: 'VALIDATION_ERROR',
-          message: 'Invalid input data',
+          message: actualError?.message || 'Invalid input data',
+          details: actualError?.details,
         }
       case 'UniqueConstraintViolationError':
         return {
