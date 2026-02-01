@@ -31,7 +31,7 @@ test.describe('GET /trash endpoint', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-TRASH-001: should return 200 with only soft-deleted records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
