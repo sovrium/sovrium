@@ -60,7 +60,10 @@ export function validateSortPermission(config: {
   if (!sort) return undefined
 
   // Parse sort parameter (format: "field:dir" or "field1:dir1,field2:dir2")
-  const sortFields = sort.split(',').map((s) => s.split(':')[0])
+  const sortFields = sort
+    .split(',')
+    .map((s) => s.split(':')[0])
+    .filter((field): field is string => field !== undefined && field !== '')
 
   // Check if user can read all sort fields
   const inaccessibleField = sortFields.find(
