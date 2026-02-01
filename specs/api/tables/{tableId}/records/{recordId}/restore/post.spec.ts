@@ -332,8 +332,8 @@ test.describe('Restore record', () => {
   test(
     'API-TABLES-RECORDS-RESTORE-008: should capture user_id who restored the record',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
-      // GIVEN: Two users with different roles
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: A user who will restore records
       await startServerWithSchema({
         name: 'test-app',
         auth: { emailAndPassword: true, admin: true },
@@ -350,8 +350,8 @@ test.describe('Restore record', () => {
         ],
       })
 
-      const { user: adminUser } = await createAuthenticatedAdmin({
-        email: 'admin@example.com',
+      const { user: authenticatedUser } = await createAuthenticatedUser({
+        email: 'user@example.com',
       })
 
       await executeQuery(`
@@ -359,12 +359,12 @@ test.describe('Restore record', () => {
         VALUES (1, 'Item A', NOW())
       `)
 
-      // WHEN: Admin restores the record
+      // WHEN: User restores the record
       const response = await request.post('/api/tables/9/records/1/restore', {})
 
       expect(response.status()).toBe(200)
 
-      // THEN: Activity log correctly attributes restore to admin user
+      // THEN: Activity log correctly attributes restore to the authenticated user
       const logs = await executeQuery(`
         SELECT user_id FROM system.activity_logs
         WHERE table_name = 'items' AND action = 'restore' AND record_id = '1'
@@ -372,7 +372,7 @@ test.describe('Restore record', () => {
         LIMIT 1
       `)
 
-      expect(logs.rows[0].user_id).toBe(adminUser.id)
+      expect(logs.rows[0].user_id).toBe(authenticatedUser.id)
     }
   )
 
