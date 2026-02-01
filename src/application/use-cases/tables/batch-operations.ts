@@ -11,6 +11,7 @@ import {
   batchRestoreRecords,
   batchUpdateRecords,
   batchDeleteRecords,
+  upsertRecords,
 } from '@/infrastructure/database/table-queries'
 import { transformRecords, type TransformedRecord } from './utils/record-transformer'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -90,17 +91,41 @@ export function batchRestoreProgram(
 }
 
 export function upsertProgram(
-  recordsData: readonly { id?: string; fields?: Record<string, unknown> }[]
-) {
-  const records = recordsData.map((r) => ({
-    id: r.id ?? crypto.randomUUID(),
-    fields: r.fields ?? {},
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }))
-  return Effect.succeed({
-    records,
-    created: recordsData.filter((r) => !r.id).length,
-    updated: recordsData.filter((r) => r.id).length,
+  session: Readonly<Session>,
+  tableName: string,
+  params: {
+    readonly recordsData: readonly Record<string, unknown>[]
+    readonly fieldsToMergeOn: readonly string[]
+    readonly returnRecords: boolean
+  }
+): Effect.Effect<
+  {
+    readonly records?: readonly TransformedRecord[]
+    readonly created: number
+    readonly updated: number
+  },
+  SessionContextError
+> {
+  return Effect.gen(function* () {
+    const result = yield* upsertRecords(
+      session,
+      tableName,
+      params.recordsData,
+      params.fieldsToMergeOn
+    )
+
+    if (params.returnRecords) {
+      const transformed = transformRecords(result.records)
+      return {
+        records: transformed,
+        created: result.created,
+        updated: result.updated,
+      }
+    }
+
+    return {
+      created: result.created,
+      updated: result.updated,
+    }
   })
 }

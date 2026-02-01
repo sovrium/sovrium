@@ -145,6 +145,56 @@ async function handleBatchDelete(c: Context, _app: App) {
   )
 }
 
+/**
+ * Handle upsert endpoint
+ */
+async function handleUpsert(c: Context, app: App) {
+  // Session, tableName, and userRole are guaranteed by middleware chain
+  const { session, tableName, userRole } = getTableContext(c)
+
+  const result = await validateRequest(c, upsertRecordsRequestSchema)
+  if (!result.success) return result.response
+
+  const table = app.tables?.find((t) => t.name === tableName)
+
+  // Check if user has create permission (for new records)
+  if (!hasCreatePermission(table, userRole)) {
+    return c.json(
+      {
+        error: 'Forbidden',
+        message: 'You do not have permission to create records in this table',
+      },
+      403
+    )
+  }
+
+  // Validate field-level write permissions for all records
+  const allForbiddenFields = result.data.records
+    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record))
+    .filter((fields) => fields.length > 0)
+
+  if (allForbiddenFields.length > 0) {
+    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+    return c.json(
+      {
+        error: 'Forbidden',
+        message: `You do not have permission to modify field(s): ${uniqueForbiddenFields.join(', ')}`,
+      },
+      403
+    )
+  }
+
+  return runEffect(
+    c,
+    upsertProgram(session, tableName, {
+      recordsData: result.data.records,
+      fieldsToMergeOn: result.data.fieldsToMergeOn,
+      returnRecords: result.data.returnRecords,
+    }),
+    upsertRecordsResponseSchema
+  )
+}
+
 export function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
   return (
     honoApp
@@ -154,11 +204,7 @@ export function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
       .post('/api/tables/:tableId/records/batch', (c) => handleBatchCreate(c, app))
       .patch('/api/tables/:tableId/records/batch', (c) => handleBatchUpdate(c, app))
       .delete('/api/tables/:tableId/records/batch', (c) => handleBatchDelete(c, app))
-      .post('/api/tables/:tableId/records/upsert', async (c) => {
-        const result = await validateRequest(c, upsertRecordsRequestSchema)
-        if (!result.success) return result.response
-        return runEffect(c, upsertProgram(result.data.records), upsertRecordsResponseSchema)
-      })
+      .post('/api/tables/:tableId/records/upsert', (c) => handleUpsert(c, app))
   )
 }
 

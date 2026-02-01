@@ -95,61 +95,34 @@ describe('batch-operations', () => {
   })
 
   describe('upsertProgram', () => {
-    test('creates records with IDs for new records', async () => {
-      const recordsData = [
-        { fields: { name: 'New Record 1' } },
-        { fields: { name: 'New Record 2' } },
-      ]
+    test('returns an Effect program', () => {
+      const session = createMockSession()
+      const tableName = 'test_table'
+      const recordsData = [{ name: 'New Record 1' }, { name: 'New Record 2' }]
 
-      const program = upsertProgram(recordsData)
-      const result = await Effect.runPromise(program)
+      const program = upsertProgram(session, tableName, {
+        recordsData,
+        fieldsToMergeOn: ['name'],
+        returnRecords: true,
+      })
 
-      expect(result.records).toHaveLength(2)
-      expect(result.created).toBe(2)
-      expect(result.updated).toBe(0)
-      expect(result.records[0]?.id).toBeDefined()
-      expect(result.records[0]?.fields).toEqual({ name: 'New Record 1' })
-      expect(result.records[0]?.createdAt).toBeDefined()
-      expect(result.records[0]?.updatedAt).toBeDefined()
+      // Verify the program is an Effect
+      expect(Effect.isEffect(program)).toBe(true)
     })
 
-    test('updates records with existing IDs', async () => {
-      const recordsData = [
-        { id: 'existing-1', fields: { name: 'Updated Record 1' } },
-        { id: 'existing-2', fields: { name: 'Updated Record 2' } },
-      ]
+    test('creates program with returnRecords false', () => {
+      const session = createMockSession()
+      const tableName = 'test_table'
+      const recordsData = [{ name: 'Record' }]
 
-      const program = upsertProgram(recordsData)
-      const result = await Effect.runPromise(program)
+      const program = upsertProgram(session, tableName, {
+        recordsData,
+        fieldsToMergeOn: ['name'],
+        returnRecords: false,
+      })
 
-      expect(result.records).toHaveLength(2)
-      expect(result.created).toBe(0)
-      expect(result.updated).toBe(2)
-      expect(result.records[0]?.id).toBe('existing-1')
-    })
-
-    test('handles mix of new and existing records', async () => {
-      const recordsData = [
-        { fields: { name: 'New Record' } },
-        { id: 'existing-1', fields: { name: 'Updated Record' } },
-      ]
-
-      const program = upsertProgram(recordsData)
-      const result = await Effect.runPromise(program)
-
-      expect(result.records).toHaveLength(2)
-      expect(result.created).toBe(1)
-      expect(result.updated).toBe(1)
-    })
-
-    test('handles empty fields gracefully', async () => {
-      const recordsData = [{ id: 'test-id' }]
-
-      const program = upsertProgram(recordsData)
-      const result = await Effect.runPromise(program)
-
-      expect(result.records).toHaveLength(1)
-      expect(result.records[0]?.fields).toEqual({})
+      // Verify the program is an Effect
+      expect(Effect.isEffect(program)).toBe(true)
     })
   })
 })
