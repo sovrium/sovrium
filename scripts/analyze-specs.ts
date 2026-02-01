@@ -939,9 +939,9 @@ async function calculateTDDAutomationStats(totalFixme: number): Promise<TDDAutom
     // 3. TDD activation commits: test(tdd): activate <SPEC-ID>
     const { stdout } = await execAsync(
       'git log --oneline --since="90 days ago" --extended-regexp' +
-        ' --grep="^(fix|test|feat|refactor|chore)(\\([^)]*\\))?:.*[A-Z]+-[A-Z0-9-]+-[0-9]{3}"' +
-        ' --grep="^\\[TDD\\].*[A-Z]+-[A-Z0-9-]+-[0-9]{3}"' +
-        ' --grep="^test\\(tdd\\):.*[A-Z]+-[A-Z0-9-]+-[0-9]{3}"' +
+        ' --grep="^(fix|test|feat|refactor|chore)(\\([^)]*\\))?:.*[A-Z]+-[A-Z0-9-]+-([0-9]{3}|REGRESSION)"' +
+        ' --grep="^\\[TDD\\].*[A-Z]+-[A-Z0-9-]+-([0-9]{3}|REGRESSION)"' +
+        ' --grep="^test\\(tdd\\):.*[A-Z]+-[A-Z0-9-]+-([0-9]{3}|REGRESSION)"' +
         ' --format="%H|%aI|%s"',
       { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 }
     )
