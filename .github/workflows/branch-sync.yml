@@ -1,12 +1,14 @@
 name: Branch Sync
 
 # Automatically sync TDD branches with main to prevent staleness
-# Triggered when main branch is updated
+# Triggered when main branch is updated or periodically via cron
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15 minutes to prevent stuck PRs
 
 permissions:
   contents: write
