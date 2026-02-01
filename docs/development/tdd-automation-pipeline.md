@@ -1017,8 +1017,62 @@ TERMINAL STATES:
 **Spec Selection Logic (within create-pr job):**
 
 1. Run `scripts/tdd-automation/core/schema-priority-calculator.ts`
-2. Exclude specs in `manual-intervention` PRs
-3. Extract per-spec config (`@tdd-max-attempts`, `@tdd-timeout`)
+2. Identify blocked spec files from `manual-intervention` PRs
+3. Exclude specs from blocked files
+4. Extract per-spec config (`@tdd-max-attempts`, `@tdd-timeout`)
+
+**File-Based Blocking (2026-02-01):**
+
+When specs fail and require manual intervention, the pipeline blocks the entire spec file (not just the individual spec) from further processing. This prevents cascading failures where multiple specs from the same file fail for the same underlying reason.
+
+**Spec File Identification:**
+
+- Spec IDs follow pattern: `<PREFIX>-<NUMBER>` (e.g., `API-TABLES-001`, `API-TABLES-RECORDS-001`)
+- File prefix is everything before the final number (e.g., `API-TABLES`, `API-TABLES-RECORDS`)
+- Specs sharing the same prefix belong to the same logical file/feature
+
+**Blocking Logic:**
+
+1. **Find Blocked Files**: Query all PRs with `tdd-automation:manual-intervention` label
+2. **Extract File Prefixes**: Parse spec ID from each manual-intervention PR to get file prefix
+   - `API-TABLES-001` → blocks `API-TABLES`
+   - `API-TABLES-RECORDS-001` → blocks `API-TABLES-RECORDS`
+3. **Filter Available Specs**: When selecting next spec, exclude any spec whose file prefix matches a blocked file
+   - If `API-TABLES` is blocked, skip `API-TABLES-002`, `API-TABLES-003`, etc.
+   - Continue to different file like `API-TABLES-RECORDS-001`
+
+**Rationale:**
+
+- Related specs in the same file often fail for the same reason (missing implementation, incorrect architecture)
+- Processing subsequent specs from a blocked file wastes API credits and produces redundant errors
+- Human fixing the root cause can then remove the label to unblock all specs in that file
+- Encourages developers to fix underlying issues rather than individual spec symptoms
+
+**Example Scenario:**
+
+```
+Manual Intervention PRs:
+- PR #123: [TDD] Implement API-TABLES-001 (label: manual-intervention)
+- PR #124: [TDD] Implement API-USERS-002 (label: manual-intervention)
+
+Blocked Files:
+- API-TABLES (blocks API-TABLES-002, API-TABLES-003, etc.)
+- API-USERS (blocks API-USERS-001, API-USERS-003, etc.)
+
+Available Specs:
+✅ API-TABLES-RECORDS-001 (different file prefix)
+✅ API-AUTH-001 (different file prefix)
+❌ API-TABLES-002 (blocked by API-TABLES)
+❌ API-USERS-001 (blocked by API-USERS)
+```
+
+**Recovery:**
+
+When developer fixes the underlying issue:
+
+1. Remove `manual-intervention` label from the PR
+2. Pipeline automatically unblocks the file prefix
+3. Next PR Creator run can process other specs from that file
 
 **PR Creation:**
 

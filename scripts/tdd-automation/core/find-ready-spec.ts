@@ -13,6 +13,7 @@
  *   1. Specs with .fixme() marker
  *   2. No existing TDD PR for the spec
  *   3. No other active TDD PR (serial processing)
+ *   4. Spec file not blocked by manual-intervention PRs (file-based blocking)
  *
  * Usage:
  *   bun run scripts/tdd-automation/core/find-ready-spec.ts
@@ -20,6 +21,7 @@
  * Environment:
  *   - GITHUB_REPOSITORY: owner/repo
  *   - GH_TOKEN or GITHUB_TOKEN: GitHub API token
+ *   - BLOCKED_FILES: (optional) Comma-separated list of blocked file prefixes
  *
  * Output (JSON):
  *   {
@@ -43,74 +45,127 @@ import { scanForFixmeSpecs } from './spec-scanner'
 import type { ReadySpec } from './types'
 
 /**
+ * Extract file prefix from spec ID
+ *
+ * Spec ID format: <PREFIX>-<NUMBER>
+ * Returns everything before the final hyphen-number sequence
+ *
+ * Examples:
+ * - API-TABLES-001 → API-TABLES
+ * - API-TABLES-RECORDS-001 → API-TABLES-RECORDS
+ * - APP-VERSION-001 → APP-VERSION
+ */
+function extractFilePrefix(specId: string): string | null {
+  // Match everything up to the last hyphen-number sequence
+  const match = specId.match(/^(.+)-\d+$/i)
+  if (match && match[1]) {
+    return match[1].toUpperCase()
+  }
+  return null
+}
+
+/**
  * Find the next spec ready for TDD automation
  *
  * Effect program that:
  * 1. Checks for active TDD PRs (serial processing)
  * 2. Scans for .fixme() specs
  * 3. Filters out specs with existing PRs
- * 4. Returns highest priority spec
+ * 4. Filters out specs from blocked files (manual-intervention)
+ * 5. Returns highest priority spec
+ *
+ * @param blockedFiles - Optional set of blocked file prefixes to exclude
  */
-export const findReadySpec = Effect.gen(function* () {
-  const githubApi = yield* GitHubApi
+export const findReadySpec = (blockedFiles?: readonly string[]) =>
+  Effect.gen(function* () {
+    const githubApi = yield* GitHubApi
 
-  yield* Console.error('🔍 Finding next ready spec for TDD automation...')
-  yield* Console.error('')
+    yield* Console.error('🔍 Finding next ready spec for TDD automation...')
+    yield* Console.error('')
 
-  // Step 1: Check for active TDD PRs (serial processing)
-  const openPRs = yield* githubApi.listTDDPRs()
+    // Step 1: Check for active TDD PRs (serial processing)
+    const openPRs = yield* githubApi.listTDDPRs()
 
-  // Filter to active PRs (not in manual intervention)
-  const activePRs = openPRs.filter((pr) => !pr.hasManualInterventionLabel)
+    // Filter to active PRs (not in manual intervention)
+    const activePRs = openPRs.filter((pr) => !pr.hasManualInterventionLabel)
 
-  if (activePRs.length > 0) {
-    const activePR = activePRs[0]!
-    yield* Console.error(`⏳ Active TDD PR found: #${activePR.number} (${activePR.specId})`)
-    yield* Console.error('   Serial processing: waiting for current PR to complete')
-    return null as ReadySpec | null
-  }
+    if (activePRs.length > 0) {
+      const activePR = activePRs[0]!
+      yield* Console.error(`⏳ Active TDD PR found: #${activePR.number} (${activePR.specId})`)
+      yield* Console.error('   Serial processing: waiting for current PR to complete')
+      return null as ReadySpec | null
+    }
 
-  // Step 2: Scan for .fixme() specs
-  yield* Console.error('📂 Scanning for .fixme() specs...')
+    // Step 2: Scan for .fixme() specs
+    yield* Console.error('📂 Scanning for .fixme() specs...')
 
-  const scanResult = yield* scanForFixmeSpecs
+    const scanResult = yield* scanForFixmeSpecs
 
-  if (scanResult.specs.length === 0) {
-    yield* Console.error('✅ No .fixme() specs found - all tests are passing!')
-    return null as ReadySpec | null
-  }
+    if (scanResult.specs.length === 0) {
+      yield* Console.error('✅ No .fixme() specs found - all tests are passing!')
+      return null as ReadySpec | null
+    }
 
-  yield* Console.error(`   Found ${scanResult.specs.length} .fixme() specs`)
+    yield* Console.error(`   Found ${scanResult.specs.length} .fixme() specs`)
 
-  // Step 3: Filter out specs that already have PRs (including manual intervention)
-  const specIdsWithPRs = new Set(openPRs.map((pr) => pr.specId))
-  const availableSpecs = scanResult.specs.filter((spec) => !specIdsWithPRs.has(spec.specId))
+    // Step 3: Filter out specs that already have PRs (including manual intervention)
+    const specIdsWithPRs = new Set(openPRs.map((pr) => pr.specId))
+    let availableSpecs = scanResult.specs.filter((spec) => !specIdsWithPRs.has(spec.specId))
 
-  if (availableSpecs.length === 0) {
-    yield* Console.error('⏳ All .fixme() specs have open PRs (pending or manual intervention)')
-    return null as ReadySpec | null
-  }
+    if (availableSpecs.length === 0) {
+      yield* Console.error('⏳ All .fixme() specs have open PRs (pending or manual intervention)')
+      return null as ReadySpec | null
+    }
 
-  yield* Console.error(`   ${availableSpecs.length} specs available (no existing PR)`)
+    yield* Console.error(`   ${availableSpecs.length} specs available (no existing PR)`)
 
-  // Step 4: Return highest priority spec (already sorted by priority)
-  const nextSpec = availableSpecs[0]!
+    // Step 4: Filter out specs from blocked files
+    if (blockedFiles && blockedFiles.length > 0) {
+      const blockedFilesSet = new Set(blockedFiles.map((f) => f.toUpperCase()))
 
-  yield* Console.error('')
-  yield* Console.error('✅ Next spec to process:')
-  yield* Console.error(`   Spec ID: ${nextSpec.specId}`)
-  yield* Console.error(`   File: ${nextSpec.file}:${nextSpec.line}`)
-  yield* Console.error(`   Description: ${nextSpec.description}`)
-  yield* Console.error(`   Priority: ${nextSpec.priority}`)
+      yield* Console.error(`🚫 Filtering specs from ${blockedFiles.length} blocked file(s):`)
+      for (const filePrefix of blockedFiles) {
+        yield* Console.error(`   - ${filePrefix}`)
+      }
 
-  return {
-    specId: nextSpec.specId,
-    file: nextSpec.file,
-    line: nextSpec.line,
-    description: nextSpec.description,
-    priority: nextSpec.priority,
-  } as ReadySpec | null
-})
+      const beforeBlockFilter = availableSpecs.length
+      availableSpecs = availableSpecs.filter((spec) => {
+        const filePrefix = extractFilePrefix(spec.specId)
+        if (!filePrefix) return true // Keep specs without clear file prefix
+        return !blockedFilesSet.has(filePrefix)
+      })
+
+      const blockedCount = beforeBlockFilter - availableSpecs.length
+      if (blockedCount > 0) {
+        yield* Console.error(`   Filtered out ${blockedCount} spec(s) from blocked files`)
+      }
+
+      if (availableSpecs.length === 0) {
+        yield* Console.error('⏳ All available specs are from blocked files (manual-intervention)')
+        return null as ReadySpec | null
+      }
+
+      yield* Console.error(`   ${availableSpecs.length} specs available after file blocking`)
+    }
+
+    // Step 5: Return highest priority spec (already sorted by priority)
+    const nextSpec = availableSpecs[0]!
+
+    yield* Console.error('')
+    yield* Console.error('✅ Next spec to process:')
+    yield* Console.error(`   Spec ID: ${nextSpec.specId}`)
+    yield* Console.error(`   File: ${nextSpec.file}:${nextSpec.line}`)
+    yield* Console.error(`   Description: ${nextSpec.description}`)
+    yield* Console.error(`   Priority: ${nextSpec.priority}`)
+
+    return {
+      specId: nextSpec.specId,
+      file: nextSpec.file,
+      line: nextSpec.line,
+      description: nextSpec.description,
+      priority: nextSpec.priority,
+    } as ReadySpec | null
+  })
 
 /**
  * Layer composition for find-ready-spec program
@@ -121,7 +176,13 @@ const FindReadySpecLayer = Layer.mergeAll(GitHubApiLive, FileSystemServiceLive, 
  * CLI entry point
  */
 async function main(): Promise<void> {
-  const program = findReadySpec.pipe(
+  // Get blocked files from environment (comma-separated list)
+  const blockedFilesEnv = process.env['BLOCKED_FILES']
+  const blockedFiles = blockedFilesEnv
+    ? blockedFilesEnv.split(',').filter((f) => f.trim().length > 0)
+    : undefined
+
+  const program = findReadySpec(blockedFiles).pipe(
     Effect.catchTag('GitHubApiError', (error) =>
       Effect.gen(function* () {
         yield* Console.error(`GitHub API error: ${error.operation}`)

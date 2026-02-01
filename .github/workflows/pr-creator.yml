@@ -260,21 +260,37 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Find excluded specs (in manual-intervention PRs)
-        id: excluded
+      - name: Find blocked files (from manual-intervention PRs)
+        id: blocked-files
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
+          echo "🔍 Finding blocked spec files from manual-intervention PRs..."
           RESULT=$(bun run scripts/tdd-automation/workflows/pr-creator/find-excluded-specs.ts 2>&1)
-          EXCLUDED=$(echo "$RESULT" | tail -1 | jq -r '.excludedList')
-          echo "specs=$EXCLUDED" >> "$GITHUB_OUTPUT"
+          BLOCKED_FILES=$(echo "$RESULT" | tail -1 | jq -r '.excludedList')
+          BLOCKED_COUNT=$(echo "$RESULT" | tail -1 | jq -r '.count')
+
+          echo "files=$BLOCKED_FILES" >> "$GITHUB_OUTPUT"
+          echo "count=$BLOCKED_COUNT" >> "$GITHUB_OUTPUT"
+
+          if [ "$BLOCKED_COUNT" -gt 0 ]; then
+            echo "🚫 Found $BLOCKED_COUNT blocked file(s): $BLOCKED_FILES"
+          else
+            echo "✅ No blocked files"
+          fi
 
       - name: Find next spec
         id: next-spec
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          BLOCKED_FILES: ${{ steps.blocked-files.outputs.files }}
         run: |
+          echo "🔍 Finding next ready spec..."
+          if [ -n "$BLOCKED_FILES" ]; then
+            echo "   Excluding specs from blocked files: $BLOCKED_FILES"
+          fi
+
           RESULT=$(bun run scripts/tdd-automation/core/find-ready-spec.ts) || true
           SPEC_JSON=$(echo "$RESULT" | tail -1)
 

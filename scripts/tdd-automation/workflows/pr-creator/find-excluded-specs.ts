@@ -8,17 +8,24 @@
 /**
  * Find Excluded Specs CLI Entry Point
  *
- * CLI script called by pr-creator.yml workflow to find specs that should
- * be excluded from TDD automation (those with manual-intervention PRs).
+ * CLI script called by pr-creator.yml workflow to identify spec files that should
+ * be blocked from TDD automation (those with manual-intervention PRs).
+ *
+ * File-Based Blocking Logic:
+ * - Spec IDs follow pattern: <PREFIX>-<NUMBER> (e.g., API-TABLES-001)
+ * - File prefix is everything before the final number (e.g., API-TABLES)
+ * - When a spec has a manual-intervention PR, its entire file is blocked
+ * - This prevents cascading failures where multiple specs from the same file fail for the same reason
  *
  * Usage:
  *   bun run scripts/tdd-automation/workflows/pr-creator/find-excluded-specs.ts
  *
  * Output (JSON):
  *   {
- *     "excludedSpecs": ["APP-001", "APP-002"],
+ *     "blockedFiles": ["API-TABLES", "API-USERS"],
+ *     "blockedSpecs": ["API-TABLES-001", "API-USERS-002"],
  *     "count": 2,
- *     "excludedList": "APP-001,APP-002"
+ *     "excludedList": "API-TABLES,API-USERS"
  *   }
  */
 
@@ -26,10 +33,14 @@ import { Effect, Console } from 'effect'
 import { LiveLayer } from '../../layers/live'
 import { GitHubApi } from '../../services/github-api'
 
-interface ExcludedSpecsResult {
-  readonly excludedSpecs: readonly string[]
+interface BlockedFilesResult {
+  /** File prefixes blocked due to manual-intervention PRs */
+  readonly blockedFiles: readonly string[]
+  /** Individual spec IDs with manual-intervention (for logging) */
+  readonly blockedSpecs: readonly string[]
+  /** Count of blocked files */
   readonly count: number
-  /** Comma-separated list for easy YAML consumption */
+  /** Comma-separated list of blocked file prefixes for easy YAML consumption */
   readonly excludedList: string
 }
 
@@ -47,10 +58,30 @@ function extractSpecIdFromBranch(branch: string): string | null {
   return null
 }
 
+/**
+ * Extract file prefix from spec ID
+ *
+ * Spec ID format: <PREFIX>-<NUMBER>
+ * Returns everything before the final hyphen-number sequence
+ *
+ * Examples:
+ * - API-TABLES-001 → API-TABLES
+ * - API-TABLES-RECORDS-001 → API-TABLES-RECORDS
+ * - APP-VERSION-001 → APP-VERSION
+ */
+function extractFilePrefix(specId: string): string | null {
+  // Match everything up to the last hyphen-number sequence
+  const match = specId.match(/^(.+)-\d+$/i)
+  if (match && match[1]) {
+    return match[1].toUpperCase()
+  }
+  return null
+}
+
 const main = Effect.gen(function* () {
   const github = yield* GitHubApi
 
-  yield* Console.error('🔍 Finding excluded specs (manual-intervention PRs)...')
+  yield* Console.error('🔍 Finding blocked spec files (manual-intervention PRs)...')
 
   // Get all TDD PRs
   const prs = yield* github.listTDDPRs()
@@ -59,19 +90,35 @@ const main = Effect.gen(function* () {
   const manualInterventionPRs = prs.filter((pr) => pr.hasManualInterventionLabel)
 
   // Extract spec IDs from branch names
-  const excludedSpecs = manualInterventionPRs
+  const blockedSpecs = manualInterventionPRs
     .map((pr) => extractSpecIdFromBranch(pr.branch))
     .filter((specId): specId is string => specId !== null)
 
-  yield* Console.error(`📋 Found ${excludedSpecs.length} excluded spec(s)`)
-  for (const specId of excludedSpecs) {
-    yield* Console.error(`   - ${specId}`)
+  // Extract unique file prefixes from spec IDs
+  const filePrefixes = blockedSpecs
+    .map((specId) => extractFilePrefix(specId))
+    .filter((prefix): prefix is string => prefix !== null)
+
+  // Remove duplicates
+  const blockedFiles = Array.from(new Set(filePrefixes))
+
+  yield* Console.error(
+    `📋 Found ${blockedFiles.length} blocked file(s) from ${blockedSpecs.length} manual-intervention PR(s)`
+  )
+
+  if (blockedFiles.length > 0) {
+    yield* Console.error('   Blocked files:')
+    for (const filePrefix of blockedFiles) {
+      const specs = blockedSpecs.filter((spec) => extractFilePrefix(spec) === filePrefix)
+      yield* Console.error(`   - ${filePrefix} (specs: ${specs.join(', ')})`)
+    }
   }
 
-  const result: ExcludedSpecsResult = {
-    excludedSpecs,
-    count: excludedSpecs.length,
-    excludedList: excludedSpecs.join(','),
+  const result: BlockedFilesResult = {
+    blockedFiles,
+    blockedSpecs,
+    count: blockedFiles.length,
+    excludedList: blockedFiles.join(','),
   }
 
   // @effect-diagnostics effect/preferSchemaOverJson:off
@@ -83,7 +130,8 @@ const main = Effect.gen(function* () {
       // @effect-diagnostics effect/preferSchemaOverJson:off
       yield* Console.log(
         JSON.stringify({
-          excludedSpecs: [],
+          blockedFiles: [],
+          blockedSpecs: [],
           count: 0,
           excludedList: '',
           error: error.message,
