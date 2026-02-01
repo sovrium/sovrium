@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { hasUpdatePermission } from '@/application/use-cases/tables/permissions/permissions'
 import { updateRecordProgram, rawGetRecordProgram } from '@/application/use-cases/tables/programs'
 import { transformRecord } from '@/application/use-cases/tables/utils/record-transformer'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
@@ -26,22 +27,18 @@ export function checkTableUpdatePermissionWithRole(
   c: Context
 ): { allowed: true } | { allowed: false; response: Response } {
   const table = app.tables?.find((t) => t.name === tableName)
-  const updatePermission = table?.permissions?.update
 
-  if (updatePermission?.type === 'roles') {
-    const allowedRoles = updatePermission.roles || []
-    if (!allowedRoles.includes(userRole)) {
-      return {
-        allowed: false,
-        response: c.json(
-          {
-            success: false,
-            message: 'You do not have permission to update records in this table',
-            code: 'FORBIDDEN',
-          },
-          403
-        ),
-      }
+  if (!hasUpdatePermission(table, userRole)) {
+    return {
+      allowed: false,
+      response: c.json(
+        {
+          success: false,
+          message: 'You do not have permission to update records in this table',
+          code: 'FORBIDDEN',
+        },
+        403
+      ),
     }
   }
 

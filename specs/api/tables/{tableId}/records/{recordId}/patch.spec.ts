@@ -189,6 +189,9 @@ test.describe('Update record', () => {
             id: 4,
             name: 'projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+            permissions: {
+              update: { type: 'roles', roles: ['admin'] },
+            },
           },
         ],
       })
@@ -219,11 +222,9 @@ test.describe('Update record', () => {
       expect(data).toHaveProperty('success')
       expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('code')
-      expect(data).toHaveProperty('message')
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
-      expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to update records in this table')
+      expect(data.code).toBe('FORBIDDEN')
     }
   )
 

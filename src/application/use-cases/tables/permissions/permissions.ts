@@ -172,6 +172,29 @@ export function hasDeletePermission(
 }
 
 /**
+ * Check if user has update permission for a table
+ * Returns true if permission granted, false if denied
+ */
+export function hasUpdatePermission(
+  table: Readonly<{ permissions?: Readonly<{ update?: unknown }> }> | undefined,
+  userRole: string
+): boolean {
+  const updatePermission = table?.permissions?.update as
+    | { type: 'roles'; roles?: string[] }
+    | { type?: string }
+    | undefined
+
+  // If explicit role-based permissions are defined, check if user role is in allowed roles
+  if (updatePermission?.type === 'roles') {
+    const allowedRoles = (updatePermission as { type: 'roles'; roles?: string[] }).roles || []
+    return allowedRoles.includes(userRole)
+  }
+
+  // When no explicit permissions are defined, all authenticated users are allowed
+  return true
+}
+
+/**
  * Check if user has read permission for a table
  * Returns true if permission granted, false if denied
  *
