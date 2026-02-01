@@ -204,9 +204,7 @@ export const GitHubApiLive = Layer.succeed(GitHubApi, {
         })
 
         if (!response.ok) {
-          throw new Error(
-            `GitHub API request failed: ${response.status} ${response.statusText}`
-          )
+          throw new Error(`GitHub API request failed: ${response.status} ${response.statusText}`)
         }
 
         const data = (await response.json()) as {
@@ -475,9 +473,7 @@ export const GitHubApiLiveWithRetry = Layer.succeed(GitHubApi, {
           })
 
           if (!response.ok) {
-            throw new Error(
-              `GitHub API request failed: ${response.status} ${response.statusText}`
-            )
+            throw new Error(`GitHub API request failed: ${response.status} ${response.statusText}`)
           }
 
           const data = (await response.json()) as {
