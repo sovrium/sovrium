@@ -953,8 +953,9 @@ jobs:
         if: steps.check-update.outputs.should-update == 'true'
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          ref: main
           token: ${{ secrets.GH_PAT_WORKFLOW }}
+          fetch-depth: 0
 
       - name: Setup Bun
         if: steps.check-update.outputs.should-update == 'true'
@@ -985,6 +986,18 @@ jobs:
             echo "📝 Committing SPEC-PROGRESS.md updates..."
             git add SPEC-PROGRESS.md
             git commit -m "chore: update spec progress [skip ci]"
+
+            # Pull latest changes with rebase to avoid race conditions
+            echo "🔄 Pulling latest changes from main..."
+            if ! git pull --rebase origin main; then
+              echo "⚠️ Rebase conflict detected - aborting push"
+              echo "   This is expected when multiple workflows update SPEC-PROGRESS.md simultaneously"
+              echo "   The next successful test run will update the spec progress"
+              git rebase --abort
+              exit 0
+            fi
+
+            echo "⬆️ Pushing SPEC-PROGRESS.md updates..."
             git push
             echo "✅ SPEC-PROGRESS.md updated and pushed"
 
