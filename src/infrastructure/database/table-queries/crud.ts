@@ -29,6 +29,7 @@ import {
   executeHardDelete,
   checkDeletedAtColumn,
 } from './delete-helpers'
+import { buildTrashFilters, addTrashSorting } from './trash-helpers'
 import {
   validateFieldsNotEmpty,
   fetchRecordBeforeUpdateCRUD,
@@ -183,49 +184,13 @@ export function listTrash(config: {
       const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
 
       if (!hasDeletedAt) {
-        // If table doesn't have deleted_at, return empty array (no soft-deleted records)
         return []
       }
 
-      // Build base query for soft-deleted records
       const baseQuery = sql`SELECT * FROM ${sql.identifier(tableName)} WHERE deleted_at IS NOT NULL`
+      const queryWithFilters = buildTrashFilters(baseQuery, filter?.and)
+      const query = addTrashSorting(queryWithFilters, sort)
 
-      // Build filter conditions using reduce for functional style
-      const queryWithFilters = (filter?.and ?? []).reduce((query, condition) => {
-        const { field, operator, value } = condition
-        const fieldIdentifier = sql.identifier(field)
-
-        switch (operator) {
-          case 'equals':
-            return sql`${query} AND ${fieldIdentifier} = ${value}`
-          case 'notEquals':
-            return sql`${query} AND ${fieldIdentifier} != ${value}`
-          case 'contains':
-            return sql`${query} AND ${fieldIdentifier} ILIKE ${'%' + String(value) + '%'}`
-          case 'greaterThan':
-            return sql`${query} AND ${fieldIdentifier} > ${value}`
-          case 'lessThan':
-            return sql`${query} AND ${fieldIdentifier} < ${value}`
-          case 'greaterThanOrEqual':
-            return sql`${query} AND ${fieldIdentifier} >= ${value}`
-          case 'lessThanOrEqual':
-            return sql`${query} AND ${fieldIdentifier} <= ${value}`
-          default:
-            // Skip unknown operators
-            return query
-        }
-      }, baseQuery)
-
-      // Add sorting if specified
-      const query = sort
-        ? (() => {
-            const [field, order] = sort.split(':')
-            const direction = order?.toLowerCase() === 'desc' ? sql`DESC` : sql`ASC`
-            return sql`${queryWithFilters} ORDER BY ${sql.identifier(field)} ${direction}`
-          })()
-        : queryWithFilters
-
-      // Execute query
       const result = yield* Effect.tryPromise({
         try: () => tx.execute(query),
         catch: (error) => new SessionContextError(`Failed to list trash from ${tableName}`, error),
