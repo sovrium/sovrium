@@ -81,6 +81,9 @@ Note: Max attempts default is 5 (configurable per spec)
 - Uses `bun run analyze:specs` to scan and update spec completion status
 - Commits changes with `[skip ci]` to avoid triggering new workflow runs
 - **Uses `GH_PAT_WORKFLOW` token** to bypass branch protection rules (required for direct push to `main`)
+- **Race condition protection**: Uses `git pull --rebase` before push to handle concurrent updates from multiple workflows
+  - If rebase conflict occurs, gracefully aborts and exits (next successful run will update)
+  - Common scenario: Multiple TDD PRs merge simultaneously, causing concurrent spec progress updates
 
 **Note on Concurrency Control**: The `test` workflow uses a hybrid concurrency strategy to balance fast feedback with workflow completion:
 
