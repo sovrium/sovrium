@@ -31,7 +31,7 @@ import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { handleBatchRestoreError } from './utils'
-import type { App, Table } from '@/domain/models/app'
+import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
@@ -149,7 +149,7 @@ async function handleBatchDelete(c: Context, _app: App) {
  * Validate required fields for upsert records
  */
 async function validateUpsertRequiredFields(
-  table: Table | undefined,
+  table: NonNullable<App['tables']>[number] | undefined,
   records: readonly Record<string, unknown>[]
 ): Promise<Array<{ record: number; field: string; error: string }>> {
   const { validateRequiredFieldsForRecord } = await import('./create-record-helpers')

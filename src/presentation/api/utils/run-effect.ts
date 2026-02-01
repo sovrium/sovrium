@@ -82,13 +82,10 @@ function logEitherLeftError(err: unknown): void {
   const errorObj = err as DebugErrorObject
   console.error('[run-effect] either.left JSON:', JSON.stringify(err, undefined, 2))
   console.error('[run-effect] toString:', String(err))
-  console.error(
-    '[run-effect] keys:',
-    err && typeof err === 'object' ? Object.keys(err) : 'not an object'
-  )
+  console.error('[run-effect] keys:', err && typeof err === 'object' ? Object.keys(err) : 'N/A')
   console.error(
     '[run-effect] allKeys:',
-    err && typeof err === 'object' ? Object.getOwnPropertyNames(err) : 'not an object'
+    err && typeof err === 'object' ? Object.getOwnPropertyNames(err) : 'N/A'
   )
   console.error('[run-effect] err.cause:', errorObj.cause)
   console.error(
