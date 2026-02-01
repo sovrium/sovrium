@@ -134,6 +134,11 @@ export async function handleListRecords(c: Context, app: App) {
 export async function handleListTrash(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
   const { session, tableName, userRole } = getTableContext(c)
+  const table = app.tables?.find((t) => t.name === tableName)
+
+  // Check viewer permission (other roles filtered by RLS at row level)
+  const permissionError = checkViewerReadPermission(table, userRole, c)
+  if (permissionError) return permissionError
 
   return runEffect(
     c,
