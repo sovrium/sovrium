@@ -176,7 +176,7 @@ test.describe('Update record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPDATE-004: should return 403 for member without update permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
