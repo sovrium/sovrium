@@ -24,7 +24,7 @@ test.describe('Upsert records (create or update)', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-001: should return 200 with created=1, updated=1',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
