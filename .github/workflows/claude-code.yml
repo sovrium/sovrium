@@ -4,6 +4,14 @@ on:
   issue_comment:
     types: [created]
 
+# Concurrency control: Only one Claude Code run per PR at a time
+# - Prevents duplicate API costs when multiple @claude comments posted
+# - Uses PR number as group key (different PRs can run in parallel)
+# - cancel-in-progress: false = complete current run, queue next (don't waste credits)
+concurrency:
+  group: claude-code-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
 # Required permissions for Claude Code Action
 permissions:
   contents: write
