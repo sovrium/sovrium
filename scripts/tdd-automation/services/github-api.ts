@@ -202,8 +202,8 @@ export const GitHubApiLive = Layer.succeed(GitHubApi, {
     Effect.tryPromise({
       try: async () => {
         // Note: `gh run view --log` can fail silently in CI environments.
-        // The GitHub API /actions/runs/{id}/logs returns a ZIP archive.
-        // We download, extract, and concatenate all log files.
+        // The GitHub API /actions/runs/{id}/logs returns a 302 redirect to a signed S3 URL.
+        // We use native fetch() with redirect following to properly download the ZIP archive.
 
         const tempDir = `/tmp/gh_run_logs_${runId}_${Date.now()}`
         const zipFile = `${tempDir}/logs.zip`
@@ -215,12 +215,35 @@ export const GitHubApiLive = Layer.succeed(GitHubApi, {
           // Get repository from environment or default
           const repo = process.env.GITHUB_REPOSITORY ?? 'sovrium/sovrium'
 
-          // Download logs ZIP via GitHub API (follows 302 redirect automatically)
-          await Bun.$`gh api repos/${repo}/actions/runs/${runId}/logs > ${zipFile}`.quiet()
+          // Get GitHub token from environment
+          const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN || ''
+
+          // Use native fetch to properly handle 302 redirect and binary data
+          // GitHub API returns 302 redirect to a signed S3 URL for logs
+          const apiUrl = `https://api.github.com/repos/${repo}/actions/runs/${runId}/logs`
+          const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+              Authorization: token ? `Bearer ${token}` : '',
+              Accept: 'application/vnd.github+json',
+              'X-GitHub-Api-Version': '2022-11-28',
+            },
+            redirect: 'follow', // Follow the 302 redirect to S3
+          })
+
+          if (!response.ok) {
+            // Return empty string on failure, cost tracker will use fallback
+            return ''
+          }
+
+          // Write binary ZIP content to file
+          const arrayBuffer = await response.arrayBuffer()
+          await Bun.write(zipFile, arrayBuffer)
 
           // Check if download succeeded
           const zipExists = await Bun.file(zipFile).exists()
-          if (!zipExists) {
+          const zipSize = zipExists ? (await Bun.file(zipFile).size) : 0
+          if (!zipExists || zipSize === 0) {
             return '' // Return empty string, cost tracker will handle the error
           }
 
