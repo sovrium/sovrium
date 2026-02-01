@@ -58,8 +58,10 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          email: 'new@example.com',
-          name: 'New Name',
+          fields: {
+            email: 'new@example.com',
+            name: 'New Name',
+          },
         },
       })
 
@@ -109,7 +111,9 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          email: 'test@example.com',
+          fields: {
+            email: 'test@example.com',
+          },
         },
       })
 
@@ -153,7 +157,9 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          title: 'Updated Title',
+          fields: {
+            title: 'Updated Title',
+          },
         },
       })
 
@@ -199,7 +205,9 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'Beta Project',
+          fields: {
+            name: 'Beta Project',
+          },
         },
       })
 
@@ -251,7 +259,9 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          title: 'Modified Title',
+          fields: {
+            title: 'Modified Title',
+          },
         },
       })
 
@@ -301,7 +311,9 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          salary: 85_000,
+          fields: {
+            salary: 85_000,
+          },
         },
       })
 
@@ -356,8 +368,10 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'Jane Updated',
-          salary: 95_000,
+          fields: {
+            name: 'Jane Updated',
+            salary: 95_000,
+          },
         },
       })
 
@@ -416,9 +430,11 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          id: 999,
-          title: 'Modified Task',
-          created_at: '2025-01-01T00:00:00Z',
+          fields: {
+            id: 999,
+            title: 'Modified Task',
+            created_at: '2025-01-01T00:00:00Z',
+          },
         },
       })
 
@@ -472,8 +488,10 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'Alice Updated',
-          email: 'alice.updated@example.com',
+          fields: {
+            name: 'Alice Updated',
+            email: 'alice.updated@example.com',
+          },
         },
       })
 
@@ -534,8 +552,10 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'Bob Updated',
-          email: 'bob.updated@example.com',
+          fields: {
+            name: 'Bob Updated',
+            email: 'bob.updated@example.com',
+          },
         },
       })
 
@@ -592,9 +612,11 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'Carol Updated',
-          phone: '555-9999',
-          salary: 80_000,
+          fields: {
+            name: 'Carol Updated',
+            phone: '555-9999',
+            salary: 80_000,
+          },
         },
       })
 
@@ -654,7 +676,9 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'David Updated',
+          fields: {
+            name: 'David Updated',
+          },
         },
       })
 
@@ -717,8 +741,10 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          title: 'Updated Title',
-          status: 'completed',
+          fields: {
+            title: 'Updated Title',
+            status: 'completed',
+          },
         },
       })
 
@@ -783,7 +809,9 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'Jane Doe',
+          fields: {
+            name: 'Jane Doe',
+          },
         },
       })
 
@@ -841,7 +869,9 @@ test.describe('Update record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'Item B',
+          fields: {
+            name: 'Item B',
+          },
         },
       })
 
@@ -949,7 +979,7 @@ test.describe('Update record', () => {
       await test.step('API-TABLES-RECORDS-UPDATE-003: Return 401 Unauthorized', async () => {
         const response = await request.patch('/api/tables/1/records/1', {
           headers: { 'Content-Type': 'application/json' },
-          data: { email: 'test@example.com' },
+          data: { fields: { email: 'test@example.com' } },
         })
 
         expect(response.status()).toBe(401)
@@ -963,7 +993,7 @@ test.describe('Update record', () => {
       await test.step('API-TABLES-RECORDS-UPDATE-001: Return 200 with updated record data', async () => {
         const response = await request.patch('/api/tables/1/records/1', {
           headers: { 'Content-Type': 'application/json' },
-          data: { email: 'new@example.com', name: 'New Name' },
+          data: { fields: { email: 'new@example.com', name: 'New Name' } },
         })
 
         expect(response.status()).toBe(200)
@@ -984,7 +1014,7 @@ test.describe('Update record', () => {
       await test.step('API-TABLES-RECORDS-UPDATE-002: Return 404 Not Found', async () => {
         const response = await request.patch('/api/tables/1/records/9999', {
           headers: { 'Content-Type': 'application/json' },
-          data: { email: 'test@example.com' },
+          data: { fields: { email: 'test@example.com' } },
         })
 
         expect(response.status()).toBe(404)
@@ -1000,7 +1030,7 @@ test.describe('Update record', () => {
       await test.step('API-TABLES-RECORDS-UPDATE-004: Return 403 for member without table update permission', async () => {
         const response = await request.patch('/api/tables/4/records/1', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'Beta Project' },
+          data: { fields: { name: 'Beta Project' } },
         })
 
         expect(response.status()).toBe(403)
@@ -1018,7 +1048,7 @@ test.describe('Update record', () => {
       await test.step('API-TABLES-RECORDS-UPDATE-007: Return 403 when updating protected field', async () => {
         const response = await request.patch('/api/tables/3/records/1', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'Jane Updated', salary: 95_000 },
+          data: { fields: { name: 'Jane Updated', salary: 95_000 } },
         })
 
         expect(response.status()).toBe(403)
@@ -1039,7 +1069,7 @@ test.describe('Update record', () => {
       await test.step('API-TABLES-RECORDS-UPDATE-008: Return 400 for readonly fields', async () => {
         const response = await request.patch('/api/tables/2/records/1', {
           headers: { 'Content-Type': 'application/json' },
-          data: { id: 999, title: 'Modified Task', created_at: '2025-01-01T00:00:00Z' },
+          data: { fields: { id: 999, title: 'Modified Task', created_at: '2025-01-01T00:00:00Z' } },
         })
 
         expect(response.status()).toBe(400)
@@ -1055,7 +1085,7 @@ test.describe('Update record', () => {
       await test.step('API-TABLES-RECORDS-UPDATE-009: Update only permitted fields', async () => {
         const response = await request.patch('/api/tables/3/records/2', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'Alice Updated', email: 'alice.updated@example.com' },
+          data: { fields: { name: 'Alice Updated', email: 'alice.updated@example.com' } },
         })
 
         expect(response.status()).toBe(200)
@@ -1075,7 +1105,7 @@ test.describe('Update record', () => {
       await test.step('API-TABLES-RECORDS-UPDATE-010: Enforce combined permissions', async () => {
         const response = await request.patch('/api/tables/3/records/3', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'Bob Updated', email: 'bob.updated@example.com' },
+          data: { fields: { name: 'Bob Updated', email: 'bob.updated@example.com' } },
         })
 
         expect(response.status()).toBe(200)
@@ -1092,7 +1122,7 @@ test.describe('Update record', () => {
       await test.step('API-TABLES-RECORDS-UPDATE-011: Return 403 for first forbidden field', async () => {
         const response = await request.patch('/api/tables/3/records/4', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'Carol Updated', phone: '555-9999', salary: 80_000 },
+          data: { fields: { name: 'Carol Updated', phone: '555-9999', salary: 80_000 } },
         })
 
         expect(response.status()).toBe(403)
@@ -1111,7 +1141,7 @@ test.describe('Update record', () => {
       await test.step('API-TABLES-RECORDS-UPDATE-012: Exclude unreadable fields from response', async () => {
         const response = await request.patch('/api/tables/3/records/5', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'David Updated' },
+          data: { fields: { name: 'David Updated' } },
         })
 
         expect(response.status()).toBe(200)
@@ -1130,7 +1160,7 @@ test.describe('Update record', () => {
       await test.step('API-TABLES-RECORDS-UPDATE-013: Create activity log entry on record update', async () => {
         const response = await request.patch('/api/tables/2/records/2', {
           headers: { 'Content-Type': 'application/json' },
-          data: { title: 'Updated Title' },
+          data: { fields: { title: 'Updated Title' } },
         })
 
         expect(response.status()).toBe(200)
@@ -1157,7 +1187,7 @@ test.describe('Update record', () => {
       await test.step('API-TABLES-RECORDS-UPDATE-014: Only log changed fields in activity log', async () => {
         const response = await request.patch('/api/tables/5/records/1', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'Jane Doe' },
+          data: { fields: { name: 'Jane Doe' } },
         })
 
         expect(response.status()).toBe(200)
@@ -1184,7 +1214,7 @@ test.describe('Update record', () => {
 
         const response = await request.patch('/api/tables/2/records/100', {
           headers: { 'Content-Type': 'application/json' },
-          data: { title: 'Item B' },
+          data: { fields: { title: 'Item B' } },
         })
 
         expect(response.status()).toBe(200)

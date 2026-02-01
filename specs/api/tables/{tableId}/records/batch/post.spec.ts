@@ -54,16 +54,22 @@ test.describe('Batch create records', () => {
         data: {
           records: [
             {
-              email: 'john@example.com',
-              name: 'John Doe',
+              fields: {
+                email: 'john@example.com',
+                name: 'John Doe',
+              },
             },
             {
-              email: 'jane@example.com',
-              name: 'Jane Smith',
+              fields: {
+                email: 'jane@example.com',
+                name: 'Jane Smith',
+              },
             },
             {
-              email: 'bob@example.com',
-              name: 'Bob Johnson',
+              fields: {
+                email: 'bob@example.com',
+                name: 'Bob Johnson',
+              },
             },
           ],
           returnRecords: true,
@@ -116,12 +122,16 @@ test.describe('Batch create records', () => {
         data: {
           records: [
             {
-              email: 'user1@example.com',
-              name: 'User One',
+              fields: {
+                email: 'user1@example.com',
+                name: 'User One',
+              },
             },
             {
-              email: 'user2@example.com',
-              name: 'User Two',
+              fields: {
+                email: 'user2@example.com',
+                name: 'User Two',
+              },
             },
           ],
           returnRecords: false,
@@ -168,11 +178,15 @@ test.describe('Batch create records', () => {
         data: {
           records: [
             {
-              email: 'valid@example.com',
-              name: 'Valid User',
+              fields: {
+                email: 'valid@example.com',
+                name: 'Valid User',
+              },
             },
             {
-              name: 'Invalid User',
+              fields: {
+                name: 'Invalid User',
+              },
             },
           ],
         },
@@ -218,7 +232,7 @@ test.describe('Batch create records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ name: 'Alice Cooper' }],
+          records: [{ fields: { name: 'Alice Cooper' } }],
         },
       })
 
@@ -258,7 +272,10 @@ test.describe('Batch create records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ name: 'Project Alpha' }, { name: 'Project Beta' }],
+          records: [
+            { fields: { name: 'Project Alpha' } },
+            { fields: { name: 'Project Beta' } },
+          ],
         },
       })
 
@@ -302,7 +319,10 @@ test.describe('Batch create records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ title: 'Doc 1' }, { title: 'Doc 2' }],
+          records: [
+            { fields: { title: 'Doc 1' } },
+            { fields: { title: 'Doc 2' } },
+          ],
         },
       })
 
@@ -348,8 +368,8 @@ test.describe('Batch create records', () => {
         },
         data: {
           records: [
-            { name: 'Alice Cooper', salary: 85_000 },
-            { name: 'Bob Smith', salary: 90_000 },
+            { fields: { name: 'Alice Cooper', salary: 85_000 } },
+            { fields: { name: 'Bob Smith', salary: 90_000 } },
           ],
         },
       })
@@ -397,7 +417,7 @@ test.describe('Batch create records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ id: 999, name: 'Alice Cooper' }],
+          records: [{ fields: { id: 999, name: 'Alice Cooper' } }],
         },
       })
 
@@ -446,8 +466,8 @@ test.describe('Batch create records', () => {
         },
         data: {
           records: [
-            { name: 'Alice Cooper', email: 'alice@example.com', salary: 80_000 },
-            { name: 'Bob Smith', email: 'bob@example.com', salary: 85_000 },
+            { fields: { name: 'Alice Cooper', email: 'alice@example.com', salary: 80_000 } },
+            { fields: { name: 'Bob Smith', email: 'bob@example.com', salary: 85_000 } },
           ],
           returnRecords: true,
         },
@@ -497,8 +517,8 @@ test.describe('Batch create records', () => {
         },
         data: {
           records: [
-            { name: 'Charlie Brown', salary: 130_000 },
-            { name: 'Diana Prince', salary: 95_000 },
+            { fields: { name: 'Charlie Brown', salary: 130_000 } },
+            { fields: { name: 'Diana Prince', salary: 95_000 } },
           ],
           returnRecords: true,
         },
@@ -546,9 +566,9 @@ test.describe('Batch create records', () => {
         },
         data: {
           records: [
-            { name: 'Alice Cooper', email: 'alice@example.com', salary: 80_000 },
-            { name: 'Bob Smith', email: 'bob@example.com', salary: 85_000 },
-            { name: 'Charlie Davis', email: 'charlie@example.com', salary: 70_000 },
+            { fields: { name: 'Alice Cooper', email: 'alice@example.com', salary: 80_000 } },
+            { fields: { name: 'Bob Smith', email: 'bob@example.com', salary: 85_000 } },
+            { fields: { name: 'Charlie Davis', email: 'charlie@example.com', salary: 70_000 } },
           ],
           returnRecords: true,
         },
@@ -597,8 +617,8 @@ test.describe('Batch create records', () => {
         },
         data: {
           records: [
-            { email: 'duplicate@example.com', name: 'User One' },
-            { email: 'duplicate@example.com', name: 'User Two' },
+            { fields: { email: 'duplicate@example.com', name: 'User One' } },
+            { fields: { email: 'duplicate@example.com', name: 'User Two' } },
           ],
         },
       })
@@ -640,7 +660,7 @@ test.describe('Batch create records', () => {
 
       // WHEN: Batch create with 1001 records
       const records = Array.from({ length: 1001 }, (_, i) => ({
-        email: `user${i}@example.com`,
+        fields: { email: `user${i}@example.com` },
       }))
 
       const response = await request.post('/api/tables/15/records/batch', {
@@ -733,7 +753,7 @@ test.describe('Batch create records', () => {
         const response = await request.post('/api/tables/1/records/batch', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ email: 'test@example.com', name: 'Alice Cooper' }],
+            records: [{ fields: { email: 'test@example.com', name: 'Alice Cooper' } }],
           },
         })
 
@@ -753,9 +773,9 @@ test.describe('Batch create records', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { email: 'john@example.com', name: 'John Doe' },
-              { email: 'jane@example.com', name: 'Jane Smith' },
-              { email: 'bob@example.com', name: 'Bob Johnson' },
+              { fields: { email: 'john@example.com', name: 'John Doe' } },
+              { fields: { email: 'jane@example.com', name: 'Jane Smith' } },
+              { fields: { email: 'bob@example.com', name: 'Bob Johnson' } },
             ],
             returnRecords: true,
           },
@@ -778,8 +798,8 @@ test.describe('Batch create records', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { email: 'user1@example.com', name: 'User One' },
-              { email: 'user2@example.com', name: 'User Two' },
+              { fields: { email: 'user1@example.com', name: 'User One' } },
+              { fields: { email: 'user2@example.com', name: 'User Two' } },
             ],
             returnRecords: false,
           },
@@ -801,8 +821,8 @@ test.describe('Batch create records', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { email: 'valid@example.com', name: 'Valid User' },
-              { name: 'Invalid User' }, // Missing required email
+              { fields: { email: 'valid@example.com', name: 'Valid User' } },
+              { fields: { name: 'Invalid User' } }, // Missing required email
             ],
           },
         })
@@ -825,7 +845,7 @@ test.describe('Batch create records', () => {
         const response = await request.post('/api/tables/3/records/batch', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ name: 'Project Alpha' }, { name: 'Project Beta' }],
+            records: [{ fields: { name: 'Project Alpha' } }, { fields: { name: 'Project Beta' } }],
           },
         })
 
@@ -843,8 +863,8 @@ test.describe('Batch create records', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { name: 'Alice Cooper', email: 'alice_sal@example.com', salary: 85_000 },
-              { name: 'Bob Smith', email: 'bob_sal@example.com', salary: 90_000 },
+              { fields: { name: 'Alice Cooper', email: 'alice_sal@example.com', salary: 85_000 } },
+              { fields: { name: 'Bob Smith', email: 'bob_sal@example.com', salary: 90_000 } },
             ],
           },
         })
@@ -862,7 +882,7 @@ test.describe('Batch create records', () => {
         const response = await request.post('/api/tables/1/records/batch', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ id: 999, name: 'Alice Cooper', email: 'alice_ro@example.com' }],
+            records: [{ fields: { id: 999, name: 'Alice Cooper', email: 'alice_ro@example.com' } }],
           },
         })
 
@@ -881,8 +901,8 @@ test.describe('Batch create records', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { name: 'Alice Cooper', email: 'alice_filter@example.com' },
-              { name: 'Bob Smith', email: 'bob_filter@example.com' },
+              { fields: { name: 'Alice Cooper', email: 'alice_filter@example.com' } },
+              { fields: { name: 'Bob Smith', email: 'bob_filter@example.com' } },
             ],
             returnRecords: true,
           },
@@ -905,9 +925,9 @@ test.describe('Batch create records', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { name: 'Eve Adams', email: 'eve@example.com' },
-              { name: 'Frank Brown', email: 'frank@example.com' },
-              { name: 'Grace Lee', email: 'grace@example.com' },
+              { fields: { name: 'Eve Adams', email: 'eve@example.com' } },
+              { fields: { name: 'Frank Brown', email: 'frank@example.com' } },
+              { fields: { name: 'Grace Lee', email: 'grace@example.com' } },
             ],
             returnRecords: true,
           },
@@ -931,8 +951,8 @@ test.describe('Batch create records', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { email: 'duplicate@example.com', name: 'User One' },
-              { email: 'duplicate@example.com', name: 'User Two' },
+              { fields: { email: 'duplicate@example.com', name: 'User One' } },
+              { fields: { email: 'duplicate@example.com', name: 'User Two' } },
             ],
           },
         })
@@ -952,7 +972,7 @@ test.describe('Batch create records', () => {
 
       await test.step('API-TABLES-RECORDS-BATCH-POST-013: Return 413 when exceeding 1000 record limit', async () => {
         const records = Array.from({ length: 1001 }, (_, i) => ({
-          email: `user${i}@batch.com`,
+          fields: { email: `user${i}@batch.com` },
         }))
 
         const response = await request.post('/api/tables/1/records/batch', {

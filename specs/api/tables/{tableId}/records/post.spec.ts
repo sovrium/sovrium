@@ -54,9 +54,11 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          email: 'john.doe@example.com',
-          first_name: 'John',
-          last_name: 'Doe',
+          fields: {
+            email: 'john.doe@example.com',
+            first_name: 'John',
+            last_name: 'Doe',
+          },
         },
       })
 
@@ -107,7 +109,9 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          email: 'user@example.com',
+          fields: {
+            email: 'user@example.com',
+          },
         },
       })
 
@@ -154,7 +158,9 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          first_name: 'John',
+          fields: {
+            first_name: 'John',
+          },
         },
       })
 
@@ -207,8 +213,10 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          email: 'existing@example.com',
-          first_name: 'John',
+          fields: {
+            email: 'existing@example.com',
+            first_name: 'John',
+          },
         },
       })
 
@@ -256,7 +264,9 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          email: 'test@example.com',
+          fields: {
+            email: 'test@example.com',
+          },
         },
       })
 
@@ -294,7 +304,9 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'New Project',
+          fields: {
+            name: 'New Project',
+          },
         },
       })
 
@@ -339,9 +351,11 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'John Doe',
-          email: 'john@example.com',
-          salary: 75_000,
+          fields: {
+            name: 'John Doe',
+            email: 'john@example.com',
+            salary: 75_000,
+          },
         },
       })
 
@@ -396,9 +410,11 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'Jane Smith',
-          email: 'jane@example.com',
-          salary: 85_000,
+          fields: {
+            name: 'Jane Smith',
+            email: 'jane@example.com',
+            salary: 85_000,
+          },
         },
       })
 
@@ -451,8 +467,10 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'Bob Wilson',
-          email: 'bob@example.com',
+          fields: {
+            name: 'Bob Wilson',
+            email: 'bob@example.com',
+          },
         },
       })
 
@@ -497,9 +515,11 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          id: 999,
-          title: 'Important Task',
-          created_at: '2025-01-01T00:00:00Z',
+          fields: {
+            id: 999,
+            title: 'Important Task',
+            created_at: '2025-01-01T00:00:00Z',
+          },
         },
       })
 
@@ -558,11 +578,13 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'Alice Cooper',
-          email: 'alice@example.com',
-          phone: '555-0100',
-          salary: 95_000,
-          ssn: '123-45-6789',
+          fields: {
+            name: 'Alice Cooper',
+            email: 'alice@example.com',
+            phone: '555-0100',
+            salary: 95_000,
+            ssn: '123-45-6789',
+          },
         },
       })
 
@@ -611,7 +633,9 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'Alpha Project',
+          fields: {
+            name: 'Alpha Project',
+          },
         },
       })
 
@@ -671,8 +695,10 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'Carol Davis',
-          email: 'carol@example.com',
+          fields: {
+            name: 'Carol Davis',
+            email: 'carol@example.com',
+          },
         },
       })
 
@@ -713,8 +739,10 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'David Lee',
-          email: 'david@example.com',
+          fields: {
+            name: 'David Lee',
+            email: 'david@example.com',
+          },
         },
       })
 
@@ -772,9 +800,11 @@ test.describe('Create new record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'John Doe',
-          email: 'john@example.com',
-          phone: '555-1234',
+          fields: {
+            name: 'John Doe',
+            email: 'john@example.com',
+            phone: '555-1234',
+          },
         },
       })
 
@@ -929,7 +959,7 @@ test.describe('Create new record', () => {
       await test.step('API-TABLES-RECORDS-CREATE-005: should return 401 Unauthorized', async () => {
         const response = await request.post('/api/tables/1/records', {
           headers: { 'Content-Type': 'application/json' },
-          data: { email: 'test@example.com' },
+          data: { fields: { email: 'test@example.com' } },
         })
 
         expect(response.status()).toBe(401)
@@ -942,9 +972,11 @@ test.describe('Create new record', () => {
         const response = await request.post('/api/tables/1/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            email: 'john.doe@example.com',
-            first_name: 'John',
-            last_name: 'Doe',
+            fields: {
+              email: 'john.doe@example.com',
+              first_name: 'John',
+              last_name: 'Doe',
+            },
           },
         })
 
@@ -967,7 +999,7 @@ test.describe('Create new record', () => {
       await test.step('API-TABLES-RECORDS-CREATE-002: should return 404 Not Found', async () => {
         const response = await request.post('/api/tables/9999/records', {
           headers: { 'Content-Type': 'application/json' },
-          data: { email: 'user@example.com' },
+          data: { fields: { email: 'user@example.com' } },
         })
 
         expect(response.status()).toBe(404)
@@ -984,7 +1016,7 @@ test.describe('Create new record', () => {
       await test.step('API-TABLES-RECORDS-CREATE-003: should return 400 Bad Request with validation error', async () => {
         const response = await request.post('/api/tables/1/records', {
           headers: { 'Content-Type': 'application/json' },
-          data: { first_name: 'John' },
+          data: { fields: { first_name: 'John' } },
         })
 
         expect(response.status()).toBe(400)
@@ -1007,8 +1039,10 @@ test.describe('Create new record', () => {
         const response = await request.post('/api/tables/1/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            email: 'existing@example.com',
-            first_name: 'John',
+            fields: {
+              email: 'existing@example.com',
+              first_name: 'John',
+            },
           },
         })
 
@@ -1032,7 +1066,7 @@ test.describe('Create new record', () => {
       await test.step('API-TABLES-RECORDS-CREATE-006: should return 403 Forbidden for member without create permission', async () => {
         const response = await request.post('/api/tables/6/records', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'New Project' },
+          data: { fields: { name: 'New Project' } },
         })
 
         expect(response.status()).toBe(403)
@@ -1051,9 +1085,11 @@ test.describe('Create new record', () => {
         const response = await request.post('/api/tables/1/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            email: 'john.allfields@example.com',
-            first_name: 'John',
-            last_name: 'Doe',
+            fields: {
+              email: 'john.allfields@example.com',
+              first_name: 'John',
+              last_name: 'Doe',
+            },
           },
         })
 
@@ -1073,10 +1109,12 @@ test.describe('Create new record', () => {
         const response = await request.post('/api/tables/7/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            name: 'Jane Smith',
-            email: 'jane@example.com',
-            phone: '555-0200',
-            salary: 85_000,
+            fields: {
+              name: 'Jane Smith',
+              email: 'jane@example.com',
+              phone: '555-0200',
+              salary: 85_000,
+            },
           },
         })
 
@@ -1094,8 +1132,10 @@ test.describe('Create new record', () => {
         const response = await request.post('/api/tables/8/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            name: 'Bob Wilson',
-            email: 'bob@example.com',
+            fields: {
+              name: 'Bob Wilson',
+              email: 'bob@example.com',
+            },
           },
         })
 
@@ -1112,9 +1152,11 @@ test.describe('Create new record', () => {
         const response = await request.post('/api/tables/4/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            id: 999,
-            title: 'Important Task',
-            created_at: '2025-01-01T00:00:00Z',
+            fields: {
+              id: 999,
+              title: 'Important Task',
+              created_at: '2025-01-01T00:00:00Z',
+            },
           },
         })
 
@@ -1132,11 +1174,13 @@ test.describe('Create new record', () => {
         const response = await request.post('/api/tables/7/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            name: 'Alice Cooper',
-            email: 'alice@example.com',
-            phone: '555-0100',
-            salary: 95_000,
-            ssn: '123-45-6789',
+            fields: {
+              name: 'Alice Cooper',
+              email: 'alice@example.com',
+              phone: '555-0100',
+              salary: 95_000,
+              ssn: '123-45-6789',
+            },
           },
         })
 
@@ -1154,7 +1198,7 @@ test.describe('Create new record', () => {
 
         const response = await request.post('/api/tables/2/records', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'Alpha Project' },
+          data: { fields: { name: 'Alpha Project' } },
         })
 
         expect(response.status()).toBe(201)
@@ -1175,8 +1219,10 @@ test.describe('Create new record', () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            name: 'Carol Davis',
-            email: 'carol@example.com',
+            fields: {
+              name: 'Carol Davis',
+              email: 'carol@example.com',
+            },
           },
         })
 
@@ -1192,8 +1238,10 @@ test.describe('Create new record', () => {
         const response = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            name: 'David Lee',
-            email: 'david@example.com',
+            fields: {
+              name: 'David Lee',
+              email: 'david@example.com',
+            },
           },
         })
 
@@ -1217,9 +1265,11 @@ test.describe('Create new record', () => {
         const response = await request.post('/api/tables/5/records', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            name: 'John Doe',
-            email: 'john.activity@example.com',
-            phone: '555-1234',
+            fields: {
+              name: 'John Doe',
+              email: 'john.activity@example.com',
+              phone: '555-1234',
+            },
           },
         })
 

@@ -88,8 +88,9 @@ async function handleBatchCreate(c: Context, app: App) {
     )
   }
 
+  // Extract fields from nested format (schema transforms to { fields: {...} })
   const allForbiddenFields = result.data.records
-    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record))
+    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
     .filter((fields) => fields.length > 0)
 
   if (allForbiddenFields.length > 0) {
@@ -103,9 +104,12 @@ async function handleBatchCreate(c: Context, app: App) {
     )
   }
 
+  // Extract flat field objects from nested format for database layer
+  const flatRecordsData = result.data.records.map((record) => record.fields)
+
   return runEffect(
     c,
-    batchCreateProgram(session, tableName, result.data.records),
+    batchCreateProgram(session, tableName, flatRecordsData),
     batchCreateRecordsResponseSchema,
     201
   )
@@ -121,9 +125,15 @@ async function handleBatchUpdate(c: Context, _app: App) {
   const result = await validateRequest(c, batchUpdateRecordsRequestSchema)
   if (!result.success) return result.response
 
+  // Flatten records from { id, fields } to { id, ...fields } for database layer
+  const flatRecordsData = result.data.records.map((record) => ({
+    id: record.id,
+    ...record.fields,
+  }))
+
   return runEffect(
     c,
-    batchUpdateProgram(session, tableName, result.data.records),
+    batchUpdateProgram(session, tableName, flatRecordsData),
     batchUpdateRecordsResponseSchema
   )
 }
@@ -147,15 +157,17 @@ async function handleBatchDelete(c: Context, _app: App) {
 
 /**
  * Validate required fields for upsert records
+ * Records come from schema in nested format: { fields: {...} }
  */
 async function validateUpsertRequiredFields(
   table: NonNullable<App['tables']>[number] | undefined,
-  records: readonly Record<string, unknown>[]
+  records: readonly { fields: Record<string, unknown> }[]
 ): Promise<Array<{ record: number; field: string; error: string }>> {
   const { validateRequiredFieldsForRecord } = await import('./create-record-helpers')
 
   return records.flatMap((record, index) => {
-    const missingFields = validateRequiredFieldsForRecord(table, record)
+    // Extract fields from nested format
+    const missingFields = validateRequiredFieldsForRecord(table, record.fields)
     return missingFields.map((field: string) => ({
       record: index,
       field,
@@ -188,8 +200,9 @@ async function handleUpsert(c: Context, app: App) {
   }
 
   // Validate field-level write permissions for all records
+  // Extract fields from nested format (schema transforms to { fields: {...} })
   const allForbiddenFields = result.data.records
-    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record))
+    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
     .filter((fields) => fields.length > 0)
 
   if (allForbiddenFields.length > 0) {
@@ -218,10 +231,13 @@ async function handleUpsert(c: Context, app: App) {
     )
   }
 
+  // Extract flat field objects from nested format for database layer
+  const flatRecordsData = result.data.records.map((record) => record.fields)
+
   return runEffect(
     c,
     upsertProgram(session, tableName, {
-      recordsData: result.data.records,
+      recordsData: flatRecordsData,
       fieldsToMergeOn: result.data.fieldsToMergeOn,
       returnRecords: result.data.returnRecords,
     }),

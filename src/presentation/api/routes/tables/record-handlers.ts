@@ -236,11 +236,12 @@ export async function handleUpdateRecord(c: Context, app: App) {
     return permissionCheck.response
   }
 
+  // Extract fields from nested format (schema transforms to { fields: {...} })
   const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
     app,
     tableName,
     userRole,
-    result.data
+    result.data.fields
   )
 
   if (Object.keys(allowedData).length === 0) {

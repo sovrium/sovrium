@@ -44,8 +44,29 @@ export const createRecordRequestSchema = z.union([
  * Update record request schema
  *
  * Validates the request body for updating a record.
+ * Supports two formats:
+ * 1. Nested format: { fields: {...} } (Airtable style)
+ * 2. Flat format: { ...fields } (transformed to nested)
+ *
+ * Schemas are mutually exclusive: flat format explicitly excludes 'fields' key.
  */
-export const updateRecordRequestSchema = z.record(z.string(), fieldValueSchema)
+export const updateRecordRequestSchema = z.union([
+  // Format 1: Nested format with 'fields' property (Airtable style)
+  z
+    .object({
+      fields: z.record(z.string(), fieldValueSchema).optional().default({}),
+    })
+    .strict(), // Reject extra keys to prevent flat format from matching this branch
+  // Format 2: Flat format (any object WITHOUT 'fields' key)
+  z
+    .record(z.string(), fieldValueSchema)
+    .refine((data) => !('fields' in data), {
+      message: 'Flat format should not contain a "fields" key',
+    })
+    .transform((data) => ({
+      fields: data,
+    })),
+])
 
 // ============================================================================
 // Batch Operation Request Schemas
@@ -53,12 +74,37 @@ export const updateRecordRequestSchema = z.record(z.string(), fieldValueSchema)
 
 /**
  * Batch create records request schema
+ *
+ * Supports two formats for each record:
+ * 1. Nested format: { fields: {...} } (Airtable style)
+ * 2. Flat format: { ...fields } (transformed to nested)
+ *
+ * Schemas are mutually exclusive: flat format explicitly excludes 'fields' key.
  */
 export const batchCreateRecordsRequestSchema = z.object({
   records: z
-    .array(z.record(z.string(), fieldValueSchema))
+    .array(
+      z.union([
+        // Format 1: Nested format with 'fields' property (Airtable style)
+        z
+          .object({
+            fields: z.record(z.string(), fieldValueSchema).optional().default({}),
+          })
+          .strict(),
+        // Format 2: Flat format (any object WITHOUT 'fields' key)
+        z
+          .record(z.string(), fieldValueSchema)
+          .refine((data) => !('fields' in data), {
+            message: 'Flat format should not contain a "fields" key',
+          })
+          .transform((data) => ({
+            fields: data,
+          })),
+      ])
+    )
     .min(1, 'At least one record is required')
     .max(100, 'Maximum 100 records per batch'),
+  returnRecords: z.boolean().optional().default(false),
 })
 
 /**
@@ -130,10 +176,32 @@ export const batchRestoreRecordsRequestSchema = z.object({
 
 /**
  * Upsert records request schema
+ *
+ * Supports two formats for records:
+ * 1. Nested format: { fields: {...} }
+ * 2. Flat format: { ...fields } (transformed to nested)
  */
 export const upsertRecordsRequestSchema = z.object({
   records: z
-    .array(z.record(z.string(), fieldValueSchema))
+    .array(
+      z.union([
+        // Format 1: Nested format with 'fields' property
+        z
+          .object({
+            fields: z.record(z.string(), fieldValueSchema).optional().default({}),
+          })
+          .strict(),
+        // Format 2: Flat format (any object WITHOUT 'fields' key)
+        z
+          .record(z.string(), fieldValueSchema)
+          .refine((data) => !('fields' in data), {
+            message: 'Flat format should not contain a "fields" key',
+          })
+          .transform((data) => ({
+            fields: data,
+          })),
+      ])
+    )
     .min(1, 'At least one record is required')
     .max(100, 'Maximum 100 records per batch'),
   fieldsToMergeOn: z.array(z.string()).min(1, 'At least one merge field is required'),

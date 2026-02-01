@@ -61,11 +61,11 @@ test.describe('Batch update records', () => {
           records: [
             {
               id: 1,
-              status: 'inactive',
+              fields: { status: 'inactive' },
             },
             {
               id: 2,
-              email: 'jane.smith@example.com',
+              fields: { email: 'jane.smith@example.com' },
             },
           ],
           returnRecords: true,
@@ -125,8 +125,8 @@ test.describe('Batch update records', () => {
         },
         data: {
           records: [
-            { id: 1, status: 'inactive' },
-            { id: 2, status: 'inactive' },
+            { id: 1, fields: { status: 'inactive' } },
+            { id: 2, fields: { status: 'inactive' } },
           ],
           returnRecords: false,
         },
@@ -176,8 +176,8 @@ test.describe('Batch update records', () => {
         },
         data: {
           records: [
-            { id: 1, name: 'Updated One' },
-            { id: 2, email: null },
+            { id: 1, fields: { name: 'Updated One' } },
+            { id: 2, fields: { email: null } },
           ],
         },
       })
@@ -225,7 +225,7 @@ test.describe('Batch update records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ id: 1, name: 'Updated Alice' }],
+          records: [{ id: 1, fields: { name: 'Updated Alice' } }],
         },
       })
 
@@ -273,7 +273,7 @@ test.describe('Batch update records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ id: 1, name: 'Updated Project' }],
+          records: [{ id: 1, fields: { name: 'Updated Project' } }],
         },
       })
 
@@ -320,7 +320,7 @@ test.describe('Batch update records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ id: 1, title: 'Updated Doc' }],
+          records: [{ id: 1, fields: { title: 'Updated Doc' } }],
         },
       })
 
@@ -371,8 +371,8 @@ test.describe('Batch update records', () => {
         },
         data: {
           records: [
-            { id: 1, salary: 85_000 },
-            { id: 2, salary: 90_000 },
+            { id: 1, fields: { salary: 85_000 } },
+            { id: 2, fields: { salary: 90_000 } },
           ],
         },
       })
@@ -423,7 +423,7 @@ test.describe('Batch update records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ id: 1, created_at: '2025-01-01T00:00:00Z' }],
+          records: [{ id: 1, fields: { created_at: '2025-01-01T00:00:00Z' } }],
         },
       })
 
@@ -477,8 +477,8 @@ test.describe('Batch update records', () => {
         },
         data: {
           records: [
-            { id: 1, name: 'Alice Updated', salary: 80_000 },
-            { id: 2, name: 'Bob Updated', salary: 85_000 },
+            { id: 1, fields: { name: 'Alice Updated', salary: 80_000 } },
+            { id: 2, fields: { name: 'Bob Updated', salary: 85_000 } },
           ],
           returnRecords: true,
         },
@@ -533,8 +533,8 @@ test.describe('Batch update records', () => {
         },
         data: {
           records: [
-            { id: 1, salary: 130_000 },
-            { id: 2, salary: 100_000 },
+            { id: 1, fields: { salary: 130_000 } },
+            { id: 2, fields: { salary: 100_000 } },
           ],
           returnRecords: true,
         },
@@ -585,8 +585,8 @@ test.describe('Batch update records', () => {
         },
         data: {
           records: [
-            { id: 1, name: 'Alice Updated', salary: 80_000 },
-            { id: 2, email: 'bob.updated@example.com', salary: 85_000 },
+            { id: 1, fields: { name: 'Alice Updated', salary: 80_000 } },
+            { id: 2, fields: { email: 'bob.updated@example.com', salary: 85_000 } },
           ],
           returnRecords: true,
         },
@@ -634,8 +634,8 @@ test.describe('Batch update records', () => {
         },
         data: {
           records: [
-            { id: 1, name: 'Updated One' },
-            { id: 999, name: 'Non-existent' },
+            { id: 1, fields: { name: 'Updated One' } },
+            { id: 999, fields: { name: 'Non-existent' } },
           ],
         },
       })
@@ -685,7 +685,7 @@ test.describe('Batch update records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ id: 1, name: 'David Updated' }],
+          records: [{ id: 1, fields: { name: 'David Updated' } }],
           returnRecords: true,
         },
       })
@@ -790,7 +790,7 @@ test.describe('Batch update records', () => {
         const response = await request.patch('/api/tables/1/records/batch', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ id: 1, name: 'Unauthorized Update' }],
+            records: [{ id: 1, fields: { name: 'Unauthorized Update' } }],
           },
         })
 
@@ -818,8 +818,8 @@ test.describe('Batch update records', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { id: 1, status: 'inactive' },
-              { id: 2, email: 'jane.smith@example.com' },
+              { id: 1, fields: { status: 'inactive' } },
+              { id: 2, fields: { email: 'jane.smith@example.com' } },
             ],
             returnRecords: true,
           },
@@ -849,8 +849,8 @@ test.describe('Batch update records', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { id: 1, status: 'active' },
-              { id: 2, status: 'active' },
+              { id: 1, fields: { status: 'active' } },
+              { id: 2, fields: { status: 'active' } },
             ],
             returnRecords: false,
           },
@@ -872,8 +872,8 @@ test.describe('Batch update records', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { id: 1, name: 'Valid Update' },
-              { id: 2, email: null },
+              { id: 1, fields: { name: 'Valid Update' } },
+              { id: 2, fields: { email: null } },
             ],
           },
         })
@@ -897,7 +897,7 @@ test.describe('Batch update records', () => {
         const response = await request.patch('/api/tables/3/records/batch', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ id: 1, name: 'Updated Project' }],
+            records: [{ id: 1, fields: { name: 'Updated Project' } }],
           },
         })
 
@@ -917,8 +917,8 @@ test.describe('Batch update records', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { id: 1, salary: 85_000 },
-              { id: 2, salary: 90_000 },
+              { id: 1, fields: { salary: 85_000 } },
+              { id: 2, fields: { salary: 90_000 } },
             ],
           },
         })
@@ -938,7 +938,7 @@ test.describe('Batch update records', () => {
         const response = await request.patch('/api/tables/4/records/batch', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ id: 1, created_at: '2025-01-01T00:00:00Z' }],
+            records: [{ id: 1, fields: { created_at: '2025-01-01T00:00:00Z' } }],
           },
         })
 
@@ -958,8 +958,8 @@ test.describe('Batch update records', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { id: 1, name: 'Alice Updated' },
-              { id: 2, name: 'Bob Updated' },
+              { id: 1, fields: { name: 'Alice Updated' } },
+              { id: 2, fields: { name: 'Bob Updated' } },
             ],
             returnRecords: true,
           },
@@ -985,8 +985,8 @@ test.describe('Batch update records', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { id: 1, name: 'Alice Combined' },
-              { id: 2, email: 'bob.combined@company.com' },
+              { id: 1, fields: { name: 'Alice Combined' } },
+              { id: 2, fields: { email: 'bob.combined@company.com' } },
             ],
             returnRecords: true,
           },
@@ -1010,8 +1010,8 @@ test.describe('Batch update records', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { id: 1, name: 'Updated One' },
-              { id: 999, name: 'Non-existent' },
+              { id: 1, fields: { name: 'Updated One' } },
+              { id: 999, fields: { name: 'Non-existent' } },
             ],
           },
         })
@@ -1034,7 +1034,7 @@ test.describe('Batch update records', () => {
         const response = await request.patch('/api/tables/2/records/batch', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ id: 1, name: 'Final Update' }],
+            records: [{ id: 1, fields: { name: 'Final Update' } }],
             returnRecords: true,
           },
         })
