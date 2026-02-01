@@ -739,6 +739,9 @@ test.describe('List records in table', () => {
               { id: 3, name: 'phone', type: 'phone-number' },
               { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
             ],
+            permissions: {
+              read: { type: 'roles', roles: ['admin', 'owner', 'member', 'viewer'] },
+            },
           },
         ],
       })

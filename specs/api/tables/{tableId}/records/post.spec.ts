@@ -220,8 +220,8 @@ test.describe('Create new record', () => {
         },
       })
 
-      // THEN: Response should be 500 Internal Server Error (unique constraint violation not tagged)
-      expect(response.status()).toBe(500)
+      // THEN: Response should be 409 Conflict for unique constraint violation
+      expect(response.status()).toBe(409)
 
       const data = await response.json()
       // THEN: assertion
@@ -229,8 +229,8 @@ test.describe('Create new record', () => {
       expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('code')
       expect(data.success).toBe(false)
-      expect(data.message).toBe('An unexpected error occurred. Please try again later.')
-      expect(data.code).toBe('INTERNAL_ERROR')
+      expect(data.message).toBe('Resource already exists')
+      expect(data.code).toBe('CONFLICT')
 
       // Verify database still contains only original record
       const result = await executeQuery(`
@@ -324,7 +324,7 @@ test.describe('Create new record', () => {
   test(
     'API-TABLES-RECORDS-CREATE-007: should return 201 Created with all fields',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery, signIn }) => {
       // GIVEN: An admin user with write access to all fields including sensitive
       await startServerWithSchema({
         name: 'test-app',
@@ -342,8 +342,11 @@ test.describe('Create new record', () => {
         ],
       })
 
-      // Create authenticated user
-      await createAuthenticatedUser()
+      // Create user and promote to admin role via database
+      const user = await createAuthenticatedUser()
+      await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = $1`, [user.user.id])
+      // Re-authenticate to get session with updated role
+      await signIn({ email: user.user.email, password: 'TestPassword123!' })
 
       // WHEN: Admin creates record with sensitive field (salary)
       const response = await request.post('/api/tables/8/records', {

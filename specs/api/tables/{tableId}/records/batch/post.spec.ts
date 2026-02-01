@@ -272,10 +272,7 @@ test.describe('Batch create records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [
-            { fields: { name: 'Project Alpha' } },
-            { fields: { name: 'Project Beta' } },
-          ],
+          records: [{ fields: { name: 'Project Alpha' } }, { fields: { name: 'Project Beta' } }],
         },
       })
 
@@ -319,10 +316,7 @@ test.describe('Batch create records', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [
-            { fields: { title: 'Doc 1' } },
-            { fields: { title: 'Doc 2' } },
-          ],
+          records: [{ fields: { title: 'Doc 1' } }, { fields: { title: 'Doc 2' } }],
         },
       })
 
