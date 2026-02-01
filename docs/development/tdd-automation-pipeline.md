@@ -66,13 +66,13 @@ Note: Max attempts default is 5 (configurable per spec)
 
 ### Workflows Summary
 
-| Workflow    | File                                | Trigger                                                             |
-| ----------- | ----------------------------------- | ------------------------------------------------------------------- |
-| PR Creator  | `.github/workflows/pr-creator.yml`  | Hourly cron + test.yml success on main + manual (workflow_dispatch) |
-| Test        | `.github/workflows/test.yml`        | Push to main + PR events (opened, synchronize, reopened, closed)    |
-| Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                                               |
-| Monitor     | `.github/workflows/monitor.yml`     | Hourly cron + manual (workflow_dispatch)                            |
-| Branch Sync | `.github/workflows/branch-sync.yml` | Push to main + manual (workflow_dispatch)                           |
+| Workflow    | File                                | Trigger                                                                         |
+| ----------- | ----------------------------------- | ------------------------------------------------------------------------------- |
+| PR Creator  | `.github/workflows/pr-creator.yml`  | Hourly cron + test.yml success on main + manual (workflow_dispatch)             |
+| Test        | `.github/workflows/test.yml`        | Push to main + PR events (opened, synchronize, reopened, closed)                |
+| Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                                                           |
+| Monitor     | `.github/workflows/monitor.yml`     | Hourly cron + manual (workflow_dispatch)                                        |
+| Branch Sync | `.github/workflows/branch-sync.yml` | Push to main + 15-minute cron + manual (workflow_dispatch)                      |
 
 **Note on Spec Progress Updates**: The `test` workflow includes an `update-spec-progress` job that automatically updates `SPEC-PROGRESS.md` when all tests pass on `main` branch. This job:
 
@@ -87,6 +87,13 @@ Note: Max attempts default is 5 (configurable per spec)
 - **PR workflows**: Cancelled when new commits are pushed (fast feedback on latest code)
 - **Main branch workflows**: Run to completion even when new commits arrive (ensures spec progress updates execute)
 - **Rationale**: TDD automation pushes to main frequently. Cancelling main workflows would prevent spec progress tracking, breaking the automation pipeline.
+
+**Note on Branch Sync Cron Schedule**: The `branch-sync` workflow includes a 15-minute cron schedule to prevent stuck PRs:
+
+- **Problem**: TDD PRs can become stuck `BEHIND` if created after the last sync and main receives no new commits
+- **Solution**: Periodic cron (every 15 minutes) ensures branches sync even when main is quiet
+- **Cost-effective**: Workflow exits early if no TDD PRs exist (minimal overhead)
+- **Example**: PR #7082 was stuck for 2+ hours because it was created 2 minutes after last sync, then main went quiet
 
 ### Cost Limits
 
