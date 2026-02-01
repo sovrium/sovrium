@@ -66,13 +66,13 @@ Note: Max attempts default is 5 (configurable per spec)
 
 ### Workflows Summary
 
-| Workflow    | File                                | Trigger                                                                         |
-| ----------- | ----------------------------------- | ------------------------------------------------------------------------------- |
-| PR Creator  | `.github/workflows/pr-creator.yml`  | Hourly cron + test.yml success on main + manual (workflow_dispatch)             |
-| Test        | `.github/workflows/test.yml`        | Push to main + PR events (opened, synchronize, reopened, closed)                |
-| Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                                                           |
-| Monitor     | `.github/workflows/monitor.yml`     | Hourly cron + manual (workflow_dispatch)                                        |
-| Branch Sync | `.github/workflows/branch-sync.yml` | Push to main + 15-minute cron + manual (workflow_dispatch)                      |
+| Workflow    | File                                | Trigger                                                             |
+| ----------- | ----------------------------------- | ------------------------------------------------------------------- |
+| PR Creator  | `.github/workflows/pr-creator.yml`  | Hourly cron + test.yml success on main + manual (workflow_dispatch) |
+| Test        | `.github/workflows/test.yml`        | Push to main + PR events (opened, synchronize, reopened, closed)    |
+| Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                                               |
+| Monitor     | `.github/workflows/monitor.yml`     | Hourly cron + manual (workflow_dispatch)                            |
+| Branch Sync | `.github/workflows/branch-sync.yml` | Push to main + 15-minute cron + manual (workflow_dispatch)          |
 
 **Note on Spec Progress Updates**: The `test` workflow includes an `update-spec-progress` job that automatically updates `SPEC-PROGRESS.md` when all tests pass on `main` branch. This job:
 
