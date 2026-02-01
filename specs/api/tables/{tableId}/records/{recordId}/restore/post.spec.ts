@@ -271,7 +271,7 @@ test.describe('Restore record', () => {
   // Activity Log Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-007: should create activity log entry when record is restored',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
