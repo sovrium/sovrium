@@ -12,8 +12,8 @@
  * before running Claude Code.
  *
  * Uses environment variables for configuration:
- *   TDD_DAILY_LIMIT - Daily limit in dollars (default: 100)
- *   TDD_WEEKLY_LIMIT - Weekly limit in dollars (default: 500)
+ *   TDD_DAILY_LIMIT - Daily limit in dollars (default: 200)
+ *   TDD_WEEKLY_LIMIT - Weekly limit in dollars (default: 1000)
  *   PROBE_EXHAUSTED - Whether credit probe detected exhaustion
  *   PROBE_FAILED - Whether credit probe failed
  *

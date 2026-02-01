@@ -37,8 +37,8 @@ function getEnvNumber(key: string, defaultValue: number): number {
  *
  * Configurable via environment variables:
  * - TDD_MAX_ATTEMPTS: Maximum attempts before manual intervention (default: 5)
- * - TDD_DAILY_LIMIT: Daily credit limit in dollars (default: 100)
- * - TDD_WEEKLY_LIMIT: Weekly credit limit in dollars (default: 500)
+ * - TDD_DAILY_LIMIT: Daily credit limit in dollars (default: 200)
+ * - TDD_WEEKLY_LIMIT: Weekly credit limit in dollars (default: 1000)
  * - TDD_WARNING_THRESHOLD: Warning threshold percentage (default: 0.8)
  * - TDD_FALLBACK_COST: Fallback cost per run when parsing fails (default: 15)
  */
@@ -50,12 +50,12 @@ export const TDD_CONFIG = {
 
   /** Daily credit limit in dollars */
   get DAILY_LIMIT(): number {
-    return getEnvNumber('TDD_DAILY_LIMIT', 100)
+    return getEnvNumber('TDD_DAILY_LIMIT', 200)
   },
 
   /** Weekly credit limit in dollars */
   get WEEKLY_LIMIT(): number {
-    return getEnvNumber('TDD_WEEKLY_LIMIT', 500)
+    return getEnvNumber('TDD_WEEKLY_LIMIT', 1000)
   },
 
   /** Warning threshold percentage (0.8 = 80%) */

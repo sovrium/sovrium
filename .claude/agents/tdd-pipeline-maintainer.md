@@ -75,7 +75,7 @@ YOUR PRIMARY RESPONSIBILITIES:
    - Keep the doc focused on: architecture, workflow diagrams, state management, business rules, decisions, and component interactions
 
 7. COST PROTECTION:
-   - Maintain cost limits: $100/day, $500/week, 80% warning thresholds
+   - Maintain cost limits: $200/day, $1000/week, 80% warning thresholds
    - Ensure cost tracking is accurate and warnings are sent to workflow logs
    - Never bypass cost protection mechanisms
    - Document any changes to cost limits with clear justification
@@ -131,7 +131,7 @@ You include quality assurance mechanisms to ensure TDD pipeline reliability:
 You: "I've drafted the documentation for exponential backoff retry logic.
 
 **Issue Found During Validation**:
-The proposed retry schedule (1s, 2s, 4s, 8s, 16s) could exceed the $100 daily cost limit if multiple specs fail simultaneously.
+The proposed retry schedule (1s, 2s, 4s, 8s, 16s) could exceed the $200 daily cost limit if multiple specs fail simultaneously.
 
 **Options**:
 1. Cap max retry delay at 8s (reduce cost risk)

@@ -23,8 +23,8 @@ describe('Credit Comment Generator', () => {
         weeklyRuns: 158,
         actualDaily: 105.5,
         actualWeekly: 234.75,
-        dailyLimit: 100.0,
-        weeklyLimit: 500.0,
+        dailyLimit: 200.0,
+        weeklyLimit: 1000.0,
         dailyRemaining: -5.5,
         weeklyRemaining: 265.25,
         dailyPercent: 105,
@@ -37,7 +37,7 @@ describe('Credit Comment Generator', () => {
 
       expect(result).toContain('## ⏸️ Daily Credit Limit Reached')
       expect(result).toContain('TDD automation paused until daily limit resets in **8 hours**')
-      expect(result).toContain('| **Daily** | $105.50 | $100.00 | $-5.50 | 105% | 54 | 8h |')
+      expect(result).toContain('| **Daily** | $105.50 | $200.00 | $-5.50 | 105% | 54 | 8h |')
       expect(result).toContain('### 📊 Current Usage (Actual Costs)')
     })
 
@@ -49,8 +49,8 @@ describe('Credit Comment Generator', () => {
         weeklyRuns: 200,
         actualDaily: 42.0,
         actualWeekly: 510.0,
-        dailyLimit: 100.0,
-        weeklyLimit: 500.0,
+        dailyLimit: 200.0,
+        weeklyLimit: 1000.0,
         dailyRemaining: 58.0,
         weeklyRemaining: -10.0,
         dailyPercent: 42,
@@ -63,7 +63,7 @@ describe('Credit Comment Generator', () => {
 
       expect(result).toContain('## ⏸️ Weekly Credit Limit Reached')
       expect(result).toContain('TDD automation paused until weekly limit resets in **2 days**')
-      expect(result).toContain('| **Weekly** | $510.00 | $500.00 | $-10.00 | 102% | 200 | 2d |')
+      expect(result).toContain('| **Weekly** | $510.00 | $1000.00 | $-10.00 | 102% | 200 | 2d |')
     })
 
     test('generates warning comment when approaching daily limit (80%+)', async () => {
@@ -74,8 +74,8 @@ describe('Credit Comment Generator', () => {
         weeklyRuns: 120,
         actualDaily: 85.0,
         actualWeekly: 250.0,
-        dailyLimit: 100.0,
-        weeklyLimit: 500.0,
+        dailyLimit: 200.0,
+        weeklyLimit: 1000.0,
         dailyRemaining: 15.0,
         weeklyRemaining: 250.0,
         dailyPercent: 85,
@@ -90,7 +90,7 @@ describe('Credit Comment Generator', () => {
       expect(result).toContain(
         'Daily usage is at **85%** of limit. Execution will continue but monitor usage closely.'
       )
-      expect(result).toContain('| **Daily** | $85.00 | $100.00 | $15.00 | 85% | 40 | 6h |')
+      expect(result).toContain('| **Daily** | $85.00 | $200.00 | $15.00 | 85% | 40 | 6h |')
     })
 
     test('generates warning comment when approaching weekly limit (80%+)', async () => {
@@ -101,8 +101,8 @@ describe('Credit Comment Generator', () => {
         weeklyRuns: 160,
         actualDaily: 45.0,
         actualWeekly: 420.0,
-        dailyLimit: 100.0,
-        weeklyLimit: 500.0,
+        dailyLimit: 200.0,
+        weeklyLimit: 1000.0,
         dailyRemaining: 55.0,
         weeklyRemaining: 80.0,
         dailyPercent: 45,
@@ -117,7 +117,7 @@ describe('Credit Comment Generator', () => {
       expect(result).toContain(
         'Weekly usage is at **84%** of limit. Execution will continue but monitor usage closely.'
       )
-      expect(result).toContain('| **Weekly** | $420.00 | $500.00 | $80.00 | 84% | 160 | 1d |')
+      expect(result).toContain('| **Weekly** | $420.00 | $1000.00 | $80.00 | 84% | 160 | 1d |')
     })
 
     test('generates success comment when under limits', async () => {
@@ -128,8 +128,8 @@ describe('Credit Comment Generator', () => {
         weeklyRuns: 50,
         actualDaily: 20.5,
         actualWeekly: 75.25,
-        dailyLimit: 100.0,
-        weeklyLimit: 500.0,
+        dailyLimit: 200.0,
+        weeklyLimit: 1000.0,
         dailyRemaining: 79.5,
         weeklyRemaining: 424.75,
         dailyPercent: 20,
@@ -144,8 +144,8 @@ describe('Credit Comment Generator', () => {
       expect(result).toContain(
         'Claude Code execution proceeding. Current usage is below warning thresholds.'
       )
-      expect(result).toContain('| **Daily** | $20.50 | $100.00 | $79.50 | 20% | 10 | 14h |')
-      expect(result).toContain('| **Weekly** | $75.25 | $500.00 | $424.75 | 15% | 50 | 5d |')
+      expect(result).toContain('| **Daily** | $20.50 | $200.00 | $79.50 | 20% | 10 | 14h |')
+      expect(result).toContain('| **Weekly** | $75.25 | $1000.00 | $424.75 | 15% | 50 | 5d |')
     })
   })
 
@@ -158,8 +158,8 @@ describe('Credit Comment Generator', () => {
         'weekly-runs': '60',
         'actual-daily': '30.50',
         'actual-weekly': '120.75',
-        'daily-limit': '100.00',
-        'weekly-limit': '500.00',
+        'daily-limit': '200.00',
+        'weekly-limit': '1000.00',
         'daily-remaining': '69.50',
         'weekly-remaining': '379.25',
         'daily-percent': '30',
@@ -185,8 +185,8 @@ describe('Credit Comment Generator', () => {
         weeklyRuns: '80',
         actualDaily: '50.00',
         actualWeekly: '200.00',
-        dailyLimit: '100.00',
-        weeklyLimit: '500.00',
+        dailyLimit: '200.00',
+        weeklyLimit: '1000.00',
         dailyRemaining: '50.00',
         weeklyRemaining: '300.00',
         dailyPercent: '50',
@@ -211,8 +211,8 @@ describe('Credit Comment Generator', () => {
       expect(result.creditsOk).toBe(false)
       expect(result.limitType).toBe('none')
       expect(result.dailyRuns).toBe(0)
-      expect(result.dailyLimit).toBe(100)
-      expect(result.weeklyLimit).toBe(500)
+      expect(result.dailyLimit).toBe(200)
+      expect(result.weeklyLimit).toBe(1000)
       expect(result.hoursUntilDailyReset).toBe(24)
       expect(result.daysUntilWeeklyReset).toBe(7)
     })
