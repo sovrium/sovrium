@@ -174,6 +174,10 @@ export function hasDeletePermission(
 /**
  * Check if user has update permission for a table
  * Returns true if permission granted, false if denied
+ *
+ * Note: When no explicit permissions are defined:
+ * - Admins, owners, and members: allowed by default
+ * - Viewers: denied by default (tables must explicitly grant viewer update access)
  */
 export function hasUpdatePermission(
   table: Readonly<{ permissions?: Readonly<{ update?: unknown }> }> | undefined,
@@ -190,7 +194,14 @@ export function hasUpdatePermission(
     return allowedRoles.includes(userRole)
   }
 
-  // When no explicit permissions are defined, all authenticated users are allowed
+  // When no explicit permissions are defined:
+  // - Viewers are denied access by default (must be explicitly granted)
+  // - All other roles (admin, owner, member) are allowed
+  if (userRole === 'viewer') {
+    return false
+  }
+
+  // When no explicit permissions are defined, all authenticated users (except viewers) are allowed
   return true
 }
 

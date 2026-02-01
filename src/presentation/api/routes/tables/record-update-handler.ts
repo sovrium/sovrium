@@ -29,12 +29,18 @@ export function checkTableUpdatePermissionWithRole(
   const table = app.tables?.find((t) => t.name === tableName)
 
   if (!hasUpdatePermission(table, userRole)) {
+    // Viewer-specific message for default permission denial
+    const message =
+      userRole === 'viewer'
+        ? 'You do not have permission to perform this action'
+        : 'You do not have permission to update records in this table'
+
     return {
       allowed: false,
       response: c.json(
         {
           success: false,
-          message: 'You do not have permission to update records in this table',
+          message,
           code: 'FORBIDDEN',
         },
         403
