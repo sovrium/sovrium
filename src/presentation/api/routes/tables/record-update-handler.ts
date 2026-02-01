@@ -122,19 +122,22 @@ export async function executeUpdate(config: {
   tableName: string
   recordId: string
   allowedData: Record<string, unknown>
+  app: App
+  userRole: string
   c: Context
 }): Promise<Response> {
-  const { session, tableName, recordId, allowedData, c } = config
+  const { session, tableName, recordId, allowedData, app, userRole, c } = config
   try {
     const updateResult = await Effect.runPromise(
-      updateRecordProgram(session, tableName, recordId, allowedData)
+      updateRecordProgram(session, tableName, recordId, allowedData, app, userRole)
     )
 
     // Check if update affected any rows (RLS may have blocked it)
-    if (!updateResult.record || Object.keys(updateResult.record).length === 0) {
+    if (!updateResult || Object.keys(updateResult).length === 0) {
       return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
     }
 
+    // Return flattened response format (matching GET record response structure)
     return c.json(updateResult, 200)
   } catch (error) {
     return handleUpdateError({ session, tableName, recordId, error, c })

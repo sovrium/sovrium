@@ -258,6 +258,8 @@ export async function handleUpdateRecord(c: Context, app: App) {
     tableName,
     recordId: c.req.param('recordId'),
     allowedData,
+    app,
+    userRole,
     c,
   })
 }

@@ -308,12 +308,46 @@ export function updateRecordProgram(
   session: Readonly<Session>,
   tableName: string,
   recordId: string,
-  fields: Readonly<Record<string, unknown>>
+  fields: Readonly<Record<string, unknown>>,
+  app?: App,
+  userRole?: string
 ) {
   return Effect.gen(function* () {
     // Update record with session context (RLS policies enforce access control)
     const record = yield* updateRecord(session, tableName, recordId, fields)
-    return { record: transformRecord(record) }
+
+    // Transform with app context to include table-specific fields like created_at/updated_at
+    const transformed = transformRecord(record, { app, tableName })
+
+    // Apply field-level read permissions filtering
+    // If app and userRole are provided, filter fields based on permissions
+    const filteredFields =
+      app && userRole
+        ? (() => {
+            const { userId } = session
+            const filteredRecord = filterReadableFields({
+              app,
+              tableName,
+              userRole,
+              userId,
+              record,
+            })
+
+            // Transform filtered record to get only user fields (exclude system fields)
+            const transformedFiltered = transformRecord(filteredRecord, { app, tableName })
+            return transformedFiltered.fields
+          })()
+        : transformed.fields
+
+    // Return in format expected by tests: system fields at root, user fields nested
+    // Preserve original ID type (number if it was number in database)
+    const originalId = record.id
+    return {
+      id: typeof originalId === 'number' ? originalId : transformed.id,
+      fields: filteredFields,
+      createdAt: transformed.createdAt,
+      updatedAt: transformed.updatedAt,
+    }
   })
 }
 
