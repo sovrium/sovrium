@@ -315,18 +315,22 @@ export const test = base.extend<ServerFixtures>({
             }
             await client.query('COMMIT')
 
+            // Note: PostgreSQL returns DECIMAL/NUMERIC as strings, but we keep them as-is
+            // for test assertions to work correctly (tests expect string values)
+            const parsedRows = result.rows
+
             // Apply single-row spreading logic for transaction results too
-            if (result.rows.length === 1) {
+            if (parsedRows.length === 1) {
               return {
-                ...result.rows[0],
-                rows: result.rows,
-                rowCount: result.rowCount ?? result.rows.length,
+                ...parsedRows[0],
+                rows: parsedRows,
+                rowCount: result.rowCount ?? parsedRows.length,
               }
             }
 
             return {
-              rows: result.rows,
-              rowCount: result.rowCount ?? result.rows.length,
+              rows: parsedRows,
+              rowCount: result.rowCount ?? parsedRows.length,
             }
           } catch (error) {
             await client.query('ROLLBACK')
@@ -336,19 +340,23 @@ export const test = base.extend<ServerFixtures>({
 
         const result = await client.query(sql, params)
 
+        // Note: PostgreSQL returns DECIMAL/NUMERIC as strings, but we keep them as-is
+        // for test assertions to work correctly (tests expect string values)
+        const parsedRows = result.rows
+
         // Return result with convenient properties
         // For single-row results, spread the row properties for easier access
-        if (result.rows.length === 1) {
+        if (parsedRows.length === 1) {
           return {
-            ...result.rows[0],
-            rows: result.rows,
-            rowCount: result.rowCount ?? result.rows.length,
+            ...parsedRows[0],
+            rows: parsedRows,
+            rowCount: result.rowCount ?? parsedRows.length,
           }
         }
 
         return {
-          rows: result.rows,
-          rowCount: result.rowCount ?? result.rows.length,
+          rows: parsedRows,
+          rowCount: result.rowCount ?? parsedRows.length,
         }
       } finally {
         await client.end()
@@ -729,7 +737,11 @@ export const test = base.extend<ServerFixtures>({
     })
   },
 
-  createAuthenticatedAdmin: async ({ createAuthenticatedUser, page, signIn }, use, testInfo) => {
+  createAuthenticatedAdmin: async (
+    { createAuthenticatedUser, page, signIn, executeQuery },
+    use,
+    testInfo
+  ) => {
     await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
       // Create user first
       const user = await createAuthenticatedUser(data)
@@ -740,7 +752,7 @@ export const test = base.extend<ServerFixtures>({
         throw new Error('Server not started.')
       }
 
-      // Use admin API to set role (this revokes all user sessions)
+      // Try admin API first (requires existing admin user)
       const response = await page.request.post('/api/auth/admin/set-role', {
         data: {
           userId: user.user.id,
@@ -748,15 +760,25 @@ export const test = base.extend<ServerFixtures>({
         },
       })
 
+      // If admin API is not available (403 = first user, no admin exists yet), use direct database update
+      if (response.status() === 403) {
+        // Fallback: Direct database update for first user scenario
+        await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = $1`, [user.user.id])
+
+        // Return the user with updated role (no need to re-authenticate, session still valid)
+        return { ...user, user: { ...user.user, role: 'admin' } }
+      }
+
+      // If other error, throw
       if (!response.ok()) {
         throw new Error(
-          `Admin API endpoint not available (status: ${response.status()}). ` +
+          `Admin API endpoint failed (status: ${response.status()}). ` +
             `To use createAuthenticatedAdmin, configure Better Auth admin plugin in your test schema. ` +
             `Alternative: use createAuthenticatedUser() and set role manually via executeQuery()`
         )
       }
 
-      // Re-authenticate after session revocation (set-role revokes all sessions)
+      // Re-authenticate after session revocation (set-role revokes all sessions when it succeeds)
       const testId = data?.email || user.user.email
       const password = data?.password || 'TestPassword123!'
       const signInResult = await signIn({ email: testId, password })
