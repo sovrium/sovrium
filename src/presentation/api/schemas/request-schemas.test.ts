@@ -108,15 +108,7 @@ describe('updateRecordRequestSchema', () => {
     expect(result).toEqual({ fields: { name: 'Updated Name', age: 31 } })
   })
 
-  test('transforms flat format to nested format', () => {
-    // Flat format is transformed to nested format
-    const input = { name: 'Updated Name', age: 31 }
-    const result = updateRecordRequestSchema.parse(input)
-    expect(result).toEqual({ fields: { name: 'Updated Name', age: 31 } })
-  })
-
-  test('parses empty object to nested format with empty fields', () => {
-    // Empty flat format is transformed to nested with empty fields
+  test('applies default empty object when fields is missing', () => {
     const result = updateRecordRequestSchema.parse({})
     expect(result).toEqual({ fields: {} })
   })
@@ -133,17 +125,6 @@ describe('batchCreateRecordsRequestSchema', () => {
       expect(result.records[0]).toEqual({ fields: { name: 'John' } })
     })
 
-    test('transforms flat format to nested format', () => {
-      // Flat format records are transformed to nested format
-      const input = {
-        records: [{ name: 'John' }, { name: 'Jane' }],
-      }
-      const result = batchCreateRecordsRequestSchema.parse(input)
-      expect(result.records).toHaveLength(2)
-      expect(result.records[0]).toEqual({ fields: { name: 'John' } })
-      expect(result.records[1]).toEqual({ fields: { name: 'Jane' } })
-    })
-
     test('validates exactly 100 records (maximum)', () => {
       const input = {
         records: Array.from({ length: 100 }, (_, i) => ({
@@ -154,7 +135,7 @@ describe('batchCreateRecordsRequestSchema', () => {
       expect(result.records).toHaveLength(100)
     })
 
-    test('validates empty record object transforms to nested with empty fields', () => {
+    test('validates empty record object with default empty fields', () => {
       const input = {
         records: [{}],
       }
@@ -370,16 +351,6 @@ describe('upsertRecordsRequestSchema', () => {
       }
       const result = upsertRecordsRequestSchema.parse(input)
       expect(result.records[0]?.fields).toEqual({ name: 'Updated' })
-    })
-
-    test('transforms flat format to nested format', () => {
-      // Upsert schema transforms flat records to nested format
-      const input = {
-        records: [{ name: 'New Record' }],
-        fieldsToMergeOn: ['name'],
-      }
-      const result = upsertRecordsRequestSchema.parse(input)
-      expect(result.records[0]).toEqual({ fields: { name: 'New Record' } })
     })
 
     test('validates multiple records with nested format', () => {

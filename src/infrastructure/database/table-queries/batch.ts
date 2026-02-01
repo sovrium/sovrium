@@ -633,17 +633,14 @@ export function batchRestoreRecords(
   )
 }
 /**
- * Extract fields from update object (handles both nested and flat formats)
+ * Extract fields from update object (requires nested format)
  */
 function extractFieldsFromUpdate(update: {
   readonly id: string
-  readonly [key: string]: unknown
+  readonly fields?: Record<string, unknown>
 }): Record<string, unknown> {
-  const { id: _id, fields: nestedFields, ...flatFields } = update
-  // If 'fields' property exists (nested format), use it; otherwise use flat fields
-  return nestedFields && typeof nestedFields === 'object' && !Array.isArray(nestedFields)
-    ? (nestedFields as Record<string, unknown>)
-    : flatFields
+  // Return fields property or empty object if not provided
+  return update.fields ?? {}
 }
 
 /**
@@ -709,7 +706,7 @@ function updateSingleRecordInBatch(
   tx: any,
   tableName: string,
   session: Readonly<Session>,
-  update: { readonly id: string; readonly [key: string]: unknown }
+  update: { readonly id: string; readonly fields?: Record<string, unknown> }
 ): Effect.Effect<Record<string, unknown> | undefined, never> {
   return Effect.gen(function* () {
     const fieldsToUpdate = extractFieldsFromUpdate(update)
@@ -745,13 +742,13 @@ function updateSingleRecordInBatch(
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
- * @param updates - Array of records with id and fields to update (supports both nested and flat format)
+ * @param updates - Array of records with id and fields to update (requires nested format)
  * @returns Effect resolving to array of updated records
  */
 export function batchUpdateRecords(
   session: Readonly<Session>,
   tableName: string,
-  updates: readonly { readonly id: string; readonly [key: string]: unknown }[]
+  updates: readonly { readonly id: string; readonly fields?: Record<string, unknown> }[]
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
   return withSessionContext(session, (tx) =>
     Effect.gen(function* () {
