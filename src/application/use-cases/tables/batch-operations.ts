@@ -12,6 +12,7 @@ import {
   batchUpdateRecords,
   batchDeleteRecords,
   upsertRecords,
+  type BatchValidationError,
 } from '@/infrastructure/database/table-queries'
 import { transformRecords, type TransformedRecord } from './utils/record-transformer'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -108,7 +109,7 @@ export function upsertProgram(
     readonly created: number
     readonly updated: number
   },
-  SessionContextError | ValidationError
+  SessionContextError | ValidationError | BatchValidationError
 > {
   return Effect.gen(function* () {
     const result = yield* upsertRecords(

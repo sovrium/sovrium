@@ -22,7 +22,7 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
 /**
  * Batch validation error - returned when batch validation fails
  */
-class BatchValidationError extends Data.TaggedError('ValidationError')<{
+export class BatchValidationError extends Data.TaggedError('ValidationError')<{
   readonly message: string
   readonly details?: readonly string[]
 }> {}
@@ -367,7 +367,7 @@ async function validateRequiredFieldsInRecord(
         AND is_nullable = 'NO'
         AND column_default IS NULL
     `
-  )) as readonly Array<{ column_name: string }>
+  )) as Array<{ readonly column_name: string }>
 
   const requiredFields = schemaQuery.map((row) => row.column_name)
 
