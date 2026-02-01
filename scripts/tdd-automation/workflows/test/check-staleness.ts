@@ -39,12 +39,14 @@ const main = Effect.gen(function* () {
   // Validate required inputs
   if (!currentRunId) {
     yield* Console.error('::error::CURRENT_RUN_ID environment variable not set')
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(JSON.stringify({ shouldTrigger: true, error: 'CURRENT_RUN_ID not set' }))
     return
   }
 
   if (!currentRunStartedAt) {
     yield* Console.error('::error::CURRENT_RUN_STARTED_AT environment variable not set')
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(
       JSON.stringify({ shouldTrigger: true, error: 'CURRENT_RUN_STARTED_AT not set' })
     )
@@ -53,12 +55,14 @@ const main = Effect.gen(function* () {
 
   if (!branch) {
     yield* Console.error('::error::BRANCH environment variable not set')
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(JSON.stringify({ shouldTrigger: true, error: 'BRANCH not set' }))
     return
   }
 
   if (!repository) {
     yield* Console.error('::error::GITHUB_REPOSITORY environment variable not set')
+    // @effect-diagnostics effect/preferSchemaOverJson:off
     yield* Console.log(JSON.stringify({ shouldTrigger: true, error: 'GITHUB_REPOSITORY not set' }))
     return
   }
@@ -105,6 +109,7 @@ const main = Effect.gen(function* () {
   }
 
   // Output JSON for workflow parsing
+  // @effect-diagnostics effect/preferSchemaOverJson:off
   yield* Console.log(JSON.stringify(result))
 })
 
