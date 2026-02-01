@@ -165,13 +165,13 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
       // (write limits are stricter than read limits to prevent data flooding)
       for (let i = 0; i < 50; i++) {
         await request.post('/api/tables/1/records', {
-          data: { title: `Task ${i}` },
+          data: { fields: { title: `Task ${i}` } },
         })
       }
 
       // THEN: 51st write request returns 429 Too Many Requests
       const response = await request.post('/api/tables/1/records', {
-        data: { title: 'One more task' },
+        data: { fields: { title: 'One more task' } },
       })
 
       expect(response.status()).toBe(429)
@@ -409,13 +409,13 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
         // WHEN: User exceeds default record write rate limit
         for (let i = 0; i < 50; i++) {
           await request.post('/api/tables/1/records', {
-            data: { name: `Project ${i}` },
+            data: { fields: { name: `Project ${i}` } },
           })
         }
 
         // THEN: 51st write request returns 429 Too Many Requests
         const response = await request.post('/api/tables/1/records', {
-          data: { name: 'One more project' },
+          data: { fields: { name: 'One more project' } },
         })
 
         expect(response.status()).toBe(429)

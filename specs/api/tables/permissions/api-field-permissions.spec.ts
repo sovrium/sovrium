@@ -500,7 +500,7 @@ test.describe('API Field Permission Enforcement', () => {
         await signIn({ email: 'member@example.com', password: 'TestPassword123!' })
         const response = await request.patch('/api/tables/1/records/1', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'John Smith' }, // This should work
+          data: { fields: { name: 'John Smith' } }, // This should work
         })
 
         // THEN: Update should succeed

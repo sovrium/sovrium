@@ -605,7 +605,7 @@ test.describe('API Record-Level Permissions', () => {
         // WHEN: User creates a note without specifying owner_id
         const response = await request.post('/api/tables/1/records', {
           headers: { 'Content-Type': 'application/json' },
-          data: { content: 'My new note' },
+          data: { fields: { content: 'My new note' } },
         })
 
         // THEN: Record is created with current user as owner
@@ -661,7 +661,7 @@ test.describe('API Record-Level Permissions', () => {
         // WHEN: Owner updates their record
         const response = await request.patch('/api/tables/1/records/100', {
           headers: { 'Content-Type': 'application/json' },
-          data: { content: 'Updated content' },
+          data: { fields: { content: 'Updated content' } },
         })
 
         // THEN: Update succeeds
@@ -686,7 +686,7 @@ test.describe('API Record-Level Permissions', () => {
         // WHEN: Non-owner tries to update
         const response = await request.patch('/api/tables/4/records/200', {
           headers: { 'Content-Type': 'application/json' },
-          data: { content: 'Hacked content' },
+          data: { fields: { content: 'Hacked content' } },
         })
 
         // THEN: 403 Forbidden (user CAN read via 'authenticated' but cannot update)

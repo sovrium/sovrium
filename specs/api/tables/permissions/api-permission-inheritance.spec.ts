@@ -183,7 +183,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        data: { name: 'Member Resource' },
+        data: { fields: { name: 'Member Resource' } },
       })
 
       // THEN: Member cannot create (not in create roles)
@@ -250,7 +250,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        data: { content: 'Member Content' },
+        data: { fields: { content: 'Member Content' } },
       })
 
       // THEN: Member cannot create (not in create roles)
@@ -261,7 +261,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        data: { content: 'Hacked Content' },
+        data: { fields: { content: 'Hacked Content' } },
       })
 
       // THEN: Member cannot update (not in update roles)
@@ -326,7 +326,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        data: { role_field: 'admin' }, // Attempting role escalation
+        data: { fields: { role_field: 'admin' } }, // Attempting role escalation
       })
 
       // THEN: Role escalation is denied (member can't write role_field)
@@ -601,7 +601,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         // WHEN: Member tries to create
         const createResponse = await request.post('/api/tables/2/records', {
           headers: { 'Content-Type': 'application/json' },
-          data: { name: 'Member Resource' },
+          data: { fields: { name: 'Member Resource' } },
         })
 
         // THEN: Member cannot create (not in create roles)
@@ -628,7 +628,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         // WHEN: Read-only member tries to create
         const createResponse = await request.post('/api/tables/3/records', {
           headers: { 'Content-Type': 'application/json' },
-          data: { content: 'Member Content' },
+          data: { fields: { content: 'Member Content' } },
         })
 
         // THEN: Member cannot create
@@ -637,7 +637,7 @@ test.describe('API Permission Inheritance and Role Hierarchy', () => {
         // WHEN: Read-only member tries to update
         const updateResponse = await request.patch('/api/tables/3/records/1', {
           headers: { 'Content-Type': 'application/json' },
-          data: { content: 'Hacked Content' },
+          data: { fields: { content: 'Hacked Content' } },
         })
 
         // THEN: Member cannot update
