@@ -152,8 +152,25 @@ export function createListTrashProgram(
       filterReadableFields({ app, tableName, userRole, userId, record })
     )
 
+    // Transform records and preserve numeric IDs
+    const transformedRecords = transformRecords(filteredRecords, { app, tableName }).map(
+      (record) => {
+        // Find the original record to get the raw ID value
+        const originalRecord = records.find((r) => String(r.id) === record.id)
+        const originalId = originalRecord?.id
+
+        // Preserve numeric type if the original ID was a number
+        const id = typeof originalId === 'number' ? originalId : record.id
+
+        return {
+          ...record,
+          id,
+        }
+      }
+    )
+
     return {
-      records: transformRecords(filteredRecords) as TransformedRecord[],
+      records: [...transformedRecords] as TransformedRecord[],
       pagination: {
         page: 1,
         limit: 10,
