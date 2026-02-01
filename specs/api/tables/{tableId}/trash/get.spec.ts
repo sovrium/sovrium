@@ -116,7 +116,7 @@ test.describe('GET /trash endpoint', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-TRASH-003: should return 403 Forbidden for viewer without read access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
