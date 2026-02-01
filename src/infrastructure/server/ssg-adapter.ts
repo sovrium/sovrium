@@ -64,7 +64,9 @@ function shouldExcludeRoute(pathname: string): boolean {
     pathname === '/api/openapi.json' ||
     pathname === '/api/scalar' ||
     pathname.startsWith('/api/auth/') ||
+    pathname === '/api/tables' || // Exact match for list endpoint
     pathname.startsWith('/api/tables/') ||
+    pathname === '/api/records' || // Exact match for records endpoint
     pathname.startsWith('/api/records/') ||
     pathname.startsWith('/test/')
   )
