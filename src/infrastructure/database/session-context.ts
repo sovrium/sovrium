@@ -55,6 +55,30 @@ export class UniqueConstraintViolationError extends Error {
 }
 
 /**
+ * Validation error for invalid input data
+ * Thrown when input data fails validation before database operations
+ */
+export class ValidationError extends Error {
+  readonly _tag = 'ValidationError'
+  readonly details?: readonly {
+    readonly record: number
+    readonly field: string
+    readonly error: string
+  }[]
+
+  constructor(
+    message: string,
+    details?: readonly { readonly record: number; readonly field: string; readonly error: string }[]
+  ) {
+    super(message)
+    // eslint-disable-next-line functional/no-expression-statements -- Required for Error subclass
+    this.name = 'ValidationError'
+    // eslint-disable-next-line functional/no-expression-statements -- Required for Error subclass
+    this.details = details
+  }
+}
+
+/**
  * Database transaction interface supporting unsafe SQL execution
  */
 export interface DatabaseTransaction {

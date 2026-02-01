@@ -184,6 +184,36 @@ async function handleUpsert(c: Context, app: App) {
     )
   }
 
+  // Validate required fields for all records
+  // Since upsert can create OR update, we check if records might be new (missing merge fields)
+  const { validateRequiredFieldsForRecord } = await import('./create-record-helpers')
+  const validationErrors: Array<{ record: number; field: string; error: string }> = []
+
+  result.data.records.forEach((record, index) => {
+    const missingFields = validateRequiredFieldsForRecord(table, record)
+    if (missingFields.length > 0) {
+      validationErrors.push(
+        ...missingFields.map((field: string) => ({
+          record: index,
+          field,
+          error: 'Required field is missing',
+        }))
+      )
+    }
+  })
+
+  if (validationErrors.length > 0) {
+    return c.json(
+      {
+        success: false,
+        message: 'Validation failed: one or more records have invalid data',
+        code: 'VALIDATION_ERROR',
+        details: validationErrors,
+      },
+      400
+    )
+  }
+
   return runEffect(
     c,
     upsertProgram(session, tableName, {

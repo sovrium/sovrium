@@ -15,7 +15,11 @@ import {
 } from '@/infrastructure/database/table-queries'
 import { transformRecords, type TransformedRecord } from './utils/record-transformer'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
-import type { ForbiddenError, SessionContextError } from '@/infrastructure/database/session-context'
+import type {
+  ForbiddenError,
+  SessionContextError,
+  ValidationError,
+} from '@/infrastructure/database/session-context'
 import type { BatchRestoreRecordsResponse } from '@/presentation/api/schemas/tables-schemas'
 
 export function batchCreateProgram(
@@ -104,7 +108,7 @@ export function upsertProgram(
     readonly created: number
     readonly updated: number
   },
-  SessionContextError | { readonly _tag: 'ValidationError' }
+  SessionContextError | ValidationError
 > {
   return Effect.gen(function* () {
     const result = yield* upsertRecords(

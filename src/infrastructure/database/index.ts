@@ -34,6 +34,7 @@ export {
   SessionContextError,
   ForbiddenError,
   UniqueConstraintViolationError,
+  ValidationError,
   type DatabaseTransaction,
 } from './session-context'
 export { withSessionContext, withSessionContextSimple } from './with-session-context'

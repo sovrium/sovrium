@@ -9,7 +9,12 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect, Data } from 'effect'
-import { withSessionContext, SessionContextError, ForbiddenError } from '@/infrastructure/database'
+import {
+  withSessionContext,
+  SessionContextError,
+  ForbiddenError,
+  ValidationError,
+} from '@/infrastructure/database'
 import { logActivity } from './activity-log-helpers'
 import { validateTableName, validateColumnName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -45,11 +50,25 @@ async function createSingleRecord(
   const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
   const valuesClause = sql.join(valueParams, sql.raw(', '))
 
-  const result = (await tx.execute(
-    sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
-  )) as readonly Record<string, unknown>[]
+  try {
+    const result = (await tx.execute(
+      sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
+    )) as readonly Record<string, unknown>[]
 
-  return result[0] ?? undefined
+    return result[0] ?? undefined
+  } catch (error) {
+    // PostgreSQL error codes: https://www.postgresql.org/docs/current/errcodes-appendix.html
+    // 23502 = not_null_violation
+    const pgError = error as { code?: string; message?: string }
+    if (pgError.code === '23502' || pgError.message?.includes('null value in column')) {
+      // eslint-disable-next-line functional/no-throw-statements -- Required for error propagation
+      throw new ValidationError('Validation failed: Required field is missing', [
+        { record: 0, field: 'unknown', error: 'Required field is missing' },
+      ])
+    }
+    // eslint-disable-next-line functional/no-throw-statements -- Required for error propagation
+    throw error
+  }
 }
 
 /**
@@ -240,12 +259,17 @@ function handleUpsertCreate(
     readonly fields: Record<string, unknown>
     readonly acc: UpsertResult
   }
-): Effect.Effect<UpsertResult, SessionContextError> {
+): Effect.Effect<UpsertResult, SessionContextError | ValidationError> {
   return Effect.gen(function* () {
     const created = yield* Effect.tryPromise({
       try: async () => createSingleRecord(tx, params.tableName, params.fields),
-      catch: (error) =>
-        new SessionContextError(`Failed to create record in ${params.tableName}`, error),
+      catch: (error) => {
+        // If this is a ValidationError, propagate it as-is
+        if (error instanceof ValidationError) {
+          return error
+        }
+        return new SessionContextError(`Failed to create record in ${params.tableName}`, error)
+      },
     })
 
     if (!created) return params.acc
@@ -279,7 +303,7 @@ function processSingleUpsert(
     readonly fieldsToMergeOn: readonly string[]
     readonly acc: UpsertResult
   }
-): Effect.Effect<UpsertResult, SessionContextError> {
+): Effect.Effect<UpsertResult, SessionContextError | ValidationError> {
   return Effect.gen(function* () {
     const existing = yield* findExistingRecord(
       tx,
@@ -406,7 +430,7 @@ export function upsertRecords(
   tableName: string,
   recordsData: readonly Record<string, unknown>[],
   fieldsToMergeOn: readonly string[]
-): Effect.Effect<UpsertResult, SessionContextError | BatchValidationError> {
+): Effect.Effect<UpsertResult, SessionContextError | BatchValidationError | ValidationError> {
   return withSessionContext(session, (tx) =>
     Effect.gen(function* () {
       validateTableName(tableName)

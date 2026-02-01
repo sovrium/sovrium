@@ -8,6 +8,48 @@
 import type { Context } from 'hono'
 
 /**
+ * Validate required fields for a single record
+ * Returns array of missing field names
+ */
+export function validateRequiredFieldsForRecord(
+  table:
+    | {
+        readonly name: string
+        readonly fields: ReadonlyArray<{
+          readonly name: string
+          readonly required?: boolean
+        }>
+        readonly primaryKey?: {
+          readonly type: string
+          readonly fields?: ReadonlyArray<string>
+          readonly field?: string
+        }
+      }
+    | undefined,
+  fields: Record<string, unknown>
+): readonly string[] {
+  if (!table) return []
+
+  // Get primary key field names to exclude from validation
+  const primaryKeyFields = new Set(
+    table.primaryKey?.fields ?? (table.primaryKey?.field ? [table.primaryKey.field] : [])
+  )
+
+  // Auto-injected fields that should be excluded from required field validation
+  const autoInjectedFields = new Set(['owner_id'])
+
+  return table.fields
+    .filter(
+      (field) =>
+        field.required &&
+        !(field.name in fields) &&
+        !primaryKeyFields.has(field.name) && // Skip primary key fields
+        !autoInjectedFields.has(field.name) // Skip auto-injected fields
+    )
+    .map((field) => field.name)
+}
+
+/**
  * Validate required fields for record creation
  * Returns error response if required fields are missing, undefined otherwise
  */
@@ -51,7 +93,16 @@ export function validateRequiredFields(
 
   if (missingRequiredFields.length > 0) {
     return c.json(
-      { success: false, message: 'Missing required fields', code: 'VALIDATION_ERROR' },
+      {
+        success: false,
+        message: 'Missing required fields',
+        code: 'VALIDATION_ERROR',
+        details: missingRequiredFields.map((field, index) => ({
+          record: index,
+          field,
+          error: 'Required field is missing',
+        })),
+      },
       400
     )
   }
