@@ -17,6 +17,10 @@ import { test, expect } from '@/specs/fixtures'
  * Test Organization:
  * 1. @spec tests - One per spec in schema (13 tests) - Exhaustive acceptance criteria
  * 2. @regression test - ONE optimized integration test - Efficient workflow validation
+ *
+ * API Format:
+ * - Request: { records: [{ fields: { ... } }], fieldsToMergeOn: [...] }
+ * - Response: { created: N, updated: N, records: [{ id, fields: { ... } }] }
  */
 
 test.describe('Upsert records (create or update)', () => {
@@ -59,14 +63,18 @@ test.describe('Upsert records (create or update)', () => {
         data: {
           records: [
             {
-              email: 'john@example.com',
-              name: 'John Updated',
-              status: 'active',
+              fields: {
+                email: 'john@example.com',
+                name: 'John Updated',
+                status: 'active',
+              },
             },
             {
-              email: 'jane@example.com',
-              name: 'Jane Smith',
-              status: 'active',
+              fields: {
+                email: 'jane@example.com',
+                name: 'Jane Smith',
+                status: 'active',
+              },
             },
           ],
           fieldsToMergeOn: ['email'],
@@ -123,12 +131,16 @@ test.describe('Upsert records (create or update)', () => {
         data: {
           records: [
             {
-              email: 'john@example.com',
-              name: 'John Doe',
+              fields: {
+                email: 'john@example.com',
+                name: 'John Doe',
+              },
             },
             {
-              email: 'jane@example.com',
-              name: 'Jane Smith',
+              fields: {
+                email: 'jane@example.com',
+                name: 'Jane Smith',
+              },
             },
           ],
           fieldsToMergeOn: ['email'],
@@ -182,11 +194,15 @@ test.describe('Upsert records (create or update)', () => {
         data: {
           records: [
             {
-              email: 'valid@example.com',
-              name: 'Valid User',
+              fields: {
+                email: 'valid@example.com',
+                name: 'Valid User',
+              },
             },
             {
-              name: 'Invalid User',
+              fields: {
+                name: 'Invalid User',
+              },
             },
           ],
           fieldsToMergeOn: ['email'],
@@ -240,7 +256,7 @@ test.describe('Upsert records (create or update)', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ email: 'alice@example.com', name: 'Updated Alice' }],
+          records: [{ fields: { email: 'alice@example.com', name: 'Updated Alice' } }],
           fieldsToMergeOn: ['email'],
         },
       })
@@ -292,7 +308,7 @@ test.describe('Upsert records (create or update)', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ email: 'alice@example.com', name: 'Alice Cooper' }],
+          records: [{ fields: { email: 'alice@example.com', name: 'Alice Cooper' } }],
           fieldsToMergeOn: ['email'],
         },
       })
@@ -341,7 +357,7 @@ test.describe('Upsert records (create or update)', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ email: 'alice@example.com', name: 'Updated Alice' }],
+          records: [{ fields: { email: 'alice@example.com', name: 'Updated Alice' } }],
           fieldsToMergeOn: ['email'],
         },
       })
@@ -383,7 +399,7 @@ test.describe('Upsert records (create or update)', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ name: 'Project Alpha' }],
+          records: [{ fields: { name: 'Project Alpha' } }],
           fieldsToMergeOn: ['name'],
         },
       })
@@ -428,7 +444,9 @@ test.describe('Upsert records (create or update)', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ email: 'alice@example.com', name: 'Alice Cooper', salary: 85_000 }],
+          records: [
+            { fields: { email: 'alice@example.com', name: 'Alice Cooper', salary: 85_000 } },
+          ],
           fieldsToMergeOn: ['email'],
         },
       })
@@ -478,7 +496,9 @@ test.describe('Upsert records (create or update)', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ email: 'alice@example.com', name: 'Updated Alice', salary: 90_000 }],
+          records: [
+            { fields: { email: 'alice@example.com', name: 'Updated Alice', salary: 90_000 } },
+          ],
           fieldsToMergeOn: ['email'],
         },
       })
@@ -524,7 +544,7 @@ test.describe('Upsert records (create or update)', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [{ id: 999, email: 'alice@example.com', name: 'Alice Cooper' }],
+          records: [{ fields: { id: 999, email: 'alice@example.com', name: 'Alice Cooper' } }],
           fieldsToMergeOn: ['email'],
         },
       })
@@ -575,10 +595,11 @@ test.describe('Upsert records (create or update)', () => {
         },
         data: {
           records: [
-            { email: 'alice@example.com', name: 'Updated Alice', salary: 80_000 },
-            { email: 'bob@example.com', name: 'Bob Smith', salary: 85_000 },
+            { fields: { email: 'alice@example.com', name: 'Updated Alice' } },
+            { fields: { email: 'bob@example.com', name: 'Bob Smith' } },
           ],
           fieldsToMergeOn: ['email'],
+          returnRecords: true,
         },
       })
 
@@ -633,10 +654,11 @@ test.describe('Upsert records (create or update)', () => {
         },
         data: {
           records: [
-            { email: 'charlie@example.com', name: 'Updated Charlie', salary: 130_000 },
-            { email: 'diana@example.com', name: 'Diana Prince', salary: 95_000 },
+            { fields: { email: 'charlie@example.com', name: 'Updated Charlie', salary: 130_000 } },
+            { fields: { email: 'diana@example.com', name: 'Diana Prince', salary: 95_000 } },
           ],
           fieldsToMergeOn: ['email'],
+          returnRecords: true,
         },
       })
 
@@ -689,11 +711,12 @@ test.describe('Upsert records (create or update)', () => {
         },
         data: {
           records: [
-            { email: 'alice@example.com', name: 'Updated Alice', salary: 80_000 },
-            { email: 'bob@example.com', name: 'Updated Bob', salary: 90_000 },
-            { email: 'charlie@example.com', name: 'Charlie Davis', salary: 70_000 },
+            { fields: { email: 'alice@example.com', name: 'Updated Alice' } },
+            { fields: { email: 'bob@example.com', name: 'Updated Bob' } },
+            { fields: { email: 'charlie@example.com', name: 'Charlie Davis' } },
           ],
           fieldsToMergeOn: ['email'],
+          returnRecords: true,
         },
       })
 
@@ -780,7 +803,7 @@ test.describe('Upsert records (create or update)', () => {
         const response = await request.post('/api/tables/1/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ email: 'test@example.com', name: 'Test User' }],
+            records: [{ fields: { email: 'test@example.com', name: 'Test User' } }],
             fieldsToMergeOn: ['email'],
           },
         })
@@ -811,8 +834,14 @@ test.describe('Upsert records (create or update)', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { email: 'existing@example.com', name: 'Updated Existing', status: 'active' },
-              { email: 'new@example.com', name: 'New User', status: 'active' },
+              {
+                fields: {
+                  email: 'existing@example.com',
+                  name: 'Updated Existing',
+                  status: 'active',
+                },
+              },
+              { fields: { email: 'new@example.com', name: 'New User', status: 'active' } },
             ],
             fieldsToMergeOn: ['email'],
             returnRecords: true,
@@ -838,8 +867,8 @@ test.describe('Upsert records (create or update)', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { email: 'john@example.com', name: 'John Doe' },
-              { email: 'jane@example.com', name: 'Jane Smith' },
+              { fields: { email: 'john@example.com', name: 'John Doe' } },
+              { fields: { email: 'jane@example.com', name: 'Jane Smith' } },
             ],
             fieldsToMergeOn: ['email'],
             returnRecords: true,
@@ -861,8 +890,8 @@ test.describe('Upsert records (create or update)', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { email: 'valid@example.com', name: 'Valid User' },
-              { name: 'Invalid - Missing Email' },
+              { fields: { email: 'valid@example.com', name: 'Valid User' } },
+              { fields: { name: 'Invalid - Missing Email' } },
             ],
             fieldsToMergeOn: ['email'],
           },
@@ -887,7 +916,7 @@ test.describe('Upsert records (create or update)', () => {
         const response = await request.post('/api/tables/3/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ name: 'New Project' }],
+            records: [{ fields: { name: 'New Project' } }],
             fieldsToMergeOn: ['name'],
           },
         })
@@ -904,7 +933,7 @@ test.describe('Upsert records (create or update)', () => {
         const response = await request.post('/api/tables/3/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ name: 'Viewer Project' }],
+            records: [{ fields: { name: 'Viewer Project' } }],
             fieldsToMergeOn: ['name'],
           },
         })
@@ -921,7 +950,9 @@ test.describe('Upsert records (create or update)', () => {
         const response = await request.post('/api/tables/2/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ email: 'newperson@example.com', name: 'New Person', salary: 100_000 }],
+            records: [
+              { fields: { email: 'newperson@example.com', name: 'New Person', salary: 100_000 } },
+            ],
             fieldsToMergeOn: ['email'],
           },
         })
@@ -938,7 +969,9 @@ test.describe('Upsert records (create or update)', () => {
         const response = await request.post('/api/tables/2/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ email: 'alice@example.com', name: 'Updated Alice', salary: 90_000 }],
+            records: [
+              { fields: { email: 'alice@example.com', name: 'Updated Alice', salary: 90_000 } },
+            ],
             fieldsToMergeOn: ['email'],
           },
         })
@@ -956,7 +989,7 @@ test.describe('Upsert records (create or update)', () => {
         const response = await request.post('/api/tables/4/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
-            records: [{ id: 999, email: 'test@example.com', name: 'Test' }],
+            records: [{ fields: { id: 999, email: 'test@example.com', name: 'Test' } }],
             fieldsToMergeOn: ['email'],
           },
         })
@@ -974,8 +1007,8 @@ test.describe('Upsert records (create or update)', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { email: 'alice@example.com', name: 'Updated Alice' },
-              { email: 'bob@example.com', name: 'Bob Smith' },
+              { fields: { email: 'alice@example.com', name: 'Updated Alice' } },
+              { fields: { email: 'bob@example.com', name: 'Bob Smith' } },
             ],
             fieldsToMergeOn: ['email'],
             returnRecords: true,
@@ -1000,9 +1033,9 @@ test.describe('Upsert records (create or update)', () => {
           headers: { 'Content-Type': 'application/json' },
           data: {
             records: [
-              { email: 'alice@example.com', name: 'Combined Update' },
-              { email: 'bob@example.com', name: 'Combined Bob' },
-              { email: 'charlie@example.com', name: 'Charlie New' },
+              { fields: { email: 'alice@example.com', name: 'Combined Update' } },
+              { fields: { email: 'bob@example.com', name: 'Combined Bob' } },
+              { fields: { email: 'charlie@example.com', name: 'Charlie New' } },
             ],
             fieldsToMergeOn: ['email'],
             returnRecords: true,

@@ -168,9 +168,12 @@ async function handleUpsert(c: Context, app: App) {
     )
   }
 
+  // Extract fields from each record (schema normalizes to { fields: {...} } format)
+  const recordFields = result.data.records.map((record) => record.fields)
+
   // Validate field-level write permissions for all records
-  const allForbiddenFields = result.data.records
-    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record))
+  const allForbiddenFields = recordFields
+    .map((fields) => validateFieldWritePermissions(app, tableName, userRole, fields))
     .filter((fields) => fields.length > 0)
 
   if (allForbiddenFields.length > 0) {
@@ -187,7 +190,7 @@ async function handleUpsert(c: Context, app: App) {
   return runEffect(
     c,
     upsertProgram(session, tableName, {
-      recordsData: result.data.records,
+      recordsData: recordFields,
       fieldsToMergeOn: result.data.fieldsToMergeOn,
       returnRecords: result.data.returnRecords,
     }),

@@ -130,10 +130,32 @@ export const batchRestoreRecordsRequestSchema = z.object({
 
 /**
  * Upsert records request schema
+ *
+ * Supports two formats for records:
+ * 1. Nested format: { fields: {...} }
+ * 2. Flat format: { ...fields } (transformed to nested)
  */
 export const upsertRecordsRequestSchema = z.object({
   records: z
-    .array(z.record(z.string(), fieldValueSchema))
+    .array(
+      z.union([
+        // Format 1: Nested format with 'fields' property (strict: only 'fields' key allowed)
+        z
+          .object({
+            fields: z.record(z.string(), fieldValueSchema).optional().default({}),
+          })
+          .strict(),
+        // Format 2: Flat format (any object WITHOUT 'fields' key)
+        z
+          .record(z.string(), fieldValueSchema)
+          .refine((data) => !('fields' in data), {
+            message: 'Flat format should not contain a "fields" key',
+          })
+          .transform((data) => ({
+            fields: data,
+          })),
+      ])
+    )
     .min(1, 'At least one record is required')
     .max(100, 'Maximum 100 records per batch'),
   fieldsToMergeOn: z.array(z.string()).min(1, 'At least one merge field is required'),

@@ -354,50 +354,55 @@ describe('batchDeleteRecordsRequestSchema', () => {
 
 describe('upsertRecordsRequestSchema', () => {
   describe('valid inputs', () => {
-    test('validates record with id (update mode)', () => {
+    test('validates nested format record (preferred format)', () => {
       const input = {
-        records: [{ id: 'rec123', name: 'Updated' }],
-        fieldsToMergeOn: ['name'],
+        records: [{ fields: { email: 'test@example.com', name: 'Updated' } }],
+        fieldsToMergeOn: ['email'],
       }
       const result = upsertRecordsRequestSchema.parse(input)
-      expect(result.records[0]?.id).toBe('rec123')
+      expect(result.records[0]?.fields).toEqual({ email: 'test@example.com', name: 'Updated' })
+    })
+
+    test('validates flat format record and transforms to nested', () => {
+      const input = {
+        records: [{ email: 'test@example.com', name: 'Updated' }],
+        fieldsToMergeOn: ['email'],
+      }
+      const result = upsertRecordsRequestSchema.parse(input)
+      expect(result.records[0]?.fields).toEqual({ email: 'test@example.com', name: 'Updated' })
     })
 
     test('validates record without id (create mode)', () => {
       const input = {
-        records: [{ name: 'New Record' }],
+        records: [{ fields: { name: 'New Record' } }],
         fieldsToMergeOn: ['name'],
       }
       const result = upsertRecordsRequestSchema.parse(input)
-      expect(result.records[0]?.id).toBeUndefined()
+      expect(result.records[0]?.fields).toEqual({ name: 'New Record' })
     })
 
-    test('validates mixed records with and without ids', () => {
+    test('validates mixed records with nested format', () => {
       const input = {
         records: [
-          { id: 'rec123', name: 'Update' },
-          { name: 'Create' },
-          { id: 'rec456', name: 'Another Update' },
+          { fields: { email: 'test1@example.com', name: 'Update' } },
+          { fields: { email: 'test2@example.com', name: 'Create' } },
+          { fields: { email: 'test3@example.com', name: 'Another Update' } },
         ],
-        fieldsToMergeOn: ['name'],
+        fieldsToMergeOn: ['email'],
         returnRecords: false,
       }
       const result = upsertRecordsRequestSchema.parse(input)
       expect(result.records).toHaveLength(3)
-      expect(result.records[0]!.id).toBe('rec123')
-      expect(result.records[1]!.id).toBeUndefined()
-      expect(result.records[2]!.id).toBe('rec456')
+      expect(result.records[0]!.fields.email).toBe('test1@example.com')
+      expect(result.records[1]!.fields.email).toBe('test2@example.com')
+      expect(result.records[2]!.fields.email).toBe('test3@example.com')
     })
 
     test('validates exactly 100 records (maximum)', () => {
       const input = {
-        records: Array.from({ length: 100 }, (_, i) => {
-          const record: Record<string, unknown> = { index: i }
-          if (i % 2 === 0) {
-            record.id = `rec${i}`
-          }
-          return record
-        }),
+        records: Array.from({ length: 100 }, (_, i) => ({
+          fields: { index: i },
+        })),
         fieldsToMergeOn: ['index'],
         returnRecords: true,
       }
@@ -407,7 +412,7 @@ describe('upsertRecordsRequestSchema', () => {
 
     test('applies default returnRecords when not provided', () => {
       const input = {
-        records: [{ id: 'rec123', name: 'Test' }],
+        records: [{ fields: { name: 'Test' } }],
         fieldsToMergeOn: ['name'],
       }
       const result = upsertRecordsRequestSchema.parse(input)
@@ -525,14 +530,14 @@ describe('schema type inference', () => {
 
   test('UpsertRecordsRequest type matches schema output', () => {
     const input = {
-      records: [{ id: 'rec123', name: 'Update' }, { name: 'Create' }],
+      records: [{ fields: { name: 'Update' } }, { fields: { name: 'Create' } }],
       fieldsToMergeOn: ['name'],
       returnRecords: true,
     }
     const result = upsertRecordsRequestSchema.parse(input)
 
     const typed: typeof result = {
-      records: [{ id: 'rec123', name: 'Update' }, { name: 'Create' }],
+      records: [{ fields: { name: 'Update' } }, { fields: { name: 'Create' } }],
       fieldsToMergeOn: ['name'],
       returnRecords: true,
     }
