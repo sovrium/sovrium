@@ -49,11 +49,11 @@ function createMockGitHubApi(options: {
           new GitHubApiError({ operation: 'updatePRTitle', cause: new Error('API error') })
         )
       }
-      return Effect.succeed(undefined)
+      return Effect.void
     },
-    addLabel: () => Effect.succeed(undefined),
-    postComment: () => Effect.succeed(undefined),
-    enableAutoMerge: () => Effect.succeed(undefined),
+    addLabel: () => Effect.void,
+    postComment: () => Effect.void,
+    enableAutoMerge: () => Effect.void,
   })
 }
 

@@ -222,6 +222,7 @@ const main = Effect.gen(function* () {
   }
 
   // Output JSON for workflow parsing
+  // @effect-diagnostics effect/preferSchemaOverJson:off
   yield* Console.log(JSON.stringify(output))
 })
 

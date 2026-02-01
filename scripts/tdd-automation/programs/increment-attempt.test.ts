@@ -54,17 +54,17 @@ function createMockGitHubApi(options: { prTitle: string; prNumber?: number }) {
     createPR: () => Effect.succeed({ number: 1, url: 'https://github.com/test/pr/1' }),
     updatePRTitle: (prNumber, title) => {
       calls.updatePRTitle.push({ prNumber, title })
-      return Effect.succeed(undefined)
+      return Effect.void
     },
     addLabel: (prNumber, label) => {
       calls.addLabel.push({ prNumber, label })
-      return Effect.succeed(undefined)
+      return Effect.void
     },
     postComment: (prNumber, body) => {
       calls.postComment.push({ prNumber, body })
-      return Effect.succeed(undefined)
+      return Effect.void
     },
-    enableAutoMerge: () => Effect.succeed(undefined),
+    enableAutoMerge: () => Effect.void,
   })
 
   return { layer, calls }
