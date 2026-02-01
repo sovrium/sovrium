@@ -410,12 +410,10 @@ function validateAllRecordsHaveRequiredFields(
     )
 
     if (allErrors.length > 0) {
-      return yield* Effect.fail(
-        new BatchValidationError({
-          message: 'Batch validation failed',
-          details: allErrors,
-        })
-      )
+      return yield* new BatchValidationError({
+        message: 'Batch validation failed',
+        details: allErrors,
+      })
     }
   })
 }
