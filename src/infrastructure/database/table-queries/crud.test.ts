@@ -364,7 +364,7 @@ describe('listTrash', () => {
       },
     }))
 
-    const program = listTrash(mockSession, 'users')
+    const program = listTrash({ session: mockSession, tableName: 'users' })
 
     const result = await Effect.runPromise(program)
 
@@ -398,7 +398,7 @@ describe('listTrash', () => {
       },
     }))
 
-    const program = listTrash(mockSession, 'users')
+    const program = listTrash({ session: mockSession, tableName: 'users' })
 
     const result = await Effect.runPromise(program)
 

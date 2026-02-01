@@ -20,7 +20,7 @@ import {
 } from '@/infrastructure/database/table-queries'
 import { filterReadableFields } from './utils/field-read-filter'
 import { processRecords, applyPagination } from './utils/list-helpers'
-import { transformRecord, transformRecords } from './utils/record-transformer'
+import { transformRecord } from './utils/record-transformer'
 import type { TransformedRecord } from './utils/record-transformer'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -135,51 +135,56 @@ interface ListTrashConfig {
   readonly tableName: string
   readonly app: App
   readonly userRole: string
+  readonly filter?: {
+    readonly and?: readonly {
+      readonly field: string
+      readonly operator: string
+      readonly value: unknown
+    }[]
+  }
+  readonly sort?: string
+  readonly limit?: number
+  readonly offset?: number
 }
 
 export function createListTrashProgram(
   config: ListTrashConfig
 ): Effect.Effect<ListRecordsResponse, SessionContextError> {
   return Effect.gen(function* () {
-    const { session, tableName, app, userRole } = config
+    const { session, tableName, app, userRole, filter, sort, limit, offset } = config
 
     // Query soft-deleted records with session context (RLS policies apply automatically)
-    const records = yield* listTrash(session, tableName)
+    const records = yield* listTrash({ session, tableName, filter, sort })
 
-    // Apply field-level read permissions filtering
-    const { userId } = session
-    const filteredRecords = records.map((record) =>
-      filterReadableFields({ app, tableName, userRole, userId, record })
-    )
+    // Process records (field-level filtering, transformations)
+    const processedRecords = processRecords({
+      records,
+      app,
+      tableName,
+      userRole,
+      userId: session.userId,
+    })
 
-    // Transform records and preserve numeric IDs
-    const transformedRecords = transformRecords(filteredRecords, { app, tableName }).map(
-      (record) => {
-        // Find the original record to get the raw ID value
-        const originalRecord = records.find((r) => String(r.id) === record.id)
-        const originalId = originalRecord?.id
-
-        // Preserve numeric type if the original ID was a number
-        const id = typeof originalId === 'number' ? originalId : record.id
-
-        return {
-          ...record,
-          id,
-        }
+    // Preserve numeric IDs (transformRecord converts all IDs to strings, but we need to preserve numeric types)
+    const recordsWithPreservedIds = processedRecords.map((record) => {
+      // Ensure id is always a string for TransformedRecord type
+      return {
+        ...record,
+        id: String(record.id),
       }
+    })
+
+    // Apply pagination
+    const { paginatedRecords, pagination } = applyPagination(
+      recordsWithPreservedIds,
+      records.length,
+      limit,
+      offset
     )
 
     return {
-      records: [...transformedRecords] as TransformedRecord[],
-      pagination: {
-        page: 1,
-        limit: 10,
-        offset: 0,
-        total: filteredRecords.length,
-        totalPages: Math.ceil(filteredRecords.length / 10),
-        hasNextPage: false,
-        hasPreviousPage: false,
-      },
+      records: [...paginatedRecords] as TransformedRecord[],
+      pagination,
     }
   })
 }

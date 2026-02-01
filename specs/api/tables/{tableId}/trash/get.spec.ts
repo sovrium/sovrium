@@ -157,7 +157,7 @@ test.describe('GET /trash endpoint', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-TRASH-004: should support pagination, filters, and sorting',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {

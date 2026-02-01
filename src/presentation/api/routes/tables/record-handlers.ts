@@ -140,9 +140,41 @@ export async function handleListTrash(c: Context, app: App) {
   const permissionError = checkViewerReadPermission(table, userRole, c)
   if (permissionError) return permissionError
 
+  // Parse filter parameter
+  const filter = parseFilter(c, app, tableName, userRole)
+  if (filter.error) {
+    return (
+      filter.response ??
+      c.json(
+        { success: false, message: 'Invalid filterByFormula syntax', code: 'VALIDATION_ERROR' },
+        400
+      )
+    )
+  }
+
+  // Parse query parameters (sort, limit, offset)
+  const { sort, limit, offset } = parseListRecordsParams(c)
+
+  // Validate sort permission
+  const sortError = validateSortPermission({ sort, app, tableName, userRole, c })
+  if (sortError) return sortError
+
+  // Validate filter permission
+  const filterError = validateFilterParam(filter.value, table, userRole, c)
+  if (filterError) return filterError
+
   return runEffect(
     c,
-    createListTrashProgram({ session, tableName, app, userRole }),
+    createListTrashProgram({
+      session,
+      tableName,
+      app,
+      userRole,
+      filter: filter.value,
+      sort,
+      limit,
+      offset,
+    }),
     listRecordsResponseSchema
   )
 }

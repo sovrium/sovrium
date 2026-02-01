@@ -29,6 +29,7 @@ import {
   executeHardDelete,
   checkDeletedAtColumn,
 } from './delete-helpers'
+import { buildTrashFilters, addTrashSorting } from './trash-helpers'
 import {
   validateFieldsNotEmpty,
   fetchRecordBeforeUpdateCRUD,
@@ -163,10 +164,19 @@ export function computeAggregations(config: {
  * @param tableName - Name of the table to query
  * @returns Effect resolving to array of soft-deleted records
  */
-export function listTrash(
-  session: Readonly<Session>,
-  tableName: string
-): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+export function listTrash(config: {
+  readonly session: Readonly<Session>
+  readonly tableName: string
+  readonly filter?: {
+    readonly and?: readonly {
+      readonly field: string
+      readonly operator: string
+      readonly value: unknown
+    }[]
+  }
+  readonly sort?: string
+}): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+  const { session, tableName, filter, sort } = config
   return withSessionContext(session, (tx) =>
     Effect.gen(function* () {
       validateTableName(tableName)
@@ -174,14 +184,15 @@ export function listTrash(
       const hasDeletedAt = yield* checkDeletedAtColumnHelper(tx, tableName)
 
       if (!hasDeletedAt) {
-        // If table doesn't have deleted_at, return empty array (no soft-deleted records)
         return []
       }
 
-      // Only fetch soft-deleted records (deleted_at IS NOT NULL)
+      const baseQuery = sql`SELECT * FROM ${sql.identifier(tableName)} WHERE deleted_at IS NOT NULL`
+      const queryWithFilters = buildTrashFilters(baseQuery, filter?.and)
+      const query = addTrashSorting(queryWithFilters, sort)
+
       const result = yield* Effect.tryPromise({
-        try: () =>
-          tx.execute(sql`SELECT * FROM ${sql.identifier(tableName)} WHERE deleted_at IS NOT NULL`),
+        try: () => tx.execute(query),
         catch: (error) => new SessionContextError(`Failed to list trash from ${tableName}`, error),
       })
 
