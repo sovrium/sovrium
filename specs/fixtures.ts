@@ -300,12 +300,6 @@ export const test = base.extend<ServerFixtures>({
 
       // Import pg dynamically
       const pg = await import('pg')
-
-      // Configure pg to parse numeric/decimal types as numbers instead of strings
-      // PostgreSQL NUMERIC/DECIMAL types are returned as strings by default to preserve precision,
-      // but tests expect them as numbers for currency, percentage, and other numeric fields
-      pg.default.types.setTypeParser(1700, (val) => parseFloat(val)) // NUMERIC/DECIMAL type ID
-
       const client = new pg.default.Client({ connectionString: databaseUrl })
       await client.connect()
 
@@ -321,18 +315,44 @@ export const test = base.extend<ServerFixtures>({
             }
             await client.query('COMMIT')
 
+            // Parse numeric strings to numbers (PostgreSQL DECIMAL/NUMERIC returned as strings)
+            const parseNumericStrings = (obj: any): any => {
+              if (obj === null || obj === undefined) return obj
+              if (typeof obj === 'string') {
+                // Try to parse as number if it looks like a number
+                const num = Number(obj)
+                if (!isNaN(num) && isFinite(num) && /^-?\d+(\.\d+)?$/.test(obj)) {
+                  return num
+                }
+                return obj
+              }
+              if (Array.isArray(obj)) {
+                return obj.map(parseNumericStrings)
+              }
+              if (typeof obj === 'object') {
+                const parsed: any = {}
+                for (const [key, value] of Object.entries(obj)) {
+                  parsed[key] = parseNumericStrings(value)
+                }
+                return parsed
+              }
+              return obj
+            }
+
+            const parsedRows = result.rows.map(parseNumericStrings)
+
             // Apply single-row spreading logic for transaction results too
-            if (result.rows.length === 1) {
+            if (parsedRows.length === 1) {
               return {
-                ...result.rows[0],
-                rows: result.rows,
-                rowCount: result.rowCount ?? result.rows.length,
+                ...parsedRows[0],
+                rows: parsedRows,
+                rowCount: result.rowCount ?? parsedRows.length,
               }
             }
 
             return {
-              rows: result.rows,
-              rowCount: result.rowCount ?? result.rows.length,
+              rows: parsedRows,
+              rowCount: result.rowCount ?? parsedRows.length,
             }
           } catch (error) {
             await client.query('ROLLBACK')
@@ -342,19 +362,45 @@ export const test = base.extend<ServerFixtures>({
 
         const result = await client.query(sql, params)
 
+        // Parse numeric strings to numbers (PostgreSQL DECIMAL/NUMERIC returned as strings)
+        const parseNumericStrings = (obj: any): any => {
+          if (obj === null || obj === undefined) return obj
+          if (typeof obj === 'string') {
+            // Try to parse as number if it looks like a number
+            const num = Number(obj)
+            if (!isNaN(num) && isFinite(num) && /^-?\d+(\.\d+)?$/.test(obj)) {
+              return num
+            }
+            return obj
+          }
+          if (Array.isArray(obj)) {
+            return obj.map(parseNumericStrings)
+          }
+          if (typeof obj === 'object') {
+            const parsed: any = {}
+            for (const [key, value] of Object.entries(obj)) {
+              parsed[key] = parseNumericStrings(value)
+            }
+            return parsed
+          }
+          return obj
+        }
+
+        const parsedRows = result.rows.map(parseNumericStrings)
+
         // Return result with convenient properties
         // For single-row results, spread the row properties for easier access
-        if (result.rows.length === 1) {
+        if (parsedRows.length === 1) {
           return {
-            ...result.rows[0],
-            rows: result.rows,
-            rowCount: result.rowCount ?? result.rows.length,
+            ...parsedRows[0],
+            rows: parsedRows,
+            rowCount: result.rowCount ?? parsedRows.length,
           }
         }
 
         return {
-          rows: result.rows,
-          rowCount: result.rowCount ?? result.rows.length,
+          rows: parsedRows,
+          rowCount: result.rowCount ?? parsedRows.length,
         }
       } finally {
         await client.end()
@@ -750,7 +796,7 @@ export const test = base.extend<ServerFixtures>({
         throw new Error('Server not started.')
       }
 
-      // Try admin API first (requires Better Auth admin plugin)
+      // Try admin API first (requires existing admin user)
       const response = await page.request.post('/api/auth/admin/set-role', {
         data: {
           userId: user.user.id,
@@ -758,12 +804,25 @@ export const test = base.extend<ServerFixtures>({
         },
       })
 
-      if (!response.ok()) {
-        // Fallback: Direct database update if admin API not available
+      // If admin API is not available (403 = first user, no admin exists yet), use direct database update
+      if (response.status() === 403) {
+        // Fallback: Direct database update for first user scenario
         await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = $1`, [user.user.id])
+
+        // Return the user with updated role (no need to re-authenticate, session still valid)
+        return { ...user, user: { ...user.user, role: 'admin' } }
       }
 
-      // Re-authenticate after role change (set-role API revokes all sessions)
+      // If other error, throw
+      if (!response.ok()) {
+        throw new Error(
+          `Admin API endpoint failed (status: ${response.status()}). ` +
+            `To use createAuthenticatedAdmin, configure Better Auth admin plugin in your test schema. ` +
+            `Alternative: use createAuthenticatedUser() and set role manually via executeQuery()`
+        )
+      }
+
+      // Re-authenticate after session revocation (set-role revokes all sessions when it succeeds)
       const testId = data?.email || user.user.email
       const password = data?.password || 'TestPassword123!'
       const signInResult = await signIn({ email: testId, password })
