@@ -188,7 +188,7 @@ test.describe('Restore record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-005: should return 403 for viewer (read-only)',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
