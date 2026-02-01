@@ -315,31 +315,9 @@ export const test = base.extend<ServerFixtures>({
             }
             await client.query('COMMIT')
 
-            // Parse numeric strings to numbers (PostgreSQL DECIMAL/NUMERIC returned as strings)
-            const parseNumericStrings = (obj: any): any => {
-              if (obj === null || obj === undefined) return obj
-              if (typeof obj === 'string') {
-                // Try to parse as number if it looks like a number
-                const num = Number(obj)
-                if (!isNaN(num) && isFinite(num) && /^-?\d+(\.\d+)?$/.test(obj)) {
-                  return num
-                }
-                return obj
-              }
-              if (Array.isArray(obj)) {
-                return obj.map(parseNumericStrings)
-              }
-              if (typeof obj === 'object') {
-                const parsed: any = {}
-                for (const [key, value] of Object.entries(obj)) {
-                  parsed[key] = parseNumericStrings(value)
-                }
-                return parsed
-              }
-              return obj
-            }
-
-            const parsedRows = result.rows.map(parseNumericStrings)
+            // Note: PostgreSQL returns DECIMAL/NUMERIC as strings, but we keep them as-is
+            // for test assertions to work correctly (tests expect string values)
+            const parsedRows = result.rows
 
             // Apply single-row spreading logic for transaction results too
             if (parsedRows.length === 1) {
@@ -362,31 +340,9 @@ export const test = base.extend<ServerFixtures>({
 
         const result = await client.query(sql, params)
 
-        // Parse numeric strings to numbers (PostgreSQL DECIMAL/NUMERIC returned as strings)
-        const parseNumericStrings = (obj: any): any => {
-          if (obj === null || obj === undefined) return obj
-          if (typeof obj === 'string') {
-            // Try to parse as number if it looks like a number
-            const num = Number(obj)
-            if (!isNaN(num) && isFinite(num) && /^-?\d+(\.\d+)?$/.test(obj)) {
-              return num
-            }
-            return obj
-          }
-          if (Array.isArray(obj)) {
-            return obj.map(parseNumericStrings)
-          }
-          if (typeof obj === 'object') {
-            const parsed: any = {}
-            for (const [key, value] of Object.entries(obj)) {
-              parsed[key] = parseNumericStrings(value)
-            }
-            return parsed
-          }
-          return obj
-        }
-
-        const parsedRows = result.rows.map(parseNumericStrings)
+        // Note: PostgreSQL returns DECIMAL/NUMERIC as strings, but we keep them as-is
+        // for test assertions to work correctly (tests expect string values)
+        const parsedRows = result.rows
 
         // Return result with convenient properties
         // For single-row results, spread the row properties for easier access

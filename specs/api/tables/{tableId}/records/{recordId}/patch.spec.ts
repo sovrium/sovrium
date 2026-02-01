@@ -331,7 +331,7 @@ test.describe('Update record', () => {
       // Verify database reflects updated salary
       const result = await executeQuery(`SELECT salary FROM employees WHERE id=1`)
       // THEN: assertion
-      expect(result.rows[0].salary).toBe(85_000)
+      expect(result.rows[0].salary).toBe('85000')
     }
   )
 
