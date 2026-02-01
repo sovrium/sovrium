@@ -93,7 +93,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-002: should return 200 with created=2, updated=0',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
