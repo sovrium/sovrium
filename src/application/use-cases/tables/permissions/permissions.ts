@@ -93,11 +93,20 @@ export function evaluateFieldPermissions(
 /**
  * Check if user has role-based create permission for a table
  * Returns true if permission granted, false if denied
+ *
+ * Permission logic:
+ * - Viewers: denied by default (tables must explicitly grant viewer create access)
+ * - Other roles: allowed by default (unless table restricts with role-based permissions)
  */
 export function hasCreatePermission(
   table: Readonly<{ permissions?: Readonly<{ create?: unknown }> }> | undefined,
   userRole: string
 ): boolean {
+  // Viewers are denied by default (must be explicitly granted permission)
+  if (userRole === 'viewer') {
+    return false
+  }
+
   const createPermission = table?.permissions?.create as
     | { type: 'roles'; roles?: string[] }
     | { type?: string }
