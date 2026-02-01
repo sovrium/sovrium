@@ -47,8 +47,9 @@ async function handleBatchRestore(c: Context, _app: App) {
   if (userRole === 'viewer') {
     return c.json(
       {
-        error: 'Forbidden',
+        success: false,
         message: 'You do not have permission to restore records in this table',
+        code: 'FORBIDDEN',
       },
       403
     )
@@ -97,8 +98,9 @@ async function handleBatchCreate(c: Context, app: App) {
     const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
     return c.json(
       {
-        error: 'Forbidden',
+        success: false,
         message: `You do not have permission to modify field(s): ${uniqueForbiddenFields.join(', ')}`,
+        code: 'FORBIDDEN',
       },
       403
     )
@@ -177,10 +179,60 @@ async function validateUpsertRequiredFields(
 }
 
 /**
+ * Check upsert permissions (table-level create + field-level write)
+ */
+function checkUpsertPermissions(config: {
+  readonly app: App
+  readonly tableName: string
+  readonly userRole: string
+  readonly records: readonly { fields: Record<string, unknown> }[]
+  readonly c: Context
+}): { allowed: true } | { allowed: false; response: Response } {
+  const { app, tableName, userRole, records, c } = config
+  const table = app.tables?.find((t) => t.name === tableName)
+
+  // Check table-level create permission
+  if (!hasCreatePermission(table, userRole)) {
+    return {
+      allowed: false,
+      response: c.json(
+        {
+          success: false,
+          message: 'You do not have permission to create records in this table',
+          code: 'FORBIDDEN',
+        },
+        403
+      ),
+    }
+  }
+
+  // Check field-level write permissions
+  const allForbiddenFields = records
+    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
+    .filter((fields) => fields.length > 0)
+
+  if (allForbiddenFields.length > 0) {
+    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+    return {
+      allowed: false,
+      response: c.json(
+        {
+          success: false,
+          message: `You do not have permission to modify field(s): ${uniqueForbiddenFields.join(', ')}`,
+          code: 'FORBIDDEN',
+        },
+        403
+      ),
+    }
+  }
+
+  return { allowed: true }
+}
+
+/**
  * Handle upsert endpoint
  */
 async function handleUpsert(c: Context, app: App) {
-  // Session, tableName, and userRole are guaranteed by middleware chain
   const { session, tableName, userRole } = getTableContext(c)
 
   const result = await validateRequest(c, upsertRecordsRequestSchema)
@@ -188,35 +240,17 @@ async function handleUpsert(c: Context, app: App) {
 
   const table = app.tables?.find((t) => t.name === tableName)
 
-  // Check if user has create permission (for new records)
-  if (!hasCreatePermission(table, userRole)) {
-    return c.json(
-      {
-        error: 'Forbidden',
-        message: 'You do not have permission to create records in this table',
-      },
-      403
-    )
-  }
+  // Check permissions
+  const permissionCheck = checkUpsertPermissions({
+    app,
+    tableName,
+    userRole,
+    records: result.data.records,
+    c,
+  })
+  if (permissionCheck.allowed === false) return permissionCheck.response
 
-  // Validate field-level write permissions for all records
-  // Extract fields from nested format (schema transforms to { fields: {...} })
-  const allForbiddenFields = result.data.records
-    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
-    .filter((fields) => fields.length > 0)
-
-  if (allForbiddenFields.length > 0) {
-    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
-    return c.json(
-      {
-        error: 'Forbidden',
-        message: `You do not have permission to modify field(s): ${uniqueForbiddenFields.join(', ')}`,
-      },
-      403
-    )
-  }
-
-  // Validate required fields for all records
+  // Validate required fields
   const validationErrors = await validateUpsertRequiredFields(table, result.data.records)
 
   if (validationErrors.length > 0) {
@@ -231,7 +265,7 @@ async function handleUpsert(c: Context, app: App) {
     )
   }
 
-  // Extract flat field objects from nested format for database layer
+  // Extract flat field objects for database layer
   const flatRecordsData = result.data.records.map((record) => record.fields)
 
   return runEffect(
