@@ -300,6 +300,12 @@ export const test = base.extend<ServerFixtures>({
 
       // Import pg dynamically
       const pg = await import('pg')
+
+      // Configure pg to parse numeric/decimal types as numbers instead of strings
+      // PostgreSQL NUMERIC/DECIMAL types are returned as strings by default to preserve precision,
+      // but tests expect them as numbers for currency, percentage, and other numeric fields
+      pg.default.types.setTypeParser(1700, (val) => parseFloat(val)) // NUMERIC/DECIMAL type ID
+
       const client = new pg.default.Client({ connectionString: databaseUrl })
       await client.connect()
 
@@ -729,7 +735,11 @@ export const test = base.extend<ServerFixtures>({
     })
   },
 
-  createAuthenticatedAdmin: async ({ createAuthenticatedUser, page, signIn }, use, testInfo) => {
+  createAuthenticatedAdmin: async (
+    { createAuthenticatedUser, page, signIn, executeQuery },
+    use,
+    testInfo
+  ) => {
     await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
       // Create user first
       const user = await createAuthenticatedUser(data)
@@ -740,7 +750,7 @@ export const test = base.extend<ServerFixtures>({
         throw new Error('Server not started.')
       }
 
-      // Use admin API to set role (this revokes all user sessions)
+      // Try admin API first (requires Better Auth admin plugin)
       const response = await page.request.post('/api/auth/admin/set-role', {
         data: {
           userId: user.user.id,
@@ -749,14 +759,11 @@ export const test = base.extend<ServerFixtures>({
       })
 
       if (!response.ok()) {
-        throw new Error(
-          `Admin API endpoint not available (status: ${response.status()}). ` +
-            `To use createAuthenticatedAdmin, configure Better Auth admin plugin in your test schema. ` +
-            `Alternative: use createAuthenticatedUser() and set role manually via executeQuery()`
-        )
+        // Fallback: Direct database update if admin API not available
+        await executeQuery(`UPDATE auth.user SET role = 'admin' WHERE id = $1`, [user.user.id])
       }
 
-      // Re-authenticate after session revocation (set-role revokes all sessions)
+      // Re-authenticate after role change (set-role API revokes all sessions)
       const testId = data?.email || user.user.email
       const password = data?.password || 'TestPassword123!'
       const signInResult = await signIn({ email: testId, password })
