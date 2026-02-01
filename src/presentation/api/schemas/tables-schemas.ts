@@ -99,7 +99,7 @@ export const tableSummarySchema = z
  */
 export const recordSchema = z
   .object({
-    id: z.string().describe('Record identifier'),
+    id: z.union([z.string(), z.number()]).describe('Record identifier'),
     fields: z
       .record(z.string(), formattedFieldValueSchema)
       .describe('User-defined field values (may include display formatting)'),
