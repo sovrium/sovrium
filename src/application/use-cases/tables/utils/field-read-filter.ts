@@ -9,6 +9,34 @@ import type { App } from '@/domain/models/app'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
 
 /**
+ * Check if viewer role should exclude field
+ */
+function shouldExcludeForViewer(
+  fieldName: string,
+  field: { readonly name: string; readonly type: string }
+): boolean {
+  const allowedFieldTypes = new Set(['single-line-text'])
+  const allowedFieldNames = new Set(['name', 'title'])
+  const sensitiveTypes = new Set(['email', 'phone-number', 'currency'])
+
+  if (sensitiveTypes.has(field.type)) return true
+  if (!allowedFieldNames.has(fieldName) && !allowedFieldTypes.has(field.type)) return true
+  if (field.type === 'single-line-text' && !allowedFieldNames.has(fieldName)) return true
+
+  return false
+}
+
+/**
+ * Check if member role should exclude field
+ */
+function shouldExcludeForMember(
+  fieldName: string,
+  field: { readonly name: string; readonly type: string }
+): boolean {
+  return fieldName === 'salary' && field.type === 'currency'
+}
+
+/**
  * Check if field should be excluded based on default permission rules
  * Sensitive fields (like salary) are restricted for non-admin/owner roles
  */
@@ -19,44 +47,13 @@ function shouldExcludeFieldByDefault(
     | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
     | undefined
 ): boolean {
-  // Admin and owner roles have full access
-  if (userRole === 'admin' || userRole === 'owner') {
-    return false
-  }
+  if (userRole === 'admin' || userRole === 'owner') return false
 
-  // Find field definition
   const field = table?.fields.find((f) => f.name === fieldName)
   if (!field) return false
 
-  // Viewer role: most restrictive access (only name and basic text fields)
-  if (userRole === 'viewer') {
-    // Viewer can only read basic name/title fields
-    const allowedFieldTypes = ['single-line-text']
-    const allowedFieldNames = ['name', 'title']
-
-    // Exclude email, phone, salary, and other sensitive fields
-    if (field.type === 'email' || field.type === 'phone-number' || field.type === 'currency') {
-      return true
-    }
-
-    // Only allow specific field names or types
-    if (!allowedFieldNames.includes(fieldName) && !allowedFieldTypes.includes(field.type)) {
-      return true
-    }
-
-    // For single-line-text, only allow if it's a name/title field
-    if (field.type === 'single-line-text' && !allowedFieldNames.includes(fieldName)) {
-      return true
-    }
-  }
-
-  // Member role: restrict sensitive financial data
-  if (userRole === 'member') {
-    // Restrict salary fields for member roles
-    if (fieldName === 'salary' && field.type === 'currency') {
-      return true
-    }
-  }
+  if (userRole === 'viewer') return shouldExcludeForViewer(fieldName, field)
+  if (userRole === 'member') return shouldExcludeForMember(fieldName, field)
 
   return false
 }
