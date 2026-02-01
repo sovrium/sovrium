@@ -355,7 +355,7 @@ export async function handleRestoreRecord(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
-  if (!hasCreatePermission(table, userRole)) {
+  if (!hasDeletePermission(table, userRole)) {
     return c.json(
       {
         success: false,

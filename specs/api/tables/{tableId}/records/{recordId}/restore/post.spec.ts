@@ -30,7 +30,7 @@ test.describe('Restore record', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-001: should return 200 OK and clear deleted_at',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -68,7 +68,7 @@ test.describe('Restore record', () => {
       const data = await response.json()
       expect(data.success).toBe(true)
       expect(data.record).toBeDefined()
-      expect(data.record.id).toBe(1)
+      expect(data.record.id).toBe('1')
 
       // THEN: deleted_at is cleared (record is active again)
       const afterRestore = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=1`)
@@ -442,7 +442,7 @@ test.describe('Restore record', () => {
         const data = await response.json()
         expect(data.success).toBe(true)
         expect(data.record).toBeDefined()
-        expect(data.record.id).toBe(1)
+        expect(data.record.id).toBe('1')
 
         // Verify deleted_at is cleared
         const afterRestore = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=1`)
