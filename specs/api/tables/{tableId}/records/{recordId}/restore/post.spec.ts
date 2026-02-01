@@ -329,7 +329,7 @@ test.describe('Restore record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-008: should capture user_id who restored the record',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
