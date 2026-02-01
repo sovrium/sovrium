@@ -912,9 +912,9 @@ jobs:
           echo "   Event: ${{ github.event_name }}"
           echo "   Ref: ${{ github.ref }}"
 
-          # Get commit message for PR merge detection
+          # Get commit message for PR merge detection (use printf for safe string handling)
           COMMIT_MSG="${{ github.event.head_commit.message }}"
-          echo "   Commit message: $COMMIT_MSG"
+          printf "   Commit message: %s\n" "$COMMIT_MSG"
           echo ""
 
           if [ "${{ needs.test.outputs.all-passed }}" != "true" ]; then
@@ -936,7 +936,7 @@ jobs:
           fi
 
           # Check if commit is a PR merge (contains "Merge pull request #" or "(#123)" pattern)
-          if ! echo "$COMMIT_MSG" | grep -qE "(Merge pull request #[0-9]+|\(#[0-9]+\))"; then
+          if ! printf "%s" "$COMMIT_MSG" | grep -qE "(Merge pull request #[0-9]+|\(#[0-9]+\))"; then
             echo "⏭️  Skipping: not a PR merge commit (direct push to main)"
             echo "   Spec progress updates only occur via merged PRs"
             echo "should-update=false" >> "$GITHUB_OUTPUT"
