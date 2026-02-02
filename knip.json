@@ -31,6 +31,6 @@
     "@effect/cli",
     "@effect/platform-bun"
   ],
-  "ignoreBinaries": ["pull_with_retry", "actionlint"],
+  "ignoreBinaries": ["pull_with_retry", "actionlint", "printf"],
   "ignoreExportsUsedInFile": true
 }

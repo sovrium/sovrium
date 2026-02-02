@@ -467,7 +467,12 @@ export class MailpitHelper {
       const email = sortedEmails.find(predicate)
       if (email) {
         // Fetch full email details (list API doesn't include HTML/Text body)
-        return this.getEmailById(email.ID)
+        // Handle race condition: email may be deleted between list and fetch
+        try {
+          return await this.getEmailById(email.ID)
+        } catch {
+          // Email was deleted between list and fetch, continue polling
+        }
       }
       await new Promise((resolve) => setTimeout(resolve, interval))
     }
@@ -511,7 +516,12 @@ export class MailpitHelper {
       const email = sortedEmails.find(predicate)
       if (email) {
         // Fetch full email details (list API doesn't include HTML/Text body)
-        return this.getEmailById(email.ID)
+        // Handle race condition: email may be deleted between list and fetch
+        try {
+          return await this.getEmailById(email.ID)
+        } catch {
+          // Email was deleted between list and fetch, continue polling
+        }
       }
       await new Promise((resolve) => setTimeout(resolve, interval))
     }
