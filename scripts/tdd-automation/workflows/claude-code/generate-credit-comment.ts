@@ -46,4 +46,4 @@ const main = Effect.gen(function* () {
   )
 )
 
-Effect.runPromise(main)
+await Effect.runPromise(main)
