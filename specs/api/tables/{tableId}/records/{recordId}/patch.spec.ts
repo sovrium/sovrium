@@ -639,7 +639,7 @@ test.describe('Update record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPDATE-012: should exclude unreadable fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
