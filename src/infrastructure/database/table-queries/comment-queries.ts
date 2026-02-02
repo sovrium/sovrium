@@ -208,11 +208,26 @@ export function checkRecordOwnership(config: {
   const { session, tableName, recordId } = config
   return withSessionContext(session, (tx) =>
     Effect.gen(function* () {
+      // Check if table has owner_id column
+      const hasOwnerIdResult = yield* Effect.tryPromise({
+        try: () =>
+          tx.execute(
+            sql`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ${tableName} AND column_name = 'owner_id'`
+          ),
+        catch: (error) => new SessionContextError('Failed to check table columns', error),
+      })
+
+      const hasOwnerId = (hasOwnerIdResult as readonly Record<string, unknown>[]).some(
+        (row) => row.column_name === 'owner_id'
+      )
+
       // Check if record exists
       const result = yield* Effect.tryPromise({
         try: () =>
           tx.execute(
-            sql`SELECT owner_id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
+            hasOwnerId
+              ? sql`SELECT owner_id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
+              : sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
           ),
         catch: (error) => new SessionContextError('Failed to check record ownership', error),
       })
@@ -221,12 +236,12 @@ export function checkRecordOwnership(config: {
         return false
       }
 
-      const record = result[0] as { owner_id?: string }
       // If no owner_id column, allow access
-      if (record.owner_id === undefined) {
+      if (!hasOwnerId) {
         return true
       }
 
+      const record = result[0] as { owner_id?: string }
       // Check ownership
       return String(record.owner_id) === String(session.userId)
     })
