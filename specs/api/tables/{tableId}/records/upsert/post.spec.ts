@@ -368,7 +368,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-007: should return 403 for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
