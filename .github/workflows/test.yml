@@ -979,27 +979,28 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Check if SPEC-PROGRESS.md changed
-          if git diff --quiet SPEC-PROGRESS.md; then
-            echo "✅ No changes to SPEC-PROGRESS.md"
+          # Check if any spec-related files changed (SPEC-PROGRESS.md or README.md badges)
+          if git diff --quiet SPEC-PROGRESS.md README.md; then
+            echo "✅ No changes to spec progress files"
           else
-            echo "📝 Committing SPEC-PROGRESS.md updates..."
-            git add SPEC-PROGRESS.md
+            echo "📝 Committing spec progress updates..."
+            # Add both files modified by analyze-specs.ts
+            git add SPEC-PROGRESS.md README.md
             git commit -m "chore: update spec progress [skip ci]"
 
             # Pull latest changes with rebase to avoid race conditions
             echo "🔄 Pulling latest changes from main..."
             if ! git pull --rebase origin main; then
               echo "⚠️ Rebase conflict detected - aborting push"
-              echo "   This is expected when multiple workflows update SPEC-PROGRESS.md simultaneously"
+              echo "   This is expected when multiple workflows update spec progress simultaneously"
               echo "   The next successful test run will update the spec progress"
               git rebase --abort
               exit 0
             fi
 
-            echo "⬆️ Pushing SPEC-PROGRESS.md updates..."
+            echo "⬆️ Pushing spec progress updates..."
             git push
-            echo "✅ SPEC-PROGRESS.md updated and pushed"
+            echo "✅ Spec progress updated and pushed"
 
             # Trigger branch-sync workflow since [skip ci] prevents automatic triggers
             echo "📡 Triggering branch-sync workflow to sync TDD branches..."
