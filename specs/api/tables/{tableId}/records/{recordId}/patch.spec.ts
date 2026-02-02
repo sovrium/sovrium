@@ -451,7 +451,7 @@ test.describe('Update record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPDATE-009: should update only permitted fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -511,7 +511,7 @@ test.describe('Update record', () => {
       // Verify salary remains unchanged in database
       const result = await executeQuery(`SELECT salary FROM employees WHERE id=1`)
       // THEN: assertion
-      expect(result.rows[0].salary).toBe(75_000)
+      expect(result.rows[0].salary).toBe('75000')
     }
   )
 
