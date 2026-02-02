@@ -704,7 +704,7 @@ test.describe('Update record', () => {
   // Activity Log Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPDATE-013: should create activity log entry when record is updated',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
