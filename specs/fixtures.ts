@@ -342,7 +342,7 @@ export const test = base.extend<ServerFixtures>({
 
         // Note: PostgreSQL returns DECIMAL/NUMERIC as strings, but we keep them as-is
         // for test assertions to work correctly (tests expect string values)
-        const parsedRows = result.rows
+        const parsedRows = result.rows ?? []
 
         // Return result with convenient properties
         // For single-row results, spread the row properties for easier access

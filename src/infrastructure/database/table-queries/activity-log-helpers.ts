@@ -5,10 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { db, SessionContextError } from '@/infrastructure/database'
 import { activityLogs } from '@/infrastructure/database/drizzle/schema/activity-log'
+import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -26,18 +26,15 @@ export function logActivity(config: {
     readonly before?: Record<string, unknown>
     readonly after?: Record<string, unknown>
   }
+  readonly app?: App
 }): Effect.Effect<void, never> {
-  const { session, tableName, action, recordId, changes } = config
+  const { session, tableName, action, recordId, changes, app } = config
   return Effect.ignore(
     Effect.tryPromise({
       try: async () => {
-        // Get table ID from information_schema
-        const tableIdResult = (await db.execute(
-          sql`SELECT schemaname, tablename FROM pg_tables WHERE tablename = ${tableName} LIMIT 1`
-        )) as readonly Record<string, unknown>[]
-
-        // Use '1' as fallback table ID if not found in schema
-        const tableId = tableIdResult[0] ? '1' : '1'
+        // Get table ID from app schema if available
+        const table = app?.tables?.find((t) => t.name === tableName)
+        const tableId = table?.id ? String(table.id) : '1'
 
         // eslint-disable-next-line functional/no-expression-statements -- Database insert for logging is an acceptable side effect
         await db.insert(activityLogs).values({

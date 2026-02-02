@@ -37,6 +37,7 @@ import {
   executeRecordUpdateCRUD,
 } from './update-helpers'
 import { validateTableName } from './validation'
+import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { UniqueConstraintViolationError } from '@/infrastructure/database'
 
@@ -318,21 +319,24 @@ export function createRecord(
 /**
  * Log activity for record update
  */
-function logRecordUpdateActivity(
-  session: Readonly<Session>,
-  tableName: string,
-  recordId: string,
-  changes: {
+function logRecordUpdateActivity(config: {
+  readonly session: Readonly<Session>
+  readonly tableName: string
+  readonly recordId: string
+  readonly changes: {
     readonly before: Record<string, unknown> | undefined
     readonly after: Record<string, unknown>
   }
-): Effect.Effect<void, never> {
+  readonly app?: App
+}): Effect.Effect<void, never> {
+  const { session, tableName, recordId, changes, app } = config
   return logActivity({
     session,
     tableName,
     action: 'update',
     recordId,
     changes,
+    app,
   })
 }
 
@@ -340,8 +344,12 @@ export function updateRecord(
   session: Readonly<Session>,
   tableName: string,
   recordId: string,
-  fields: Readonly<Record<string, unknown>>
+  params: {
+    readonly fields: Readonly<Record<string, unknown>>
+    readonly app?: App
+  }
 ): Effect.Effect<Record<string, unknown>, SessionContextError> {
+  const { fields, app } = params
   return withSessionContext(session, (tx) =>
     Effect.gen(function* () {
       validateTableName(tableName)
@@ -351,9 +359,15 @@ export function updateRecord(
       const setClause = buildUpdateSetClauseCRUD(entries)
       const updatedRecord = yield* executeRecordUpdateCRUD(tx, tableName, recordId, setClause)
 
-      yield* logRecordUpdateActivity(session, tableName, recordId, {
-        before: recordBefore,
-        after: updatedRecord,
+      yield* logRecordUpdateActivity({
+        session,
+        tableName,
+        recordId,
+        changes: {
+          before: recordBefore,
+          after: updatedRecord,
+        },
+        app,
       })
 
       return updatedRecord

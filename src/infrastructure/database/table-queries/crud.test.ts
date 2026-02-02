@@ -524,7 +524,7 @@ describe('updateRecord', () => {
     }))
 
     const program = updateRecord(mockSession, 'users', 'record-123', {
-      name: 'Alice Smith',
+      fields: { name: 'Alice Smith' },
     })
 
     const result = await Effect.runPromise(program)
@@ -535,7 +535,7 @@ describe('updateRecord', () => {
   })
 
   test('fails when no fields provided', async () => {
-    const program = updateRecord(mockSession, 'users', 'record-123', {})
+    const program = updateRecord(mockSession, 'users', 'record-123', { fields: {} })
 
     try {
       await Effect.runPromise(program)
@@ -578,7 +578,7 @@ describe('updateRecord', () => {
     }))
 
     const program = updateRecord(mockSession, 'users', 'record-123', {
-      name: 'New Name',
+      fields: { name: 'New Name' },
     })
 
     try {

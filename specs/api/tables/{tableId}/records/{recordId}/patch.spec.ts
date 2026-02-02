@@ -759,7 +759,7 @@ test.describe('Update record', () => {
       const log = logs.rows[0]
       expect(log.action).toBe('update')
       expect(log.user_id).toBe(user.id)
-      expect(log.table_id).toBe('1')
+      expect(log.table_id).toBe('15')
       expect(log.record_id).toBe('1')
 
       // Parse and verify changes field
@@ -892,7 +892,7 @@ test.describe('Update record', () => {
   // Generated from 15 @spec tests - covers: CRUD, 401/403/404, permissions, readonly, activity logs
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPDATE-REGRESSION: user can complete full record update workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
