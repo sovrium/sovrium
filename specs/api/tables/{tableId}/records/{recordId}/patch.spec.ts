@@ -635,7 +635,7 @@ test.describe('Update record', () => {
       // THEN: assertion
       expect(result.rows[0].name).toBe('Carol Davis')
       expect(result.rows[0].phone).toBe('555-0100')
-      expect(result.rows[0].salary).toBe(70_000)
+      expect(result.rows[0].salary).toBe('70000')
     }
   )
 
@@ -696,7 +696,7 @@ test.describe('Update record', () => {
       // Verify database has salary field unchanged
       const result = await executeQuery(`SELECT salary FROM employees WHERE id=1`)
       // THEN: assertion
-      expect(result.rows[0].salary).toBe(72_000)
+      expect(result.rows[0].salary).toBe('72000')
     }
   )
 
@@ -1060,7 +1060,7 @@ test.describe('Update record', () => {
         expect(data.field).toBe('salary')
 
         const result = await executeQuery(`SELECT salary FROM employees WHERE id=1`)
-        expect(result.rows[0].salary).toBe(75_000)
+        expect(result.rows[0].salary).toBe('75000')
       })
 
       await test.step('API-TABLES-RECORDS-UPDATE-008: Return 400 for readonly fields', async () => {
@@ -1096,7 +1096,7 @@ test.describe('Update record', () => {
         expect(data.fields).not.toHaveProperty('salary')
 
         const result = await executeQuery(`SELECT salary FROM employees WHERE id=2`)
-        expect(result.rows[0].salary).toBe(75_000)
+        expect(result.rows[0].salary).toBe('75000')
       })
 
       await test.step('API-TABLES-RECORDS-UPDATE-010: Enforce combined permissions', async () => {
@@ -1132,7 +1132,7 @@ test.describe('Update record', () => {
         const result = await executeQuery(`SELECT name, phone, salary FROM employees WHERE id=4`)
         expect(result.rows[0].name).toBe('Carol Davis')
         expect(result.rows[0].phone).toBe('555-0100')
-        expect(result.rows[0].salary).toBe(70_000)
+        expect(result.rows[0].salary).toBe('70000')
       })
 
       await test.step('API-TABLES-RECORDS-UPDATE-012: Exclude unreadable fields from response', async () => {
@@ -1150,7 +1150,7 @@ test.describe('Update record', () => {
         expect(data.fields).not.toHaveProperty('salary')
 
         const result = await executeQuery(`SELECT salary FROM employees WHERE id=5`)
-        expect(result.rows[0].salary).toBe(72_000)
+        expect(result.rows[0].salary).toBe('72000')
       })
 
       // Activity Log Tests
