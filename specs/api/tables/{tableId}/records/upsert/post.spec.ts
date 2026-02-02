@@ -558,7 +558,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-011: should filter protected fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
