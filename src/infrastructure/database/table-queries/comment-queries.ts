@@ -81,7 +81,22 @@ function transformCommentRow(row: {
   readonly userName: string | undefined
   readonly userEmail: string | undefined
   readonly userImage: string | undefined
-}) {
+}): {
+  readonly id: string
+  readonly tableId: string
+  readonly recordId: string
+  readonly userId: string
+  readonly content: string
+  readonly createdAt: Date
+  readonly user:
+    | {
+        readonly id: string
+        readonly name: string
+        readonly email: string
+        readonly image: string | undefined
+      }
+    | undefined
+} {
   return {
     id: row.id,
     tableId: row.tableId,
@@ -89,10 +104,48 @@ function transformCommentRow(row: {
     userId: row.userId,
     content: row.content,
     createdAt: row.createdAt,
-    user: row.userName
-      ? { id: row.userId, name: row.userName, email: row.userEmail, image: row.userImage }
-      : undefined,
+    user:
+      row.userName && row.userEmail
+        ? { id: row.userId, name: row.userName, email: row.userEmail, image: row.userImage }
+        : undefined,
   }
+}
+
+/**
+ * Comment query result type
+ */
+type CommentQueryRow = {
+  readonly id: string
+  readonly tableId: string
+  readonly recordId: string
+  readonly userId: string
+  readonly content: string
+  readonly createdAt: Date
+  readonly userName: string | null
+  readonly userEmail: string | null
+  readonly userImage: string | null
+}
+
+/**
+ * Execute comment query with user join
+ */
+function executeCommentQuery(commentId: string) {
+  return db
+    .select({
+      id: recordComments.id,
+      tableId: recordComments.tableId,
+      recordId: recordComments.recordId,
+      userId: recordComments.userId,
+      content: recordComments.content,
+      createdAt: recordComments.createdAt,
+      userName: users.name,
+      userEmail: users.email,
+      userImage: users.image,
+    })
+    .from(recordComments)
+    .leftJoin(users, eq(recordComments.userId, users.id))
+    .where(and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt)))
+    .limit(1)
 }
 
 /**
@@ -124,29 +177,22 @@ export function getCommentWithUser(config: {
   const { session, commentId } = config
   return withSessionContext(session, () =>
     Effect.gen(function* () {
-      const query = db
-        .select({
-          id: recordComments.id,
-          tableId: recordComments.tableId,
-          recordId: recordComments.recordId,
-          userId: recordComments.userId,
-          content: recordComments.content,
-          createdAt: recordComments.createdAt,
-          userName: users.name,
-          userEmail: users.email,
-          userImage: users.image,
-        })
-        .from(recordComments)
-        .leftJoin(users, eq(recordComments.userId, users.id))
-        .where(and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt)))
-        .limit(1)
-
-      const result = yield* Effect.tryPromise({
-        try: () => query,
+      const result = yield* Effect.tryPromise<Array<CommentQueryRow>, SessionContextError>({
+        try: () => executeCommentQuery(commentId),
         catch: (error) => new SessionContextError('Failed to get comment', error),
       })
 
-      return result.length === 0 ? undefined : transformCommentRow(result[0]!)
+      if (result.length === 0 || !result[0]) {
+        return undefined
+      }
+
+      const row = result[0]
+      return transformCommentRow({
+        ...row,
+        userName: row.userName ?? undefined,
+        userEmail: row.userEmail ?? undefined,
+        userImage: row.userImage ?? undefined,
+      })
     })
   )
 }

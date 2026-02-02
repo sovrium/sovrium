@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { SessionContextError } from '@/infrastructure/database/session-context'
+import { SessionContextError } from '@/infrastructure/database'
 import {
   createComment,
   getCommentWithUser,
