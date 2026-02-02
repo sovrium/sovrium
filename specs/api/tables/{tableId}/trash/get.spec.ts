@@ -242,7 +242,7 @@ test.describe('GET /trash endpoint', () => {
   // Consolidates 4 @spec tests into workflow steps
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-TRASH-REGRESSION: user can complete full trash workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
