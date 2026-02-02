@@ -462,7 +462,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-009: should return 403 when updating with protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
