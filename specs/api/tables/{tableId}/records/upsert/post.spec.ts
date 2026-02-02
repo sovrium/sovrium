@@ -415,7 +415,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-008: should return 403 when creating with protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
@@ -457,7 +457,6 @@ test.describe('Upsert records (create or update)', () => {
       const data = await response.json()
       // THEN: assertion
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
       expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to write to field: salary')
     }
