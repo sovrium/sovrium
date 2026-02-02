@@ -232,12 +232,13 @@ function checkFieldPermissions(config: {
 
   if (allForbiddenFields.length > 0) {
     const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+    const firstForbiddenField = uniqueForbiddenFields[0]
     return {
       allowed: false,
       response: c.json(
         {
           success: false,
-          message: `You do not have permission to modify field(s): ${uniqueForbiddenFields.join(', ')}`,
+          message: `You do not have permission to write to field: ${firstForbiddenField}`,
           code: 'FORBIDDEN',
         },
         403
