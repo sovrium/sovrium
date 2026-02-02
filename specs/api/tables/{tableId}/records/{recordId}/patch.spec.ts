@@ -759,7 +759,7 @@ test.describe('Update record', () => {
       const log = logs.rows[0]
       expect(log.action).toBe('update')
       expect(log.user_id).toBe(user.id)
-      expect(log.table_id).toBe('1')
+      expect(log.table_id).toBe('15')
       expect(log.record_id).toBe('1')
 
       // Parse and verify changes field

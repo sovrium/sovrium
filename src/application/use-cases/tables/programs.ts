@@ -338,7 +338,10 @@ export function updateRecordProgram(
 ) {
   return Effect.gen(function* () {
     // Update record with session context (RLS policies enforce access control)
-    const record = yield* updateRecord(session, tableName, recordId, params.fields)
+    const record = yield* updateRecord(session, tableName, recordId, {
+      fields: params.fields,
+      app: params.app,
+    })
 
     // Transform with app context to include table-specific fields like created_at/updated_at
     const transformed = transformRecord(record, { app: params.app, tableName })
