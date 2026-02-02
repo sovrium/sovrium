@@ -165,18 +165,9 @@ export function createListTrashProgram(
       userId: session.userId,
     })
 
-    // Preserve numeric IDs (transformRecord converts all IDs to strings, but we need to preserve numeric types)
-    const recordsWithPreservedIds = processedRecords.map((record) => {
-      // Ensure id is always a string for TransformedRecord type
-      return {
-        ...record,
-        id: String(record.id),
-      }
-    })
-
     // Apply pagination
     const { paginatedRecords, pagination } = applyPagination(
-      recordsWithPreservedIds,
+      processedRecords,
       records.length,
       limit,
       offset
