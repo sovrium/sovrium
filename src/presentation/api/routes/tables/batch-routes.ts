@@ -305,6 +305,68 @@ async function checkUpsertPermissionsWithUpdateCheck(config: {
 }
 
 /**
+ * Check if a field type is readonly (cannot be set by users)
+ */
+function isReadonlyFieldType(fieldType: string): boolean {
+  const readonlyTypes = new Set(['created-at', 'updated-at', 'auto-number'])
+  return readonlyTypes.has(fieldType)
+}
+
+/**
+ * Validate that no readonly fields are being set
+ * Returns error response if readonly fields detected, undefined otherwise
+ */
+function validateReadonlyFields(
+  table:
+    | {
+        readonly fields: ReadonlyArray<{
+          readonly name: string
+          readonly type: string
+        }>
+      }
+    | undefined,
+  records: readonly { fields: Record<string, unknown> }[],
+  c: Context
+) {
+  // Check for 'id' field (always readonly)
+  const recordWithId = records.find((record) => 'id' in record.fields)
+  if (recordWithId) {
+    return c.json(
+      {
+        success: false,
+        message: 'Cannot set readonly field: id',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
+
+  // Check for readonly field types (created-at, updated-at, auto-number)
+  if (table) {
+    const readonlyFieldNames = new Set(
+      table.fields.filter((field) => isReadonlyFieldType(field.type)).map((field) => field.name)
+    )
+
+    const attemptedReadonlyField = records
+      .flatMap((record) => Object.keys(record.fields))
+      .find((fieldName) => readonlyFieldNames.has(fieldName))
+
+    if (attemptedReadonlyField) {
+      return c.json(
+        {
+          success: false,
+          message: `Cannot set readonly field: ${attemptedReadonlyField}`,
+          code: 'FORBIDDEN',
+        },
+        403
+      )
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Handle upsert endpoint
  */
 async function handleUpsert(c: Context, app: App) {
@@ -326,6 +388,10 @@ async function handleUpsert(c: Context, app: App) {
   if (!result.success) return result.response
 
   const table = app.tables?.find((t) => t.name === tableName)
+
+  // Validate readonly fields BEFORE permission checks
+  const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
+  if (readonlyValidation) return readonlyValidation
 
   // Check permissions
   const permissionCheck = await checkUpsertPermissionsWithUpdateCheck({
