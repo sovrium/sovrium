@@ -79,6 +79,7 @@ Note: Max attempts default is 5 (configurable per spec)
 - Runs only on `push` events to `main` (not on PRs)
 - Requires explicit success signal from `test` job via `outputs.all-passed`
 - Uses `bun run analyze:specs` to scan and update spec completion status
+- **Commits both `SPEC-PROGRESS.md` and `README.md`** (script updates README badges automatically)
 - Commits changes with `[skip ci]` to avoid triggering new workflow runs
 - **Uses `GH_PAT_WORKFLOW` token** to bypass branch protection rules (required for direct push to `main`)
 - **Race condition protection**: Uses `git pull --rebase` before push to handle concurrent updates from multiple workflows
