@@ -397,7 +397,7 @@ test.describe('Update record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPDATE-008: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
