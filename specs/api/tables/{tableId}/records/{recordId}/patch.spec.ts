@@ -892,7 +892,7 @@ test.describe('Update record', () => {
   // Generated from 15 @spec tests - covers: CRUD, 401/403/404, permissions, readonly, activity logs
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPDATE-REGRESSION: user can complete full record update workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
