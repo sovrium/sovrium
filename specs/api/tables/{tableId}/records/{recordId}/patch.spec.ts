@@ -384,10 +384,8 @@ test.describe('Update record', () => {
       expect(data).toHaveProperty('success')
       expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('code')
-      expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('field')
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
       expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe("Cannot write to field 'salary': insufficient permissions")
       expect(data.field).toBe('salary')
@@ -395,7 +393,7 @@ test.describe('Update record', () => {
       // Verify database unchanged (salary still 75000)
       const result = await executeQuery(`SELECT salary FROM employees WHERE id=1`)
       // THEN: assertion
-      expect(result.rows[0].salary).toBe(75_000)
+      expect(result.rows[0].salary).toBe('75000')
     }
   )
 
