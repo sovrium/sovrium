@@ -71,7 +71,7 @@ test.describe('Create comment on a record', () => {
       expect(data.comment).toBeDefined()
       expect(data.comment.id).toBeDefined()
       expect(data.comment.content).toBe('This is my first comment on this task.')
-      expect(data.comment.userId).toBe(auth.userId)
+      expect(data.comment.userId).toBe(auth.user.id)
       expect(data.comment.recordId).toBe('1')
       expect(data.comment.tableId).toBe('1')
       expect(data.comment.createdAt).toBeDefined()
@@ -82,7 +82,7 @@ test.describe('Create comment on a record', () => {
       `)
       expect(result.rows).toHaveLength(1)
       expect(result.rows[0].content).toBe('This is my first comment on this task.')
-      expect(result.rows[0].user_id).toBe(auth.userId)
+      expect(result.rows[0].user_id).toBe(auth.user.id)
     }
   )
 
