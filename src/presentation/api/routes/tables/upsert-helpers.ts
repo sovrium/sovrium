@@ -106,6 +106,7 @@ export function checkFieldPermissions(config: {
 /**
  * Check upsert permissions including update permission check
  * This function determines if records will be created or updated, then checks appropriate permissions
+ * Note: Field-level permissions should be checked separately before calling this function
  */
 export async function checkUpsertPermissionsWithUpdateCheck(config: {
   readonly app: App
@@ -154,8 +155,7 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
     }
   }
 
-  // Check field-level write permissions
-  return checkFieldPermissions({ app, tableName, userRole, records, c })
+  return { allowed: true }
 }
 
 /**
@@ -189,9 +189,9 @@ export function validateReadonlyFields(
       {
         success: false,
         message: 'Cannot set readonly field: id',
-        code: 'FORBIDDEN',
+        code: 'VALIDATION_ERROR',
       },
-      403
+      400
     )
   }
 
@@ -210,9 +210,9 @@ export function validateReadonlyFields(
         {
           success: false,
           message: `Cannot set readonly field: ${attemptedReadonlyField}`,
-          code: 'FORBIDDEN',
+          code: 'VALIDATION_ERROR',
         },
-        403
+        400
       )
     }
   }
@@ -302,9 +302,9 @@ export async function applyReadFiltering<E, R>(config: {
  * Validate upsert request (permissions and required fields)
  *
  * Upsert behavior for protected fields:
- * - If ANY forbidden fields are present, strip them silently and continue
- * - This allows graceful degradation where users can upsert records without knowing field-level permissions
- * - Field filtering is then applied to the response
+ * - Check field-level write permissions BEFORE any other validation
+ * - If ANY forbidden fields are present, return 403 error
+ * - This ensures consistent permission enforcement across all write operations
  */
 export async function validateUpsertRequest(config: {
   readonly c: Context
@@ -317,15 +317,18 @@ export async function validateUpsertRequest(config: {
   const { c, app, tableName, userRole, records, fieldsToMergeOn } = config
   const table = app.tables?.find((t) => t.name === tableName)
 
-  // Strip unwritable fields to allow upsert to succeed with field filtering
-  const strippedRecords = stripUnwritableFields(app, tableName, userRole, records)
+  // Check field-level write permissions FIRST (before stripping)
+  const fieldPermissionCheck = checkFieldPermissions({ app, tableName, userRole, records, c })
+  if (fieldPermissionCheck.allowed === false) {
+    return { success: false as const, response: fieldPermissionCheck.response }
+  }
 
-  // Check permissions with stripped records
+  // Check table-level permissions (create/update)
   const permissionCheck = await checkUpsertPermissionsWithUpdateCheck({
     app,
     tableName,
     userRole,
-    records: strippedRecords,
+    records,
     fieldsToMergeOn,
     c,
   })
@@ -333,8 +336,8 @@ export async function validateUpsertRequest(config: {
     return { success: false as const, response: permissionCheck.response }
   }
 
-  // Validate required fields with stripped records
-  const validationErrors = await validateUpsertRequiredFields(table, strippedRecords)
+  // Validate required fields
+  const validationErrors = await validateUpsertRequiredFields(table, records)
 
   if (validationErrors.length > 0) {
     return {
@@ -351,5 +354,5 @@ export async function validateUpsertRequest(config: {
     }
   }
 
-  return { success: true as const, strippedRecords }
+  return { success: true as const, strippedRecords: records }
 }
