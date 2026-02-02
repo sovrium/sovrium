@@ -279,7 +279,7 @@ test.describe('Upsert records (create or update)', () => {
   test(
     'API-TABLES-RECORDS-UPSERT-005: should return 403 when member lacks create permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
       // GIVEN: A member user without create permission
       await startServerWithSchema({
         name: 'test-app',
@@ -292,11 +292,14 @@ test.describe('Upsert records (create or update)', () => {
               { id: 1, name: 'email', type: 'email', unique: true },
               { id: 2, name: 'name', type: 'single-line-text' },
             ],
+            permissions: {
+              create: { type: 'roles', roles: ['admin'] },
+            },
           },
         ],
       })
 
-      await createAuthenticatedViewer()
+      await createAuthenticatedMember()
 
       // WHEN: Member attempts upsert with new records
       const response = await request.post('/api/tables/5/records/upsert', {
@@ -323,7 +326,7 @@ test.describe('Upsert records (create or update)', () => {
   test(
     'API-TABLES-RECORDS-UPSERT-006: should return 403 when member lacks update permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: A member user without update permission
       await startServerWithSchema({
         name: 'test-app',
@@ -336,11 +339,14 @@ test.describe('Upsert records (create or update)', () => {
               { id: 1, name: 'email', type: 'email', unique: true },
               { id: 2, name: 'name', type: 'single-line-text' },
             ],
+            permissions: {
+              update: { type: 'roles', roles: ['admin'] },
+            },
           },
         ],
       })
 
-      await createAuthenticatedViewer()
+      await createAuthenticatedMember()
       await executeQuery(`
         INSERT INTO employees (email, name)
         VALUES ('alice@example.com', 'Alice Cooper')
