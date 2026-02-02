@@ -736,7 +736,7 @@ test.describe('Upsert records (create or update)', () => {
   // auth, permissions, field-level restrictions, response filtering
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-REGRESSION: user can complete full upsert workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
