@@ -115,7 +115,7 @@ export const upsertRecordsRequestSchema = z.object({
     .min(1, 'At least one record is required')
     .max(100, 'Maximum 100 records per batch'),
   fieldsToMergeOn: z.array(z.string()).min(1, 'At least one merge field is required'),
-  returnRecords: z.boolean().optional().default(true),
+  returnRecords: z.boolean().optional().default(false),
 })
 
 // ============================================================================

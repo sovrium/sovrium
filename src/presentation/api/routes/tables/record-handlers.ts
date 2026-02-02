@@ -261,18 +261,12 @@ export async function handleGetRecord(c: Context, app: App) {
   }
 }
 
-export async function handleUpdateRecord(c: Context, app: App) {
-  // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName, userRole } = getTableContext(c)
-
-  const result = await validateRequest(c, updateRecordRequestSchema)
-  if (!result.success) return result.response
-
-  // Check for readonly fields BEFORE permission checks (validation error, not permission error)
+/**
+ * Validate readonly fields for update request
+ */
+function validateUpdateReadonlyFields(fields: Record<string, unknown>, c: Context) {
   const READONLY_FIELDS = new Set(['id', 'created_at', 'updated_at'])
-  const attemptedReadonlyFields = Object.keys(result.data.fields).filter((field) =>
-    READONLY_FIELDS.has(field)
-  )
+  const attemptedReadonlyFields = Object.keys(fields).filter((field) => READONLY_FIELDS.has(field))
 
   if (attemptedReadonlyFields.length > 0) {
     const firstReadonlyField = attemptedReadonlyFields[0]!
@@ -286,20 +280,16 @@ export async function handleUpdateRecord(c: Context, app: App) {
     )
   }
 
-  const permissionCheck = checkTableUpdatePermissionWithRole(app, tableName, userRole, c)
-  if (!permissionCheck.allowed) {
-    return permissionCheck.response
-  }
+  return undefined
+}
 
-  // Extract fields from nested format (schema transforms to { fields: {...} })
-  const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
-    app,
-    tableName,
-    userRole,
-    result.data.fields
-  )
-
-  // If any forbidden fields were attempted (excluding system-protected fields), return 403
+/**
+ * Validate forbidden fields for update request
+ */
+function validateUpdateForbiddenFields(
+  forbiddenFields: readonly string[],
+  c: Context
+): Response | undefined {
   const SYSTEM_PROTECTED_FIELDS = new Set(['user_id', 'owner_id'])
   const attemptedForbiddenFields = forbiddenFields.filter(
     (field) => !SYSTEM_PROTECTED_FIELDS.has(field)
@@ -317,6 +307,37 @@ export async function handleUpdateRecord(c: Context, app: App) {
       403
     )
   }
+
+  return undefined
+}
+
+export async function handleUpdateRecord(c: Context, app: App) {
+  // Session, tableName, and userRole are guaranteed by middleware chain
+  const { session, tableName, userRole } = getTableContext(c)
+
+  const result = await validateRequest(c, updateRecordRequestSchema)
+  if (!result.success) return result.response
+
+  // Check for readonly fields BEFORE permission checks
+  const readonlyValidation = validateUpdateReadonlyFields(result.data.fields, c)
+  if (readonlyValidation) return readonlyValidation
+
+  const permissionCheck = checkTableUpdatePermissionWithRole(app, tableName, userRole, c)
+  if (!permissionCheck.allowed) {
+    return permissionCheck.response
+  }
+
+  // Extract fields from nested format
+  const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
+    app,
+    tableName,
+    userRole,
+    result.data.fields
+  )
+
+  // Validate forbidden fields
+  const forbiddenValidation = validateUpdateForbiddenFields(forbiddenFields, c)
+  if (forbiddenValidation) return forbiddenValidation
 
   if (Object.keys(allowedData).length === 0) {
     return handleNoAllowedFields({
