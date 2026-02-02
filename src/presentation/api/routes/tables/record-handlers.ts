@@ -268,6 +268,24 @@ export async function handleUpdateRecord(c: Context, app: App) {
   const result = await validateRequest(c, updateRecordRequestSchema)
   if (!result.success) return result.response
 
+  // Check for readonly fields BEFORE permission checks (validation error, not permission error)
+  const READONLY_FIELDS = new Set(['id', 'created_at', 'updated_at'])
+  const attemptedReadonlyFields = Object.keys(result.data.fields).filter((field) =>
+    READONLY_FIELDS.has(field)
+  )
+
+  if (attemptedReadonlyFields.length > 0) {
+    const firstReadonlyField = attemptedReadonlyFields[0]!
+    return c.json(
+      {
+        success: false,
+        message: `Cannot write to readonly field '${firstReadonlyField}'`,
+        code: 'VALIDATION_ERROR',
+      },
+      400
+    )
+  }
+
   const permissionCheck = checkTableUpdatePermissionWithRole(app, tableName, userRole, c)
   if (!permissionCheck.allowed) {
     return permissionCheck.response
@@ -282,7 +300,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
   )
 
   // If any forbidden fields were attempted (excluding system-protected fields), return 403
-  const SYSTEM_PROTECTED_FIELDS = new Set(['user_id', 'owner_id', 'id', 'created_at'])
+  const SYSTEM_PROTECTED_FIELDS = new Set(['user_id', 'owner_id'])
   const attemptedForbiddenFields = forbiddenFields.filter(
     (field) => !SYSTEM_PROTECTED_FIELDS.has(field)
   )
