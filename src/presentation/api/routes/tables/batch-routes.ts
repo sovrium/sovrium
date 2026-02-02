@@ -367,6 +367,37 @@ function validateReadonlyFields(
 }
 
 /**
+ * Strip protected fields that user cannot write from records
+ * This prevents 403 errors for fields user doesn't have write access to
+ */
+function stripUnwritableFields(
+  app: App,
+  tableName: string,
+  userRole: string,
+  records: readonly { fields: Record<string, unknown> }[]
+): Array<{ fields: Record<string, unknown> }> {
+  return records.map((record) => {
+    const forbiddenFields = validateFieldWritePermissions(app, tableName, userRole, record.fields)
+    if (forbiddenFields.length === 0) {
+      return record
+    }
+
+    // Remove forbidden fields from the record
+    const filteredFields = Object.keys(record.fields).reduce<Record<string, unknown>>(
+      (acc, key) => {
+        if (!forbiddenFields.includes(key)) {
+          return { ...acc, [key]: record.fields[key] }
+        }
+        return acc
+      },
+      {}
+    )
+
+    return { fields: filteredFields }
+  })
+}
+
+/**
  * Handle upsert endpoint
  */
 async function handleUpsert(c: Context, app: App) {
@@ -393,19 +424,24 @@ async function handleUpsert(c: Context, app: App) {
   const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
   if (readonlyValidation) return readonlyValidation
 
-  // Check permissions
+  // Strip unwritable fields from records to prevent 403 errors
+  // Upsert operations silently ignore fields the user cannot write
+  // This differs from batch create/update which return 403 for protected fields
+  const strippedRecords = stripUnwritableFields(app, tableName, userRole, result.data.records)
+
+  // Check permissions with stripped records
   const permissionCheck = await checkUpsertPermissionsWithUpdateCheck({
     app,
     tableName,
     userRole,
-    records: result.data.records,
+    records: strippedRecords,
     fieldsToMergeOn: result.data.fieldsToMergeOn,
     c,
   })
   if (permissionCheck.allowed === false) return permissionCheck.response
 
-  // Validate required fields
-  const validationErrors = await validateUpsertRequiredFields(table, result.data.records)
+  // Validate required fields with stripped records
+  const validationErrors = await validateUpsertRequiredFields(table, strippedRecords)
 
   if (validationErrors.length > 0) {
     return c.json(
@@ -419,18 +455,50 @@ async function handleUpsert(c: Context, app: App) {
     )
   }
 
-  // Extract flat field objects for database layer
-  const flatRecordsData = result.data.records.map((record) => record.fields)
+  // Extract flat field objects for database layer (from stripped records)
+  const flatRecordsData = strippedRecords.map((record) => record.fields)
 
-  return runEffect(
-    c,
-    upsertProgram(session, tableName, {
-      recordsData: flatRecordsData,
-      fieldsToMergeOn: result.data.fieldsToMergeOn,
-      returnRecords: result.data.returnRecords,
-    }),
-    upsertRecordsResponseSchema
+  // Execute upsert with stripped records
+  const program = upsertProgram(session, tableName, {
+    recordsData: flatRecordsData,
+    fieldsToMergeOn: result.data.fieldsToMergeOn,
+    returnRecords: result.data.returnRecords,
+  })
+
+  // Apply field-level read filtering to response
+  const { filterReadableFields } =
+    await import('@/application/use-cases/tables/utils/field-read-filter')
+
+  const filteredProgram = program.pipe(
+    Effect.map((response) => {
+      if (!response.records) {
+        return response
+      }
+
+      const filteredRecords = response.records.map((record) => {
+        const filteredFields = filterReadableFields({
+          app,
+          tableName,
+          userRole,
+          userId: session.userId,
+          record: record.fields,
+        })
+
+        return {
+          ...record,
+          fields: filteredFields,
+        }
+      })
+
+      return {
+        created: response.created,
+        updated: response.updated,
+        records: filteredRecords,
+      }
+    })
   )
+
+  return runEffect(c, filteredProgram, upsertRecordsResponseSchema)
 }
 
 export function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
