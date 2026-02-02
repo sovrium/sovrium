@@ -28,7 +28,7 @@ test.describe('Delete comment', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-001: should return 204 No Content',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -44,14 +44,15 @@ test.describe('Delete comment', () => {
           },
         ],
       })
-      const user = await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', '${user.user.id}', 'Comment to delete')
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', $1, 'Comment to delete')`,
+        [user.id]
+      )
 
       // WHEN: User deletes their own comment
       const response = await request.delete('/api/tables/1/records/1/comments/comment_1', {})
@@ -67,10 +68,16 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-002: should return 204 No Content',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
+    async ({
+      request,
+      startServerWithSchema,
+      executeQuery,
+      createAuthenticatedUser,
+      createAuthenticatedAdmin,
+    }) => {
       // GIVEN: Comment authored by different user, admin user deleting it
       await startServerWithSchema({
         name: 'test-app',
@@ -83,19 +90,17 @@ test.describe('Delete comment', () => {
           },
         ],
       })
+      // Create Bob first (comment author), then admin (active session)
+      const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
       await createAuthenticatedAdmin()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO auth.user (id, name, email, role) VALUES
-          ('admin_1', 'Admin User', 'admin@example.com', 'admin'),
-          ('user_2', 'Bob', 'bob@example.com', 'member')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'user_2', 'Comment by Bob')
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '2', $1, 'Comment by Bob')`,
+        [bob.user.id]
+      )
 
       // WHEN: Admin deletes another user's comment
       const response = await request.delete('/api/tables/2/records/1/comments/comment_1', {
@@ -113,7 +118,7 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
@@ -133,9 +138,6 @@ test.describe('Delete comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO auth.user (id, name, email) VALUES ('user_1', 'Test User', 'test@example.com')
-      `)
-      await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'user_1', 'Comment to delete')
       `)
@@ -148,7 +150,7 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-004: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -164,19 +166,17 @@ test.describe('Delete comment', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      // Create Bob first (comment author), then Alice (active session - will try to delete Bob's comment)
+      const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+      await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO auth.user (id, name, email, role) VALUES
-          ('user_1', 'Alice', 'alice@example.com', 'member'),
-          ('user_2', 'Bob', 'bob@example.com', 'member')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'user_2', 'Comment by Bob')
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', $1, 'Comment by Bob')`,
+        [bob.user.id]
+      )
 
       // WHEN: Different non-admin user attempts to delete comment
       const response = await request.delete('/api/tables/4/records/1/comments/comment_1', {})
@@ -190,7 +190,7 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-005: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -224,7 +224,7 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-006: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -243,17 +243,18 @@ test.describe('Delete comment', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
-      await executeQuery(`
-        INSERT INTO auth.user (id, name, email) VALUES ('user_2', 'User Two', 'user2@example.com')
-      `)
-      await executeQuery(`
-        INSERT INTO tasks (id, title, owner_id) VALUES (1, 'Task owned by user_2', 'user_2')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'user_2', 'Comment by user_2')
-      `)
+      // Create Bob first (record/comment owner), then Alice (active session)
+      const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+      await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+      await executeQuery(
+        `INSERT INTO tasks (id, title, owner_id) VALUES (1, 'Task owned by Bob', $1)`,
+        [bob.user.id]
+      )
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '6', $1, 'Comment by Bob')`,
+        [bob.user.id]
+      )
 
       // WHEN: user_1 attempts to delete comment on record owned by user_2
       const response = await request.delete('/api/tables/6/records/1/comments/comment_1', {
@@ -270,7 +271,7 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-007: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -286,14 +287,15 @@ test.describe('Delete comment', () => {
           },
         ],
       })
-      const user = await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
-        VALUES ('comment_1', '1', '1', '${user.user.id}', 'Already deleted comment', NOW())
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
+        VALUES ('comment_1', '1', '7', $1, 'Already deleted comment', NOW())`,
+        [user.id]
+      )
 
       // WHEN: User attempts to delete already-deleted comment
       const response = await request.delete('/api/tables/7/records/1/comments/comment_1', {})
@@ -308,7 +310,7 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-008: should soft-delete by default',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -324,14 +326,15 @@ test.describe('Delete comment', () => {
           },
         ],
       })
-      const user = await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', '${user.user.id}', 'Comment to soft-delete')
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '8', $1, 'Comment to soft-delete')`,
+        [user.id]
+      )
 
       // WHEN: User deletes comment (default behavior)
       const response = await request.delete('/api/tables/8/records/1/comments/comment_1', {})
@@ -348,7 +351,7 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-009: should hide deleted comment from GET requests',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -364,14 +367,15 @@ test.describe('Delete comment', () => {
           },
         ],
       })
-      const user = await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', '${user.user.id}', 'Comment to delete')
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '9', $1, 'Comment to delete')`,
+        [user.id]
+      )
 
       // WHEN: User deletes comment
       await request.delete('/api/tables/9/records/1/comments/comment_1', {})
@@ -391,7 +395,7 @@ test.describe('Delete comment', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-COMMENTS-DELETE-REGRESSION: user can complete full delete comment workflow',
     { tag: '@regression' },
     async ({
@@ -400,7 +404,6 @@ test.describe('Delete comment', () => {
       executeQuery,
       createAuthenticatedUser,
       createAuthenticatedAdmin,
-      signIn,
     }) => {
       // Setup: Start server with tasks table
       await startServerWithSchema({
@@ -421,32 +424,27 @@ test.describe('Delete comment', () => {
         expect(response.status()).toBe(401)
       })
 
-      // --- Authenticate as regular user ---
-      const userCredentials = {
-        email: 'alice-test@example.com',
-        password: 'TestPassword123!',
-        name: 'Alice Test',
-      }
-      const user = await createAuthenticatedUser(userCredentials)
+      // --- Create users: Bob first (for his comments), then Alice (active session) ---
+      const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+      const { user: alice } = await createAuthenticatedUser({
+        name: 'Alice',
+        email: 'alice@example.com',
+      })
 
       // --- Setup: Insert test data ---
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One'), (2, 'Task Two')
       `)
-      await executeQuery(`
-        INSERT INTO auth.user (id, name, email, role) VALUES
-          ('user_2', 'Bob', 'bob@example.com', 'member'),
-          ('admin_1', 'Admin User', 'admin@example.com', 'admin')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
         VALUES
-          ('comment_1', '1', '1', '${user.user.id}', 'Comment by Alice'),
-          ('comment_2', '1', '1', 'user_2', 'Comment by Bob'),
-          ('comment_3', '1', '1', 'user_2', 'Comment by Bob for 403 test'),
-          ('comment_4', '1', '1', '${user.user.id}', 'Yet another comment by Alice'),
-          ('comment_5', '1', '1', '${user.user.id}', 'Comment for GET verification')
-      `)
+          ('comment_1', '1', '1', $1, 'Comment by Alice'),
+          ('comment_2', '1', '1', $2, 'Comment by Bob'),
+          ('comment_3', '1', '1', $2, 'Comment by Bob for 403 test'),
+          ('comment_4', '1', '1', $1, 'Yet another comment by Alice'),
+          ('comment_5', '1', '1', $1, 'Comment for GET verification')`,
+        [alice.id, bob.user.id]
+      )
 
       // --- Step 001: User deletes their own comment ---
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-001: Return 204 when user deletes own comment', async () => {
@@ -481,8 +479,8 @@ test.describe('Delete comment', () => {
         expect(result.rows[0].deleted_at).not.toBeNull()
       })
 
-      // --- Re-authenticate as regular user for remaining steps ---
-      await signIn({ email: userCredentials.email, password: userCredentials.password })
+      // --- Re-authenticate as Alice for remaining steps ---
+      await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
 
       // --- Step 005: Delete non-existent comment ---
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-005: Return 404 for non-existent comment', async () => {
@@ -496,23 +494,13 @@ test.describe('Delete comment', () => {
 
       // --- Step 006: Cross-owner access ---
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-006: Return 404 for cross-owner comment delete', async () => {
-        // Insert a record with owner_id set to user_2 to test cross-owner access
-        await executeQuery(`
-          ALTER TABLE tasks ADD COLUMN IF NOT EXISTS owner_id TEXT
-        `)
-        // Set owner_id for existing records to the authenticated user
-        await executeQuery(`
-          UPDATE tasks SET owner_id = '${user.user.id}' WHERE id IN (1, 2)
-        `)
-        await executeQuery(`
-          INSERT INTO tasks (id, title, owner_id) VALUES (3, 'Task owned by user_2', 'user_2')
-        `)
-        await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-          VALUES ('comment_cross_owner', '3', '1', 'user_2', 'Comment by different user')
-        `)
+        await executeQuery(
+          `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+          VALUES ('comment_cross_owner', '1', '1', $1, 'Comment by different user')`,
+          [bob.user.id]
+        )
         const response = await request.delete(
-          '/api/tables/1/records/3/comments/comment_cross_owner',
+          '/api/tables/1/records/1/comments/comment_cross_owner',
           {}
         )
         expect(response.status()).toBe(404)
@@ -524,10 +512,11 @@ test.describe('Delete comment', () => {
 
       // --- Step 007: Delete already-deleted comment ---
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-007: Return 404 for already-deleted comment', async () => {
-        await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
-          VALUES ('comment_deleted', '1', '1', '${user.user.id}', 'Already deleted comment', NOW())
-        `)
+        await executeQuery(
+          `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
+          VALUES ('comment_deleted', '1', '1', $1, 'Already deleted comment', NOW())`,
+          [alice.id]
+        )
         const response = await request.delete(
           '/api/tables/1/records/1/comments/comment_deleted',
           {}

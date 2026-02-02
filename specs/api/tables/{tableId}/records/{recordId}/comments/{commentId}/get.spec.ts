@@ -39,17 +39,15 @@ test.describe('Get single comment by ID', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
-        VALUES ('comment_1', '1', '1', 'user_1', 'This is a test comment', NOW(), NOW())
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
+        VALUES ('comment_1', '1', '1', $1, 'This is a test comment', NOW(), NOW())`,
+        [user.id]
+      )
 
       // WHEN: User requests comment by ID
       const response = await request.get('/api/tables/1/records/1/comments/comment_1', {})
@@ -60,13 +58,13 @@ test.describe('Get single comment by ID', () => {
       const data = await response.json()
       expect(data.comment.id).toBe('comment_1')
       expect(data.comment.content).toBe('This is a test comment')
-      expect(data.comment.userId).toBe('user_1')
+      expect(data.comment.userId).toBe(user.id)
       expect(data.comment.recordId).toBe('1')
       expect(data.comment.tableId).toBe('1')
       expect(data.comment).toHaveProperty('createdAt')
       expect(data.comment).toHaveProperty('updatedAt')
       expect(data.comment.user).toMatchObject({
-        id: 'user_1',
+        id: user.id,
         name: 'Alice',
         email: 'alice@example.com',
       })
@@ -158,16 +156,20 @@ test.describe('Get single comment by ID', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
-      await executeQuery(`
-        INSERT INTO tasks (id, title, owner_id) VALUES (1, 'Task owned by user_2', 'user_2')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'user_2', 'Comment by user_2')
-      `)
+      // Create Bob first (record/comment owner), then Alice (active session)
+      const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+      await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+      await executeQuery(
+        `INSERT INTO tasks (id, title, owner_id) VALUES (1, 'Task owned by Bob', $1)`,
+        [bob.user.id]
+      )
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '4', $1, 'Comment by Bob')`,
+        [bob.user.id]
+      )
 
-      // WHEN: user_1 attempts to fetch comment on record owned by user_2
+      // WHEN: Alice attempts to fetch comment on record owned by Bob
       const response = await request.get('/api/tables/4/records/1/comments/comment_1', {
         headers: {},
       })
@@ -198,14 +200,15 @@ test.describe('Get single comment by ID', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
-        VALUES ('comment_1', '1', '1', 'user_1', 'Deleted comment', NOW())
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
+        VALUES ('comment_1', '1', '5', $1, 'Deleted comment', NOW())`,
+        [user.id]
+      )
 
       // WHEN: User attempts to fetch soft-deleted comment
       const response = await request.get('/api/tables/5/records/1/comments/comment_1', {})
@@ -236,14 +239,15 @@ test.describe('Get single comment by ID', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
       await executeQuery(`
         INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
       `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'user_1', 'Confidential comment')
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '6', $1, 'Confidential comment')`,
+        [user.id]
+      )
 
       // WHEN: User without permission attempts to fetch comment
       const response = await request.get('/api/tables/6/records/1/comments/comment_1', {})
@@ -274,17 +278,15 @@ test.describe('Get single comment by ID', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
-        VALUES ('comment_1', '1', '1', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
+        VALUES ('comment_1', '1', '7', $1, 'Edited comment', NOW() - INTERVAL '1 hour', NOW())`,
+        [user.id]
+      )
 
       // WHEN: User fetches the edited comment
       const response = await request.get('/api/tables/7/records/1/comments/comment_1', {})
@@ -327,20 +329,22 @@ test.describe('Get single comment by ID', () => {
         expect(response.status()).toBe(401)
       })
 
-      // --- Authenticate ---
-      await createAuthenticatedUser()
+      // --- Create users: Bob first (for his comments), then Alice (active session) ---
+      const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+      const { user: alice } = await createAuthenticatedUser({
+        name: 'Alice',
+        email: 'alice@example.com',
+      })
 
       // --- Setup: Insert test data ---
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
-        VALUES ('comment_1', '1', '1', 'user_1', 'This is a test comment', NOW(), NOW())
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
+        VALUES ('comment_1', '1', '1', $1, 'This is a test comment', NOW(), NOW())`,
+        [alice.id]
+      )
 
       // --- Step 001: Returns 200 with complete comment data ---
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-001: Return 200 with complete comment data', async () => {
@@ -351,13 +355,13 @@ test.describe('Get single comment by ID', () => {
         const data = await response.json()
         expect(data.comment.id).toBe('comment_1')
         expect(data.comment.content).toBe('This is a test comment')
-        expect(data.comment.userId).toBe('user_1')
+        expect(data.comment.userId).toBe(alice.id)
         expect(data.comment.recordId).toBe('1')
         expect(data.comment.tableId).toBe('1')
         expect(data.comment).toHaveProperty('createdAt')
         expect(data.comment).toHaveProperty('updatedAt')
         expect(data.comment.user).toMatchObject({
-          id: 'user_1',
+          id: alice.id,
           name: 'Alice',
           email: 'alice@example.com',
         })
@@ -376,10 +380,11 @@ test.describe('Get single comment by ID', () => {
 
       // --- Step 004: Returns 404 for cross-owner access ---
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-004: Return 404 for cross-owner access', async () => {
-        await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-          VALUES ('comment_3', '1', '1', 'user_2', 'Comment by user_2')
-        `)
+        await executeQuery(
+          `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+          VALUES ('comment_3', '1', '1', $1, 'Comment by Bob')`,
+          [bob.user.id]
+        )
 
         const response = await request.get('/api/tables/1/records/1/comments/comment_3', {})
 
@@ -392,10 +397,11 @@ test.describe('Get single comment by ID', () => {
 
       // --- Step 005: Returns 404 for soft-deleted comment ---
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-005: Return 404 for soft-deleted comment', async () => {
-        await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
-          VALUES ('comment_4', '1', '1', 'user_1', 'Deleted comment', NOW())
-        `)
+        await executeQuery(
+          `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
+          VALUES ('comment_4', '1', '1', $1, 'Deleted comment', NOW())`,
+          [alice.id]
+        )
 
         const response = await request.get('/api/tables/1/records/1/comments/comment_4', {})
 
@@ -414,10 +420,11 @@ test.describe('Get single comment by ID', () => {
 
       // --- Step 007: Shows updated timestamp for edited comments ---
       await test.step('API-TABLES-RECORDS-COMMENTS-GET-007: Show updated timestamp for edited comments', async () => {
-        await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
-          VALUES ('comment_6', '1', '1', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
-        `)
+        await executeQuery(
+          `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
+          VALUES ('comment_6', '1', '1', $1, 'Edited comment', NOW() - INTERVAL '1 hour', NOW())`,
+          [alice.id]
+        )
 
         const response = await request.get('/api/tables/1/records/1/comments/comment_6', {})
 

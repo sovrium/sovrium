@@ -48,17 +48,23 @@ test.describe('List comments on a record', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      // Create two users: Bob first, then Alice (active session)
+      const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+      const { user: alice } = await createAuthenticatedUser({
+        name: 'Alice',
+        email: 'alice@example.com',
+      })
       await executeQuery(`
         INSERT INTO tasks (id, title, status) VALUES (1, 'Task One', 'in-progress')
       `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
         VALUES
-          ('comment_1', '1', '1', 'user_1', 'First comment', NOW() - INTERVAL '2 hours'),
-          ('comment_2', '1', '1', 'user_2', 'Second comment', NOW() - INTERVAL '1 hour'),
-          ('comment_3', '1', '1', 'user_1', 'Third comment', NOW())
-      `)
+          ('comment_1', '1', '1', $1, 'First comment', NOW() - INTERVAL '2 hours'),
+          ('comment_2', '1', '1', $2, 'Second comment', NOW() - INTERVAL '1 hour'),
+          ('comment_3', '1', '1', $1, 'Third comment', NOW())`,
+        [alice.id, bob.user.id]
+      )
 
       // WHEN: User requests all comments for the record
       const response = await request.get('/api/tables/1/records/1/comments', {})
@@ -70,7 +76,7 @@ test.describe('List comments on a record', () => {
       expect(data.comments).toHaveLength(3)
       expect(data.comments[0].id).toBe('comment_3')
       expect(data.comments[0].content).toBe('Third comment')
-      expect(data.comments[0].userId).toBe('user_1')
+      expect(data.comments[0].userId).toBe(alice.id)
       expect(data.comments[1].id).toBe('comment_2')
       expect(data.comments[2].id).toBe('comment_1')
     }
@@ -183,16 +189,17 @@ test.describe('List comments on a record', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task with deleted comments')
       `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
         VALUES
-          ('comment_1', '1', '1', 'user_1', 'Active comment', NULL),
-          ('comment_2', '1', '1', 'user_1', 'Deleted comment', NOW())
-      `)
+          ('comment_1', '1', '6', $1, 'Active comment', NULL),
+          ('comment_2', '1', '6', $1, 'Deleted comment', NOW())`,
+        [user.id]
+      )
 
       // WHEN: User lists comments without includeDeleted parameter
       const response = await request.get('/api/tables/6/records/1/comments', {})
@@ -223,21 +230,22 @@ test.describe('List comments on a record', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      // Create two users: Bob first, then Alice (active session)
+      const bob = await createAuthenticatedUser({ name: 'Bob Smith', email: 'bob@example.com' })
+      const { user: alice } = await createAuthenticatedUser({
+        name: 'Alice Johnson',
+        email: 'alice@example.com',
+      })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Collaborative Task')
       `)
-      await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES
-          ('user_1', 'Alice Johnson', 'alice@example.com'),
-          ('user_2', 'Bob Smith', 'bob@example.com')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
         VALUES
-          ('comment_1', '1', '1', 'user_1', 'Comment by Alice'),
-          ('comment_2', '1', '1', 'user_2', 'Comment by Bob')
-      `)
+          ('comment_1', '1', '7', $1, 'Comment by Alice'),
+          ('comment_2', '1', '7', $2, 'Comment by Bob')`,
+        [alice.id, bob.user.id]
+      )
 
       // WHEN: User lists comments
       const response = await request.get('/api/tables/7/records/1/comments', {})
@@ -248,12 +256,12 @@ test.describe('List comments on a record', () => {
       const data = await response.json()
       expect(data.comments).toHaveLength(2)
       expect(data.comments[0].user).toMatchObject({
-        id: 'user_2',
+        id: bob.user.id,
         name: 'Bob Smith',
         email: 'bob@example.com',
       })
       expect(data.comments[1].user).toMatchObject({
-        id: 'user_1',
+        id: alice.id,
         name: 'Alice Johnson',
         email: 'alice@example.com',
       })
@@ -276,19 +284,18 @@ test.describe('List comments on a record', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Popular Task')
       `)
-      // Insert 15 comments
-      const values = Array.from({ length: 15 }, (_, i) => {
-        const commentId = i + 1
-        return `('comment_${commentId}', '1', '1', 'user_1', 'Comment ${commentId}', NOW() - INTERVAL '${15 - commentId} hours')`
-      }).join(',')
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
-        VALUES ${values}
-      `)
+      // Insert 15 comments using parameterized query
+      for (let i = 1; i <= 15; i++) {
+        await executeQuery(
+          `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
+          VALUES ($1, '1', '8', $2, $3, NOW() - INTERVAL '${15 - i} hours')`,
+          [`comment_${i}`, user.id, `Comment ${i}`]
+        )
+      }
 
       // WHEN: User requests page 2 with limit=5 (offset=5)
       const response = await request.get('/api/tables/8/records/1/comments', {
@@ -329,17 +336,18 @@ test.describe('List comments on a record', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task with sorted comments')
       `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
         VALUES
-          ('comment_1', '1', '1', 'user_1', 'Oldest', NOW() - INTERVAL '3 days'),
-          ('comment_2', '1', '1', 'user_1', 'Middle', NOW() - INTERVAL '2 days'),
-          ('comment_3', '1', '1', 'user_1', 'Newest', NOW())
-      `)
+          ('comment_1', '1', '9', $1, 'Oldest', NOW() - INTERVAL '3 days'),
+          ('comment_2', '1', '9', $1, 'Middle', NOW() - INTERVAL '2 days'),
+          ('comment_3', '1', '9', $1, 'Newest', NOW())`,
+        [user.id]
+      )
 
       // WHEN: User requests comments sorted oldest first
       const response = await request.get('/api/tables/9/records/1/comments', {
@@ -377,14 +385,15 @@ test.describe('List comments on a record', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task with edited comment')
       `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
-        VALUES ('comment_1', '1', '1', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
+        VALUES ('comment_1', '1', '10', $1, 'Edited comment', NOW() - INTERVAL '1 hour', NOW())`,
+        [user.id]
+      )
 
       // WHEN: User lists comments
       const response = await request.get('/api/tables/10/records/1/comments', {})
@@ -419,14 +428,15 @@ test.describe('List comments on a record', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
       `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'user_1', 'Confidential comment')
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '11', $1, 'Confidential comment')`,
+        [user.id]
+      )
 
       // WHEN: User without read permission attempts to list comments
       const response = await request.get('/api/tables/11/records/1/comments', {})
@@ -476,27 +486,26 @@ test.describe('List comments on a record', () => {
         expect(response.status()).toBe(401)
       })
 
-      // --- Authenticate as user for all subsequent test steps ---
-      await createAuthenticatedUser()
-
-      // Insert users for comment attribution
-      await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES
-          ('user_1', 'Alice Johnson', 'alice@example.com'),
-          ('user_2', 'Bob Smith', 'bob@example.com')
-      `)
+      // --- Authenticate users for all subsequent test steps ---
+      // Create Bob first, then Alice (active session)
+      const bob = await createAuthenticatedUser({ name: 'Bob Smith', email: 'bob@example.com' })
+      const { user: alice } = await createAuthenticatedUser({
+        name: 'Alice Johnson',
+        email: 'alice@example.com',
+      })
 
       await test.step('API-TABLES-RECORDS-COMMENTS-LIST-001: Returns 200 with comments array in chronological order', async () => {
         await executeQuery(`
           INSERT INTO tasks (id, title, status) VALUES (1, 'Task One', 'in-progress')
         `)
-        await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
+        await executeQuery(
+          `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
           VALUES
-            ('comment_1', '1', '1', 'user_1', 'First comment', NOW() - INTERVAL '2 hours'),
-            ('comment_2', '1', '1', 'user_2', 'Second comment', NOW() - INTERVAL '1 hour'),
-            ('comment_3', '1', '1', 'user_1', 'Third comment', NOW())
-        `)
+            ('comment_1', '1', '1', $1, 'First comment', NOW() - INTERVAL '2 hours'),
+            ('comment_2', '1', '1', $2, 'Second comment', NOW() - INTERVAL '1 hour'),
+            ('comment_3', '1', '1', $1, 'Third comment', NOW())`,
+          [alice.id, bob.user.id]
+        )
 
         const response = await request.get('/api/tables/1/records/1/comments', {})
 
@@ -505,7 +514,7 @@ test.describe('List comments on a record', () => {
         expect(data.comments).toHaveLength(3)
         expect(data.comments[0].id).toBe('comment_3')
         expect(data.comments[0].content).toBe('Third comment')
-        expect(data.comments[0].userId).toBe('user_1')
+        expect(data.comments[0].userId).toBe(alice.id)
         expect(data.comments[1].id).toBe('comment_2')
         expect(data.comments[2].id).toBe('comment_1')
       })
@@ -538,12 +547,13 @@ test.describe('List comments on a record', () => {
         await executeQuery(`
           INSERT INTO tasks (id, title) VALUES (5, 'Task with deleted comments')
         `)
-        await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
+        await executeQuery(
+          `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
           VALUES
-            ('comment_active', '5', '1', 'user_1', 'Active comment', NULL),
-            ('comment_deleted', '5', '1', 'user_1', 'Deleted comment', NOW())
-        `)
+            ('comment_active', '5', '1', $1, 'Active comment', NULL),
+            ('comment_deleted', '5', '1', $1, 'Deleted comment', NOW())`,
+          [alice.id]
+        )
 
         const response = await request.get('/api/tables/1/records/5/comments', {})
 
@@ -558,12 +568,13 @@ test.describe('List comments on a record', () => {
         await executeQuery(`
           INSERT INTO tasks (id, title) VALUES (6, 'Collaborative Task')
         `)
-        await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        await executeQuery(
+          `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
           VALUES
-            ('comment_alice', '6', '1', 'user_1', 'Comment by Alice'),
-            ('comment_bob', '6', '1', 'user_2', 'Comment by Bob')
-        `)
+            ('comment_alice', '6', '1', $1, 'Comment by Alice'),
+            ('comment_bob', '6', '1', $2, 'Comment by Bob')`,
+          [alice.id, bob.user.id]
+        )
 
         const response = await request.get('/api/tables/1/records/6/comments', {})
 
@@ -571,12 +582,12 @@ test.describe('List comments on a record', () => {
         const data = await response.json()
         expect(data.comments).toHaveLength(2)
         expect(data.comments[0].user).toMatchObject({
-          id: 'user_2',
+          id: bob.user.id,
           name: 'Bob Smith',
           email: 'bob@example.com',
         })
         expect(data.comments[1].user).toMatchObject({
-          id: 'user_1',
+          id: alice.id,
           name: 'Alice Johnson',
           email: 'alice@example.com',
         })
@@ -586,15 +597,14 @@ test.describe('List comments on a record', () => {
         await executeQuery(`
           INSERT INTO tasks (id, title) VALUES (7, 'Popular Task')
         `)
-        // Insert 15 comments
-        const values = Array.from({ length: 15 }, (_, i) => {
-          const commentId = i + 1
-          return `('comment_page_${commentId}', '7', '1', 'user_1', 'Comment ${commentId}', NOW() - INTERVAL '${15 - commentId} hours')`
-        }).join(',')
-        await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
-          VALUES ${values}
-        `)
+        // Insert 15 comments using parameterized queries
+        for (let i = 1; i <= 15; i++) {
+          await executeQuery(
+            `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
+            VALUES ($1, '7', '1', $2, $3, NOW() - INTERVAL '${15 - i} hours')`,
+            [`comment_page_${i}`, alice.id, `Comment ${i}`]
+          )
+        }
 
         const response = await request.get('/api/tables/1/records/7/comments', {
           params: {
@@ -619,13 +629,14 @@ test.describe('List comments on a record', () => {
         await executeQuery(`
           INSERT INTO tasks (id, title) VALUES (8, 'Task with sorted comments')
         `)
-        await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
+        await executeQuery(
+          `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
           VALUES
-            ('comment_oldest', '8', '1', 'user_1', 'Oldest', NOW() - INTERVAL '3 days'),
-            ('comment_middle', '8', '1', 'user_1', 'Middle', NOW() - INTERVAL '2 days'),
-            ('comment_newest', '8', '1', 'user_1', 'Newest', NOW())
-        `)
+            ('comment_oldest', '8', '1', $1, 'Oldest', NOW() - INTERVAL '3 days'),
+            ('comment_middle', '8', '1', $1, 'Middle', NOW() - INTERVAL '2 days'),
+            ('comment_newest', '8', '1', $1, 'Newest', NOW())`,
+          [alice.id]
+        )
 
         const response = await request.get('/api/tables/1/records/8/comments', {
           params: {
@@ -647,10 +658,11 @@ test.describe('List comments on a record', () => {
         await executeQuery(`
           INSERT INTO tasks (id, title) VALUES (9, 'Task with edited comment')
         `)
-        await executeQuery(`
-          INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
-          VALUES ('comment_edited', '9', '1', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
-        `)
+        await executeQuery(
+          `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
+          VALUES ('comment_edited', '9', '1', $1, 'Edited comment', NOW() - INTERVAL '1 hour', NOW())`,
+          [alice.id]
+        )
 
         const response = await request.get('/api/tables/1/records/9/comments', {})
 

@@ -43,17 +43,15 @@ test.describe('Update comment', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
-        VALUES ('comment_1', '1', '1', 'user_1', 'Original comment', NOW(), NOW())
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
+        VALUES ('comment_1', '1', '1', $1, 'Original comment', NOW(), NOW())`,
+        [user.id]
+      )
 
       // WHEN: User updates their own comment
       const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
@@ -71,7 +69,7 @@ test.describe('Update comment', () => {
       const data = await response.json()
       expect(data.comment.id).toBe('comment_1')
       expect(data.comment.content).toBe('Updated comment text')
-      expect(data.comment.userId).toBe('user_1')
+      expect(data.comment.userId).toBe(user.id)
       // updatedAt should be more recent than createdAt
       expect(new Date(data.comment.updatedAt).getTime()).toBeGreaterThan(
         new Date(data.comment.createdAt).getTime()
@@ -101,20 +99,21 @@ test.describe('Update comment', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      // Create users for @mentions (user2 and user3 first, then user1 for active session)
+      const user2 = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+      const user3 = await createAuthenticatedUser({ name: 'Carol', email: 'carol@example.com' })
+      const { user: user1 } = await createAuthenticatedUser({
+        name: 'Alice',
+        email: 'alice@example.com',
+      })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Collaborative Task')
       `)
-      await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES
-          ('user_1', 'Alice', 'alice@example.com'),
-          ('user_2', 'Bob', 'bob@example.com'),
-          ('user_3', 'Carol', 'carol@example.com')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'user_1', 'Hey @[user_2], check this out')
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', $1, $2)`,
+        [user1.id, `Hey @[${user2.user.id}], check this out`]
+      )
 
       // WHEN: User updates comment with new @mention
       const response = await request.patch('/api/tables/2/records/1/comments/comment_1', {
@@ -122,7 +121,7 @@ test.describe('Update comment', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          content: 'Actually, @[user_3] should review this instead',
+          content: `Actually, @[${user3.user.id}] should review this instead`,
         },
       })
 
@@ -130,7 +129,7 @@ test.describe('Update comment', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data.comment.content).toBe('Actually, @[user_3] should review this instead')
+      expect(data.comment.content).toBe(`Actually, @[${user3.user.id}] should review this instead`)
     }
   )
 
@@ -150,14 +149,15 @@ test.describe('Update comment', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'user_1', 'Original comment')
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', $1, 'Original comment')`,
+        [user.id]
+      )
 
       // WHEN: User attempts to update with empty content
       const response = await request.patch('/api/tables/3/records/1/comments/comment_1', {
@@ -194,14 +194,15 @@ test.describe('Update comment', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'user_1', 'Original comment')
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', $1, 'Original comment')`,
+        [user.id]
+      )
 
       // WHEN: User attempts to update with content exceeding max length
       const longContent = 'a'.repeat(10_001)
@@ -278,19 +279,17 @@ test.describe('Update comment', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      // Create Bob first (comment owner), then Alice (active session - will try to edit Bob's comment)
+      const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
+      await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES
-          ('user_1', 'Alice', 'alice@example.com'),
-          ('user_2', 'Bob', 'bob@example.com')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'user_2', 'Comment by Bob')
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', $1, 'Comment by Bob')`,
+        [bob.user.id]
+      )
 
       // WHEN: Different user attempts to edit comment
       const response = await request.patch('/api/tables/6/records/1/comments/comment_1', {
@@ -371,14 +370,18 @@ test.describe('Update comment', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
-      await executeQuery(`
-        INSERT INTO tasks (id, title, owner_id) VALUES (1, 'Task owned by user_2', 'user_2')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'user_2', 'Comment by user_2')
-      `)
+      // Create user_2 first (record/comment owner), then authenticate as different user
+      const user2 = await createAuthenticatedUser({ name: 'User Two', email: 'user2@example.com' })
+      await createAuthenticatedUser({ name: 'User One', email: 'user1@example.com' })
+      await executeQuery(
+        `INSERT INTO tasks (id, title, owner_id) VALUES (1, 'Task owned by user_2', $1)`,
+        [user2.user.id]
+      )
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', $1, 'Comment by user_2')`,
+        [user2.user.id]
+      )
 
       // WHEN: user_1 attempts to update comment on record owned by user_2
       const response = await request.patch('/api/tables/8/records/1/comments/comment_1', {
@@ -416,14 +419,15 @@ test.describe('Update comment', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
-        VALUES ('comment_1', '1', '1', 'user_1', 'Deleted comment', NOW())
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
+        VALUES ('comment_1', '1', '1', $1, 'Deleted comment', NOW())`,
+        [user.id]
+      )
 
       // WHEN: User attempts to update soft-deleted comment
       const response = await request.patch('/api/tables/9/records/1/comments/comment_1', {
@@ -461,18 +465,23 @@ test.describe('Update comment', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const { user } = await createAuthenticatedUser({
+        name: 'Alice Johnson',
+        email: 'alice@example.com',
+      })
+      // Update user with image (fixture doesn't support image field)
+      await executeQuery(
+        `UPDATE auth.user SET image = 'https://example.com/alice.jpg' WHERE id = $1`,
+        [user.id]
+      )
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
-      await executeQuery(`
-        INSERT INTO users (id, name, email, image) VALUES
-          ('user_1', 'Alice Johnson', 'alice@example.com', 'https://example.com/alice.jpg')
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'user_1', 'Original comment')
-      `)
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
+        VALUES ('comment_1', '1', '1', $1, 'Original comment')`,
+        [user.id]
+      )
 
       // WHEN: User updates their comment
       const response = await request.patch('/api/tables/10/records/1/comments/comment_1', {
@@ -489,7 +498,7 @@ test.describe('Update comment', () => {
 
       const data = await response.json()
       expect(data.comment.user).toMatchObject({
-        id: 'user_1',
+        id: user.id,
         name: 'Alice Johnson',
         email: 'alice@example.com',
         image: 'https://example.com/alice.jpg',
@@ -532,29 +541,38 @@ test.describe('Update comment', () => {
         expect(response.status()).toBe(401)
       })
 
-      // --- Authenticate ---
-      await createAuthenticatedUser()
+      // --- Create users (user2 and user3 first for cross-user scenarios, user1 last for active session) ---
+      const user2 = await createAuthenticatedUser({ name: 'Bob Smith', email: 'bob@example.com' })
+      const user3 = await createAuthenticatedUser({
+        name: 'Carol White',
+        email: 'carol@example.com',
+      })
+      const { user: user1 } = await createAuthenticatedUser({
+        name: 'Alice Johnson',
+        email: 'alice@example.com',
+      })
+      // Add image to user1 (fixture doesn't support image field)
+      await executeQuery(
+        `UPDATE auth.user SET image = 'https://example.com/alice.jpg' WHERE id = $1`,
+        [user1.id]
+      )
 
       // --- Setup: Insert test data ---
-      await executeQuery(`
-        INSERT INTO tasks (id, title, owner_id) VALUES
+      await executeQuery(
+        `INSERT INTO tasks (id, title, owner_id) VALUES
           (1, 'Task owned by user_1', NULL),
-          (2, 'Task owned by user_2', 'user_2')
-      `)
-      await executeQuery(`
-        INSERT INTO users (id, name, email, image) VALUES
-          ('user_1', 'Alice Johnson', 'alice@example.com', 'https://example.com/alice.jpg'),
-          ('user_2', 'Bob Smith', 'bob@example.com', NULL),
-          ('user_3', 'Carol White', 'carol@example.com', NULL)
-      `)
-      await executeQuery(`
-        INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at, deleted_at)
+          (2, 'Task owned by user_2', $1)`,
+        [user2.user.id]
+      )
+      await executeQuery(
+        `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at, deleted_at)
         VALUES
-          ('comment_1', '1', '1', 'user_1', 'Original comment by Alice', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour', NULL),
-          ('comment_2', '1', '1', 'user_2', 'Comment by Bob', NOW(), NOW(), NULL),
-          ('comment_3', '1', '1', 'user_1', 'Deleted comment', NOW(), NOW(), NOW()),
-          ('comment_4', '2', '1', 'user_2', 'Cross-owner comment', NOW(), NOW(), NULL)
-      `)
+          ('comment_1', '1', '1', $1, 'Original comment by Alice', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour', NULL),
+          ('comment_2', '1', '1', $2, 'Comment by Bob', NOW(), NOW(), NULL),
+          ('comment_3', '1', '1', $1, 'Deleted comment', NOW(), NOW(), NOW()),
+          ('comment_4', '2', '1', $2, 'Cross-owner comment', NOW(), NOW(), NULL)`,
+        [user1.id, user2.user.id]
+      )
 
       // --- Step 001: Return 200 with updated comment data ---
       await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-001: Return 200 with updated comment data', async () => {
@@ -568,7 +586,7 @@ test.describe('Update comment', () => {
         const data = await response.json()
         expect(data.comment.id).toBe('comment_1')
         expect(data.comment.content).toBe('Updated comment text')
-        expect(data.comment.userId).toBe('user_1')
+        expect(data.comment.userId).toBe(user1.id)
         expect(new Date(data.comment.updatedAt).getTime()).toBeGreaterThan(
           new Date(data.comment.createdAt).getTime()
         )
@@ -583,13 +601,15 @@ test.describe('Update comment', () => {
       await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-002: Update @mentions in content', async () => {
         const response = await request.patch('/api/tables/1/records/1/comments/comment_1', {
           headers: { 'Content-Type': 'application/json' },
-          data: { content: 'Actually, @[user_3] should review this instead' },
+          data: { content: `Actually, @[${user3.user.id}] should review this instead` },
         })
 
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data.comment.content).toBe('Actually, @[user_3] should review this instead')
+        expect(data.comment.content).toBe(
+          `Actually, @[${user3.user.id}] should review this instead`
+        )
       })
 
       // --- Step 003: Return 400 for empty content ---
@@ -688,7 +708,7 @@ test.describe('Update comment', () => {
 
         const data = await response.json()
         expect(data.comment.user).toMatchObject({
-          id: 'user_1',
+          id: user1.id,
           name: 'Alice Johnson',
           email: 'alice@example.com',
           image: 'https://example.com/alice.jpg',
