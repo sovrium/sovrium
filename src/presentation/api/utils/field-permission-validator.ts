@@ -28,20 +28,30 @@ export function validateFieldWritePermissions(
 ): readonly string[] {
   // Find table definition
   const table = app.tables?.find((t) => t.name === tableName)
-  if (!table?.permissions?.fields) {
-    return [] // No field permissions defined
+  if (!table) {
+    return []
   }
 
   // Check each field being updated using functional approach
   const forbiddenFields = Object.keys(fields)
     .map((fieldName) => {
+      // Check explicit field permissions first
       const fieldPermission = table.permissions?.fields?.find((fp) => fp.field === fieldName)
-      if (!fieldPermission?.write) {
-        return undefined // No write restriction on this field
+      if (fieldPermission?.write) {
+        if (!hasWritePermission(fieldPermission.write, userRole)) {
+          return fieldName
+        }
+        return undefined
       }
 
-      if (!hasWritePermission(fieldPermission.write, userRole)) {
-        return fieldName
+      // Apply default write permissions for sensitive field types (currency)
+      const fieldDefinition = table.fields.find((f) => f.name === fieldName)
+      if (fieldDefinition?.type === 'currency') {
+        // Currency fields default to admin-only write access
+        const isAdmin = userRole === 'admin' || userRole === 'owner'
+        if (!isAdmin) {
+          return fieldName
+        }
       }
 
       return undefined

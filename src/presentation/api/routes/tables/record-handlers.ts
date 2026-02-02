@@ -281,6 +281,25 @@ export async function handleUpdateRecord(c: Context, app: App) {
     result.data.fields
   )
 
+  // If any forbidden fields were attempted (excluding system-protected fields), return 403
+  const SYSTEM_PROTECTED_FIELDS = new Set(['user_id', 'owner_id', 'id', 'created_at'])
+  const attemptedForbiddenFields = forbiddenFields.filter(
+    (field) => !SYSTEM_PROTECTED_FIELDS.has(field)
+  )
+
+  if (attemptedForbiddenFields.length > 0) {
+    const firstForbiddenField = attemptedForbiddenFields[0]!
+    return c.json(
+      {
+        success: false,
+        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
+        code: 'FORBIDDEN',
+        field: firstForbiddenField,
+      },
+      403
+    )
+  }
+
   if (Object.keys(allowedData).length === 0) {
     return handleNoAllowedFields({
       session,
