@@ -14,6 +14,7 @@ import {
   handleDeleteRecord,
   handleRestoreRecord,
 } from './record-handlers'
+import { handleCreateComment } from './comment-handlers'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
@@ -28,6 +29,7 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
     .patch('/api/tables/:tableId/records/:recordId', (c) => handleUpdateRecord(c, app))
     .delete('/api/tables/:tableId/records/:recordId', (c) => handleDeleteRecord(c, app))
     .post('/api/tables/:tableId/records/:recordId/restore', (c) => handleRestoreRecord(c, app))
+    .post('/api/tables/:tableId/records/:recordId/comments', (c) => handleCreateComment(c, app))
 }
 
 /* eslint-enable drizzle/enforce-delete-with-where */
