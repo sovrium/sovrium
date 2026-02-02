@@ -136,7 +136,7 @@ test.describe('Create comment on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-003: should return 400 Bad Request for empty content',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
