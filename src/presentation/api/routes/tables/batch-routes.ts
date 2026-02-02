@@ -204,6 +204,7 @@ async function handleUpsert(c: Context, app: App) {
     recordsData: flatRecordsData,
     fieldsToMergeOn: result.data.fieldsToMergeOn,
     returnRecords: result.data.returnRecords,
+    app,
   })
 
   // Apply field-level read filtering to response

@@ -15,6 +15,7 @@ import {
   type BatchValidationError,
 } from '@/infrastructure/database/table-queries'
 import { transformRecords, type TransformedRecord } from './utils/record-transformer'
+import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type {
   ForbiddenError,
@@ -102,10 +103,11 @@ export function upsertProgram(
     readonly recordsData: readonly Record<string, unknown>[]
     readonly fieldsToMergeOn: readonly string[]
     readonly returnRecords: boolean
+    readonly app?: App
   }
 ): Effect.Effect<
   {
-    readonly records?: readonly TransformedRecord[]
+    readonly records: readonly TransformedRecord[]
     readonly created: number
     readonly updated: number
   },
@@ -119,16 +121,9 @@ export function upsertProgram(
       params.fieldsToMergeOn
     )
 
-    if (params.returnRecords) {
-      const transformed = transformRecords(result.records)
-      return {
-        records: transformed,
-        created: result.created,
-        updated: result.updated,
-      }
-    }
-
+    const transformed = transformRecords(result.records, { app: params.app, tableName })
     return {
+      records: transformed,
       created: result.created,
       updated: result.updated,
     }
