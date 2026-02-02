@@ -309,6 +309,18 @@ async function checkUpsertPermissionsWithUpdateCheck(config: {
 async function handleUpsert(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
 
+  // Authorization check BEFORE validation (viewer role cannot upsert)
+  if (userRole === 'viewer') {
+    return c.json(
+      {
+        success: false,
+        message: 'You do not have permission to perform this action',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
+
   const result = await validateRequest(c, upsertRecordsRequestSchema)
   if (!result.success) return result.response
 
