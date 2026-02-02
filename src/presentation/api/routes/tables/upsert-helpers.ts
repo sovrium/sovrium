@@ -300,6 +300,11 @@ export async function applyReadFiltering<E, R>(config: {
 
 /**
  * Validate upsert request (permissions and required fields)
+ *
+ * Upsert behavior for protected fields:
+ * - If ANY forbidden fields are present, strip them silently and continue
+ * - This allows graceful degradation where users can upsert records without knowing field-level permissions
+ * - Field filtering is then applied to the response
  */
 export async function validateUpsertRequest(config: {
   readonly c: Context
@@ -312,7 +317,7 @@ export async function validateUpsertRequest(config: {
   const { c, app, tableName, userRole, records, fieldsToMergeOn } = config
   const table = app.tables?.find((t) => t.name === tableName)
 
-  // Strip unwritable fields to prevent 403 errors
+  // Strip unwritable fields to allow upsert to succeed with field filtering
   const strippedRecords = stripUnwritableFields(app, tableName, userRole, records)
 
   // Check permissions with stripped records
