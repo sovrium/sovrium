@@ -49,12 +49,9 @@ test.describe('Create comment on a record', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const auth = await createAuthenticatedUser({ email: 'alice@example.com', name: 'Alice' })
       await executeQuery(`
         INSERT INTO tasks (id, title, status) VALUES (1, 'Task One', 'active')
-      `)
-      await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
 
       // WHEN: User creates a comment on the record
@@ -74,7 +71,7 @@ test.describe('Create comment on a record', () => {
       expect(data.comment).toBeDefined()
       expect(data.comment.id).toBeDefined()
       expect(data.comment.content).toBe('This is my first comment on this task.')
-      expect(data.comment.userId).toBe('user_1')
+      expect(data.comment.userId).toBe(auth.user.id)
       expect(data.comment.recordId).toBe('1')
       expect(data.comment.tableId).toBe('1')
       expect(data.comment.createdAt).toBeDefined()
@@ -85,10 +82,11 @@ test.describe('Create comment on a record', () => {
       `)
       expect(result.rows).toHaveLength(1)
       expect(result.rows[0].content).toBe('This is my first comment on this task.')
+      expect(result.rows[0].user_id).toBe(auth.user.id)
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-002: should support @mentions in content',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -109,7 +107,7 @@ test.describe('Create comment on a record', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Collaborative Task')
       `)
       await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES
+        INSERT INTO auth.user (id, name, email) VALUES
           ('user_1', 'Alice', 'alice@example.com'),
           ('user_2', 'Bob', 'bob@example.com')
       `)
@@ -398,7 +396,7 @@ test.describe('Create comment on a record', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
+        INSERT INTO auth.user (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
 
       // WHEN: User creates comment (user_id auto-injected from session)
@@ -446,7 +444,7 @@ test.describe('Create comment on a record', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO users (id, name, email, image) VALUES
+        INSERT INTO auth.user (id, name, email, image) VALUES
           ('user_1', 'Alice Johnson', 'alice@example.com', 'https://example.com/alice.jpg')
       `)
 
@@ -519,7 +517,7 @@ test.describe('Create comment on a record', () => {
       await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO users (id, name, email, image) VALUES
+        INSERT INTO auth.user (id, name, email, image) VALUES
           ('user_1', 'Alice Johnson', 'alice@example.com', 'https://example.com/alice.jpg'),
           ('user_2', 'Bob Smith', 'bob@example.com', NULL)
       `)
