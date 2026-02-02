@@ -25,9 +25,39 @@ interface CreateCommentConfig {
   readonly content: string
 }
 
-export function createCommentProgram(
-  config: CreateCommentConfig
-): Effect.Effect<
+/**
+ * Format comment with user data
+ */
+function formatCommentResponse(comment: {
+  readonly id: string
+  readonly tableId: string
+  readonly recordId: string
+  readonly userId: string
+  readonly content: string
+  readonly createdAt: Date
+  readonly user?:
+    | {
+        readonly id: string
+        readonly name: string
+        readonly email: string
+        readonly image: string | undefined
+      }
+    | undefined
+}) {
+  return {
+    comment: {
+      id: comment.id,
+      tableId: comment.tableId,
+      recordId: comment.recordId,
+      userId: comment.userId,
+      content: comment.content,
+      createdAt: comment.createdAt.toISOString(),
+      user: comment.user,
+    },
+  }
+}
+
+export function createCommentProgram(config: CreateCommentConfig): Effect.Effect<
   {
     readonly comment: {
       readonly id: string
@@ -36,12 +66,14 @@ export function createCommentProgram(
       readonly userId: string
       readonly content: string
       readonly createdAt: string
-      readonly user?: {
-        readonly id: string
-        readonly name: string
-        readonly email: string
-        readonly image: string | null
-      } | null
+      readonly user?:
+        | {
+            readonly id: string
+            readonly name: string
+            readonly email: string
+            readonly image: string | undefined
+          }
+        | undefined
     }
   },
   SessionContextError
@@ -51,49 +83,17 @@ export function createCommentProgram(
 
     // Check if record exists and is owned by user
     const hasAccess = yield* checkRecordOwnership({ session, tableName, recordId })
-
     if (!hasAccess) {
       return yield* Effect.fail(new SessionContextError('Record not found'))
     }
 
     // Create comment
-    const comment = yield* createComment({
-      session,
-      tableId,
-      recordId,
-      content,
-    })
+    const comment = yield* createComment({ session, tableId, recordId, content })
 
     // Fetch comment with user metadata
-    const commentWithUser = yield* getCommentWithUser({
-      session,
-      commentId: comment.id,
-    })
+    const commentWithUser = yield* getCommentWithUser({ session, commentId: comment.id })
 
-    if (!commentWithUser) {
-      // Fallback: return comment without user data if fetch fails
-      return {
-        comment: {
-          id: comment.id,
-          tableId: comment.tableId,
-          recordId: comment.recordId,
-          userId: comment.userId,
-          content: comment.content,
-          createdAt: comment.createdAt.toISOString(),
-        },
-      }
-    }
-
-    return {
-      comment: {
-        id: commentWithUser.id,
-        tableId: commentWithUser.tableId,
-        recordId: commentWithUser.recordId,
-        userId: commentWithUser.userId,
-        content: commentWithUser.content,
-        createdAt: commentWithUser.createdAt.toISOString(),
-        user: commentWithUser.user,
-      },
-    }
+    // Format response
+    return formatCommentResponse(commentWithUser ?? comment)
   })
 }

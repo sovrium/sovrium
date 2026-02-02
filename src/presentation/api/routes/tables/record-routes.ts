@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { handleCreateComment } from './comment-handlers'
 import {
   handleListRecords,
   handleListTrash,
@@ -14,7 +15,6 @@ import {
   handleDeleteRecord,
   handleRestoreRecord,
 } from './record-handlers'
-import { handleCreateComment } from './comment-handlers'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
