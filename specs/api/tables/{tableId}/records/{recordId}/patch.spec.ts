@@ -832,7 +832,7 @@ test.describe('Update record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPDATE-015: should capture user_id who made the update',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
