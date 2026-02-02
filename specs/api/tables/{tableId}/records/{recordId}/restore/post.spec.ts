@@ -382,7 +382,7 @@ test.describe('Restore record', () => {
   // Generated from 8 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-RESTORE-REGRESSION: user can complete full record restore workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
