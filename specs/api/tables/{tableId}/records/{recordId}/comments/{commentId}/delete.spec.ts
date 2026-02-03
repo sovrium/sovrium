@@ -148,7 +148,7 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-DELETE-004: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -169,7 +169,7 @@ test.describe('Delete comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO users (id, name, email, role) VALUES
+        INSERT INTO auth.user (id, name, email, role) VALUES
           ('user_1', 'Alice', 'alice@example.com', 'member'),
           ('user_2', 'Bob', 'bob@example.com', 'member')
       `)
@@ -428,7 +428,7 @@ test.describe('Delete comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One'), (2, 'Task Two')
       `)
       await executeQuery(`
-        INSERT INTO users (id, name, email, role) VALUES
+        INSERT INTO auth.user (id, name, email, role) VALUES
           ('user_1', 'Alice', 'alice@example.com', 'member'),
           ('user_2', 'Bob', 'bob@example.com', 'member'),
           ('admin_1', 'Admin User', 'admin@example.com', 'admin')
