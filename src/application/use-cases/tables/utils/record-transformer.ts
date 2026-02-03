@@ -65,12 +65,14 @@ const toISOString = (value: unknown): string => {
  * Numeric field types that should return number values in API responses.
  * PostgreSQL DECIMAL/NUMERIC types are returned as strings by database drivers,
  * so we coerce them to numbers based on the field's schema type.
+ *
+ * Note: 'decimal' is NOT included here because decimal values should be preserved
+ * as strings to maintain precision and formatting (e.g., "50.00" not 50).
  */
 const NUMERIC_FIELD_TYPES: ReadonlySet<string> = new Set([
   'currency',
   'number',
   'integer',
-  'decimal',
   'percentage',
   'percent',
   'rating',
