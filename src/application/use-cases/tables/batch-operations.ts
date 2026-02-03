@@ -68,16 +68,11 @@ export function batchDeleteProgram(
   session: Readonly<Session>,
   tableName: string,
   ids: readonly string[]
-): Effect.Effect<
-  { success: true; count: number; deletedIds: readonly string[] },
-  SessionContextError
-> {
+): Effect.Effect<{ deleted: number }, SessionContextError> {
   return Effect.gen(function* () {
     const deletedCount = yield* batchDeleteRecords(session, tableName, ids)
     return {
-      success: true as const,
-      count: deletedCount,
-      deletedIds: ids,
+      deleted: deletedCount,
     }
   })
 }
