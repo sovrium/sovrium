@@ -292,7 +292,7 @@ test.describe('View Records API', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEW-RECORDS-005: should return 403 when user lacks view read permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
