@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { handleCreateComment } from './comment-handlers'
+import { handleCreateComment, handleDeleteComment } from './comment-handlers'
 import {
   handleListRecords,
   handleListTrash,
@@ -30,6 +30,9 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
     .delete('/api/tables/:tableId/records/:recordId', (c) => handleDeleteRecord(c, app))
     .post('/api/tables/:tableId/records/:recordId/restore', (c) => handleRestoreRecord(c, app))
     .post('/api/tables/:tableId/records/:recordId/comments', (c) => handleCreateComment(c, app))
+    .delete('/api/tables/:tableId/records/:recordId/comments/:commentId', (c) =>
+      handleDeleteComment(c, app)
+    )
 }
 
 /* eslint-enable drizzle/enforce-delete-with-where */

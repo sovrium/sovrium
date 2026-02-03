@@ -247,3 +247,114 @@ export function checkRecordOwnership(config: {
     })
   )
 }
+
+/**
+ * Get user by ID
+ */
+export function getUserById(config: {
+  readonly session: Readonly<Session>
+  readonly userId: string
+}): Effect.Effect<
+  | {
+      readonly id: string
+      readonly role: string | undefined
+    }
+  | undefined,
+  SessionContextError
+> {
+  const { session, userId } = config
+  return withSessionContext(session, (tx) =>
+    Effect.gen(function* () {
+      const result = yield* Effect.tryPromise({
+        try: () =>
+          tx
+            .select({ id: users.id, role: users.role })
+            .from(users)
+            .where(eq(users.id, userId))
+            .limit(1),
+        catch: (error) => new SessionContextError('Failed to get user', error),
+      })
+
+      if (result.length === 0 || !result[0]) {
+        return undefined
+      }
+
+      return {
+        id: result[0].id,
+        role: result[0].role ?? undefined,
+      }
+    })
+  )
+}
+
+/**
+ * Delete (soft delete) a comment
+ */
+export function deleteComment(config: {
+  readonly session: Readonly<Session>
+  readonly commentId: string
+}): Effect.Effect<void, SessionContextError> {
+  const { session, commentId } = config
+  return withSessionContext(session, (tx) =>
+    Effect.gen(function* () {
+      const now = new Date()
+
+      const result = yield* Effect.tryPromise({
+        try: () =>
+          tx
+            .update(recordComments)
+            .set({ deletedAt: now, updatedAt: now })
+            .where(and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt)))
+            .returning(),
+        catch: (error) => new SessionContextError('Failed to delete comment', error),
+      })
+
+      if (result.length === 0) {
+        return yield* Effect.fail(new SessionContextError('Comment not found'))
+      }
+    })
+  )
+}
+
+/**
+ * Get comment by ID for authorization check
+ */
+export function getCommentForAuth(config: {
+  readonly session: Readonly<Session>
+  readonly commentId: string
+}): Effect.Effect<
+  | {
+      readonly id: string
+      readonly userId: string
+      readonly recordId: string
+      readonly tableId: string
+    }
+  | undefined,
+  SessionContextError
+> {
+  const { session, commentId } = config
+  return withSessionContext(session, (tx) =>
+    Effect.gen(function* () {
+      const result = yield* Effect.tryPromise({
+        try: () =>
+          tx
+            .select({
+              id: recordComments.id,
+              userId: recordComments.userId,
+              recordId: recordComments.recordId,
+              tableId: recordComments.tableId,
+            })
+            .from(recordComments)
+            .where(and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt)))
+            .limit(1),
+        catch: (error) => new SessionContextError('Failed to get comment', error),
+      })
+
+      if (result.length === 0 || !result[0]) {
+        return undefined
+      }
+
+      return result[0]
+    })
+  )
+}

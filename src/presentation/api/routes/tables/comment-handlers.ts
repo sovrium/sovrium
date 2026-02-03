@@ -6,7 +6,10 @@
  */
 
 import { Effect } from 'effect'
-import { createCommentProgram } from '@/application/use-cases/tables/comment-programs'
+import {
+  createCommentProgram,
+  deleteCommentProgram,
+} from '@/application/use-cases/tables/comment-programs'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { isAuthorizationError } from './utils'
 import type { App } from '@/domain/models/app'
@@ -98,4 +101,60 @@ export async function handleCreateComment(c: Context, app: App) {
   }
 
   return c.json(result.right, 201)
+}
+
+/**
+ * Handle delete comment error
+ */
+function handleDeleteCommentError(c: Context, error: unknown) {
+  // Check for authorization errors
+  if (isAuthorizationError(error)) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+
+    // Forbidden error (user is not author and not admin)
+    if (errorMessage.includes('Forbidden')) {
+      return c.json({ success: false, code: 'FORBIDDEN' }, 403)
+    }
+
+    // Not found error (comment doesn't exist, already deleted, or no record access)
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  // Internal server error
+  return c.json(
+    { success: false, message: 'Failed to delete comment', code: 'INTERNAL_ERROR' },
+    500
+  )
+}
+
+/**
+ * Handle delete comment
+ */
+export async function handleDeleteComment(c: Context, app: App) {
+  const { session } = getTableContext(c)
+  const tableId = c.req.param('tableId')
+  const commentId = c.req.param('commentId')
+
+  // Find table by ID
+  const table = app.tables?.find((t) => String(t.id) === String(tableId))
+  if (!table) {
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  // Delete comment
+  const program = deleteCommentProgram({
+    session,
+    commentId,
+    tableName: table.name,
+  })
+
+  const result = await Effect.runPromise(program.pipe(Effect.either))
+
+  if (result._tag === 'Left') {
+    return handleDeleteCommentError(c, result.left)
+  }
+
+  // Return 204 No Content on success
+  // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
+  return c.body(null, 204)
 }
