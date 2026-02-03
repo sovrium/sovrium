@@ -14,6 +14,7 @@ import {
   deleteComment,
   getCommentForAuth,
   getUserById,
+  listComments,
 } from '@/infrastructure/database/table-queries/comment-queries'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -159,5 +160,129 @@ export function deleteCommentProgram(
 
     // Delete comment (soft delete)
     yield* deleteComment({ session, commentId })
+  })
+}
+
+/**
+ * Get comment by ID configuration
+ */
+interface GetCommentConfig {
+  readonly session: Readonly<Session>
+  readonly commentId: string
+  readonly tableName: string
+}
+
+/**
+ * Get comment by ID program
+ */
+export function getCommentProgram(config: GetCommentConfig): Effect.Effect<
+  {
+    readonly comment: {
+      readonly id: string
+      readonly tableId: string
+      readonly recordId: string
+      readonly userId: string
+      readonly content: string
+      readonly createdAt: string
+      readonly user?:
+        | {
+            readonly id: string
+            readonly name: string
+            readonly email: string
+            readonly image: string | undefined
+          }
+        | undefined
+    }
+  },
+  SessionContextError
+> {
+  return Effect.gen(function* () {
+    const { session, commentId, tableName } = config
+
+    // Get comment with user metadata
+    const comment = yield* getCommentWithUser({ session, commentId })
+
+    if (!comment) {
+      return yield* Effect.fail(new SessionContextError('Comment not found'))
+    }
+
+    // Check record ownership
+    const hasRecordAccess = yield* checkRecordOwnership({
+      session,
+      tableName,
+      recordId: comment.recordId,
+    })
+
+    if (!hasRecordAccess) {
+      return yield* Effect.fail(new SessionContextError('Comment not found'))
+    }
+
+    // Format response
+    return formatCommentResponse(comment)
+  })
+}
+
+/**
+ * List comments configuration
+ */
+interface ListCommentsConfig {
+  readonly session: Readonly<Session>
+  readonly recordId: string
+  readonly tableName: string
+}
+
+/**
+ * List comments program
+ */
+export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
+  {
+    readonly comments: readonly {
+      readonly id: string
+      readonly tableId: string
+      readonly recordId: string
+      readonly userId: string
+      readonly content: string
+      readonly createdAt: string
+      readonly user?:
+        | {
+            readonly id: string
+            readonly name: string
+            readonly email: string
+            readonly image: string | undefined
+          }
+        | undefined
+    }[]
+  },
+  SessionContextError
+> {
+  return Effect.gen(function* () {
+    const { session, recordId, tableName } = config
+
+    // Check record ownership
+    const hasRecordAccess = yield* checkRecordOwnership({
+      session,
+      tableName,
+      recordId,
+    })
+
+    if (!hasRecordAccess) {
+      return yield* Effect.fail(new SessionContextError('Record not found'))
+    }
+
+    // List comments
+    const comments = yield* listComments({ session, recordId })
+
+    // Format response
+    return {
+      comments: comments.map((comment) => ({
+        id: comment.id,
+        tableId: comment.tableId,
+        recordId: comment.recordId,
+        userId: comment.userId,
+        content: comment.content,
+        createdAt: comment.createdAt.toISOString(),
+        user: comment.user,
+      })),
+    }
   })
 }
