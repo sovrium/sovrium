@@ -324,13 +324,13 @@ test.describe('Delete comment', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const user = await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'user_1', 'Comment to soft-delete')
+        VALUES ('comment_1', '1', '1', '${user.user.id}', 'Comment to soft-delete')
       `)
 
       // WHEN: User deletes comment (default behavior)
