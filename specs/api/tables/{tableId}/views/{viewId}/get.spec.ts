@@ -32,7 +32,7 @@ test.describe('Get view details', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-GET-001: should return view with basic properties',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {

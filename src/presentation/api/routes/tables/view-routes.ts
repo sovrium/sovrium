@@ -16,9 +16,10 @@ import {
   getViewRecordsResponseSchema,
 } from '@/presentation/api/schemas/tables-schemas'
 import { runEffect } from '@/presentation/api/utils'
+import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
-export function chainViewRoutesMethods<T extends Hono>(honoApp: T) {
+export function chainViewRoutesMethods<T extends Hono>(honoApp: T, app: App) {
   return honoApp
     .get('/api/tables/:tableId/views', async (c) =>
       runEffect(c, listViewsProgram(), listViewsResponseSchema)
@@ -26,7 +27,7 @@ export function chainViewRoutesMethods<T extends Hono>(honoApp: T) {
     .get('/api/tables/:tableId/views/:viewId', async (c) =>
       runEffect(
         c,
-        getViewProgram(c.req.param('tableId'), c.req.param('viewId')),
+        getViewProgram(c.req.param('tableId'), c.req.param('viewId'), app),
         getViewResponseSchema
       )
     )

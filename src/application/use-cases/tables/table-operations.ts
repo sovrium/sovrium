@@ -183,15 +183,36 @@ export function listViewsProgram() {
   return Effect.succeed({ views: [] })
 }
 
-export function getViewProgram(tableId: string, viewId: string) {
-  return Effect.succeed({
-    view: {
-      id: viewId,
-      name: 'Default View',
-      tableId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
+export function getViewProgram(
+  tableId: string,
+  viewId: string,
+  app: App
+): Effect.Effect<unknown, TableNotFoundError> {
+  return Effect.gen(function* () {
+    // Find table by ID or name
+    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+
+    if (!table) {
+      return yield* Effect.fail(new TableNotFoundError('Table not found'))
+    }
+
+    // Find view in table
+    const view = table.views?.find((v) => v.id === viewId)
+
+    if (!view) {
+      return yield* Effect.fail(new TableNotFoundError('View not found'))
+    }
+
+    // Return view properties at root level
+    return {
+      id: view.id,
+      name: view.name,
+      ...(view.filters !== undefined ? { filters: view.filters } : {}),
+      ...(view.sorts !== undefined ? { sorts: view.sorts } : {}),
+      ...(view.fields !== undefined ? { fields: view.fields } : {}),
+      ...(view.groupBy !== undefined ? { groupBy: view.groupBy } : {}),
+      ...(view.isDefault !== undefined ? { isDefault: view.isDefault } : {}),
+    }
   })
 }
 
