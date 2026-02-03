@@ -391,7 +391,7 @@ test.describe('Delete comment', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-DELETE-REGRESSION: user can complete full delete comment workflow',
     { tag: '@regression' },
     async ({
