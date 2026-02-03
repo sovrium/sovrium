@@ -72,10 +72,10 @@ test.describe('Include Deleted query parameter', () => {
       expect(data.pagination.total).toBe(3)
 
       // THEN: No soft-deleted records in response
-      const ids = data.records.map((r: { id: number }) => r.id)
-      expect(ids).toEqual(expect.arrayContaining([1, 3, 5]))
-      expect(ids).not.toContain(2)
-      expect(ids).not.toContain(4)
+      const ids = data.records.map((r: { id: string }) => r.id)
+      expect(ids).toEqual(expect.arrayContaining(['1', '3', '5']))
+      expect(ids).not.toContain('2')
+      expect(ids).not.toContain('4')
     }
   )
 
@@ -122,7 +122,7 @@ test.describe('Include Deleted query parameter', () => {
       expect(data.pagination.total).toBe(3)
 
       // THEN: Deleted records have deleted_at populated
-      const deletedRecord = data.records.find((r: { id: number }) => r.id === 2)
+      const deletedRecord = data.records.find((r: { id: string }) => r.id === '2')
       expect(deletedRecord).toBeDefined()
       expect(deletedRecord.fields.deleted_at).toBeTruthy()
     }
@@ -168,9 +168,9 @@ test.describe('Include Deleted query parameter', () => {
       expect(data.records).toHaveLength(2)
 
       // THEN: Both active and deleted records are returned
-      const ids = data.records.map((r: { id: number }) => r.id)
-      expect(ids).toContain(1)
-      expect(ids).toContain(2)
+      const ids = data.records.map((r: { id: string }) => r.id)
+      expect(ids).toContain('1')
+      expect(ids).toContain('2')
     }
   )
 
@@ -295,7 +295,7 @@ test.describe('Include Deleted query parameter', () => {
         expect(data.pagination.total).toBe(30)
 
         // THEN: No soft-deleted records in response
-        const ids = data.records.map((r: { id: number }) => r.id)
+        const ids = data.records.map((r: { id: string }) => Number(r.id))
         ids.forEach((id: number) => {
           expect(id).toBeLessThanOrEqual(30) // Only active IDs (1-30)
         })
