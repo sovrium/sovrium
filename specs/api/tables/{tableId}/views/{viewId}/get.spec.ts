@@ -201,7 +201,7 @@ test.describe('Get view details', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-GET-004: should return view with fields and groupBy',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
