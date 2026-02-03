@@ -149,7 +149,7 @@ test.describe('Get view details', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-GET-003: should return view with sorts configuration',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
