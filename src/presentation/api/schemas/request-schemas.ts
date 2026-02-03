@@ -83,7 +83,7 @@ export const batchDeleteRecordsRequestSchema = z.object({
         .transform((val) => String(val))
     )
     .min(1, 'At least one ID is required')
-    .max(1000, 'Maximum 1000 IDs per batch'),
+    .max(100, 'Maximum 100 IDs per batch'),
 })
 
 /**
