@@ -279,15 +279,27 @@ describe('table-operations', () => {
 
   describe('getViewProgram', () => {
     test('returns view details', async () => {
-      const program = getViewProgram('table-1', 'view-1')
-      const result = await Effect.runPromise(program)
+      const mockApp = {
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'table-1',
+            fields: [],
+            views: [
+              {
+                id: 'view-1',
+                name: 'Test View',
+              },
+            ],
+          },
+        ],
+      }
+      const program = getViewProgram('table-1', 'view-1', mockApp as App)
+      const result = (await Effect.runPromise(program)) as Record<string, unknown>
 
-      expect(result.view).toBeDefined()
-      expect(result.view.id).toBe('view-1')
-      expect(result.view.name).toBe('Default View')
-      expect(result.view.tableId).toBe('table-1')
-      expect(result.view.createdAt).toBeDefined()
-      expect(result.view.updatedAt).toBeDefined()
+      expect(result.id).toBe('view-1')
+      expect(result.name).toBe('Test View')
     })
   })
 

@@ -293,9 +293,52 @@ export const listViewsResponseSchema = z.object({
 
 /**
  * Get view response schema
+ * Returns view properties directly at root level
  */
 export const getViewResponseSchema = z.object({
-  view: viewSchema.describe('View details'),
+  id: z.string().describe('View identifier'),
+  name: z.string().describe('View name'),
+  filters: z
+    .object({
+      and: z
+        .array(
+          z.object({
+            field: z.string(),
+            operator: z.string(),
+            value: z.unknown(),
+          })
+        )
+        .optional(),
+      or: z
+        .array(
+          z.object({
+            field: z.string(),
+            operator: z.string(),
+            value: z.unknown(),
+          })
+        )
+        .optional(),
+    })
+    .optional()
+    .describe('View filters'),
+  sorts: z
+    .array(
+      z.object({
+        field: z.string(),
+        direction: z.enum(['asc', 'desc']),
+      })
+    )
+    .optional()
+    .describe('View sorts'),
+  fields: z.array(z.string()).optional().describe('Visible field names'),
+  groupBy: z
+    .object({
+      field: z.string(),
+      direction: z.enum(['asc', 'desc']).optional(),
+    })
+    .optional()
+    .describe('Group by configuration'),
+  isDefault: z.boolean().optional().describe('Whether this is the default view'),
 })
 
 /**

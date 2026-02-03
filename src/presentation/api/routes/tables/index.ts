@@ -107,6 +107,7 @@ export function chainTableRoutes<T extends Hono<any, any, any>>(honoApp: T, app:
     chainRecordRoutesMethods(
       chainBatchRoutesMethods(chainTableRoutesMethods(honoWithMiddleware, app), app),
       app
-    )
+    ),
+    app
   )
 }
