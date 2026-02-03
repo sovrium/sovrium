@@ -54,6 +54,26 @@ export async function validateRequest<T>(
     return { success: true, data }
   } catch (error) {
     if (error instanceof z.ZodError) {
+      // Check if this is a "too_big" error (array exceeding max length)
+      const hasPayloadTooLargeError = error.issues.some((issue) => {
+        // Check if the issue is of code "too_big" with origin "array"
+        return issue.code === 'too_big' && 'origin' in issue && issue.origin === 'array'
+      })
+
+      if (hasPayloadTooLargeError) {
+        // Return 413 Payload Too Large for array size violations
+        return {
+          success: false,
+          response: c.json(
+            {
+              error: 'PayloadTooLarge',
+              message: 'Request payload exceeds maximum allowed size',
+            },
+            413
+          ),
+        }
+      }
+
       const errorResponse = validationErrorResponseSchema.parse({
         success: false,
         message: 'Validation failed',
