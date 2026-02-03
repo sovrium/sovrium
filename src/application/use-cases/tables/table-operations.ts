@@ -7,12 +7,16 @@
 
 import { Effect } from 'effect'
 import { ForbiddenError } from '@/infrastructure/database/session-context'
+import { listRecords } from '@/infrastructure/database/table-queries'
 import {
   isAdminRole,
   evaluateTablePermissions,
   evaluateFieldPermissions,
 } from './permissions/permissions'
+import { processRecords } from './utils/list-helpers'
 import type { App } from '@/domain/models/app'
+import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { SessionContextError } from '@/infrastructure/database/session-context'
 import type { GetTableResponse } from '@/presentation/api/schemas/tables-schemas'
 
 /* eslint-disable functional/no-expression-statements -- Error subclass requires super() and this.name assignment */
@@ -304,16 +308,103 @@ export function getViewProgram(
   })
 }
 
-export function getViewRecordsProgram() {
-  return Effect.succeed({
-    records: [],
-    pagination: {
-      page: 1,
-      limit: 10,
-      total: 0,
-      totalPages: 0,
-      hasNextPage: false,
-      hasPreviousPage: false,
-    },
+/**
+ * Build query parameters from view configuration
+ */
+function buildViewQueryParams(view: {
+  readonly filters?: unknown
+  readonly sorts?: readonly { readonly field: string; readonly direction: string }[]
+  readonly fields?: readonly string[] | unknown
+}): {
+  readonly filter:
+    | {
+        readonly and?: readonly {
+          readonly field: string
+          readonly operator: string
+          readonly value: unknown
+        }[]
+      }
+    | undefined
+  readonly sort: string
+  readonly fields: string | undefined
+} {
+  // Build filter from view filters
+  // View filters may be of type ViewFilterNode, need to extract the 'and' array if present
+  const filter = view.filters as
+    | {
+        readonly and?: readonly {
+          readonly field: string
+          readonly operator: string
+          readonly value: unknown
+        }[]
+      }
+    | undefined
+
+  // Build sort from view sorts
+  const sortArray = view.sorts || []
+  const sort = sortArray.map((s) => `${s.field}:${s.direction}`).join(',')
+
+  // Build fields list from view fields
+  const fieldsStr = Array.isArray(view.fields) ? view.fields.join(',') : undefined
+
+  return { filter, sort, fields: fieldsStr }
+}
+
+export function getViewRecordsProgram(config: {
+  readonly tableId: string
+  readonly viewId: string
+  readonly app: App
+  readonly userRole: string
+  readonly session: Readonly<Session>
+}): Effect.Effect<unknown, TableNotFoundError | ForbiddenError | SessionContextError> {
+  return Effect.gen(function* () {
+    const { tableId, viewId, app, userRole, session } = config
+
+    // Find table by ID or name
+    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+
+    if (!table) {
+      return yield* Effect.fail(new TableNotFoundError('Table not found'))
+    }
+
+    // Find view in table
+    const view = table.views?.find((v) => v.id === viewId)
+
+    if (!view) {
+      return yield* Effect.fail(new TableNotFoundError('View not found'))
+    }
+
+    // Check view-level read permissions
+    if (!isViewAccessible(view, userRole)) {
+      return yield* Effect.fail(
+        new ForbiddenError('You do not have permission to access this view')
+      )
+    }
+
+    // Build query parameters from view configuration
+    const { filter, sort, fields } = buildViewQueryParams(view)
+
+    // Query records with view filters and sorts
+    const records = yield* listRecords({
+      session,
+      tableName: table.name,
+      filter,
+      includeDeleted: false,
+      sort: sort || undefined,
+    })
+
+    // Process records with field filtering
+    const processedRecords = processRecords({
+      records,
+      app,
+      tableName: table.name,
+      userRole,
+      userId: session.userId,
+      fields,
+    })
+
+    return {
+      records: [...processedRecords],
+    }
   })
 }

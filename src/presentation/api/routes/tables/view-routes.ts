@@ -42,7 +42,12 @@ export function chainViewRoutesMethods<T extends Hono>(honoApp: T, app: App) {
         getViewResponseSchema
       )
     )
-    .get('/api/tables/:tableId/views/:viewId/records', async (c) =>
-      runEffect(c, getViewRecordsProgram(), getViewRecordsResponseSchema)
-    )
+    .get('/api/tables/:tableId/views/:viewId/records', async (c) => {
+      const { session, tableId, userRole } = getTableContext(c)
+      const viewId = c.req.param('viewId')
+
+      const program = getViewRecordsProgram({ tableId, viewId, app, userRole, session })
+
+      return runEffect(c, program, getViewRecordsResponseSchema)
+    })
 }
