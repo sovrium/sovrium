@@ -34,6 +34,7 @@ function handleErrorResponse(c: Context, error: unknown) {
 
   const errorData = {
     success: false as const,
+    error: sanitized.error,
     message: sanitized.message ?? sanitized.error,
     code: sanitized.code,
     ...(sanitized.details ? { details: sanitized.details } : {}),

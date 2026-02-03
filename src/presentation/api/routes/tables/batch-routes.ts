@@ -151,9 +151,12 @@ async function handleBatchDelete(c: Context, _app: App) {
   const result = await validateRequest(c, batchDeleteRecordsRequestSchema)
   if (!result.success) return result.response
 
+  // Check for permanent delete query parameter
+  const permanent = c.req.query('permanent') === 'true'
+
   return runEffect(
     c,
-    batchDeleteProgram(session, tableName, result.data.ids),
+    batchDeleteProgram(session, tableName, result.data.ids, permanent),
     batchDeleteRecordsResponseSchema
   )
 }

@@ -54,6 +54,19 @@ export async function validateRequest<T>(
     return { success: true, data }
   } catch (error) {
     if (error instanceof z.ZodError) {
+      // Check if error is about array size exceeding maximum (Payload Too Large)
+      // Zod uses "origin" property, not "type" for the error origin
+      const hasMaxArrayError = error.issues.some(
+        (issue) =>
+          issue.code === 'too_big' &&
+          'origin' in issue &&
+          (issue as { origin?: string }).origin === 'array'
+      )
+
+      if (hasMaxArrayError) {
+        return { success: false, response: c.json({ error: 'PayloadTooLarge' }, 413) }
+      }
+
       const errorResponse = validationErrorResponseSchema.parse({
         success: false,
         message: 'Validation failed',

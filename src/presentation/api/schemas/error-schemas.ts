@@ -37,6 +37,7 @@ export const validationErrorResponseSchema = z.object({
  */
 export const errorResponseSchema = z.object({
   success: z.literal(false).describe('Operation failed'),
+  error: z.string().optional().describe('Error type identifier'),
   message: z.string().describe('Human-readable error message'),
   code: z
     .enum([

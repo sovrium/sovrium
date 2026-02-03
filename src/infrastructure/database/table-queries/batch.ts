@@ -859,29 +859,38 @@ function checkSoftDeleteSupport(
 }
 
 /**
- * Execute delete query (soft or hard delete based on deleted_at column)
+ * Execute delete query (soft or hard delete based on parameters)
  */
 function executeDeleteQuery(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tx: any,
-  tableName: string,
-  recordIds: readonly string[],
-  hasSoftDelete: boolean
+  params: {
+    readonly tableName: string
+    readonly recordIds: readonly string[]
+    readonly hasSoftDelete: boolean
+    readonly permanent: boolean
+  }
 ): Effect.Effect<number, SessionContextError> {
   return Effect.tryPromise({
     try: async () => {
-      const tableIdent = sql.identifier(tableName)
+      const tableIdent = sql.identifier(params.tableName)
       const idParams = sql.join(
-        recordIds.map((id) => sql`${id}`),
+        params.recordIds.map((id) => sql`${id}`),
         sql.raw(', ')
       )
-      const query = hasSoftDelete
-        ? sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) RETURNING id`
-        : sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
+
+      // Determine query type: permanent delete, soft delete, or hard delete (no soft delete support)
+      const query = params.permanent
+        ? sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
+        : params.hasSoftDelete
+          ? sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
+          : sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
+
       const result = (await tx.execute(query)) as readonly Record<string, unknown>[]
       return result.length
     },
-    catch: (error) => new SessionContextError(`Failed to delete records in ${tableName}`, error),
+    catch: (error) =>
+      new SessionContextError(`Failed to delete records in ${params.tableName}`, error),
   })
 }
 
@@ -907,7 +916,7 @@ function logDeleteActivities(
 /**
  * Batch delete records with session context
  *
- * Deletes multiple records (soft or hard delete based on deleted_at field).
+ * Deletes multiple records (soft or hard delete based on parameters).
  * Validates all records exist before deleting any.
  * Rolls back if any record is not found.
  * RLS policies automatically enforced via session context.
@@ -915,12 +924,14 @@ function logDeleteActivities(
  * @param session - Better Auth session
  * @param tableName - Name of the table
  * @param recordIds - Array of record IDs to delete
+ * @param permanent - If true, performs hard delete; otherwise soft delete (if supported)
  * @returns Effect resolving to number of deleted records
  */
 export function batchDeleteRecords(
   session: Readonly<Session>,
   tableName: string,
-  recordIds: readonly string[]
+  recordIds: readonly string[],
+  permanent = false
 ): Effect.Effect<number, SessionContextError> {
   return withSessionContext(session, (tx) =>
     Effect.gen(function* () {
@@ -932,7 +943,12 @@ export function batchDeleteRecords(
       const recordsBefore = yield* fetchRecordsBeforeDelete(tx, tableIdent, recordIds)
       const hasSoftDelete = yield* checkSoftDeleteSupport(tx, tableName)
 
-      const deletedCount = yield* executeDeleteQuery(tx, tableName, recordIds, hasSoftDelete)
+      const deletedCount = yield* executeDeleteQuery(tx, {
+        tableName,
+        recordIds,
+        hasSoftDelete,
+        permanent,
+      })
 
       yield* logDeleteActivities(session, tableName, recordsBefore)
 
