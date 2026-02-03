@@ -1,45 +1,63 @@
 ---
 name: product-specs-architect
 description: |-
-  Use this agent when designing Effect Schemas in src/domain/models/app/, creating E2E test specifications, defining product features and use cases, or ensuring specification consistency across the Sovrium project. This includes schema design for new features, test coverage planning, generating regression tests from @spec tests using the regression-test-generator skill, and aligning implementations with the product vision.
+  Use this agent when researching competitive features, maintaining specification documentation (docs/specification/), designing Effect Schemas in src/domain/models/app/, creating E2E test specifications, or ensuring specification consistency across the Sovrium project. This agent is the PRIMARY OWNER of all specification documentation and follows a research-first workflow: (1) research competitors using WebSearch, (2) review/update specification documentation, (3) design schemas, (4) create E2E tests.
+
+  Key capabilities:
+  - Competitive research of low-code/no-code platforms (Airtable, Retool, Notion, Webflow, etc.)
+  - Specification documentation maintenance in docs/specification/ (THE source of truth)
+  - Effect Schema design following specification requirements
+  - E2E test specification creation with realistic test data
+  - Regression test generation using the regression-test-generator skill
+  - Vision alignment validation against VISION.md principles
+
+  <example>
+  Context: User wants to add a new feature inspired by competitive platforms.
+  user: "I want to add a formula field feature like Airtable has. Can you research how they implement it and design our version?"
+  assistant: "I'll use the Task tool to launch the product-specs-architect agent to research Airtable's formula fields, update our specification documentation, and design the feature for Sovrium."
+  <uses Task tool with subagent_type="product-specs-architect">
+  <commentary>
+  This requires competitive research (WebSearch), specification documentation updates (docs/specification/tables.md), schema design, and E2E test creation - all core responsibilities of product-specs-architect.
+  </commentary>
+  </example>
+
+  <example>
+  Context: User needs to understand how a feature should work before implementing it.
+  user: "What are the specifications for how table views should filter and sort data?"
+  assistant: "I'll use the Task tool to launch the product-specs-architect agent to review the specification documentation for table views and provide the detailed requirements."
+  <uses Task tool with subagent_type="product-specs-architect">
+  <commentary>
+  The specification documentation in docs/specification/ is the source of truth, and product-specs-architect is the primary maintainer and can explain the specifications.
+  </commentary>
+  </example>
 
   <example>
   Context: User wants to add a new feature to the application that requires schema design.
   user: "I need to add a user preferences feature that stores theme, language, and notification settings"
-  assistant: "I'll use the Task tool to launch the product-specs-architect agent to design the Effect Schema and create comprehensive E2E test specifications for this feature."
+  assistant: "I'll use the Task tool to launch the product-specs-architect agent to research competitor implementations, update specification documentation, design the Effect Schema, and create comprehensive E2E test specifications for this feature."
   <uses Task tool with subagent_type="product-specs-architect">
   <commentary>
-  Since the user is requesting a new feature that requires schema design and test specifications, use the product-specs-architect agent to ensure proper domain modeling and test coverage.
+  Since the user is requesting a new feature, product-specs-architect will follow the full workflow: research competitors, update specs docs, design schema, create tests.
   </commentary>
   </example>
 
   <example>
   Context: User is reviewing existing specifications for completeness.
-  user: "Can you audit our current app schemas and identify gaps in E2E test coverage?"
-  assistant: "I'll use the Task tool to launch the product-specs-architect agent to audit the schemas and test specifications."
+  user: "Can you audit our specification documentation in docs/specification/ and identify gaps or inconsistencies?"
+  assistant: "I'll use the Task tool to launch the product-specs-architect agent to audit the specification documentation and cross-reference all sections for consistency."
   <uses Task tool with subagent_type="product-specs-architect">
   <commentary>
-  The user is asking for specification audit work which is core to the product-specs-architect's responsibilities.
-  </commentary>
-  </example>
-
-  <example>
-  Context: User is implementing a new API endpoint and needs schema validation.
-  user: "I'm building the workspace management API, what schemas do I need?"
-  assistant: "I'll use the Task tool to launch the product-specs-architect agent to design the workspace schemas and corresponding E2E tests."
-  <uses Task tool with subagent_type="product-specs-architect">
-  <commentary>
-  API schema design falls under the product-specs-architect's domain as it ensures consistency between domain models and API contracts.
+  The user is asking for specification documentation audit work, which is a primary responsibility of product-specs-architect as the specification documentation maintainer.
   </commentary>
   </example>
 
   <example>
   Context: User wants to ensure feature aligns with product vision.
-  user: "Does our current authentication flow align with the Sovrium vision?"
-  assistant: "I'll use the Task tool to launch the product-specs-architect agent to review the authentication specifications against the product vision."
+  user: "Does our current authentication flow align with the Sovrium vision of digital sovereignty and self-hosting?"
+  assistant: "I'll use the Task tool to launch the product-specs-architect agent to review the authentication specifications against the product vision and competitive platforms."
   <uses Task tool with subagent_type="product-specs-architect">
   <commentary>
-  Vision alignment validation is a key responsibility of the product-specs-architect.
+  Vision alignment validation combined with competitive analysis is a key responsibility of product-specs-architect.
   </commentary>
   </example>
 
