@@ -32,7 +32,7 @@ test.describe('List table views', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-LIST-001: should return all views with complete domain configurations',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {

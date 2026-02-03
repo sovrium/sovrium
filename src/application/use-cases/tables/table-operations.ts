@@ -32,12 +32,12 @@ export class TableNotFoundError extends Error {
 /* eslint-enable functional/no-expression-statements */
 
 // Constants
-const ALLOWED_ROLES_TO_LIST_TABLES = ['owner', 'admin', 'member'] as const
+const ALLOWED_ROLES_TO_LIST_TABLES: readonly string[] = ['owner', 'admin', 'member'] as const
 
 export function createListTablesProgram(
   userRole: string,
   app: App
-): Effect.Effect<unknown[], Error> {
+): Effect.Effect<readonly unknown[], Error> {
   // Global permission check: only owner/admin/member can list tables
   // Viewer role is explicitly denied from listing tables
   if (
@@ -156,8 +156,13 @@ export function createGetPermissionsProgram(
   userRole: string
 ): Effect.Effect<
   {
-    table: { read: boolean; create: boolean; update: boolean; delete: boolean }
-    fields: Record<string, { read: boolean; write: boolean }>
+    readonly table: {
+      readonly read: boolean
+      readonly create: boolean
+      readonly update: boolean
+      readonly delete: boolean
+    }
+    readonly fields: Record<string, { readonly read: boolean; readonly write: boolean }>
   },
   Error
 > {
@@ -179,8 +184,91 @@ export function createGetPermissionsProgram(
   })
 }
 
-export function listViewsProgram() {
-  return Effect.succeed({ views: [] })
+/**
+ * Check if a view is accessible to a user based on permissions
+ */
+function isViewAccessible(view: { readonly permissions?: unknown }, userRole: string): boolean {
+  // No permissions configured - view is public
+  if (!view.permissions) {
+    return true
+  }
+
+  // Check if permissions is public type
+  if (typeof view.permissions === 'object' && 'public' in view.permissions) {
+    const publicPermissions = view.permissions as { readonly public: boolean }
+    return publicPermissions.public === true
+  }
+
+  // At this point, permissions must be the read/write type
+  const permissions = view.permissions as {
+    readonly read?: readonly string[]
+    readonly write?: readonly string[]
+  }
+  const viewReadPermission = permissions.read
+
+  // No read permission configured - deny access (secure by default)
+  if (!viewReadPermission) {
+    return false
+  }
+
+  // Check if user's role is in allowed roles
+  return Array.isArray(viewReadPermission) && viewReadPermission.includes(userRole)
+}
+
+/**
+ * Map a view to response format
+ */
+function mapViewToResponse(view: {
+  readonly id: string | number
+  readonly name: string
+  readonly filters?: unknown
+  readonly sorts?: unknown
+  readonly fields?: unknown
+  readonly groupBy?: unknown
+  readonly isDefault?: boolean
+}): unknown {
+  return {
+    id: view.id,
+    name: view.name,
+    ...(view.filters !== undefined ? { filters: view.filters } : {}),
+    ...(view.sorts !== undefined ? { sorts: view.sorts } : {}),
+    ...(view.fields !== undefined ? { fields: view.fields } : {}),
+    ...(view.groupBy !== undefined ? { groupBy: view.groupBy } : {}),
+    ...(view.isDefault !== undefined ? { isDefault: view.isDefault } : {}),
+  }
+}
+
+export function listViewsProgram(
+  tableId: string,
+  app: App,
+  userRole: string
+): Effect.Effect<readonly unknown[], TableNotFoundError | ForbiddenError> {
+  return Effect.gen(function* () {
+    // Find table by ID or name
+    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+
+    if (!table) {
+      return yield* Effect.fail(new TableNotFoundError('Table not found'))
+    }
+
+    // Check table-level read permissions
+    const readPermission = table.permissions?.read
+    if (readPermission && readPermission.type === 'roles') {
+      const allowedRoles = readPermission.roles || []
+      if (!allowedRoles.includes(userRole)) {
+        return yield* Effect.fail(
+          new ForbiddenError('You do not have permission to access this table')
+        )
+      }
+    }
+
+    // Get views from table (or empty array if no views)
+    const views = table.views ?? []
+
+    // Filter views based on read permissions and map to response format
+    const accessibleViews = views.filter((view) => isViewAccessible(view, userRole))
+    return accessibleViews.map(mapViewToResponse)
+  })
 }
 
 export function getViewProgram(
