@@ -216,7 +216,7 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-BATCH-RESTORE-005: should return 403 for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {

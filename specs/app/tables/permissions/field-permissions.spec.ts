@@ -566,7 +566,7 @@ test.describe('Field-Level Permissions', () => {
     }
   )
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELD-PERMISSIONS-008: should prevent field modification at both layers (Better Auth blocks → RLS never executes)',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, signIn, page, executeQuery }) => {

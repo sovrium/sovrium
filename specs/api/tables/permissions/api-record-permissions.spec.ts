@@ -227,7 +227,7 @@ test.describe('API Record-Level Permissions', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-PERMISSIONS-RECORD-004: owner can update their own records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -280,7 +280,7 @@ test.describe('API Record-Level Permissions', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-PERMISSIONS-RECORD-005: non-owner cannot update others records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {

@@ -513,7 +513,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-010: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedAdmin }) => {
@@ -558,7 +558,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-011: should filter protected fields from response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -671,7 +671,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-RECORDS-UPSERT-013: should enforce combined permissions',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {

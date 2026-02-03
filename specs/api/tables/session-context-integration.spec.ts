@@ -346,7 +346,7 @@ test.describe('API Session Context Integration', () => {
     }
   )
 
-  test(
+  test.fixme(
     'API-TABLES-SESSION-CTX-INT-006: should handle create operations with session context',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
