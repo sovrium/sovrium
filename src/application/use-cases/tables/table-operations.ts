@@ -32,12 +32,12 @@ export class TableNotFoundError extends Error {
 /* eslint-enable functional/no-expression-statements */
 
 // Constants
-const ALLOWED_ROLES_TO_LIST_TABLES = ['owner', 'admin', 'member'] as const
+const ALLOWED_ROLES_TO_LIST_TABLES: readonly string[] = ['owner', 'admin', 'member'] as const
 
 export function createListTablesProgram(
   userRole: string,
   app: App
-): Effect.Effect<unknown[], Error> {
+): Effect.Effect<readonly unknown[], Error> {
   // Global permission check: only owner/admin/member can list tables
   // Viewer role is explicitly denied from listing tables
   if (
@@ -156,8 +156,8 @@ export function createGetPermissionsProgram(
   userRole: string
 ): Effect.Effect<
   {
-    table: { read: boolean; create: boolean; update: boolean; delete: boolean }
-    fields: Record<string, { read: boolean; write: boolean }>
+    readonly table: { readonly read: boolean; readonly create: boolean; readonly update: boolean; readonly delete: boolean }
+    readonly fields: Record<string, { readonly read: boolean; readonly write: boolean }>
   },
   Error
 > {
@@ -190,7 +190,7 @@ function isViewAccessible(view: { readonly permissions?: unknown }, userRole: st
 
   // Check if permissions is public type
   if (typeof view.permissions === 'object' && 'public' in view.permissions) {
-    const publicPermissions = view.permissions as { public: boolean }
+    const publicPermissions = view.permissions as { readonly public: boolean }
     return publicPermissions.public === true
   }
 
