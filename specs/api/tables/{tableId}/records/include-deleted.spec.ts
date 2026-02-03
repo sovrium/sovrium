@@ -128,7 +128,7 @@ test.describe('Include Deleted query parameter', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-INCLUDE-DELETED-003: should allow member to use includeDeleted',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
