@@ -270,7 +270,7 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-DELETE-007: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -286,13 +286,13 @@ test.describe('Delete comment', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const user = await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
-        VALUES ('comment_1', '1', '1', 'user_1', 'Already deleted comment', NOW())
+        VALUES ('comment_1', '1', '1', '${user.user.id}', 'Already deleted comment', NOW())
       `)
 
       // WHEN: User attempts to delete already-deleted comment
