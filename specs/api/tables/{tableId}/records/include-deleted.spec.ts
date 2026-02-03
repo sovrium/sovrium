@@ -30,7 +30,7 @@ test.describe('Include Deleted query parameter', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-INCLUDE-DELETED-001: should exclude deleted records by default',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
