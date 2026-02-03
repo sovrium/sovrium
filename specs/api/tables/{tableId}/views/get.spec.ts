@@ -162,7 +162,7 @@ test.describe('List table views', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-LIST-003: should return 404 when table does not exist',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
