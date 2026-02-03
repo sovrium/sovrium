@@ -109,11 +109,55 @@ specs/**/*.spec.ts  → VALIDATES it works correctly
 
 **MANDATORY**: Tests MUST use provided authentication fixtures:
 
-| Fixture | Purpose | Use When |
-|---------|---------|----------|
-| `signIn({ email, password })` | Authenticate existing user | Testing protected endpoints |
-| `signUp({ email, password, name })` | Create new user | Testing registration flows |
-| `createAuthenticatedUser()` | Create + authenticate user | Setting up test users quickly |
+| Fixture | Purpose | Example Usage |
+|---------|---------|---------------|
+| `signUp({ email, password, name })` | Create new user | `await signUp({ email: 'user@example.com', password: 'Pass123!', name: 'Test User' })` |
+| `signIn({ email, password })` | Authenticate existing user | `await signIn({ email: 'user@example.com', password: 'Pass123!' })` |
+| `createAuthenticatedUser(data?)` | Create + auto-authenticate | `const { user } = await createAuthenticatedUser({ name: 'Alice' })` |
+| `createAuthenticatedAdmin(data?)` | Create admin user | `await createAuthenticatedAdmin({ email: 'admin@example.com' })` |
+| `createAuthenticatedOwner(data?)` | Create owner role user | `await createAuthenticatedOwner()` |
+| `createAuthenticatedMember(data?)` | Create member role user | `await createAuthenticatedMember()` |
+| `createAuthenticatedViewer(data?)` | Create viewer role user | `await createAuthenticatedViewer()` |
+
+#### Authentication Best Practices
+
+**✅ CORRECT - Use fixtures for authentication:**
+```typescript
+// Create user via fixture (handles sign-up + sign-in automatically)
+const { user } = await createAuthenticatedUser({
+  email: 'alice@example.com',
+  password: 'SecurePass123!',
+  name: 'Alice Johnson',
+})
+
+// Now user is authenticated and can access protected endpoints
+const response = await request.get('/api/tables/tasks/records')
+expect(response.status()).toBe(200)
+```
+
+**❌ WRONG - Don't use raw API calls when fixtures exist:**
+```typescript
+// ❌ OUTDATED - Don't define users in schema
+await startServerWithSchema({
+  auth: { emailAndPassword: true },
+  users: [{ email: 'test@example.com', password: 'Pass123!' }], // ❌ NOT SUPPORTED
+})
+
+// ❌ OUTDATED - Don't use raw API calls
+await page.request.post('/api/auth/sign-up/email', {
+  data: { email: 'test@example.com', password: 'Pass123!', name: 'Test' }
+})
+```
+
+#### When to Use Each Fixture
+
+| Scenario | Fixture | Why |
+|----------|---------|-----|
+| Testing protected API endpoints | `createAuthenticatedUser()` | Auto-creates user + signs in, ready for API calls |
+| Testing registration flow | `signUp()` then `signIn()` | Explicit control over each step |
+| Testing role-based permissions | `createAuthenticatedAdmin()` | Creates user with specific role |
+| Setting up multiple users | `createAuthenticatedUser()` multiple times | Each call creates isolated user |
+| Testing cross-user access | Create multiple users with different fixtures | Owner, member, viewer roles |
 
 **❌ FORBIDDEN**: Using raw `request.post('/api/auth/...')` for authentication when fixtures exist.
 
@@ -453,12 +497,18 @@ test.fixme('should have a form', async ({ page }) => {
 test.fixme(
   'APP-AUTH-001: should authenticate user with valid credentials',
   { tag: '@spec' },
-  async ({ page, startServerWithSchema }) => {
-    // GIVEN: Application with auth enabled and test user
+  async ({ page, startServerWithSchema, signUp, signIn }) => {
+    // GIVEN: Application with auth enabled
     await startServerWithSchema({
       name: 'test-app',
-      auth: { enabled: true },
-      users: [{ email: 'test@example.com', password: 'SecurePass123!' }],
+      auth: { emailAndPassword: true },
+    })
+
+    // Create test user via fixture
+    await signUp({
+      email: 'test@example.com',
+      password: 'SecurePass123!',
+      name: 'Test User',
     })
 
     // WHEN: User submits valid login credentials
