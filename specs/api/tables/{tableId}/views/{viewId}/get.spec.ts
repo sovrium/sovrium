@@ -391,7 +391,7 @@ test.describe('Get view details', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-GET-008: should return 401 when not authenticated',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
