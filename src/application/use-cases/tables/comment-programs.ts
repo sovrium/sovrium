@@ -155,6 +155,8 @@ export function deleteCommentProgram(
     const isAdmin = currentUser.role === 'admin'
 
     if (!isAuthor && !isAdmin) {
+      // User has record access but is not the comment author and not an admin
+      // Return 403 Forbidden to explicitly deny the operation
       return yield* Effect.fail(new SessionContextError('Forbidden'))
     }
 
