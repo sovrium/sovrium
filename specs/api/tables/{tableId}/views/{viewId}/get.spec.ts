@@ -317,7 +317,7 @@ test.describe('Get view details', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-GET-006: should return 404 when view does not exist',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
