@@ -179,8 +179,72 @@ export function createGetPermissionsProgram(
   })
 }
 
-export function listViewsProgram() {
-  return Effect.succeed({ views: [] })
+export function listViewsProgram(
+  tableId: string,
+  app: App,
+  userRole: string
+): Effect.Effect<readonly unknown[], TableNotFoundError | ForbiddenError> {
+  return Effect.gen(function* () {
+    // Find table by ID or name
+    const table = app.tables?.find((t) => String(t.id) === tableId || t.name === tableId)
+
+    if (!table) {
+      return yield* Effect.fail(new TableNotFoundError('Table not found'))
+    }
+
+    // Check table-level read permissions
+    const readPermission = table.permissions?.read
+
+    // If read permission is explicitly configured, check role-based permissions
+    if (readPermission && readPermission.type === 'roles') {
+      const allowedRoles = readPermission.roles || []
+      if (!allowedRoles.includes(userRole)) {
+        return yield* Effect.fail(
+          new ForbiddenError('You do not have permission to access this table')
+        )
+      }
+    }
+
+    // If no read permission is configured or permission type is not 'roles',
+    // allow access (route is already protected by authentication middleware)
+
+    // Get views from table (or empty array if no views)
+    const views = table.views ?? []
+
+    // Filter views based on read permissions
+    // A view is accessible if:
+    // 1. It has no permissions configured (public), OR
+    // 2. It has permissions.read configured and user's role is in the allowed list
+    const accessibleViews = views.filter((view) => {
+      const viewReadPermission = view.permissions?.read
+
+      // No permissions configured - view is public
+      if (!viewReadPermission) {
+        return true
+      }
+
+      // Check if user's role is in allowed roles
+      if (Array.isArray(viewReadPermission)) {
+        return viewReadPermission.includes(userRole)
+      }
+
+      // Unknown permission format - deny access (secure by default)
+      return false
+    })
+
+    // Map views to response format
+    const result = accessibleViews.map((view) => ({
+      id: view.id,
+      name: view.name,
+      ...(view.filters !== undefined ? { filters: view.filters } : {}),
+      ...(view.sorts !== undefined ? { sorts: view.sorts } : {}),
+      ...(view.fields !== undefined ? { fields: view.fields } : {}),
+      ...(view.groupBy !== undefined ? { groupBy: view.groupBy } : {}),
+      ...(view.isDefault !== undefined ? { isDefault: view.isDefault } : {}),
+    }))
+
+    return result
+  })
 }
 
 export function getViewProgram(
