@@ -245,9 +245,7 @@ export const batchUpdateRecordsResponseSchema = z.object({
  * Batch delete records response schema
  */
 export const batchDeleteRecordsResponseSchema = z.object({
-  success: z.literal(true).describe('Batch delete succeeded'),
-  count: z.number().describe('Number of records deleted'),
-  deletedIds: z.array(z.string()).describe('IDs of deleted records'),
+  deleted: z.number().describe('Number of records deleted'),
 })
 
 /**
