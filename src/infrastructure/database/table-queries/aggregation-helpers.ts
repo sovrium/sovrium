@@ -182,9 +182,14 @@ function findFieldDefinition(
   fieldName: string
 ): { readonly type?: string; readonly options?: readonly string[] } | undefined {
   const table = app.tables?.find((t) => t.name === tableName)
-  return table?.fields.find((f: { readonly name?: string }) => f.name === fieldName) as
-    | { readonly type?: string; readonly options?: readonly string[] }
-    | undefined
+  if (!table) return undefined
+
+  const field = table.fields.find((f) => {
+    const fieldObj = f as { readonly name?: string }
+    return fieldObj.name === fieldName
+  })
+
+  return field as { readonly type?: string; readonly options?: readonly string[] } | undefined
 }
 
 /**
