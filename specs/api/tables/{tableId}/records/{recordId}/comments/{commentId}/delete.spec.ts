@@ -190,7 +190,7 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-DELETE-005: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
