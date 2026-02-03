@@ -52,17 +52,17 @@ The API provides RESTful endpoints for interacting with Sovrium applications. Al
 
 ### HTTP Status Codes
 
-| Code | Description | When Used |
-|------|-------------|-----------|
-| `200` | OK | Successful GET, PATCH |
-| `201` | Created | Successful POST |
-| `204` | No Content | Successful DELETE |
-| `400` | Bad Request | Invalid input, validation errors |
-| `401` | Unauthorized | Missing or invalid session |
-| `403` | Forbidden | Insufficient permissions |
-| `404` | Not Found | Resource doesn't exist |
-| `429` | Too Many Requests | Rate limit exceeded |
-| `500` | Internal Server Error | Server-side errors |
+| Code  | Description           | When Used                        |
+| ----- | --------------------- | -------------------------------- |
+| `200` | OK                    | Successful GET, PATCH            |
+| `201` | Created               | Successful POST                  |
+| `204` | No Content            | Successful DELETE                |
+| `400` | Bad Request           | Invalid input, validation errors |
+| `401` | Unauthorized          | Missing or invalid session       |
+| `403` | Forbidden             | Insufficient permissions         |
+| `404` | Not Found             | Resource doesn't exist           |
+| `429` | Too Many Requests     | Rate limit exceeded              |
+| `500` | Internal Server Error | Server-side errors               |
 
 ---
 
@@ -77,6 +77,7 @@ Returns application health status.
 **Authentication**: None required
 
 **Response**:
+
 ```json
 {
   "status": "ok",
@@ -87,11 +88,11 @@ Returns application health status.
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `status` | `'ok'` | Health status indicator |
-| `timestamp` | `string` | ISO 8601 timestamp |
-| `app.name` | `string` | Application name from schema |
+| Field       | Type     | Description                  |
+| ----------- | -------- | ---------------------------- |
+| `status`    | `'ok'`   | Health status indicator      |
+| `timestamp` | `string` | ISO 8601 timestamp           |
+| `app.name`  | `string` | Application name from schema |
 
 ---
 
@@ -106,6 +107,7 @@ Lists all tables the authenticated user has permission to view.
 **Authentication**: Required
 
 **Response**:
+
 ```json
 {
   "tables": [
@@ -116,6 +118,7 @@ Lists all tables the authenticated user has permission to view.
 ```
 
 **Permission Filtering**:
+
 - Returns only tables where user has `read` permission
 - Admin users see all tables
 - Regular users see tables based on role assignments
@@ -132,6 +135,7 @@ Returns table metadata including fields and configuration.
 | `tableId` | `string` | Yes | Table identifier |
 
 **Response**:
+
 ```json
 {
   "id": "tasks",
@@ -152,6 +156,7 @@ Returns table metadata including fields and configuration.
 ```
 
 **Error Responses**:
+
 - `401`: Not authenticated
 - `403`: No read permission on table
 - `404`: Table not found
@@ -170,20 +175,21 @@ Lists records from a table with filtering, sorting, and pagination.
 
 **Query Parameters**:
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `limit` | `number` | `100` | Records per page (max 1000) |
-| `offset` | `number` | `0` | Pagination offset |
-| `filter` | `object` | - | JSON filter object |
-| `filterByFormula` | `string` | - | Airtable-style formula |
-| `sort` | `array` | - | Sort configuration |
-| `fields` | `array` | - | Field projection (returns only specified fields) |
-| `view` | `string` | - | Apply view's filters and sorts |
-| `groupBy` | `string` | - | Group results by field |
-| `aggregate` | `object` | - | Aggregation operations |
-| `includeDeleted` | `boolean` | `false` | Include soft-deleted records |
+| Parameter         | Type      | Default | Description                                      |
+| ----------------- | --------- | ------- | ------------------------------------------------ |
+| `limit`           | `number`  | `100`   | Records per page (max 1000)                      |
+| `offset`          | `number`  | `0`     | Pagination offset                                |
+| `filter`          | `object`  | -       | JSON filter object                               |
+| `filterByFormula` | `string`  | -       | Airtable-style formula                           |
+| `sort`            | `array`   | -       | Sort configuration                               |
+| `fields`          | `array`   | -       | Field projection (returns only specified fields) |
+| `view`            | `string`  | -       | Apply view's filters and sorts                   |
+| `groupBy`         | `string`  | -       | Group results by field                           |
+| `aggregate`       | `object`  | -       | Aggregation operations                           |
+| `includeDeleted`  | `boolean` | `false` | Include soft-deleted records                     |
 
 **Filter Object**:
+
 ```json
 {
   "field": "status",
@@ -209,11 +215,13 @@ Lists records from a table with filtering, sorting, and pagination.
 | `in` | Value in array | `{ "field": "status", "operator": "in", "value": ["active", "pending"] }` |
 
 **Filter by Formula** (Airtable-style):
+
 ```
 ?filterByFormula=AND({status}='active', {priority}>3)
 ```
 
 **Sort Configuration**:
+
 ```json
 [
   { "field": "created_at", "direction": "desc" },
@@ -222,6 +230,7 @@ Lists records from a table with filtering, sorting, and pagination.
 ```
 
 **Field Projection**:
+
 ```
 ?fields=id,title,status
 ```
@@ -229,6 +238,7 @@ Lists records from a table with filtering, sorting, and pagination.
 Returns only specified fields (plus `id` always included).
 
 **Response**:
+
 ```json
 {
   "records": [
@@ -248,6 +258,7 @@ Returns only specified fields (plus `id` always included).
 ```
 
 **Aggregation Response** (when `aggregate` is provided):
+
 ```json
 {
   "aggregations": {
@@ -259,6 +270,7 @@ Returns only specified fields (plus `id` always included).
 ```
 
 **Permission Enforcement**:
+
 - Users can only see records they have permission to view
 - Field-level permissions filter returned fields
 - 403 returned when filtering/sorting on inaccessible fields
@@ -270,6 +282,7 @@ Returns a single record by ID.
 **Authentication**: Required
 
 **Response**:
+
 ```json
 {
   "id": "rec_123",
@@ -281,6 +294,7 @@ Returns a single record by ID.
 ```
 
 **Error Responses**:
+
 - `401`: Not authenticated
 - `403`: No read permission
 - `404`: Record not found (or soft-deleted without `includeDeleted`)
@@ -292,6 +306,7 @@ Creates a new record.
 **Authentication**: Required
 
 **Request Body**:
+
 ```json
 {
   "fields": {
@@ -303,6 +318,7 @@ Creates a new record.
 ```
 
 **Response** (`201 Created`):
+
 ```json
 {
   "id": "rec_456",
@@ -315,6 +331,7 @@ Creates a new record.
 ```
 
 **Validation**:
+
 - Required fields must be provided
 - Field types are validated against schema
 - Unique constraints are enforced
@@ -326,6 +343,7 @@ Updates an existing record.
 **Authentication**: Required
 
 **Request Body**:
+
 ```json
 {
   "fields": {
@@ -336,6 +354,7 @@ Updates an existing record.
 ```
 
 **Response**:
+
 ```json
 {
   "id": "rec_123",
@@ -356,6 +375,7 @@ Soft-deletes a record (sets `deleted_at` timestamp).
 **Response**: `204 No Content`
 
 **Behavior**:
+
 - Record is soft-deleted (not permanently removed)
 - `deleted_at` timestamp is set
 - `deleted_by` is set to current user
@@ -369,6 +389,7 @@ Restores a soft-deleted record.
 **Authentication**: Required
 
 **Response**:
+
 ```json
 {
   "id": "rec_123",
@@ -396,6 +417,7 @@ Performs batch operations (create, update, delete) on multiple records.
 **Authentication**: Required
 
 **Request Body**:
+
 ```json
 {
   "operations": [
@@ -417,6 +439,7 @@ Performs batch operations (create, update, delete) on multiple records.
 ```
 
 **Response**:
+
 ```json
 {
   "results": [
@@ -433,6 +456,7 @@ Performs batch operations (create, update, delete) on multiple records.
 ```
 
 **Limits**:
+
 - Maximum 100 operations per batch
 - Operations are processed transactionally
 
@@ -449,6 +473,7 @@ Lists all views for a table.
 **Authentication**: Required
 
 **Response**:
+
 ```json
 {
   "views": [
@@ -473,18 +498,15 @@ Returns view configuration.
 **Authentication**: Required
 
 **Response**:
+
 ```json
 {
   "id": "view_active",
   "name": "Active Tasks",
   "type": "grid",
   "fields": ["title", "status", "due_date"],
-  "filters": [
-    { "field": "status", "operator": "not_equals", "value": "done" }
-  ],
-  "sorts": [
-    { "field": "due_date", "direction": "asc" }
-  ],
+  "filters": [{ "field": "status", "operator": "not_equals", "value": "done" }],
+  "sorts": [{ "field": "due_date", "direction": "asc" }],
   "groupBy": "status"
 }
 ```
@@ -510,6 +532,7 @@ Lists comments on a record.
 **Authentication**: Required
 
 **Response**:
+
 ```json
 {
   "comments": [
@@ -533,6 +556,7 @@ Creates a comment on a record.
 **Authentication**: Required
 
 **Request Body**:
+
 ```json
 {
   "content": "Great progress on this task!"
@@ -540,6 +564,7 @@ Creates a comment on a record.
 ```
 
 **Response** (`201 Created`):
+
 ```json
 {
   "id": "cmt_789",
@@ -574,17 +599,18 @@ Returns activity/audit log entries.
 
 **Query Parameters**:
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `tableName` | `string` | - | Filter by table |
-| `action` | `string` | - | Filter by action type |
-| `userId` | `string` | - | Filter by user |
-| `startDate` | `string` | - | Start date (ISO 8601) |
-| `endDate` | `string` | - | End date (ISO 8601) |
-| `page` | `number` | `1` | Page number |
-| `pageSize` | `number` | `50` | Items per page |
+| Parameter   | Type     | Default | Description           |
+| ----------- | -------- | ------- | --------------------- |
+| `tableName` | `string` | -       | Filter by table       |
+| `action`    | `string` | -       | Filter by action type |
+| `userId`    | `string` | -       | Filter by user        |
+| `startDate` | `string` | -       | Start date (ISO 8601) |
+| `endDate`   | `string` | -       | End date (ISO 8601)   |
+| `page`      | `number` | `1`     | Page number           |
+| `pageSize`  | `number` | `50`    | Items per page        |
 
 **Action Types**:
+
 - `create` - Record created
 - `update` - Record updated
 - `delete` - Record deleted
@@ -592,6 +618,7 @@ Returns activity/audit log entries.
 - `permanent_delete` - Record permanently deleted
 
 **Response**:
+
 ```json
 {
   "activities": [
@@ -626,6 +653,7 @@ Returns a single activity entry.
 **Authentication**: Required (admin only)
 
 **Response**:
+
 ```json
 {
   "id": "act_123",
@@ -658,6 +686,7 @@ Lists soft-deleted records.
 **Query Parameters**: Same as records list (limit, offset, filter, sort)
 
 **Response**:
+
 ```json
 {
   "records": [
@@ -690,13 +719,14 @@ Empties trash (permanently deletes all soft-deleted records).
 
 API requests are rate-limited to prevent abuse.
 
-| Endpoint Category | Limit | Window |
-|-------------------|-------|--------|
-| Read operations | 1000 | 1 minute |
-| Write operations | 100 | 1 minute |
-| Batch operations | 10 | 1 minute |
+| Endpoint Category | Limit | Window   |
+| ----------------- | ----- | -------- |
+| Read operations   | 1000  | 1 minute |
+| Write operations  | 100   | 1 minute |
+| Batch operations  | 10    | 1 minute |
 
 **Rate Limit Headers**:
+
 ```
 X-RateLimit-Limit: 1000
 X-RateLimit-Remaining: 950
@@ -704,6 +734,7 @@ X-RateLimit-Reset: 1705319460
 ```
 
 **Exceeded Response** (`429 Too Many Requests`):
+
 ```json
 {
   "error": {
@@ -718,21 +749,21 @@ X-RateLimit-Reset: 1705319460
 
 ## E2E Test Coverage
 
-| Category | Spec Files | Tests | Status |
-|----------|-----------|-------|--------|
-| Health | 1 | ~1 | 🟢 100% |
-| Tables List | 1 | ~6 | 🟢 100% |
-| Table Details | 1 | ~5 | 🟢 100% |
-| Records CRUD | 4 | ~40 | 🟢 100% |
-| Records Filtering | 2 | ~25 | 🟢 100% |
-| Records Sorting | 1 | ~8 | 🟢 100% |
-| Records Pagination | 1 | ~6 | 🟢 100% |
-| Batch Operations | 1 | ~10 | 🟢 100% |
-| Views | 3 | ~15 | 🟢 100% |
-| Comments | 3 | ~10 | 🟢 100% |
-| Trash | 2 | ~8 | 🟢 100% |
-| Activity | 4 | ~19 | 🟡 fixme |
-| Rate Limiting | 1 | ~5 | 🟡 fixme |
+| Category           | Spec Files | Tests | Status   |
+| ------------------ | ---------- | ----- | -------- |
+| Health             | 1          | ~1    | 🟢 100%  |
+| Tables List        | 1          | ~6    | 🟢 100%  |
+| Table Details      | 1          | ~5    | 🟢 100%  |
+| Records CRUD       | 4          | ~40   | 🟢 100%  |
+| Records Filtering  | 2          | ~25   | 🟢 100%  |
+| Records Sorting    | 1          | ~8    | 🟢 100%  |
+| Records Pagination | 1          | ~6    | 🟢 100%  |
+| Batch Operations   | 1          | ~10   | 🟢 100%  |
+| Views              | 3          | ~15   | 🟢 100%  |
+| Comments           | 3          | ~10   | 🟢 100%  |
+| Trash              | 2          | ~8    | 🟢 100%  |
+| Activity           | 4          | ~19   | 🟡 fixme |
+| Rate Limiting      | 1          | ~5    | 🟡 fixme |
 
 **Total**: 25 spec files, ~158 tests (excluding auth endpoints)
 
@@ -742,17 +773,17 @@ X-RateLimit-Reset: 1705319460
 
 **Overall**: 🟡 85%
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Health API | ✅ | Complete |
-| Tables API | ✅ | CRUD + permissions |
-| Records API | ✅ | Full filtering, sorting, pagination |
-| Batch Operations | ✅ | Create, update, delete |
-| Views API | ✅ | List, get, records |
-| Comments API | ✅ | CRUD operations |
-| Trash API | ✅ | List, restore, empty |
-| Activity API | 🟡 | Core features, some tests as fixme |
-| Rate Limiting | 🟡 | Basic implementation |
+| Component        | Status | Notes                               |
+| ---------------- | ------ | ----------------------------------- |
+| Health API       | ✅     | Complete                            |
+| Tables API       | ✅     | CRUD + permissions                  |
+| Records API      | ✅     | Full filtering, sorting, pagination |
+| Batch Operations | ✅     | Create, update, delete              |
+| Views API        | ✅     | List, get, records                  |
+| Comments API     | ✅     | CRUD operations                     |
+| Trash API        | ✅     | List, restore, empty                |
+| Activity API     | 🟡     | Core features, some tests as fixme  |
+| Rate Limiting    | 🟡     | Basic implementation                |
 
 ---
 
