@@ -172,6 +172,62 @@ export function buildUserFilterConditions(filter?: {
 }
 
 /**
+ * Find field definition in app schema
+ */
+function findFieldDefinition(
+  app: {
+    readonly tables?: readonly { readonly name: string; readonly fields: readonly unknown[] }[]
+  },
+  tableName: string,
+  fieldName: string
+): { readonly type?: string; readonly options?: readonly string[] } | undefined {
+  const table = app.tables?.find((t) => t.name === tableName)
+  return table?.fields.find((f: { readonly name?: string }) => f.name === fieldName) as
+    | { readonly type?: string; readonly options?: readonly string[] }
+    | undefined
+}
+
+/**
+ * Build CASE expression for single-select field sorting
+ */
+function buildSingleSelectCaseExpression(
+  field: string,
+  options: readonly string[],
+  direction: string
+): string {
+  const caseWhen = options
+    .map((opt, idx) => `WHEN "${field}" = '${opt.replace(/'/g, "''")}' THEN ${idx}`)
+    .join(' ')
+  return `CASE ${caseWhen} END ${direction}`
+}
+
+/**
+ * Build sort clause for a single field
+ */
+function buildSortClause(
+  field: string,
+  direction: string | undefined,
+  app?: {
+    readonly tables?: readonly { readonly name: string; readonly fields: readonly unknown[] }[]
+  },
+  tableName?: string
+): string {
+  validateColumnName(field)
+  const dir = direction?.toLowerCase() === 'desc' ? 'DESC' : 'ASC'
+
+  // Check if this is a single-select field with options
+  if (app && tableName) {
+    const fieldDef = findFieldDefinition(app, tableName, field)
+
+    if (fieldDef?.type === 'single-select' && fieldDef.options && fieldDef.options.length > 0) {
+      return buildSingleSelectCaseExpression(field, fieldDef.options, dir)
+    }
+  }
+
+  return `"${field}" ${dir}`
+}
+
+/**
  * Build ORDER BY clause from sort parameter
  * @param sort - Sort parameter (e.g., 'field:asc' or 'field:desc')
  * @param app - Optional App config for single-select field option ordering
@@ -191,26 +247,7 @@ export function buildOrderByClause(
     .map((part) => {
       const [field, direction] = part.split(':')
       if (!field) return ''
-      validateColumnName(field)
-      const dir = direction?.toLowerCase() === 'desc' ? 'DESC' : 'ASC'
-
-      // Check if this is a single-select field with options
-      if (app && tableName) {
-        const table = app.tables?.find((t) => t.name === tableName)
-        const fieldDef = table?.fields.find((f: { readonly name?: string }) => f.name === field) as
-          | { readonly type?: string; readonly options?: readonly string[] }
-          | undefined
-
-        if (fieldDef?.type === 'single-select' && fieldDef.options && fieldDef.options.length > 0) {
-          // Use CASE expression to sort by option index
-          const caseWhen = fieldDef.options
-            .map((opt, idx) => `WHEN "${field}" = '${opt.replace(/'/g, "''")}' THEN ${idx}`)
-            .join(' ')
-          return `CASE ${caseWhen} END ${dir}`
-        }
-      }
-
-      return `"${field}" ${dir}`
+      return buildSortClause(field, direction, app, tableName)
     })
     .filter((c) => c !== '')
 
