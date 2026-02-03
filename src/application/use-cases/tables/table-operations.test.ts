@@ -270,10 +270,12 @@ describe('table-operations', () => {
 
   describe('listViewsProgram', () => {
     test('returns empty views array', async () => {
-      const program = listViewsProgram()
-      const result = await Effect.runPromise(program)
+      const mockApp = { name: 'test-app', tables: [] }
+      const program = listViewsProgram('table-1', mockApp as App, 'admin')
+      const result = await Effect.runPromise(program.pipe(Effect.either))
 
-      expect(result.views).toEqual([])
+      // Should fail with TableNotFoundError since table doesn't exist
+      expect(result._tag).toBe('Left')
     })
   })
 

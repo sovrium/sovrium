@@ -156,7 +156,12 @@ export function createGetPermissionsProgram(
   userRole: string
 ): Effect.Effect<
   {
-    readonly table: { readonly read: boolean; readonly create: boolean; readonly update: boolean; readonly delete: boolean }
+    readonly table: {
+      readonly read: boolean
+      readonly create: boolean
+      readonly update: boolean
+      readonly delete: boolean
+    }
     readonly fields: Record<string, { readonly read: boolean; readonly write: boolean }>
   },
   Error
