@@ -174,7 +174,7 @@ test.describe('Include Deleted query parameter', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-INCLUDE-DELETED-004: should correctly count deleted vs active in pagination',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
