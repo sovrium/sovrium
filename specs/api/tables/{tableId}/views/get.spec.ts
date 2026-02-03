@@ -227,7 +227,7 @@ test.describe('List table views', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-LIST-005: should only return views the user has read permission for',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
