@@ -257,7 +257,7 @@ test.describe('Get view details', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-GET-005: should return view with isDefault flag',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
