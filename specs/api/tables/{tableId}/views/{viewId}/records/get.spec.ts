@@ -106,7 +106,7 @@ test.describe('View Records API', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEW-RECORDS-002: should return records sorted by view sorts',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
