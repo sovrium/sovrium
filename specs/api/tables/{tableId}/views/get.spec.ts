@@ -196,7 +196,7 @@ test.describe('List table views', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-LIST-004: should return 401 when not authenticated',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
