@@ -67,7 +67,7 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-DELETE-002: should return 204 No Content',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
@@ -88,7 +88,7 @@ test.describe('Delete comment', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO users (id, name, email, role) VALUES
+        INSERT INTO auth.user (id, name, email, role) VALUES
           ('admin_1', 'Admin User', 'admin@example.com', 'admin'),
           ('user_2', 'Bob', 'bob@example.com', 'member')
       `)
