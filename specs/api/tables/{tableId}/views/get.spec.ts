@@ -127,7 +127,7 @@ test.describe('List table views', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-LIST-002: should return empty array when table has no views',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
