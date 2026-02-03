@@ -5,7 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { handleCreateComment, handleDeleteComment } from './comment-handlers'
+import {
+  handleCreateComment,
+  handleDeleteComment,
+  handleGetComment,
+  handleListComments,
+} from './comment-handlers'
 import {
   handleListRecords,
   handleListTrash,
@@ -29,7 +34,11 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
     .patch('/api/tables/:tableId/records/:recordId', (c) => handleUpdateRecord(c, app))
     .delete('/api/tables/:tableId/records/:recordId', (c) => handleDeleteRecord(c, app))
     .post('/api/tables/:tableId/records/:recordId/restore', (c) => handleRestoreRecord(c, app))
+    .get('/api/tables/:tableId/records/:recordId/comments', (c) => handleListComments(c, app))
     .post('/api/tables/:tableId/records/:recordId/comments', (c) => handleCreateComment(c, app))
+    .get('/api/tables/:tableId/records/:recordId/comments/:commentId', (c) =>
+      handleGetComment(c, app)
+    )
     .delete('/api/tables/:tableId/records/:recordId/comments/:commentId', (c) =>
       handleDeleteComment(c, app)
     )

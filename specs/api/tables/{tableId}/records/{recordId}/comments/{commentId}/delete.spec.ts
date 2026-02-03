@@ -348,7 +348,7 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-DELETE-009: should hide deleted comment from GET requests',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -364,16 +364,13 @@ test.describe('Delete comment', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      const user = await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO auth.user (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
-      `)
-      await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-        VALUES ('comment_1', '1', '1', 'user_1', 'Comment to delete')
+        VALUES ('comment_1', '1', '1', '${user.user.id}', 'Comment to delete')
       `)
 
       // WHEN: User deletes comment

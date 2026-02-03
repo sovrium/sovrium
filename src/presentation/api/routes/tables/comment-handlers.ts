@@ -9,6 +9,8 @@ import { Effect } from 'effect'
 import {
   createCommentProgram,
   deleteCommentProgram,
+  getCommentProgram,
+  listCommentsProgram,
 } from '@/application/use-cases/tables/comment-programs'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { isAuthorizationError } from './utils'
@@ -157,4 +159,64 @@ export async function handleDeleteComment(c: Context, app: App) {
   // Return 204 No Content on success
   // eslint-disable-next-line unicorn/no-null -- Hono's c.body() requires null for 204 No Content
   return c.body(null, 204)
+}
+
+/**
+ * Handle get comment by ID
+ */
+export async function handleGetComment(c: Context, app: App) {
+  const { session } = getTableContext(c)
+  const tableId = c.req.param('tableId')
+  const commentId = c.req.param('commentId')
+
+  // Find table by ID
+  const table = app.tables?.find((t) => String(t.id) === String(tableId))
+  if (!table) {
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  // Get comment
+  const program = getCommentProgram({
+    session,
+    commentId,
+    tableName: table.name,
+  })
+
+  const result = await Effect.runPromise(program.pipe(Effect.either))
+
+  if (result._tag === 'Left') {
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  return c.json(result.right, 200)
+}
+
+/**
+ * Handle list comments for a record
+ */
+export async function handleListComments(c: Context, app: App) {
+  const { session } = getTableContext(c)
+  const tableId = c.req.param('tableId')
+  const recordId = c.req.param('recordId')
+
+  // Find table by ID
+  const table = app.tables?.find((t) => String(t.id) === String(tableId))
+  if (!table) {
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  // List comments
+  const program = listCommentsProgram({
+    session,
+    recordId,
+    tableName: table.name,
+  })
+
+  const result = await Effect.runPromise(program.pipe(Effect.either))
+
+  if (result._tag === 'Left') {
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  return c.json(result.right, 200)
 }

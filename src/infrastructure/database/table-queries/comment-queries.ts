@@ -358,3 +358,70 @@ export function getCommentForAuth(config: {
     })
   )
 }
+
+/**
+ * Execute list comments query
+ */
+function executeListCommentsQuery(tx: unknown, recordId: string) {
+  return (tx as ReturnType<typeof db>)
+    .select({
+      id: recordComments.id,
+      tableId: recordComments.tableId,
+      recordId: recordComments.recordId,
+      userId: recordComments.userId,
+      content: recordComments.content,
+      createdAt: recordComments.createdAt,
+      userName: users.name,
+      userEmail: users.email,
+      userImage: users.image,
+    })
+    .from(recordComments)
+    .leftJoin(users, eq(recordComments.userId, users.id))
+    .where(and(eq(recordComments.recordId, recordId), isNull(recordComments.deletedAt)))
+    .orderBy(recordComments.createdAt)
+}
+
+/**
+ * List all comments for a record
+ */
+export function listComments(config: {
+  readonly session: Readonly<Session>
+  readonly recordId: string
+}): Effect.Effect<
+  readonly {
+    readonly id: string
+    readonly tableId: string
+    readonly recordId: string
+    readonly userId: string
+    readonly content: string
+    readonly createdAt: Date
+    readonly user:
+      | {
+          readonly id: string
+          readonly name: string
+          readonly email: string
+          readonly image: string | undefined
+        }
+      | undefined
+  }[],
+  SessionContextError
+> {
+  const { session, recordId } = config
+  return withSessionContext(session, (tx) =>
+    Effect.gen(function* () {
+      const result = yield* Effect.tryPromise<Array<CommentQueryRow>, SessionContextError>({
+        try: () => executeListCommentsQuery(tx, recordId),
+        catch: (error) => new SessionContextError('Failed to list comments', error),
+      })
+
+      return result.map((row) =>
+        transformCommentRow({
+          ...row,
+          userName: row.userName ?? undefined,
+          userEmail: row.userEmail ?? undefined,
+          userImage: row.userImage ?? undefined,
+        })
+      )
+    })
+  )
+}
