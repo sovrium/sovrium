@@ -432,7 +432,7 @@ test.describe('Get view details', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-GET-REGRESSION: user can complete full view details workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
