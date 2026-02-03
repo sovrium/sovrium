@@ -148,7 +148,7 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-DELETE-004: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
