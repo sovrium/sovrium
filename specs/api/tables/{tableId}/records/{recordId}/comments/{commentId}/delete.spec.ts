@@ -113,7 +113,7 @@ test.describe('Delete comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-DELETE-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
@@ -131,6 +131,9 @@ test.describe('Delete comment', () => {
       })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
+      `)
+      await executeQuery(`
+        INSERT INTO auth.user (id, name, email) VALUES ('user_1', 'Test User', 'test@example.com')
       `)
       await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
