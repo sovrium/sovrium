@@ -11,6 +11,9 @@ import {
   createComment,
   getCommentWithUser,
   checkRecordOwnership,
+  deleteComment,
+  getCommentForAuth,
+  getUserById,
 } from '@/infrastructure/database/table-queries/comment-queries'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -95,5 +98,66 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
 
     // Format response
     return formatCommentResponse(commentWithUser ?? comment)
+  })
+}
+
+/**
+ * Delete comment configuration
+ */
+interface DeleteCommentConfig {
+  readonly session: Readonly<Session>
+  readonly commentId: string
+  readonly tableName: string
+}
+
+/**
+ * Delete comment program
+ *
+ * Authorization:
+ * - Comment author can delete their own comments
+ * - Admins can delete any comment
+ * - Returns 404 for non-existent comments, already deleted comments, or unauthorized access
+ */
+export function deleteCommentProgram(
+  config: DeleteCommentConfig
+): Effect.Effect<void, SessionContextError> {
+  return Effect.gen(function* () {
+    const { session, commentId, tableName } = config
+
+    // Get comment for authorization check
+    const comment = yield* getCommentForAuth({ session, commentId })
+
+    if (!comment) {
+      return yield* Effect.fail(new SessionContextError('Comment not found'))
+    }
+
+    // Check record ownership (user must have access to the record)
+    const hasRecordAccess = yield* checkRecordOwnership({
+      session,
+      tableName,
+      recordId: comment.recordId,
+    })
+
+    if (!hasRecordAccess) {
+      return yield* Effect.fail(new SessionContextError('Comment not found'))
+    }
+
+    // Get current user to check role
+    const currentUser = yield* getUserById({ session, userId: session.userId })
+
+    if (!currentUser) {
+      return yield* Effect.fail(new SessionContextError('User not found'))
+    }
+
+    // Check authorization: user is comment author OR user is admin
+    const isAuthor = comment.userId === session.userId
+    const isAdmin = currentUser.role === 'admin'
+
+    if (!isAuthor && !isAdmin) {
+      return yield* Effect.fail(new SessionContextError('Forbidden'))
+    }
+
+    // Delete comment (soft delete)
+    yield* deleteComment({ session, commentId })
   })
 }

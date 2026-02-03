@@ -130,4 +130,19 @@ CREATE INDEX "activity_logs_table_record_idx" ON "system"."activity_logs" USING 
 CREATE INDEX "activity_logs_action_idx" ON "system"."activity_logs" USING btree ("action");--> statement-breakpoint
 CREATE INDEX "record_comments_record_created_idx" ON "system"."record_comments" USING btree ("table_id","record_id","created_at");--> statement-breakpoint
 CREATE INDEX "record_comments_user_created_idx" ON "system"."record_comments" USING btree ("user_id","created_at");--> statement-breakpoint
-CREATE INDEX "record_comments_deleted_at_idx" ON "system"."record_comments" USING btree ("deleted_at");
+CREATE INDEX "record_comments_deleted_at_idx" ON "system"."record_comments" USING btree ("deleted_at");--> statement-breakpoint
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user') THEN
+    CREATE ROLE app_user WITH LOGIN;
+  END IF;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+  WHEN unique_violation THEN NULL;
+END
+$$;--> statement-breakpoint
+GRANT USAGE ON SCHEMA auth TO app_user;--> statement-breakpoint
+GRANT USAGE ON SCHEMA system TO app_user;--> statement-breakpoint
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA auth TO app_user;--> statement-breakpoint
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA system TO app_user;--> statement-breakpoint
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA system TO app_user;
