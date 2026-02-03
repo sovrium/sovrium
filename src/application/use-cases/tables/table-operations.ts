@@ -391,6 +391,7 @@ export function getViewRecordsProgram(config: {
       filter,
       includeDeleted: false,
       sort: sort || undefined,
+      app,
     })
 
     // Process records with field filtering

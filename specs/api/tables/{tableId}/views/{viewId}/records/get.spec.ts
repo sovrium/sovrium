@@ -211,7 +211,7 @@ test.describe('View Records API', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEW-RECORDS-004: should apply combined filters, sorts, and fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
