@@ -79,7 +79,7 @@ test.describe('Include Deleted query parameter', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-INCLUDE-DELETED-002: should include deleted with includeDeleted=true',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
