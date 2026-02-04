@@ -339,7 +339,7 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-007: should return 403 when updating protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
