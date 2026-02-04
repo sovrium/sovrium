@@ -237,8 +237,11 @@ export const batchCreateRecordsResponseSchema = z.object({
  * Batch update records response schema
  */
 export const batchUpdateRecordsResponseSchema = z.object({
-  records: z.array(recordSchema).describe('Updated records'),
-  count: z.number().describe('Number of records updated'),
+  updated: z.number().describe('Number of records updated'),
+  records: z
+    .array(recordSchema)
+    .optional()
+    .describe('Updated records (only if returnRecords=true)'),
 })
 
 /**

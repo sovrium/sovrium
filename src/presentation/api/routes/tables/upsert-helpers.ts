@@ -92,7 +92,7 @@ export function checkFieldPermissions(config: {
       response: c.json(
         {
           success: false,
-          message: `You do not have permission to write to field: ${firstForbiddenField}`,
+          message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
           code: 'FORBIDDEN',
         },
         403
@@ -209,7 +209,7 @@ export function validateReadonlyFields(
       return c.json(
         {
           success: false,
-          message: `Cannot set readonly field: ${attemptedReadonlyField}`,
+          message: `Cannot write to readonly field '${attemptedReadonlyField}'`,
           code: 'VALIDATION_ERROR',
         },
         400
