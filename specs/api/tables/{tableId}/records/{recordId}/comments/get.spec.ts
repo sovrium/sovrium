@@ -172,7 +172,7 @@ test.describe('List comments on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-LIST-005: should exclude soft-deleted comments by default',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -193,10 +193,14 @@ test.describe('List comments on a record', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task with deleted comments')
       `)
       await executeQuery(`
+        INSERT INTO auth.user (id, name, email, email_verified) VALUES
+          ('user_1', 'Test User', 'user1@example.com', true)
+      `)
+      await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
         VALUES
-          ('comment_1', '1', '1', 'user_1', 'Active comment', NULL),
-          ('comment_2', '1', '1', 'user_1', 'Deleted comment', NOW())
+          ('comment_1', '1', '6', 'user_1', 'Active comment', NULL),
+          ('comment_2', '1', '6', 'user_1', 'Deleted comment', NOW())
       `)
 
       // WHEN: User lists comments without includeDeleted parameter
