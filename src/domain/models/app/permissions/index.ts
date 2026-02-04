@@ -21,7 +21,7 @@
  * Hierarchical roles (owner > admin > member > viewer) with predefined capabilities.
  *
  * ### 3. Table/Record Permissions
- * PostgreSQL RLS policies for row-level security.
+ * Application-layer permission checking for data access control.
  * See `@/domain/models/app/table/permissions/` for table-specific schemas.
  *
  * ## Usage
@@ -30,7 +30,6 @@
  * import {
  *   ResourceActionPermissionsSchema,
  *   StandardRoleSchema,
- *   RLS_VARIABLES,
  * } from '@/domain/models/app/permissions'
  * ```
  */
@@ -60,11 +59,3 @@ export {
   type FlexibleRoles,
   type StandardRolesArray,
 } from './roles'
-
-// RLS variable substitution
-export {
-  RLS_VARIABLES,
-  RLS_VARIABLE_DOCS,
-  buildRlsVariablesDoc,
-  type RlsVariable,
-} from './rls-variables'

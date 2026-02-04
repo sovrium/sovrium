@@ -44,7 +44,7 @@ import type { UniqueConstraintViolationError } from '@/infrastructure/database'
 /**
  * List all records from a table with session context
  *
- * Returns all accessible records (RLS policies apply automatically via session context).
+ * Returns all accessible records (Permissions applied via application layer).
  *
  * @param config - Configuration object
  * @param config.session - Better Auth session
@@ -159,7 +159,7 @@ export function computeAggregations(config: {
 /**
  * List soft-deleted records from a table with session context
  *
- * Returns all accessible soft-deleted records (RLS policies apply automatically via session context).
+ * Returns all accessible soft-deleted records (Permissions applied via application layer).
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table to query
@@ -381,7 +381,7 @@ export function updateRecord(
  * Implements soft delete pattern:
  * - If table has deleted_at field: Sets deleted_at to NOW() (soft delete)
  * - If no deleted_at field: Performs hard delete
- * - RLS policies automatically applied via session context
+ * - Permissions applied via application layer
  * - Cascade soft delete to related records if configured with onDelete: 'cascade'
  * - Activity logging captures record state before deletion (non-blocking)
  *
@@ -459,7 +459,7 @@ export function deleteRecord(
  *
  * Permanently removes the record from the database, regardless of deleted_at field.
  * This operation is irreversible and should only be allowed for admin/owner roles.
- * RLS policies automatically applied via session context.
+ * Permissions applied via application layer.
  * Activity logging captures record state before deletion (non-blocking).
  *
  * @param session - Better Auth session
@@ -507,7 +507,7 @@ export function permanentlyDeleteRecord(
  *
  * Clears the deleted_at timestamp to restore a soft-deleted record.
  * Returns error if record doesn't exist or is not soft-deleted.
- * RLS policies automatically applied via session context.
+ * Permissions applied via application layer.
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table

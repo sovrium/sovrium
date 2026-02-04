@@ -96,7 +96,7 @@ specs/
 │   ├── startServerWithSchema  # Start server with isolated database
 │   ├── executeQuery           # Run raw SQL queries
 │   └── generateStaticSite     # Static generation (no database)
-├── database.ts                # Database template & RLS testing utilities
+├── database.ts                # Database template utilities
 │   ├── DatabaseTemplateManager
 │   ├── createTemplate()       # Create template with migrations
 │   ├── duplicateTemplate()    # Clone database for test

@@ -55,7 +55,7 @@ const getUserRole = async (
  *
  * This function wraps database operations in a transaction and automatically sets
  * PostgreSQL session variables (app.user_id, app.user_role) based on the Better Auth
- * session. This enables RLS policies to function correctly.
+ * session. This enables application-layer permission checking.
  *
  * @param session - Better Auth session object
  * @param operation - Database operation to execute within the session context
@@ -91,12 +91,12 @@ export const withSessionContext = <A, E>(
           // CRITICAL ORDER: Set session variables BEFORE role switch
           // Session variables must be set before SET ROLE because:
           // 1. SET LOCAL is transaction-scoped, not role-scoped
-          // 2. RLS policies evaluate in the context of the CURRENT role
-          // 3. Setting variables after role switch may not be visible to RLS evaluation
+          // 2. Application-layer permission checks rely on these variables
+          // 3. Setting variables after role switch may not be visible to permission evaluation
           await tx.execute(sql.raw(`SET LOCAL app.user_id = '${escapeSQL(session.userId)}'`))
           await tx.execute(sql.raw(`SET LOCAL app.user_role = '${escapeSQL(userRole)}'`))
 
-          // CRITICAL: Execute SET LOCAL ROLE app_user AFTER setting session variables (superusers bypass RLS)
+          // CRITICAL: Execute SET LOCAL ROLE app_user AFTER setting session variables
           // eslint-disable-next-line functional/no-expression-statements -- Database transaction requires side effects
           await tx.execute(sql.raw(`SET LOCAL ROLE app_user`))
 
@@ -138,12 +138,12 @@ export const withSessionContextSimple = async <A>(
     // CRITICAL ORDER: Set session variables BEFORE role switch
     // Session variables must be set before SET ROLE because:
     // 1. SET LOCAL is transaction-scoped, not role-scoped
-    // 2. RLS policies evaluate in the context of the CURRENT role
-    // 3. Setting variables after role switch may not be visible to RLS evaluation
+    // 2. Application-layer permission checks rely on these variables
+    // 3. Setting variables after role switch may not be visible to permission evaluation
     await tx.execute(sql.raw(`SET LOCAL app.user_id = '${escapeSQL(session.userId)}'`))
     await tx.execute(sql.raw(`SET LOCAL app.user_role = '${escapeSQL(userRole)}'`))
 
-    // CRITICAL: Execute SET LOCAL ROLE app_user AFTER setting session variables (superusers bypass RLS)
+    // CRITICAL: Execute SET LOCAL ROLE app_user AFTER setting session variables
     // eslint-disable-next-line functional/no-expression-statements -- Database transaction requires side effects
     await tx.execute(sql.raw(`SET LOCAL ROLE app_user`))
 

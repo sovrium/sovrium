@@ -31,7 +31,7 @@ export {
   generatePrimaryKeyConstraintIfNeeded,
   // CREATE TABLE SQL generation
   generateCreateTableSQL,
-  // Table features (indexes, triggers, RLS policies)
+  // Table features (indexes, triggers, field permissions)
   applyTableFeatures,
   applyTableFeaturesWithoutIndexes,
   // Migration utilities

@@ -59,7 +59,7 @@ export function buildUpdateSetClauseCRUD(
 }
 
 /**
- * Execute UPDATE query with RLS enforcement
+ * Execute UPDATE query with permission enforcement
  */
 export function executeRecordUpdateCRUD(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -74,9 +74,9 @@ export function executeRecordUpdateCRUD(
         sql`UPDATE ${sql.identifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
       )) as readonly Record<string, unknown>[]
 
-      // If RLS blocked the update, result will be empty
+      // If no rows were updated, record not found or access denied
       if (result.length === 0) {
-        // eslint-disable-next-line functional/no-throw-statements -- RLS blocking requires error propagation
+        // eslint-disable-next-line functional/no-throw-statements -- Permission blocking requires error propagation
         throw new Error(`Record not found or access denied`)
       }
 

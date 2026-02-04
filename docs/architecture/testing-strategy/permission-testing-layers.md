@@ -2,26 +2,9 @@
 
 ## Overview
 
-Sovrium uses a defense-in-depth testing strategy for permissions, with tests at three distinct architectural layers.
+Sovrium uses a comprehensive testing strategy for permissions, with tests at two distinct architectural layers.
 
-## Layer 1: Database Schema (specs/app/tables/permissions/)
-
-Tests PostgreSQL RLS policy generation from domain models.
-
-**What it tests:**
-
-- RLS policy existence and correctness
-- Policy SQL definitions
-- Session variable usage (`app.user_id`, `app.owner_id`, `app.user_role`)
-- Field-level permission metadata
-
-**Key spec files:**
-
-- `organization-isolation.spec.ts` - Organization-scoped RLS policies
-- `rls-enforcement.spec.ts` - General RLS policy validation
-- `session-context.spec.ts` - PostgreSQL session variable setup
-
-## Layer 2: API Endpoints (specs/api/auth/\*)
+## Layer 1: API Endpoints (specs/api/auth/\*)
 
 Tests Better Auth API functionality and workflow correctness.
 
@@ -31,6 +14,7 @@ Tests Better Auth API functionality and workflow correctness.
 - Response schemas
 - API workflow completion
 - Authentication flows
+- Permission enforcement
 
 **Key spec files:**
 
@@ -38,7 +22,7 @@ Tests Better Auth API functionality and workflow correctness.
 - `specs/api/auth/get-session/` - Session retrieval
 - `specs/api/auth/sign-in/`, `sign-up/`, etc. - Auth workflows
 
-## Layer 3: Security Enforcement (specs/api/auth/enforcement/)
+## Layer 2: Security Enforcement (specs/api/auth/enforcement/)
 
 Tests attack prevention and authorization boundaries.
 
@@ -56,15 +40,14 @@ Tests attack prevention and authorization boundaries.
 - `session-enforcement.spec.ts` - Session security
 - `admin-enforcement.spec.ts` - Admin role enforcement
 
-## Why Three Layers?
+## Why Two Layers?
 
 Each layer catches different failure modes:
 
-| Layer                | Failure Mode Caught                                                               |
-| -------------------- | --------------------------------------------------------------------------------- |
-| Database Schema      | Wrong policy definitions, missing policies, incorrect session variable references |
-| API Endpoints        | Broken API contracts, incorrect responses, workflow failures                      |
-| Security Enforcement | API bypassing RLS, parameter tampering, IDOR attacks                              |
+| Layer                | Failure Mode Caught                                          |
+| -------------------- | ------------------------------------------------------------ |
+| API Endpoints        | Broken API contracts, incorrect responses, workflow failures |
+| Security Enforcement | API authorization bypass, parameter tampering, IDOR attacks  |
 
 ## Cross-References
 

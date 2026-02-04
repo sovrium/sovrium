@@ -75,7 +75,7 @@ async function createSingleRecord(
  * Batch create records with session context
  *
  * Creates multiple records in a single transaction.
- * RLS policies automatically applied via session context.
+ * Permissions applied via application layer.
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
@@ -522,7 +522,7 @@ async function validateRecordsForRestore(
  * Restores multiple soft-deleted records in a transaction.
  * Validates all records exist and are soft-deleted before restoring any.
  * Rolls back if any record fails validation.
- * RLS policies automatically applied via session context.
+ * Permissions applied via application layer.
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
@@ -734,9 +734,9 @@ function updateSingleRecordInBatch(
 /**
  * Batch update records with session context
  *
- * Updates multiple records in a transaction with RLS policy enforcement.
+ * Updates multiple records in a transaction with permission enforcement.
  * Only records the user has permission to update will be affected.
- * Records without permission are silently skipped (RLS behavior).
+ * Records without permission are silently skipped.
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
@@ -919,7 +919,7 @@ function logDeleteActivities(
  * Deletes multiple records (soft or hard delete based on parameters).
  * Validates all records exist before deleting any.
  * Rolls back if any record is not found.
- * RLS policies automatically enforced via session context.
+ * Permissions applied via application layer.
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table

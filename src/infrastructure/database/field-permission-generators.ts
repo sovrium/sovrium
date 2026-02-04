@@ -242,66 +242,6 @@ EXECUTE FUNCTION ${triggerFunctionName}()`
 }
 
 /**
- * Generate RLS policies for custom read conditions on fields
- *
- * PostgreSQL doesn't support column-level dynamic permissions (like GRANT SELECT (column)
- * WHERE condition). Instead, we use RLS to prevent row access when custom conditions aren't met.
- *
- * Note: This means users can't SELECT the restricted field without also being able to see
- * the row. This is a PostgreSQL limitation - we enforce at row level, not column level.
- */
-const _generateCustomReadRLSPolicies = (
-  tableName: string,
-  fieldPermissions: readonly { field: string; read?: TablePermission }[]
-): readonly string[] => {
-  // Find fields with custom condition read permissions
-  const customReadFields = fieldPermissions.filter(
-    (fp) => fp.read?.type === 'custom' || fp.read?.type === 'owner'
-  )
-
-  if (customReadFields.length === 0) {
-    return []
-  }
-
-  // Enable RLS on the table
-  const enableRLS = `ALTER TABLE ${tableName} ENABLE ROW LEVEL SECURITY`
-
-  // Enable RLS for authenticated users (they bypass RLS by default)
-  const forceRLS = `ALTER TABLE ${tableName} FORCE ROW LEVEL SECURITY`
-
-  // Create a single policy that combines all custom read conditions
-  // Row is visible if ALL custom conditions are met
-  const conditions = customReadFields.map((fp) => {
-    const condition = generateFieldCondition(fp.read!)
-    return `(${condition})`
-  })
-
-  const combinedCondition = conditions.join(' AND ')
-  const policyName = `${tableName}_custom_field_read_policy`
-
-  const policy = `
--- Drop existing policy if exists
-DROP POLICY IF EXISTS ${policyName} ON ${tableName};
-
--- Create RESTRICTIVE policy for custom field read conditions
--- Row is visible only if ALL custom field conditions are met
--- RESTRICTIVE: Must be combined (AND) with PERMISSIVE policies
--- NOTE: With FORCE ROW LEVEL SECURITY enabled, RESTRICTIVE policies apply to ALL roles
--- Solution: Add OR condition to bypass filtering for app_user role (API uses application-layer field filtering)
--- Other roles (authenticated_user, admin_user, member_user) get row-level filtering via custom conditions
-CREATE POLICY ${policyName}
-ON ${tableName}
-AS RESTRICTIVE
-FOR SELECT
-USING (
-  current_user = 'app_user'
-  OR (${combinedCondition})
-)`
-
-  return [enableRLS, forceRLS, policy]
-}
-
-/**
  * Generate write permission grants (UPDATE and INSERT) for fields
  */
 const generateWritePermissionGrants = (
@@ -496,17 +436,10 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
 
   const customConditionTriggers = generateCustomConditionTriggers(tableName, fieldPermissions)
 
-  // NOTE: Custom read RLS policies target SQL roles (authenticated_user, admin_user, member_user)
-  // but NOT the API role (app_user). This allows:
-  // - Raw SQL queries: Use RLS for row-level filtering (PostgreSQL limitation - no column-level dynamic permissions)
-  // - API queries: Use filterReadableFields() for field-level filtering at application layer
-  const customReadRLSPolicies = _generateCustomReadRLSPolicies(tableName, fieldPermissions)
-
   return [
     ...roleSetupStatements,
     ...columnGrantStatements,
     ...customFieldReadGrants,
-    ...customReadRLSPolicies, // ENABLED for SQL roles, excluded from app_user
     ...writeGrantStatements,
     ...customConditionTriggers,
   ]
