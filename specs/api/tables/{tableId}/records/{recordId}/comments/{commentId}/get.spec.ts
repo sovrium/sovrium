@@ -107,7 +107,7 @@ test.describe('Get single comment by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-GET-003: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
@@ -125,6 +125,9 @@ test.describe('Get single comment by ID', () => {
       })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Private Task')
+      `)
+      await executeQuery(`
+        INSERT INTO auth.user (id, name, email) VALUES ('user_1', 'Test User', 'user1@example.com')
       `)
       await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
