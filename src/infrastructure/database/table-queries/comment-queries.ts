@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql, eq, and, isNull, desc } from 'drizzle-orm'
+import { sql, eq, and, isNull, desc, asc } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { users } from '@/infrastructure/auth/better-auth/schema'
 import { withSessionContext, SessionContextError } from '@/infrastructure/database'
@@ -368,8 +368,16 @@ export function getCommentForAuth(config: {
 /**
  * Execute list comments query
  */
-function executeListCommentsQuery(tx: unknown, recordId: string) {
-  return (tx as ReturnType<typeof db>)
+function executeListCommentsQuery(
+  tx: unknown,
+  recordId: string,
+  options?: {
+    readonly limit?: number
+    readonly offset?: number
+    readonly sortOrder?: 'asc' | 'desc'
+  }
+) {
+  const query = (tx as ReturnType<typeof db>)
     .select({
       id: recordComments.id,
       tableId: recordComments.tableId,
@@ -385,7 +393,21 @@ function executeListCommentsQuery(tx: unknown, recordId: string) {
     .from(recordComments)
     .leftJoin(users, eq(recordComments.userId, users.id))
     .where(and(eq(recordComments.recordId, recordId), isNull(recordComments.deletedAt)))
-    .orderBy(desc(recordComments.createdAt))
+
+  // Apply sorting (default: DESC for newest first)
+  // Secondary sort by ID for deterministic ordering when timestamps are identical
+  const sortedQuery =
+    options?.sortOrder === 'asc'
+      ? query.orderBy(asc(recordComments.createdAt), asc(recordComments.id))
+      : query.orderBy(desc(recordComments.createdAt), desc(recordComments.id))
+
+  // Apply pagination
+  if (options?.limit !== undefined) {
+    const paginatedQuery = sortedQuery.limit(options.limit)
+    return options.offset !== undefined ? paginatedQuery.offset(options.offset) : paginatedQuery
+  }
+
+  return sortedQuery
 }
 
 /**
@@ -394,6 +416,9 @@ function executeListCommentsQuery(tx: unknown, recordId: string) {
 export function listComments(config: {
   readonly session: Readonly<Session>
   readonly recordId: string
+  readonly limit?: number
+  readonly offset?: number
+  readonly sortOrder?: 'asc' | 'desc'
 }): Effect.Effect<
   readonly {
     readonly id: string
@@ -414,11 +439,11 @@ export function listComments(config: {
   }[],
   SessionContextError
 > {
-  const { session, recordId } = config
+  const { session, recordId, limit, offset, sortOrder } = config
   return withSessionContext(session, (tx) =>
     Effect.gen(function* () {
       const result = yield* Effect.tryPromise<Array<CommentQueryRow>, SessionContextError>({
-        try: () => executeListCommentsQuery(tx, recordId),
+        try: () => executeListCommentsQuery(tx, recordId, { limit, offset, sortOrder }),
         catch: (error) => new SessionContextError('Failed to list comments', error),
       })
 
@@ -430,6 +455,30 @@ export function listComments(config: {
           userImage: row.userImage ?? undefined,
         })
       )
+    })
+  )
+}
+
+/**
+ * Get total count of comments for a record
+ */
+export function getCommentsCount(config: {
+  readonly session: Readonly<Session>
+  readonly recordId: string
+}): Effect.Effect<number, SessionContextError> {
+  const { session, recordId } = config
+  return withSessionContext(session, (tx) =>
+    Effect.gen(function* () {
+      const result = yield* Effect.tryPromise<Array<{ count: number }>, SessionContextError>({
+        try: () =>
+          (tx as ReturnType<typeof db>)
+            .select({ count: sql<number>`count(*)::int` })
+            .from(recordComments)
+            .where(and(eq(recordComments.recordId, recordId), isNull(recordComments.deletedAt))),
+        catch: (error) => new SessionContextError('Failed to count comments', error),
+      })
+
+      return result[0]?.count ?? 0
     })
   )
 }

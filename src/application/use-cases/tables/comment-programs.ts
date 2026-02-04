@@ -15,6 +15,7 @@ import {
   getCommentForAuth,
   getUserById,
   listComments,
+  getCommentsCount,
 } from '@/infrastructure/database/table-queries/comment-queries'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -235,6 +236,9 @@ interface ListCommentsConfig {
   readonly session: Readonly<Session>
   readonly recordId: string
   readonly tableName: string
+  readonly limit?: number
+  readonly offset?: number
+  readonly sortOrder?: 'asc' | 'desc'
 }
 
 /**
@@ -259,11 +263,17 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
           }
         | undefined
     }[]
+    readonly pagination?: {
+      readonly total: number
+      readonly limit: number
+      readonly offset: number
+      readonly hasMore: boolean
+    }
   },
   SessionContextError
 > {
   return Effect.gen(function* () {
-    const { session, recordId, tableName } = config
+    const { session, recordId, tableName, limit, offset, sortOrder } = config
 
     // Check record ownership
     const hasRecordAccess = yield* checkRecordOwnership({
@@ -277,7 +287,21 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
     }
 
     // List comments
-    const comments = yield* listComments({ session, recordId })
+    const comments = yield* listComments({ session, recordId, limit, offset, sortOrder })
+
+    // Get total count if pagination is requested
+    let pagination: { total: number; limit: number; offset: number; hasMore: boolean } | undefined
+
+    if (limit !== undefined) {
+      const total = yield* getCommentsCount({ session, recordId })
+      const actualOffset = offset ?? 0
+      pagination = {
+        total,
+        limit,
+        offset: actualOffset,
+        hasMore: actualOffset + limit < total,
+      }
+    }
 
     // Format response
     return {
@@ -291,6 +315,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
         updatedAt: comment.updatedAt.toISOString(),
         user: comment.user,
       })),
+      ...(pagination && { pagination }),
     }
   })
 }
