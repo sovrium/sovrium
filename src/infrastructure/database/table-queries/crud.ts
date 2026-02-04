@@ -68,8 +68,11 @@ export function listRecords(config: {
   }
   readonly includeDeleted?: boolean
   readonly sort?: string
+  readonly app?: {
+    readonly tables?: readonly { readonly name: string; readonly fields: readonly unknown[] }[]
+  }
 }): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
-  const { session, tableName, filter, includeDeleted, sort } = config
+  const { session, tableName, filter, includeDeleted, sort, app } = config
   return withSessionContext(session, (tx) =>
     Effect.gen(function* () {
       validateTableName(tableName)
@@ -78,7 +81,7 @@ export function listRecords(config: {
 
       // Build query clauses
       const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
-      const orderByClause = buildOrderByClause(sort)
+      const orderByClause = buildOrderByClause(sort, app, tableName)
 
       const result = yield* Effect.tryPromise({
         try: () =>

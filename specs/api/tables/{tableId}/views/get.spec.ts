@@ -32,7 +32,7 @@ test.describe('List table views', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-LIST-001: should return all views with complete domain configurations',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -127,7 +127,7 @@ test.describe('List table views', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-LIST-002: should return empty array when table has no views',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -162,7 +162,7 @@ test.describe('List table views', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-LIST-003: should return 404 when table does not exist',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -196,7 +196,7 @@ test.describe('List table views', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-LIST-004: should return 401 when not authenticated',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
@@ -227,7 +227,7 @@ test.describe('List table views', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-LIST-005: should only return views the user has read permission for',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
@@ -277,7 +277,7 @@ test.describe('List table views', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-LIST-REGRESSION: user can complete full views list workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {

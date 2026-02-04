@@ -70,6 +70,7 @@ export const batchUpdateRecordsRequestSchema = z.object({
     )
     .min(1, 'At least one record is required')
     .max(100, 'Maximum 100 records per batch'),
+  returnRecords: z.boolean().optional().default(false),
 })
 
 /**

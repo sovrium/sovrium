@@ -12,6 +12,7 @@ import {
   getCommentProgram,
   listCommentsProgram,
 } from '@/application/use-cases/tables/comment-programs'
+import { hasReadPermission } from '@/application/use-cases/tables/permissions/permissions'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { isAuthorizationError } from './utils'
 import type { App } from '@/domain/models/app'
@@ -165,7 +166,7 @@ export async function handleDeleteComment(c: Context, app: App) {
  * Handle get comment by ID
  */
 export async function handleGetComment(c: Context, app: App) {
-  const { session } = getTableContext(c)
+  const { session, userRole } = getTableContext(c)
   const tableId = c.req.param('tableId')
   const commentId = c.req.param('commentId')
 
@@ -173,6 +174,18 @@ export async function handleGetComment(c: Context, app: App) {
   const table = app.tables?.find((t) => String(t.id) === String(tableId))
   if (!table) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  // Check read permission
+  if (!hasReadPermission(table, userRole)) {
+    return c.json(
+      {
+        success: false,
+        message: 'You do not have permission to perform this action',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
   }
 
   // Get comment
@@ -192,6 +205,22 @@ export async function handleGetComment(c: Context, app: App) {
 }
 
 /**
+ * Parse sort query parameter (e.g., "createdAt:asc" or "createdAt:desc")
+ */
+function parseSortOrder(sortParam: string | undefined): 'asc' | 'desc' | undefined {
+  if (!sortParam) {
+    return undefined
+  }
+
+  const [field, order] = sortParam.split(':')
+  if (field === 'createdAt' && (order === 'asc' || order === 'desc')) {
+    return order
+  }
+
+  return undefined
+}
+
+/**
  * Handle list comments for a record
  */
 export async function handleListComments(c: Context, app: App) {
@@ -205,11 +234,23 @@ export async function handleListComments(c: Context, app: App) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 
+  // Parse query parameters
+  const limitParam = c.req.query('limit')
+  const offsetParam = c.req.query('offset')
+  const sortParam = c.req.query('sort')
+
+  const limit = limitParam ? Number(limitParam) : undefined
+  const offset = offsetParam ? Number(offsetParam) : undefined
+  const sortOrder = parseSortOrder(sortParam)
+
   // List comments
   const program = listCommentsProgram({
     session,
     recordId,
     tableName: table.name,
+    limit,
+    offset,
+    sortOrder,
   })
 
   const result = await Effect.runPromise(program.pipe(Effect.either))

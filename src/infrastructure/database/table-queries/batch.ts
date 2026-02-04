@@ -684,7 +684,7 @@ function executeRecordUpdate(
   tableName: string,
   recordId: string,
   setClause: Readonly<ReturnType<typeof sql.join>>
-): Effect.Effect<Record<string, unknown> | undefined, never> {
+): Effect.Effect<Record<string, unknown> | undefined, ValidationError> {
   return Effect.tryPromise({
     try: async () => {
       const result = (await tx.execute(
@@ -692,8 +692,26 @@ function executeRecordUpdate(
       )) as readonly Record<string, unknown>[]
       return result[0]
     },
-    catch: () => undefined,
-  }).pipe(Effect.orElseSucceed(() => undefined))
+    catch: (error) => {
+      // PostgreSQL error codes: https://www.postgresql.org/docs/current/errcodes-appendix.html
+      // 23502 = not_null_violation
+      const pgError = error as { code?: string; message?: string; constraint?: string }
+      if (pgError.code === '23502' || pgError.message?.includes('null value in column')) {
+        // Extract field name from error message if possible
+        const fieldMatch = pgError.message?.match(/column "([^"]+)"/)
+        const fieldName: string = fieldMatch?.[1] ?? 'unknown'
+        return new ValidationError(`Cannot set required field '${fieldName}' to null`, [
+          { record: 0, field: fieldName, error: 'Required field cannot be null' },
+        ])
+      }
+      // For other errors, return generic validation error
+      const errorMessage: string =
+        pgError.message !== undefined
+          ? pgError.message
+          : 'Update failed due to constraint violation'
+      return new ValidationError(errorMessage, [])
+    },
+  })
 }
 
 /**
@@ -705,7 +723,7 @@ function updateSingleRecordInBatch(
   tableName: string,
   session: Readonly<Session>,
   update: { readonly id: string; readonly fields?: Record<string, unknown> }
-): Effect.Effect<Record<string, unknown> | undefined, never> {
+): Effect.Effect<Record<string, unknown> | undefined, ValidationError> {
   return Effect.gen(function* () {
     const fieldsToUpdate = extractFieldsFromUpdate(update)
     const entries = Object.entries(fieldsToUpdate)
@@ -747,7 +765,7 @@ export function batchUpdateRecords(
   session: Readonly<Session>,
   tableName: string,
   updates: readonly { readonly id: string; readonly fields?: Record<string, unknown> }[]
-): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+): Effect.Effect<readonly Record<string, unknown>[], SessionContextError | ValidationError> {
   return withSessionContext(session, (tx) =>
     Effect.gen(function* () {
       validateTableName(tableName)
