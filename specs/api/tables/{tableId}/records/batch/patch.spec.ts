@@ -702,7 +702,7 @@ test.describe('Batch update records', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-REGRESSION: user can complete full batch update workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
