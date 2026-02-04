@@ -53,6 +53,11 @@ test.describe('List comments on a record', () => {
         INSERT INTO tasks (id, title, status) VALUES (1, 'Task One', 'in-progress')
       `)
       await executeQuery(`
+        INSERT INTO auth.user (id, name, email, email_verified) VALUES
+          ('user_1', 'Alice Johnson', 'alice@example.com', true),
+          ('user_2', 'Bob Smith', 'bob@example.com', true)
+      `)
+      await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at)
         VALUES
           ('comment_1', '1', '1', 'user_1', 'First comment', NOW() - INTERVAL '2 hours'),
@@ -228,9 +233,9 @@ test.describe('List comments on a record', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Collaborative Task')
       `)
       await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES
-          ('user_1', 'Alice Johnson', 'alice@example.com'),
-          ('user_2', 'Bob Smith', 'bob@example.com')
+        INSERT INTO auth.user (id, name, email, email_verified) VALUES
+          ('user_1', 'Alice Johnson', 'alice@example.com', true),
+          ('user_2', 'Bob Smith', 'bob@example.com', true)
       `)
       await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
@@ -481,9 +486,9 @@ test.describe('List comments on a record', () => {
 
       // Insert users for comment attribution
       await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES
-          ('user_1', 'Alice Johnson', 'alice@example.com'),
-          ('user_2', 'Bob Smith', 'bob@example.com')
+        INSERT INTO auth.user (id, name, email, email_verified) VALUES
+          ('user_1', 'Alice Johnson', 'alice@example.com', true),
+          ('user_2', 'Bob Smith', 'bob@example.com', true)
       `)
 
       await test.step('API-TABLES-RECORDS-COMMENTS-LIST-001: Returns 200 with comments array in chronological order', async () => {
