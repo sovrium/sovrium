@@ -107,6 +107,37 @@ async function handleBatchRestore(c: Context, _app: App) {
 }
 
 /**
+ * Apply read-level filtering to batch create response records
+ */
+function applyBatchCreateReadFiltering(
+  response: { readonly created: number; readonly records?: readonly TransformedRecord[] },
+  params: {
+    readonly app: App
+    readonly tableName: string
+    readonly userRole: string
+    readonly userId: string
+  }
+): { readonly created: number; readonly records?: readonly TransformedRecord[] } {
+  if (!response.records) return response
+
+  const filteredRecords: readonly TransformedRecord[] = response.records.map((record) => ({
+    ...record,
+    fields: filterReadableFields({
+      app: params.app,
+      tableName: params.tableName,
+      userRole: params.userRole,
+      userId: params.userId,
+      record: record.fields,
+    }) as Record<string, RecordFieldValue | FormattedFieldValue>,
+  }))
+
+  return {
+    created: response.created,
+    records: filteredRecords,
+  }
+}
+
+/**
  * Handle batch create endpoint
  */
 async function handleBatchCreate(c: Context, app: App) {
@@ -120,8 +151,9 @@ async function handleBatchCreate(c: Context, app: App) {
   if (!hasCreatePermission(table, userRole)) {
     return c.json(
       {
-        error: 'Forbidden',
+        success: false,
         message: 'You do not have permission to create records in this table',
+        code: 'FORBIDDEN',
       },
       403
     )
@@ -137,7 +169,7 @@ async function handleBatchCreate(c: Context, app: App) {
     return c.json(
       {
         success: false,
-        message: `You do not have permission to modify field(s): ${uniqueForbiddenFields.join(', ')}`,
+        message: `Cannot write to field '${uniqueForbiddenFields[0]}': insufficient permissions`,
         code: 'FORBIDDEN',
       },
       403
@@ -147,12 +179,17 @@ async function handleBatchCreate(c: Context, app: App) {
   // Extract flat field objects from nested format for database layer
   const flatRecordsData = result.data.records.map((record) => record.fields)
 
-  return runEffect(
-    c,
-    batchCreateProgram(session, tableName, flatRecordsData),
-    batchCreateRecordsResponseSchema,
-    201
+  // Execute batch create with returnRecords parameter
+  const program = batchCreateProgram(session, tableName, flatRecordsData, result.data.returnRecords)
+
+  // Apply field-level read filtering to response (if records returned)
+  const filteredProgram = program.pipe(
+    Effect.map((response) =>
+      applyBatchCreateReadFiltering(response, { app, tableName, userRole, userId: session.userId })
+    )
   )
+
+  return runEffect(c, filteredProgram, batchCreateRecordsResponseSchema, 201)
 }
 
 /**

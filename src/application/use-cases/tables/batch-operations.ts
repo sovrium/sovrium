@@ -27,8 +27,12 @@ import type { BatchRestoreRecordsResponse } from '@/presentation/api/schemas/tab
 export function batchCreateProgram(
   session: Readonly<Session>,
   tableName: string,
-  recordsData: readonly Record<string, unknown>[]
-) {
+  recordsData: readonly Record<string, unknown>[],
+  returnRecords: boolean = false
+): Effect.Effect<
+  { readonly created: number; readonly records?: readonly TransformedRecord[] },
+  SessionContextError
+> {
   return Effect.gen(function* () {
     // Create records in the database
     const createdRecords = yield* batchCreateRecords(session, tableName, recordsData)
@@ -36,10 +40,18 @@ export function batchCreateProgram(
     // Transform records to API format
     const transformed = transformRecords(createdRecords)
 
-    return {
-      records: transformed,
-      count: transformed.length,
-    }
+    // Use functional pattern to build response object
+    const response: { readonly created: number; readonly records?: readonly TransformedRecord[] } =
+      returnRecords
+        ? {
+            created: transformed.length,
+            records: transformed as TransformedRecord[],
+          }
+        : {
+            created: transformed.length,
+          }
+
+    return response
   })
 }
 
