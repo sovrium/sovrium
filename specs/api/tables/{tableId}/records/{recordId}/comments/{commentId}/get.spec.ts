@@ -23,7 +23,7 @@ test.describe('Get single comment by ID', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-GET-001: should return 200 with complete comment data',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
