@@ -44,6 +44,23 @@ import type { Context, Hono } from 'hono'
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
 
 /**
+ * Check if user is viewer and return 403 response if so
+ */
+function checkViewerPermission(userRole: string, c: Context): Response | undefined {
+  if (userRole === 'viewer') {
+    return c.json(
+      {
+        success: false,
+        message: 'You do not have permission to perform this action',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
+  return undefined
+}
+
+/**
  * Apply read-level filtering to batch update response records
  */
 function applyBatchUpdateReadFiltering(
@@ -162,6 +179,10 @@ async function handleBatchUpdate(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
   const { session, tableName, userRole } = getTableContext(c)
 
+  // Authorization check BEFORE validation (viewer role cannot update)
+  const viewerCheck = checkViewerPermission(userRole, c)
+  if (viewerCheck) return viewerCheck
+
   const result = await validateRequest(c, batchUpdateRecordsRequestSchema)
   if (!result.success) return result.response
 
@@ -243,16 +264,8 @@ async function handleUpsert(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
 
   // Authorization check BEFORE validation (viewer role cannot upsert)
-  if (userRole === 'viewer') {
-    return c.json(
-      {
-        success: false,
-        message: 'You do not have permission to perform this action',
-        code: 'FORBIDDEN',
-      },
-      403
-    )
-  }
+  const viewerCheck = checkViewerPermission(userRole, c)
+  if (viewerCheck) return viewerCheck
 
   const result = await validateRequest(c, upsertRecordsRequestSchema)
   if (!result.success) return result.response
