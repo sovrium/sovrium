@@ -368,7 +368,7 @@ test.describe('View Records API', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEW-RECORDS-007: should return 401 when not authenticated',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
