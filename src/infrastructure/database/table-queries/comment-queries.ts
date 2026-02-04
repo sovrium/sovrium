@@ -78,6 +78,7 @@ function transformCommentRow(row: {
   readonly userId: string
   readonly content: string
   readonly createdAt: Date
+  readonly updatedAt: Date
   readonly userName: string | undefined
   readonly userEmail: string | undefined
   readonly userImage: string | undefined
@@ -88,6 +89,7 @@ function transformCommentRow(row: {
   readonly userId: string
   readonly content: string
   readonly createdAt: Date
+  readonly updatedAt: Date
   readonly user:
     | {
         readonly id: string
@@ -104,6 +106,7 @@ function transformCommentRow(row: {
     userId: row.userId,
     content: row.content,
     createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
     user:
       row.userName && row.userEmail
         ? { id: row.userId, name: row.userName, email: row.userEmail, image: row.userImage }
@@ -121,6 +124,7 @@ type CommentQueryRow = {
   readonly userId: string
   readonly content: string
   readonly createdAt: Date
+  readonly updatedAt: Date
   readonly userName: string | null
   readonly userEmail: string | null
   readonly userImage: string | null
@@ -138,6 +142,7 @@ function executeCommentQuery(commentId: string) {
       userId: recordComments.userId,
       content: recordComments.content,
       createdAt: recordComments.createdAt,
+      updatedAt: recordComments.updatedAt,
       userName: users.name,
       userEmail: users.email,
       userImage: users.image,
@@ -162,6 +167,7 @@ export function getCommentWithUser(config: {
       readonly userId: string
       readonly content: string
       readonly createdAt: Date
+      readonly updatedAt: Date
       readonly user:
         | {
             readonly id: string
@@ -371,6 +377,7 @@ function executeListCommentsQuery(tx: unknown, recordId: string) {
       userId: recordComments.userId,
       content: recordComments.content,
       createdAt: recordComments.createdAt,
+      updatedAt: recordComments.updatedAt,
       userName: users.name,
       userEmail: users.email,
       userImage: users.image,
@@ -395,6 +402,7 @@ export function listComments(config: {
     readonly userId: string
     readonly content: string
     readonly createdAt: Date
+    readonly updatedAt: Date
     readonly user:
       | {
           readonly id: string

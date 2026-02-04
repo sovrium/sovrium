@@ -23,7 +23,7 @@ test.describe('Get single comment by ID', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-GET-001: should return 200 with complete comment data',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -44,7 +44,7 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
+        INSERT INTO auth.user (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
       await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
@@ -279,7 +279,7 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
+        INSERT INTO auth.user (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
       await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
@@ -335,7 +335,7 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
       `)
       await executeQuery(`
-        INSERT INTO users (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
+        INSERT INTO auth.user (id, name, email) VALUES ('user_1', 'Alice', 'alice@example.com')
       `)
       await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
