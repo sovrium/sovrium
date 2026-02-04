@@ -334,7 +334,7 @@ test.describe('View Records API', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-VIEW-RECORDS-006: should return 404 when view does not exist',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
