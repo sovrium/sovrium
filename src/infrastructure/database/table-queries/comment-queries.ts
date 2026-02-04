@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql, eq, and, isNull } from 'drizzle-orm'
+import { sql, eq, and, isNull, desc } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { users } from '@/infrastructure/auth/better-auth/schema'
 import { withSessionContext, SessionContextError } from '@/infrastructure/database'
@@ -385,7 +385,7 @@ function executeListCommentsQuery(tx: unknown, recordId: string) {
     .from(recordComments)
     .leftJoin(users, eq(recordComments.userId, users.id))
     .where(and(eq(recordComments.recordId, recordId), isNull(recordComments.deletedAt)))
-    .orderBy(recordComments.createdAt)
+    .orderBy(desc(recordComments.createdAt))
 }
 
 /**
