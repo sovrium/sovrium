@@ -188,7 +188,7 @@ test.describe('Get single comment by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-GET-005: should return 404 Not Found for soft-deleted comment',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
