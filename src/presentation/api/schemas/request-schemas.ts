@@ -28,9 +28,22 @@ export const createRecordRequestSchema = z.object({
  * Validates the request body for updating a record.
  * Requires nested format: { fields: {...} }
  */
-export const updateRecordRequestSchema = z.object({
-  fields: z.record(z.string(), fieldValueSchema).optional().default({}),
-})
+export const updateRecordRequestSchema = z
+  .object({
+    fields: z.record(z.string(), fieldValueSchema).optional(),
+  })
+  .catchall(fieldValueSchema)
+  .transform((data) => {
+    // Support both formats:
+    // 1. Nested: { fields: { name: 'Alice' } }
+    // 2. Direct: { name: 'Alice' }
+    if (data.fields !== undefined) {
+      // Nested format - use as-is
+      return { fields: data.fields }
+    }
+    // Direct format - wrap in fields object
+    return { fields: data as Record<string, unknown> }
+  })
 
 // ============================================================================
 // Batch Operation Request Schemas
