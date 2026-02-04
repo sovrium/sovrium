@@ -206,21 +206,14 @@ async function handleBatchUpdate(c: Context, app: App) {
   const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
   if (readonlyValidation) return readonlyValidation
 
-  // Authorization: Check field-level write permissions
-  const fieldPermissionCheck = await import('./upsert-helpers').then((m) =>
-    m.checkFieldPermissions({
-      app,
-      tableName,
-      userRole,
-      records: result.data.records,
-      c,
-    })
-  )
-  if (!fieldPermissionCheck.allowed) return fieldPermissionCheck.response
+  // Authorization: Strip unwritable fields (permissive batch update behavior)
+  // Instead of rejecting requests with protected fields, silently ignore them
+  const { stripUnwritableFields } = await import('./upsert-helpers')
+  const strippedRecords = stripUnwritableFields(app, tableName, userRole, result.data.records)
 
   // Keep records in { id, fields } format for database layer
-  const recordsData = result.data.records.map((record) => ({
-    id: record.id,
+  const recordsData = strippedRecords.map((record, index) => ({
+    id: result.data.records[index]?.id ?? 0,
     fields: record.fields,
   }))
 

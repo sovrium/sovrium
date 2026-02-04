@@ -457,6 +457,15 @@ test.describe('Batch update records', () => {
               { id: 2, name: 'email', type: 'email' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
+            permissions: {
+              fields: [
+                {
+                  field: 'salary',
+                  read: { type: 'roles', roles: ['admin'] },
+                  write: { type: 'roles', roles: ['admin'] },
+                },
+              ],
+            },
           },
         ],
       })
