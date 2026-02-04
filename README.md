@@ -7,7 +7,7 @@
 
 <p align="center">
   <a href="https://github.com/sovrium/sovrium/blob/main/LICENSE.md"><img src="https://img.shields.io/badge/license-BSL--1.1-blue" alt="License" /></a>
-  <a href="SPEC-PROGRESS.md"><img src="https://img.shields.io/badge/progress-94%25-blue" alt="Progress" /></a>
+  <a href="SPEC-PROGRESS.md"><img src="https://img.shields.io/badge/progress-93%25-blue" alt="Progress" /></a>
   <a href="https://bun.sh"><img src="https://img.shields.io/badge/runtime-Bun-f472b6" alt="Bun" /></a>
 </p>
 

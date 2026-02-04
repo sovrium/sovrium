@@ -98,6 +98,7 @@ interface SpecState {
     totalPassing: number
     qualityScore: number
     duplicateSpecIds: number
+    orphanedSpecIds: number
     issuesByType: {
       errors: number
       warnings: number
@@ -107,7 +108,9 @@ interface SpecState {
   files: SpecFile[]
   coverageGaps: CoverageGap[]
   duplicateSpecIds: DuplicateSpecId[]
+  orphanedSpecIds: OrphanedSpecId[]
   tddAutomation: TDDAutomationStats
+  userStoryMetrics: UserStoryMetrics | null
 }
 
 interface CoverageGap {
@@ -178,6 +181,53 @@ interface DomainSummary {
 }
 
 // =============================================================================
+// User Story Tracking Types
+// =============================================================================
+
+interface AcceptanceCriterion {
+  id: string // e.g., "AC-001"
+  criterion: string
+  specTestId: string | null // e.g., "API-AUTH-SIGN-UP-EMAIL-001" or null if not linked
+  schema: string
+  status: 'complete' | 'partial' | 'not-started'
+}
+
+interface UserStory {
+  id: string // e.g., "US-AUTH-METHOD-DEV-001"
+  title: string
+  story: string
+  status: 'complete' | 'partial' | 'not-started'
+  acceptanceCriteria: AcceptanceCriterion[]
+  filePath: string
+  domain: string
+  featureArea: string
+  role: string
+}
+
+interface UserStoryMetrics {
+  totalStories: number
+  totalCriteria: number
+  // Stories NOT linked to any spec IDs
+  storiesToSpecify: UserStory[]
+  storiesToSpecifyPercent: number
+  // Stories linked to spec IDs with .fixme() status
+  storiesSpecifiedNotImplemented: UserStory[]
+  storiesSpecifiedNotImplementedPercent: number
+  // Stories linked to passing spec IDs
+  storiesSpecifiedAndImplemented: UserStory[]
+  storiesSpecifiedAndImplementedPercent: number
+  // All stories organized by domain
+  byDomain: Map<string, UserStory[]>
+}
+
+interface OrphanedSpecId {
+  specId: string
+  file: string
+  line: number
+  testName: string
+}
+
+// =============================================================================
 // Constants
 // =============================================================================
 
@@ -197,6 +247,18 @@ const SPECS_DIR = join(process.cwd(), 'specs')
 const OUTPUT_FILE = join(process.cwd(), 'SPEC-PROGRESS.md')
 const OLD_OUTPUT_FILE = join(process.cwd(), 'SPEC-STATE.md') // For migration
 const README_FILE = join(process.cwd(), 'README.md')
+const USER_STORIES_DIR = join(process.cwd(), 'docs/specification')
+
+// User Story parsing patterns
+const USER_STORY_ID_PATTERN = /^###\s+(US-[A-Z]+-[A-Z0-9-]+-\d{3}):\s+(.+)$/m
+const USER_STORY_STATUS_PATTERN = /\*\*Status\*\*:\s*`\[([x~\s])\]`/
+// Match spec test IDs in acceptance criteria tables: | ... | `API-AUTH-SIGN-UP-001` | ... |
+const ACCEPTANCE_CRITERIA_TABLE_ROW_PATTERN =
+  /^\|\s*(AC-\d{3})\s*\|\s*([^|]+)\s*\|\s*`?([A-Z]+-[A-Z0-9-]+-(?:\d{3}|REGRESSION))?`?\s*\|\s*([^|]*)\s*\|\s*`?\[([x~\s])\]`?\s*\|$/gm
+// Domain/feature/role from file metadata
+const DOMAIN_PATTERN = />\s*\*\*Domain\*\*:\s*(\S+)/
+const FEATURE_AREA_PATTERN = />\s*\*\*Feature Area\*\*:\s*(\S+)/
+const ROLE_PATTERN = />\s*\*\*Role\*\*:\s*(.+)/
 
 // =============================================================================
 // Analysis Functions
@@ -917,6 +979,248 @@ function detectDuplicateSpecIds(files: SpecFile[]): DuplicateSpecId[] {
   return duplicates.sort((a, b) => a.specId.localeCompare(b.specId))
 }
 
+// =============================================================================
+// User Story Analysis Functions
+// =============================================================================
+
+/**
+ * Find all user story markdown files in docs/specification/
+ */
+async function findUserStoryFiles(dir: string): Promise<string[]> {
+  const files: string[] = []
+
+  async function walk(currentDir: string) {
+    try {
+      const entries = await readdir(currentDir, { withFileTypes: true })
+
+      for (const entry of entries) {
+        const fullPath = join(currentDir, entry.name)
+
+        if (entry.isDirectory()) {
+          await walk(fullPath)
+        } else if (entry.name.startsWith('as-') && entry.name.endsWith('.md')) {
+          // Only parse role-specific files (as-developer.md, as-admin.md, etc.)
+          files.push(fullPath)
+        }
+      }
+    } catch {
+      // Directory doesn't exist or can't be read
+    }
+  }
+
+  await walk(dir)
+  return files.sort()
+}
+
+/**
+ * Parse a user story markdown file and extract all user stories with their acceptance criteria.
+ */
+function parseUserStoryFile(content: string, filePath: string): UserStory[] {
+  const stories: UserStory[] = []
+
+  // Extract domain, feature area, and role from file metadata
+  const domainMatch = content.match(DOMAIN_PATTERN)
+  const featureAreaMatch = content.match(FEATURE_AREA_PATTERN)
+  const roleMatch = content.match(ROLE_PATTERN)
+
+  const domain = domainMatch?.[1] || 'unknown'
+  const featureArea = featureAreaMatch?.[1] || 'unknown'
+  const role = roleMatch?.[1]?.trim() || 'unknown'
+
+  // Split content by user story headers
+  const storyBlocks = content.split(/(?=^###\s+US-)/m).filter((block) => block.startsWith('###'))
+
+  for (const block of storyBlocks) {
+    // Extract user story ID and title
+    const idMatch = block.match(/^###\s+(US-[A-Z]+-[A-Z0-9-]+-\d{3}):\s+(.+)$/m)
+    if (!idMatch) continue
+
+    const storyId = idMatch[1]
+    const title = idMatch[2]?.trim() || ''
+
+    // Extract story text
+    const storyMatch = block.match(/\*\*Story\*\*:\s*(.+)$/m)
+    const story = storyMatch?.[1]?.trim() || ''
+
+    // Extract status
+    const statusMatch = block.match(USER_STORY_STATUS_PATTERN)
+    let status: 'complete' | 'partial' | 'not-started' = 'not-started'
+    if (statusMatch) {
+      const statusChar = statusMatch[1]
+      if (statusChar === 'x') status = 'complete'
+      else if (statusChar === '~') status = 'partial'
+    }
+
+    // Extract acceptance criteria from table
+    const acceptanceCriteria: AcceptanceCriterion[] = []
+
+    // Reset regex state
+    ACCEPTANCE_CRITERIA_TABLE_ROW_PATTERN.lastIndex = 0
+
+    let acMatch: RegExpExecArray | null
+    while ((acMatch = ACCEPTANCE_CRITERIA_TABLE_ROW_PATTERN.exec(block)) !== null) {
+      const acId = acMatch[1]
+      const criterion = acMatch[2]?.trim() || ''
+      const specTestId = acMatch[3] || null // May be empty or missing
+      const schema = acMatch[4]?.trim() || ''
+      const acStatusChar = acMatch[5]
+
+      let acStatus: 'complete' | 'partial' | 'not-started' = 'not-started'
+      if (acStatusChar === 'x') acStatus = 'complete'
+      else if (acStatusChar === '~') acStatus = 'partial'
+
+      if (acId) {
+        acceptanceCriteria.push({
+          id: acId,
+          criterion,
+          specTestId,
+          schema,
+          status: acStatus,
+        })
+      }
+    }
+
+    if (storyId) {
+      stories.push({
+        id: storyId,
+        title,
+        story,
+        status,
+        acceptanceCriteria,
+        filePath: relative(process.cwd(), filePath),
+        domain,
+        featureArea,
+        role,
+      })
+    }
+  }
+
+  return stories
+}
+
+/**
+ * Parse all user story files and return metrics.
+ */
+async function parseUserStoryFiles(
+  files: SpecFile[],
+  fixmeSpecIds: Set<string>,
+  passingSpecIds: Set<string>
+): Promise<UserStoryMetrics> {
+  const userStoryFiles = await findUserStoryFiles(USER_STORIES_DIR)
+  const allStories: UserStory[] = []
+
+  for (const filePath of userStoryFiles) {
+    const content = await readFile(filePath, 'utf-8')
+    const stories = parseUserStoryFile(content, filePath)
+    allStories.push(...stories)
+  }
+
+  // Categorize stories based on their spec IDs
+  const storiesToSpecify: UserStory[] = []
+  const storiesSpecifiedNotImplemented: UserStory[] = []
+  const storiesSpecifiedAndImplemented: UserStory[] = []
+
+  for (const story of allStories) {
+    // Get all spec IDs linked to this story's acceptance criteria
+    const linkedSpecIds = story.acceptanceCriteria
+      .map((ac) => ac.specTestId)
+      .filter((id): id is string => id !== null)
+
+    if (linkedSpecIds.length === 0) {
+      // No spec IDs linked - needs specification
+      storiesToSpecify.push(story)
+    } else {
+      // Check if ALL linked spec IDs are passing or if some are still fixme
+      const allImplemented = linkedSpecIds.every((id) => passingSpecIds.has(id))
+      const someFixme = linkedSpecIds.some((id) => fixmeSpecIds.has(id))
+
+      if (allImplemented) {
+        storiesSpecifiedAndImplemented.push(story)
+      } else if (someFixme) {
+        storiesSpecifiedNotImplemented.push(story)
+      } else {
+        // Spec IDs linked but not found in codebase - treat as needs specification
+        storiesToSpecify.push(story)
+      }
+    }
+  }
+
+  // Calculate percentages
+  const total = allStories.length || 1 // Avoid division by zero
+  const storiesToSpecifyPercent = Math.round((storiesToSpecify.length / total) * 100)
+  const storiesSpecifiedNotImplementedPercent = Math.round(
+    (storiesSpecifiedNotImplemented.length / total) * 100
+  )
+  const storiesSpecifiedAndImplementedPercent = Math.round(
+    (storiesSpecifiedAndImplemented.length / total) * 100
+  )
+
+  // Total criteria count
+  const totalCriteria = allStories.reduce((sum, s) => sum + s.acceptanceCriteria.length, 0)
+
+  // Organize by domain
+  const byDomain = new Map<string, UserStory[]>()
+  for (const story of allStories) {
+    const domain = story.domain.toUpperCase()
+    if (!byDomain.has(domain)) {
+      byDomain.set(domain, [])
+    }
+    byDomain.get(domain)!.push(story)
+  }
+
+  return {
+    totalStories: allStories.length,
+    totalCriteria,
+    storiesToSpecify,
+    storiesToSpecifyPercent,
+    storiesSpecifiedNotImplemented,
+    storiesSpecifiedNotImplementedPercent,
+    storiesSpecifiedAndImplemented,
+    storiesSpecifiedAndImplementedPercent,
+    byDomain,
+  }
+}
+
+/**
+ * Detect spec IDs in E2E tests that are NOT linked to any user story.
+ * These are "orphaned" specs that exist without documented requirements.
+ */
+function detectOrphanedSpecIds(
+  files: SpecFile[],
+  userStoryMetrics: UserStoryMetrics
+): OrphanedSpecId[] {
+  // Collect all spec IDs referenced in user stories
+  const linkedSpecIds = new Set<string>()
+
+  for (const stories of userStoryMetrics.byDomain.values()) {
+    for (const story of stories) {
+      for (const ac of story.acceptanceCriteria) {
+        if (ac.specTestId) {
+          linkedSpecIds.add(ac.specTestId)
+        }
+      }
+    }
+  }
+
+  // Find spec IDs in E2E tests that are not in user stories
+  const orphaned: OrphanedSpecId[] = []
+
+  for (const file of files) {
+    for (const test of file.tests) {
+      if (test.id && !linkedSpecIds.has(test.id)) {
+        orphaned.push({
+          specId: test.id,
+          file: file.relativePath,
+          line: test.lineNumber,
+          testName: test.name,
+        })
+      }
+    }
+  }
+
+  return orphaned.sort((a, b) => a.specId.localeCompare(b.specId))
+}
+
 /**
  * Calculate TDD automation statistics from git history.
  * Looks for commits with "fix: implement" pattern (TDD workflow commits).
@@ -1341,6 +1645,7 @@ function generateMarkdown(state: SpecState): string {
   lines.push('- [Executive Summary](#-executive-summary)')
   lines.push('- [Next Steps](#-next-steps)')
   lines.push('- [Detailed Metrics](#-detailed-metrics)')
+  lines.push('- [User Stories Metrics](#-user-stories-metrics)')
   lines.push('- [TDD Automation](#-tdd-automation)')
   lines.push('- [Feature Breakdown](#-feature-breakdown)')
   for (const domain of domainSummaries) {
@@ -1434,9 +1739,138 @@ function generateMarkdown(state: SpecState): string {
   lines.push(`| ⚠️ Warnings | ${state.summary.issuesByType.warnings} |`)
   lines.push(`| 💡 Suggestions | ${state.summary.issuesByType.suggestions} |`)
   lines.push(`| 🔄 Duplicate IDs | ${state.summary.duplicateSpecIds} |`)
+  lines.push(`| 🔗 Orphaned Spec IDs | ${state.summary.orphanedSpecIds} |`)
   lines.push('')
 
   // Progress bar removed - now only in Executive Summary to avoid redundancy
+
+  // ==========================================================================
+  // USER STORIES METRICS
+  // ==========================================================================
+  if (state.userStoryMetrics && state.userStoryMetrics.totalStories > 0) {
+    const metrics = state.userStoryMetrics
+
+    lines.push('## 📋 User Stories Metrics')
+    lines.push('')
+    lines.push('| Category | Count | Percentage |')
+    lines.push('|----------|-------|------------|')
+    lines.push(`| **Total User Stories** | ${metrics.totalStories} | - |`)
+    lines.push(`| **Total Acceptance Criteria** | ${metrics.totalCriteria} | - |`)
+    lines.push(
+      `| 🟢 Specified & Implemented | ${metrics.storiesSpecifiedAndImplemented.length} | ${metrics.storiesSpecifiedAndImplementedPercent}% |`
+    )
+    lines.push(
+      `| 🟡 Specified, Not Implemented | ${metrics.storiesSpecifiedNotImplemented.length} | ${metrics.storiesSpecifiedNotImplementedPercent}% |`
+    )
+    lines.push(
+      `| 🔴 Needs Specification | ${metrics.storiesToSpecify.length} | ${metrics.storiesToSpecifyPercent}% |`
+    )
+    lines.push('')
+
+    // Progress bar for user story coverage
+    const implementedPercent = metrics.storiesSpecifiedAndImplementedPercent
+    const implementedFilled = Math.round(implementedPercent / 5)
+    const implementedEmpty = 20 - implementedFilled
+    lines.push(
+      `**User Story Coverage**: [${'█'.repeat(implementedFilled)}${'░'.repeat(implementedEmpty)}] ${implementedPercent}%`
+    )
+    lines.push('')
+
+    // Breakdown by domain
+    if (metrics.byDomain.size > 0) {
+      lines.push('### By Domain')
+      lines.push('')
+      lines.push('| Domain | Stories | Specified | Implemented | Coverage |')
+      lines.push('|--------|---------|-----------|-------------|----------|')
+
+      for (const [domain, stories] of metrics.byDomain) {
+        const specified = stories.filter((s) =>
+          s.acceptanceCriteria.some((ac) => ac.specTestId !== null)
+        ).length
+        const implemented = stories.filter((s) =>
+          metrics.storiesSpecifiedAndImplemented.includes(s)
+        ).length
+        const coveragePercent =
+          stories.length > 0 ? Math.round((implemented / stories.length) * 100) : 0
+        lines.push(
+          `| ${domain} | ${stories.length} | ${specified} | ${implemented} | ${coveragePercent}% |`
+        )
+      }
+      lines.push('')
+    }
+
+    // Stories needing specification
+    if (metrics.storiesToSpecify.length > 0) {
+      lines.push('<details>')
+      lines.push(
+        `<summary>🔴 Stories Needing Specification (${metrics.storiesToSpecify.length})</summary>`
+      )
+      lines.push('')
+      for (const story of metrics.storiesToSpecify.slice(0, 20)) {
+        lines.push(`- **${story.id}**: ${story.title}`)
+        lines.push(`  - File: \`${story.filePath}\``)
+        lines.push(`  - Domain: ${story.domain} > ${story.featureArea} > ${story.role}`)
+      }
+      if (metrics.storiesToSpecify.length > 20) {
+        lines.push(`- ... and ${metrics.storiesToSpecify.length - 20} more`)
+      }
+      lines.push('')
+      lines.push('</details>')
+      lines.push('')
+    }
+
+    // Stories specified but not implemented
+    if (metrics.storiesSpecifiedNotImplemented.length > 0) {
+      lines.push('<details>')
+      lines.push(
+        `<summary>🟡 Stories Specified but Not Implemented (${metrics.storiesSpecifiedNotImplemented.length})</summary>`
+      )
+      lines.push('')
+      for (const story of metrics.storiesSpecifiedNotImplemented.slice(0, 20)) {
+        const specIds = story.acceptanceCriteria
+          .map((ac) => ac.specTestId)
+          .filter((id): id is string => id !== null)
+        lines.push(`- **${story.id}**: ${story.title}`)
+        lines.push(`  - Spec IDs: ${specIds.map((id) => `\`${id}\``).join(', ')}`)
+        lines.push(`  - File: \`${story.filePath}\``)
+      }
+      if (metrics.storiesSpecifiedNotImplemented.length > 20) {
+        lines.push(`- ... and ${metrics.storiesSpecifiedNotImplemented.length - 20} more`)
+      }
+      lines.push('')
+      lines.push('</details>')
+      lines.push('')
+    }
+  }
+
+  // ==========================================================================
+  // ORPHANED SPEC IDS
+  // ==========================================================================
+  if (state.orphanedSpecIds.length > 0) {
+    lines.push('## 🔗 Orphaned Spec IDs')
+    lines.push('')
+    lines.push(
+      '> **Warning**: These spec IDs exist in E2E tests but are NOT linked to any user story.'
+    )
+    lines.push('> Every spec should trace back to a user requirement in `docs/specification/`.')
+    lines.push('')
+    lines.push('| Spec ID | File | Line | Test Name |')
+    lines.push('|---------|------|------|-----------|')
+
+    for (const orphan of state.orphanedSpecIds.slice(0, 50)) {
+      const truncatedName =
+        orphan.testName.length > 50 ? orphan.testName.substring(0, 47) + '...' : orphan.testName
+      lines.push(
+        `| \`${orphan.specId}\` | \`${orphan.file}\` | ${orphan.line} | ${truncatedName} |`
+      )
+    }
+
+    if (state.orphanedSpecIds.length > 50) {
+      lines.push('')
+      lines.push(`... and ${state.orphanedSpecIds.length - 50} more orphaned spec IDs`)
+    }
+    lines.push('')
+  }
 
   // ==========================================================================
   // TDD AUTOMATION
@@ -1730,7 +2164,7 @@ async function main() {
   const verifyProgress = args.includes('--verify-progress')
   const shouldFix = args.includes('--fix')
 
-  console.log('🔍 Analyzing spec files...')
+  console.log('Analyzing spec files...')
   console.log('')
 
   // Find all spec files
@@ -1741,9 +2175,9 @@ async function main() {
     const escapedPattern = filterPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const regex = new RegExp(escapedPattern)
     specFiles = specFiles.filter((f) => regex.test(f))
-    console.log(`📁 Filtered to ${specFiles.length} files matching: ${filterPattern}`)
+    console.log(`Filtered to ${specFiles.length} files matching: ${filterPattern}`)
   } else {
-    console.log(`📁 Found ${specFiles.length} spec files`)
+    console.log(`Found ${specFiles.length} spec files`)
   }
 
   // Analyze each file
@@ -1765,6 +2199,27 @@ async function main() {
   const coverageGaps = detectCoverageGaps(analyzedFiles)
   const duplicateSpecIds = detectDuplicateSpecIds(analyzedFiles)
   const tddAutomation = await calculateTDDAutomationStats(totalFixme)
+
+  // Collect fixme and passing spec IDs for user story analysis
+  const fixmeSpecIds = new Set<string>()
+  const passingSpecIds = new Set<string>()
+
+  for (const file of analyzedFiles) {
+    for (const test of file.tests) {
+      if (test.id) {
+        if (test.isFixme) {
+          fixmeSpecIds.add(test.id)
+        } else {
+          passingSpecIds.add(test.id)
+        }
+      }
+    }
+  }
+
+  // Parse user stories and calculate metrics
+  console.log('Analyzing user stories...')
+  const userStoryMetrics = await parseUserStoryFiles(analyzedFiles, fixmeSpecIds, passingSpecIds)
+  const orphanedSpecIds = detectOrphanedSpecIds(analyzedFiles, userStoryMetrics)
 
   // Add duplicate spec ID errors to the respective files
   for (const dup of duplicateSpecIds) {
@@ -1806,6 +2261,7 @@ async function main() {
       totalPassing,
       qualityScore,
       duplicateSpecIds: duplicateSpecIds.length,
+      orphanedSpecIds: orphanedSpecIds.length,
       issuesByType: {
         errors: errorsWithDuplicates,
         warnings: warningsWithDuplicates,
@@ -1815,20 +2271,22 @@ async function main() {
     files: analyzedFiles,
     coverageGaps,
     duplicateSpecIds,
+    orphanedSpecIds,
     tddAutomation,
+    userStoryMetrics,
   }
 
   // Auto-fix header count mismatches if --fix flag is present
   if (shouldFix) {
     console.log('')
-    console.log('🔧 Auto-fixing header count mismatches...')
+    console.log('Auto-fixing header count mismatches...')
 
     const filesToFix = analyzedFiles.filter((file) =>
       file.issues.some((issue) => issue.code === 'HEADER_COUNT_MISMATCH')
     )
 
     if (filesToFix.length === 0) {
-      console.log('✅ No header count mismatches to fix')
+      console.log('No header count mismatches to fix')
     } else {
       let fixedCount = 0
 
@@ -1862,7 +2320,7 @@ async function main() {
   try {
     await access(OLD_OUTPUT_FILE)
     await unlink(OLD_OUTPUT_FILE)
-    console.log(`🗑️  Deleted old file: SPEC-STATE.md (migrated to SPEC-PROGRESS.md)`)
+    console.log(`Deleted old file: SPEC-STATE.md (migrated to SPEC-PROGRESS.md)`)
   } catch {
     // File doesn't exist, no migration needed
   }
@@ -1921,21 +2379,43 @@ async function main() {
   console.log('')
   console.log(`Quality Score: ${qualityScore}%`)
   console.log('')
-  console.log(`Tests:       ${totalTests} total`)
+
+  // User Stories metrics (shown first)
+  if (userStoryMetrics && userStoryMetrics.totalStories > 0) {
+    const notSpecifiedPercent = userStoryMetrics.storiesToSpecifyPercent
+    const specifiedFixmePercent = userStoryMetrics.storiesSpecifiedNotImplementedPercent
+    const specifiedPassingPercent = userStoryMetrics.storiesSpecifiedAndImplementedPercent
+    console.log(`User Stories:    ${userStoryMetrics.totalStories} total`)
+    console.log(
+      `  ├─ Not Specified:      ${userStoryMetrics.storiesToSpecify.length} (${notSpecifiedPercent}%)`
+    )
+    console.log(
+      `  ├─ Specified (Fixme):  ${userStoryMetrics.storiesSpecifiedNotImplemented.length} (${specifiedFixmePercent}%)`
+    )
+    console.log(
+      `  └─ Specified (Passing): ${userStoryMetrics.storiesSpecifiedAndImplemented.length} (${specifiedPassingPercent}%)`
+    )
+    console.log('')
+  }
+
+  console.log(`Tests:           ${totalTests} total`)
   console.log(`  ├─ @spec:       ${totalSpecs}`)
   console.log(`  ├─ @regression: ${totalRegressions}`)
   console.log(`  ├─ Passing:     ${totalPassing}`)
   console.log(`  └─ Fixme:       ${totalFixme}`)
   console.log('')
-  console.log(`Issues:      ${allIssuesWithDuplicates.length} total`)
-  console.log(`  ├─ Errors:      ${errorsWithDuplicates}`)
+  const orphanedCount = orphanedSpecIds.length
+  const totalIssuesWithOrphaned = allIssuesWithDuplicates.length + orphanedCount
+  const errorsWithOrphaned = errorsWithDuplicates + orphanedCount
+  console.log(`Issues:          ${totalIssuesWithOrphaned} total`)
+  console.log(`  ├─ Errors:      ${errorsWithOrphaned}`)
   console.log(`  ├─ Warnings:    ${warningsWithDuplicates}`)
   console.log(`  └─ Suggestions: ${suggestionsWithDuplicates}`)
   console.log('')
 
   // TDD Automation stats
   if (tddAutomation.totalFixed > 0 || totalFixme > 0) {
-    console.log('🤖 TDD Automation:')
+    console.log('TDD Automation:')
     console.log(`  ├─ Fixed (90d):  ${tddAutomation.totalFixed}`)
     console.log(`  │  ├─ Pipeline:  ${tddAutomation.fixedByPipeline}`)
     console.log(`  │  └─ Manual:    ${tddAutomation.fixedManually}`)
@@ -1956,7 +2436,7 @@ async function main() {
                 ? `~${Math.ceil(days / 7)} weeks`
                 : `~${Math.ceil(days / 30)} months`
       console.log('')
-      console.log(`⏱️  ETA: ${etaText} (${tddAutomation.estimatedCompletionDate})`)
+      console.log(`ETA: ${etaText} (${tddAutomation.estimatedCompletionDate})`)
     }
     console.log('')
   }
@@ -1990,14 +2470,14 @@ async function main() {
   // Show fixme tests for prioritization
   if (showFixmeOnly) {
     console.log('')
-    console.log('📋 FIXME TESTS (Next to implement):')
+    console.log('FIXME TESTS (Next to implement):')
     console.log('')
     for (const file of analyzedFiles) {
       const fixmeTests = file.tests.filter((t) => t.isFixme)
       if (fixmeTests.length > 0) {
-        console.log(`📁 ${file.relativePath}`)
+        console.log(`  ${file.relativePath}`)
         for (const test of fixmeTests) {
-          console.log(`   ${test.id || 'NO-ID'}: ${test.name.substring(0, 60)}...`)
+          console.log(`    ${test.id || 'NO-ID'}: ${test.name.substring(0, 60)}...`)
         }
         console.log('')
       }
@@ -2008,7 +2488,7 @@ async function main() {
   if (verifyProgress) {
     console.log('')
     console.log('━'.repeat(60))
-    console.log('🔍 PROGRESS VERIFICATION (GitHub Cross-Reference)')
+    console.log('PROGRESS VERIFICATION (GitHub Cross-Reference)')
     console.log('━'.repeat(60))
     console.log('')
 
@@ -2028,12 +2508,12 @@ async function main() {
       }
     }
 
-    console.log(`📊 Codebase Status:`)
+    console.log(`Codebase Status:`)
     console.log(`   ├─ Fixme spec IDs:   ${fixmeSpecIds.size}`)
     console.log(`   └─ Passing spec IDs: ${passingSpecIds.size}`)
     console.log('')
 
-    console.log('🔄 Fetching GitHub references...')
+    console.log('Fetching GitHub references...')
     const verification = await verifyProgressFromGitHub(fixmeSpecIds, passingSpecIds)
 
     // Group references by type
@@ -2047,7 +2527,7 @@ async function main() {
     const uniqueSpecIdsFromCommits = new Set(commitRefs.map((r) => r.specId))
 
     console.log('')
-    console.log(`📦 GitHub References Found:`)
+    console.log(`GitHub References Found:`)
     console.log(
       `   ├─ Merged PRs:        ${prRefs.length} (${uniqueSpecIdsFromPRs.size} unique spec IDs)`
     )
@@ -2105,7 +2585,7 @@ async function main() {
     // Show recent fixes from GitHub for comparison
     const recentPRs = prRefs.slice(0, 10)
     if (recentPRs.length > 0) {
-      console.log('📋 Recent Merged PRs with Spec IDs (last 10):')
+      console.log('Recent Merged PRs with Spec IDs (last 10):')
       for (const pr of recentPRs) {
         const dateStr = new Date(pr.date).toISOString().substring(0, 16).replace('T', ' ')
         console.log(`   PR #${pr.number} | ${dateStr} | ${pr.specId}`)
