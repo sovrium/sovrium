@@ -188,7 +188,7 @@ test.describe('Get single comment by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-GET-005: should return 404 Not Found for soft-deleted comment',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -207,6 +207,9 @@ test.describe('Get single comment by ID', () => {
       await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
+      `)
+      await executeQuery(`
+        INSERT INTO auth.user (id, name, email) VALUES ('user_1', 'Test User', 'test@example.com')
       `)
       await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, deleted_at)
