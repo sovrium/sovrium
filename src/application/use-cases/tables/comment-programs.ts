@@ -244,6 +244,101 @@ interface ListCommentsConfig {
 /**
  * List comments program
  */
+/**
+ * Format list of comments
+ */
+function formatCommentsList(
+  comments: readonly {
+    readonly id: string
+    readonly tableId: string
+    readonly recordId: string
+    readonly userId: string
+    readonly content: string
+    readonly createdAt: Date
+    readonly updatedAt: Date
+    readonly user?:
+      | {
+          readonly id: string
+          readonly name: string
+          readonly email: string
+          readonly image: string | undefined
+        }
+      | undefined
+  }[]
+): readonly {
+  readonly id: string
+  readonly tableId: string
+  readonly recordId: string
+  readonly userId: string
+  readonly content: string
+  readonly createdAt: string
+  readonly updatedAt: string
+  readonly user?:
+    | {
+        readonly id: string
+        readonly name: string
+        readonly email: string
+        readonly image: string | undefined
+      }
+    | undefined
+}[] {
+  return comments.map((comment) => ({
+    id: comment.id,
+    tableId: comment.tableId,
+    recordId: comment.recordId,
+    userId: comment.userId,
+    content: comment.content,
+    createdAt: comment.createdAt.toISOString(),
+    updatedAt: comment.updatedAt.toISOString(),
+    user: comment.user,
+  }))
+}
+
+/**
+ * Calculate pagination metadata if limit is provided
+ */
+function calculatePagination(params: {
+  readonly limit: number | undefined
+  readonly offset: number | undefined
+  readonly total: number
+}):
+  | {
+      readonly total: number
+      readonly limit: number
+      readonly offset: number
+      readonly hasMore: boolean
+    }
+  | undefined {
+  const { limit, offset, total } = params
+  if (limit === undefined) {
+    return undefined
+  }
+
+  const actualOffset = offset ?? 0
+  return {
+    total,
+    limit,
+    offset: actualOffset,
+    hasMore: actualOffset + limit < total,
+  }
+}
+
+/**
+ * Verify user has access to record
+ */
+function verifyRecordAccess(params: {
+  readonly session: Readonly<Session>
+  readonly tableName: string
+  readonly recordId: string
+}): Effect.Effect<void, SessionContextError> {
+  return Effect.gen(function* () {
+    const hasAccess = yield* checkRecordOwnership(params)
+    if (!hasAccess) {
+      return yield* Effect.fail(new SessionContextError('Record not found'))
+    }
+  })
+}
+
 export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
   {
     readonly comments: readonly {
@@ -276,45 +371,24 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
     const { session, recordId, tableName, limit, offset, sortOrder } = config
 
     // Check record ownership
-    const hasRecordAccess = yield* checkRecordOwnership({
-      session,
-      tableName,
-      recordId,
-    })
-
-    if (!hasRecordAccess) {
-      return yield* Effect.fail(new SessionContextError('Record not found'))
-    }
+    yield* verifyRecordAccess({ session, tableName, recordId })
 
     // List comments
     const comments = yield* listComments({ session, recordId, limit, offset, sortOrder })
 
-    // Get total count if pagination is requested
-    let pagination: { total: number; limit: number; offset: number; hasMore: boolean } | undefined
-
-    if (limit !== undefined) {
-      const total = yield* getCommentsCount({ session, recordId })
-      const actualOffset = offset ?? 0
-      pagination = {
-        total,
-        limit,
-        offset: actualOffset,
-        hasMore: actualOffset + limit < total,
-      }
-    }
+    // Get total count and pagination if requested
+    const pagination =
+      limit !== undefined
+        ? calculatePagination({
+            limit,
+            offset,
+            total: yield* getCommentsCount({ session, recordId }),
+          })
+        : undefined
 
     // Format response
     return {
-      comments: comments.map((comment) => ({
-        id: comment.id,
-        tableId: comment.tableId,
-        recordId: comment.recordId,
-        userId: comment.userId,
-        content: comment.content,
-        createdAt: comment.createdAt.toISOString(),
-        updatedAt: comment.updatedAt.toISOString(),
-        user: comment.user,
-      })),
+      comments: formatCommentsList(comments),
       ...(pagination && { pagination }),
     }
   })

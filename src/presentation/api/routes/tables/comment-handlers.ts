@@ -205,6 +205,22 @@ export async function handleGetComment(c: Context, app: App) {
 }
 
 /**
+ * Parse sort query parameter (e.g., "createdAt:asc" or "createdAt:desc")
+ */
+function parseSortOrder(sortParam: string | undefined): 'asc' | 'desc' | undefined {
+  if (!sortParam) {
+    return undefined
+  }
+
+  const [field, order] = sortParam.split(':')
+  if (field === 'createdAt' && (order === 'asc' || order === 'desc')) {
+    return order
+  }
+
+  return undefined
+}
+
+/**
  * Handle list comments for a record
  */
 export async function handleListComments(c: Context, app: App) {
@@ -225,15 +241,7 @@ export async function handleListComments(c: Context, app: App) {
 
   const limit = limitParam ? Number(limitParam) : undefined
   const offset = offsetParam ? Number(offsetParam) : undefined
-
-  // Parse sort parameter (e.g., "createdAt:asc" or "createdAt:desc")
-  let sortOrder: 'asc' | 'desc' | undefined
-  if (sortParam) {
-    const [field, order] = sortParam.split(':')
-    if (field === 'createdAt' && (order === 'asc' || order === 'desc')) {
-      sortOrder = order
-    }
-  }
+  const sortOrder = parseSortOrder(sortParam)
 
   // List comments
   const program = listCommentsProgram({
