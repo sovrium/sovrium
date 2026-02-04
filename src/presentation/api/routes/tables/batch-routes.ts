@@ -14,6 +14,7 @@ import {
   batchRestoreProgram,
   upsertProgram,
 } from '@/application/use-cases/tables/programs'
+import { filterReadableFields } from '@/application/use-cases/tables/utils/field-read-filter'
 import {
   batchCreateRecordsRequestSchema,
   batchUpdateRecordsRequestSchema,
@@ -32,10 +33,46 @@ import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { validateReadonlyFields, validateUpsertRequest, applyReadFiltering } from './upsert-helpers'
 import { handleBatchRestoreError } from './utils'
+import type {
+  RecordFieldValue,
+  FormattedFieldValue,
+  TransformedRecord,
+} from '@/application/use-cases/tables/utils/record-transformer'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
+
+/**
+ * Apply read-level filtering to batch update response records
+ */
+function applyBatchUpdateReadFiltering(
+  response: { readonly updated: number; readonly records?: readonly TransformedRecord[] },
+  params: {
+    readonly app: App
+    readonly tableName: string
+    readonly userRole: string
+    readonly userId: string
+  }
+): { readonly updated: number; readonly records?: readonly TransformedRecord[] } {
+  if (!response.records) return response
+
+  const filteredRecords: readonly TransformedRecord[] = response.records.map((record) => ({
+    ...record,
+    fields: filterReadableFields({
+      app: params.app,
+      tableName: params.tableName,
+      userRole: params.userRole,
+      userId: params.userId,
+      record: record.fields,
+    }) as Record<string, RecordFieldValue | FormattedFieldValue>,
+  }))
+
+  return {
+    updated: response.updated,
+    records: filteredRecords,
+  }
+}
 
 /**
  * Handle batch restore endpoint
@@ -171,32 +208,9 @@ async function handleBatchUpdate(c: Context, app: App) {
 
   // Apply field-level read filtering to response (if records returned)
   const filteredProgram = program.pipe(
-    Effect.map((response) => {
-      if (!response.records) return response
-
-      const {
-        filterReadableFields,
-      } = require('@/application/use-cases/tables/utils/field-read-filter')
-
-      const filteredRecords = response.records.map(
-        (record) =>
-          ({
-            ...record,
-            fields: filterReadableFields({
-              app,
-              tableName,
-              userRole,
-              userId: session.userId,
-              record: record.fields,
-            }),
-          }) as { readonly fields: Record<string, unknown> }
-      )
-
-      return {
-        updated: response.updated,
-        records: filteredRecords as ReadonlyArray<{ readonly fields: Record<string, unknown> }>,
-      }
-    })
+    Effect.map((response) =>
+      applyBatchUpdateReadFiltering(response, { app, tableName, userRole, userId: session.userId })
+    )
   )
 
   return runEffect(c, filteredProgram, batchUpdateRecordsResponseSchema)

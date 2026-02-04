@@ -487,6 +487,7 @@ describe('schema type inference', () => {
 
     const typed: typeof result = {
       records: [{ id: 'rec123', fields: { name: 'Test' } }],
+      returnRecords: false,
     }
     expect(typed).toEqual(result)
   })

@@ -58,13 +58,16 @@ export function batchUpdateProgram(
     // Transform records to API format (nested fields structure)
     const transformed = transformRecords(updatedRecords)
 
-    const response: { updated: number; records?: readonly TransformedRecord[] } = {
-      updated: transformed.length,
-    }
-
-    if (returnRecords) {
-      response.records = transformed as TransformedRecord[]
-    }
+    // Use functional pattern to build response object
+    const response: { readonly updated: number; readonly records?: readonly TransformedRecord[] } =
+      returnRecords
+        ? {
+            updated: transformed.length,
+            records: transformed as TransformedRecord[],
+          }
+        : {
+            updated: transformed.length,
+          }
 
     return response
   })
