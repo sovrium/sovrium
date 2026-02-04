@@ -81,7 +81,7 @@ test.describe('List comments on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-LIST-002: should return empty array when no comments exist',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
