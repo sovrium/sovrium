@@ -409,7 +409,7 @@ test.describe('View Records API', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-VIEW-RECORDS-REGRESSION: view records API endpoints work correctly',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
