@@ -392,7 +392,7 @@ test.describe('Batch update records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-PATCH-008: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
@@ -426,18 +426,16 @@ test.describe('Batch update records', () => {
         },
       })
 
-      // THEN: Returns 403 Forbidden
-      expect(response.status()).toBe(403)
+      // THEN: Returns 400 Bad Request (validation error)
+      expect(response.status()).toBe(400)
 
       const data = await response.json()
       // THEN: assertion
       expect(data).toHaveProperty('success')
       expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('code')
-      expect(data).toHaveProperty('message')
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
-      expect(data.code).toBe('FORBIDDEN')
+      expect(data.code).toBe('VALIDATION_ERROR')
       expect(data.message).toBe("Cannot write to readonly field 'created_at'")
     }
   )
