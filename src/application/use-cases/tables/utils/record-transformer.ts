@@ -39,7 +39,7 @@ export interface FormattedFieldValue {
  * User-defined fields are nested under the `fields` property.
  */
 export interface TransformedRecord {
-  readonly id: string
+  readonly id: string | number
   readonly fields: Record<string, RecordFieldValue | FormattedFieldValue>
   readonly createdAt: string
   readonly updatedAt: string
@@ -271,7 +271,7 @@ export const transformRecord = (
   )
 
   return {
-    id: String(id),
+    id: typeof id === 'number' ? id : String(id),
     fields: transformedFields,
     createdAt: createdAt ? toISOString(createdAt) : new Date().toISOString(),
     updatedAt: updatedAt ? toISOString(updatedAt) : new Date().toISOString(),
