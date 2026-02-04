@@ -39,6 +39,7 @@ function formatCommentResponse(comment: {
   readonly userId: string
   readonly content: string
   readonly createdAt: Date
+  readonly updatedAt?: Date
   readonly user?:
     | {
         readonly id: string
@@ -56,6 +57,7 @@ function formatCommentResponse(comment: {
       userId: comment.userId,
       content: comment.content,
       createdAt: comment.createdAt.toISOString(),
+      updatedAt: comment.updatedAt?.toISOString() ?? comment.createdAt.toISOString(),
       user: comment.user,
     },
   }
@@ -70,6 +72,7 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
       readonly userId: string
       readonly content: string
       readonly createdAt: string
+      readonly updatedAt: string
       readonly user?:
         | {
             readonly id: string
@@ -186,6 +189,7 @@ export function getCommentProgram(config: GetCommentConfig): Effect.Effect<
       readonly userId: string
       readonly content: string
       readonly createdAt: string
+      readonly updatedAt: string
       readonly user?:
         | {
             readonly id: string
@@ -245,6 +249,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
       readonly userId: string
       readonly content: string
       readonly createdAt: string
+      readonly updatedAt: string
       readonly user?:
         | {
             readonly id: string
@@ -283,6 +288,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
         userId: comment.userId,
         content: comment.content,
         createdAt: comment.createdAt.toISOString(),
+        updatedAt: comment.updatedAt.toISOString(),
         user: comment.user,
       })),
     }
