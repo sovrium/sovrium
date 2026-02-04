@@ -277,7 +277,7 @@ test.describe('List table views', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-VIEWS-LIST-REGRESSION: user can complete full views list workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
