@@ -24,7 +24,7 @@ test.describe('Batch create records', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-001: should return 201 with created=3 and records array',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
