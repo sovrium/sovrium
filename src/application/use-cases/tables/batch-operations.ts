@@ -46,9 +46,10 @@ export function batchCreateProgram(
 export function batchUpdateProgram(
   session: Readonly<Session>,
   tableName: string,
-  recordsData: readonly { id: string; [key: string]: unknown }[]
+  recordsData: readonly { readonly id: string; readonly fields?: Record<string, unknown> }[],
+  returnRecords: boolean = false
 ): Effect.Effect<
-  { readonly records: readonly TransformedRecord[]; readonly count: number },
+  { readonly updated: number; readonly records?: readonly TransformedRecord[] },
   SessionContextError
 > {
   return Effect.gen(function* () {
@@ -57,10 +58,15 @@ export function batchUpdateProgram(
     // Transform records to API format (nested fields structure)
     const transformed = transformRecords(updatedRecords)
 
-    return {
-      records: transformed as TransformedRecord[],
-      count: transformed.length,
+    const response: { updated: number; records?: readonly TransformedRecord[] } = {
+      updated: transformed.length,
     }
+
+    if (returnRecords) {
+      response.records = transformed as TransformedRecord[]
+    }
+
+    return response
   })
 }
 

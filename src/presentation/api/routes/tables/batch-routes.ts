@@ -121,24 +121,85 @@ async function handleBatchCreate(c: Context, app: App) {
 /**
  * Handle batch update endpoint
  */
-async function handleBatchUpdate(c: Context, _app: App) {
+async function handleBatchUpdate(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName } = getTableContext(c)
+  const { session, tableName, userRole } = getTableContext(c)
 
   const result = await validateRequest(c, batchUpdateRecordsRequestSchema)
   if (!result.success) return result.response
 
-  // Flatten records from { id, fields } to { id, ...fields } for database layer
-  const flatRecordsData = result.data.records.map((record) => ({
+  const table = app.tables?.find((t) => t.name === tableName)
+
+  // Authorization: Check table-level update permission
+  const { hasUpdatePermission } =
+    await import('@/application/use-cases/tables/permissions/permissions')
+  if (!hasUpdatePermission(table, userRole)) {
+    return c.json(
+      {
+        success: false,
+        message: 'You do not have permission to update records in this table',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
+
+  // Validate readonly fields BEFORE permission checks
+  const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
+  if (readonlyValidation) return readonlyValidation
+
+  // Authorization: Check field-level write permissions
+  const fieldPermissionCheck = await import('./upsert-helpers').then((m) =>
+    m.checkFieldPermissions({
+      app,
+      tableName,
+      userRole,
+      records: result.data.records,
+      c,
+    })
+  )
+  if (!fieldPermissionCheck.allowed) return fieldPermissionCheck.response
+
+  // Keep records in { id, fields } format for database layer
+  const recordsData = result.data.records.map((record) => ({
     id: record.id,
-    ...record.fields,
+    fields: record.fields,
   }))
 
-  return runEffect(
-    c,
-    batchUpdateProgram(session, tableName, flatRecordsData),
-    batchUpdateRecordsResponseSchema
+  // Execute batch update with returnRecords parameter
+  const program = batchUpdateProgram(session, tableName, recordsData, result.data.returnRecords)
+
+  // Apply field-level read filtering to response (if records returned)
+  const filteredProgram = program.pipe(
+    Effect.map((response) => {
+      if (!response.records) return response
+
+      const {
+        filterReadableFields,
+      } = require('@/application/use-cases/tables/utils/field-read-filter')
+
+      const filteredRecords = response.records.map(
+        (record) =>
+          ({
+            ...record,
+            fields: filterReadableFields({
+              app,
+              tableName,
+              userRole,
+              userId: session.userId,
+              record: record.fields,
+            }),
+          }) as { readonly fields: Record<string, unknown> }
+      )
+
+      return {
+        updated: response.updated,
+        records: filteredRecords as ReadonlyArray<{ readonly fields: Record<string, unknown> }>,
+      }
+    })
   )
+
+  return runEffect(c, filteredProgram, batchUpdateRecordsResponseSchema)
 }
 
 /**
