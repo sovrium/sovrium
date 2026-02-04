@@ -50,7 +50,7 @@ export function batchUpdateProgram(
   returnRecords: boolean = false
 ): Effect.Effect<
   { readonly updated: number; readonly records?: readonly TransformedRecord[] },
-  SessionContextError
+  SessionContextError | ValidationError
 > {
   return Effect.gen(function* () {
     const updatedRecords = yield* batchUpdateRecords(session, tableName, recordsData)
