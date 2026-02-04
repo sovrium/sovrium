@@ -12,6 +12,7 @@ import {
   getCommentProgram,
   listCommentsProgram,
 } from '@/application/use-cases/tables/comment-programs'
+import { hasReadPermission } from '@/application/use-cases/tables/permissions/permissions'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { isAuthorizationError } from './utils'
 import type { App } from '@/domain/models/app'
@@ -165,7 +166,7 @@ export async function handleDeleteComment(c: Context, app: App) {
  * Handle get comment by ID
  */
 export async function handleGetComment(c: Context, app: App) {
-  const { session } = getTableContext(c)
+  const { session, userRole } = getTableContext(c)
   const tableId = c.req.param('tableId')
   const commentId = c.req.param('commentId')
 
@@ -173,6 +174,18 @@ export async function handleGetComment(c: Context, app: App) {
   const table = app.tables?.find((t) => String(t.id) === String(tableId))
   if (!table) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  // Check read permission
+  if (!hasReadPermission(table, userRole)) {
+    return c.json(
+      {
+        success: false,
+        message: 'You do not have permission to perform this action',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
   }
 
   // Get comment
