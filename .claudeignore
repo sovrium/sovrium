@@ -96,8 +96,8 @@ OLD_V1/
 # Development workflow docs (small, essential)
 !docs/development/
 
-# Specifications (core product definition)
-!docs/specifications/
+# User stories (core product definition)
+!docs/user-stories/
 
 # Generated database migrations (version controlled)
 !drizzle/*.sql

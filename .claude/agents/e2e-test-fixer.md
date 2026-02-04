@@ -1226,7 +1226,7 @@ git push origin HEAD
 ## Decision-Making Framework
 
 **When choosing implementation approach:**
-1. Consult @docs/specifications.md for target architecture vision
+1. Consult @docs/user-stories/README.md for feature requirements and target architecture vision
 2. Check @STATUS.md for current implementation capabilities
 3. Review relevant @docs/infrastructure/ files for technology best practices
 4. Choose the simplest solution that satisfies the test **AND follows best practices**

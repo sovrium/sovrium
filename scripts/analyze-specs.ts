@@ -247,10 +247,9 @@ const SPECS_DIR = join(process.cwd(), 'specs')
 const OUTPUT_FILE = join(process.cwd(), 'SPEC-PROGRESS.md')
 const OLD_OUTPUT_FILE = join(process.cwd(), 'SPEC-STATE.md') // For migration
 const README_FILE = join(process.cwd(), 'README.md')
-const USER_STORIES_DIR = join(process.cwd(), 'docs/specification')
+const USER_STORIES_DIR = join(process.cwd(), 'docs/user-stories')
 
 // User Story parsing patterns
-const USER_STORY_ID_PATTERN = /^###\s+(US-[A-Z]+-[A-Z0-9-]+-\d{3}):\s+(.+)$/m
 const USER_STORY_STATUS_PATTERN = /\*\*Status\*\*:\s*`\[([x~\s])\]`/
 // Match spec test IDs in acceptance criteria tables: | ... | `API-AUTH-SIGN-UP-001` | ... |
 const ACCEPTANCE_CRITERIA_TABLE_ROW_PATTERN =
@@ -984,7 +983,7 @@ function detectDuplicateSpecIds(files: SpecFile[]): DuplicateSpecId[] {
 // =============================================================================
 
 /**
- * Find all user story markdown files in docs/specification/
+ * Find all user story markdown files in docs/user-stories/
  */
 async function findUserStoryFiles(dir: string): Promise<string[]> {
   const files: string[] = []
@@ -1852,7 +1851,7 @@ function generateMarkdown(state: SpecState): string {
     lines.push(
       '> **Warning**: These spec IDs exist in E2E tests but are NOT linked to any user story.'
     )
-    lines.push('> Every spec should trace back to a user requirement in `docs/specification/`.')
+    lines.push('> Every spec should trace back to a user requirement in `docs/user-stories/`.')
     lines.push('')
     lines.push('| Spec ID | File | Line | Test Name |')
     lines.push('|---------|------|------|-----------|')

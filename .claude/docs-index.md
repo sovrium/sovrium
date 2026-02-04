@@ -13,11 +13,10 @@
 - `VISION.md` - Target state and product vision (future capabilities)
 - `@SPEC-PROGRESS.md` - Test coverage progress, TDD automation stats, and actionable next steps
 
-## Schema Architecture
+## User Stories & Requirements
 
-- `@docs/specifications/schema-architecture.md` - Multi-file JSON Schema structure with $ref, validation tools, and best practices
-- `@docs/specifications/specs.schema.json` - Root schema (orchestrator with $ref to feature schemas)
-- `@docs/specifications/spec-to-e2e-pattern.md` - Pattern for translating JSON Schema specs to E2E tests (Triple-Documentation: What/Why/Who-When)
+- `@docs/user-stories/README.md` - User story documentation overview and structure
+- `@docs/user-stories/as-developer/README.md` - Developer user stories (authentication, tables, records, pages, theming, i18n, CLI, migrations)
 
 ## Infrastructure
 
@@ -145,7 +144,7 @@ Import: @docs/architecture/patterns/config-driven-schema-generation.md
 ### Working with Schemas & Validation
 ```
 Import: @docs/infrastructure/framework/effect.md
-Import: @docs/specifications/schema-architecture.md
+Import: @docs/user-stories/as-developer/tables/field-types.md
 ```
 
 ### Working with CLI Configuration

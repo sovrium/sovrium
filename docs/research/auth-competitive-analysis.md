@@ -23,17 +23,17 @@
 
 ### Common Patterns Identified
 
-| Pattern                                  | Adoption | Examples                                          |
-| ---------------------------------------- | -------- | ------------------------------------------------- |
-| Owner > Admin > Member > Guest hierarchy | 7/7      | All platforms                                     |
-| Workspace + Resource permission layers   | 6/7      | All except Memberstack (plan-based gating)        |
-| Teams/Groups for bulk permissions        | 5/7      | Airtable, Retool, Zapier, Notion, Webflow         |
-| Free guests / paid members split         | 5/7      | All except Supabase (usage-based), Memberstack    |
-| SAML SSO at Enterprise tier              | 6/7      | All except Memberstack (OIDC only)                |
-| Custom roles (Enterprise)                | 4/7      | Airtable, Retool, Zapier, Webflow                 |
-| Field-level permissions                  | 3/7      | Airtable, Retool, Supabase (via RLS)              |
-| Row-level security                       | 2/7      | Supabase (native), Airtable (via Interfaces)      |
-| Plan-based content gating                | 1/7      | Memberstack (unique approach)                     |
+| Pattern                                  | Adoption | Examples                                       |
+| ---------------------------------------- | -------- | ---------------------------------------------- |
+| Owner > Admin > Member > Guest hierarchy | 7/7      | All platforms                                  |
+| Workspace + Resource permission layers   | 6/7      | All except Memberstack (plan-based gating)     |
+| Teams/Groups for bulk permissions        | 5/7      | Airtable, Retool, Zapier, Notion, Webflow      |
+| Free guests / paid members split         | 5/7      | All except Supabase (usage-based), Memberstack |
+| SAML SSO at Enterprise tier              | 6/7      | All except Memberstack (OIDC only)             |
+| Custom roles (Enterprise)                | 4/7      | Airtable, Retool, Zapier, Webflow              |
+| Field-level permissions                  | 3/7      | Airtable, Retool, Supabase (via RLS)           |
+| Row-level security                       | 2/7      | Supabase (native), Airtable (via Interfaces)   |
+| Plan-based content gating                | 1/7      | Memberstack (unique approach)                  |
 
 ### User Pain Points (from community discussions)
 
