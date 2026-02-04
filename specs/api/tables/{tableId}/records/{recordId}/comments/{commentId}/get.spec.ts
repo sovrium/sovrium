@@ -142,7 +142,7 @@ test.describe('Get single comment by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-GET-004: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -162,6 +162,9 @@ test.describe('Get single comment by ID', () => {
         ],
       })
       await createAuthenticatedUser()
+      await executeQuery(`
+        INSERT INTO auth.user (id, name, email) VALUES ('user_2', 'Bob', 'bob@example.com')
+      `)
       await executeQuery(`
         INSERT INTO tasks (id, title, owner_id) VALUES (1, 'Task owned by user_2', 'user_2')
       `)
