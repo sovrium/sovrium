@@ -102,9 +102,8 @@ async function handleBatchRestore(c: Context, _app: App) {
   if (userRole === 'viewer') {
     return c.json(
       {
-        success: false,
+        error: 'Forbidden',
         message: 'You do not have permission to restore records in this table',
-        code: 'FORBIDDEN',
       },
       403
     )
