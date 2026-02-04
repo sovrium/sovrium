@@ -26,11 +26,25 @@ export const createRecordRequestSchema = z.object({
  * Update record request schema
  *
  * Validates the request body for updating a record.
- * Requires nested format: { fields: {...} }
+ * Supports both formats:
+ * - Nested: { fields: {...} }
+ * - Flat: { fieldName: value, ... } (converted to nested automatically)
  */
-export const updateRecordRequestSchema = z.object({
-  fields: z.record(z.string(), fieldValueSchema).optional().default({}),
-})
+export const updateRecordRequestSchema = z
+  .object({
+    fields: z.record(z.string(), fieldValueSchema).optional(),
+  })
+  .passthrough() // Allow additional fields for flat format
+  .transform((data) => {
+    // If 'fields' key exists, use nested format as-is
+    if ('fields' in data && data.fields !== undefined) {
+      return { fields: data.fields }
+    }
+
+    // Otherwise, treat all keys as fields (flat format)
+    const { fields: _fields, ...rest } = data
+    return { fields: rest }
+  })
 
 // ============================================================================
 // Batch Operation Request Schemas
