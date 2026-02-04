@@ -86,10 +86,7 @@
     "db:drop": "drizzle-kit drop",
     "db:check": "drizzle-kit check",
     "website:build": "bun run website/build.ts",
-    "website:serve": "bun --watch run website/serve.ts",
-    "tdd:usage": "bun run scripts/tdd-automation/check-claude-code-usage.ts",
-    "tdd:usage:7d": "bun run scripts/tdd-automation/check-claude-code-usage.ts --days 7",
-    "tdd:usage:30d": "bun run scripts/tdd-automation/check-claude-code-usage.ts --days 30",
+    "website:serve": "bun --watch run website/start.ts",
     "release": "semantic-release"
   },
   "devDependencies": {

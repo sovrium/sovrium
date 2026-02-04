@@ -85,8 +85,10 @@ bun run quality --skip-format      # Skip Prettier formatting check
 bun run quality --skip-knip        # Skip Knip unused code detection
 bun run quality --include-effect   # Include Effect diagnostics (slow, skipped by default)
 bun run quality --no-cache         # Disable all caching (ESLint, Prettier, TypeScript incremental)
-bun run generate:roadmap           # Generate roadmap from specifications
-bun run validate:docs              # Validate documentation versions match package.json
+bun run analyze:specs              # Analyze spec tests (user stories, metrics tracking)
+bun run validate:specs             # Validate spec test structure and conventions
+bun run validate:docs:versions     # Validate documentation versions match package.json
+bun run test:cleanup               # Kill zombie test processes (Playwright, browsers)
 bun run release                    # Manually trigger release (semantic-release)
 
 # Database (Drizzle ORM)
@@ -101,13 +103,13 @@ bun run db:drop             # Drop migration
 bun run license             # Add copyright headers to all source files
 bun run lint                # ESLint (check)
 bun run lint:fix            # ESLint (auto-fix)
+bun run lint:workflows      # Lint GitHub Actions workflows (actionlint)
 bun run format              # Prettier (format all files)
 bun run format:check        # Prettier (check formatting without modifying)
 bun run typecheck           # TypeScript type checking
 bun run clean               # Knip (detect unused code/dependencies)
 bun run clean:fix           # Knip (auto-fix unused exports)
 bun test:unit               # Unit tests (Bun Test - src/ and scripts/)
-bun test:unit:watch         # Unit tests in watch mode
 bun test:e2e                # E2E tests (Playwright - all)
 bun test:e2e:spec           # E2E spec tests (@spec tag) - for development
 bun test:e2e:regression     # E2E regression tests (@regression tag) - for CI/pre-merge
@@ -187,7 +189,7 @@ git push origin main               # Triggers release ONLY with "release:" type
 - **Traditional Assertions**: For behavior, logic & specific values
 - **Storage**: Snapshots saved in `specs/**/__snapshots__/` (committed to git)
 - **Update Command**: `bun test:e2e:update-snapshots` after implementing features
-- **Guide**: Run `bun test:snapshots:guide` for decision matrix & best practices
+- **Guide**: See `@docs/architecture/testing-strategy/` for decision matrix & best practices
 
 ### test.step Pattern (@regression Tests)
 - **Mandatory for @regression tests**: Wrap workflow scenarios in descriptive `test.step()` calls
