@@ -706,7 +706,9 @@ function executeRecordUpdate(
       }
       // For other errors, return generic validation error
       const errorMessage: string =
-        pgError.message !== undefined ? pgError.message : 'Update failed due to constraint violation'
+        pgError.message !== undefined
+          ? pgError.message
+          : 'Update failed due to constraint violation'
       return new ValidationError(errorMessage, [])
     },
   })
