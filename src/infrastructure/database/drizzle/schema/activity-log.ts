@@ -6,6 +6,7 @@
  */
 
 import { text, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 import { users } from '../../../auth/better-auth/schema'
 import { systemSchema } from './migration-audit'
 
@@ -53,7 +54,10 @@ export const activityLogs = systemSchema.table(
   'activity_logs',
   {
     // Primary key - UUID for distributed systems compatibility
-    id: text('id').primaryKey(),
+    // Default value uses PostgreSQL's gen_random_uuid() for auto-generation
+    id: text('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()::text`),
 
     // Event metadata
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -69,7 +73,7 @@ export const activityLogs = systemSchema.table(
 
     // Table identification
     tableName: text('table_name').notNull(),
-    tableId: text('table_id').notNull(),
+    tableId: text('table_id'),
 
     // Record identification within the table
     recordId: text('record_id').notNull(),

@@ -31,6 +31,8 @@ export class ForbiddenError extends Data.TaggedError('ForbiddenError')<{
  */
 export interface ListActivityLogsInput {
   readonly userId: string
+  readonly page?: number
+  readonly pageSize?: number
 }
 
 /**
@@ -45,6 +47,24 @@ export interface ActivityLogOutput {
   readonly action: 'create' | 'update' | 'delete' | 'restore'
   readonly tableName: string
   readonly recordId: string
+}
+
+/**
+ * Pagination metadata for activity logs
+ */
+export interface PaginationMetadata {
+  readonly total: number
+  readonly page: number
+  readonly pageSize: number
+  readonly totalPages: number
+}
+
+/**
+ * Paginated activity logs response
+ */
+export interface PaginatedActivityLogs {
+  readonly activities: readonly ActivityLogOutput[]
+  readonly pagination: PaginationMetadata
 }
 
 /**
@@ -66,7 +86,7 @@ function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
  *
  * Application layer use case that:
  * 1. Checks user role (viewers are forbidden)
- * 2. Lists activity logs
+ * 2. Lists activity logs with pagination
  * 3. Maps to presentation-friendly format
  *
  * Follows layer-based architecture:
@@ -77,7 +97,7 @@ function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
 export const ListActivityLogs = (
   input: ListActivityLogsInput
 ): Effect.Effect<
-  readonly ActivityLogOutput[],
+  PaginatedActivityLogs,
   ForbiddenError | ActivityLogDatabaseError | UserRoleDatabaseError,
   ActivityLogService | UserRoleService
 > =>
@@ -102,11 +122,34 @@ export const ListActivityLogs = (
       })
     }
 
-    // List all activity logs
-    const logs = yield* activityLogService.listAll()
+    // Default pagination parameters
+    const page = input.page ?? 1
+    const pageSize = input.pageSize ?? 50
+
+    // List all activity logs (for now, without database-level pagination)
+    const allLogs = yield* activityLogService.listAll()
+
+    // Calculate pagination
+    const total = allLogs.length
+    const totalPages = Math.ceil(total / pageSize)
+    const startIndex = (page - 1) * pageSize
+    const endIndex = startIndex + pageSize
+
+    // Slice for current page
+    const paginatedLogs = allLogs.slice(startIndex, endIndex)
 
     // Map to presentation-friendly format
-    return logs.map(mapActivityLog)
+    const activities = paginatedLogs.map(mapActivityLog)
+
+    return {
+      activities,
+      pagination: {
+        total,
+        page,
+        pageSize,
+        totalPages,
+      },
+    }
   })
 
 /**

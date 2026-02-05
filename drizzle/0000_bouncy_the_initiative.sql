@@ -90,13 +90,13 @@ CREATE TABLE "system"."schema_checksum" (
 );
 --> statement-breakpoint
 CREATE TABLE "system"."activity_logs" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid()::text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
 	"session_id" text,
 	"action" text NOT NULL,
 	"table_name" text NOT NULL,
-	"table_id" text NOT NULL,
+	"table_id" text,
 	"record_id" text NOT NULL,
 	"changes" jsonb,
 	"ip_address" text,

@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import {
   type ActivityLogOutput,
+  type PaginatedActivityLogs,
   ListActivityLogs,
   ListActivityLogsLayer,
 } from '@/application/use-cases/list-activity-logs'
@@ -19,15 +20,33 @@ import type { Hono } from 'hono'
  * Activity log API response type
  *
  * Maps application ActivityLogOutput to API JSON response format.
- * Uses snake_case for table_name to match API conventions.
+ * Uses camelCase for tableName (consistent with other API responses).
  */
 interface ActivityLogResponse {
   readonly id: string
   readonly createdAt: string
   readonly userId: string | undefined
   readonly action: 'create' | 'update' | 'delete' | 'restore'
-  readonly table_name: string
+  readonly tableName: string
   readonly recordId: string
+}
+
+/**
+ * Pagination metadata API response
+ */
+interface PaginationResponse {
+  readonly total: number
+  readonly page: number
+  readonly pageSize: number
+  readonly totalPages: number
+}
+
+/**
+ * Paginated activity logs API response
+ */
+interface ActivityLogsApiResponse {
+  readonly activities: readonly ActivityLogResponse[]
+  readonly pagination: PaginationResponse
 }
 
 /**
@@ -39,8 +58,18 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
     createdAt: log.createdAt,
     userId: log.userId,
     action: log.action,
-    table_name: log.tableName,
+    tableName: log.tableName,
     recordId: log.recordId,
+  }
+}
+
+/**
+ * Map PaginatedActivityLogs to API response format
+ */
+function mapPaginatedToApiResponse(result: PaginatedActivityLogs): ActivityLogsApiResponse {
+  return {
+    activities: result.activities.map(mapToApiResponse),
+    pagination: result.pagination,
   }
 }
 
@@ -48,7 +77,7 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
  * Chain activity routes onto a Hono app
  *
  * Provides:
- * - GET /api/activity - List activity logs (admin/member only)
+ * - GET /api/activity - List activity logs with pagination (admin/member only)
  *
  * @param honoApp - Hono instance to chain routes onto
  * @returns Hono app with activity routes chained
@@ -64,8 +93,17 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
       )
     }
 
+    // Extract pagination parameters from query string
+    const pageParam = c.req.query('page')
+    const pageSizeParam = c.req.query('pageSize')
+
+    const page = pageParam ? parseInt(pageParam, 10) : undefined
+    const pageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : undefined
+
     const program = ListActivityLogs({
       userId: session.userId,
+      page,
+      pageSize,
     }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
 
     const result = await Effect.runPromise(program)
@@ -88,7 +126,7 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
       )
     }
 
-    const logs = result.right
-    return c.json(logs.map(mapToApiResponse), 200)
+    const paginatedResult = result.right
+    return c.json(mapPaginatedToApiResponse(paginatedResult), 200)
   }) as T
 }
