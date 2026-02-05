@@ -5,13 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { desc } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { Context, Data, Effect, Layer } from 'effect'
 import { db } from '@/infrastructure/database'
 import {
   activityLogs,
   type ActivityLog,
 } from '@/infrastructure/database/drizzle/schema/activity-log'
+import { users } from '@/infrastructure/auth/better-auth/schema'
 
 /**
  * Database error for activity log operations
@@ -19,6 +20,24 @@ import {
 export class ActivityLogDatabaseError extends Data.TaggedError('ActivityLogDatabaseError')<{
   readonly cause: unknown
 }> {}
+
+/**
+ * Not found error when activity log doesn't exist
+ */
+export class ActivityLogNotFoundError extends Data.TaggedError('ActivityLogNotFoundError')<{
+  readonly id: string
+}> {}
+
+/**
+ * Activity log with user details
+ */
+export interface ActivityLogWithUser extends ActivityLog {
+  readonly user: {
+    readonly id: string
+    readonly name: string
+    readonly email: string
+  } | null
+}
 
 /**
  * Activity Log Service
@@ -33,6 +52,9 @@ export class ActivityLogService extends Context.Tag('ActivityLogService')<
   ActivityLogService,
   {
     readonly listAll: () => Effect.Effect<readonly ActivityLog[], ActivityLogDatabaseError>
+    readonly findById: (
+      id: string
+    ) => Effect.Effect<ActivityLogWithUser, ActivityLogDatabaseError | ActivityLogNotFoundError>
     readonly create: (log: {
       readonly userId: string
       readonly action: 'create' | 'update' | 'delete' | 'restore'
@@ -63,6 +85,62 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
     Effect.tryPromise({
       try: () => db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt)),
       catch: (error) => new ActivityLogDatabaseError({ cause: error }),
+    }),
+
+  /**
+   * Find activity log by ID with user details
+   */
+  findById: (id) =>
+    Effect.gen(function* () {
+      const result = yield* Effect.tryPromise({
+        try: () =>
+          db
+            .select({
+              id: activityLogs.id,
+              createdAt: activityLogs.createdAt,
+              userId: activityLogs.userId,
+              sessionId: activityLogs.sessionId,
+              action: activityLogs.action,
+              tableName: activityLogs.tableName,
+              tableId: activityLogs.tableId,
+              recordId: activityLogs.recordId,
+              changes: activityLogs.changes,
+              ipAddress: activityLogs.ipAddress,
+              userAgent: activityLogs.userAgent,
+              user: users,
+            })
+            .from(activityLogs)
+            .leftJoin(users, eq(activityLogs.userId, users.id))
+            .where(eq(activityLogs.id, id)),
+        catch: (error) => new ActivityLogDatabaseError({ cause: error }),
+      })
+
+      if (result.length === 0) {
+        return yield* new ActivityLogNotFoundError({ id })
+      }
+
+      const log = result[0]!
+
+      return {
+        id: log.id,
+        createdAt: log.createdAt,
+        userId: log.userId,
+        sessionId: log.sessionId,
+        action: log.action,
+        tableName: log.tableName,
+        tableId: log.tableId,
+        recordId: log.recordId,
+        changes: log.changes,
+        ipAddress: log.ipAddress,
+        userAgent: log.userAgent,
+        user: log.user
+          ? {
+              id: log.user.id,
+              name: log.user.name,
+              email: log.user.email,
+            }
+          : null,
+      }
     }),
 
   /**

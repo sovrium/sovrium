@@ -11,6 +11,11 @@ import {
   ListActivityLogs,
   ListActivityLogsLayer,
 } from '@/application/use-cases/list-activity-logs'
+import {
+  GetActivityLogDetails,
+  GetActivityLogDetailsLayer,
+  type ActivityLogDetailsOutput,
+} from '@/application/use-cases/get-activity-log-details'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { sanitizeError, getStatusCode } from '@/presentation/api/utils/error-sanitizer'
 import type { Hono } from 'hono'
@@ -45,50 +50,127 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
 }
 
 /**
+ * Activity log details API response type
+ */
+interface ActivityLogDetailsResponse {
+  readonly id: string
+  readonly createdAt: string
+  readonly userId: string | undefined
+  readonly action: 'create' | 'update' | 'delete' | 'restore'
+  readonly tableName: string
+  readonly recordId: number
+  readonly changes: Record<string, unknown> | null
+  readonly user:
+    | {
+        readonly id: string
+        readonly name: string
+        readonly email: string
+      }
+    | undefined
+}
+
+/**
+ * Map ActivityLogDetailsOutput to API response format
+ */
+function mapDetailsToApiResponse(log: ActivityLogDetailsOutput): ActivityLogDetailsResponse {
+  return {
+    id: log.id,
+    createdAt: log.createdAt,
+    userId: log.userId,
+    action: log.action,
+    tableName: log.tableName,
+    recordId: log.recordId,
+    changes: log.changes as Record<string, unknown> | null,
+    user: log.user,
+  }
+}
+
+/**
  * Chain activity routes onto a Hono app
  *
  * Provides:
  * - GET /api/activity - List activity logs (admin/member only)
+ * - GET /api/activity/:activityId - Get activity log details
  *
  * @param honoApp - Hono instance to chain routes onto
  * @returns Hono app with activity routes chained
  */
 export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
-  return honoApp.get('/api/activity', async (c) => {
-    const session = getSessionContext(c)
+  return honoApp
+    .get('/api/activity/:activityId', async (c) => {
+      const session = getSessionContext(c)
 
-    if (!session) {
-      return c.json(
-        { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
-        401
-      )
-    }
+      if (!session) {
+        return c.json(
+          { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
+          401
+        )
+      }
 
-    const program = ListActivityLogs({
-      userId: session.userId,
-    }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
+      const activityId = c.req.param('activityId')
 
-    const result = await Effect.runPromise(program)
+      const program = GetActivityLogDetails({
+        activityId,
+      }).pipe(Effect.provide(GetActivityLogDetailsLayer), Effect.either)
 
-    if (result._tag === 'Left') {
-      const error = result.left
-      const requestId = crypto.randomUUID()
+      const result = await Effect.runPromise(program)
 
-      // Sanitize error to prevent information disclosure
-      const sanitized = sanitizeError(error, requestId)
-      const statusCode = getStatusCode(sanitized.code)
+      if (result._tag === 'Left') {
+        const error = result.left
+        const requestId = crypto.randomUUID()
 
-      return c.json(
-        {
-          success: false,
-          message: sanitized.message ?? sanitized.error,
-          code: sanitized.code,
-        },
-        statusCode
-      )
-    }
+        // Sanitize error to prevent information disclosure
+        const sanitized = sanitizeError(error, requestId)
+        const statusCode = getStatusCode(sanitized.code)
 
-    const logs = result.right
-    return c.json(logs.map(mapToApiResponse), 200)
-  }) as T
+        return c.json(
+          {
+            success: false,
+            message: sanitized.message ?? sanitized.error,
+            code: sanitized.code,
+          },
+          statusCode
+        )
+      }
+
+      const log = result.right
+      return c.json(mapDetailsToApiResponse(log), 200)
+    })
+    .get('/api/activity', async (c) => {
+      const session = getSessionContext(c)
+
+      if (!session) {
+        return c.json(
+          { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
+          401
+        )
+      }
+
+      const program = ListActivityLogs({
+        userId: session.userId,
+      }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
+
+      const result = await Effect.runPromise(program)
+
+      if (result._tag === 'Left') {
+        const error = result.left
+        const requestId = crypto.randomUUID()
+
+        // Sanitize error to prevent information disclosure
+        const sanitized = sanitizeError(error, requestId)
+        const statusCode = getStatusCode(sanitized.code)
+
+        return c.json(
+          {
+            success: false,
+            message: sanitized.message ?? sanitized.error,
+            code: sanitized.code,
+          },
+          statusCode
+        )
+      }
+
+      const logs = result.right
+      return c.json(logs.map(mapToApiResponse), 200)
+    }) as T
 }

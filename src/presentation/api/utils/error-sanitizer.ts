@@ -140,10 +140,17 @@ function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedEr
       }
     case 'NotFoundError':
     case 'TableNotFoundError':
+    case 'ActivityLogNotFoundError':
       return {
         error: 'Not Found',
         code: 'NOT_FOUND',
         message: 'Resource not found',
+      }
+    case 'InvalidActivityIdError':
+      return {
+        error: 'Invalid Activity ID',
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid activity ID format',
       }
     default:
       return undefined
