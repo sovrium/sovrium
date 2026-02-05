@@ -83,7 +83,7 @@ function mapActivityLogWithUser(log: Readonly<ActivityLogWithUser>): ActivityLog
   return {
     id: log.id,
     createdAt: log.createdAt.toISOString(),
-    userId: log.userId,
+    userId: log.userId ?? undefined,
     action: log.action,
     tableName: log.tableName,
     recordId: log.recordId,

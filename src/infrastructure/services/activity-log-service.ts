@@ -76,6 +76,78 @@ export class ActivityLogService extends Context.Tag('ActivityLogService')<
 >() {}
 
 /**
+ * Build WHERE conditions for activity log filtering
+ */
+function buildWhereConditions(filters: ActivityLogQueryFilters) {
+  const baseConditions = [
+    // Retention policy: only show logs from last year
+    gte(activityLogs.createdAt, sql`NOW() - INTERVAL '1 year'`),
+  ]
+
+  const actionCondition = filters.action ? [eq(activityLogs.action, filters.action)] : []
+  const tableNameCondition = filters.tableName
+    ? [eq(activityLogs.tableName, filters.tableName)]
+    : []
+  const userIdCondition = filters.userId ? [eq(activityLogs.userId, filters.userId)] : []
+  const startDateCondition = filters.startDate
+    ? [gte(activityLogs.createdAt, new Date(filters.startDate))]
+    : []
+
+  return [
+    ...baseConditions,
+    ...actionCondition,
+    ...tableNameCondition,
+    ...userIdCondition,
+    ...startDateCondition,
+  ]
+}
+
+/**
+ * Map database result to ActivityLogWithUser type
+ */
+function mapToActivityLogWithUser(log: {
+  readonly id: string
+  readonly userId: string | null
+  readonly action: 'create' | 'update' | 'delete' | 'restore'
+  readonly tableName: string
+  readonly tableId: string | null
+  readonly recordId: string
+  readonly changes: Record<string, unknown>
+  readonly sessionId: string | null
+  readonly ipAddress: string | null
+  readonly userAgent: string | null
+  readonly createdAt: Date
+  readonly user: {
+    readonly id: string | null
+    readonly name: string | null
+    readonly email: string | null
+  }
+}): Readonly<ActivityLogWithUser> {
+  return {
+    id: log.id,
+    userId: log.userId,
+    action: log.action,
+    tableName: log.tableName,
+    tableId: log.tableId,
+    recordId: log.recordId,
+    changes: log.changes,
+    sessionId: log.sessionId,
+    ipAddress: log.ipAddress,
+    userAgent: log.userAgent,
+    createdAt: log.createdAt,
+    user:
+      log.user.id && log.user.email
+        ? {
+            id: log.user.id,
+            name: log.user.name,
+            email: log.user.email,
+          }
+        : // eslint-disable-next-line unicorn/no-null -- ActivityLogWithUser type requires null, not undefined
+          null,
+  } as const
+}
+
+/**
  * Activity Log Service Implementation
  *
  * Uses Drizzle ORM query builder for type-safe, SQL-injection-proof queries.
@@ -96,29 +168,7 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
   listWithFilters: (filters) =>
     Effect.tryPromise({
       try: async () => {
-        // Build WHERE conditions immutably
-        const baseConditions = [
-          // Retention policy: only show logs from last year
-          gte(activityLogs.createdAt, sql`NOW() - INTERVAL '1 year'`),
-        ]
-
-        const actionCondition = filters.action ? [eq(activityLogs.action, filters.action)] : []
-        const tableNameCondition = filters.tableName
-          ? [eq(activityLogs.tableName, filters.tableName)]
-          : []
-        const userIdCondition = filters.userId ? [eq(activityLogs.userId, filters.userId)] : []
-        const startDateCondition = filters.startDate
-          ? [gte(activityLogs.createdAt, new Date(filters.startDate))]
-          : []
-
-        const conditions = [
-          ...baseConditions,
-          ...actionCondition,
-          ...tableNameCondition,
-          ...userIdCondition,
-          ...startDateCondition,
-        ]
-
+        const conditions = buildWhereConditions(filters)
         const whereClause = and(...conditions)
 
         // Count total matching records
@@ -160,30 +210,9 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
           .offset(offset)
 
         return {
-          logs: logs.map(
-            (log): ActivityLogWithUser => ({
-              id: log.id,
-              userId: log.userId,
-              action: log.action,
-              tableName: log.tableName,
-              tableId: log.tableId,
-              recordId: log.recordId,
-              changes: log.changes,
-              sessionId: log.sessionId,
-              ipAddress: log.ipAddress,
-              userAgent: log.userAgent,
-              createdAt: log.createdAt,
-              user: log.user.id
-                ? {
-                    id: log.user.id,
-                    name: log.user.name,
-                    email: log.user.email,
-                  }
-                : undefined,
-            })
-          ),
+          logs: logs.map(mapToActivityLogWithUser),
           total,
-        }
+        } as const
       },
       catch: (error) => new ActivityLogDatabaseError({ cause: error }),
     }),

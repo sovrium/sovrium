@@ -130,6 +130,78 @@ function validateQueryParams(params: {
 }
 
 /**
+ * Parse and validate query parameters
+ */
+function parseActivityQueryParams(c: {
+  readonly req: { readonly query: (key: string) => string | undefined }
+}): {
+  readonly valid: boolean
+  readonly page?: number
+  readonly pageSize?: number
+  readonly filters?: {
+    readonly action?: 'create' | 'update' | 'delete' | 'restore'
+    readonly tableName?: string
+    readonly userId?: string
+    readonly startDate?: string
+  }
+  readonly error?: { readonly message: string; readonly code: string }
+} {
+  const queryParams = {
+    page: c.req.query('page'),
+    pageSize: c.req.query('pageSize'),
+    action: c.req.query('action'),
+    tableName: c.req.query('tableName'),
+    userId: c.req.query('userId'),
+    startDate: c.req.query('startDate'),
+  }
+
+  // Validate query parameters
+  const validation = validateQueryParams(queryParams)
+  if (!validation.valid) {
+    return {
+      valid: false,
+      error: { message: validation.message!, code: 'INVALID_INPUT' },
+    }
+  }
+
+  // Parse pagination parameters
+  const page = parseIntParam(queryParams.page, 1)
+  const pageSize = parseIntParam(queryParams.pageSize, 50)
+
+  // Parse filters
+  const filters = {
+    action: queryParams.action as 'create' | 'update' | 'delete' | 'restore' | undefined,
+    tableName: queryParams.tableName,
+    userId: queryParams.userId,
+    startDate: queryParams.startDate,
+  }
+
+  return { valid: true, page, pageSize, filters }
+}
+
+/**
+ * Build pagination response
+ */
+function buildPaginationResponse(
+  logs: readonly ActivityLogWithUserOutput[],
+  total: number,
+  page: number,
+  pageSize: number
+): ActivityLogsResponse {
+  const totalPages = Math.ceil(total / pageSize)
+
+  return {
+    activities: logs.map(mapToApiResponse),
+    pagination: {
+      total,
+      page,
+      pageSize,
+      totalPages,
+    },
+  }
+}
+
+/**
  * Chain activity routes onto a Hono app
  *
  * Provides:
@@ -149,58 +221,33 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
       )
     }
 
-    // Parse query parameters
-    const queryParams = {
-      page: c.req.query('page'),
-      pageSize: c.req.query('pageSize'),
-      action: c.req.query('action'),
-      tableName: c.req.query('tableName'),
-      userId: c.req.query('userId'),
-      startDate: c.req.query('startDate'),
-    }
-
-    // Validate query parameters
-    const validation = validateQueryParams(queryParams)
-    if (!validation.valid) {
+    // Parse and validate query parameters
+    const parsed = parseActivityQueryParams(c)
+    if (!parsed.valid) {
       return c.json(
         {
           success: false,
-          message: validation.message!,
-          code: 'INVALID_INPUT',
+          message: parsed.error!.message,
+          code: parsed.error!.code,
         },
         400
       )
     }
 
-    // Parse pagination parameters
-    const page = parseIntParam(queryParams.page, 1)
-    const pageSize = parseIntParam(queryParams.pageSize, 50)
+    const { page, pageSize, filters } = parsed
 
-    // Parse filters
-    const filters = {
-      action: queryParams.action as 'create' | 'update' | 'delete' | 'restore' | undefined,
-      tableName: queryParams.tableName,
-      userId: queryParams.userId,
-      startDate: queryParams.startDate,
-    }
-
-    const program = Effect.gen(function* () {
-      return yield* ListActivityLogsWithFilters({
-        userId: session.userId,
-        page,
-        pageSize,
-        filters,
-      })
+    const program = ListActivityLogsWithFilters({
+      userId: session.userId,
+      page: page!,
+      pageSize: pageSize!,
+      filters: filters!,
     }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
 
     const result = await Effect.runPromise(program)
 
     if (result._tag === 'Left') {
-      const error = result.left
       const requestId = crypto.randomUUID()
-
-      // Sanitize error to prevent information disclosure
-      const sanitized = sanitizeError(error, requestId)
+      const sanitized = sanitizeError(result.left, requestId)
       const statusCode = getStatusCode(sanitized.code)
 
       return c.json(
@@ -214,19 +261,7 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
     }
 
     const { logs, total } = result.right
-
-    // Calculate pagination metadata
-    const totalPages = Math.ceil(total / pageSize)
-
-    const response: ActivityLogsResponse = {
-      activities: logs.map(mapToApiResponse),
-      pagination: {
-        total,
-        page,
-        pageSize,
-        totalPages,
-      },
-    }
+    const response = buildPaginationResponse(logs, total, page!, pageSize!)
 
     return c.json(response, 200)
   }) as T
