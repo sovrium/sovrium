@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { text, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
+import { text, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
 import { users } from '../../../auth/better-auth/schema'
 import { systemSchema } from './migration-audit'
 
