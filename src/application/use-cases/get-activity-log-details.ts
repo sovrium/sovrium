@@ -6,7 +6,7 @@
  */
 
 // eslint-disable-next-line no-restricted-syntax -- Activity logs are a cross-cutting concern, not phase-specific
-import { Data, Effect, Layer } from 'effect'
+import { Data, Effect } from 'effect'
 import {
   ActivityLogService,
   ActivityLogServiceLive,

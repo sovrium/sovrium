@@ -92,7 +92,7 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
    */
   findById: (id) =>
     Effect.gen(function* () {
-      const result = yield* Effect.tryPromise({
+      const result = (yield* Effect.tryPromise({
         try: () =>
           db
             .select({
@@ -113,7 +113,22 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
             .leftJoin(users, eq(activityLogs.userId, users.id))
             .where(eq(activityLogs.id, id)),
         catch: (error) => new ActivityLogDatabaseError({ cause: error }),
-      })
+      })) as Array<{
+        id: string
+        createdAt: Date
+        userId: string | null
+        sessionId: string | null
+        action: 'create' | 'update' | 'delete' | 'restore'
+        tableName: string
+        tableId: string
+        recordId: string
+        changes:
+          | import('@/infrastructure/database/drizzle/schema/activity-log').ActivityLogChanges
+          | null
+        ipAddress: string | null
+        userAgent: string | null
+        user: typeof users.$inferSelect | null
+      }>
 
       if (result.length === 0) {
         return yield* new ActivityLogNotFoundError({ id })

@@ -7,7 +7,10 @@
 
 import { describe, expect, test } from 'bun:test'
 import { Effect, Layer } from 'effect'
-import { ActivityLogService } from '@/infrastructure/services/activity-log-service'
+import {
+  ActivityLogService,
+  ActivityLogDatabaseError,
+} from '@/infrastructure/services/activity-log-service'
 import { UserRoleService } from '@/infrastructure/services/user-role-service'
 import {
   ListActivityLogs,
@@ -58,6 +61,7 @@ const mockLogs = [
 
 const MockActivityLogServiceLive = Layer.succeed(ActivityLogService, {
   listAll: () => Effect.succeed(mockLogs),
+  findById: () => Effect.fail(new ActivityLogDatabaseError({ cause: 'Not implemented in test' })),
   create: () =>
     Effect.succeed({
       id: 'log-1',
@@ -113,6 +117,7 @@ const MockUserRoleServiceNoRole = Layer.succeed(UserRoleService, {
  */
 const MockActivityLogServiceEmpty = Layer.succeed(ActivityLogService, {
   listAll: () => Effect.succeed([]),
+  findById: () => Effect.fail(new ActivityLogDatabaseError({ cause: 'Not implemented in test' })),
   create: () =>
     Effect.succeed({
       id: 'log-1',
