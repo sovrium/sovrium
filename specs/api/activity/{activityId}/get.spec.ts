@@ -263,7 +263,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-REGRESSION: user can retrieve specific activity with full metadata',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
