@@ -24,7 +24,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ACTIVITY-LIST-001: should return 200 with paginated activity logs',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
