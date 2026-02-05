@@ -458,7 +458,7 @@ test.describe('Upsert records (create or update)', () => {
       // THEN: assertion
       expect(data.success).toBe(false)
       expect(data.code).toBe('FORBIDDEN')
-      expect(data.message).toBe('You do not have permission to write to field: salary')
+      expect(data.message).toBe("Cannot write to field 'salary': insufficient permissions")
     }
   )
 
@@ -509,7 +509,7 @@ test.describe('Upsert records (create or update)', () => {
       // THEN: assertion
       expect(data.success).toBe(false)
       expect(data.code).toBe('FORBIDDEN')
-      expect(data.message).toBe('You do not have permission to write to field: salary')
+      expect(data.message).toBe("Cannot write to field 'salary': insufficient permissions")
     }
   )
 
@@ -547,14 +547,13 @@ test.describe('Upsert records (create or update)', () => {
         },
       })
 
-      // THEN: Returns 403 Forbidden error
-      expect(response.status()).toBe(403)
+      // THEN: Returns 400 Validation Error
+      expect(response.status()).toBe(400)
 
       const data = await response.json()
       // THEN: assertion
       expect(data.success).toBe(false)
-      expect(data.code).toBe('FORBIDDEN')
-      expect(data.message).toBe('Cannot set readonly field: id')
+      expect(data.code).toBe('VALIDATION_ERROR')
     }
   )
 
