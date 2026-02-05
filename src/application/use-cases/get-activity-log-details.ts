@@ -35,18 +35,16 @@ export interface GetActivityLogDetailsInput {
 export interface ActivityLogDetailsOutput {
   readonly id: string
   readonly createdAt: string
-  readonly userId: string | undefined
+  readonly userId: string | null
   readonly action: 'create' | 'update' | 'delete' | 'restore'
   readonly tableName: string
   readonly recordId: number
   readonly changes: ActivityLogChanges | null
-  readonly user:
-    | {
-        readonly id: string
-        readonly name: string
-        readonly email: string
-      }
-    | undefined
+  readonly user: {
+    readonly id: string
+    readonly name: string
+    readonly email: string
+  } | null
 }
 
 /**
@@ -84,10 +82,12 @@ export const GetActivityLogDetails = (
     return {
       id: log.id,
       createdAt: log.createdAt.toISOString(),
-      userId: log.userId ?? undefined,
+      // eslint-disable-next-line unicorn/no-null -- Database returns null, preserve for API consistency
+      userId: log.userId ?? null,
       action: log.action,
       tableName: log.tableName,
       recordId: Number(log.recordId),
+      // eslint-disable-next-line unicorn/no-null -- Database returns null, preserve for API consistency
       changes: log.changes ?? null,
       user: log.user
         ? {
@@ -95,7 +95,8 @@ export const GetActivityLogDetails = (
             name: log.user.name,
             email: log.user.email,
           }
-        : undefined,
+        : // eslint-disable-next-line unicorn/no-null -- Database returns null, preserve for API consistency
+          null,
     }
   })
 

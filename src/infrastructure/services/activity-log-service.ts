@@ -7,12 +7,12 @@
 
 import { desc, eq } from 'drizzle-orm'
 import { Context, Data, Effect, Layer } from 'effect'
+import { users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
 import {
   activityLogs,
   type ActivityLog,
 } from '@/infrastructure/database/drizzle/schema/activity-log'
-import { users } from '@/infrastructure/auth/better-auth/schema'
 
 /**
  * Database error for activity log operations
@@ -32,11 +32,59 @@ export class ActivityLogNotFoundError extends Data.TaggedError('ActivityLogNotFo
  * Activity log with user details
  */
 export interface ActivityLogWithUser extends ActivityLog {
-  readonly user: {
-    readonly id: string
-    readonly name: string
-    readonly email: string
-  } | null
+  readonly user:
+    | {
+        readonly id: string
+        readonly name: string
+        readonly email: string
+      }
+    | undefined
+}
+
+/**
+ * Database result type for activity log with user join
+ */
+type ActivityLogQueryResult = {
+  id: string
+  createdAt: Date
+  userId: string | null
+  sessionId: string | null
+  action: 'create' | 'update' | 'delete' | 'restore'
+  tableName: string
+  tableId: string
+  recordId: string
+  changes: typeof activityLogs.$inferSelect.changes | null
+  ipAddress: string | null
+  userAgent: string | null
+  user: typeof users.$inferSelect | null
+}
+
+/**
+ * Map database result to ActivityLogWithUser
+ */
+function mapToActivityLogWithUser(
+  log: Readonly<ActivityLogQueryResult>
+): Readonly<ActivityLogWithUser> {
+  return {
+    id: log.id,
+    createdAt: log.createdAt,
+    userId: log.userId,
+    sessionId: log.sessionId,
+    action: log.action,
+    tableName: log.tableName,
+    tableId: log.tableId,
+    recordId: log.recordId,
+    changes: log.changes,
+    ipAddress: log.ipAddress,
+    userAgent: log.userAgent,
+    user: log.user
+      ? {
+          id: log.user.id,
+          name: log.user.name,
+          email: log.user.email,
+        }
+      : undefined,
+  }
 }
 
 /**
@@ -113,49 +161,13 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
             .leftJoin(users, eq(activityLogs.userId, users.id))
             .where(eq(activityLogs.id, id)),
         catch: (error) => new ActivityLogDatabaseError({ cause: error }),
-      })) as Array<{
-        id: string
-        createdAt: Date
-        userId: string | null
-        sessionId: string | null
-        action: 'create' | 'update' | 'delete' | 'restore'
-        tableName: string
-        tableId: string
-        recordId: string
-        changes:
-          | import('@/infrastructure/database/drizzle/schema/activity-log').ActivityLogChanges
-          | null
-        ipAddress: string | null
-        userAgent: string | null
-        user: typeof users.$inferSelect | null
-      }>
+      })) as ActivityLogQueryResult[]
 
       if (result.length === 0) {
         return yield* new ActivityLogNotFoundError({ id })
       }
 
-      const log = result[0]!
-
-      return {
-        id: log.id,
-        createdAt: log.createdAt,
-        userId: log.userId,
-        sessionId: log.sessionId,
-        action: log.action,
-        tableName: log.tableName,
-        tableId: log.tableId,
-        recordId: log.recordId,
-        changes: log.changes,
-        ipAddress: log.ipAddress,
-        userAgent: log.userAgent,
-        user: log.user
-          ? {
-              id: log.user.id,
-              name: log.user.name,
-              email: log.user.email,
-            }
-          : null,
-      }
+      return mapToActivityLogWithUser(result[0]!)
     }),
 
   /**

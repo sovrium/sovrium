@@ -7,18 +7,18 @@
 
 import { Effect } from 'effect'
 import {
-  type ActivityLogOutput,
-  ListActivityLogs,
-  ListActivityLogsLayer,
-} from '@/application/use-cases/list-activity-logs'
-import {
   GetActivityLogDetails,
   GetActivityLogDetailsLayer,
   type ActivityLogDetailsOutput,
 } from '@/application/use-cases/get-activity-log-details'
+import {
+  type ActivityLogOutput,
+  ListActivityLogs,
+  ListActivityLogsLayer,
+} from '@/application/use-cases/list-activity-logs'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { sanitizeError, getStatusCode } from '@/presentation/api/utils/error-sanitizer'
-import type { Hono } from 'hono'
+import type { Context, Hono } from 'hono'
 
 /**
  * Activity log API response type
@@ -55,18 +55,16 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
 interface ActivityLogDetailsResponse {
   readonly id: string
   readonly createdAt: string
-  readonly userId: string | undefined
+  readonly userId: string | null
   readonly action: 'create' | 'update' | 'delete' | 'restore'
   readonly tableName: string
   readonly recordId: number
   readonly changes: Record<string, unknown> | null
-  readonly user:
-    | {
-        readonly id: string
-        readonly name: string
-        readonly email: string
-      }
-    | undefined
+  readonly user: {
+    readonly id: string
+    readonly name: string
+    readonly email: string
+  } | null
 }
 
 /**
@@ -86,6 +84,31 @@ function mapDetailsToApiResponse(log: ActivityLogDetailsOutput): ActivityLogDeta
 }
 
 /**
+ * Handle authentication error response
+ */
+function handleUnauthorized(c: Context) {
+  return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
+}
+
+/**
+ * Handle error response
+ */
+function handleError(c: Context, error: unknown) {
+  const requestId = crypto.randomUUID()
+  const sanitized = sanitizeError(error, requestId)
+  const statusCode = getStatusCode(sanitized.code)
+
+  return c.json(
+    {
+      success: false,
+      message: sanitized.message ?? sanitized.error,
+      code: sanitized.code,
+    },
+    statusCode
+  )
+}
+
+/**
  * Chain activity routes onto a Hono app
  *
  * Provides:
@@ -99,78 +122,37 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
   return honoApp
     .get('/api/activity/:activityId', async (c) => {
       const session = getSessionContext(c)
-
-      if (!session) {
-        return c.json(
-          { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
-          401
-        )
-      }
+      if (!session) return handleUnauthorized(c)
 
       const activityId = c.req.param('activityId')
-
-      const program = GetActivityLogDetails({
-        activityId,
-      }).pipe(Effect.provide(GetActivityLogDetailsLayer), Effect.either)
+      const program = GetActivityLogDetails({ activityId }).pipe(
+        Effect.provide(GetActivityLogDetailsLayer),
+        Effect.either
+      )
 
       const result = await Effect.runPromise(program)
 
       if (result._tag === 'Left') {
-        const error = result.left
-        const requestId = crypto.randomUUID()
-
-        // Sanitize error to prevent information disclosure
-        const sanitized = sanitizeError(error, requestId)
-        const statusCode = getStatusCode(sanitized.code)
-
-        return c.json(
-          {
-            success: false,
-            message: sanitized.message ?? sanitized.error,
-            code: sanitized.code,
-          },
-          statusCode
-        )
+        return handleError(c, result.left)
       }
 
-      const log = result.right
-      return c.json(mapDetailsToApiResponse(log), 200)
+      return c.json(mapDetailsToApiResponse(result.right), 200)
     })
     .get('/api/activity', async (c) => {
       const session = getSessionContext(c)
+      if (!session) return handleUnauthorized(c)
 
-      if (!session) {
-        return c.json(
-          { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
-          401
-        )
-      }
-
-      const program = ListActivityLogs({
-        userId: session.userId,
-      }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
+      const program = ListActivityLogs({ userId: session.userId }).pipe(
+        Effect.provide(ListActivityLogsLayer),
+        Effect.either
+      )
 
       const result = await Effect.runPromise(program)
 
       if (result._tag === 'Left') {
-        const error = result.left
-        const requestId = crypto.randomUUID()
-
-        // Sanitize error to prevent information disclosure
-        const sanitized = sanitizeError(error, requestId)
-        const statusCode = getStatusCode(sanitized.code)
-
-        return c.json(
-          {
-            success: false,
-            message: sanitized.message ?? sanitized.error,
-            code: sanitized.code,
-          },
-          statusCode
-        )
+        return handleError(c, result.left)
       }
 
-      const logs = result.right
-      return c.json(logs.map(mapToApiResponse), 200)
+      return c.json(result.right.map(mapToApiResponse), 200)
     }) as T
 }
