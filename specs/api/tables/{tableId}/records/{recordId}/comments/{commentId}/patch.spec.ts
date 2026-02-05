@@ -511,7 +511,7 @@ test.describe('Update comment', () => {
   // Combines 10 @spec scenarios into one workflow validating the update comment feature
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-REGRESSION: user can complete full update comment workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
