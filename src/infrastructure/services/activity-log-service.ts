@@ -106,11 +106,21 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
         catch: (error) => new ActivityLogDatabaseError({ cause: error }),
       })
 
-      if (result.length === 0) {
+      // Type assertion needed because Drizzle query builder return type is complex
+      const queryResult = result as Array<{
+        activityLog: ActivityLog
+        user: {
+          id: string
+          name: string
+          email: string
+        } | null
+      }>
+
+      if (queryResult.length === 0) {
         return yield* new ActivityLogNotFoundError({ activityId: id })
       }
 
-      const row = result[0]!
+      const row = queryResult[0]!
       const activityLogWithUser: Readonly<ActivityLogWithUser> = {
         ...row.activityLog,
         user: row.user
