@@ -110,7 +110,9 @@ export const handleBatchRestoreError = (c: Context, error: unknown) => {
     const recordIdMatch = errorMessage.match(/Record (\S+) not found/)
     return c.json(
       {
-        error: 'Record not found',
+        success: false as const,
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
         recordId: recordIdMatch?.[1] ? Number.parseInt(recordIdMatch[1]) : undefined,
       },
       404
