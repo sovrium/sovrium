@@ -17,7 +17,7 @@ import {
   UserRoleServiceLive,
   type UserRoleDatabaseError,
 } from '@/infrastructure/services/user-role-service'
-import type { ActivityLog } from '@/infrastructure/database/drizzle/schema/activity-log'
+import type { ActivityLogWithUser } from '@/infrastructure/database/drizzle/schema/activity-log'
 
 /**
  * Forbidden error when user lacks permission to access activity logs
@@ -27,57 +27,94 @@ export class ForbiddenError extends Data.TaggedError('ForbiddenError')<{
 }> {}
 
 /**
- * Input for ListActivityLogs use case
+ * Filters for activity logs
  */
-export interface ListActivityLogsInput {
-  readonly userId: string
+export interface ActivityLogFilters {
+  readonly action?: 'create' | 'update' | 'delete' | 'restore'
+  readonly tableName?: string
+  readonly userId?: string
+  readonly startDate?: string
 }
 
 /**
- * Activity log output type for presentation layer
- *
- * Decouples presentation from infrastructure database schema.
+ * Input for ListActivityLogsWithFilters use case
  */
-export interface ActivityLogOutput {
+export interface ListActivityLogsWithFiltersInput {
+  readonly userId: string
+  readonly page: number
+  readonly pageSize: number
+  readonly filters: ActivityLogFilters
+}
+
+/**
+ * User metadata in activity log
+ */
+export interface UserMetadata {
+  readonly id: string
+  readonly name: string | null
+  readonly email: string
+}
+
+/**
+ * Activity log output type with user metadata
+ */
+export interface ActivityLogWithUserOutput {
   readonly id: string
   readonly createdAt: string
   readonly userId: string | undefined
   readonly action: 'create' | 'update' | 'delete' | 'restore'
   readonly tableName: string
   readonly recordId: string
+  readonly user: UserMetadata | undefined
 }
 
 /**
- * Map infrastructure ActivityLog to application output
+ * Activity logs with pagination result
  */
-function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
+export interface ActivityLogsWithPaginationResult {
+  readonly logs: readonly ActivityLogWithUserOutput[]
+  readonly total: number
+}
+
+/**
+ * Map infrastructure ActivityLogWithUser to application output
+ */
+function mapActivityLogWithUser(log: Readonly<ActivityLogWithUser>): ActivityLogWithUserOutput {
   return {
     id: log.id,
     createdAt: log.createdAt.toISOString(),
-    userId: log.userId ?? undefined,
+    userId: log.userId,
     action: log.action,
     tableName: log.tableName,
     recordId: log.recordId,
+    user: log.user
+      ? {
+          id: log.user.id,
+          name: log.user.name,
+          email: log.user.email,
+        }
+      : undefined,
   }
 }
 
 /**
- * List Activity Logs Use Case
+ * List Activity Logs with Filters and Pagination Use Case
  *
  * Application layer use case that:
- * 1. Checks user role (viewers are forbidden)
- * 2. Lists activity logs
- * 3. Maps to presentation-friendly format
+ * 1. Checks user role and permissions
+ * 2. Validates filter access (non-admin cannot filter by other users)
+ * 3. Lists activity logs with filters and pagination
+ * 4. Includes user metadata via join
  *
  * Follows layer-based architecture:
  * - Application Layer: This file (orchestration + business logic)
  * - Infrastructure Layer: ActivityLogService, UserRoleService
- * - Domain Layer: Business rules (viewer restriction)
+ * - Domain Layer: Business rules (viewer restriction, permission checks)
  */
-export const ListActivityLogs = (
-  input: ListActivityLogsInput
+export const ListActivityLogsWithFilters = (
+  input: ListActivityLogsWithFiltersInput
 ): Effect.Effect<
-  readonly ActivityLogOutput[],
+  ActivityLogsWithPaginationResult,
   ForbiddenError | ActivityLogDatabaseError | UserRoleDatabaseError,
   ActivityLogService | UserRoleService
 > =>
@@ -102,11 +139,28 @@ export const ListActivityLogs = (
       })
     }
 
-    // List all activity logs
-    const logs = yield* activityLogService.listAll()
+    // Domain rule: Non-admin users can only filter by their own userId
+    if (input.filters.userId && input.filters.userId !== input.userId && role !== 'admin') {
+      return yield* new ForbiddenError({
+        message: 'You do not have permission to view other users activity logs',
+      })
+    }
+
+    // List activity logs with filters and pagination
+    const result = yield* activityLogService.listWithFilters({
+      page: input.page,
+      pageSize: input.pageSize,
+      action: input.filters.action,
+      tableName: input.filters.tableName,
+      userId: input.filters.userId,
+      startDate: input.filters.startDate,
+    })
 
     // Map to presentation-friendly format
-    return logs.map(mapActivityLog)
+    return {
+      logs: result.logs.map(mapActivityLogWithUser),
+      total: result.total,
+    }
   })
 
 /**
