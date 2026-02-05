@@ -84,7 +84,7 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-002: should rollback on partial failure (404)',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
