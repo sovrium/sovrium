@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { desc } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { Context, Data, Effect, Layer } from 'effect'
+import { users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
 import {
   activityLogs,
@@ -21,6 +22,24 @@ export class ActivityLogDatabaseError extends Data.TaggedError('ActivityLogDatab
 }> {}
 
 /**
+ * Activity log not found error
+ */
+export class ActivityLogNotFoundError extends Data.TaggedError('ActivityLogNotFoundError')<{
+  readonly activityId: string
+}> {}
+
+/**
+ * Activity log with user metadata
+ */
+export interface ActivityLogWithUser extends ActivityLog {
+  readonly user?: {
+    readonly id: string
+    readonly name: string
+    readonly email: string
+  }
+}
+
+/**
  * Activity Log Service
  *
  * Provides type-safe database operations for activity logs using Drizzle ORM.
@@ -33,6 +52,9 @@ export class ActivityLogService extends Context.Tag('ActivityLogService')<
   ActivityLogService,
   {
     readonly listAll: () => Effect.Effect<readonly ActivityLog[], ActivityLogDatabaseError>
+    readonly findById: (
+      id: string
+    ) => Effect.Effect<ActivityLogWithUser, ActivityLogNotFoundError | ActivityLogDatabaseError>
     readonly create: (log: {
       readonly userId: string
       readonly action: 'create' | 'update' | 'delete' | 'restore'
@@ -63,6 +85,44 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
     Effect.tryPromise({
       try: () => db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt)),
       catch: (error) => new ActivityLogDatabaseError({ cause: error }),
+    }),
+
+  /**
+   * Find activity log by ID with user metadata
+   */
+  findById: (id) =>
+    Effect.gen(function* () {
+      const result = yield* Effect.tryPromise({
+        try: () =>
+          db
+            .select({
+              activityLog: activityLogs,
+              user: users,
+            })
+            .from(activityLogs)
+            .leftJoin(users, eq(activityLogs.userId, users.id))
+            .where(eq(activityLogs.id, id))
+            .limit(1),
+        catch: (error) => new ActivityLogDatabaseError({ cause: error }),
+      })
+
+      if (result.length === 0) {
+        return yield* new ActivityLogNotFoundError({ activityId: id })
+      }
+
+      const row = result[0]!
+      const activityLogWithUser: Readonly<ActivityLogWithUser> = {
+        ...row.activityLog,
+        user: row.user
+          ? {
+              id: row.user.id,
+              name: row.user.name,
+              email: row.user.email,
+            }
+          : undefined,
+      }
+
+      return activityLogWithUser
     }),
 
   /**

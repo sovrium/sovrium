@@ -238,6 +238,8 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/tables/*', requireAuth())
         .use('/api/activity', authMiddleware(auth))
         .use('/api/activity', requireAuth())
+        .use('/api/activity/*', authMiddleware(auth))
+        .use('/api/activity/*', requireAuth())
     : honoWithActivityRateLimit
 
   // Chain table routes (always register, returns empty array if no tables configured)
