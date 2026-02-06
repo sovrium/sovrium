@@ -19,6 +19,8 @@
  * ```
  */
 
+export { AuthConfigRequiredForUserFields } from './auth-config-required-error'
 export { AuthError } from './auth-error'
 export { CSSCompilationError } from './css-compilation-error'
+export { SchemaInitializationError } from './schema-initialization-error'
 export { ServerCreationError } from './server-creation-error'
