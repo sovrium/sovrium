@@ -15,10 +15,10 @@
 
 ## Feature Areas
 
-| Area                                                  | Description                                                 | Stories |
-| ----------------------------------------------------- | ----------------------------------------------------------- | ------- |
-| [**User Management**](./user-management/)             | Create users, assign roles, reset passwords, manage sessions, impersonate | 2 files |
-| [**Activity Monitoring**](./activity-monitoring/)      | Activity logs, audit trail, rate limiting                   | 1 file  |
+| Area                                              | Description                                                               | Stories |
+| ------------------------------------------------- | ------------------------------------------------------------------------- | ------- |
+| [**User Management**](./user-management/)         | Create users, assign roles, reset passwords, manage sessions, impersonate | 2 files |
+| [**Activity Monitoring**](./activity-monitoring/) | Activity logs, audit trail, rate limiting                                 | 1 file  |
 
 ## Quick Links
 
@@ -35,10 +35,10 @@
 
 The **Developer** role (`as-developer/`) configures and enables admin features declaratively in the app schema (e.g., enabling the admin plugin, configuring roles and permissions). The **Business Admin** role (`as-business-admin/`) describes the runtime actions that administrators perform using those configured features.
 
-| Concern | Developer (as-developer/) | Business Admin (as-business-admin/) |
-| ------- | ------------------------- | ----------------------------------- |
-| Auth configuration | Enables email/password, 2FA, magic links | -- |
-| Admin plugin | Configures `admin.enabled`, `adminRoles`, `defaultRole` | Uses admin endpoints to manage users |
-| Permissions | Defines RBAC roles, field/record-level access | Has admin role granting full access |
-| Activity | Configures activity logging retention/rate limits | Views and filters activity logs |
-| Sessions | Configures session expiry, refresh settings | Manages user sessions, revokes access |
+| Concern            | Developer (as-developer/)                               | Business Admin (as-business-admin/)   |
+| ------------------ | ------------------------------------------------------- | ------------------------------------- |
+| Auth configuration | Enables email/password, 2FA, magic links                | --                                    |
+| Admin plugin       | Configures `admin.enabled`, `adminRoles`, `defaultRole` | Uses admin endpoints to manage users  |
+| Permissions        | Defines RBAC roles, field/record-level access           | Has admin role granting full access   |
+| Activity           | Configures activity logging retention/rate limits       | Views and filters activity logs       |
+| Sessions           | Configures session expiry, refresh settings             | Manages user sessions, revokes access |

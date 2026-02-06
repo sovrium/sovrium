@@ -24,7 +24,7 @@
 | [**Internationalization**](./internationalization/) | Multi-language application support                         | 1 file  |
 | [**CLI**](./cli/)                                   | Server commands, static site generation                    | 2 files |
 | [**Migrations**](./migrations/)                     | Schema evolution, migration versioning                     | 2 files |
-| [**App Schema**](./app-schema/)                     | Application metadata configuration                        | 1 file  |
+| [**App Schema**](./app-schema/)                     | Application metadata configuration                         | 1 file  |
 | [**API**](./api/)                                   | Health check endpoint                                      | 1 file  |
 | [**Templates**](./templates/)                       | Landing page templates                                     | 1 file  |
 

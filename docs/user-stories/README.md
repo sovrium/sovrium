@@ -4,10 +4,10 @@
 
 ## Roles
 
-| Role                                          | Description                                               | Features                                                                   |
-| --------------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------- |
-| [**Developer**](./as-developer/)              | Technical builders creating apps with Sovrium              | Authentication, Tables, Records API, Pages, Theming, i18n, CLI, Migrations |
-| [**Business Admin**](./as-business-admin/)    | Administrators managing users, activity, and operations    | User Management, Activity Monitoring                                       |
+| Role                                       | Description                                             | Features                                                                   |
+| ------------------------------------------ | ------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [**Developer**](./as-developer/)           | Technical builders creating apps with Sovrium           | Authentication, Tables, Records API, Pages, Theming, i18n, CLI, Migrations |
+| [**Business Admin**](./as-business-admin/) | Administrators managing users, activity, and operations | User Management, Activity Monitoring                                       |
 
 ## Structure
 
