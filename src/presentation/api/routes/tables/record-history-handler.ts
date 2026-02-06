@@ -133,19 +133,29 @@ function buildRecordHistoryProgram(
     })
 
     return {
-      history: activities.map((activity) => ({
-        id: activity.id,
-        action: activity.action,
-        changes: activity.changes,
-        createdAt: activity.createdAt.toISOString(),
-        user: activity.userId
-          ? {
-              id: activity.userId,
-              name: activity.userName ?? 'Unknown',
-              email: activity.userEmail ?? '',
-            }
-          : undefined,
-      })),
+      history: activities.map(
+        (activity: {
+          id: string
+          action: string
+          changes: unknown
+          createdAt: Date
+          userId: string | null
+          userName: string | null
+          userEmail: string | null
+        }) => ({
+          id: activity.id,
+          action: activity.action,
+          changes: activity.changes,
+          createdAt: activity.createdAt.toISOString(),
+          user: activity.userId
+            ? {
+                id: activity.userId,
+                name: activity.userName ?? 'Unknown',
+                email: activity.userEmail ?? '',
+              }
+            : undefined,
+        })
+      ),
       pagination: { limit, offset, total },
     }
   })
