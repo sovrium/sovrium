@@ -58,6 +58,11 @@ const mockLogs = [
 
 const MockActivityLogServiceLive = Layer.succeed(ActivityLogService, {
   listAll: () => Effect.succeed(mockLogs),
+  getRecordHistory: () =>
+    Effect.succeed({
+      logs: [],
+      total: 0,
+    }),
   create: () =>
     Effect.succeed({
       id: 'log-1',
@@ -113,6 +118,11 @@ const MockUserRoleServiceNoRole = Layer.succeed(UserRoleService, {
  */
 const MockActivityLogServiceEmpty = Layer.succeed(ActivityLogService, {
   listAll: () => Effect.succeed([]),
+  getRecordHistory: () =>
+    Effect.succeed({
+      logs: [],
+      total: 0,
+    }),
   create: () =>
     Effect.succeed({
       id: 'log-1',

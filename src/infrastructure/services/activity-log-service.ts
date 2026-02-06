@@ -82,6 +82,84 @@ export class ActivityLogService extends Context.Tag('ActivityLogService')<
 >() {}
 
 /**
+ * Helper: Count matching activity logs
+ */
+const countActivityLogs = (
+  conditions: readonly ReturnType<typeof eq>[]
+): Effect.Effect<{ count: number }[], ActivityLogDatabaseError> =>
+  Effect.tryPromise({
+    try: () =>
+      db
+        .select({ count: count() })
+        .from(activityLogs)
+        .where(and(...conditions)),
+    catch: (error) => new ActivityLogDatabaseError({ cause: error }),
+  })
+
+/**
+ * Helper: Check if record exists in table
+ */
+const checkRecordExists = (
+  tableName: string,
+  recordId: string
+): Effect.Effect<{ exists: number }[], ActivityLogDatabaseError> =>
+  Effect.tryPromise({
+    try: () =>
+      db.execute(
+        sql`SELECT 1 as exists FROM ${sql.identifier(tableName)} WHERE id = ${recordId} LIMIT 1`
+      ),
+    catch: (error) => new ActivityLogDatabaseError({ cause: error }),
+  })
+
+/**
+ * Helper: Fetch activity logs with user metadata
+ */
+const fetchActivityLogsWithUsers = (
+  conditions: readonly ReturnType<typeof eq>[],
+  limit: number,
+  offset: number
+): Effect.Effect<
+  Array<{
+    id: string
+    action: 'create' | 'update' | 'delete' | 'restore'
+    changes:
+      | {
+          readonly before?: Record<string, unknown>
+          readonly after?: Record<string, unknown>
+        }
+      | null
+      | undefined
+    createdAt: Date
+    userId: string | null
+    userName: string | null
+    userEmail: string | null
+    userImage: string | null
+  }>,
+  ActivityLogDatabaseError
+> =>
+  Effect.tryPromise({
+    try: () =>
+      db
+        .select({
+          id: activityLogs.id,
+          action: activityLogs.action,
+          changes: activityLogs.changes,
+          createdAt: activityLogs.createdAt,
+          userId: activityLogs.userId,
+          userName: users.name,
+          userEmail: users.email,
+          userImage: users.image,
+        })
+        .from(activityLogs)
+        .leftJoin(users, eq(activityLogs.userId, users.id))
+        .where(and(...conditions))
+        .orderBy(activityLogs.createdAt)
+        .limit(limit)
+        .offset(offset),
+    catch: (error) => new ActivityLogDatabaseError({ cause: error }),
+  })
+
+/**
  * Activity Log Service Implementation
  *
  * Uses Drizzle ORM query builder for type-safe, SQL-injection-proof queries.
@@ -112,30 +190,13 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
       ]
 
       // Count total matching records
-      const countResult = yield* Effect.tryPromise({
-        try: () =>
-          db
-            .select({ count: count() })
-            .from(activityLogs)
-            .where(and(...conditions)),
-        catch: (error) => new ActivityLogDatabaseError({ cause: error }),
-      })
-
+      const countResult = yield* countActivityLogs(conditions)
       const total = countResult[0]?.count ?? 0
 
-      // If checkRecordExists is true and no logs found, verify record exists in table
+      // If checkRecordExists is true and no logs found, verify record exists
       if (params.checkRecordExists && total === 0) {
-        // Check if record exists in the dynamic table using raw SQL
-        // Note: This is safe because tableName comes from app schema, not user input
-        const recordExists = yield* Effect.tryPromise({
-          try: () =>
-            db.execute<{ exists: number }>(
-              sql`SELECT 1 as exists FROM ${sql.identifier(params.tableName)} WHERE id = ${params.recordId} LIMIT 1`
-            ),
-          catch: (error) => new ActivityLogDatabaseError({ cause: error }),
-        })
+        const recordExists = yield* checkRecordExists(params.tableName, params.recordId)
 
-        // If no record found in table and no activity logs, record doesn't exist
         if (!recordExists || recordExists.length === 0) {
           return yield* Effect.fail(
             new ActivityLogDatabaseError({ cause: new Error('Record not found') })
@@ -144,27 +205,11 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
       }
 
       // Fetch paginated activity logs with user metadata
-      const logs = yield* Effect.tryPromise({
-        try: () =>
-          db
-            .select({
-              id: activityLogs.id,
-              action: activityLogs.action,
-              changes: activityLogs.changes,
-              createdAt: activityLogs.createdAt,
-              userId: activityLogs.userId,
-              userName: users.name,
-              userEmail: users.email,
-              userImage: users.image,
-            })
-            .from(activityLogs)
-            .leftJoin(users, eq(activityLogs.userId, users.id))
-            .where(and(...conditions))
-            .orderBy(activityLogs.createdAt)
-            .limit(params.limit ?? 1000)
-            .offset(params.offset ?? 0),
-        catch: (error) => new ActivityLogDatabaseError({ cause: error }),
-      })
+      const logs = yield* fetchActivityLogsWithUsers(
+        conditions,
+        params.limit ?? 1000,
+        params.offset ?? 0
+      )
 
       return {
         logs: logs.map((log) => ({
