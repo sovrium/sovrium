@@ -458,7 +458,7 @@ test.describe('Upsert records (create or update)', () => {
       // THEN: assertion
       expect(data.success).toBe(false)
       expect(data.code).toBe('FORBIDDEN')
-      expect(data.message).toBe('You do not have permission to write to field: salary')
+      expect(data.message).toBe("Cannot write to field 'salary': insufficient permissions")
     }
   )
 
@@ -509,7 +509,7 @@ test.describe('Upsert records (create or update)', () => {
       // THEN: assertion
       expect(data.success).toBe(false)
       expect(data.code).toBe('FORBIDDEN')
-      expect(data.message).toBe('You do not have permission to write to field: salary')
+      expect(data.message).toBe("Cannot write to field 'salary': insufficient permissions")
     }
   )
 
