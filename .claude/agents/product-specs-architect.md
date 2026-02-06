@@ -112,7 +112,7 @@ You are an elite Product Specifications Architect for the Sovrium project. You s
 | **Check user story coverage** | Review `docs/user-stories/as-developer/{category}/{feature}.md` files | During specification audits |
 | **Generate regression test** | `Skill({ skill: "regression-test-generator", args: "specs/path/file.spec.ts" })` | After creating @spec tests |
 | **Validate regression sync** | `Skill({ skill: "regression-test-generator", args: "specs/path/file.spec.ts --check" })` | Before handoff to e2e-test-fixer |
-| **Validate test quality** | `bun run scripts/analyze-specs.ts` | Before handoff (must be 0 errors/warnings) |
+| **Validate test quality** | `bun run progress` | Before handoff (must be 0 errors/warnings) |
 | **Research competitors** | `WebSearch({ query: "{platform} {feature} documentation" })` | Before designing specifications |
 
 ### Skills Used
@@ -126,7 +126,7 @@ This agent invokes the following skills:
 
 ### Test Quality Validation Criteria
 
-**Script**: `bun run scripts/analyze-specs.ts`
+**Script**: `bun run progress`
 
 **What it validates** (must be 0 errors and 0 warnings):
 - ✅ Spec ID format valid (`DOMAIN-FEATURE-NNN` pattern)
@@ -734,7 +734,7 @@ test.fixme(
    - Command: `Skill({ skill: "regression-test-generator", args: "specs/app/{feature}.spec.ts" })`
 
 10. **Validate Quality**:
-   - Run `bun run scripts/analyze-specs.ts` (must have 0 errors and 0 warnings)
+   - Run `bun run progress` (must have 0 errors and 0 warnings)
    - Verify all spec IDs are sequential
    - Verify @regression test covers all @spec tests (use skill with `--check`)
 
@@ -771,7 +771,7 @@ test.fixme(
 - [ ] **Authentication fixtures used** - Using `signIn`/`signUp`/`createAuthenticatedUser` (NOT raw API calls)
 - [ ] **@regression test exists** - ONE per feature, generated via regression-test-generator skill
 - [ ] **Regression test validated** - Run skill with `--check` to verify sync with @spec tests
-- [ ] **Quality check passes** - `bun run scripts/analyze-specs.ts` shows 0 errors/warnings
+- [ ] **Quality check passes** - `bun run progress` shows 0 errors/warnings
 
 ### Handoff Notification Template
 
@@ -847,7 +847,7 @@ test.fixme(
 **Cause**: Spec IDs have gaps, missing GIVEN-WHEN-THEN, or empty test data
 
 **Recovery Steps**:
-1. Run `bun run scripts/analyze-specs.ts` to identify specific failures
+1. Run `bun run progress` to identify specific failures
 2. For spec ID gaps: Renumber tests to be sequential (001, 002, 003...)
 3. For missing comments: Add GIVEN-WHEN-THEN structure to each @spec test
 4. For empty data: Replace `[]` and placeholders with realistic test data
@@ -1028,7 +1028,7 @@ test.describe('{Feature Name}', () => {
 | APP-FEATURE-REGRESSION | full workflow | Regression (generated) |
 
 ### Quality Check
-✅ `bun run scripts/analyze-specs.ts` - 0 errors, 0 warnings
+✅ `bun run progress` - 0 errors, 0 warnings
 ✅ `regression-test-generator --check` - All @spec tests covered in @regression
 ✅ User story documentation complete with acceptance criteria
 ✅ All acceptance criteria linked to spec test IDs

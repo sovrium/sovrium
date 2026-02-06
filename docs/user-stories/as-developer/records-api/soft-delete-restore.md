@@ -213,9 +213,9 @@ Content-Type: application/json
 | AC-003 | Returns 400 when any record ID is invalid                  | `API-TABLES-RECORDS-BATCH-RESTORE-003`        | ⏳     |
 | AC-004 | Skips records that are not deleted                         | `API-TABLES-RECORDS-BATCH-RESTORE-004`        | ✅     |
 | AC-005 | Returns partial success response with error details        | `API-TABLES-RECORDS-BATCH-RESTORE-005`        | ⏳     |
-| AC-006 | Returns 401 when not authenticated                         | `API-TABLES-RECORDS-BATCH-RESTORE-006`        | ⏳     |
-| AC-007 | Returns 403 when user lacks restore permission             | `API-TABLES-RECORDS-BATCH-RESTORE-007`        | ⏳     |
-| AC-008 | Logs batch restore operation to activity history           | `API-TABLES-RECORDS-BATCH-RESTORE-008`        | ⏳     |
+| AC-006 | Returns 401 when not authenticated                         | `API-TABLES-RECORDS-BATCH-RESTORE-006`        | ❓     |
+| AC-007 | Returns 403 when user lacks restore permission             | `API-TABLES-RECORDS-BATCH-RESTORE-007`        | ❓     |
+| AC-008 | Logs batch restore operation to activity history           | `API-TABLES-RECORDS-BATCH-RESTORE-008`        | ❓     |
 | AC-009 | User can complete full batch restore workflow (regression) | `API-TABLES-RECORDS-BATCH-RESTORE-REGRESSION` | ⏳     |
 
 ### Implementation References
@@ -261,7 +261,7 @@ GET /api/tables/1/trash
 | AC-002 | Includes deleted_at timestamp and deleted_by user  | `API-TABLES-TRASH-002`        | ✅     |
 | AC-003 | Supports pagination with limit and offset          | `API-TABLES-TRASH-003`        | ✅     |
 | AC-004 | Returns 403 when user lacks trash view permission  | `API-TABLES-TRASH-004`        | ✅     |
-| AC-005 | User can complete full trash workflow (regression) | `API-TABLES-TRASH-REGRESSION` | ✅     |
+| AC-005 | User can complete full trash workflow (regression) | `API-TABLES-TRASH-REGRESSION` | ⏳     |
 
 ### Implementation References
 
@@ -291,7 +291,7 @@ GET /api/tables/1/records?includeDeleted=only
 | AC-002 | includeDeleted=only returns only deleted records             | `API-TABLES-RECORDS-INCLUDE-DELETED-002`        | ✅     |
 | AC-003 | Default behavior excludes deleted records                    | `API-TABLES-RECORDS-INCLUDE-DELETED-003`        | ✅     |
 | AC-004 | Deleted records are marked with deleted_at in response       | `API-TABLES-RECORDS-INCLUDE-DELETED-004`        | ✅     |
-| AC-005 | User can complete full include-deleted workflow (regression) | `API-TABLES-RECORDS-INCLUDE-DELETED-REGRESSION` | ✅     |
+| AC-005 | User can complete full include-deleted workflow (regression) | `API-TABLES-RECORDS-INCLUDE-DELETED-REGRESSION` | ⏳     |
 
 ### Implementation References
 

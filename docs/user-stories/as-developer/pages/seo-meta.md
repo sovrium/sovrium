@@ -347,19 +347,19 @@ meta:
 
 | ID     | Criterion                                              | E2E Spec                         | Status |
 | ------ | ------------------------------------------------------ | -------------------------------- | ------ |
-| AC-001 | Supports multiple analytics providers                  | `APP-PAGES-ANALYTICS-001`        | ⏳     |
-| AC-002 | Supports 6 analytics providers                         | `APP-PAGES-ANALYTICS-002`        | ⏳     |
-| AC-003 | Allows enabling/disabling provider                     | `APP-PAGES-ANALYTICS-003`        | ⏳     |
-| AC-004 | Loads provider scripts                                 | `APP-PAGES-ANALYTICS-004`        | ⏳     |
-| AC-005 | Loads script asynchronously                            | `APP-PAGES-ANALYTICS-005`        | ⏳     |
-| AC-006 | Executes provider initialization code                  | `APP-PAGES-ANALYTICS-006`        | ⏳     |
-| AC-007 | Optimizes DNS resolution for provider                  | `APP-PAGES-ANALYTICS-007`        | ⏳     |
-| AC-008 | Passes configuration to provider                       | `APP-PAGES-ANALYTICS-008`        | ⏳     |
-| AC-009 | Configures Google Analytics                            | `APP-PAGES-ANALYTICS-009`        | ⏳     |
-| AC-010 | Configures privacy-friendly Plausible analytics        | `APP-PAGES-ANALYTICS-010`        | ⏳     |
-| AC-011 | Supports multi-provider analytics                      | `APP-PAGES-ANALYTICS-011`        | ⏳     |
-| AC-012 | Configures event tracking and feature flags            | `APP-PAGES-ANALYTICS-012`        | ⏳     |
-| AC-013 | User can complete full analytics workflow (regression) | `APP-PAGES-ANALYTICS-REGRESSION` | ⏳     |
+| AC-001 | Supports multiple analytics providers                  | `APP-PAGES-ANALYTICS-001`        | ✅     |
+| AC-002 | Supports 6 analytics providers                         | `APP-PAGES-ANALYTICS-002`        | ✅     |
+| AC-003 | Allows enabling/disabling provider                     | `APP-PAGES-ANALYTICS-003`        | ✅     |
+| AC-004 | Loads provider scripts                                 | `APP-PAGES-ANALYTICS-004`        | ✅     |
+| AC-005 | Loads script asynchronously                            | `APP-PAGES-ANALYTICS-005`        | ✅     |
+| AC-006 | Executes provider initialization code                  | `APP-PAGES-ANALYTICS-006`        | ✅     |
+| AC-007 | Optimizes DNS resolution for provider                  | `APP-PAGES-ANALYTICS-007`        | ✅     |
+| AC-008 | Passes configuration to provider                       | `APP-PAGES-ANALYTICS-008`        | ✅     |
+| AC-009 | Configures Google Analytics                            | `APP-PAGES-ANALYTICS-009`        | ✅     |
+| AC-010 | Configures privacy-friendly Plausible analytics        | `APP-PAGES-ANALYTICS-010`        | ✅     |
+| AC-011 | Supports multi-provider analytics                      | `APP-PAGES-ANALYTICS-011`        | ✅     |
+| AC-012 | Configures event tracking and feature flags            | `APP-PAGES-ANALYTICS-012`        | ✅     |
+| AC-013 | User can complete full analytics workflow (regression) | `APP-PAGES-ANALYTICS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -399,15 +399,15 @@ meta:
 
 | ID     | Criterion                                             | E2E Spec                      | Status |
 | ------ | ----------------------------------------------------- | ----------------------------- | ------ |
-| AC-001 | Adds custom meta tag to head                          | `APP-PAGES-CUSTOM-001`        | ⏳     |
-| AC-002 | Adds custom link element to head                      | `APP-PAGES-CUSTOM-002`        | ⏳     |
-| AC-003 | Adds custom script to head                            | `APP-PAGES-CUSTOM-003`        | ⏳     |
-| AC-004 | Adds inline style to head                             | `APP-PAGES-CUSTOM-004`        | ⏳     |
-| AC-005 | Applies attributes to element                         | `APP-PAGES-CUSTOM-005`        | ⏳     |
-| AC-006 | Sets element inner content                            | `APP-PAGES-CUSTOM-006`        | ⏳     |
-| AC-007 | Customizes browser chrome color                       | `APP-PAGES-CUSTOM-007`        | ⏳     |
-| AC-008 | Configures mobile viewport                            | `APP-PAGES-CUSTOM-008`        | ⏳     |
-| AC-009 | User can complete full custom elements workflow (reg) | `APP-PAGES-CUSTOM-REGRESSION` | ⏳     |
+| AC-001 | Adds custom meta tag to head                          | `APP-PAGES-CUSTOM-001`        | ✅     |
+| AC-002 | Adds custom link element to head                      | `APP-PAGES-CUSTOM-002`        | ✅     |
+| AC-003 | Adds custom script to head                            | `APP-PAGES-CUSTOM-003`        | ✅     |
+| AC-004 | Adds inline style to head                             | `APP-PAGES-CUSTOM-004`        | ✅     |
+| AC-005 | Applies attributes to element                         | `APP-PAGES-CUSTOM-005`        | ✅     |
+| AC-006 | Sets element inner content                            | `APP-PAGES-CUSTOM-006`        | ✅     |
+| AC-007 | Customizes browser chrome color                       | `APP-PAGES-CUSTOM-007`        | ✅     |
+| AC-008 | Configures mobile viewport                            | `APP-PAGES-CUSTOM-008`        | ✅     |
+| AC-009 | User can complete full custom elements workflow (reg) | `APP-PAGES-CUSTOM-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -438,17 +438,17 @@ meta:
 
 | ID     | Criterion                                          | E2E Spec                   | Status |
 | ------ | -------------------------------------------------- | -------------------------- | ------ |
-| AC-001 | Prefetches DNS for listed domains                  | `APP-PAGES-DNS-001`        | ⏳     |
-| AC-002 | Optimizes Google Fonts loading                     | `APP-PAGES-DNS-002`        | ⏳     |
-| AC-003 | Optimizes analytics script loading                 | `APP-PAGES-DNS-003`        | ⏳     |
-| AC-004 | Optimizes CDN resource loading                     | `APP-PAGES-DNS-004`        | ⏳     |
-| AC-005 | Optimizes API request latency                      | `APP-PAGES-DNS-005`        | ⏳     |
-| AC-006 | Validates protocol in URL pattern                  | `APP-PAGES-DNS-006`        | ⏳     |
-| AC-007 | Prevents duplicate domain entries                  | `APP-PAGES-DNS-007`        | ⏳     |
-| AC-008 | Optimizes multiple external connections            | `APP-PAGES-DNS-008`        | ⏳     |
-| AC-009 | Reduces connection latency                         | `APP-PAGES-DNS-009`        | ⏳     |
-| AC-010 | Improves perceived page load speed                 | `APP-PAGES-DNS-010`        | ⏳     |
-| AC-011 | User can complete full DNS prefetch workflow (reg) | `APP-PAGES-DNS-REGRESSION` | ⏳     |
+| AC-001 | Prefetches DNS for listed domains                  | `APP-PAGES-DNS-001`        | ✅     |
+| AC-002 | Optimizes Google Fonts loading                     | `APP-PAGES-DNS-002`        | ✅     |
+| AC-003 | Optimizes analytics script loading                 | `APP-PAGES-DNS-003`        | ✅     |
+| AC-004 | Optimizes CDN resource loading                     | `APP-PAGES-DNS-004`        | ✅     |
+| AC-005 | Optimizes API request latency                      | `APP-PAGES-DNS-005`        | ✅     |
+| AC-006 | Validates protocol in URL pattern                  | `APP-PAGES-DNS-006`        | ✅     |
+| AC-007 | Prevents duplicate domain entries                  | `APP-PAGES-DNS-007`        | ✅     |
+| AC-008 | Optimizes multiple external connections            | `APP-PAGES-DNS-008`        | ✅     |
+| AC-009 | Reduces connection latency                         | `APP-PAGES-DNS-009`        | ✅     |
+| AC-010 | Improves perceived page load speed                 | `APP-PAGES-DNS-010`        | ✅     |
+| AC-011 | User can complete full DNS prefetch workflow (reg) | `APP-PAGES-DNS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -486,14 +486,14 @@ meta:
 
 | ID     | Criterion                                         | E2E Spec                          | Status |
 | ------ | ------------------------------------------------- | --------------------------------- | ------ |
-| AC-001 | Defines browser icon                              | `APP-PAGES-FAVICONSET-001`        | ⏳     |
-| AC-002 | Defines Apple touch icon                          | `APP-PAGES-FAVICONSET-002`        | ⏳     |
-| AC-003 | Defines Safari mask icon with color               | `APP-PAGES-FAVICONSET-003`        | ⏳     |
-| AC-004 | Specifies icon dimensions for different contexts  | `APP-PAGES-FAVICONSET-004`        | ⏳     |
-| AC-005 | Specifies MIME type                               | `APP-PAGES-FAVICONSET-005`        | ⏳     |
-| AC-006 | Defines Safari pinned tab color                   | `APP-PAGES-FAVICONSET-006`        | ⏳     |
-| AC-007 | Provides comprehensive multi-device icon support  | `APP-PAGES-FAVICONSET-007`        | ⏳     |
-| AC-008 | User can complete full favicon set workflow (reg) | `APP-PAGES-FAVICONSET-REGRESSION` | ⏳     |
+| AC-001 | Defines browser icon                              | `APP-PAGES-FAVICONSET-001`        | ✅     |
+| AC-002 | Defines Apple touch icon                          | `APP-PAGES-FAVICONSET-002`        | ✅     |
+| AC-003 | Defines Safari mask icon with color               | `APP-PAGES-FAVICONSET-003`        | ✅     |
+| AC-004 | Specifies icon dimensions for different contexts  | `APP-PAGES-FAVICONSET-004`        | ✅     |
+| AC-005 | Specifies MIME type                               | `APP-PAGES-FAVICONSET-005`        | ✅     |
+| AC-006 | Defines Safari pinned tab color                   | `APP-PAGES-FAVICONSET-006`        | ✅     |
+| AC-007 | Provides comprehensive multi-device icon support  | `APP-PAGES-FAVICONSET-007`        | ✅     |
+| AC-008 | User can complete full favicon set workflow (reg) | `APP-PAGES-FAVICONSET-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -538,19 +538,19 @@ meta:
 
 | ID     | Criterion                                            | E2E Spec                       | Status |
 | ------ | ---------------------------------------------------- | ------------------------------ | ------ |
-| AC-001 | Validates minimal Product structured data            | `APP-PAGES-PRODUCT-001`        | ⏳     |
-| AC-002 | Provides product identity                            | `APP-PAGES-PRODUCT-002`        | ⏳     |
-| AC-003 | Supports single or multiple product images           | `APP-PAGES-PRODUCT-003`        | ⏳     |
-| AC-004 | Identifies product manufacturer                      | `APP-PAGES-PRODUCT-004`        | ⏳     |
-| AC-005 | Provides stock keeping unit                          | `APP-PAGES-PRODUCT-005`        | ⏳     |
-| AC-006 | Provides standardized product identifier             | `APP-PAGES-PRODUCT-006`        | ⏳     |
-| AC-007 | Provides pricing information                         | `APP-PAGES-PRODUCT-007`        | ⏳     |
-| AC-008 | Specifies product price with currency                | `APP-PAGES-PRODUCT-008`        | ⏳     |
-| AC-009 | Shows product availability in search results         | `APP-PAGES-PRODUCT-009`        | ⏳     |
-| AC-010 | Displays star ratings in search results              | `APP-PAGES-PRODUCT-010`        | ⏳     |
-| AC-011 | Enables Google Shopping rich results                 | `APP-PAGES-PRODUCT-011`        | ⏳     |
-| AC-012 | Displays price, availability, and ratings in SERPs   | `APP-PAGES-PRODUCT-012`        | ⏳     |
-| AC-013 | User can complete full product workflow (regression) | `APP-PAGES-PRODUCT-REGRESSION` | ⏳     |
+| AC-001 | Validates minimal Product structured data            | `APP-PAGES-PRODUCT-001`        | ✅     |
+| AC-002 | Provides product identity                            | `APP-PAGES-PRODUCT-002`        | ✅     |
+| AC-003 | Supports single or multiple product images           | `APP-PAGES-PRODUCT-003`        | ✅     |
+| AC-004 | Identifies product manufacturer                      | `APP-PAGES-PRODUCT-004`        | ✅     |
+| AC-005 | Provides stock keeping unit                          | `APP-PAGES-PRODUCT-005`        | ✅     |
+| AC-006 | Provides standardized product identifier             | `APP-PAGES-PRODUCT-006`        | ✅     |
+| AC-007 | Provides pricing information                         | `APP-PAGES-PRODUCT-007`        | ✅     |
+| AC-008 | Specifies product price with currency                | `APP-PAGES-PRODUCT-008`        | ✅     |
+| AC-009 | Shows product availability in search results         | `APP-PAGES-PRODUCT-009`        | ✅     |
+| AC-010 | Displays star ratings in search results              | `APP-PAGES-PRODUCT-010`        | ✅     |
+| AC-011 | Enables Google Shopping rich results                 | `APP-PAGES-PRODUCT-011`        | ✅     |
+| AC-012 | Displays price, availability, and ratings in SERPs   | `APP-PAGES-PRODUCT-012`        | ✅     |
+| AC-013 | User can complete full product workflow (regression) | `APP-PAGES-PRODUCT-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -590,17 +590,17 @@ meta:
 
 | ID     | Criterion                                          | E2E Spec                          | Status |
 | ------ | -------------------------------------------------- | --------------------------------- | ------ |
-| AC-001 | Validates minimal BreadcrumbList structured data   | `APP-PAGES-BREADCRUMB-001`        | ⏳     |
-| AC-002 | Defines navigation path                            | `APP-PAGES-BREADCRUMB-002`        | ⏳     |
-| AC-003 | Defines breadcrumb item structure                  | `APP-PAGES-BREADCRUMB-003`        | ⏳     |
-| AC-004 | Orders breadcrumb trail                            | `APP-PAGES-BREADCRUMB-004`        | ⏳     |
-| AC-005 | Provides human-readable breadcrumb label           | `APP-PAGES-BREADCRUMB-005`        | ⏳     |
-| AC-006 | Provides clickable breadcrumb link                 | `APP-PAGES-BREADCRUMB-006`        | ⏳     |
-| AC-007 | Represents multi-level navigation path             | `APP-PAGES-BREADCRUMB-007`        | ⏳     |
-| AC-008 | Helps search engines understand site architecture  | `APP-PAGES-BREADCRUMB-008`        | ⏳     |
-| AC-009 | Displays breadcrumb trail in Google search results | `APP-PAGES-BREADCRUMB-009`        | ⏳     |
-| AC-010 | Improves navigation and reduces bounce rate        | `APP-PAGES-BREADCRUMB-010`        | ⏳     |
-| AC-011 | User can complete full breadcrumb workflow (reg)   | `APP-PAGES-BREADCRUMB-REGRESSION` | ⏳     |
+| AC-001 | Validates minimal BreadcrumbList structured data   | `APP-PAGES-BREADCRUMB-001`        | ✅     |
+| AC-002 | Defines navigation path                            | `APP-PAGES-BREADCRUMB-002`        | ✅     |
+| AC-003 | Defines breadcrumb item structure                  | `APP-PAGES-BREADCRUMB-003`        | ✅     |
+| AC-004 | Orders breadcrumb trail                            | `APP-PAGES-BREADCRUMB-004`        | ✅     |
+| AC-005 | Provides human-readable breadcrumb label           | `APP-PAGES-BREADCRUMB-005`        | ✅     |
+| AC-006 | Provides clickable breadcrumb link                 | `APP-PAGES-BREADCRUMB-006`        | ✅     |
+| AC-007 | Represents multi-level navigation path             | `APP-PAGES-BREADCRUMB-007`        | ✅     |
+| AC-008 | Helps search engines understand site architecture  | `APP-PAGES-BREADCRUMB-008`        | ✅     |
+| AC-009 | Displays breadcrumb trail in Google search results | `APP-PAGES-BREADCRUMB-009`        | ✅     |
+| AC-010 | Improves navigation and reduces bounce rate        | `APP-PAGES-BREADCRUMB-010`        | ✅     |
+| AC-011 | User can complete full breadcrumb workflow (reg)   | `APP-PAGES-BREADCRUMB-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -638,17 +638,17 @@ meta:
 
 | ID     | Criterion                                           | E2E Spec                       | Status |
 | ------ | --------------------------------------------------- | ------------------------------ | ------ |
-| AC-001 | Validates minimal FAQPage structured data           | `APP-PAGES-FAQPAGE-001`        | ⏳     |
-| AC-002 | Contains list of Q&A pairs                          | `APP-PAGES-FAQPAGE-002`        | ⏳     |
-| AC-003 | Defines question structure                          | `APP-PAGES-FAQPAGE-003`        | ⏳     |
-| AC-004 | Provides question text                              | `APP-PAGES-FAQPAGE-004`        | ⏳     |
-| AC-005 | Provides answer structure                           | `APP-PAGES-FAQPAGE-005`        | ⏳     |
-| AC-006 | Provides answer content                             | `APP-PAGES-FAQPAGE-006`        | ⏳     |
-| AC-007 | Supports comprehensive FAQ section                  | `APP-PAGES-FAQPAGE-007`        | ⏳     |
-| AC-008 | Displays expandable Q&A in Google search results    | `APP-PAGES-FAQPAGE-008`        | ⏳     |
-| AC-009 | Reduces support load by surfacing answers in search | `APP-PAGES-FAQPAGE-009`        | ⏳     |
-| AC-010 | Increases click-through rate from search results    | `APP-PAGES-FAQPAGE-010`        | ⏳     |
-| AC-011 | User can complete full FAQ page workflow (reg)      | `APP-PAGES-FAQPAGE-REGRESSION` | ⏳     |
+| AC-001 | Validates minimal FAQPage structured data           | `APP-PAGES-FAQPAGE-001`        | ✅     |
+| AC-002 | Contains list of Q&A pairs                          | `APP-PAGES-FAQPAGE-002`        | ✅     |
+| AC-003 | Defines question structure                          | `APP-PAGES-FAQPAGE-003`        | ✅     |
+| AC-004 | Provides question text                              | `APP-PAGES-FAQPAGE-004`        | ✅     |
+| AC-005 | Provides answer structure                           | `APP-PAGES-FAQPAGE-005`        | ✅     |
+| AC-006 | Provides answer content                             | `APP-PAGES-FAQPAGE-006`        | ✅     |
+| AC-007 | Supports comprehensive FAQ section                  | `APP-PAGES-FAQPAGE-007`        | ✅     |
+| AC-008 | Displays expandable Q&A in Google search results    | `APP-PAGES-FAQPAGE-008`        | ✅     |
+| AC-009 | Reduces support load by surfacing answers in search | `APP-PAGES-FAQPAGE-009`        | ✅     |
+| AC-010 | Increases click-through rate from search results    | `APP-PAGES-FAQPAGE-010`        | ✅     |
+| AC-011 | User can complete full FAQ page workflow (reg)      | `APP-PAGES-FAQPAGE-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -688,19 +688,19 @@ meta:
 
 | ID     | Criterion                                                | E2E Spec                      | Status |
 | ------ | -------------------------------------------------------- | ----------------------------- | ------ |
-| AC-001 | Validates minimal Person structured data                 | `APP-PAGES-PERSON-001`        | ⏳     |
-| AC-002 | Provides person's full name                              | `APP-PAGES-PERSON-002`        | ⏳     |
-| AC-003 | Provides structured first and last names                 | `APP-PAGES-PERSON-003`        | ⏳     |
-| AC-004 | Provides person contact information                      | `APP-PAGES-PERSON-004`        | ⏳     |
-| AC-005 | Links to person's web presence                           | `APP-PAGES-PERSON-005`        | ⏳     |
-| AC-006 | Provides visual representation                           | `APP-PAGES-PERSON-006`        | ⏳     |
-| AC-007 | Indicates person's professional role                     | `APP-PAGES-PERSON-007`        | ⏳     |
-| AC-008 | Links person to their employer                           | `APP-PAGES-PERSON-008`        | ⏳     |
-| AC-009 | Links person to their social profiles                    | `APP-PAGES-PERSON-009`        | ⏳     |
-| AC-010 | Includes PostalAddress structured data                   | `APP-PAGES-PERSON-010`        | ⏳     |
-| AC-011 | Attributes content to specific author                    | `APP-PAGES-PERSON-011`        | ⏳     |
-| AC-012 | Enables Google Knowledge Graph panel for notable persons | `APP-PAGES-PERSON-012`        | ⏳     |
-| AC-013 | User can complete full person workflow (regression)      | `APP-PAGES-PERSON-REGRESSION` | ⏳     |
+| AC-001 | Validates minimal Person structured data                 | `APP-PAGES-PERSON-001`        | ✅     |
+| AC-002 | Provides person's full name                              | `APP-PAGES-PERSON-002`        | ✅     |
+| AC-003 | Provides structured first and last names                 | `APP-PAGES-PERSON-003`        | ✅     |
+| AC-004 | Provides person contact information                      | `APP-PAGES-PERSON-004`        | ✅     |
+| AC-005 | Links to person's web presence                           | `APP-PAGES-PERSON-005`        | ✅     |
+| AC-006 | Provides visual representation                           | `APP-PAGES-PERSON-006`        | ✅     |
+| AC-007 | Indicates person's professional role                     | `APP-PAGES-PERSON-007`        | ✅     |
+| AC-008 | Links person to their employer                           | `APP-PAGES-PERSON-008`        | ✅     |
+| AC-009 | Links person to their social profiles                    | `APP-PAGES-PERSON-009`        | ✅     |
+| AC-010 | Includes PostalAddress structured data                   | `APP-PAGES-PERSON-010`        | ✅     |
+| AC-011 | Attributes content to specific author                    | `APP-PAGES-PERSON-011`        | ✅     |
+| AC-012 | Enables Google Knowledge Graph panel for notable persons | `APP-PAGES-PERSON-012`        | ✅     |
+| AC-013 | User can complete full person workflow (regression)      | `APP-PAGES-PERSON-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -747,21 +747,21 @@ meta:
 
 | ID     | Criterion                                              | E2E Spec                            | Status |
 | ------ | ------------------------------------------------------ | ----------------------------------- | ------ |
-| AC-001 | Validates minimal Organization structured data         | `APP-PAGES-ORGANIZATION-001`        | ⏳     |
-| AC-002 | Specifies Schema.org vocabulary                        | `APP-PAGES-ORGANIZATION-002`        | ⏳     |
-| AC-003 | Identifies entity as Organization                      | `APP-PAGES-ORGANIZATION-003`        | ⏳     |
-| AC-004 | Provides organization name                             | `APP-PAGES-ORGANIZATION-004`        | ⏳     |
-| AC-005 | Provides organization website URL                      | `APP-PAGES-ORGANIZATION-005`        | ⏳     |
-| AC-006 | Provides logo for search results                       | `APP-PAGES-ORGANIZATION-006`        | ⏳     |
-| AC-007 | Supports single or multiple organization images        | `APP-PAGES-ORGANIZATION-007`        | ⏳     |
-| AC-008 | Provides contact information                           | `APP-PAGES-ORGANIZATION-008`        | ⏳     |
-| AC-009 | Includes PostalAddress structured data                 | `APP-PAGES-ORGANIZATION-009`        | ⏳     |
-| AC-010 | Links organization to social profiles                  | `APP-PAGES-ORGANIZATION-010`        | ⏳     |
-| AC-011 | Provides organization history                          | `APP-PAGES-ORGANIZATION-011`        | ⏳     |
-| AC-012 | Indicates organization size                            | `APP-PAGES-ORGANIZATION-012`        | ⏳     |
-| AC-013 | Links organization to hosted events                    | `APP-PAGES-ORGANIZATION-013`        | ⏳     |
-| AC-014 | Enables Google Knowledge Graph panel in search results | `APP-PAGES-ORGANIZATION-014`        | ⏳     |
-| AC-015 | User can complete full organization workflow (reg)     | `APP-PAGES-ORGANIZATION-REGRESSION` | ⏳     |
+| AC-001 | Validates minimal Organization structured data         | `APP-PAGES-ORGANIZATION-001`        | ✅     |
+| AC-002 | Specifies Schema.org vocabulary                        | `APP-PAGES-ORGANIZATION-002`        | ✅     |
+| AC-003 | Identifies entity as Organization                      | `APP-PAGES-ORGANIZATION-003`        | ✅     |
+| AC-004 | Provides organization name                             | `APP-PAGES-ORGANIZATION-004`        | ✅     |
+| AC-005 | Provides organization website URL                      | `APP-PAGES-ORGANIZATION-005`        | ✅     |
+| AC-006 | Provides logo for search results                       | `APP-PAGES-ORGANIZATION-006`        | ✅     |
+| AC-007 | Supports single or multiple organization images        | `APP-PAGES-ORGANIZATION-007`        | ✅     |
+| AC-008 | Provides contact information                           | `APP-PAGES-ORGANIZATION-008`        | ✅     |
+| AC-009 | Includes PostalAddress structured data                 | `APP-PAGES-ORGANIZATION-009`        | ✅     |
+| AC-010 | Links organization to social profiles                  | `APP-PAGES-ORGANIZATION-010`        | ✅     |
+| AC-011 | Provides organization history                          | `APP-PAGES-ORGANIZATION-011`        | ✅     |
+| AC-012 | Indicates organization size                            | `APP-PAGES-ORGANIZATION-012`        | ✅     |
+| AC-013 | Links organization to hosted events                    | `APP-PAGES-ORGANIZATION-013`        | ✅     |
+| AC-014 | Enables Google Knowledge Graph panel in search results | `APP-PAGES-ORGANIZATION-014`        | ✅     |
+| AC-015 | User can complete full organization workflow (reg)     | `APP-PAGES-ORGANIZATION-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -814,21 +814,21 @@ meta:
 
 | ID     | Criterion                                          | E2E Spec                             | Status |
 | ------ | -------------------------------------------------- | ------------------------------------ | ------ |
-| AC-001 | Validates minimal LocalBusiness structured data    | `APP-PAGES-LOCALBUSINESS-001`        | ⏳     |
-| AC-002 | Provides business identity                         | `APP-PAGES-LOCALBUSINESS-002`        | ⏳     |
-| AC-003 | Provides business branding                         | `APP-PAGES-LOCALBUSINESS-003`        | ⏳     |
-| AC-004 | Supports single or multiple business images        | `APP-PAGES-LOCALBUSINESS-004`        | ⏳     |
-| AC-005 | Provides business contact information              | `APP-PAGES-LOCALBUSINESS-005`        | ⏳     |
-| AC-006 | Indicates business price level                     | `APP-PAGES-LOCALBUSINESS-006`        | ⏳     |
-| AC-007 | Includes physical address for maps                 | `APP-PAGES-LOCALBUSINESS-007`        | ⏳     |
-| AC-008 | Provides precise map location                      | `APP-PAGES-LOCALBUSINESS-008`        | ⏳     |
-| AC-009 | Links business to social profiles                  | `APP-PAGES-LOCALBUSINESS-009`        | ⏳     |
-| AC-010 | Provides business hours for each day               | `APP-PAGES-LOCALBUSINESS-010`        | ⏳     |
-| AC-011 | Specifies which days hours apply to                | `APP-PAGES-LOCALBUSINESS-011`        | ⏳     |
-| AC-012 | Specifies daily operating hours                    | `APP-PAGES-LOCALBUSINESS-012`        | ⏳     |
-| AC-013 | Enables Google Business Profile rich results       | `APP-PAGES-LOCALBUSINESS-013`        | ⏳     |
-| AC-014 | Enables map pin and directions in search results   | `APP-PAGES-LOCALBUSINESS-014`        | ⏳     |
-| AC-015 | User can complete full local business workflow (r) | `APP-PAGES-LOCALBUSINESS-REGRESSION` | ⏳     |
+| AC-001 | Validates minimal LocalBusiness structured data    | `APP-PAGES-LOCALBUSINESS-001`        | ✅     |
+| AC-002 | Provides business identity                         | `APP-PAGES-LOCALBUSINESS-002`        | ✅     |
+| AC-003 | Provides business branding                         | `APP-PAGES-LOCALBUSINESS-003`        | ✅     |
+| AC-004 | Supports single or multiple business images        | `APP-PAGES-LOCALBUSINESS-004`        | ✅     |
+| AC-005 | Provides business contact information              | `APP-PAGES-LOCALBUSINESS-005`        | ✅     |
+| AC-006 | Indicates business price level                     | `APP-PAGES-LOCALBUSINESS-006`        | ✅     |
+| AC-007 | Includes physical address for maps                 | `APP-PAGES-LOCALBUSINESS-007`        | ✅     |
+| AC-008 | Provides precise map location                      | `APP-PAGES-LOCALBUSINESS-008`        | ✅     |
+| AC-009 | Links business to social profiles                  | `APP-PAGES-LOCALBUSINESS-009`        | ✅     |
+| AC-010 | Provides business hours for each day               | `APP-PAGES-LOCALBUSINESS-010`        | ✅     |
+| AC-011 | Specifies which days hours apply to                | `APP-PAGES-LOCALBUSINESS-011`        | ✅     |
+| AC-012 | Specifies daily operating hours                    | `APP-PAGES-LOCALBUSINESS-012`        | ✅     |
+| AC-013 | Enables Google Business Profile rich results       | `APP-PAGES-LOCALBUSINESS-013`        | ✅     |
+| AC-014 | Enables map pin and directions in search results   | `APP-PAGES-LOCALBUSINESS-014`        | ✅     |
+| AC-015 | User can complete full local business workflow (r) | `APP-PAGES-LOCALBUSINESS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -870,21 +870,21 @@ meta:
 
 | ID     | Criterion                                             | E2E Spec                       | Status |
 | ------ | ----------------------------------------------------- | ------------------------------ | ------ |
-| AC-001 | Validates minimal Article structured data             | `APP-PAGES-ARTICLE-001`        | ⏳     |
-| AC-002 | Categorizes content type                              | `APP-PAGES-ARTICLE-002`        | ⏳     |
-| AC-003 | Provides article title for rich results               | `APP-PAGES-ARTICLE-003`        | ⏳     |
-| AC-004 | Provides article summary                              | `APP-PAGES-ARTICLE-004`        | ⏳     |
-| AC-005 | Supports single or multiple article images            | `APP-PAGES-ARTICLE-005`        | ⏳     |
-| AC-006 | Provides simple author name                           | `APP-PAGES-ARTICLE-006`        | ⏳     |
-| AC-007 | Provides structured author information                | `APP-PAGES-ARTICLE-007`        | ⏳     |
-| AC-008 | Attributes content to organization                    | `APP-PAGES-ARTICLE-008`        | ⏳     |
-| AC-009 | Provides publication date                             | `APP-PAGES-ARTICLE-009`        | ⏳     |
-| AC-010 | Indicates last update date                            | `APP-PAGES-ARTICLE-010`        | ⏳     |
-| AC-011 | Identifies publishing organization                    | `APP-PAGES-ARTICLE-011`        | ⏳     |
-| AC-012 | Specifies article's primary page URL                  | `APP-PAGES-ARTICLE-012`        | ⏳     |
-| AC-013 | Enables Google News and article rich results          | `APP-PAGES-ARTICLE-013`        | ⏳     |
-| AC-014 | Properly attributes content to authors and publishers | `APP-PAGES-ARTICLE-014`        | ⏳     |
-| AC-015 | User can complete full article workflow (regression)  | `APP-PAGES-ARTICLE-REGRESSION` | ⏳     |
+| AC-001 | Validates minimal Article structured data             | `APP-PAGES-ARTICLE-001`        | ✅     |
+| AC-002 | Categorizes content type                              | `APP-PAGES-ARTICLE-002`        | ✅     |
+| AC-003 | Provides article title for rich results               | `APP-PAGES-ARTICLE-003`        | ✅     |
+| AC-004 | Provides article summary                              | `APP-PAGES-ARTICLE-004`        | ✅     |
+| AC-005 | Supports single or multiple article images            | `APP-PAGES-ARTICLE-005`        | ✅     |
+| AC-006 | Provides simple author name                           | `APP-PAGES-ARTICLE-006`        | ✅     |
+| AC-007 | Provides structured author information                | `APP-PAGES-ARTICLE-007`        | ✅     |
+| AC-008 | Attributes content to organization                    | `APP-PAGES-ARTICLE-008`        | ✅     |
+| AC-009 | Provides publication date                             | `APP-PAGES-ARTICLE-009`        | ✅     |
+| AC-010 | Indicates last update date                            | `APP-PAGES-ARTICLE-010`        | ✅     |
+| AC-011 | Identifies publishing organization                    | `APP-PAGES-ARTICLE-011`        | ✅     |
+| AC-012 | Specifies article's primary page URL                  | `APP-PAGES-ARTICLE-012`        | ✅     |
+| AC-013 | Enables Google News and article rich results          | `APP-PAGES-ARTICLE-013`        | ✅     |
+| AC-014 | Properly attributes content to authors and publishers | `APP-PAGES-ARTICLE-014`        | ✅     |
+| AC-015 | User can complete full article workflow (regression)  | `APP-PAGES-ARTICLE-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -919,17 +919,17 @@ meta:
 
 | ID     | Criterion                                            | E2E Spec                             | Status |
 | ------ | ---------------------------------------------------- | ------------------------------------ | ------ |
-| AC-001 | Validates minimal PostalAddress structured data      | `APP-PAGES-POSTALADDRESS-001`        | ⏳     |
-| AC-002 | Provides street address                              | `APP-PAGES-POSTALADDRESS-002`        | ⏳     |
-| AC-003 | Provides city or locality name                       | `APP-PAGES-POSTALADDRESS-003`        | ⏳     |
-| AC-004 | Provides state or region name                        | `APP-PAGES-POSTALADDRESS-004`        | ⏳     |
-| AC-005 | Provides postal or ZIP code                          | `APP-PAGES-POSTALADDRESS-005`        | ⏳     |
-| AC-006 | Provides country code                                | `APP-PAGES-POSTALADDRESS-006`        | ⏳     |
-| AC-007 | Provides full mailing address                        | `APP-PAGES-POSTALADDRESS-007`        | ⏳     |
-| AC-008 | Provides organization's physical address             | `APP-PAGES-POSTALADDRESS-008`        | ⏳     |
-| AC-009 | Enables local business map display in search results | `APP-PAGES-POSTALADDRESS-009`        | ⏳     |
-| AC-010 | Improves local search ranking and map visibility     | `APP-PAGES-POSTALADDRESS-010`        | ⏳     |
-| AC-011 | User can complete full postal address workflow (reg) | `APP-PAGES-POSTALADDRESS-REGRESSION` | ⏳     |
+| AC-001 | Validates minimal PostalAddress structured data      | `APP-PAGES-POSTALADDRESS-001`        | ✅     |
+| AC-002 | Provides street address                              | `APP-PAGES-POSTALADDRESS-002`        | ✅     |
+| AC-003 | Provides city or locality name                       | `APP-PAGES-POSTALADDRESS-003`        | ✅     |
+| AC-004 | Provides state or region name                        | `APP-PAGES-POSTALADDRESS-004`        | ✅     |
+| AC-005 | Provides postal or ZIP code                          | `APP-PAGES-POSTALADDRESS-005`        | ✅     |
+| AC-006 | Provides country code                                | `APP-PAGES-POSTALADDRESS-006`        | ✅     |
+| AC-007 | Provides full mailing address                        | `APP-PAGES-POSTALADDRESS-007`        | ✅     |
+| AC-008 | Provides organization's physical address             | `APP-PAGES-POSTALADDRESS-008`        | ✅     |
+| AC-009 | Enables local business map display in search results | `APP-PAGES-POSTALADDRESS-009`        | ✅     |
+| AC-010 | Improves local search ranking and map visibility     | `APP-PAGES-POSTALADDRESS-010`        | ✅     |
+| AC-011 | User can complete full postal address workflow (reg) | `APP-PAGES-POSTALADDRESS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -982,21 +982,21 @@ meta:
 
 | ID     | Criterion                                                  | E2E Spec                              | Status |
 | ------ | ---------------------------------------------------------- | ------------------------------------- | ------ |
-| AC-001 | Validates minimal EducationEvent structured data           | `APP-PAGES-EDUCATIONEVENT-001`        | ⏳     |
-| AC-002 | Provides event identity                                    | `APP-PAGES-EDUCATIONEVENT-002`        | ⏳     |
-| AC-003 | Specifies when event begins                                | `APP-PAGES-EDUCATIONEVENT-003`        | ⏳     |
-| AC-004 | Specifies when event ends                                  | `APP-PAGES-EDUCATIONEVENT-004`        | ⏳     |
-| AC-005 | Specifies whether event is in-person, online, or hybrid    | `APP-PAGES-EDUCATIONEVENT-005`        | ⏳     |
-| AC-006 | Communicates event status                                  | `APP-PAGES-EDUCATIONEVENT-006`        | ⏳     |
-| AC-007 | Provides event venue information                           | `APP-PAGES-EDUCATIONEVENT-007`        | ⏳     |
-| AC-008 | Identifies event organizer                                 | `APP-PAGES-EDUCATIONEVENT-008`        | ⏳     |
-| AC-009 | Provides ticket pricing and availability                   | `APP-PAGES-EDUCATIONEVENT-009`        | ⏳     |
-| AC-010 | Specifies event ticket price                               | `APP-PAGES-EDUCATIONEVENT-010`        | ⏳     |
-| AC-011 | Indicates ticket availability status                       | `APP-PAGES-EDUCATIONEVENT-011`        | ⏳     |
-| AC-012 | Specifies event capacity limits                            | `APP-PAGES-EDUCATIONEVENT-012`        | ⏳     |
-| AC-013 | Enables Google Events rich results                         | `APP-PAGES-EDUCATIONEVENT-013`        | ⏳     |
-| AC-014 | Displays event in Google Search, Maps, and event discovery | `APP-PAGES-EDUCATIONEVENT-014`        | ⏳     |
-| AC-015 | User can complete full education event workflow (reg)      | `APP-PAGES-EDUCATIONEVENT-REGRESSION` | ⏳     |
+| AC-001 | Validates minimal EducationEvent structured data           | `APP-PAGES-EDUCATIONEVENT-001`        | ✅     |
+| AC-002 | Provides event identity                                    | `APP-PAGES-EDUCATIONEVENT-002`        | ✅     |
+| AC-003 | Specifies when event begins                                | `APP-PAGES-EDUCATIONEVENT-003`        | ✅     |
+| AC-004 | Specifies when event ends                                  | `APP-PAGES-EDUCATIONEVENT-004`        | ✅     |
+| AC-005 | Specifies whether event is in-person, online, or hybrid    | `APP-PAGES-EDUCATIONEVENT-005`        | ✅     |
+| AC-006 | Communicates event status                                  | `APP-PAGES-EDUCATIONEVENT-006`        | ✅     |
+| AC-007 | Provides event venue information                           | `APP-PAGES-EDUCATIONEVENT-007`        | ✅     |
+| AC-008 | Identifies event organizer                                 | `APP-PAGES-EDUCATIONEVENT-008`        | ✅     |
+| AC-009 | Provides ticket pricing and availability                   | `APP-PAGES-EDUCATIONEVENT-009`        | ✅     |
+| AC-010 | Specifies event ticket price                               | `APP-PAGES-EDUCATIONEVENT-010`        | ✅     |
+| AC-011 | Indicates ticket availability status                       | `APP-PAGES-EDUCATIONEVENT-011`        | ✅     |
+| AC-012 | Specifies event capacity limits                            | `APP-PAGES-EDUCATIONEVENT-012`        | ✅     |
+| AC-013 | Enables Google Events rich results                         | `APP-PAGES-EDUCATIONEVENT-013`        | ✅     |
+| AC-014 | Displays event in Google Search, Maps, and event discovery | `APP-PAGES-EDUCATIONEVENT-014`        | ✅     |
+| AC-015 | User can complete full education event workflow (reg)      | `APP-PAGES-EDUCATIONEVENT-REGRESSION` | ✅     |
 
 ### Implementation References
 

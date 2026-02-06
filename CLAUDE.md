@@ -85,7 +85,7 @@ bun run quality --skip-format      # Skip Prettier formatting check
 bun run quality --skip-knip        # Skip Knip unused code detection
 bun run quality --include-effect   # Include Effect diagnostics (slow, skipped by default)
 bun run quality --no-cache         # Disable all caching (ESLint, Prettier, TypeScript incremental)
-bun run analyze:specs              # Analyze spec tests (user stories, metrics tracking)
+bun run progress                   # Analyze spec tests (user stories, metrics tracking)
 bun run validate:specs             # Validate spec test structure and conventions
 bun run validate:docs:versions     # Validate documentation versions match package.json
 bun run test:cleanup               # Kill zombie test processes (Playwright, browsers)

@@ -283,9 +283,9 @@ auth:
 
 | ID     | Criterion                                           | E2E Spec                                     | Status |
 | ------ | --------------------------------------------------- | -------------------------------------------- | ------ |
-| AC-001 | New users are assigned configured default role      | `API-AUTH-ADMIN-OPT-DEFAULT-ROLE-001`        | ⏳     |
-| AC-002 | Falls back to 'user' when defaultRole not specified | `API-AUTH-ADMIN-OPT-DEFAULT-ROLE-002`        | ⏳     |
-| AC-003 | Admin default role configuration works (regression) | `API-AUTH-ADMIN-OPT-DEFAULT-ROLE-REGRESSION` | ⏳     |
+| AC-001 | New users are assigned configured default role      | `API-AUTH-ADMIN-OPT-DEFAULT-ROLE-001`        | ✅     |
+| AC-002 | Falls back to 'user' when defaultRole not specified | `API-AUTH-ADMIN-OPT-DEFAULT-ROLE-002`        | ✅     |
+| AC-003 | Admin default role configuration works (regression) | `API-AUTH-ADMIN-OPT-DEFAULT-ROLE-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -313,11 +313,11 @@ auth:
 
 | ID     | Criterion                                             | E2E Spec                           | Status |
 | ------ | ----------------------------------------------------- | ---------------------------------- | ------ |
-| AC-001 | List users endpoint returns 404 when plugin disabled  | `API-AUTH-ADMIN-PLUGIN-001`        | ⏳     |
-| AC-002 | Get user endpoint returns 404 when plugin disabled    | `API-AUTH-ADMIN-PLUGIN-002`        | ⏳     |
-| AC-003 | Ban user endpoint returns 404 when plugin disabled    | `API-AUTH-ADMIN-PLUGIN-003`        | ⏳     |
-| AC-004 | Set role endpoint returns 404 when plugin disabled    | `API-AUTH-ADMIN-PLUGIN-004`        | ⏳     |
-| AC-005 | All admin endpoints hidden when disabled (regression) | `API-AUTH-ADMIN-PLUGIN-REGRESSION` | ⏳     |
+| AC-001 | List users endpoint returns 404 when plugin disabled  | `API-AUTH-ADMIN-PLUGIN-001`        | ✅     |
+| AC-002 | Get user endpoint returns 404 when plugin disabled    | `API-AUTH-ADMIN-PLUGIN-002`        | ✅     |
+| AC-003 | Ban user endpoint returns 404 when plugin disabled    | `API-AUTH-ADMIN-PLUGIN-003`        | ✅     |
+| AC-004 | Set role endpoint returns 404 when plugin disabled    | `API-AUTH-ADMIN-PLUGIN-004`        | ✅     |
+| AC-005 | All admin endpoints hidden when disabled (regression) | `API-AUTH-ADMIN-PLUGIN-REGRESSION` | ✅     |
 
 ### Implementation References
 

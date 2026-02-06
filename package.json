@@ -76,7 +76,7 @@
     "license": "bun run scripts/add-license-headers.ts",
     "export:schema": "bun run scripts/export-schema.ts",
     "export:openapi": "bun run scripts/export-openapi.ts",
-    "analyze:specs": "bun run scripts/analyze-specs.ts",
+    "progress": "bun run scripts/check-progress.ts",
     "validate:specs": "bun run scripts/validate-specs.ts",
     "validate:docs:versions": "bun run scripts/validate-doc-versions.ts",
     "db:generate": "drizzle-kit generate",

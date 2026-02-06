@@ -42,17 +42,17 @@ pages:
 
 | ID     | Criterion                                            | E2E Spec                       | Status |
 | ------ | ---------------------------------------------------- | ------------------------------ | ------ |
-| AC-001 | Orchestrates client-side script management           | `APP-PAGES-SCRIPTS-001`        | ⏳     |
-| AC-002 | Enables client-side feature toggles                  | `APP-PAGES-SCRIPTS-002`        | ⏳     |
-| AC-003 | Includes external JavaScript dependencies            | `APP-PAGES-SCRIPTS-003`        | ⏳     |
-| AC-004 | Injects inline JavaScript code                       | `APP-PAGES-SCRIPTS-004`        | ⏳     |
-| AC-005 | Provides client-side configuration data              | `APP-PAGES-SCRIPTS-005`        | ⏳     |
-| AC-006 | Allows pages without client-side scripts             | `APP-PAGES-SCRIPTS-006`        | ⏳     |
-| AC-007 | Supports flexible client configuration               | `APP-PAGES-SCRIPTS-007`        | ⏳     |
-| AC-008 | Enables feature-driven configuration                 | `APP-PAGES-SCRIPTS-008`        | ⏳     |
-| AC-009 | Supports per-page script customization               | `APP-PAGES-SCRIPTS-009`        | ⏳     |
-| AC-010 | Composes scripts from modular schemas                | `APP-PAGES-SCRIPTS-010`        | ⏳     |
-| AC-011 | User can complete full scripts workflow (regression) | `APP-PAGES-SCRIPTS-REGRESSION` | ⏳     |
+| AC-001 | Orchestrates client-side script management           | `APP-PAGES-SCRIPTS-001`        | ✅     |
+| AC-002 | Enables client-side feature toggles                  | `APP-PAGES-SCRIPTS-002`        | ✅     |
+| AC-003 | Includes external JavaScript dependencies            | `APP-PAGES-SCRIPTS-003`        | ✅     |
+| AC-004 | Injects inline JavaScript code                       | `APP-PAGES-SCRIPTS-004`        | ✅     |
+| AC-005 | Provides client-side configuration data              | `APP-PAGES-SCRIPTS-005`        | ✅     |
+| AC-006 | Allows pages without client-side scripts             | `APP-PAGES-SCRIPTS-006`        | ✅     |
+| AC-007 | Supports flexible client configuration               | `APP-PAGES-SCRIPTS-007`        | ✅     |
+| AC-008 | Enables feature-driven configuration                 | `APP-PAGES-SCRIPTS-008`        | ✅     |
+| AC-009 | Supports per-page script customization               | `APP-PAGES-SCRIPTS-009`        | ✅     |
+| AC-010 | Composes scripts from modular schemas                | `APP-PAGES-SCRIPTS-010`        | ✅     |
+| AC-011 | User can complete full scripts workflow (regression) | `APP-PAGES-SCRIPTS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -87,17 +87,17 @@ pages:
 
 | ID     | Criterion                                             | E2E Spec                        | Status |
 | ------ | ----------------------------------------------------- | ------------------------------- | ------ |
-| AC-001 | Enables simple feature flag                           | `APP-PAGES-FEATURES-001`        | ⏳     |
-| AC-002 | Disables feature                                      | `APP-PAGES-FEATURES-002`        | ⏳     |
-| AC-003 | Provides feature with configuration data              | `APP-PAGES-FEATURES-003`        | ⏳     |
-| AC-004 | Toggles feature via enabled boolean                   | `APP-PAGES-FEATURES-004`        | ⏳     |
-| AC-005 | Passes configuration to feature implementation        | `APP-PAGES-FEATURES-005`        | ⏳     |
-| AC-006 | Validates camelCase naming convention                 | `APP-PAGES-FEATURES-006`        | ⏳     |
-| AC-007 | Supports both simple and complex feature definitions  | `APP-PAGES-FEATURES-007`        | ⏳     |
-| AC-008 | Supports flexible feature configuration               | `APP-PAGES-FEATURES-008`        | ⏳     |
-| AC-009 | Enables/disables UI features dynamically              | `APP-PAGES-FEATURES-009`        | ⏳     |
-| AC-010 | Provides runtime feature detection                    | `APP-PAGES-FEATURES-010`        | ⏳     |
-| AC-011 | User can complete full features workflow (regression) | `APP-PAGES-FEATURES-REGRESSION` | ⏳     |
+| AC-001 | Enables simple feature flag                           | `APP-PAGES-FEATURES-001`        | ✅     |
+| AC-002 | Disables feature                                      | `APP-PAGES-FEATURES-002`        | ✅     |
+| AC-003 | Provides feature with configuration data              | `APP-PAGES-FEATURES-003`        | ✅     |
+| AC-004 | Toggles feature via enabled boolean                   | `APP-PAGES-FEATURES-004`        | ✅     |
+| AC-005 | Passes configuration to feature implementation        | `APP-PAGES-FEATURES-005`        | ✅     |
+| AC-006 | Validates camelCase naming convention                 | `APP-PAGES-FEATURES-006`        | ✅     |
+| AC-007 | Supports both simple and complex feature definitions  | `APP-PAGES-FEATURES-007`        | ✅     |
+| AC-008 | Supports flexible feature configuration               | `APP-PAGES-FEATURES-008`        | ✅     |
+| AC-009 | Enables/disables UI features dynamically              | `APP-PAGES-FEATURES-009`        | ✅     |
+| AC-010 | Provides runtime feature detection                    | `APP-PAGES-FEATURES-010`        | ✅     |
+| AC-011 | User can complete full features workflow (regression) | `APP-PAGES-FEATURES-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -135,19 +135,19 @@ pages:
 
 | ID     | Criterion                                                     | E2E Spec                        | Status |
 | ------ | ------------------------------------------------------------- | ------------------------------- | ------ |
-| AC-001 | Loads external JavaScript from CDN                            | `APP-PAGES-EXTERNAL-001`        | ⏳     |
-| AC-002 | Loads script asynchronously (non-blocking)                    | `APP-PAGES-EXTERNAL-002`        | ⏳     |
-| AC-003 | Defers script execution until DOM loaded                      | `APP-PAGES-EXTERNAL-003`        | ⏳     |
-| AC-004 | Loads script with type='module'                               | `APP-PAGES-EXTERNAL-004`        | ⏳     |
-| AC-005 | Verifies subresource integrity for security                   | `APP-PAGES-EXTERNAL-005`        | ⏳     |
-| AC-006 | Sets CORS policy for script loading                           | `APP-PAGES-EXTERNAL-006`        | ⏳     |
-| AC-007 | Inserts script in document head                               | `APP-PAGES-EXTERNAL-007`        | ⏳     |
-| AC-008 | Inserts script at end of body                                 | `APP-PAGES-EXTERNAL-008`        | ⏳     |
-| AC-009 | Inserts script at start of body                               | `APP-PAGES-EXTERNAL-009`        | ⏳     |
-| AC-010 | Loads multiple external scripts in order                      | `APP-PAGES-EXTERNAL-010`        | ⏳     |
-| AC-011 | Loads local JavaScript file                                   | `APP-PAGES-EXTERNAL-011`        | ⏳     |
-| AC-012 | Loads script with default settings (sync, body-end)           | `APP-PAGES-EXTERNAL-012`        | ⏳     |
-| AC-013 | User can complete full external scripts workflow (regression) | `APP-PAGES-EXTERNAL-REGRESSION` | ⏳     |
+| AC-001 | Loads external JavaScript from CDN                            | `APP-PAGES-EXTERNAL-001`        | ✅     |
+| AC-002 | Loads script asynchronously (non-blocking)                    | `APP-PAGES-EXTERNAL-002`        | ✅     |
+| AC-003 | Defers script execution until DOM loaded                      | `APP-PAGES-EXTERNAL-003`        | ✅     |
+| AC-004 | Loads script with type='module'                               | `APP-PAGES-EXTERNAL-004`        | ✅     |
+| AC-005 | Verifies subresource integrity for security                   | `APP-PAGES-EXTERNAL-005`        | ✅     |
+| AC-006 | Sets CORS policy for script loading                           | `APP-PAGES-EXTERNAL-006`        | ✅     |
+| AC-007 | Inserts script in document head                               | `APP-PAGES-EXTERNAL-007`        | ✅     |
+| AC-008 | Inserts script at end of body                                 | `APP-PAGES-EXTERNAL-008`        | ✅     |
+| AC-009 | Inserts script at start of body                               | `APP-PAGES-EXTERNAL-009`        | ✅     |
+| AC-010 | Loads multiple external scripts in order                      | `APP-PAGES-EXTERNAL-010`        | ✅     |
+| AC-011 | Loads local JavaScript file                                   | `APP-PAGES-EXTERNAL-011`        | ✅     |
+| AC-012 | Loads script with default settings (sync, body-end)           | `APP-PAGES-EXTERNAL-012`        | ✅     |
+| AC-013 | User can complete full external scripts workflow (regression) | `APP-PAGES-EXTERNAL-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -186,17 +186,17 @@ pages:
 
 | ID     | Criterion                                                   | E2E Spec                      | Status |
 | ------ | ----------------------------------------------------------- | ----------------------------- | ------ |
-| AC-001 | Injects inline JavaScript code                              | `APP-PAGES-INLINE-001`        | ⏳     |
-| AC-002 | Inserts code at end of body                                 | `APP-PAGES-INLINE-002`        | ⏳     |
-| AC-003 | Inserts code in document head                               | `APP-PAGES-INLINE-003`        | ⏳     |
-| AC-004 | Inserts code at start of body                               | `APP-PAGES-INLINE-004`        | ⏳     |
-| AC-005 | Wraps code in async IIFE (async function)                   | `APP-PAGES-INLINE-005`        | ⏳     |
-| AC-006 | Injects global configuration                                | `APP-PAGES-INLINE-006`        | ⏳     |
-| AC-007 | Injects multiple inline scripts in order                    | `APP-PAGES-INLINE-007`        | ⏳     |
-| AC-008 | Injects code with default settings (body-end, sync)         | `APP-PAGES-INLINE-008`        | ⏳     |
-| AC-009 | Enables custom tracking code                                | `APP-PAGES-INLINE-009`        | ⏳     |
-| AC-010 | Executes scripts in document order                          | `APP-PAGES-INLINE-010`        | ⏳     |
-| AC-011 | User can complete full inline scripts workflow (regression) | `APP-PAGES-INLINE-REGRESSION` | ⏳     |
+| AC-001 | Injects inline JavaScript code                              | `APP-PAGES-INLINE-001`        | ✅     |
+| AC-002 | Inserts code at end of body                                 | `APP-PAGES-INLINE-002`        | ✅     |
+| AC-003 | Inserts code in document head                               | `APP-PAGES-INLINE-003`        | ✅     |
+| AC-004 | Inserts code at start of body                               | `APP-PAGES-INLINE-004`        | ✅     |
+| AC-005 | Wraps code in async IIFE (async function)                   | `APP-PAGES-INLINE-005`        | ✅     |
+| AC-006 | Injects global configuration                                | `APP-PAGES-INLINE-006`        | ✅     |
+| AC-007 | Injects multiple inline scripts in order                    | `APP-PAGES-INLINE-007`        | ✅     |
+| AC-008 | Injects code with default settings (body-end, sync)         | `APP-PAGES-INLINE-008`        | ✅     |
+| AC-009 | Enables custom tracking code                                | `APP-PAGES-INLINE-009`        | ✅     |
+| AC-010 | Executes scripts in document order                          | `APP-PAGES-INLINE-010`        | ✅     |
+| AC-011 | User can complete full inline scripts workflow (regression) | `APP-PAGES-INLINE-REGRESSION` | ✅     |
 
 ### Implementation References
 

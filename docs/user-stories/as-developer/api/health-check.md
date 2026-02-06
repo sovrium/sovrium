@@ -39,12 +39,12 @@ GET /api/health
 
 | ID     | Criterion                                              | E2E Spec                | Status |
 | ------ | ------------------------------------------------------ | ----------------------- | ------ |
-| AC-001 | Returns 200 OK with healthy status                     | `API-HEALTH-001`        | ✅     |
-| AC-002 | Includes application version in response               | `API-HEALTH-002`        | ✅     |
-| AC-003 | Includes current timestamp in response                 | `API-HEALTH-003`        | ✅     |
-| AC-004 | Returns 503 Service Unavailable when unhealthy         | `API-HEALTH-004`        | ✅     |
-| AC-005 | Does not require authentication                        | `API-HEALTH-005`        | ✅     |
-| AC-006 | Includes database connectivity status                  | `API-HEALTH-006`        | ✅     |
+| AC-001 | Returns 200 OK with healthy status                     | `API-HEALTH-001`        | ❓     |
+| AC-002 | Includes application version in response               | `API-HEALTH-002`        | ❓     |
+| AC-003 | Includes current timestamp in response                 | `API-HEALTH-003`        | ❓     |
+| AC-004 | Returns 503 Service Unavailable when unhealthy         | `API-HEALTH-004`        | ❓     |
+| AC-005 | Does not require authentication                        | `API-HEALTH-005`        | ❓     |
+| AC-006 | Includes database connectivity status                  | `API-HEALTH-006`        | ❓     |
 | AC-007 | Health endpoint returns expected response (regression) | `API-HEALTH-REGRESSION` | ✅     |
 
 ### Implementation References

@@ -76,10 +76,10 @@ POST /api/tables/1/records/upsert
 | AC-007 | Returns 400 when matchFields is empty                     | `API-TABLES-RECORDS-UPSERT-007`        | ✅     |
 | AC-008 | Returns 400 when matchFields contains invalid field name  | `API-TABLES-RECORDS-UPSERT-008`        | ✅     |
 | AC-009 | Returns 400 when required field is missing                | `API-TABLES-RECORDS-UPSERT-009`        | ✅     |
-| AC-010 | Returns 400 for invalid field type value                  | `API-TABLES-RECORDS-UPSERT-010`        | ✅     |
-| AC-011 | Filters protected fields from upsert (id, created_at)     | `API-TABLES-RECORDS-UPSERT-011`        | ✅     |
+| AC-010 | Returns 400 for invalid field type value                  | `API-TABLES-RECORDS-UPSERT-010`        | ⏳     |
+| AC-011 | Filters protected fields from upsert (id, created_at)     | `API-TABLES-RECORDS-UPSERT-011`        | ⏳     |
 | AC-012 | Returns 200 OK with operation type in response            | `API-TABLES-RECORDS-UPSERT-012`        | ✅     |
-| AC-013 | Enforces constraints during upsert operation              | `API-TABLES-RECORDS-UPSERT-013`        | ✅     |
+| AC-013 | Enforces constraints during upsert operation              | `API-TABLES-RECORDS-UPSERT-013`        | ⏳     |
 | AC-014 | User can complete full upsert workflow (regression)       | `API-TABLES-RECORDS-UPSERT-REGRESSION` | ✅     |
 
 ### Implementation References

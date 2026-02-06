@@ -969,7 +969,7 @@ jobs:
 
       - name: Analyze spec progress
         if: steps.check-update.outputs.should-update == 'true'
-        run: bun run analyze:specs
+        run: bun run progress
 
       - name: Commit spec progress updates
         if: steps.check-update.outputs.should-update == 'true'
@@ -984,7 +984,7 @@ jobs:
             echo "✅ No changes to spec progress files"
           else
             echo "📝 Committing spec progress updates..."
-            # Add both files modified by analyze-specs.ts
+            # Add both files modified by check-progress.ts
             git add SPEC-PROGRESS.md README.md
             git commit -m "chore: update spec progress [skip ci]"
 

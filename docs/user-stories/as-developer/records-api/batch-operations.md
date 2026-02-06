@@ -89,7 +89,7 @@ PATCH /api/tables/1/records/batch
 | AC-011 | Maximum batch size is 100 records                 | `API-TABLES-RECORDS-BATCH-PATCH-011`        | ⏳     |
 | AC-012 | Updates records with proper data types            | `API-TABLES-RECORDS-BATCH-PATCH-012`        | ⏳     |
 | AC-013 | Excludes deleted records from update              | `API-TABLES-RECORDS-BATCH-PATCH-013`        | ⏳     |
-| AC-014 | User batch updates records (regression)           | `API-TABLES-RECORDS-BATCH-PATCH-REGRESSION` | ⏳     |
+| AC-014 | User batch updates records (regression)           | `API-TABLES-RECORDS-BATCH-PATCH-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -129,7 +129,7 @@ DELETE /api/tables/1/records/batch
 | AC-009 | Permanent delete requires admin role          | `API-TABLES-RECORDS-BATCH-DELETE-009`        | ⏳     |
 | AC-010 | Maximum batch size is 100 records             | `API-TABLES-RECORDS-BATCH-DELETE-010`        | ⏳     |
 | AC-011 | Returns count of actually deleted records     | `API-TABLES-RECORDS-BATCH-DELETE-011`        | ❓     |
-| AC-012 | User batch soft-deletes records (regression)  | `API-TABLES-RECORDS-BATCH-DELETE-REGRESSION` | ⏳     |
+| AC-012 | User batch soft-deletes records (regression)  | `API-TABLES-RECORDS-BATCH-DELETE-REGRESSION` | ✅     |
 
 ### Implementation References
 

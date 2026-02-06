@@ -134,12 +134,12 @@ tables:
 
 | ID     | Criterion                                              | E2E Spec                                      | Status |
 | ------ | ------------------------------------------------------ | --------------------------------------------- | ------ |
-| AC-001 | Creates PostgreSQL TEXT column                         | `APP-TABLES-FIELD-TYPES-RICH-TEXT-001`        | ⏳     |
-| AC-002 | Stores HTML/Markdown content                           | `APP-TABLES-FIELD-TYPES-RICH-TEXT-002`        | ⏳     |
-| AC-003 | Sanitizes HTML to prevent XSS                          | `APP-TABLES-FIELD-TYPES-RICH-TEXT-003`        | ⏳     |
-| AC-004 | Supports NOT NULL constraint when required             | `APP-TABLES-FIELD-TYPES-RICH-TEXT-004`        | ⏳     |
-| AC-005 | Supports DEFAULT value                                 | `APP-TABLES-FIELD-TYPES-RICH-TEXT-005`        | ⏳     |
-| AC-006 | User can complete full rich text workflow (regression) | `APP-TABLES-FIELD-TYPES-RICH-TEXT-REGRESSION` | ⏳     |
+| AC-001 | Creates PostgreSQL TEXT column                         | `APP-TABLES-FIELD-TYPES-RICH-TEXT-001`        | ✅     |
+| AC-002 | Stores HTML/Markdown content                           | `APP-TABLES-FIELD-TYPES-RICH-TEXT-002`        | ✅     |
+| AC-003 | Sanitizes HTML to prevent XSS                          | `APP-TABLES-FIELD-TYPES-RICH-TEXT-003`        | ✅     |
+| AC-004 | Supports NOT NULL constraint when required             | `APP-TABLES-FIELD-TYPES-RICH-TEXT-004`        | ✅     |
+| AC-005 | Supports DEFAULT value                                 | `APP-TABLES-FIELD-TYPES-RICH-TEXT-005`        | ✅     |
+| AC-006 | User can complete full rich text workflow (regression) | `APP-TABLES-FIELD-TYPES-RICH-TEXT-REGRESSION` | ✅     |
 
 ### Implementation References
 

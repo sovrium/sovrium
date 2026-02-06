@@ -323,15 +323,15 @@ layout:
 
 | ID     | Criterion                                           | E2E Spec                      | Status |
 | ------ | --------------------------------------------------- | ----------------------------- | ------ |
-| AC-001 | Orchestrate global page layout                      | `APP-PAGES-LAYOUT-001`        | ⏳     |
-| AC-002 | Support minimal layout with navigation only         | `APP-PAGES-LAYOUT-002`        | ⏳     |
-| AC-003 | Provide header and footer structure                 | `APP-PAGES-LAYOUT-003`        | ⏳     |
-| AC-004 | Support sidebar-based layouts                       | `APP-PAGES-LAYOUT-004`        | ⏳     |
-| AC-005 | Display top banner above navigation                 | `APP-PAGES-LAYOUT-005`        | ⏳     |
-| AC-006 | Allow pages without global layout (blank page)      | `APP-PAGES-LAYOUT-006`        | ⏳     |
-| AC-007 | Enable cohesive visual design across layout         | `APP-PAGES-LAYOUT-007`        | ⏳     |
-| AC-008 | Override or extend default layout per page          | `APP-PAGES-LAYOUT-008`        | ⏳     |
-| AC-009 | User can complete full layout workflow (regression) | `APP-PAGES-LAYOUT-REGRESSION` | ⏳     |
+| AC-001 | Orchestrate global page layout                      | `APP-PAGES-LAYOUT-001`        | ✅     |
+| AC-002 | Support minimal layout with navigation only         | `APP-PAGES-LAYOUT-002`        | ✅     |
+| AC-003 | Provide header and footer structure                 | `APP-PAGES-LAYOUT-003`        | ✅     |
+| AC-004 | Support sidebar-based layouts                       | `APP-PAGES-LAYOUT-004`        | ✅     |
+| AC-005 | Display top banner above navigation                 | `APP-PAGES-LAYOUT-005`        | ✅     |
+| AC-006 | Allow pages without global layout (blank page)      | `APP-PAGES-LAYOUT-006`        | ✅     |
+| AC-007 | Enable cohesive visual design across layout         | `APP-PAGES-LAYOUT-007`        | ✅     |
+| AC-008 | Override or extend default layout per page          | `APP-PAGES-LAYOUT-008`        | ✅     |
+| AC-009 | User can complete full layout workflow (regression) | `APP-PAGES-LAYOUT-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -373,19 +373,19 @@ layout:
 
 | ID     | Criterion                                            | E2E Spec                       | Status |
 | ------ | ---------------------------------------------------- | ------------------------------ | ------ |
-| AC-001 | Display sidebar navigation                           | `APP-PAGES-SIDEBAR-001`        | ⏳     |
-| AC-002 | Render sidebar on left side                          | `APP-PAGES-SIDEBAR-002`        | ⏳     |
-| AC-003 | Render sidebar on right side                         | `APP-PAGES-SIDEBAR-003`        | ⏳     |
-| AC-004 | Apply custom sidebar width                           | `APP-PAGES-SIDEBAR-004`        | ⏳     |
-| AC-005 | Allow users to collapse/expand sidebar               | `APP-PAGES-SIDEBAR-005`        | ⏳     |
-| AC-006 | Start in collapsed state                             | `APP-PAGES-SIDEBAR-006`        | ⏳     |
-| AC-007 | Stick during page scroll                             | `APP-PAGES-SIDEBAR-007`        | ⏳     |
-| AC-008 | Render clickable sidebar link                        | `APP-PAGES-SIDEBAR-008`        | ⏳     |
-| AC-009 | Render collapsible group with nested items           | `APP-PAGES-SIDEBAR-009`        | ⏳     |
-| AC-010 | Render visual separator between sections             | `APP-PAGES-SIDEBAR-010`        | ⏳     |
-| AC-011 | Support unlimited nesting for sidebar hierarchy      | `APP-PAGES-SIDEBAR-011`        | ⏳     |
-| AC-012 | Enable documentation and admin-style layouts         | `APP-PAGES-SIDEBAR-012`        | ⏳     |
-| AC-013 | User can complete full sidebar workflow (regression) | `APP-PAGES-SIDEBAR-REGRESSION` | ⏳     |
+| AC-001 | Display sidebar navigation                           | `APP-PAGES-SIDEBAR-001`        | ✅     |
+| AC-002 | Render sidebar on left side                          | `APP-PAGES-SIDEBAR-002`        | ✅     |
+| AC-003 | Render sidebar on right side                         | `APP-PAGES-SIDEBAR-003`        | ✅     |
+| AC-004 | Apply custom sidebar width                           | `APP-PAGES-SIDEBAR-004`        | ✅     |
+| AC-005 | Allow users to collapse/expand sidebar               | `APP-PAGES-SIDEBAR-005`        | ✅     |
+| AC-006 | Start in collapsed state                             | `APP-PAGES-SIDEBAR-006`        | ✅     |
+| AC-007 | Stick during page scroll                             | `APP-PAGES-SIDEBAR-007`        | ✅     |
+| AC-008 | Render clickable sidebar link                        | `APP-PAGES-SIDEBAR-008`        | ✅     |
+| AC-009 | Render collapsible group with nested items           | `APP-PAGES-SIDEBAR-009`        | ✅     |
+| AC-010 | Render visual separator between sections             | `APP-PAGES-SIDEBAR-010`        | ✅     |
+| AC-011 | Support unlimited nesting for sidebar hierarchy      | `APP-PAGES-SIDEBAR-011`        | ✅     |
+| AC-012 | Enable documentation and admin-style layouts         | `APP-PAGES-SIDEBAR-012`        | ✅     |
+| AC-013 | User can complete full sidebar workflow (regression) | `APP-PAGES-SIDEBAR-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -438,21 +438,21 @@ layout:
 
 | ID     | Criterion                                           | E2E Spec                      | Status |
 | ------ | --------------------------------------------------- | ----------------------------- | ------ |
-| AC-001 | Display footer at bottom of page                    | `APP-PAGES-FOOTER-001`        | ⏳     |
-| AC-002 | Display footer logo                                 | `APP-PAGES-FOOTER-002`        | ⏳     |
-| AC-003 | Render company description                          | `APP-PAGES-FOOTER-003`        | ⏳     |
-| AC-004 | Render multi-column link layout                     | `APP-PAGES-FOOTER-004`        | ⏳     |
-| AC-005 | Render column heading and link list                 | `APP-PAGES-FOOTER-005`        | ⏳     |
-| AC-006 | Support external link targets                       | `APP-PAGES-FOOTER-006`        | ⏳     |
-| AC-007 | Render social media icons                           | `APP-PAGES-FOOTER-007`        | ⏳     |
-| AC-008 | Support 7 social platforms with auto icons          | `APP-PAGES-FOOTER-008`        | ⏳     |
-| AC-009 | Render email subscription form                      | `APP-PAGES-FOOTER-009`        | ⏳     |
-| AC-010 | Display copyright notice                            | `APP-PAGES-FOOTER-010`        | ⏳     |
-| AC-011 | Render legal link list                              | `APP-PAGES-FOOTER-011`        | ⏳     |
-| AC-012 | Not render footer when disabled                     | `APP-PAGES-FOOTER-012`        | ⏳     |
-| AC-013 | Render comprehensive footer layout                  | `APP-PAGES-FOOTER-013`        | ⏳     |
-| AC-014 | Override default platform icon                      | `APP-PAGES-FOOTER-014`        | ⏳     |
-| AC-015 | User can complete full footer workflow (regression) | `APP-PAGES-FOOTER-REGRESSION` | ⏳     |
+| AC-001 | Display footer at bottom of page                    | `APP-PAGES-FOOTER-001`        | ✅     |
+| AC-002 | Display footer logo                                 | `APP-PAGES-FOOTER-002`        | ✅     |
+| AC-003 | Render company description                          | `APP-PAGES-FOOTER-003`        | ✅     |
+| AC-004 | Render multi-column link layout                     | `APP-PAGES-FOOTER-004`        | ✅     |
+| AC-005 | Render column heading and link list                 | `APP-PAGES-FOOTER-005`        | ✅     |
+| AC-006 | Support external link targets                       | `APP-PAGES-FOOTER-006`        | ✅     |
+| AC-007 | Render social media icons                           | `APP-PAGES-FOOTER-007`        | ✅     |
+| AC-008 | Support 7 social platforms with auto icons          | `APP-PAGES-FOOTER-008`        | ✅     |
+| AC-009 | Render email subscription form                      | `APP-PAGES-FOOTER-009`        | ✅     |
+| AC-010 | Display copyright notice                            | `APP-PAGES-FOOTER-010`        | ✅     |
+| AC-011 | Render legal link list                              | `APP-PAGES-FOOTER-011`        | ✅     |
+| AC-012 | Not render footer when disabled                     | `APP-PAGES-FOOTER-012`        | ✅     |
+| AC-013 | Render comprehensive footer layout                  | `APP-PAGES-FOOTER-013`        | ✅     |
+| AC-014 | Override default platform icon                      | `APP-PAGES-FOOTER-014`        | ✅     |
+| AC-015 | User can complete full footer workflow (regression) | `APP-PAGES-FOOTER-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -487,17 +487,17 @@ layout:
 
 | ID     | Criterion                                           | E2E Spec                      | Status |
 | ------ | --------------------------------------------------- | ----------------------------- | ------ |
-| AC-001 | Display banner at top of page                       | `APP-PAGES-BANNER-001`        | ⏳     |
-| AC-002 | Render announcement text                            | `APP-PAGES-BANNER-002`        | ⏳     |
-| AC-003 | Add clickable link to banner                        | `APP-PAGES-BANNER-003`        | ⏳     |
-| AC-004 | Apply CSS gradient as background                    | `APP-PAGES-BANNER-004`        | ⏳     |
-| AC-005 | Apply solid background color                        | `APP-PAGES-BANNER-005`        | ⏳     |
-| AC-006 | Apply text color for contrast                       | `APP-PAGES-BANNER-006`        | ⏳     |
-| AC-007 | Allow users to close banner permanently             | `APP-PAGES-BANNER-007`        | ⏳     |
-| AC-008 | Remain at top during page scroll                    | `APP-PAGES-BANNER-008`        | ⏳     |
-| AC-009 | Not render banner when disabled                     | `APP-PAGES-BANNER-009`        | ⏳     |
-| AC-010 | Render emojis correctly                             | `APP-PAGES-BANNER-010`        | ⏳     |
-| AC-011 | User can complete full banner workflow (regression) | `APP-PAGES-BANNER-REGRESSION` | ⏳     |
+| AC-001 | Display banner at top of page                       | `APP-PAGES-BANNER-001`        | ✅     |
+| AC-002 | Render announcement text                            | `APP-PAGES-BANNER-002`        | ✅     |
+| AC-003 | Add clickable link to banner                        | `APP-PAGES-BANNER-003`        | ✅     |
+| AC-004 | Apply CSS gradient as background                    | `APP-PAGES-BANNER-004`        | ✅     |
+| AC-005 | Apply solid background color                        | `APP-PAGES-BANNER-005`        | ✅     |
+| AC-006 | Apply text color for contrast                       | `APP-PAGES-BANNER-006`        | ✅     |
+| AC-007 | Allow users to close banner permanently             | `APP-PAGES-BANNER-007`        | ✅     |
+| AC-008 | Remain at top during page scroll                    | `APP-PAGES-BANNER-008`        | ✅     |
+| AC-009 | Not render banner when disabled                     | `APP-PAGES-BANNER-009`        | ✅     |
+| AC-010 | Render emojis correctly                             | `APP-PAGES-BANNER-010`        | ✅     |
+| AC-011 | User can complete full banner workflow (regression) | `APP-PAGES-BANNER-REGRESSION` | ✅     |
 
 ### Implementation References
 

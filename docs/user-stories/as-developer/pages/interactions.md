@@ -37,21 +37,21 @@ pages:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                          | E2E Spec                                 | Status   |
-| ------ | -------------------------------------------------- | ---------------------------------------- | -------- |
-| AC-001 | Button plays pulse animation on click              | `APP-PAGES-INTERACTION-CLICK-001`        | Complete |
-| AC-002 | Button plays ripple animation from click point     | `APP-PAGES-INTERACTION-CLICK-002`        | Complete |
-| AC-003 | Button navigates to internal page on click         | `APP-PAGES-INTERACTION-CLICK-003`        | Complete |
-| AC-004 | Button navigates to anchor section on same page    | `APP-PAGES-INTERACTION-CLICK-004`        | Complete |
-| AC-005 | Button opens external URL in new tab               | `APP-PAGES-INTERACTION-CLICK-005`        | Complete |
-| AC-006 | Button opens external URL with noopener/noreferrer | `APP-PAGES-INTERACTION-CLICK-006`        | Complete |
-| AC-007 | Button smoothly scrolls to anchor section          | `APP-PAGES-INTERACTION-CLICK-007`        | Complete |
-| AC-008 | Button shows modal dialog on click                 | `APP-PAGES-INTERACTION-CLICK-008`        | Complete |
-| AC-009 | Button submits parent form on click                | `APP-PAGES-INTERACTION-CLICK-009`        | Complete |
-| AC-010 | Button plays animation then navigates              | `APP-PAGES-INTERACTION-CLICK-010`        | Complete |
-| AC-011 | Button plays custom animation on click             | `APP-PAGES-INTERACTION-CLICK-011`        | Complete |
-| AC-012 | Disabled button does not trigger click action      | `APP-PAGES-INTERACTION-CLICK-012`        | Complete |
-| AC-013 | User can complete full click workflow (regression) | `APP-PAGES-INTERACTION-CLICK-REGRESSION` | Complete |
+| ID     | Criterion                                          | E2E Spec                                 | Status |
+| ------ | -------------------------------------------------- | ---------------------------------------- | ------ |
+| AC-001 | Button plays pulse animation on click              | `APP-PAGES-INTERACTION-CLICK-001`        | ✅     |
+| AC-002 | Button plays ripple animation from click point     | `APP-PAGES-INTERACTION-CLICK-002`        | ✅     |
+| AC-003 | Button navigates to internal page on click         | `APP-PAGES-INTERACTION-CLICK-003`        | ✅     |
+| AC-004 | Button navigates to anchor section on same page    | `APP-PAGES-INTERACTION-CLICK-004`        | ✅     |
+| AC-005 | Button opens external URL in new tab               | `APP-PAGES-INTERACTION-CLICK-005`        | ✅     |
+| AC-006 | Button opens external URL with noopener/noreferrer | `APP-PAGES-INTERACTION-CLICK-006`        | ✅     |
+| AC-007 | Button smoothly scrolls to anchor section          | `APP-PAGES-INTERACTION-CLICK-007`        | ✅     |
+| AC-008 | Button shows modal dialog on click                 | `APP-PAGES-INTERACTION-CLICK-008`        | ✅     |
+| AC-009 | Button submits parent form on click                | `APP-PAGES-INTERACTION-CLICK-009`        | ✅     |
+| AC-010 | Button plays animation then navigates              | `APP-PAGES-INTERACTION-CLICK-010`        | ✅     |
+| AC-011 | Button plays custom animation on click             | `APP-PAGES-INTERACTION-CLICK-011`        | ✅     |
+| AC-012 | Disabled button does not trigger click action      | `APP-PAGES-INTERACTION-CLICK-012`        | ✅     |
+| AC-013 | User can complete full click workflow (regression) | `APP-PAGES-INTERACTION-CLICK-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -86,19 +86,19 @@ pages:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                          | E2E Spec                                 | Status   |
-| ------ | -------------------------------------------------- | ---------------------------------------- | -------- |
-| AC-001 | Component scales up smoothly on hover              | `APP-PAGES-INTERACTION-HOVER-001`        | Complete |
-| AC-002 | Component fades to specified opacity on hover      | `APP-PAGES-INTERACTION-HOVER-002`        | Complete |
-| AC-003 | Component changes background and text colors       | `APP-PAGES-INTERACTION-HOVER-003`        | Complete |
-| AC-004 | Component applies box shadow effect on hover       | `APP-PAGES-INTERACTION-HOVER-004`        | Complete |
-| AC-005 | Component transitions smoothly over duration       | `APP-PAGES-INTERACTION-HOVER-005`        | Complete |
-| AC-006 | All hover effects work together on same component  | `APP-PAGES-INTERACTION-HOVER-006`        | Complete |
-| AC-007 | Component changes cursor style on hover            | `APP-PAGES-INTERACTION-HOVER-007`        | Complete |
-| AC-008 | Component applies custom CSS class on hover        | `APP-PAGES-INTERACTION-HOVER-008`        | Complete |
-| AC-009 | Component displays tooltip on hover                | `APP-PAGES-INTERACTION-HOVER-009`        | Complete |
-| AC-010 | Disabled component does not show hover effects     | `APP-PAGES-INTERACTION-HOVER-010`        | Complete |
-| AC-011 | User can complete full hover workflow (regression) | `APP-PAGES-INTERACTION-HOVER-REGRESSION` | Complete |
+| ID     | Criterion                                          | E2E Spec                                 | Status |
+| ------ | -------------------------------------------------- | ---------------------------------------- | ------ |
+| AC-001 | Component scales up smoothly on hover              | `APP-PAGES-INTERACTION-HOVER-001`        | ✅     |
+| AC-002 | Component fades to specified opacity on hover      | `APP-PAGES-INTERACTION-HOVER-002`        | ✅     |
+| AC-003 | Component changes background and text colors       | `APP-PAGES-INTERACTION-HOVER-003`        | ✅     |
+| AC-004 | Component applies box shadow effect on hover       | `APP-PAGES-INTERACTION-HOVER-004`        | ✅     |
+| AC-005 | Component transitions smoothly over duration       | `APP-PAGES-INTERACTION-HOVER-005`        | ✅     |
+| AC-006 | All hover effects work together on same component  | `APP-PAGES-INTERACTION-HOVER-006`        | ✅     |
+| AC-007 | Component changes cursor style on hover            | `APP-PAGES-INTERACTION-HOVER-007`        | ✅     |
+| AC-008 | Component applies custom CSS class on hover        | `APP-PAGES-INTERACTION-HOVER-008`        | ✅     |
+| AC-009 | Component displays tooltip on hover                | `APP-PAGES-INTERACTION-HOVER-009`        | ✅     |
+| AC-010 | Disabled component does not show hover effects     | `APP-PAGES-INTERACTION-HOVER-010`        | ✅     |
+| AC-011 | User can complete full hover workflow (regression) | `APP-PAGES-INTERACTION-HOVER-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -131,17 +131,17 @@ pages:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                             | E2E Spec                                    | Status   |
-| ------ | ----------------------------------------------------- | ------------------------------------------- | -------- |
-| AC-001 | Component fades in smoothly on page load              | `APP-PAGES-INTERACTION-ENTRANCE-001`        | Complete |
-| AC-002 | Component fades in while moving up from below         | `APP-PAGES-INTERACTION-ENTRANCE-002`        | Complete |
-| AC-003 | Component zooms in from small to normal size          | `APP-PAGES-INTERACTION-ENTRANCE-003`        | Complete |
-| AC-004 | Component waits for delay before animating            | `APP-PAGES-INTERACTION-ENTRANCE-004`        | Complete |
-| AC-005 | Component completes animation in specified duration   | `APP-PAGES-INTERACTION-ENTRANCE-005`        | Complete |
-| AC-006 | Child components animate with staggered delay         | `APP-PAGES-INTERACTION-ENTRANCE-006`        | Complete |
-| AC-007 | Component waits for previous sibling animation        | `APP-PAGES-INTERACTION-ENTRANCE-007`        | Complete |
-| AC-008 | Component respects reduced motion preference          | `APP-PAGES-INTERACTION-ENTRANCE-008`        | Complete |
-| AC-009 | User can complete full entrance workflow (regression) | `APP-PAGES-INTERACTION-ENTRANCE-REGRESSION` | Complete |
+| ID     | Criterion                                             | E2E Spec                                    | Status |
+| ------ | ----------------------------------------------------- | ------------------------------------------- | ------ |
+| AC-001 | Component fades in smoothly on page load              | `APP-PAGES-INTERACTION-ENTRANCE-001`        | ✅     |
+| AC-002 | Component fades in while moving up from below         | `APP-PAGES-INTERACTION-ENTRANCE-002`        | ✅     |
+| AC-003 | Component zooms in from small to normal size          | `APP-PAGES-INTERACTION-ENTRANCE-003`        | ✅     |
+| AC-004 | Component waits for delay before animating            | `APP-PAGES-INTERACTION-ENTRANCE-004`        | ✅     |
+| AC-005 | Component completes animation in specified duration   | `APP-PAGES-INTERACTION-ENTRANCE-005`        | ✅     |
+| AC-006 | Child components animate with staggered delay         | `APP-PAGES-INTERACTION-ENTRANCE-006`        | ✅     |
+| AC-007 | Component waits for previous sibling animation        | `APP-PAGES-INTERACTION-ENTRANCE-007`        | ✅     |
+| AC-008 | Component respects reduced motion preference          | `APP-PAGES-INTERACTION-ENTRANCE-008`        | ✅     |
+| AC-009 | User can complete full entrance workflow (regression) | `APP-PAGES-INTERACTION-ENTRANCE-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -178,19 +178,19 @@ pages:
 
 | ID     | Criterion                                               | E2E Spec                                  | Status |
 | ------ | ------------------------------------------------------- | ----------------------------------------- | ------ |
-| AC-001 | Component fades in when scrolled into view              | `APP-PAGES-INTERACTION-SCROLL-001`        | ⏳     |
-| AC-002 | Component fades in while moving up from below on scroll | `APP-PAGES-INTERACTION-SCROLL-002`        | ⏳     |
-| AC-003 | Component zooms in when scrolled into view              | `APP-PAGES-INTERACTION-SCROLL-003`        | ⏳     |
-| AC-004 | Animation triggers at specified visibility threshold    | `APP-PAGES-INTERACTION-SCROLL-004`        | ⏳     |
-| AC-005 | Animation waits for specified delay before starting     | `APP-PAGES-INTERACTION-SCROLL-005`        | ⏳     |
-| AC-006 | Animation completes in specified duration               | `APP-PAGES-INTERACTION-SCROLL-006`        | ⏳     |
-| AC-007 | Animation only plays once when once is true             | `APP-PAGES-INTERACTION-SCROLL-007`        | ⏳     |
-| AC-008 | Animation replays each time element enters view         | `APP-PAGES-INTERACTION-SCROLL-008`        | ⏳     |
-| AC-009 | Animation respects offset from trigger point            | `APP-PAGES-INTERACTION-SCROLL-009`        | ⏳     |
-| AC-010 | Multiple scroll animations trigger in sequence          | `APP-PAGES-INTERACTION-SCROLL-010`        | ⏳     |
-| AC-011 | Scroll animation respects reduced motion preference     | `APP-PAGES-INTERACTION-SCROLL-011`        | ⏳     |
-| AC-012 | Component remains visible after scroll animation ends   | `APP-PAGES-INTERACTION-SCROLL-012`        | ⏳     |
-| AC-013 | User can complete full scroll workflow (regression)     | `APP-PAGES-INTERACTION-SCROLL-REGRESSION` | ⏳     |
+| AC-001 | Component fades in when scrolled into view              | `APP-PAGES-INTERACTION-SCROLL-001`        | ✅     |
+| AC-002 | Component fades in while moving up from below on scroll | `APP-PAGES-INTERACTION-SCROLL-002`        | ✅     |
+| AC-003 | Component zooms in when scrolled into view              | `APP-PAGES-INTERACTION-SCROLL-003`        | ✅     |
+| AC-004 | Animation triggers at specified visibility threshold    | `APP-PAGES-INTERACTION-SCROLL-004`        | ✅     |
+| AC-005 | Animation waits for specified delay before starting     | `APP-PAGES-INTERACTION-SCROLL-005`        | ✅     |
+| AC-006 | Animation completes in specified duration               | `APP-PAGES-INTERACTION-SCROLL-006`        | ✅     |
+| AC-007 | Animation only plays once when once is true             | `APP-PAGES-INTERACTION-SCROLL-007`        | ✅     |
+| AC-008 | Animation replays each time element enters view         | `APP-PAGES-INTERACTION-SCROLL-008`        | ✅     |
+| AC-009 | Animation respects offset from trigger point            | `APP-PAGES-INTERACTION-SCROLL-009`        | ✅     |
+| AC-010 | Multiple scroll animations trigger in sequence          | `APP-PAGES-INTERACTION-SCROLL-010`        | ✅     |
+| AC-011 | Scroll animation respects reduced motion preference     | `APP-PAGES-INTERACTION-SCROLL-011`        | ✅     |
+| AC-012 | Component remains visible after scroll animation ends   | `APP-PAGES-INTERACTION-SCROLL-012`        | ✅     |
+| AC-013 | User can complete full scroll workflow (regression)     | `APP-PAGES-INTERACTION-SCROLL-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -227,17 +227,17 @@ pages:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                  | E2E Spec                                | Status   |
-| ------ | ---------------------------------------------------------- | --------------------------------------- | -------- |
-| AC-001 | Component supports hover effects without other types       | `APP-PAGES-INTERACTION-MAIN-001`        | Complete |
-| AC-002 | Component supports click actions without other types       | `APP-PAGES-INTERACTION-MAIN-002`        | Complete |
-| AC-003 | Component supports scroll animations without other types   | `APP-PAGES-INTERACTION-MAIN-003`        | Complete |
-| AC-004 | Component supports entrance animations without other types | `APP-PAGES-INTERACTION-MAIN-004`        | Complete |
-| AC-005 | Component supports both hover and click together           | `APP-PAGES-INTERACTION-MAIN-005`        | Complete |
-| AC-006 | Component plays entrance and scroll animations             | `APP-PAGES-INTERACTION-MAIN-006`        | Complete |
-| AC-007 | All interaction types work independently                   | `APP-PAGES-INTERACTION-MAIN-007`        | Complete |
-| AC-008 | Hover applies immediately, click navigates after animation | `APP-PAGES-INTERACTION-MAIN-008`        | Complete |
-| AC-009 | User can complete full interactions workflow (regression)  | `APP-PAGES-INTERACTION-MAIN-REGRESSION` | Complete |
+| ID     | Criterion                                                  | E2E Spec                                | Status |
+| ------ | ---------------------------------------------------------- | --------------------------------------- | ------ |
+| AC-001 | Component supports hover effects without other types       | `APP-PAGES-INTERACTION-MAIN-001`        | ✅     |
+| AC-002 | Component supports click actions without other types       | `APP-PAGES-INTERACTION-MAIN-002`        | ✅     |
+| AC-003 | Component supports scroll animations without other types   | `APP-PAGES-INTERACTION-MAIN-003`        | ✅     |
+| AC-004 | Component supports entrance animations without other types | `APP-PAGES-INTERACTION-MAIN-004`        | ✅     |
+| AC-005 | Component supports both hover and click together           | `APP-PAGES-INTERACTION-MAIN-005`        | ✅     |
+| AC-006 | Component plays entrance and scroll animations             | `APP-PAGES-INTERACTION-MAIN-006`        | ✅     |
+| AC-007 | All interaction types work independently                   | `APP-PAGES-INTERACTION-MAIN-007`        | ✅     |
+| AC-008 | Hover applies immediately, click navigates after animation | `APP-PAGES-INTERACTION-MAIN-008`        | ✅     |
+| AC-009 | User can complete full interactions workflow (regression)  | `APP-PAGES-INTERACTION-MAIN-REGRESSION` | ✅     |
 
 ### Implementation References
 
