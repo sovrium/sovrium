@@ -7,15 +7,13 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { SessionContextError, UniqueConstraintViolationError } from '@/infrastructure/database'
+import {
+  SessionContextError,
+  UniqueConstraintViolationError,
+  type DrizzleTransaction,
+} from '@/infrastructure/database'
 import { validateColumnName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
-import type { DrizzleDB } from '@/infrastructure/database/drizzle/db'
-
-/**
- * Type for Drizzle transaction callback parameter
- */
-type DrizzleTransaction = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0]
 
 /**
  * Check if table has owner_id column

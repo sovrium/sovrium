@@ -24,7 +24,7 @@
  * ```
  */
 
-export { db, type DrizzleDB } from './drizzle/db'
+export { db, type DrizzleDB, type DrizzleTransaction } from './drizzle/db'
 export { Database, DatabaseLive } from './drizzle/layer'
 export * from './drizzle/schema'
 export {

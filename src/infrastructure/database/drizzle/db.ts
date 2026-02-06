@@ -5,13 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// Runtime-specific database driver selection
-// Bun runtime uses native bun:sql (db-bun.ts), Node.js runtime uses postgres.js (db-node.ts)
-const isBun = typeof Bun !== 'undefined'
+import type { DrizzleDB } from './db-bun'
 
-// Dynamic import based on runtime
-const dbModule = isBun ? './db-bun' : './db-node'
-const { db } = await import(dbModule)
-
-export { db }
+export { db } from './db-bun'
 export type { DrizzleDB } from './db-bun'
+
+/**
+ * Type for Drizzle transaction callback parameter
+ * Extracts the transaction type from the db.transaction method
+ */
+export type DrizzleTransaction = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0]

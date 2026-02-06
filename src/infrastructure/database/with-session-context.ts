@@ -7,15 +7,9 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect, Runtime } from 'effect'
-import { db, type DrizzleDB } from './drizzle/db'
+import { db, type DrizzleTransaction } from './drizzle/db'
 import type { SessionContextError } from './session-context'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
-
-/**
- * Type for Drizzle transaction callback parameter
- * Extracts the transaction type from the db.transaction method
- */
-type DrizzleTransaction = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0]
 
 /**
  * Escape SQL string values to prevent SQL injection
