@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines */
+
 import { sql, eq, and, isNull, desc, asc } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { users } from '@/infrastructure/auth/better-auth/schema'
@@ -209,6 +211,26 @@ export function getCommentWithUser(config: {
 }
 
 /**
+ * Build SQL query to check record existence with optional deleted_at filter
+ */
+function buildRecordCheckQuery(
+  tableName: string,
+  recordId: string,
+  hasOwnerId: boolean,
+  hasDeletedAt: boolean
+) {
+  if (hasOwnerId) {
+    return hasDeletedAt
+      ? sql`SELECT owner_id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
+      : sql`SELECT owner_id FROM ${sql.identifier(tableName)} WHERE id = ${recordId}`
+  } else {
+    return hasDeletedAt
+      ? sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
+      : sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId}`
+  }
+}
+
+/**
  * Check if a record exists in the given table and is owned by the user
  */
 export function checkRecordOwnership(config: {
@@ -219,27 +241,25 @@ export function checkRecordOwnership(config: {
   const { session, tableName, recordId } = config
   return withSessionContext(session, (tx) =>
     Effect.gen(function* () {
-      // Check if table has owner_id column
-      const hasOwnerIdResult = yield* Effect.tryPromise({
+      // Check if table has owner_id and deleted_at columns
+      const columnsResult = yield* Effect.tryPromise({
         try: () =>
           tx.execute(
-            sql`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ${tableName} AND column_name = 'owner_id'`
+            sql`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ${tableName} AND column_name IN ('owner_id', 'deleted_at')`
           ),
         catch: (error) => new SessionContextError('Failed to check table columns', error),
       })
 
-      const hasOwnerId = (hasOwnerIdResult as readonly Record<string, unknown>[]).some(
-        (row) => row.column_name === 'owner_id'
+      const columnNames = new Set(
+        (columnsResult as readonly Record<string, unknown>[]).map((row) => row.column_name)
       )
+      const hasOwnerId = columnNames.has('owner_id')
+      const hasDeletedAt = columnNames.has('deleted_at')
 
       // Check if record exists
+      const query = buildRecordCheckQuery(tableName, recordId, hasOwnerId, hasDeletedAt)
       const result = yield* Effect.tryPromise({
-        try: () =>
-          tx.execute(
-            hasOwnerId
-              ? sql`SELECT owner_id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
-              : sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
-          ),
+        try: () => tx.execute(query),
         catch: (error) => new SessionContextError('Failed to check record ownership', error),
       })
 
@@ -252,7 +272,11 @@ export function checkRecordOwnership(config: {
         return true
       }
 
-      const record = result[0] as { owner_id?: string }
+      const record = result[0] as { owner_id?: string | null }
+      // If owner_id is NULL or undefined, allow access (shared/public record)
+      if (record.owner_id === null || record.owner_id === undefined) {
+        return true
+      }
       // Check ownership
       return String(record.owner_id) === String(session.userId)
     })
@@ -373,8 +397,8 @@ export function getCommentForAuth(config: {
 /**
  * Build base comments query with user join
  */
-function buildCommentsQuery(tx: unknown, recordId: string) {
-  return (tx as ReturnType<typeof db>)
+function buildCommentsQuery(recordId: string) {
+  return db
     .select(commentSelectFields)
     .from(recordComments)
     .leftJoin(users, eq(recordComments.userId, users.id))
@@ -385,7 +409,6 @@ function buildCommentsQuery(tx: unknown, recordId: string) {
  * Execute list comments query with sorting and pagination
  */
 function executeListCommentsQuery(
-  tx: unknown,
   recordId: string,
   options?: {
     readonly limit?: number
@@ -393,7 +416,7 @@ function executeListCommentsQuery(
     readonly sortOrder?: 'asc' | 'desc'
   }
 ) {
-  const query = buildCommentsQuery(tx, recordId)
+  const query = buildCommentsQuery(recordId)
 
   // Apply sorting (default: DESC for newest first)
   const sortedQuery =
@@ -440,10 +463,10 @@ export function listComments(config: {
   SessionContextError
 > {
   const { session, recordId, limit, offset, sortOrder } = config
-  return withSessionContext(session, (tx) =>
+  return withSessionContext(session, (_tx) =>
     Effect.gen(function* () {
       const result = yield* Effect.tryPromise<Array<CommentQueryRow>, SessionContextError>({
-        try: () => executeListCommentsQuery(tx, recordId, { limit, offset, sortOrder }),
+        try: () => executeListCommentsQuery(recordId, { limit, offset, sortOrder }),
         catch: (error) => new SessionContextError('Failed to list comments', error),
       })
 

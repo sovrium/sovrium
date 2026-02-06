@@ -54,7 +54,7 @@ export function buildAggregationSelects(aggregate: {
  * Parse count aggregation from result row
  */
 function parseCountAggregation(
-  row: Record<string, unknown>,
+  row: Readonly<Record<string, unknown>>,
   aggregate: { readonly count?: boolean }
 ): { readonly count?: string } {
   return aggregate.count && row['count'] !== undefined ? { count: String(row['count']) } : {}
@@ -64,10 +64,10 @@ function parseCountAggregation(
  * Parse numeric aggregation fields (sum, avg, min, max)
  */
 function parseNumericAggregation(
-  row: Record<string, unknown>,
+  row: Readonly<Record<string, unknown>>,
   fields: readonly string[],
   prefix: string
-): Record<string, number> {
+): Readonly<Record<string, number>> {
   return fields.reduce<Record<string, number>>((acc, field) => {
     const key = `${prefix}_${field}`
     if (row[key] !== null && row[key] !== undefined) {
@@ -81,7 +81,7 @@ function parseNumericAggregation(
  * Parse aggregation result row into structured aggregation object
  */
 export function parseAggregationResult(
-  row: Record<string, unknown>,
+  row: Readonly<Record<string, unknown>>,
   aggregate: {
     readonly count?: boolean
     readonly sum?: readonly string[]
@@ -91,10 +91,10 @@ export function parseAggregationResult(
   }
 ): {
   readonly count?: string
-  readonly sum?: Record<string, number>
-  readonly avg?: Record<string, number>
-  readonly min?: Record<string, number>
-  readonly max?: Record<string, number>
+  readonly sum?: Readonly<Record<string, number>>
+  readonly avg?: Readonly<Record<string, number>>
+  readonly min?: Readonly<Record<string, number>>
+  readonly max?: Readonly<Record<string, number>>
 } {
   const countAgg = parseCountAggregation(row, aggregate)
 

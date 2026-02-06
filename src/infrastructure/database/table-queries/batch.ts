@@ -34,8 +34,8 @@ async function createSingleRecord(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
   tx: Readonly<any>,
   tableName: string,
-  fields: Record<string, unknown>
-): Promise<Record<string, unknown> | undefined> {
+  fields: Readonly<Record<string, unknown>>
+): Promise<Readonly<Record<string, unknown>> | undefined> {
   // Build entries from user fields
   const entries = Object.entries(fields)
   if (entries.length === 0) return undefined
@@ -175,9 +175,9 @@ function findExistingRecord(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
   tx: any,
   tableName: string,
-  fields: Record<string, unknown>,
+  fields: Readonly<Record<string, unknown>>,
   fieldsToMergeOn: readonly string[]
-): Effect.Effect<Record<string, unknown> | undefined, SessionContextError> {
+): Effect.Effect<Readonly<Record<string, unknown>> | undefined, SessionContextError> {
   const whereConditions = fieldsToMergeOn.map((field) => {
     validateColumnName(field)
     return sql`${sql.identifier(field)} = ${fields[field]}`
@@ -354,9 +354,9 @@ async function validateRequiredFieldsInRecord(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   tx: any,
   tableName: string,
-  record: Record<string, unknown>,
+  record: Readonly<Record<string, unknown>>,
   recordIndex: number
-): Promise<string[]> {
+): Promise<readonly string[]> {
   // Query table schema to get required fields
   const schemaQuery = (await tx.execute(
     sql`
@@ -635,8 +635,8 @@ export function batchRestoreRecords(
  */
 function extractFieldsFromUpdate(update: {
   readonly id: string
-  readonly fields?: Record<string, unknown>
-}): Record<string, unknown> {
+  readonly fields?: Readonly<Record<string, unknown>>
+}): Readonly<Record<string, unknown>> {
   // Return fields property or empty object if not provided
   return update.fields ?? {}
 }
@@ -665,7 +665,7 @@ function fetchRecordBeforeUpdate(
  * Build UPDATE SET clause with validated column names
  */
 function buildUpdateSetClause(
-  fields: Record<string, unknown>
+  fields: Readonly<Record<string, unknown>>
 ): Readonly<ReturnType<typeof sql.join>> {
   const entries = Object.entries(fields)
   const setClauses = entries.map(([key, value]) => {
