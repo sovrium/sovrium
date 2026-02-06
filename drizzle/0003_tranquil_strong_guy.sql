@@ -1,0 +1,1 @@
+ALTER TABLE "system"."activity_logs" ALTER COLUMN "table_id" SET NOT NULL;

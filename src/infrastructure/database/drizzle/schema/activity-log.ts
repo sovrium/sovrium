@@ -72,7 +72,7 @@ export const activityLogs = systemSchema.table(
 
     // Table identification
     tableName: text('table_name').notNull(),
-    tableId: text('table_id'),
+    tableId: text('table_id').notNull(),
 
     // Record identification within the table
     recordId: text('record_id').notNull(),

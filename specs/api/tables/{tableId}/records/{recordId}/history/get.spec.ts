@@ -51,11 +51,11 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       // Create record and activity history
       await executeQuery(`INSERT INTO tasks (id, title, status) VALUES (1, 'Task 1', 'pending')`)
       await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, table_id, record_id, changes, created_at)
         VALUES
-          ('${user.id}', 'create', 'tasks', 1, '{"title": "Task 1", "status": "pending"}', NOW() - INTERVAL '10 minutes'),
-          ('${user.id}', 'update', 'tasks', 1, '{"status": {"old": "pending", "new": "active"}}', NOW() - INTERVAL '5 minutes'),
-          ('${user.id}', 'update', 'tasks', 1, '{"title": {"old": "Task 1", "new": "Updated Task"}}', NOW() - INTERVAL '2 minutes')
+          ('${user.id}', 'create', 'tasks', '1', '1', '{"title": "Task 1", "status": "pending"}', NOW() - INTERVAL '10 minutes'),
+          ('${user.id}', 'update', 'tasks', '1', '1', '{"status": {"old": "pending", "new": "active"}}', NOW() - INTERVAL '5 minutes'),
+          ('${user.id}', 'update', 'tasks', '1', '1', '{"title": {"old": "Task 1", "new": "Updated Task"}}', NOW() - INTERVAL '2 minutes')
       `)
 
       // WHEN: User requests record history
@@ -232,10 +232,10 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
 
       await executeQuery(`INSERT INTO tasks (id, title) VALUES (1, 'Task 1')`)
       await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, table_id, record_id, changes, created_at)
         VALUES
-          ('${user1.user.id}', 'create', 'tasks', 1, '{"title": "Task 1"}', NOW() - INTERVAL '10 minutes'),
-          ('${user2.user.id}', 'update', 'tasks', 1, '{"title": {"old": "Task 1", "new": "Updated"}}', NOW() - INTERVAL '5 minutes')
+          ('${user1.user.id}', 'create', 'tasks', '1', '1', '{"title": "Task 1"}', NOW() - INTERVAL '10 minutes'),
+          ('${user2.user.id}', 'update', 'tasks', '1', '1', '{"title": {"old": "Task 1", "new": "Updated"}}', NOW() - INTERVAL '5 minutes')
       `)
 
       // WHEN: User requests record history
@@ -276,11 +276,11 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
 
       await executeQuery(`INSERT INTO tasks (id, title) VALUES (1, 'Task 1')`)
       await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, table_id, record_id, changes, created_at)
         VALUES
-          ('${user.id}', 'create', 'tasks', 1, '{"title": "Old Activity"}', NOW() - INTERVAL '400 days'),
-          ('${user.id}', 'update', 'tasks', 1, '{"title": {"old": "Old", "new": "Recent"}}', NOW() - INTERVAL '30 days'),
-          ('${user.id}', 'update', 'tasks', 1, '{"title": {"old": "Recent", "new": "Current"}}', NOW())
+          ('${user.id}', 'create', 'tasks', '1', '1', '{"title": "Old Activity"}', NOW() - INTERVAL '400 days'),
+          ('${user.id}', 'update', 'tasks', '1', '1', '{"title": {"old": "Old", "new": "Recent"}}', NOW() - INTERVAL '30 days'),
+          ('${user.id}', 'update', 'tasks', '1', '1', '{"title": {"old": "Recent", "new": "Current"}}', NOW())
       `)
 
       // WHEN: User requests record history
@@ -324,10 +324,10 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       const insertValues = Array.from(
         { length: 30 },
         (_, i) =>
-          `('${user.id}', 'update', 'tasks', 1, '{"counter": {"old": ${i}, "new": ${i + 1}}}', NOW() - INTERVAL '${30 - i} minutes')`
+          `('${user.id}', 'update', 'tasks', '1', '1', '{"counter": {"old": ${i}, "new": ${i + 1}}}', NOW() - INTERVAL '${30 - i} minutes')`
       ).join(',')
       await executeQuery(
-        `INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at) VALUES ${insertValues}`
+        `INSERT INTO system.activity_logs (user_id, action, table_name, table_id, record_id, changes, created_at) VALUES ${insertValues}`
       )
 
       // WHEN: User requests second page of history with limit 10 and offset 10
@@ -369,11 +369,11 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
 
       // Note: Record may be soft-deleted, so history should still be accessible
       await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, table_id, record_id, changes, created_at)
         VALUES
-          ('${user.id}', 'create', 'tasks', 1, '{"title": "New Task"}', NOW() - INTERVAL '10 minutes'),
-          ('${user.id}', 'update', 'tasks', 1, '{"title": {"old": "New Task", "new": "Updated Task"}}', NOW() - INTERVAL '5 minutes'),
-          ('${user.id}', 'delete', 'tasks', 1, NULL, NOW() - INTERVAL '1 minute')
+          ('${user.id}', 'create', 'tasks', '1', '1', '{"title": "New Task"}', NOW() - INTERVAL '10 minutes'),
+          ('${user.id}', 'update', 'tasks', '1', '1', '{"title": {"old": "New Task", "new": "Updated Task"}}', NOW() - INTERVAL '5 minutes'),
+          ('${user.id}', 'delete', 'tasks', '1', '1', NULL, NOW() - INTERVAL '1 minute')
       `)
 
       // WHEN: User requests history for deleted record
@@ -467,12 +467,12 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
         `INSERT INTO tasks (id, title, status, priority) VALUES (42, 'Important Task', 'pending', 1)`
       )
       await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, table_id, record_id, changes, created_at)
         VALUES
-          ('${user1.user.id}', 'create', 'tasks', 42, '{"title": "Important Task", "status": "pending", "priority": 1}', NOW() - INTERVAL '20 minutes'),
-          ('${user1.user.id}', 'update', 'tasks', 42, '{"status": {"old": "pending", "new": "active"}}', NOW() - INTERVAL '15 minutes'),
-          ('${user2.user.id}', 'update', 'tasks', 42, '{"priority": {"old": 1, "new": 5}}', NOW() - INTERVAL '10 minutes'),
-          ('${user2.user.id}', 'update', 'tasks', 42, '{"title": {"old": "Important Task", "new": "Critical Task"}}', NOW() - INTERVAL '5 minutes')
+          ('${user1.user.id}', 'create', 'tasks', '1', '42', '{"title": "Important Task", "status": "pending", "priority": 1}', NOW() - INTERVAL '20 minutes'),
+          ('${user1.user.id}', 'update', 'tasks', '1', '42', '{"status": {"old": "pending", "new": "active"}}', NOW() - INTERVAL '15 minutes'),
+          ('${user2.user.id}', 'update', 'tasks', '1', '42', '{"priority": {"old": 1, "new": 5}}', NOW() - INTERVAL '10 minutes'),
+          ('${user2.user.id}', 'update', 'tasks', '1', '42', '{"title": {"old": "Important Task", "new": "Critical Task"}}', NOW() - INTERVAL '5 minutes')
       `)
 
       await test.step('API-ACTIVITY-RECORD-HISTORY-001: Returns 200 with chronological change history', async () => {
