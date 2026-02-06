@@ -23,13 +23,14 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                | E2E Spec                   |
-| ------ | -------------------------------------------------------- | -------------------------- |
-| AC-001 | Returns session data for authenticated user              | `API-AUTH-GET-SESSION-001` |
-| AC-002 | Returns null for unauthenticated request                 | `API-AUTH-GET-SESSION-002` |
-| AC-003 | Session includes user object with id, email, name        | `API-AUTH-GET-SESSION-003` |
-| AC-004 | Session includes session metadata (createdAt, expiresAt) | `API-AUTH-GET-SESSION-004` |
-| AC-005 | Expired session returns null                             | `API-AUTH-GET-SESSION-005` |
+| ID     | Criterion                                                | E2E Spec                          | Status |
+| ------ | -------------------------------------------------------- | --------------------------------- | ------ |
+| AC-001 | Returns session data for authenticated user              | `API-AUTH-GET-SESSION-001`        | ✅     |
+| AC-002 | Returns null for unauthenticated request                 | `API-AUTH-GET-SESSION-002`        | ✅     |
+| AC-003 | Session includes user object with id, email, name        | `API-AUTH-GET-SESSION-003`        | ✅     |
+| AC-004 | Session includes session metadata (createdAt, expiresAt) | `API-AUTH-GET-SESSION-004`        | ✅     |
+| AC-005 | Expired session returns null                             | `API-AUTH-GET-SESSION-005`        | ✅     |
+| AC-006 | User retrieves session information (regression)          | `API-AUTH-GET-SESSION-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -46,13 +47,14 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                       | E2E Spec                |
-| ------ | ----------------------------------------------- | ----------------------- |
-| AC-001 | Current session is invalidated on sign-out      | `API-AUTH-SIGN-OUT-001` |
-| AC-002 | Returns 200 OK on successful sign-out           | `API-AUTH-SIGN-OUT-002` |
-| AC-003 | Session cookie is cleared                       | `API-AUTH-SIGN-OUT-003` |
-| AC-004 | Returns 401 when not authenticated              | `API-AUTH-SIGN-OUT-004` |
-| AC-005 | Subsequent requests with old token are rejected | `API-AUTH-SIGN-OUT-005` |
+| ID     | Criterion                                          | E2E Spec                       | Status |
+| ------ | -------------------------------------------------- | ------------------------------ | ------ |
+| AC-001 | Current session is invalidated on sign-out         | `API-AUTH-SIGN-OUT-001`        | ✅     |
+| AC-002 | Returns 200 OK on successful sign-out              | `API-AUTH-SIGN-OUT-002`        | ✅     |
+| AC-003 | Session cookie is cleared                          | `API-AUTH-SIGN-OUT-003`        | ✅     |
+| AC-004 | Returns 401 when not authenticated                 | `API-AUTH-SIGN-OUT-004`        | ✅     |
+| AC-005 | Subsequent requests with old token are rejected    | `API-AUTH-SIGN-OUT-005`        | ✅     |
+| AC-006 | User completes full sign-out workflow (regression) | `API-AUTH-SIGN-OUT-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -69,15 +71,16 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                            | E2E Spec                     |
-| ------ | ---------------------------------------------------- | ---------------------------- |
-| AC-001 | Returns list of all active sessions for user         | `API-AUTH-LIST-SESSIONS-001` |
-| AC-002 | Each session includes device/browser information     | `API-AUTH-LIST-SESSIONS-002` |
-| AC-003 | Each session includes createdAt timestamp            | `API-AUTH-LIST-SESSIONS-003` |
-| AC-004 | Current session is identified in the list            | `API-AUTH-LIST-SESSIONS-004` |
-| AC-005 | Returns 401 when not authenticated                   | `API-AUTH-LIST-SESSIONS-005` |
-| AC-006 | Expired sessions are not included                    | `API-AUTH-LIST-SESSIONS-006` |
-| AC-007 | Sessions are ordered by creation date (newest first) | `API-AUTH-LIST-SESSIONS-007` |
+| ID     | Criterion                                            | E2E Spec                            | Status |
+| ------ | ---------------------------------------------------- | ----------------------------------- | ------ |
+| AC-001 | Returns list of all active sessions for user         | `API-AUTH-LIST-SESSIONS-001`        | ✅     |
+| AC-002 | Each session includes device/browser information     | `API-AUTH-LIST-SESSIONS-002`        | ✅     |
+| AC-003 | Each session includes createdAt timestamp            | `API-AUTH-LIST-SESSIONS-003`        | ✅     |
+| AC-004 | Current session is identified in the list            | `API-AUTH-LIST-SESSIONS-004`        | ✅     |
+| AC-005 | Returns 401 when not authenticated                   | `API-AUTH-LIST-SESSIONS-005`        | ✅     |
+| AC-006 | Expired sessions are not included                    | `API-AUTH-LIST-SESSIONS-006`        | ✅     |
+| AC-007 | Sessions are ordered by creation date (newest first) | `API-AUTH-LIST-SESSIONS-007`        | ✅     |
+| AC-008 | User views all active sessions (regression)          | `API-AUTH-LIST-SESSIONS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -94,13 +97,14 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                | E2E Spec                      |
-| ------ | ---------------------------------------- | ----------------------------- |
-| AC-001 | Session is revoked with valid session ID | `API-AUTH-REVOKE-SESSION-001` |
-| AC-002 | Returns 200 OK on successful revocation  | `API-AUTH-REVOKE-SESSION-002` |
-| AC-003 | Returns 401 when not authenticated       | `API-AUTH-REVOKE-SESSION-003` |
-| AC-004 | Returns 404 for non-existent session ID  | `API-AUTH-REVOKE-SESSION-004` |
-| AC-005 | Cannot revoke another user's session     | `API-AUTH-REVOKE-SESSION-005` |
+| ID     | Criterion                                    | E2E Spec                             | Status |
+| ------ | -------------------------------------------- | ------------------------------------ | ------ |
+| AC-001 | Session is revoked with valid session ID     | `API-AUTH-REVOKE-SESSION-001`        | ✅     |
+| AC-002 | Returns 200 OK on successful revocation      | `API-AUTH-REVOKE-SESSION-002`        | ✅     |
+| AC-003 | Returns 401 when not authenticated           | `API-AUTH-REVOKE-SESSION-003`        | ✅     |
+| AC-004 | Returns 404 for non-existent session ID      | `API-AUTH-REVOKE-SESSION-004`        | ✅     |
+| AC-005 | Cannot revoke another user's session         | `API-AUTH-REVOKE-SESSION-005`        | ✅     |
+| AC-006 | User revokes a specific session (regression) | `API-AUTH-REVOKE-SESSION-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -117,13 +121,14 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                    | E2E Spec                             |
-| ------ | -------------------------------------------- | ------------------------------------ |
-| AC-001 | All sessions except current are revoked      | `API-AUTH-REVOKE-OTHER-SESSIONS-001` |
-| AC-002 | Current session remains active               | `API-AUTH-REVOKE-OTHER-SESSIONS-002` |
-| AC-003 | Returns count of revoked sessions            | `API-AUTH-REVOKE-OTHER-SESSIONS-003` |
-| AC-004 | Returns 401 when not authenticated           | `API-AUTH-REVOKE-OTHER-SESSIONS-004` |
-| AC-005 | Returns 0 count when no other sessions exist | `API-AUTH-REVOKE-OTHER-SESSIONS-005` |
+| ID     | Criterion                                    | E2E Spec                                    | Status |
+| ------ | -------------------------------------------- | ------------------------------------------- | ------ |
+| AC-001 | All sessions except current are revoked      | `API-AUTH-REVOKE-OTHER-SESSIONS-001`        | ✅     |
+| AC-002 | Current session remains active               | `API-AUTH-REVOKE-OTHER-SESSIONS-002`        | ✅     |
+| AC-003 | Returns count of revoked sessions            | `API-AUTH-REVOKE-OTHER-SESSIONS-003`        | ✅     |
+| AC-004 | Returns 401 when not authenticated           | `API-AUTH-REVOKE-OTHER-SESSIONS-004`        | ✅     |
+| AC-005 | Returns 0 count when no other sessions exist | `API-AUTH-REVOKE-OTHER-SESSIONS-005`        | ✅     |
+| AC-006 | User revokes all other sessions (regression) | `API-AUTH-REVOKE-OTHER-SESSIONS-REGRESSION` | ✅     |
 
 ### Implementation References
 

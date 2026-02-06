@@ -235,7 +235,8 @@ git push origin main               # Triggers release ONLY with "release:" type
 sovrium/
 ├── docs/                        # Detailed documentation (import on-demand)
 │   ├── infrastructure/          # Tech stack docs
-│   └── architecture/            # Architecture patterns
+│   ├── architecture/            # Architecture patterns
+│   └── user-stories/            # Feature specifications with E2E spec IDs
 ├── scripts/                     # Build & utility scripts (TypeScript, run by Bun)
 │   ├── **/*.ts                  # TypeScript scripts (executable with Bun)
 │   └── **/*.test.ts             # Script unit tests (co-located, Bun Test)
@@ -273,6 +274,7 @@ sovrium/
 - **Internationalization (i18n)**: `@docs/architecture/patterns/i18n-centralized-translations.md`
 - **Testing React Components**: `@docs/infrastructure/testing/react-testing-library.md` (RTL + Happy DOM + Bun)
 - **TDD Automation**: `@docs/development/tdd-automation-pipeline.md`
+- **User Stories & Specifications**: `@docs/user-stories/` (Feature requirements with E2E spec IDs)
 
 **Slash Command**: Use `/docs` to list all available documentation files
 

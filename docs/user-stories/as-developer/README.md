@@ -16,10 +16,11 @@
 
 | Area                                                | Description                                                | Stories |
 | --------------------------------------------------- | ---------------------------------------------------------- | ------- |
-| [**Authentication**](./authentication/)             | User sign-up, sign-in, 2FA, sessions, admin management     | 6 files |
+| [**Authentication**](./authentication/)             | User sign-up, sign-in, 2FA, sessions, admin management     | 7 files |
 | [**Tables**](./tables/)                             | Table definitions, field types, relationships, permissions | 6 files |
 | [**Records API**](./records-api/)                   | CRUD operations, batch processing, filtering, soft-delete  | 5 files |
-| [**Pages**](./pages/)                               | Routes, layouts, content blocks, SEO metadata              | 4 files |
+| [**Activity API**](./activity-api/)                 | Activity logging, audit trail, rate limiting               | 1 file  |
+| [**Pages**](./pages/)                               | Routes, layouts, scripts, common schemas, SEO metadata     | 6 files |
 | [**Theming**](./theming/)                           | Design tokens, responsive design, animations               | 3 files |
 | [**Internationalization**](./internationalization/) | Multi-language application support                         | 1 file  |
 | [**CLI**](./cli/)                                   | Server commands, static site generation                    | 2 files |
@@ -35,6 +36,7 @@
 - [Password Recovery](./authentication/password-recovery.md) - Reset and change password
 - [Session Management](./authentication/session-management.md) - Sessions, sign-out, revocation
 - [Admin User Management](./authentication/admin-user-management.md) - Admin CRUD, ban, impersonate
+- [Admin Bootstrap](./authentication/admin-bootstrap.md) - Automatic admin account on first startup
 
 ### Tables
 
@@ -55,10 +57,12 @@
 
 ### Pages
 
-- [Creating Pages](./pages/creating-pages.md) - Routes, layouts, meta
+- [Creating Pages](./pages/creating-pages.md) - Routes, layouts, layout components (sidebar, footer, banner)
 - [Page Blocks](./pages/page-blocks.md) - Content blocks
 - [Navigation](./pages/navigation.md) - Menus, links, routing
-- [SEO Meta](./pages/seo-meta.md) - Title, description, OpenGraph
+- [SEO Meta](./pages/seo-meta.md) - Title, description, OpenGraph, structured data types
+- [Client-Side Scripts](./pages/scripts.md) - Feature flags, external/inline scripts
+- [Common Schemas](./pages/common-schemas.md) - Primitive definitions, props, responsive, variables
 
 ### Theming
 
@@ -74,6 +78,10 @@
 
 - [Starting Server](./cli/starting-server.md) - `sovrium start` command
 - [Building Static](./cli/building-static.md) - `sovrium build` command
+
+### Activity API
+
+- [Activity Logging](./activity-api/activity-logging.md) - List activity, details, rate limiting
 
 ### Migrations
 

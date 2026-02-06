@@ -57,14 +57,15 @@ theme:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                           | E2E Spec                   |
-| ------ | ----------------------------------- | -------------------------- |
-| AC-001 | Generates HTML files for all pages  | `CLI-BUILD-GENERATION-001` |
-| AC-002 | Generates valid HTML with DOCTYPE   | `CLI-BUILD-GENERATION-002` |
-| AC-003 | Compiles CSS with theme tokens      | `CLI-BUILD-GENERATION-003` |
-| AC-004 | Creates proper directory structure  | `CLI-BUILD-GENERATION-004` |
-| AC-005 | Handles nested page paths correctly | `CLI-BUILD-GENERATION-005` |
-| AC-006 | Generates well-formatted HTML       | `CLI-BUILD-GENERATION-006` |
+| ID     | Criterion                                                      | E2E Spec                          | Status |
+| ------ | -------------------------------------------------------------- | --------------------------------- | ------ |
+| AC-001 | Generates HTML files for all pages                             | `CLI-BUILD-GENERATION-001`        | ✅     |
+| AC-002 | Generates valid HTML with DOCTYPE                              | `CLI-BUILD-GENERATION-002`        | ✅     |
+| AC-003 | Compiles CSS with theme tokens                                 | `CLI-BUILD-GENERATION-003`        | ✅     |
+| AC-004 | Creates proper directory structure                             | `CLI-BUILD-GENERATION-004`        | ✅     |
+| AC-005 | Handles nested page paths correctly                            | `CLI-BUILD-GENERATION-005`        | ✅     |
+| AC-006 | Generates well-formatted HTML                                  | `CLI-BUILD-GENERATION-006`        | ✅     |
+| AC-007 | User can complete full static generation workflow (regression) | `CLI-BUILD-GENERATION-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -95,12 +96,13 @@ project/
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                | E2E Spec               |
-| ------ | ---------------------------------------- | ---------------------- |
-| AC-001 | Copies files from public/ directory      | `CLI-BUILD-ASSETS-001` |
-| AC-002 | Preserves directory structure            | `CLI-BUILD-ASSETS-002` |
-| AC-003 | Handles binary files correctly           | `CLI-BUILD-ASSETS-003` |
-| AC-004 | Updates asset references in HTML and CSS | `CLI-BUILD-ASSETS-004` |
+| ID     | Criterion                                                     | E2E Spec                      | Status |
+| ------ | ------------------------------------------------------------- | ----------------------------- | ------ |
+| AC-001 | Copies files from public/ directory                           | `CLI-BUILD-ASSETS-001`        | ✅     |
+| AC-002 | Preserves directory structure                                 | `CLI-BUILD-ASSETS-002`        | ✅     |
+| AC-003 | Handles binary files correctly                                | `CLI-BUILD-ASSETS-003`        | ✅     |
+| AC-004 | Updates asset references in HTML and CSS                      | `CLI-BUILD-ASSETS-004`        | ✅     |
+| AC-005 | User can complete full asset management workflow (regression) | `CLI-BUILD-ASSETS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -139,14 +141,15 @@ dist/
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                  | E2E Spec               |
-| ------ | ------------------------------------------ | ---------------------- |
-| AC-001 | Generates .nojekyll for GitHub Pages       | `CLI-BUILD-DEPLOY-001` |
-| AC-002 | Generates sitemap.xml                      | `CLI-BUILD-DEPLOY-002` |
-| AC-003 | Generates robots.txt                       | `CLI-BUILD-DEPLOY-003` |
-| AC-004 | Handles base path configuration            | `CLI-BUILD-DEPLOY-004` |
-| AC-005 | Generates CNAME for custom domains         | `CLI-BUILD-DEPLOY-005` |
-| AC-006 | Does NOT generate CNAME for github.io URLs | `CLI-BUILD-DEPLOY-006` |
+| ID     | Criterion                                               | E2E Spec                      | Status |
+| ------ | ------------------------------------------------------- | ----------------------------- | ------ |
+| AC-001 | Generates .nojekyll for GitHub Pages                    | `CLI-BUILD-DEPLOY-001`        | ✅     |
+| AC-002 | Generates sitemap.xml                                   | `CLI-BUILD-DEPLOY-002`        | ✅     |
+| AC-003 | Generates robots.txt                                    | `CLI-BUILD-DEPLOY-003`        | ✅     |
+| AC-004 | Handles base path configuration                         | `CLI-BUILD-DEPLOY-004`        | ✅     |
+| AC-005 | Generates CNAME for custom domains                      | `CLI-BUILD-DEPLOY-005`        | ✅     |
+| AC-006 | Does NOT generate CNAME for github.io URLs              | `CLI-BUILD-DEPLOY-006`        | ✅     |
+| AC-007 | User can complete full deployment workflow (regression) | `CLI-BUILD-DEPLOY-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -200,12 +203,13 @@ dist/
 
 ### Acceptance Criteria
 
-| ID     | Criterion                             | E2E Spec             |
-| ------ | ------------------------------------- | -------------------- |
-| AC-001 | Generates language directories        | `CLI-BUILD-I18N-001` |
-| AC-002 | Creates language-specific HTML files  | `CLI-BUILD-I18N-002` |
-| AC-003 | Generates hreflang links in HTML head | `CLI-BUILD-I18N-003` |
-| AC-004 | Creates language switcher links       | `CLI-BUILD-I18N-004` |
+| ID     | Criterion                                               | E2E Spec                    | Status |
+| ------ | ------------------------------------------------------- | --------------------------- | ------ |
+| AC-001 | Generates language directories                          | `CLI-BUILD-I18N-001`        | ✅     |
+| AC-002 | Creates language-specific HTML files                    | `CLI-BUILD-I18N-002`        | ✅     |
+| AC-003 | Generates hreflang links in HTML head                   | `CLI-BUILD-I18N-003`        | ✅     |
+| AC-004 | Creates language switcher links                         | `CLI-BUILD-I18N-004`        | ✅     |
+| AC-005 | User can complete full i18n build workflow (regression) | `CLI-BUILD-I18N-REGRESSION` | ✅     |
 
 ### Implementation References
 

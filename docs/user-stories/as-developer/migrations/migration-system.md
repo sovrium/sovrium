@@ -27,12 +27,13 @@ Sovrium includes a robust migration system that manages schema changes safely. T
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                               | E2E Spec                 |
-| ------ | ------------------------------------------------------- | ------------------------ |
-| AC-001 | Saves SHA-256 checksum to system.schema_checksum table  | `MIGRATION-CHECKSUM-001` |
-| AC-002 | Skips migration when schema unchanged (startup <100ms)  | `MIGRATION-CHECKSUM-002` |
-| AC-003 | Executes migration and saves new checksum when modified | `MIGRATION-CHECKSUM-003` |
-| AC-004 | Minor schema changes trigger re-migration               | `MIGRATION-CHECKSUM-004` |
+| ID     | Criterion                                               | E2E Spec                        | Status |
+| ------ | ------------------------------------------------------- | ------------------------------- | ------ |
+| AC-001 | Saves SHA-256 checksum to system.schema_checksum table  | `MIGRATION-CHECKSUM-001`        | ✅     |
+| AC-002 | Skips migration when schema unchanged (startup <100ms)  | `MIGRATION-CHECKSUM-002`        | ✅     |
+| AC-003 | Executes migration and saves new checksum when modified | `MIGRATION-CHECKSUM-003`        | ✅     |
+| AC-004 | Minor schema changes trigger re-migration               | `MIGRATION-CHECKSUM-004`        | ✅     |
+| AC-005 | User can complete full checksum workflow (regression)   | `MIGRATION-CHECKSUM-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -62,16 +63,17 @@ sovrium migrate:rollback --force
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                     | E2E Spec                 |
-| ------ | ------------------------------------------------------------- | ------------------------ |
-| AC-001 | Detects checksum mismatch and prevents migration              | `MIGRATION-ROLLBACK-001` |
-| AC-002 | Rollbacks to last known good state on validation failure      | `MIGRATION-ROLLBACK-002` |
-| AC-003 | Provides manual rollback command to restore previous version  | `MIGRATION-ROLLBACK-003` |
-| AC-004 | Restores data integrity after failed migration rollback       | `MIGRATION-ROLLBACK-004` |
-| AC-005 | Handles cascading rollback for dependent tables               | `MIGRATION-ROLLBACK-005` |
-| AC-006 | Logs rollback operations for audit trail                      | `MIGRATION-ROLLBACK-006` |
-| AC-007 | Supports schema downgrade from version N to N-1               | `MIGRATION-ROLLBACK-007` |
-| AC-008 | Prevents rollback if it would cause data loss without --force | `MIGRATION-ROLLBACK-008` |
+| ID     | Criterion                                                     | E2E Spec                        | Status |
+| ------ | ------------------------------------------------------------- | ------------------------------- | ------ |
+| AC-001 | Detects checksum mismatch and prevents migration              | `MIGRATION-ROLLBACK-001`        | ✅     |
+| AC-002 | Rollbacks to last known good state on validation failure      | `MIGRATION-ROLLBACK-002`        | ✅     |
+| AC-003 | Provides manual rollback command to restore previous version  | `MIGRATION-ROLLBACK-003`        | ✅     |
+| AC-004 | Restores data integrity after failed migration rollback       | `MIGRATION-ROLLBACK-004`        | ✅     |
+| AC-005 | Handles cascading rollback for dependent tables               | `MIGRATION-ROLLBACK-005`        | ✅     |
+| AC-006 | Logs rollback operations for audit trail                      | `MIGRATION-ROLLBACK-006`        | ✅     |
+| AC-007 | Supports schema downgrade from version N to N-1               | `MIGRATION-ROLLBACK-007`        | ✅     |
+| AC-008 | Prevents rollback if it would cause data loss without --force | `MIGRATION-ROLLBACK-008`        | ✅     |
+| AC-009 | User can complete full rollback workflow (regression)         | `MIGRATION-ROLLBACK-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -98,14 +100,15 @@ The migration system records:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                             | E2E Spec              |
-| ------ | ----------------------------------------------------- | --------------------- |
-| AC-001 | Records migration history with timestamp and checksum | `MIGRATION-AUDIT-001` |
-| AC-002 | Stores complete schema snapshot in migration history  | `MIGRATION-AUDIT-002` |
-| AC-003 | Tracks incremental version numbers for each migration | `MIGRATION-AUDIT-003` |
-| AC-004 | Logs rollback operations with reason and timestamp    | `MIGRATION-AUDIT-004` |
-| AC-005 | Provides query interface for migration history        | `MIGRATION-AUDIT-005` |
-| AC-006 | Detects and reports schema drift from audit history   | `MIGRATION-AUDIT-006` |
+| ID     | Criterion                                             | E2E Spec                     | Status |
+| ------ | ----------------------------------------------------- | ---------------------------- | ------ |
+| AC-001 | Records migration history with timestamp and checksum | `MIGRATION-AUDIT-001`        | ✅     |
+| AC-002 | Stores complete schema snapshot in migration history  | `MIGRATION-AUDIT-002`        | ✅     |
+| AC-003 | Tracks incremental version numbers for each migration | `MIGRATION-AUDIT-003`        | ✅     |
+| AC-004 | Logs rollback operations with reason and timestamp    | `MIGRATION-AUDIT-004`        | ✅     |
+| AC-005 | Provides query interface for migration history        | `MIGRATION-AUDIT-005`        | ✅     |
+| AC-006 | Detects and reports schema drift from audit history   | `MIGRATION-AUDIT-006`        | ✅     |
+| AC-007 | User can complete full audit workflow (regression)    | `MIGRATION-AUDIT-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -129,18 +132,19 @@ The migration system records:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                          | E2E Spec              |
-| ------ | ------------------------------------------------------------------ | --------------------- |
-| AC-001 | Rollbacks transaction when generating SQL for invalid type         | `MIGRATION-ERROR-001` |
-| AC-002 | Rollbacks all changes when migration fails mid-execution           | `MIGRATION-ERROR-002` |
-| AC-003 | Rollbacks transaction on constraint violation                      | `MIGRATION-ERROR-003` |
-| AC-004 | Fails and rollbacks when foreign key references non-existent table | `MIGRATION-ERROR-004` |
-| AC-005 | Aborts application startup on database connection error            | `MIGRATION-ERROR-005` |
-| AC-006 | Rejects schema with index on non-existent column                   | `MIGRATION-ERROR-006` |
-| AC-007 | Rejects schema with duplicate table IDs                            | `MIGRATION-ERROR-007` |
-| AC-008 | Rejects migration with invalid dependency order                    | `MIGRATION-ERROR-008` |
-| AC-009 | Rejects destructive operations without confirmation flag           | `MIGRATION-ERROR-009` |
-| AC-010 | Rejects empty migration with no schema changes                     | `MIGRATION-ERROR-010` |
+| ID     | Criterion                                                          | E2E Spec                     | Status |
+| ------ | ------------------------------------------------------------------ | ---------------------------- | ------ |
+| AC-001 | Rollbacks transaction when generating SQL for invalid type         | `MIGRATION-ERROR-001`        | ✅     |
+| AC-002 | Rollbacks all changes when migration fails mid-execution           | `MIGRATION-ERROR-002`        | ✅     |
+| AC-003 | Rollbacks transaction on constraint violation                      | `MIGRATION-ERROR-003`        | ✅     |
+| AC-004 | Fails and rollbacks when foreign key references non-existent table | `MIGRATION-ERROR-004`        | ✅     |
+| AC-005 | Aborts application startup on database connection error            | `MIGRATION-ERROR-005`        | ✅     |
+| AC-006 | Rejects schema with index on non-existent column                   | `MIGRATION-ERROR-006`        | ✅     |
+| AC-007 | Rejects schema with duplicate table IDs                            | `MIGRATION-ERROR-007`        | ✅     |
+| AC-008 | Rejects migration with invalid dependency order                    | `MIGRATION-ERROR-008`        | ✅     |
+| AC-009 | Rejects destructive operations without confirmation flag           | `MIGRATION-ERROR-009`        | ✅     |
+| AC-010 | Rejects empty migration with no schema changes                     | `MIGRATION-ERROR-010`        | ✅     |
+| AC-011 | User can complete full error handling workflow (regression)        | `MIGRATION-ERROR-REGRESSION` | ✅     |
 
 ### Implementation References
 

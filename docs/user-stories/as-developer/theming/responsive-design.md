@@ -12,7 +12,7 @@ Sovrium supports responsive design through configurable breakpoints. Breakpoints
 
 ---
 
-## US-RESPONSIVE-001: Configure Breakpoints
+## US-THEME-RESPONSIVE-001: Configure Breakpoints
 
 **As a** developer,
 **I want to** configure responsive breakpoints,
@@ -33,17 +33,18 @@ theme:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                   | E2E Spec                    |
-| ------ | ------------------------------------------- | --------------------------- |
-| AC-001 | Breakpoints generate media queries          | `APP-THEME-BREAKPOINTS-001` |
-| AC-002 | Mobile-first approach is default            | `APP-THEME-BREAKPOINTS-002` |
-| AC-003 | Custom breakpoint values are supported      | `APP-THEME-BREAKPOINTS-003` |
-| AC-004 | Breakpoints support pixel values            | `APP-THEME-BREAKPOINTS-004` |
-| AC-005 | Breakpoints support rem values              | `APP-THEME-BREAKPOINTS-005` |
-| AC-006 | Invalid breakpoint value returns error      | `APP-THEME-BREAKPOINTS-006` |
-| AC-007 | Breakpoints must be in ascending order      | `APP-THEME-BREAKPOINTS-007` |
-| AC-008 | Breakpoint prefixes work in utility classes | `APP-THEME-BREAKPOINTS-008` |
-| AC-009 | Container max-widths follow breakpoints     | `APP-THEME-BREAKPOINTS-009` |
+| ID     | Criterion                                                | E2E Spec                           | Status |
+| ------ | -------------------------------------------------------- | ---------------------------------- | ------ |
+| AC-001 | Breakpoints generate media queries                       | `APP-THEME-BREAKPOINTS-001`        | ✅     |
+| AC-002 | Mobile-first approach is default                         | `APP-THEME-BREAKPOINTS-002`        | ✅     |
+| AC-003 | Custom breakpoint values are supported                   | `APP-THEME-BREAKPOINTS-003`        | ✅     |
+| AC-004 | Breakpoints support pixel values                         | `APP-THEME-BREAKPOINTS-004`        | ✅     |
+| AC-005 | Breakpoints support rem values                           | `APP-THEME-BREAKPOINTS-005`        | ✅     |
+| AC-006 | Invalid breakpoint value returns error                   | `APP-THEME-BREAKPOINTS-006`        | ✅     |
+| AC-007 | Breakpoints must be in ascending order                   | `APP-THEME-BREAKPOINTS-007`        | ✅     |
+| AC-008 | Breakpoint prefixes work in utility classes              | `APP-THEME-BREAKPOINTS-008`        | ✅     |
+| AC-009 | Container max-widths follow breakpoints                  | `APP-THEME-BREAKPOINTS-009`        | ✅     |
+| AC-010 | User can complete full breakpoints workflow (regression) | `APP-THEME-BREAKPOINTS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -62,7 +63,7 @@ theme:
 
 ## Coverage Summary
 
-| User Story        | Title       | Spec Count           | Status   |
-| ----------------- | ----------- | -------------------- | -------- |
-| US-RESPONSIVE-001 | Breakpoints | 9                    | Complete |
-| **Total**         |             | **9 + 1 regression** |          |
+| User Story              | Title       | Spec Count           | Status   |
+| ----------------------- | ----------- | -------------------- | -------- |
+| US-THEME-RESPONSIVE-001 | Breakpoints | 9                    | Complete |
+| **Total**               |             | **9 + 1 regression** |          |

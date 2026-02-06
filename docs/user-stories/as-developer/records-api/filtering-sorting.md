@@ -38,16 +38,16 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                             | E2E Spec                      |
-| ------ | ----------------------------------------------------- | ----------------------------- |
-| AC-001 | Returns 200 OK with paginated records array           | `API-TABLES-RECORDS-LIST-001` |
-| AC-002 | Returns 200 OK with empty array when no records exist | `API-TABLES-RECORDS-LIST-002` |
-| AC-003 | Returns 401 when not authenticated                    | `API-TABLES-RECORDS-LIST-003` |
-| AC-004 | Returns 404 Not Found for non-existent table          | `API-TABLES-RECORDS-LIST-004` |
-| AC-005 | Returns 403 when user lacks read permission           | `API-TABLES-RECORDS-LIST-005` |
-| AC-006 | Respects limit query parameter                        | `API-TABLES-RECORDS-LIST-006` |
-| AC-007 | Respects offset query parameter                       | `API-TABLES-RECORDS-LIST-007` |
-| AC-008 | Returns total count in response metadata              | `API-TABLES-RECORDS-LIST-008` |
+| ID     | Criterion                                             | E2E Spec                      | Status |
+| ------ | ----------------------------------------------------- | ----------------------------- | ------ |
+| AC-001 | Returns 200 OK with paginated records array           | `API-TABLES-RECORDS-LIST-001` | ✅     |
+| AC-002 | Returns 200 OK with empty array when no records exist | `API-TABLES-RECORDS-LIST-002` | ✅     |
+| AC-003 | Returns 401 when not authenticated                    | `API-TABLES-RECORDS-LIST-003` | ✅     |
+| AC-004 | Returns 404 Not Found for non-existent table          | `API-TABLES-RECORDS-LIST-004` | ✅     |
+| AC-005 | Returns 403 when user lacks read permission           | `API-TABLES-RECORDS-LIST-005` | ✅     |
+| AC-006 | Respects limit query parameter                        | `API-TABLES-RECORDS-LIST-006` | ✅     |
+| AC-007 | Respects offset query parameter                       | `API-TABLES-RECORDS-LIST-007` | ✅     |
+| AC-008 | Returns total count in response metadata              | `API-TABLES-RECORDS-LIST-008` | ✅     |
 
 ### Implementation References
 
@@ -71,12 +71,12 @@ GET /api/tables/1/records?sort=priority:desc,name:asc
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                          | E2E Spec                      |
-| ------ | -------------------------------------------------- | ----------------------------- |
-| AC-001 | Sorts by single field ascending                    | `API-TABLES-RECORDS-LIST-009` |
-| AC-002 | Sorts by single field descending                   | `API-TABLES-RECORDS-LIST-010` |
-| AC-003 | Supports multiple sort fields (primary, secondary) | `API-TABLES-RECORDS-LIST-011` |
-| AC-004 | Returns 400 for invalid sort field name            | `API-TABLES-RECORDS-LIST-012` |
+| ID     | Criterion                                          | E2E Spec                      | Status |
+| ------ | -------------------------------------------------- | ----------------------------- | ------ |
+| AC-001 | Sorts by single field ascending                    | `API-TABLES-RECORDS-LIST-009` | ✅     |
+| AC-002 | Sorts by single field descending                   | `API-TABLES-RECORDS-LIST-010` | ✅     |
+| AC-003 | Supports multiple sort fields (primary, secondary) | `API-TABLES-RECORDS-LIST-011` | ✅     |
+| AC-004 | Returns 400 for invalid sort field name            | `API-TABLES-RECORDS-LIST-012` | ✅     |
 
 ### Implementation References
 
@@ -99,12 +99,12 @@ GET /api/tables/1/records?fields=id,name,status
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                        | E2E Spec                      |
-| ------ | ------------------------------------------------ | ----------------------------- |
-| AC-001 | Returns only specified fields in response        | `API-TABLES-RECORDS-LIST-013` |
-| AC-002 | Always includes id field regardless of selection | `API-TABLES-RECORDS-LIST-014` |
-| AC-003 | Returns 400 for invalid field name               | `API-TABLES-RECORDS-LIST-015` |
-| AC-004 | Excludes fields user lacks read permission for   | `API-TABLES-RECORDS-LIST-016` |
+| ID     | Criterion                                        | E2E Spec                      | Status |
+| ------ | ------------------------------------------------ | ----------------------------- | ------ |
+| AC-001 | Returns only specified fields in response        | `API-TABLES-RECORDS-LIST-013` | ✅     |
+| AC-002 | Always includes id field regardless of selection | `API-TABLES-RECORDS-LIST-014` | ✅     |
+| AC-003 | Returns 400 for invalid field name               | `API-TABLES-RECORDS-LIST-015` | ✅     |
+| AC-004 | Excludes fields user lacks read permission for   | `API-TABLES-RECORDS-LIST-016` | ✅     |
 
 ### Implementation References
 
@@ -145,12 +145,12 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                          | E2E Spec                      |
-| ------ | -------------------------------------------------- | ----------------------------- |
-| AC-001 | Applies view filter to query                       | `API-TABLES-RECORDS-LIST-017` |
-| AC-002 | Applies view sort configuration                    | `API-TABLES-RECORDS-LIST-018` |
-| AC-003 | Returns 404 for non-existent view                  | `API-TABLES-RECORDS-LIST-019` |
-| AC-004 | Combines view filter with additional query filters | `API-TABLES-RECORDS-LIST-020` |
+| ID     | Criterion                                          | E2E Spec                      | Status |
+| ------ | -------------------------------------------------- | ----------------------------- | ------ |
+| AC-001 | Applies view filter to query                       | `API-TABLES-RECORDS-LIST-017` | ✅     |
+| AC-002 | Applies view sort configuration                    | `API-TABLES-RECORDS-LIST-018` | ✅     |
+| AC-003 | Returns 404 for non-existent view                  | `API-TABLES-RECORDS-LIST-019` | ✅     |
+| AC-004 | Combines view filter with additional query filters | `API-TABLES-RECORDS-LIST-020` | ✅     |
 
 ### Implementation References
 
@@ -173,11 +173,11 @@ GET /api/tables/1/records?groupBy=status
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                  | E2E Spec                      |
-| ------ | ------------------------------------------ | ----------------------------- |
-| AC-001 | Returns records grouped by specified field | `API-TABLES-RECORDS-LIST-021` |
-| AC-002 | Includes group metadata (name, count)      | `API-TABLES-RECORDS-LIST-022` |
-| AC-003 | Returns 400 for invalid groupBy field      | `API-TABLES-RECORDS-LIST-023` |
+| ID     | Criterion                                  | E2E Spec                      | Status |
+| ------ | ------------------------------------------ | ----------------------------- | ------ |
+| AC-001 | Returns records grouped by specified field | `API-TABLES-RECORDS-LIST-021` | ✅     |
+| AC-002 | Includes group metadata (name, count)      | `API-TABLES-RECORDS-LIST-022` | ✅     |
+| AC-003 | Returns 400 for invalid groupBy field      | `API-TABLES-RECORDS-LIST-023` | ✅     |
 
 ### Implementation References
 
@@ -200,10 +200,10 @@ GET /api/tables/1/records?aggregate=sum:amount,count:id,avg:quantity
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                               | E2E Spec                      |
-| ------ | ------------------------------------------------------- | ----------------------------- |
-| AC-001 | Returns aggregation results (sum, count, avg, min, max) | `API-TABLES-RECORDS-LIST-024` |
-| AC-002 | Combines aggregations with groupBy                      | `API-TABLES-RECORDS-LIST-025` |
+| ID     | Criterion                                               | E2E Spec                      | Status |
+| ------ | ------------------------------------------------------- | ----------------------------- | ------ |
+| AC-001 | Returns aggregation results (sum, count, avg, min, max) | `API-TABLES-RECORDS-LIST-024` | ✅     |
+| AC-002 | Combines aggregations with groupBy                      | `API-TABLES-RECORDS-LIST-025` | ✅     |
 
 ### Implementation References
 

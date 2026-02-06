@@ -23,16 +23,17 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                          | E2E Spec                       |
-| ------ | -------------------------------------------------- | ------------------------------ |
-| AC-001 | Password is updated successfully with 200 OK       | `API-AUTH-CHANGE-PASSWORD-001` |
-| AC-002 | New token is issued and other sessions are revoked | `API-AUTH-CHANGE-PASSWORD-002` |
-| AC-003 | Returns 400 without newPassword                    | `API-AUTH-CHANGE-PASSWORD-003` |
-| AC-004 | Returns 400 without currentPassword                | `API-AUTH-CHANGE-PASSWORD-004` |
-| AC-005 | Returns 400 when new password is too short         | `API-AUTH-CHANGE-PASSWORD-005` |
-| AC-006 | Returns 401 without authentication                 | `API-AUTH-CHANGE-PASSWORD-006` |
-| AC-007 | Returns 401 with wrong current password            | `API-AUTH-CHANGE-PASSWORD-007` |
-| AC-008 | Handles same password attempt appropriately        | `API-AUTH-CHANGE-PASSWORD-008` |
+| ID     | Criterion                                            | E2E Spec                              | Status |
+| ------ | ---------------------------------------------------- | ------------------------------------- | ------ |
+| AC-001 | Password is updated successfully with 200 OK         | `API-AUTH-CHANGE-PASSWORD-001`        | ✅     |
+| AC-002 | New token is issued and other sessions are revoked   | `API-AUTH-CHANGE-PASSWORD-002`        | ✅     |
+| AC-003 | Returns 400 without newPassword                      | `API-AUTH-CHANGE-PASSWORD-003`        | ✅     |
+| AC-004 | Returns 400 without currentPassword                  | `API-AUTH-CHANGE-PASSWORD-004`        | ✅     |
+| AC-005 | Returns 400 when new password is too short           | `API-AUTH-CHANGE-PASSWORD-005`        | ✅     |
+| AC-006 | Returns 401 without authentication                   | `API-AUTH-CHANGE-PASSWORD-006`        | ✅     |
+| AC-007 | Returns 401 with wrong current password              | `API-AUTH-CHANGE-PASSWORD-007`        | ✅     |
+| AC-008 | Handles same password attempt appropriately          | `API-AUTH-CHANGE-PASSWORD-008`        | ✅     |
+| AC-009 | User completes change-password workflow (regression) | `API-AUTH-CHANGE-PASSWORD-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -49,15 +50,16 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                             | E2E Spec                              |
-| ------ | ----------------------------------------------------- | ------------------------------------- |
-| AC-001 | Reset email is sent with custom template              | `API-AUTH-REQUEST-PASSWORD-RESET-001` |
-| AC-002 | Returns 200 OK even for non-existent email (security) | `API-AUTH-REQUEST-PASSWORD-RESET-002` |
-| AC-003 | Returns 400 without email                             | `API-AUTH-REQUEST-PASSWORD-RESET-003` |
-| AC-004 | Returns 400 with invalid email format                 | `API-AUTH-REQUEST-PASSWORD-RESET-004` |
-| AC-005 | Email matching is case-insensitive                    | `API-AUTH-REQUEST-PASSWORD-RESET-005` |
-| AC-006 | Old reset token is invalidated on new request         | `API-AUTH-REQUEST-PASSWORD-RESET-006` |
-| AC-007 | RedirectTo URL is included in reset email             | `API-AUTH-REQUEST-PASSWORD-RESET-007` |
+| ID     | Criterion                                              | E2E Spec                                     | Status |
+| ------ | ------------------------------------------------------ | -------------------------------------------- | ------ |
+| AC-001 | Reset email is sent with custom template               | `API-AUTH-REQUEST-PASSWORD-RESET-001`        | ✅     |
+| AC-002 | Returns 200 OK even for non-existent email (security)  | `API-AUTH-REQUEST-PASSWORD-RESET-002`        | ✅     |
+| AC-003 | Returns 400 without email                              | `API-AUTH-REQUEST-PASSWORD-RESET-003`        | ✅     |
+| AC-004 | Returns 400 with invalid email format                  | `API-AUTH-REQUEST-PASSWORD-RESET-004`        | ✅     |
+| AC-005 | Email matching is case-insensitive                     | `API-AUTH-REQUEST-PASSWORD-RESET-005`        | ✅     |
+| AC-006 | Old reset token is invalidated on new request          | `API-AUTH-REQUEST-PASSWORD-RESET-006`        | ✅     |
+| AC-007 | RedirectTo URL is included in reset email              | `API-AUTH-REQUEST-PASSWORD-RESET-007`        | ✅     |
+| AC-008 | User requests password reset successfully (regression) | `API-AUTH-REQUEST-PASSWORD-RESET-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -74,16 +76,17 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                     | E2E Spec                      |
-| ------ | --------------------------------------------- | ----------------------------- |
-| AC-001 | Password is updated with valid token          | `API-AUTH-RESET-PASSWORD-001` |
-| AC-002 | Returns 400 without newPassword               | `API-AUTH-RESET-PASSWORD-002` |
-| AC-003 | Returns 400 when new password is too short    | `API-AUTH-RESET-PASSWORD-003` |
-| AC-004 | Returns 401 with invalid token                | `API-AUTH-RESET-PASSWORD-004` |
-| AC-005 | Returns 401 with expired token                | `API-AUTH-RESET-PASSWORD-005` |
-| AC-006 | Returns 401 with already used token           | `API-AUTH-RESET-PASSWORD-006` |
-| AC-007 | Returns 400 without token                     | `API-AUTH-RESET-PASSWORD-007` |
-| AC-008 | All sessions are revoked after password reset | `API-AUTH-RESET-PASSWORD-008` |
+| ID     | Criterion                                           | E2E Spec                             | Status |
+| ------ | --------------------------------------------------- | ------------------------------------ | ------ |
+| AC-001 | Password is updated with valid token                | `API-AUTH-RESET-PASSWORD-001`        | ✅     |
+| AC-002 | Returns 400 without newPassword                     | `API-AUTH-RESET-PASSWORD-002`        | ✅     |
+| AC-003 | Returns 400 when new password is too short          | `API-AUTH-RESET-PASSWORD-003`        | ✅     |
+| AC-004 | Returns 401 with invalid token                      | `API-AUTH-RESET-PASSWORD-004`        | ✅     |
+| AC-005 | Returns 401 with expired token                      | `API-AUTH-RESET-PASSWORD-005`        | ✅     |
+| AC-006 | Returns 401 with already used token                 | `API-AUTH-RESET-PASSWORD-006`        | ✅     |
+| AC-007 | Returns 400 without token                           | `API-AUTH-RESET-PASSWORD-007`        | ✅     |
+| AC-008 | All sessions are revoked after password reset       | `API-AUTH-RESET-PASSWORD-008`        | ✅     |
+| AC-009 | User completes password reset workflow (regression) | `API-AUTH-RESET-PASSWORD-REGRESSION` | ✅     |
 
 ### Implementation References
 

@@ -12,7 +12,7 @@ Sovrium provides a comprehensive theming system based on design tokens. Design t
 
 ---
 
-## US-THEME-001: Configure Theme Settings
+## US-APP-THEME-001: Configure Theme Settings
 
 **As a** developer,
 **I want to** configure global theme settings,
@@ -50,20 +50,21 @@ theme:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                    | E2E Spec        |
-| ------ | -------------------------------------------- | --------------- |
-| AC-001 | Theme name is validated                      | `APP-THEME-001` |
-| AC-002 | Dark mode setting is respected               | `APP-THEME-002` |
-| AC-003 | Auto dark mode follows system preference     | `APP-THEME-003` |
-| AC-004 | Theme can be toggled at runtime              | `APP-THEME-004` |
-| AC-005 | Custom theme overrides default values        | `APP-THEME-005` |
-| AC-006 | Empty theme uses default settings            | `APP-THEME-006` |
-| AC-007 | Theme CSS variables are generated            | `APP-THEME-007` |
-| AC-008 | Theme is applied to root element             | `APP-THEME-008` |
-| AC-009 | Theme supports CSS custom properties         | `APP-THEME-009` |
-| AC-010 | Invalid theme values return validation error | `APP-THEME-010` |
-| AC-011 | Theme persists across page navigation        | `APP-THEME-011` |
-| AC-012 | Theme is accessible via JavaScript API       | `APP-THEME-012` |
+| ID     | Criterion                                          | E2E Spec               | Status |
+| ------ | -------------------------------------------------- | ---------------------- | ------ |
+| AC-001 | Theme name is validated                            | `APP-THEME-001`        | ✅     |
+| AC-002 | Dark mode setting is respected                     | `APP-THEME-002`        | ✅     |
+| AC-003 | Auto dark mode follows system preference           | `APP-THEME-003`        | ✅     |
+| AC-004 | Theme can be toggled at runtime                    | `APP-THEME-004`        | ✅     |
+| AC-005 | Custom theme overrides default values              | `APP-THEME-005`        | ✅     |
+| AC-006 | Empty theme uses default settings                  | `APP-THEME-006`        | ✅     |
+| AC-007 | Theme CSS variables are generated                  | `APP-THEME-007`        | ✅     |
+| AC-008 | Theme is applied to root element                   | `APP-THEME-008`        | ✅     |
+| AC-009 | Theme supports CSS custom properties               | `APP-THEME-009`        | ✅     |
+| AC-010 | Invalid theme values return validation error       | `APP-THEME-010`        | ✅     |
+| AC-011 | Theme persists across page navigation              | `APP-THEME-011`        | ✅     |
+| AC-012 | Theme is accessible via JavaScript API             | `APP-THEME-012`        | ✅     |
+| AC-013 | User can complete full theme workflow (regression) | `APP-THEME-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -72,7 +73,7 @@ theme:
 
 ---
 
-## US-THEME-002: Color Tokens
+## US-APP-THEME-002: Color Tokens
 
 **As a** developer,
 **I want to** define a color palette for my application,
@@ -109,23 +110,24 @@ theme:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                | E2E Spec               |
-| ------ | ---------------------------------------- | ---------------------- |
-| AC-001 | Primary color is applied correctly       | `APP-THEME-COLORS-001` |
-| AC-002 | Secondary color is applied correctly     | `APP-THEME-COLORS-002` |
-| AC-003 | Background color sets page background    | `APP-THEME-COLORS-003` |
-| AC-004 | Foreground color sets default text color | `APP-THEME-COLORS-004` |
-| AC-005 | Muted colors are available for subtle UI | `APP-THEME-COLORS-005` |
-| AC-006 | Border color is applied to borders       | `APP-THEME-COLORS-006` |
-| AC-007 | Destructive color is used for errors     | `APP-THEME-COLORS-007` |
-| AC-008 | Colors support hex format                | `APP-THEME-COLORS-008` |
-| AC-009 | Colors support RGB format                | `APP-THEME-COLORS-009` |
-| AC-010 | Colors support HSL format                | `APP-THEME-COLORS-010` |
-| AC-011 | Invalid color format returns error       | `APP-THEME-COLORS-011` |
-| AC-012 | Colors generate CSS variables            | `APP-THEME-COLORS-012` |
-| AC-013 | Dark mode colors are defined separately  | `APP-THEME-COLORS-013` |
-| AC-014 | Color contrast is validated              | `APP-THEME-COLORS-014` |
-| AC-015 | Color palette supports custom names      | `APP-THEME-COLORS-015` |
+| ID     | Criterion                                          | E2E Spec                      | Status |
+| ------ | -------------------------------------------------- | ----------------------------- | ------ |
+| AC-001 | Primary color is applied correctly                 | `APP-THEME-COLORS-001`        | ✅     |
+| AC-002 | Secondary color is applied correctly               | `APP-THEME-COLORS-002`        | ✅     |
+| AC-003 | Background color sets page background              | `APP-THEME-COLORS-003`        | ✅     |
+| AC-004 | Foreground color sets default text color           | `APP-THEME-COLORS-004`        | ✅     |
+| AC-005 | Muted colors are available for subtle UI           | `APP-THEME-COLORS-005`        | ✅     |
+| AC-006 | Border color is applied to borders                 | `APP-THEME-COLORS-006`        | ✅     |
+| AC-007 | Destructive color is used for errors               | `APP-THEME-COLORS-007`        | ✅     |
+| AC-008 | Colors support hex format                          | `APP-THEME-COLORS-008`        | ✅     |
+| AC-009 | Colors support RGB format                          | `APP-THEME-COLORS-009`        | ✅     |
+| AC-010 | Colors support HSL format                          | `APP-THEME-COLORS-010`        | ✅     |
+| AC-011 | Invalid color format returns error                 | `APP-THEME-COLORS-011`        | ✅     |
+| AC-012 | Colors generate CSS variables                      | `APP-THEME-COLORS-012`        | ✅     |
+| AC-013 | Dark mode colors are defined separately            | `APP-THEME-COLORS-013`        | ✅     |
+| AC-014 | Color contrast is validated                        | `APP-THEME-COLORS-014`        | ✅     |
+| AC-015 | Color palette supports custom names                | `APP-THEME-COLORS-015`        | ✅     |
+| AC-016 | User can complete full color workflow (regression) | `APP-THEME-COLORS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -134,7 +136,7 @@ theme:
 
 ---
 
-## US-THEME-003: Typography Tokens
+## US-APP-THEME-003: Typography Tokens
 
 **As a** developer,
 **I want to** configure typography settings,
@@ -171,20 +173,21 @@ theme:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                             | E2E Spec              |
-| ------ | ------------------------------------- | --------------------- |
-| AC-001 | Sans-serif font family is applied     | `APP-THEME-FONTS-001` |
-| AC-002 | Serif font family is available        | `APP-THEME-FONTS-002` |
-| AC-003 | Monospace font is used for code       | `APP-THEME-FONTS-003` |
-| AC-004 | Custom font families are supported    | `APP-THEME-FONTS-004` |
-| AC-005 | Font sizes generate utility classes   | `APP-THEME-FONTS-005` |
-| AC-006 | Line heights are applied correctly    | `APP-THEME-FONTS-006` |
-| AC-007 | Font weights are available            | `APP-THEME-FONTS-007` |
-| AC-008 | Display font is used for headings     | `APP-THEME-FONTS-008` |
-| AC-009 | Invalid font family returns error     | `APP-THEME-FONTS-009` |
-| AC-010 | Fonts generate CSS variables          | `APP-THEME-FONTS-010` |
-| AC-011 | System font stack fallbacks work      | `APP-THEME-FONTS-011` |
-| AC-012 | Google Fonts integration is supported | `APP-THEME-FONTS-012` |
+| ID     | Criterion                                               | E2E Spec                     | Status |
+| ------ | ------------------------------------------------------- | ---------------------------- | ------ |
+| AC-001 | Sans-serif font family is applied                       | `APP-THEME-FONTS-001`        | ✅     |
+| AC-002 | Serif font family is available                          | `APP-THEME-FONTS-002`        | ✅     |
+| AC-003 | Monospace font is used for code                         | `APP-THEME-FONTS-003`        | ✅     |
+| AC-004 | Custom font families are supported                      | `APP-THEME-FONTS-004`        | ✅     |
+| AC-005 | Font sizes generate utility classes                     | `APP-THEME-FONTS-005`        | ✅     |
+| AC-006 | Line heights are applied correctly                      | `APP-THEME-FONTS-006`        | ✅     |
+| AC-007 | Font weights are available                              | `APP-THEME-FONTS-007`        | ✅     |
+| AC-008 | Display font is used for headings                       | `APP-THEME-FONTS-008`        | ✅     |
+| AC-009 | Invalid font family returns error                       | `APP-THEME-FONTS-009`        | ✅     |
+| AC-010 | Fonts generate CSS variables                            | `APP-THEME-FONTS-010`        | ✅     |
+| AC-011 | System font stack fallbacks work                        | `APP-THEME-FONTS-011`        | ✅     |
+| AC-012 | Google Fonts integration is supported                   | `APP-THEME-FONTS-012`        | ✅     |
+| AC-013 | User can complete full typography workflow (regression) | `APP-THEME-FONTS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -193,7 +196,7 @@ theme:
 
 ---
 
-## US-THEME-004: Spacing Tokens
+## US-APP-THEME-004: Spacing Tokens
 
 **As a** developer,
 **I want to** define spacing values,
@@ -223,21 +226,22 @@ theme:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                             | E2E Spec                |
-| ------ | ------------------------------------- | ----------------------- |
-| AC-001 | Spacing values are applied to padding | `APP-THEME-SPACING-001` |
-| AC-002 | Spacing values are applied to margin  | `APP-THEME-SPACING-002` |
-| AC-003 | Spacing values are applied to gap     | `APP-THEME-SPACING-003` |
-| AC-004 | Custom spacing values are supported   | `APP-THEME-SPACING-004` |
-| AC-005 | Spacing generates utility classes     | `APP-THEME-SPACING-005` |
-| AC-006 | Pixel spacing values work correctly   | `APP-THEME-SPACING-006` |
-| AC-007 | Rem spacing values work correctly     | `APP-THEME-SPACING-007` |
-| AC-008 | Zero spacing removes space            | `APP-THEME-SPACING-008` |
-| AC-009 | Negative spacing values are supported | `APP-THEME-SPACING-009` |
-| AC-010 | Invalid spacing format returns error  | `APP-THEME-SPACING-010` |
-| AC-011 | Spacing generates CSS variables       | `APP-THEME-SPACING-011` |
-| AC-012 | Fractional spacing values work        | `APP-THEME-SPACING-012` |
-| AC-013 | Spacing scale is consistent           | `APP-THEME-SPACING-013` |
+| ID     | Criterion                                            | E2E Spec                       | Status |
+| ------ | ---------------------------------------------------- | ------------------------------ | ------ |
+| AC-001 | Spacing values are applied to padding                | `APP-THEME-SPACING-001`        | ✅     |
+| AC-002 | Spacing values are applied to margin                 | `APP-THEME-SPACING-002`        | ✅     |
+| AC-003 | Spacing values are applied to gap                    | `APP-THEME-SPACING-003`        | ✅     |
+| AC-004 | Custom spacing values are supported                  | `APP-THEME-SPACING-004`        | ✅     |
+| AC-005 | Spacing generates utility classes                    | `APP-THEME-SPACING-005`        | ✅     |
+| AC-006 | Pixel spacing values work correctly                  | `APP-THEME-SPACING-006`        | ✅     |
+| AC-007 | Rem spacing values work correctly                    | `APP-THEME-SPACING-007`        | ✅     |
+| AC-008 | Zero spacing removes space                           | `APP-THEME-SPACING-008`        | ✅     |
+| AC-009 | Negative spacing values are supported                | `APP-THEME-SPACING-009`        | ✅     |
+| AC-010 | Invalid spacing format returns error                 | `APP-THEME-SPACING-010`        | ✅     |
+| AC-011 | Spacing generates CSS variables                      | `APP-THEME-SPACING-011`        | ✅     |
+| AC-012 | Fractional spacing values work                       | `APP-THEME-SPACING-012`        | ✅     |
+| AC-013 | Spacing scale is consistent                          | `APP-THEME-SPACING-013`        | ✅     |
+| AC-014 | User can complete full spacing workflow (regression) | `APP-THEME-SPACING-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -246,7 +250,7 @@ theme:
 
 ---
 
-## US-THEME-005: Shadow Tokens
+## US-APP-THEME-005: Shadow Tokens
 
 **As a** developer,
 **I want to** define shadow values,
@@ -269,24 +273,25 @@ theme:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                           | E2E Spec                |
-| ------ | ----------------------------------- | ----------------------- |
-| AC-001 | Small shadow is applied correctly   | `APP-THEME-SHADOWS-001` |
-| AC-002 | Default shadow is applied correctly | `APP-THEME-SHADOWS-002` |
-| AC-003 | Medium shadow is applied correctly  | `APP-THEME-SHADOWS-003` |
-| AC-004 | Large shadow is applied correctly   | `APP-THEME-SHADOWS-004` |
-| AC-005 | Extra large shadow is applied       | `APP-THEME-SHADOWS-005` |
-| AC-006 | Inner shadow is applied correctly   | `APP-THEME-SHADOWS-006` |
-| AC-007 | No shadow removes box-shadow        | `APP-THEME-SHADOWS-007` |
-| AC-008 | Custom shadow values are supported  | `APP-THEME-SHADOWS-008` |
-| AC-009 | Shadow generates utility classes    | `APP-THEME-SHADOWS-009` |
-| AC-010 | Shadows support RGB color format    | `APP-THEME-SHADOWS-010` |
-| AC-011 | Shadows support multiple layers     | `APP-THEME-SHADOWS-011` |
-| AC-012 | Invalid shadow format returns error | `APP-THEME-SHADOWS-012` |
-| AC-013 | Shadows generate CSS variables      | `APP-THEME-SHADOWS-013` |
-| AC-014 | Dark mode shadows are defined       | `APP-THEME-SHADOWS-014` |
-| AC-015 | Colored shadows are supported       | `APP-THEME-SHADOWS-015` |
-| AC-016 | Shadow hover states work            | `APP-THEME-SHADOWS-016` |
+| ID     | Criterion                                            | E2E Spec                       | Status |
+| ------ | ---------------------------------------------------- | ------------------------------ | ------ |
+| AC-001 | Small shadow is applied correctly                    | `APP-THEME-SHADOWS-001`        | ✅     |
+| AC-002 | Default shadow is applied correctly                  | `APP-THEME-SHADOWS-002`        | ✅     |
+| AC-003 | Medium shadow is applied correctly                   | `APP-THEME-SHADOWS-003`        | ✅     |
+| AC-004 | Large shadow is applied correctly                    | `APP-THEME-SHADOWS-004`        | ✅     |
+| AC-005 | Extra large shadow is applied                        | `APP-THEME-SHADOWS-005`        | ✅     |
+| AC-006 | Inner shadow is applied correctly                    | `APP-THEME-SHADOWS-006`        | ✅     |
+| AC-007 | No shadow removes box-shadow                         | `APP-THEME-SHADOWS-007`        | ✅     |
+| AC-008 | Custom shadow values are supported                   | `APP-THEME-SHADOWS-008`        | ✅     |
+| AC-009 | Shadow generates utility classes                     | `APP-THEME-SHADOWS-009`        | ✅     |
+| AC-010 | Shadows support RGB color format                     | `APP-THEME-SHADOWS-010`        | ✅     |
+| AC-011 | Shadows support multiple layers                      | `APP-THEME-SHADOWS-011`        | ✅     |
+| AC-012 | Invalid shadow format returns error                  | `APP-THEME-SHADOWS-012`        | ✅     |
+| AC-013 | Shadows generate CSS variables                       | `APP-THEME-SHADOWS-013`        | ✅     |
+| AC-014 | Dark mode shadows are defined                        | `APP-THEME-SHADOWS-014`        | ✅     |
+| AC-015 | Colored shadows are supported                        | `APP-THEME-SHADOWS-015`        | ✅     |
+| AC-016 | Shadow hover states work                             | `APP-THEME-SHADOWS-016`        | ✅     |
+| AC-017 | User can complete full shadows workflow (regression) | `APP-THEME-SHADOWS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -295,7 +300,7 @@ theme:
 
 ---
 
-## US-THEME-006: Border Radius Tokens
+## US-APP-THEME-006: Border Radius Tokens
 
 **As a** developer,
 **I want to** define border radius values,
@@ -319,22 +324,23 @@ theme:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                           | E2E Spec               |
-| ------ | ----------------------------------- | ---------------------- |
-| AC-001 | No radius removes rounding          | `APP-THEME-RADIUS-001` |
-| AC-002 | Small radius is applied correctly   | `APP-THEME-RADIUS-002` |
-| AC-003 | Default radius is applied correctly | `APP-THEME-RADIUS-003` |
-| AC-004 | Medium radius is applied correctly  | `APP-THEME-RADIUS-004` |
-| AC-005 | Large radius is applied correctly   | `APP-THEME-RADIUS-005` |
-| AC-006 | Full radius creates circles         | `APP-THEME-RADIUS-006` |
-| AC-007 | Custom radius values are supported  | `APP-THEME-RADIUS-007` |
-| AC-008 | Radius generates utility classes    | `APP-THEME-RADIUS-008` |
-| AC-009 | Radius supports rem values          | `APP-THEME-RADIUS-009` |
-| AC-010 | Radius supports pixel values        | `APP-THEME-RADIUS-010` |
-| AC-011 | Invalid radius format returns error | `APP-THEME-RADIUS-011` |
-| AC-012 | Radius generates CSS variables      | `APP-THEME-RADIUS-012` |
-| AC-013 | Per-corner radius is supported      | `APP-THEME-RADIUS-013` |
-| AC-014 | Radius scale is consistent          | `APP-THEME-RADIUS-014` |
+| ID     | Criterion                                                  | E2E Spec                      | Status |
+| ------ | ---------------------------------------------------------- | ----------------------------- | ------ |
+| AC-001 | No radius removes rounding                                 | `APP-THEME-RADIUS-001`        | ✅     |
+| AC-002 | Small radius is applied correctly                          | `APP-THEME-RADIUS-002`        | ✅     |
+| AC-003 | Default radius is applied correctly                        | `APP-THEME-RADIUS-003`        | ✅     |
+| AC-004 | Medium radius is applied correctly                         | `APP-THEME-RADIUS-004`        | ✅     |
+| AC-005 | Large radius is applied correctly                          | `APP-THEME-RADIUS-005`        | ✅     |
+| AC-006 | Full radius creates circles                                | `APP-THEME-RADIUS-006`        | ✅     |
+| AC-007 | Custom radius values are supported                         | `APP-THEME-RADIUS-007`        | ✅     |
+| AC-008 | Radius generates utility classes                           | `APP-THEME-RADIUS-008`        | ✅     |
+| AC-009 | Radius supports rem values                                 | `APP-THEME-RADIUS-009`        | ✅     |
+| AC-010 | Radius supports pixel values                               | `APP-THEME-RADIUS-010`        | ✅     |
+| AC-011 | Invalid radius format returns error                        | `APP-THEME-RADIUS-011`        | ✅     |
+| AC-012 | Radius generates CSS variables                             | `APP-THEME-RADIUS-012`        | ✅     |
+| AC-013 | Per-corner radius is supported                             | `APP-THEME-RADIUS-013`        | ✅     |
+| AC-014 | Radius scale is consistent                                 | `APP-THEME-RADIUS-014`        | ✅     |
+| AC-015 | User can complete full border radius workflow (regression) | `APP-THEME-RADIUS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -358,12 +364,12 @@ theme:
 
 ## Coverage Summary
 
-| User Story   | Title         | Spec Count            | Status   |
-| ------------ | ------------- | --------------------- | -------- |
-| US-THEME-001 | Theme Config  | 12                    | Complete |
-| US-THEME-002 | Colors        | 15                    | Complete |
-| US-THEME-003 | Typography    | 12                    | Complete |
-| US-THEME-004 | Spacing       | 13                    | Complete |
-| US-THEME-005 | Shadows       | 16                    | Complete |
-| US-THEME-006 | Border Radius | 14                    | Complete |
-| **Total**    |               | **82 + 6 regression** |          |
+| User Story       | Title         | Spec Count            | Status   |
+| ---------------- | ------------- | --------------------- | -------- |
+| US-APP-THEME-001 | Theme Config  | 12                    | Complete |
+| US-APP-THEME-002 | Colors        | 15                    | Complete |
+| US-APP-THEME-003 | Typography    | 12                    | Complete |
+| US-APP-THEME-004 | Spacing       | 13                    | Complete |
+| US-APP-THEME-005 | Shadows       | 16                    | Complete |
+| US-APP-THEME-006 | Border Radius | 14                    | Complete |
+| **Total**        |               | **82 + 6 regression** |          |

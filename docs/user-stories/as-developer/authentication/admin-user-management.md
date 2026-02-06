@@ -25,18 +25,19 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                            | E2E Spec                         |
-| ------ | ---------------------------------------------------- | -------------------------------- |
-| AC-001 | Admin can create user with email, name, and password | `API-AUTH-ADMIN-CREATE-USER-001` |
-| AC-002 | Returns 201 Created with user data                   | `API-AUTH-ADMIN-CREATE-USER-002` |
-| AC-003 | Returns 400 when email is missing                    | `API-AUTH-ADMIN-CREATE-USER-003` |
-| AC-004 | Returns 400 when password is missing                 | `API-AUTH-ADMIN-CREATE-USER-004` |
-| AC-005 | Returns 400 for invalid email format                 | `API-AUTH-ADMIN-CREATE-USER-005` |
-| AC-006 | Returns 422 when email already exists                | `API-AUTH-ADMIN-CREATE-USER-006` |
-| AC-007 | Returns 401 when not authenticated                   | `API-AUTH-ADMIN-CREATE-USER-007` |
-| AC-008 | Returns 403 when user is not admin                   | `API-AUTH-ADMIN-CREATE-USER-008` |
-| AC-009 | Can set initial role for created user                | `API-AUTH-ADMIN-CREATE-USER-009` |
-| AC-010 | Can set emailVerified status on creation             | `API-AUTH-ADMIN-CREATE-USER-010` |
+| ID     | Criterion                                            | E2E Spec                                | Status |
+| ------ | ---------------------------------------------------- | --------------------------------------- | ------ |
+| AC-001 | Admin can create user with email, name, and password | `API-AUTH-ADMIN-CREATE-USER-001`        | ✅     |
+| AC-002 | Returns 201 Created with user data                   | `API-AUTH-ADMIN-CREATE-USER-002`        | ✅     |
+| AC-003 | Returns 400 when email is missing                    | `API-AUTH-ADMIN-CREATE-USER-003`        | ✅     |
+| AC-004 | Returns 400 when password is missing                 | `API-AUTH-ADMIN-CREATE-USER-004`        | ✅     |
+| AC-005 | Returns 400 for invalid email format                 | `API-AUTH-ADMIN-CREATE-USER-005`        | ✅     |
+| AC-006 | Returns 422 when email already exists                | `API-AUTH-ADMIN-CREATE-USER-006`        | ✅     |
+| AC-007 | Returns 401 when not authenticated                   | `API-AUTH-ADMIN-CREATE-USER-007`        | ✅     |
+| AC-008 | Returns 403 when user is not admin                   | `API-AUTH-ADMIN-CREATE-USER-008`        | ✅     |
+| AC-009 | Can set initial role for created user                | `API-AUTH-ADMIN-CREATE-USER-009`        | ✅     |
+| AC-010 | Can set emailVerified status on creation             | `API-AUTH-ADMIN-CREATE-USER-010`        | ✅     |
+| AC-011 | Admin creates new user account (regression)          | `API-AUTH-ADMIN-CREATE-USER-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -53,15 +54,16 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                | E2E Spec                        |
-| ------ | ---------------------------------------- | ------------------------------- |
-| AC-001 | Returns paginated list of users          | `API-AUTH-ADMIN-LIST-USERS-001` |
-| AC-002 | Supports limit and offset parameters     | `API-AUTH-ADMIN-LIST-USERS-002` |
-| AC-003 | Returns user count metadata              | `API-AUTH-ADMIN-LIST-USERS-003` |
-| AC-004 | Each user includes id, email, name, role | `API-AUTH-ADMIN-LIST-USERS-004` |
-| AC-005 | Returns 401 when not authenticated       | `API-AUTH-ADMIN-LIST-USERS-005` |
-| AC-006 | Returns 403 when user is not admin       | `API-AUTH-ADMIN-LIST-USERS-006` |
-| AC-007 | Supports search/filter by email or name  | `API-AUTH-ADMIN-LIST-USERS-007` |
+| ID     | Criterion                                    | E2E Spec                               | Status |
+| ------ | -------------------------------------------- | -------------------------------------- | ------ |
+| AC-001 | Returns paginated list of users              | `API-AUTH-ADMIN-LIST-USERS-001`        | ✅     |
+| AC-002 | Supports limit and offset parameters         | `API-AUTH-ADMIN-LIST-USERS-002`        | ✅     |
+| AC-003 | Returns user count metadata                  | `API-AUTH-ADMIN-LIST-USERS-003`        | ✅     |
+| AC-004 | Each user includes id, email, name, role     | `API-AUTH-ADMIN-LIST-USERS-004`        | ✅     |
+| AC-005 | Returns 401 when not authenticated           | `API-AUTH-ADMIN-LIST-USERS-005`        | ✅     |
+| AC-006 | Returns 403 when user is not admin           | `API-AUTH-ADMIN-LIST-USERS-006`        | ✅     |
+| AC-007 | Supports search/filter by email or name      | `API-AUTH-ADMIN-LIST-USERS-007`        | ✅     |
+| AC-008 | Admin views paginated user list (regression) | `API-AUTH-ADMIN-LIST-USERS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -78,14 +80,15 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                       | E2E Spec                      |
-| ------ | ----------------------------------------------- | ----------------------------- |
-| AC-001 | Returns full user details for valid user ID     | `API-AUTH-ADMIN-GET-USER-001` |
-| AC-002 | Includes user role and permissions              | `API-AUTH-ADMIN-GET-USER-002` |
-| AC-003 | Includes account status (banned, emailVerified) | `API-AUTH-ADMIN-GET-USER-003` |
-| AC-004 | Returns 404 for non-existent user               | `API-AUTH-ADMIN-GET-USER-004` |
-| AC-005 | Returns 401 when not authenticated              | `API-AUTH-ADMIN-GET-USER-005` |
-| AC-006 | Returns 403 when user is not admin              | `API-AUTH-ADMIN-GET-USER-006` |
+| ID     | Criterion                                       | E2E Spec                             | Status |
+| ------ | ----------------------------------------------- | ------------------------------------ | ------ |
+| AC-001 | Returns full user details for valid user ID     | `API-AUTH-ADMIN-GET-USER-001`        | ✅     |
+| AC-002 | Includes user role and permissions              | `API-AUTH-ADMIN-GET-USER-002`        | ✅     |
+| AC-003 | Includes account status (banned, emailVerified) | `API-AUTH-ADMIN-GET-USER-003`        | ✅     |
+| AC-004 | Returns 404 for non-existent user               | `API-AUTH-ADMIN-GET-USER-004`        | ✅     |
+| AC-005 | Returns 401 when not authenticated              | `API-AUTH-ADMIN-GET-USER-005`        | ✅     |
+| AC-006 | Returns 403 when user is not admin              | `API-AUTH-ADMIN-GET-USER-006`        | ✅     |
+| AC-007 | Admin views user details (regression)           | `API-AUTH-ADMIN-GET-USER-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -102,16 +105,17 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                             | E2E Spec                      |
-| ------ | ------------------------------------- | ----------------------------- |
-| AC-001 | Admin can set user role to valid role | `API-AUTH-ADMIN-SET-ROLE-001` |
-| AC-002 | Returns updated user with new role    | `API-AUTH-ADMIN-SET-ROLE-002` |
-| AC-003 | Returns 400 when role is invalid      | `API-AUTH-ADMIN-SET-ROLE-003` |
-| AC-004 | Returns 400 when userId is missing    | `API-AUTH-ADMIN-SET-ROLE-004` |
-| AC-005 | Returns 404 for non-existent user     | `API-AUTH-ADMIN-SET-ROLE-005` |
-| AC-006 | Returns 401 when not authenticated    | `API-AUTH-ADMIN-SET-ROLE-006` |
-| AC-007 | Returns 403 when user is not admin    | `API-AUTH-ADMIN-SET-ROLE-007` |
-| AC-008 | Cannot set role higher than own role  | `API-AUTH-ADMIN-SET-ROLE-008` |
+| ID     | Criterion                             | E2E Spec                             | Status |
+| ------ | ------------------------------------- | ------------------------------------ | ------ |
+| AC-001 | Admin can set user role to valid role | `API-AUTH-ADMIN-SET-ROLE-001`        | ✅     |
+| AC-002 | Returns updated user with new role    | `API-AUTH-ADMIN-SET-ROLE-002`        | ✅     |
+| AC-003 | Returns 400 when role is invalid      | `API-AUTH-ADMIN-SET-ROLE-003`        | ✅     |
+| AC-004 | Returns 400 when userId is missing    | `API-AUTH-ADMIN-SET-ROLE-004`        | ✅     |
+| AC-005 | Returns 404 for non-existent user     | `API-AUTH-ADMIN-SET-ROLE-005`        | ✅     |
+| AC-006 | Returns 401 when not authenticated    | `API-AUTH-ADMIN-SET-ROLE-006`        | ✅     |
+| AC-007 | Returns 403 when user is not admin    | `API-AUTH-ADMIN-SET-ROLE-007`        | ✅     |
+| AC-008 | Cannot set role higher than own role  | `API-AUTH-ADMIN-SET-ROLE-008`        | ✅     |
+| AC-009 | Admin changes user role (regression)  | `API-AUTH-ADMIN-SET-ROLE-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -128,15 +132,16 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                               | E2E Spec                               |
-| ------ | --------------------------------------- | -------------------------------------- |
-| AC-001 | Admin can set new password for user     | `API-AUTH-ADMIN-SET-USER-PASSWORD-001` |
-| AC-002 | Returns 200 OK on success               | `API-AUTH-ADMIN-SET-USER-PASSWORD-002` |
-| AC-003 | Returns 400 when newPassword is missing | `API-AUTH-ADMIN-SET-USER-PASSWORD-003` |
-| AC-004 | Returns 400 when password is too short  | `API-AUTH-ADMIN-SET-USER-PASSWORD-004` |
-| AC-005 | Returns 404 for non-existent user       | `API-AUTH-ADMIN-SET-USER-PASSWORD-005` |
-| AC-006 | Returns 401 when not authenticated      | `API-AUTH-ADMIN-SET-USER-PASSWORD-006` |
-| AC-007 | Returns 403 when user is not admin      | `API-AUTH-ADMIN-SET-USER-PASSWORD-007` |
+| ID     | Criterion                               | E2E Spec                                      | Status |
+| ------ | --------------------------------------- | --------------------------------------------- | ------ |
+| AC-001 | Admin can set new password for user     | `API-AUTH-ADMIN-SET-USER-PASSWORD-001`        | ✅     |
+| AC-002 | Returns 200 OK on success               | `API-AUTH-ADMIN-SET-USER-PASSWORD-002`        | ✅     |
+| AC-003 | Returns 400 when newPassword is missing | `API-AUTH-ADMIN-SET-USER-PASSWORD-003`        | ✅     |
+| AC-004 | Returns 400 when password is too short  | `API-AUTH-ADMIN-SET-USER-PASSWORD-004`        | ✅     |
+| AC-005 | Returns 404 for non-existent user       | `API-AUTH-ADMIN-SET-USER-PASSWORD-005`        | ✅     |
+| AC-006 | Returns 401 when not authenticated      | `API-AUTH-ADMIN-SET-USER-PASSWORD-006`        | ✅     |
+| AC-007 | Returns 403 when user is not admin      | `API-AUTH-ADMIN-SET-USER-PASSWORD-007`        | ✅     |
+| AC-008 | Admin resets user password (regression) | `API-AUTH-ADMIN-SET-USER-PASSWORD-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -153,15 +158,16 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                          | E2E Spec                                |
-| ------ | -------------------------------------------------- | --------------------------------------- |
-| AC-001 | Returns list of active sessions for specified user | `API-AUTH-ADMIN-LIST-USER-SESSIONS-001` |
-| AC-002 | Each session includes device/browser information   | `API-AUTH-ADMIN-LIST-USER-SESSIONS-002` |
-| AC-003 | Each session includes createdAt and expiresAt      | `API-AUTH-ADMIN-LIST-USER-SESSIONS-003` |
-| AC-004 | Returns 400 when userId is missing                 | `API-AUTH-ADMIN-LIST-USER-SESSIONS-004` |
-| AC-005 | Returns 404 for non-existent user                  | `API-AUTH-ADMIN-LIST-USER-SESSIONS-005` |
-| AC-006 | Returns 401 when not authenticated                 | `API-AUTH-ADMIN-LIST-USER-SESSIONS-006` |
-| AC-007 | Returns 403 when user is not admin                 | `API-AUTH-ADMIN-LIST-USER-SESSIONS-007` |
+| ID     | Criterion                                          | E2E Spec                                       | Status |
+| ------ | -------------------------------------------------- | ---------------------------------------------- | ------ |
+| AC-001 | Returns list of active sessions for specified user | `API-AUTH-ADMIN-LIST-USER-SESSIONS-001`        | ✅     |
+| AC-002 | Each session includes device/browser information   | `API-AUTH-ADMIN-LIST-USER-SESSIONS-002`        | ✅     |
+| AC-003 | Each session includes createdAt and expiresAt      | `API-AUTH-ADMIN-LIST-USER-SESSIONS-003`        | ✅     |
+| AC-004 | Returns 400 when userId is missing                 | `API-AUTH-ADMIN-LIST-USER-SESSIONS-004`        | ✅     |
+| AC-005 | Returns 404 for non-existent user                  | `API-AUTH-ADMIN-LIST-USER-SESSIONS-005`        | ✅     |
+| AC-006 | Returns 401 when not authenticated                 | `API-AUTH-ADMIN-LIST-USER-SESSIONS-006`        | ✅     |
+| AC-007 | Returns 403 when user is not admin                 | `API-AUTH-ADMIN-LIST-USER-SESSIONS-007`        | ✅     |
+| AC-008 | Admin views user sessions (regression)             | `API-AUTH-ADMIN-LIST-USER-SESSIONS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -178,16 +184,17 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                | E2E Spec                                 |
-| ------ | ---------------------------------------- | ---------------------------------------- |
-| AC-001 | Admin can revoke specific user session   | `API-AUTH-ADMIN-REVOKE-USER-SESSION-001` |
-| AC-002 | Returns 200 OK on successful revocation  | `API-AUTH-ADMIN-REVOKE-USER-SESSION-002` |
-| AC-003 | Returns 400 when sessionToken is missing | `API-AUTH-ADMIN-REVOKE-USER-SESSION-003` |
-| AC-004 | Returns 404 for non-existent session     | `API-AUTH-ADMIN-REVOKE-USER-SESSION-004` |
-| AC-005 | Returns 401 when not authenticated       | `API-AUTH-ADMIN-REVOKE-USER-SESSION-005` |
-| AC-006 | Returns 403 when user is not admin       | `API-AUTH-ADMIN-REVOKE-USER-SESSION-006` |
-| AC-007 | Revoked session is immediately invalid   | `API-AUTH-ADMIN-REVOKE-USER-SESSION-007` |
-| AC-008 | Can revoke multiple sessions in batch    | `API-AUTH-ADMIN-REVOKE-USER-SESSION-008` |
+| ID     | Criterion                                | E2E Spec                                        | Status |
+| ------ | ---------------------------------------- | ----------------------------------------------- | ------ |
+| AC-001 | Admin can revoke specific user session   | `API-AUTH-ADMIN-REVOKE-USER-SESSION-001`        | ✅     |
+| AC-002 | Returns 200 OK on successful revocation  | `API-AUTH-ADMIN-REVOKE-USER-SESSION-002`        | ✅     |
+| AC-003 | Returns 400 when sessionToken is missing | `API-AUTH-ADMIN-REVOKE-USER-SESSION-003`        | ✅     |
+| AC-004 | Returns 404 for non-existent session     | `API-AUTH-ADMIN-REVOKE-USER-SESSION-004`        | ✅     |
+| AC-005 | Returns 401 when not authenticated       | `API-AUTH-ADMIN-REVOKE-USER-SESSION-005`        | ✅     |
+| AC-006 | Returns 403 when user is not admin       | `API-AUTH-ADMIN-REVOKE-USER-SESSION-006`        | ✅     |
+| AC-007 | Revoked session is immediately invalid   | `API-AUTH-ADMIN-REVOKE-USER-SESSION-007`        | ✅     |
+| AC-008 | Can revoke multiple sessions in batch    | `API-AUTH-ADMIN-REVOKE-USER-SESSION-008`        | ✅     |
+| AC-009 | Admin revokes user session (regression)  | `API-AUTH-ADMIN-REVOKE-USER-SESSION-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -215,14 +222,15 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                  | E2E Spec                              |
-| ------ | ---------------------------------------------------------- | ------------------------------------- |
-| AC-001 | Admin can start impersonation session                      | `API-AUTH-ADMIN-IMPERSONATE-USER-001` |
-| AC-002 | Returns impersonation session token                        | `API-AUTH-ADMIN-IMPERSONATE-USER-002` |
-| AC-003 | Impersonation session has limited duration                 | `API-AUTH-ADMIN-IMPERSONATE-USER-003` |
-| AC-004 | Returns 404 for non-existent user                          | `API-AUTH-ADMIN-IMPERSONATE-USER-004` |
-| AC-005 | Returns 401 when not authenticated                         | `API-AUTH-ADMIN-IMPERSONATE-USER-005` |
-| AC-006 | Returns 403 when trying to impersonate admin (if disabled) | `API-AUTH-ADMIN-IMPERSONATE-USER-006` |
+| ID     | Criterion                                                  | E2E Spec                                     | Status |
+| ------ | ---------------------------------------------------------- | -------------------------------------------- | ------ |
+| AC-001 | Admin can start impersonation session                      | `API-AUTH-ADMIN-IMPERSONATE-USER-001`        | ✅     |
+| AC-002 | Returns impersonation session token                        | `API-AUTH-ADMIN-IMPERSONATE-USER-002`        | ✅     |
+| AC-003 | Impersonation session has limited duration                 | `API-AUTH-ADMIN-IMPERSONATE-USER-003`        | ✅     |
+| AC-004 | Returns 404 for non-existent user                          | `API-AUTH-ADMIN-IMPERSONATE-USER-004`        | ✅     |
+| AC-005 | Returns 401 when not authenticated                         | `API-AUTH-ADMIN-IMPERSONATE-USER-005`        | ✅     |
+| AC-006 | Returns 403 when trying to impersonate admin (if disabled) | `API-AUTH-ADMIN-IMPERSONATE-USER-006`        | ✅     |
+| AC-007 | Admin completes impersonation workflow (regression)        | `API-AUTH-ADMIN-IMPERSONATE-USER-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -239,18 +247,82 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                              | E2E Spec                                |
-| ------ | ------------------------------------------------------ | --------------------------------------- |
-| AC-001 | Admin can stop impersonation and return to own session | `API-AUTH-ADMIN-STOP-IMPERSONATING-001` |
-| AC-002 | Returns original admin session                         | `API-AUTH-ADMIN-STOP-IMPERSONATING-002` |
-| AC-003 | Returns 400 when not currently impersonating           | `API-AUTH-ADMIN-STOP-IMPERSONATING-003` |
-| AC-004 | Returns 401 when not authenticated                     | `API-AUTH-ADMIN-STOP-IMPERSONATING-004` |
-| AC-005 | Impersonation session is invalidated                   | `API-AUTH-ADMIN-STOP-IMPERSONATING-005` |
+| ID     | Criterion                                              | E2E Spec                                       | Status |
+| ------ | ------------------------------------------------------ | ---------------------------------------------- | ------ |
+| AC-001 | Admin can stop impersonation and return to own session | `API-AUTH-ADMIN-STOP-IMPERSONATING-001`        | ✅     |
+| AC-002 | Returns original admin session                         | `API-AUTH-ADMIN-STOP-IMPERSONATING-002`        | ✅     |
+| AC-003 | Returns 400 when not currently impersonating           | `API-AUTH-ADMIN-STOP-IMPERSONATING-003`        | ✅     |
+| AC-004 | Returns 401 when not authenticated                     | `API-AUTH-ADMIN-STOP-IMPERSONATING-004`        | ✅     |
+| AC-005 | Impersonation session is invalidated                   | `API-AUTH-ADMIN-STOP-IMPERSONATING-005`        | ✅     |
+| AC-006 | Admin stops impersonating user (regression)            | `API-AUTH-ADMIN-STOP-IMPERSONATING-REGRESSION` | ✅     |
 
 ### Implementation References
 
 - **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/admin/stop-impersonating/post.spec.ts`
+
+---
+
+## US-AUTH-ADMIN-010: Default Role Configuration
+
+**As a** developer,
+**I want to** configure a default role for new users,
+**so that** all users get appropriate permissions when created.
+
+### Configuration
+
+```yaml
+auth:
+  plugins:
+    admin:
+      enabled: true
+      defaultRole: 'user' # Default role assigned to new users
+```
+
+### Acceptance Criteria
+
+| ID     | Criterion                                           | E2E Spec                                     | Status |
+| ------ | --------------------------------------------------- | -------------------------------------------- | ------ |
+| AC-001 | New users are assigned configured default role      | `API-AUTH-ADMIN-OPT-DEFAULT-ROLE-001`        | ⏳     |
+| AC-002 | Falls back to 'user' when defaultRole not specified | `API-AUTH-ADMIN-OPT-DEFAULT-ROLE-002`        | ⏳     |
+| AC-003 | Admin default role configuration works (regression) | `API-AUTH-ADMIN-OPT-DEFAULT-ROLE-REGRESSION` | ⏳     |
+
+### Implementation References
+
+- **Schema**: `src/domain/models/app/auth/auth.ts`
+- **E2E Spec**: `specs/api/auth/admin/options/default-role.spec.ts`
+
+---
+
+## US-AUTH-ADMIN-011: Admin Plugin Disabled Behavior
+
+**As a** developer,
+**I want** admin endpoints to return 404 when admin plugin is disabled,
+**so that** unauthorized users cannot discover admin functionality.
+
+### Configuration
+
+```yaml
+auth:
+  plugins:
+    admin:
+      enabled: false # Admin plugin disabled
+```
+
+### Acceptance Criteria
+
+| ID     | Criterion                                             | E2E Spec                           | Status |
+| ------ | ----------------------------------------------------- | ---------------------------------- | ------ |
+| AC-001 | List users endpoint returns 404 when plugin disabled  | `API-AUTH-ADMIN-PLUGIN-001`        | ⏳     |
+| AC-002 | Get user endpoint returns 404 when plugin disabled    | `API-AUTH-ADMIN-PLUGIN-002`        | ⏳     |
+| AC-003 | Ban user endpoint returns 404 when plugin disabled    | `API-AUTH-ADMIN-PLUGIN-003`        | ⏳     |
+| AC-004 | Set role endpoint returns 404 when plugin disabled    | `API-AUTH-ADMIN-PLUGIN-004`        | ⏳     |
+| AC-005 | All admin endpoints hidden when disabled (regression) | `API-AUTH-ADMIN-PLUGIN-REGRESSION` | ⏳     |
+
+### Implementation References
+
+- **Schema**: `src/domain/models/app/auth/auth.ts`
+- **E2E Spec**: `specs/api/auth/admin/plugin-disabled.spec.ts`
 
 ---
 

@@ -28,21 +28,22 @@ POST /api/tables/1/records/batch
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                              | E2E Spec                            |
-| ------ | ------------------------------------------------------ | ----------------------------------- |
-| AC-001 | Returns 201 with created count and records array       | `API-TABLES-RECORDS-BATCH-POST-001` |
-| AC-002 | Returns 404 Not Found for non-existent table           | `API-TABLES-RECORDS-BATCH-POST-002` |
-| AC-003 | Returns 400 when records array is empty                | `API-TABLES-RECORDS-BATCH-POST-003` |
-| AC-004 | Returns 400 when records array exceeds limit           | `API-TABLES-RECORDS-BATCH-POST-004` |
-| AC-005 | Returns 401 when not authenticated                     | `API-TABLES-RECORDS-BATCH-POST-005` |
-| AC-006 | Returns 403 when user lacks create permission          | `API-TABLES-RECORDS-BATCH-POST-006` |
-| AC-007 | Validates each record against schema                   | `API-TABLES-RECORDS-BATCH-POST-007` |
-| AC-008 | Returns partial success with errors array              | `API-TABLES-RECORDS-BATCH-POST-008` |
-| AC-009 | Supports transaction mode (all-or-nothing)             | `API-TABLES-RECORDS-BATCH-POST-009` |
-| AC-010 | Returns created records when returnRecords=true        | `API-TABLES-RECORDS-BATCH-POST-010` |
-| AC-011 | Returns only count when returnRecords=false            | `API-TABLES-RECORDS-BATCH-POST-011` |
-| AC-012 | Maximum batch size is 100 records                      | `API-TABLES-RECORDS-BATCH-POST-012` |
-| AC-013 | Rolls back all on validation error in transaction mode | `API-TABLES-RECORDS-BATCH-POST-013` |
+| ID     | Criterion                                               | E2E Spec                                   | Status |
+| ------ | ------------------------------------------------------- | ------------------------------------------ | ------ |
+| AC-001 | Returns 201 with created count and records array        | `API-TABLES-RECORDS-BATCH-POST-001`        | ⏳     |
+| AC-002 | Returns 404 Not Found for non-existent table            | `API-TABLES-RECORDS-BATCH-POST-002`        | ⏳     |
+| AC-003 | Returns 400 when records array is empty                 | `API-TABLES-RECORDS-BATCH-POST-003`        | ⏳     |
+| AC-004 | Returns 400 when records array exceeds limit            | `API-TABLES-RECORDS-BATCH-POST-004`        | ✅     |
+| AC-005 | Returns 401 when not authenticated                      | `API-TABLES-RECORDS-BATCH-POST-005`        | ⏳     |
+| AC-006 | Returns 403 when user lacks create permission           | `API-TABLES-RECORDS-BATCH-POST-006`        | ⏳     |
+| AC-007 | Validates each record against schema                    | `API-TABLES-RECORDS-BATCH-POST-007`        | ⏳     |
+| AC-008 | Returns partial success with errors array               | `API-TABLES-RECORDS-BATCH-POST-008`        | ⏳     |
+| AC-009 | Supports transaction mode (all-or-nothing)              | `API-TABLES-RECORDS-BATCH-POST-009`        | ⏳     |
+| AC-010 | Returns created records when returnRecords=true         | `API-TABLES-RECORDS-BATCH-POST-010`        | ⏳     |
+| AC-011 | Returns only count when returnRecords=false             | `API-TABLES-RECORDS-BATCH-POST-011`        | ⏳     |
+| AC-012 | Maximum batch size is 100 records                       | `API-TABLES-RECORDS-BATCH-POST-012`        | ⏳     |
+| AC-013 | Rolls back all on validation error in transaction mode  | `API-TABLES-RECORDS-BATCH-POST-013`        | ⏳     |
+| AC-014 | User batch creates records with validation (regression) | `API-TABLES-RECORDS-BATCH-POST-REGRESSION` | ⏳     |
 
 ### Implementation References
 
@@ -73,19 +74,22 @@ PATCH /api/tables/1/records/batch
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                         | E2E Spec                             |
-| ------ | ------------------------------------------------- | ------------------------------------ |
-| AC-001 | Returns 200 with updated count and records array  | `API-TABLES-RECORDS-BATCH-PATCH-001` |
-| AC-002 | Returns 404 Not Found for non-existent table      | `API-TABLES-RECORDS-BATCH-PATCH-002` |
-| AC-003 | Returns 400 when records array is empty           | `API-TABLES-RECORDS-BATCH-PATCH-003` |
-| AC-004 | Returns 400 when record ID is missing             | `API-TABLES-RECORDS-BATCH-PATCH-004` |
-| AC-005 | Returns 401 when not authenticated                | `API-TABLES-RECORDS-BATCH-PATCH-005` |
-| AC-006 | Returns 403 when user lacks update permission     | `API-TABLES-RECORDS-BATCH-PATCH-006` |
-| AC-007 | Validates each record against schema              | `API-TABLES-RECORDS-BATCH-PATCH-007` |
-| AC-008 | Skips non-existent records with error in response | `API-TABLES-RECORDS-BATCH-PATCH-008` |
-| AC-009 | Supports transaction mode (all-or-nothing)        | `API-TABLES-RECORDS-BATCH-PATCH-009` |
-| AC-010 | Updates updated_at timestamp for each record      | `API-TABLES-RECORDS-BATCH-PATCH-010` |
-| AC-011 | Maximum batch size is 100 records                 | `API-TABLES-RECORDS-BATCH-PATCH-011` |
+| ID     | Criterion                                         | E2E Spec                                    | Status |
+| ------ | ------------------------------------------------- | ------------------------------------------- | ------ |
+| AC-001 | Returns 200 with updated count and records array  | `API-TABLES-RECORDS-BATCH-PATCH-001`        | ✅     |
+| AC-002 | Returns 404 Not Found for non-existent table      | `API-TABLES-RECORDS-BATCH-PATCH-002`        | ✅     |
+| AC-003 | Returns 400 when records array is empty           | `API-TABLES-RECORDS-BATCH-PATCH-003`        | ✅     |
+| AC-004 | Returns 400 when record ID is missing             | `API-TABLES-RECORDS-BATCH-PATCH-004`        | ✅     |
+| AC-005 | Returns 401 when not authenticated                | `API-TABLES-RECORDS-BATCH-PATCH-005`        | ✅     |
+| AC-006 | Returns 403 when user lacks update permission     | `API-TABLES-RECORDS-BATCH-PATCH-006`        | ✅     |
+| AC-007 | Validates each record against schema              | `API-TABLES-RECORDS-BATCH-PATCH-007`        | ✅     |
+| AC-008 | Skips non-existent records with error in response | `API-TABLES-RECORDS-BATCH-PATCH-008`        | ✅     |
+| AC-009 | Supports transaction mode (all-or-nothing)        | `API-TABLES-RECORDS-BATCH-PATCH-009`        | ⏳     |
+| AC-010 | Updates updated_at timestamp for each record      | `API-TABLES-RECORDS-BATCH-PATCH-010`        | ⏳     |
+| AC-011 | Maximum batch size is 100 records                 | `API-TABLES-RECORDS-BATCH-PATCH-011`        | ⏳     |
+| AC-012 | Updates records with proper data types            | `API-TABLES-RECORDS-BATCH-PATCH-012`        | ⏳     |
+| AC-013 | Excludes deleted records from update              | `API-TABLES-RECORDS-BATCH-PATCH-013`        | ⏳     |
+| AC-014 | User batch updates records (regression)           | `API-TABLES-RECORDS-BATCH-PATCH-REGRESSION` | ⏳     |
 
 ### Implementation References
 
@@ -112,19 +116,20 @@ DELETE /api/tables/1/records/batch
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                     | E2E Spec                              |
-| ------ | --------------------------------------------- | ------------------------------------- |
-| AC-001 | Returns 200 with deleted count                | `API-TABLES-RECORDS-BATCH-DELETE-001` |
-| AC-002 | Returns 404 Not Found for non-existent table  | `API-TABLES-RECORDS-BATCH-DELETE-002` |
-| AC-003 | Returns 400 when ids array is empty           | `API-TABLES-RECORDS-BATCH-DELETE-003` |
-| AC-004 | Returns 401 when not authenticated            | `API-TABLES-RECORDS-BATCH-DELETE-004` |
-| AC-005 | Returns 403 when user lacks delete permission | `API-TABLES-RECORDS-BATCH-DELETE-005` |
-| AC-006 | Soft deletes records by default               | `API-TABLES-RECORDS-BATCH-DELETE-006` |
-| AC-007 | Skips non-existent record IDs                 | `API-TABLES-RECORDS-BATCH-DELETE-007` |
-| AC-008 | Supports permanent=true for hard delete       | `API-TABLES-RECORDS-BATCH-DELETE-008` |
-| AC-009 | Permanent delete requires admin role          | `API-TABLES-RECORDS-BATCH-DELETE-009` |
-| AC-010 | Maximum batch size is 100 records             | `API-TABLES-RECORDS-BATCH-DELETE-010` |
-| AC-011 | Returns count of actually deleted records     | `API-TABLES-RECORDS-BATCH-DELETE-011` |
+| ID     | Criterion                                     | E2E Spec                                     | Status |
+| ------ | --------------------------------------------- | -------------------------------------------- | ------ |
+| AC-001 | Returns 200 with deleted count                | `API-TABLES-RECORDS-BATCH-DELETE-001`        | ✅     |
+| AC-002 | Returns 404 Not Found for non-existent table  | `API-TABLES-RECORDS-BATCH-DELETE-002`        | ✅     |
+| AC-003 | Returns 400 when ids array is empty           | `API-TABLES-RECORDS-BATCH-DELETE-003`        | ⏳     |
+| AC-004 | Returns 401 when not authenticated            | `API-TABLES-RECORDS-BATCH-DELETE-004`        | ✅     |
+| AC-005 | Returns 403 when user lacks delete permission | `API-TABLES-RECORDS-BATCH-DELETE-005`        | ⏳     |
+| AC-006 | Soft deletes records by default               | `API-TABLES-RECORDS-BATCH-DELETE-006`        | ⏳     |
+| AC-007 | Skips non-existent record IDs                 | `API-TABLES-RECORDS-BATCH-DELETE-007`        | ⏳     |
+| AC-008 | Supports permanent=true for hard delete       | `API-TABLES-RECORDS-BATCH-DELETE-008`        | ⏳     |
+| AC-009 | Permanent delete requires admin role          | `API-TABLES-RECORDS-BATCH-DELETE-009`        | ⏳     |
+| AC-010 | Maximum batch size is 100 records             | `API-TABLES-RECORDS-BATCH-DELETE-010`        | ⏳     |
+| AC-011 | Returns count of actually deleted records     | `API-TABLES-RECORDS-BATCH-DELETE-011`        | ❓     |
+| AC-012 | User batch soft-deletes records (regression)  | `API-TABLES-RECORDS-BATCH-DELETE-REGRESSION` | ⏳     |
 
 ### Implementation References
 
@@ -150,16 +155,17 @@ POST /api/tables/1/records/batch/restore
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                        | E2E Spec                               |
-| ------ | ------------------------------------------------ | -------------------------------------- |
-| AC-001 | Returns 200 with restored count                  | `API-TABLES-RECORDS-BATCH-RESTORE-001` |
-| AC-002 | Returns 404 Not Found for non-existent table     | `API-TABLES-RECORDS-BATCH-RESTORE-002` |
-| AC-003 | Returns 400 when ids array is empty              | `API-TABLES-RECORDS-BATCH-RESTORE-003` |
-| AC-004 | Returns 401 when not authenticated               | `API-TABLES-RECORDS-BATCH-RESTORE-004` |
-| AC-005 | Returns 403 when user lacks restore permission   | `API-TABLES-RECORDS-BATCH-RESTORE-005` |
-| AC-006 | Clears deleted_at timestamp for restored records | `API-TABLES-RECORDS-BATCH-RESTORE-006` |
-| AC-007 | Skips records that are not soft-deleted          | `API-TABLES-RECORDS-BATCH-RESTORE-007` |
-| AC-008 | Maximum batch size is 100 records                | `API-TABLES-RECORDS-BATCH-RESTORE-008` |
+| ID     | Criterion                                        | E2E Spec                                      | Status |
+| ------ | ------------------------------------------------ | --------------------------------------------- | ------ |
+| AC-001 | Returns 200 with restored count                  | `API-TABLES-RECORDS-BATCH-RESTORE-001`        | ✅     |
+| AC-002 | Returns 404 Not Found for non-existent table     | `API-TABLES-RECORDS-BATCH-RESTORE-002`        | ⏳     |
+| AC-003 | Returns 400 when ids array is empty              | `API-TABLES-RECORDS-BATCH-RESTORE-003`        | ⏳     |
+| AC-004 | Returns 401 when not authenticated               | `API-TABLES-RECORDS-BATCH-RESTORE-004`        | ✅     |
+| AC-005 | Returns 403 when user lacks restore permission   | `API-TABLES-RECORDS-BATCH-RESTORE-005`        | ⏳     |
+| AC-006 | Clears deleted_at timestamp for restored records | `API-TABLES-RECORDS-BATCH-RESTORE-006`        | ❓     |
+| AC-007 | Skips records that are not soft-deleted          | `API-TABLES-RECORDS-BATCH-RESTORE-007`        | ❓     |
+| AC-008 | Maximum batch size is 100 records                | `API-TABLES-RECORDS-BATCH-RESTORE-008`        | ❓     |
+| AC-009 | User batch restores records (regression)         | `API-TABLES-RECORDS-BATCH-RESTORE-REGRESSION` | ⏳     |
 
 ### Implementation References
 
@@ -189,16 +195,16 @@ POST /api/tables/1/records/upsert
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                               | E2E Spec                        |
-| ------ | ------------------------------------------------------- | ------------------------------- |
-| AC-001 | Creates new record when no match found                  | `API-TABLES-RECORDS-UPSERT-001` |
-| AC-002 | Updates existing record when match found                | `API-TABLES-RECORDS-UPSERT-002` |
-| AC-003 | Returns 400 when matchFields is empty                   | `API-TABLES-RECORDS-UPSERT-003` |
-| AC-004 | Returns 400 when matchFields not in schema              | `API-TABLES-RECORDS-UPSERT-004` |
-| AC-005 | Returns 401 when not authenticated                      | `API-TABLES-RECORDS-UPSERT-005` |
-| AC-006 | Returns 403 when user lacks create or update permission | `API-TABLES-RECORDS-UPSERT-006` |
-| AC-007 | Supports multiple matchFields for composite matching    | `API-TABLES-RECORDS-UPSERT-007` |
-| AC-008 | Returns counts of created and updated records           | `API-TABLES-RECORDS-UPSERT-008` |
+| ID     | Criterion                                               | E2E Spec                        | Status |
+| ------ | ------------------------------------------------------- | ------------------------------- | ------ |
+| AC-001 | Creates new record when no match found                  | `API-TABLES-RECORDS-UPSERT-001` | ✅     |
+| AC-002 | Updates existing record when match found                | `API-TABLES-RECORDS-UPSERT-002` | ✅     |
+| AC-003 | Returns 400 when matchFields is empty                   | `API-TABLES-RECORDS-UPSERT-003` | ✅     |
+| AC-004 | Returns 400 when matchFields not in schema              | `API-TABLES-RECORDS-UPSERT-004` | ✅     |
+| AC-005 | Returns 401 when not authenticated                      | `API-TABLES-RECORDS-UPSERT-005` | ✅     |
+| AC-006 | Returns 403 when user lacks create or update permission | `API-TABLES-RECORDS-UPSERT-006` | ✅     |
+| AC-007 | Supports multiple matchFields for composite matching    | `API-TABLES-RECORDS-UPSERT-007` | ✅     |
+| AC-008 | Returns counts of created and updated records           | `API-TABLES-RECORDS-UPSERT-008` | ✅     |
 
 ### Implementation References
 

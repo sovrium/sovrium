@@ -24,13 +24,14 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                        | E2E Spec                       |
-| ------ | ---------------------------------------------------------------- | ------------------------------ |
-| AC-001 | Magic link email is sent to registered user with custom template | `API-AUTH-MAGIC-LINK-SEND-001` |
-| AC-002 | Magic link is sent to unregistered user for signup               | `API-AUTH-MAGIC-LINK-SEND-002` |
-| AC-003 | Returns 400 when email is missing                                | `API-AUTH-MAGIC-LINK-SEND-003` |
-| AC-004 | Returns 400 with invalid email format                            | `API-AUTH-MAGIC-LINK-SEND-004` |
-| AC-005 | Returns 400 when magic link plugin is not enabled                | `API-AUTH-MAGIC-LINK-SEND-005` |
+| ID     | Criterion                                                        | E2E Spec                              | Status |
+| ------ | ---------------------------------------------------------------- | ------------------------------------- | ------ |
+| AC-001 | Magic link email is sent to registered user with custom template | `API-AUTH-MAGIC-LINK-SEND-001`        | ✅     |
+| AC-002 | Magic link is sent to unregistered user for signup               | `API-AUTH-MAGIC-LINK-SEND-002`        | ✅     |
+| AC-003 | Returns 400 when email is missing                                | `API-AUTH-MAGIC-LINK-SEND-003`        | ✅     |
+| AC-004 | Returns 400 with invalid email format                            | `API-AUTH-MAGIC-LINK-SEND-004`        | ✅     |
+| AC-005 | Returns 400 when magic link plugin is not enabled                | `API-AUTH-MAGIC-LINK-SEND-005`        | ✅     |
+| AC-006 | User completes magic link send workflow (regression)             | `API-AUTH-MAGIC-LINK-SEND-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -47,13 +48,14 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                     | E2E Spec                         |
-| ------ | ------------------------------------------------------------- | -------------------------------- |
-| AC-001 | User is authenticated with valid magic link token             | `API-AUTH-MAGIC-LINK-VERIFY-001` |
-| AC-002 | New account is created for unregistered user with valid token | `API-AUTH-MAGIC-LINK-VERIFY-002` |
-| AC-003 | Returns 400 with invalid token                                | `API-AUTH-MAGIC-LINK-VERIFY-003` |
-| AC-004 | Returns 400 with expired token                                | `API-AUTH-MAGIC-LINK-VERIFY-004` |
-| AC-005 | Returns 400 when token is missing                             | `API-AUTH-MAGIC-LINK-VERIFY-005` |
+| ID     | Criterion                                                     | E2E Spec                                | Status |
+| ------ | ------------------------------------------------------------- | --------------------------------------- | ------ |
+| AC-001 | User is authenticated with valid magic link token             | `API-AUTH-MAGIC-LINK-VERIFY-001`        | ✅     |
+| AC-002 | New account is created for unregistered user with valid token | `API-AUTH-MAGIC-LINK-VERIFY-002`        | ✅     |
+| AC-003 | Returns 400 with invalid token                                | `API-AUTH-MAGIC-LINK-VERIFY-003`        | ✅     |
+| AC-004 | Returns 400 with expired token                                | `API-AUTH-MAGIC-LINK-VERIFY-004`        | ✅     |
+| AC-005 | Returns 400 when token is missing                             | `API-AUTH-MAGIC-LINK-VERIFY-005`        | ✅     |
+| AC-006 | User completes magic link verify workflow (regression)        | `API-AUTH-MAGIC-LINK-VERIFY-REGRESSION` | ✅     |
 
 ### Implementation References
 

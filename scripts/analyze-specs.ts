@@ -30,6 +30,7 @@
  *   --fix              Auto-fix header count mismatches
  *   --no-error         Don't exit with error code on quality issues
  *   --verify-progress  Cross-reference with GitHub PRs/issues to detect discrepancies
+ *   --update-stories   Update user story files with test status column (✅/⏳/❓)
  *
  * Output:
  *   - SPEC-PROGRESS.md: Reviewable specification state document
@@ -40,6 +41,7 @@
  *   bun run analyze:specs --filter=version   # Analyze only version specs
  *   bun run analyze:specs --fixme            # Show fixme tests to implement next
  *   bun run analyze:specs --fix              # Auto-fix header count mismatches
+ *   bun run analyze:specs --update-stories   # Update user stories with test status
  */
 
 import { readdir, readFile, writeFile, unlink, access } from 'node:fs/promises'
@@ -251,9 +253,12 @@ const USER_STORIES_DIR = join(process.cwd(), 'docs/user-stories')
 
 // User Story parsing patterns
 const USER_STORY_STATUS_PATTERN = /\*\*Status\*\*:\s*`\[([x~\s])\]`/
-// Match spec test IDs in acceptance criteria tables: | ... | `API-AUTH-SIGN-UP-001` | ... |
+// Match spec test IDs in acceptance criteria tables
+// Format: | ID | Criterion | E2E Spec | (optional: Status) |
+// Example: | AC-001 | User receives 200 OK... | `API-AUTH-SIGN-UP-EMAIL-001` | ✅ |
+// Note: The 4th Status column is optional (added by --update-stories flag)
 const ACCEPTANCE_CRITERIA_TABLE_ROW_PATTERN =
-  /^\|\s*(AC-\d{3})\s*\|\s*([^|]+)\s*\|\s*`?([A-Z]+-[A-Z0-9-]+-(?:\d{3}|REGRESSION))?`?\s*\|\s*([^|]*)\s*\|\s*`?\[([x~\s])\]`?\s*\|$/gm
+  /^\|\s*(AC-\d{3})\s*\|\s*([^|]+)\s*\|\s*`?([A-Z]+-[A-Z0-9-]+-(?:\d{3}|REGRESSION))?`?\s*\|(?:\s*[^|]*\s*\|)?$/gm
 // Domain/feature/role from file metadata
 const DOMAIN_PATTERN = />\s*\*\*Domain\*\*:\s*(\S+)/
 const FEATURE_AREA_PATTERN = />\s*\*\*Feature Area\*\*:\s*(\S+)/
@@ -997,8 +1002,8 @@ async function findUserStoryFiles(dir: string): Promise<string[]> {
 
         if (entry.isDirectory()) {
           await walk(fullPath)
-        } else if (entry.name.startsWith('as-') && entry.name.endsWith('.md')) {
-          // Only parse role-specific files (as-developer.md, as-admin.md, etc.)
+        } else if (entry.name.endsWith('.md') && entry.name !== 'README.md') {
+          // Parse all markdown files except README.md
           files.push(fullPath)
         }
       }
@@ -1026,12 +1031,14 @@ function parseUserStoryFile(content: string, filePath: string): UserStory[] {
   const featureArea = featureAreaMatch?.[1] || 'unknown'
   const role = roleMatch?.[1]?.trim() || 'unknown'
 
-  // Split content by user story headers
-  const storyBlocks = content.split(/(?=^###\s+US-)/m).filter((block) => block.startsWith('###'))
+  // Split content by user story headers (## or ### depending on format)
+  const storyBlocks = content
+    .split(/(?=^#{2,3}\s+US-)/m)
+    .filter((block) => /^#{2,3}\s+US-/.test(block))
 
   for (const block of storyBlocks) {
-    // Extract user story ID and title
-    const idMatch = block.match(/^###\s+(US-[A-Z]+-[A-Z0-9-]+-\d{3}):\s+(.+)$/m)
+    // Extract user story ID and title (## US-AUTH-EMAIL-001: Title or ### US-...)
+    const idMatch = block.match(/^#{2,3}\s+(US-[A-Z]+-[A-Z0-9-]+-\d{3}):\s+(.+)$/m)
     if (!idMatch) continue
 
     const storyId = idMatch[1]
@@ -1061,19 +1068,19 @@ function parseUserStoryFile(content: string, filePath: string): UserStory[] {
       const acId = acMatch[1]
       const criterion = acMatch[2]?.trim() || ''
       const specTestId = acMatch[3] || null // May be empty or missing
-      const schema = acMatch[4]?.trim() || ''
-      const acStatusChar = acMatch[5]
 
-      let acStatus: 'complete' | 'partial' | 'not-started' = 'not-started'
-      if (acStatusChar === 'x') acStatus = 'complete'
-      else if (acStatusChar === '~') acStatus = 'partial'
+      // Status is determined by whether spec test exists and passes
+      // For now, mark as complete if spec ID is linked
+      const acStatus: 'complete' | 'partial' | 'not-started' = specTestId
+        ? 'complete'
+        : 'not-started'
 
       if (acId) {
         acceptanceCriteria.push({
           id: acId,
           criterion,
           specTestId,
-          schema,
+          schema: '', // Schema column removed in new format
           status: acStatus,
         })
       }
@@ -1178,6 +1185,137 @@ async function parseUserStoryFiles(
     storiesSpecifiedAndImplementedPercent,
     byDomain,
   }
+}
+
+/**
+ * Update user story files with test status column in acceptance criteria tables.
+ *
+ * Status values:
+ * - ✅ = Test is passing (spec ID found in passingSpecIds)
+ * - ⏳ = Test is .fixme() (spec ID found in fixmeSpecIds)
+ * - ❓ = Spec ID not found in codebase
+ * - (empty) = No spec ID linked
+ */
+async function updateUserStoryFiles(
+  fixmeSpecIds: Set<string>,
+  passingSpecIds: Set<string>
+): Promise<{ updated: number; unchanged: number; changes: string[] }> {
+  const userStoryFiles = await findUserStoryFiles(USER_STORIES_DIR)
+  let updated = 0
+  let unchanged = 0
+  const changes: string[] = []
+
+  for (const filePath of userStoryFiles) {
+    const content = await readFile(filePath, 'utf-8')
+    const updatedContent = updateAcceptanceCriteriaTables(content, fixmeSpecIds, passingSpecIds)
+
+    // Format with Prettier before comparing
+    const prettierConfig = await prettier.resolveConfig(filePath)
+    const formattedContent = await prettier.format(updatedContent, {
+      ...prettierConfig,
+      parser: 'markdown',
+    })
+
+    // Compare formatted content with original to detect actual changes
+    if (formattedContent !== content) {
+      await writeFile(filePath, formattedContent)
+      updated++
+      changes.push(relative(process.cwd(), filePath))
+    } else {
+      unchanged++
+    }
+  }
+
+  return { updated, unchanged, changes }
+}
+
+/**
+ * Update acceptance criteria tables in markdown content to add/update Status column.
+ *
+ * Handles tables with format:
+ * | ID | Criterion | E2E Spec |
+ * | -- | --------- | -------- |
+ * | AC-001 | Criterion text | `SPEC-ID-001` |
+ *
+ * Transforms to:
+ * | ID | Criterion | E2E Spec | Status |
+ * | -- | --------- | -------- | ------ |
+ * | AC-001 | Criterion text | `SPEC-ID-001` | ✅ |
+ */
+function updateAcceptanceCriteriaTables(
+  content: string,
+  fixmeSpecIds: Set<string>,
+  passingSpecIds: Set<string>
+): string {
+  // Match acceptance criteria tables (header row + separator row + data rows)
+  // Header pattern: | ID | Criterion | E2E Spec | (optional Status column)
+  const tablePattern =
+    /(\|\s*ID\s*\|\s*Criterion\s*\|\s*E2E Spec\s*)(\|\s*Status\s*)?(\s*\|?\s*\n)(\|\s*[-:]+\s*\|\s*[-:]+\s*\|\s*[-:]+\s*)(\|\s*[-:]+\s*)?(\s*\|?\s*\n)((?:\|[^\n]+\|\s*\n?)+)/gi
+
+  return content.replace(
+    tablePattern,
+    (
+      _match,
+      headerBase: string,
+      _existingStatusHeader: string | undefined,
+      headerEnd: string,
+      separatorBase: string,
+      _existingStatusSeparator: string | undefined,
+      separatorEnd: string,
+      dataRows: string
+    ) => {
+      // Build new header with Status column
+      const newHeader = `${headerBase.trimEnd()}| Status ${headerEnd}`
+
+      // Build new separator with Status column
+      const newSeparator = `${separatorBase.trimEnd()}| ------ ${separatorEnd}`
+
+      // Process each data row
+      const newDataRows = dataRows
+        .split('\n')
+        .filter((row) => row.trim())
+        .map((row) => {
+          // Parse the row to extract spec ID
+          // Format: | AC-001 | Criterion text | `SPEC-ID-001` | (optional existing status)
+          const rowMatch = row.match(
+            /^\|\s*(AC-\d{3})\s*\|\s*([^|]+)\s*\|\s*`?([A-Z]+-[A-Z0-9-]+-(?:\d{3}|REGRESSION))?`?\s*(?:\|\s*[^|]*)?(\s*\|?\s*)$/
+          )
+
+          if (!rowMatch) {
+            // If row doesn't match expected format, return as-is but try to add empty status
+            if (row.match(/^\|.*\|.*\|.*\|$/)) {
+              // Row has 3 columns, add status column
+              return row.replace(/\|(\s*)$/, '|  |')
+            }
+            return row
+          }
+
+          const acId = rowMatch[1]
+          const criterion = rowMatch[2]?.trim() || ''
+          const specId = rowMatch[3] || ''
+
+          // Determine status based on spec ID
+          let status = ''
+          if (!specId) {
+            status = '' // No spec ID linked - leave empty
+          } else if (passingSpecIds.has(specId)) {
+            status = '✅'
+          } else if (fixmeSpecIds.has(specId)) {
+            status = '⏳'
+          } else {
+            status = '❓' // Spec ID exists but not found in codebase
+          }
+
+          // Rebuild the row with status column
+          // Preserve original formatting as much as possible
+          const specIdFormatted = specId ? `\`${specId}\`` : ''
+          return `| ${acId} | ${criterion} | ${specIdFormatted} | ${status} |`
+        })
+        .join('\n')
+
+      return `${newHeader}${newSeparator}${newDataRows}\n`
+    }
+  )
 }
 
 /**
@@ -2162,6 +2300,7 @@ async function main() {
   const noErrorExit = args.includes('--no-error') || !!filterPattern
   const verifyProgress = args.includes('--verify-progress')
   const shouldFix = args.includes('--fix')
+  const shouldUpdateStories = args.includes('--update-stories')
 
   console.log('Analyzing spec files...')
   console.log('')
@@ -2301,6 +2440,25 @@ async function main() {
 
       console.log('')
       console.log(`✅ Fixed header count in ${fixedCount} file(s)`)
+    }
+  }
+
+  // Update user story files with test status if --update-stories flag is present
+  if (shouldUpdateStories) {
+    console.log('')
+    console.log('Updating user story files with test status...')
+
+    const { updated, unchanged, changes } = await updateUserStoryFiles(fixmeSpecIds, passingSpecIds)
+
+    if (updated === 0) {
+      console.log('No user story files needed updates')
+    } else {
+      console.log('')
+      for (const change of changes) {
+        console.log(`  ✅ Updated: ${change}`)
+      }
+      console.log('')
+      console.log(`✅ Updated ${updated} file(s), ${unchanged} unchanged`)
     }
   }
 

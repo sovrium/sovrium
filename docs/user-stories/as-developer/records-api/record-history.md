@@ -13,7 +13,7 @@ Sovrium tracks all record changes through an activity log and supports a comment
 
 ---
 
-## US-RECORD-HISTORY-001: View Record History
+## US-API-RECORD-HISTORY-001: View Record History
 
 **As a** developer,
 **I want to** retrieve the change history of a record,
@@ -65,18 +65,19 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                              | E2E Spec                          |
-| ------ | ------------------------------------------------------ | --------------------------------- |
-| AC-001 | Returns 200 OK with chronological history entries      | `API-ACTIVITY-RECORD-HISTORY-001` |
-| AC-002 | Includes action type (create, update, delete, restore) | `API-ACTIVITY-RECORD-HISTORY-002` |
-| AC-003 | Includes user who performed the action                 | `API-ACTIVITY-RECORD-HISTORY-003` |
-| AC-004 | Includes field-level change details for updates        | `API-ACTIVITY-RECORD-HISTORY-004` |
-| AC-005 | Returns 404 Not Found for non-existent record          | `API-ACTIVITY-RECORD-HISTORY-005` |
-| AC-006 | Returns 401 when not authenticated                     | `API-ACTIVITY-RECORD-HISTORY-006` |
-| AC-007 | Returns 403 when user lacks history view permission    | `API-ACTIVITY-RECORD-HISTORY-007` |
-| AC-008 | Respects retention policy (excludes expired entries)   | `API-ACTIVITY-RECORD-HISTORY-008` |
-| AC-009 | Supports pagination with limit and offset              | `API-ACTIVITY-RECORD-HISTORY-009` |
-| AC-010 | Orders entries by timestamp descending (newest first)  | `API-ACTIVITY-RECORD-HISTORY-010` |
+| ID     | Criterion                                              | E2E Spec                                 | Status |
+| ------ | ------------------------------------------------------ | ---------------------------------------- | ------ |
+| AC-001 | Returns 200 OK with chronological history entries      | `API-ACTIVITY-RECORD-HISTORY-001`        | ⏳     |
+| AC-002 | Includes action type (create, update, delete, restore) | `API-ACTIVITY-RECORD-HISTORY-002`        | ✅     |
+| AC-003 | Includes user who performed the action                 | `API-ACTIVITY-RECORD-HISTORY-003`        | ✅     |
+| AC-004 | Includes field-level change details for updates        | `API-ACTIVITY-RECORD-HISTORY-004`        | ⏳     |
+| AC-005 | Returns 404 Not Found for non-existent record          | `API-ACTIVITY-RECORD-HISTORY-005`        | ⏳     |
+| AC-006 | Returns 401 when not authenticated                     | `API-ACTIVITY-RECORD-HISTORY-006`        | ⏳     |
+| AC-007 | Returns 403 when user lacks history view permission    | `API-ACTIVITY-RECORD-HISTORY-007`        | ⏳     |
+| AC-008 | Respects retention policy (excludes expired entries)   | `API-ACTIVITY-RECORD-HISTORY-008`        | ⏳     |
+| AC-009 | Supports pagination with limit and offset              | `API-ACTIVITY-RECORD-HISTORY-009`        | ⏳     |
+| AC-010 | Orders entries by timestamp descending (newest first)  | `API-ACTIVITY-RECORD-HISTORY-010`        | ✅     |
+| AC-011 | User views record change history (regression)          | `API-ACTIVITY-RECORD-HISTORY-REGRESSION` | ⏳     |
 
 ### Implementation References
 
@@ -85,7 +86,7 @@ tables:
 
 ---
 
-## US-RECORD-HISTORY-002: List Record Comments
+## US-API-RECORD-HISTORY-002: List Record Comments
 
 **As a** developer,
 **I want to** retrieve comments on a record,
@@ -117,18 +118,19 @@ GET /api/tables/1/records/123/comments
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                              | E2E Spec                               |
-| ------ | ------------------------------------------------------ | -------------------------------------- |
-| AC-001 | Returns 200 OK with array of comments                  | `API-TABLES-RECORDS-COMMENTS-LIST-001` |
-| AC-002 | Returns 200 OK with empty array when no comments       | `API-TABLES-RECORDS-COMMENTS-LIST-002` |
-| AC-003 | Includes author information for each comment           | `API-TABLES-RECORDS-COMMENTS-LIST-003` |
-| AC-004 | Includes @mention metadata (user, position)            | `API-TABLES-RECORDS-COMMENTS-LIST-004` |
-| AC-005 | Returns 404 Not Found for non-existent record          | `API-TABLES-RECORDS-COMMENTS-LIST-005` |
-| AC-006 | Returns 401 when not authenticated                     | `API-TABLES-RECORDS-COMMENTS-LIST-006` |
-| AC-007 | Returns 403 when user lacks comments view permission   | `API-TABLES-RECORDS-COMMENTS-LIST-007` |
-| AC-008 | Supports pagination with limit and offset              | `API-TABLES-RECORDS-COMMENTS-LIST-008` |
-| AC-009 | Orders comments by created_at ascending (oldest first) | `API-TABLES-RECORDS-COMMENTS-LIST-009` |
-| AC-010 | Includes updated_at if comment was edited              | `API-TABLES-RECORDS-COMMENTS-LIST-010` |
+| ID     | Criterion                                              | E2E Spec                                      | Status |
+| ------ | ------------------------------------------------------ | --------------------------------------------- | ------ |
+| AC-001 | Returns 200 OK with array of comments                  | `API-TABLES-RECORDS-COMMENTS-LIST-001`        | ✅     |
+| AC-002 | Returns 200 OK with empty array when no comments       | `API-TABLES-RECORDS-COMMENTS-LIST-002`        | ✅     |
+| AC-003 | Includes author information for each comment           | `API-TABLES-RECORDS-COMMENTS-LIST-003`        | ✅     |
+| AC-004 | Includes @mention metadata (user, position)            | `API-TABLES-RECORDS-COMMENTS-LIST-004`        | ✅     |
+| AC-005 | Returns 404 Not Found for non-existent record          | `API-TABLES-RECORDS-COMMENTS-LIST-005`        | ✅     |
+| AC-006 | Returns 401 when not authenticated                     | `API-TABLES-RECORDS-COMMENTS-LIST-006`        | ⏳     |
+| AC-007 | Returns 403 when user lacks comments view permission   | `API-TABLES-RECORDS-COMMENTS-LIST-007`        | ⏳     |
+| AC-008 | Supports pagination with limit and offset              | `API-TABLES-RECORDS-COMMENTS-LIST-008`        | ⏳     |
+| AC-009 | Orders comments by created_at ascending (oldest first) | `API-TABLES-RECORDS-COMMENTS-LIST-009`        | ⏳     |
+| AC-010 | Includes updated_at if comment was edited              | `API-TABLES-RECORDS-COMMENTS-LIST-010`        | ⏳     |
+| AC-011 | User lists comments on a record (regression)           | `API-TABLES-RECORDS-COMMENTS-LIST-REGRESSION` | ⏳     |
 
 ### Implementation References
 
@@ -137,7 +139,7 @@ GET /api/tables/1/records/123/comments
 
 ---
 
-## US-RECORD-HISTORY-003: Create Comment
+## US-API-RECORD-HISTORY-003: Create Comment
 
 **As a** developer,
 **I want to** add comments to records,
@@ -168,18 +170,19 @@ Content-Type: application/json
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                             | E2E Spec                                 |
-| ------ | ----------------------------------------------------- | ---------------------------------------- |
-| AC-001 | Returns 201 Created with new comment                  | `API-TABLES-RECORDS-COMMENTS-CREATE-001` |
-| AC-002 | Auto-injects current user as author                   | `API-TABLES-RECORDS-COMMENTS-CREATE-002` |
-| AC-003 | Parses @mentions from content and stores metadata     | `API-TABLES-RECORDS-COMMENTS-CREATE-003` |
-| AC-004 | Returns 400 when content is empty                     | `API-TABLES-RECORDS-COMMENTS-CREATE-004` |
-| AC-005 | Returns 400 when content exceeds max length           | `API-TABLES-RECORDS-COMMENTS-CREATE-005` |
-| AC-006 | Returns 404 Not Found for non-existent record         | `API-TABLES-RECORDS-COMMENTS-CREATE-006` |
-| AC-007 | Returns 401 when not authenticated                    | `API-TABLES-RECORDS-COMMENTS-CREATE-007` |
-| AC-008 | Returns 403 when user lacks comment create permission | `API-TABLES-RECORDS-COMMENTS-CREATE-008` |
-| AC-009 | Triggers notification for @mentioned users            | `API-TABLES-RECORDS-COMMENTS-CREATE-009` |
-| AC-010 | Logs comment creation to activity history             | `API-TABLES-RECORDS-COMMENTS-CREATE-010` |
+| ID     | Criterion                                             | E2E Spec                                        | Status |
+| ------ | ----------------------------------------------------- | ----------------------------------------------- | ------ |
+| AC-001 | Returns 201 Created with new comment                  | `API-TABLES-RECORDS-COMMENTS-CREATE-001`        | ⏳     |
+| AC-002 | Auto-injects current user as author                   | `API-TABLES-RECORDS-COMMENTS-CREATE-002`        | ⏳     |
+| AC-003 | Parses @mentions from content and stores metadata     | `API-TABLES-RECORDS-COMMENTS-CREATE-003`        | ⏳     |
+| AC-004 | Returns 400 when content is empty                     | `API-TABLES-RECORDS-COMMENTS-CREATE-004`        | ⏳     |
+| AC-005 | Returns 400 when content exceeds max length           | `API-TABLES-RECORDS-COMMENTS-CREATE-005`        | ✅     |
+| AC-006 | Returns 404 Not Found for non-existent record         | `API-TABLES-RECORDS-COMMENTS-CREATE-006`        | ⏳     |
+| AC-007 | Returns 401 when not authenticated                    | `API-TABLES-RECORDS-COMMENTS-CREATE-007`        | ⏳     |
+| AC-008 | Returns 403 when user lacks comment create permission | `API-TABLES-RECORDS-COMMENTS-CREATE-008`        | ⏳     |
+| AC-009 | Triggers notification for @mentioned users            | `API-TABLES-RECORDS-COMMENTS-CREATE-009`        | ⏳     |
+| AC-010 | Logs comment creation to activity history             | `API-TABLES-RECORDS-COMMENTS-CREATE-010`        | ⏳     |
+| AC-011 | User creates comment with @mentions (regression)      | `API-TABLES-RECORDS-COMMENTS-CREATE-REGRESSION` | ⏳     |
 
 ### Implementation References
 
@@ -188,7 +191,7 @@ Content-Type: application/json
 
 ---
 
-## US-RECORD-HISTORY-004: Get Single Comment
+## US-API-RECORD-HISTORY-004: Get Single Comment
 
 **As a** developer,
 **I want to** retrieve a specific comment by ID,
@@ -202,15 +205,16 @@ GET /api/tables/1/records/123/comments/1
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                           | E2E Spec                              |
-| ------ | --------------------------------------------------- | ------------------------------------- |
-| AC-001 | Returns 200 OK with comment details                 | `API-TABLES-RECORDS-COMMENTS-GET-001` |
-| AC-002 | Includes full author information                    | `API-TABLES-RECORDS-COMMENTS-GET-002` |
-| AC-003 | Includes @mention metadata                          | `API-TABLES-RECORDS-COMMENTS-GET-003` |
-| AC-004 | Returns 404 Not Found for non-existent comment      | `API-TABLES-RECORDS-COMMENTS-GET-004` |
-| AC-005 | Returns 404 Not Found for non-existent record       | `API-TABLES-RECORDS-COMMENTS-GET-005` |
-| AC-006 | Returns 401 when not authenticated                  | `API-TABLES-RECORDS-COMMENTS-GET-006` |
-| AC-007 | Returns 403 when user lacks comment view permission | `API-TABLES-RECORDS-COMMENTS-GET-007` |
+| ID     | Criterion                                           | E2E Spec                                     | Status |
+| ------ | --------------------------------------------------- | -------------------------------------------- | ------ |
+| AC-001 | Returns 200 OK with comment details                 | `API-TABLES-RECORDS-COMMENTS-GET-001`        | ✅     |
+| AC-002 | Includes full author information                    | `API-TABLES-RECORDS-COMMENTS-GET-002`        | ✅     |
+| AC-003 | Includes @mention metadata                          | `API-TABLES-RECORDS-COMMENTS-GET-003`        | ✅     |
+| AC-004 | Returns 404 Not Found for non-existent comment      | `API-TABLES-RECORDS-COMMENTS-GET-004`        | ✅     |
+| AC-005 | Returns 404 Not Found for non-existent record       | `API-TABLES-RECORDS-COMMENTS-GET-005`        | ✅     |
+| AC-006 | Returns 401 when not authenticated                  | `API-TABLES-RECORDS-COMMENTS-GET-006`        | ✅     |
+| AC-007 | Returns 403 when user lacks comment view permission | `API-TABLES-RECORDS-COMMENTS-GET-007`        | ✅     |
+| AC-008 | User retrieves specific comment (regression)        | `API-TABLES-RECORDS-COMMENTS-GET-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -219,7 +223,7 @@ GET /api/tables/1/records/123/comments/1
 
 ---
 
-## US-RECORD-HISTORY-005: Update Comment
+## US-API-RECORD-HISTORY-005: Update Comment
 
 **As a** developer,
 **I want to** edit existing comments,
@@ -238,18 +242,19 @@ Content-Type: application/json
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                      | E2E Spec                                 |
-| ------ | ---------------------------------------------- | ---------------------------------------- |
-| AC-001 | Returns 200 OK with updated comment            | `API-TABLES-RECORDS-COMMENTS-UPDATE-001` |
-| AC-002 | Sets updated_at timestamp                      | `API-TABLES-RECORDS-COMMENTS-UPDATE-002` |
-| AC-003 | Re-parses @mentions and updates metadata       | `API-TABLES-RECORDS-COMMENTS-UPDATE-003` |
-| AC-004 | Returns 400 when content is empty              | `API-TABLES-RECORDS-COMMENTS-UPDATE-004` |
-| AC-005 | Returns 400 when content exceeds max length    | `API-TABLES-RECORDS-COMMENTS-UPDATE-005` |
-| AC-006 | Returns 404 Not Found for non-existent comment | `API-TABLES-RECORDS-COMMENTS-UPDATE-006` |
-| AC-007 | Returns 401 when not authenticated             | `API-TABLES-RECORDS-COMMENTS-UPDATE-007` |
-| AC-008 | Returns 403 when user is not comment author    | `API-TABLES-RECORDS-COMMENTS-UPDATE-008` |
-| AC-009 | Admin can edit any comment                     | `API-TABLES-RECORDS-COMMENTS-UPDATE-009` |
-| AC-010 | Logs comment edit to activity history          | `API-TABLES-RECORDS-COMMENTS-UPDATE-010` |
+| ID     | Criterion                                      | E2E Spec                                        | Status |
+| ------ | ---------------------------------------------- | ----------------------------------------------- | ------ |
+| AC-001 | Returns 200 OK with updated comment            | `API-TABLES-RECORDS-COMMENTS-UPDATE-001`        | ⏳     |
+| AC-002 | Sets updated_at timestamp                      | `API-TABLES-RECORDS-COMMENTS-UPDATE-002`        | ⏳     |
+| AC-003 | Re-parses @mentions and updates metadata       | `API-TABLES-RECORDS-COMMENTS-UPDATE-003`        | ⏳     |
+| AC-004 | Returns 400 when content is empty              | `API-TABLES-RECORDS-COMMENTS-UPDATE-004`        | ⏳     |
+| AC-005 | Returns 400 when content exceeds max length    | `API-TABLES-RECORDS-COMMENTS-UPDATE-005`        | ⏳     |
+| AC-006 | Returns 404 Not Found for non-existent comment | `API-TABLES-RECORDS-COMMENTS-UPDATE-006`        | ⏳     |
+| AC-007 | Returns 401 when not authenticated             | `API-TABLES-RECORDS-COMMENTS-UPDATE-007`        | ⏳     |
+| AC-008 | Returns 403 when user is not comment author    | `API-TABLES-RECORDS-COMMENTS-UPDATE-008`        | ⏳     |
+| AC-009 | Admin can edit any comment                     | `API-TABLES-RECORDS-COMMENTS-UPDATE-009`        | ⏳     |
+| AC-010 | Logs comment edit to activity history          | `API-TABLES-RECORDS-COMMENTS-UPDATE-010`        | ⏳     |
+| AC-011 | User updates their own comment (regression)    | `API-TABLES-RECORDS-COMMENTS-UPDATE-REGRESSION` | ⏳     |
 
 ### Implementation References
 
@@ -258,7 +263,7 @@ Content-Type: application/json
 
 ---
 
-## US-RECORD-HISTORY-006: Delete Comment
+## US-API-RECORD-HISTORY-006: Delete Comment
 
 **As a** developer,
 **I want to** delete comments,
@@ -272,17 +277,18 @@ DELETE /api/tables/1/records/123/comments/1
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                      | E2E Spec                                 |
-| ------ | ---------------------------------------------- | ---------------------------------------- |
-| AC-001 | Returns 200 OK with deleted comment            | `API-TABLES-RECORDS-COMMENTS-DELETE-001` |
-| AC-002 | Soft deletes comment (sets deleted_at)         | `API-TABLES-RECORDS-COMMENTS-DELETE-002` |
-| AC-003 | Returns 404 Not Found for non-existent comment | `API-TABLES-RECORDS-COMMENTS-DELETE-003` |
-| AC-004 | Returns 404 for already deleted comment        | `API-TABLES-RECORDS-COMMENTS-DELETE-004` |
-| AC-005 | Returns 401 when not authenticated             | `API-TABLES-RECORDS-COMMENTS-DELETE-005` |
-| AC-006 | Returns 403 when user is not comment author    | `API-TABLES-RECORDS-COMMENTS-DELETE-006` |
-| AC-007 | Admin can delete any comment                   | `API-TABLES-RECORDS-COMMENTS-DELETE-007` |
-| AC-008 | Logs comment deletion to activity history      | `API-TABLES-RECORDS-COMMENTS-DELETE-008` |
-| AC-009 | Supports permanent delete with ?permanent=true | `API-TABLES-RECORDS-COMMENTS-DELETE-009` |
+| ID     | Criterion                                      | E2E Spec                                        | Status |
+| ------ | ---------------------------------------------- | ----------------------------------------------- | ------ |
+| AC-001 | Returns 200 OK with deleted comment            | `API-TABLES-RECORDS-COMMENTS-DELETE-001`        | ⏳     |
+| AC-002 | Soft deletes comment (sets deleted_at)         | `API-TABLES-RECORDS-COMMENTS-DELETE-002`        | ⏳     |
+| AC-003 | Returns 404 Not Found for non-existent comment | `API-TABLES-RECORDS-COMMENTS-DELETE-003`        | ⏳     |
+| AC-004 | Returns 404 for already deleted comment        | `API-TABLES-RECORDS-COMMENTS-DELETE-004`        | ⏳     |
+| AC-005 | Returns 401 when not authenticated             | `API-TABLES-RECORDS-COMMENTS-DELETE-005`        | ⏳     |
+| AC-006 | Returns 403 when user is not comment author    | `API-TABLES-RECORDS-COMMENTS-DELETE-006`        | ⏳     |
+| AC-007 | Admin can delete any comment                   | `API-TABLES-RECORDS-COMMENTS-DELETE-007`        | ⏳     |
+| AC-008 | Logs comment deletion to activity history      | `API-TABLES-RECORDS-COMMENTS-DELETE-008`        | ⏳     |
+| AC-009 | Supports permanent delete with ?permanent=true | `API-TABLES-RECORDS-COMMENTS-DELETE-009`        | ⏳     |
+| AC-010 | User deletes their own comment (regression)    | `API-TABLES-RECORDS-COMMENTS-DELETE-REGRESSION` | ⏳     |
 
 ### Implementation References
 
@@ -306,12 +312,12 @@ DELETE /api/tables/1/records/123/comments/1
 
 ## Coverage Summary
 
-| User Story            | Title                | Spec Count            | Status   |
-| --------------------- | -------------------- | --------------------- | -------- |
-| US-RECORD-HISTORY-001 | View Record History  | 10                    | Complete |
-| US-RECORD-HISTORY-002 | List Record Comments | 10                    | Complete |
-| US-RECORD-HISTORY-003 | Create Comment       | 10                    | Complete |
-| US-RECORD-HISTORY-004 | Get Single Comment   | 7                     | Complete |
-| US-RECORD-HISTORY-005 | Update Comment       | 10                    | Complete |
-| US-RECORD-HISTORY-006 | Delete Comment       | 9                     | Complete |
-| **Total**             |                      | **56 + 6 regression** |          |
+| User Story                | Title                | Spec Count            | Status   |
+| ------------------------- | -------------------- | --------------------- | -------- |
+| US-API-RECORD-HISTORY-001 | View Record History  | 10                    | Complete |
+| US-API-RECORD-HISTORY-002 | List Record Comments | 10                    | Complete |
+| US-API-RECORD-HISTORY-003 | Create Comment       | 10                    | Complete |
+| US-API-RECORD-HISTORY-004 | Get Single Comment   | 7                     | Complete |
+| US-API-RECORD-HISTORY-005 | Update Comment       | 10                    | Complete |
+| US-API-RECORD-HISTORY-006 | Delete Comment       | 9                     | Complete |
+| **Total**                 |                      | **56 + 6 regression** |          |

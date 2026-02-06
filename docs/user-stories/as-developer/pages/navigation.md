@@ -12,7 +12,7 @@ Sovrium provides a flexible navigation system for pages, including main navigati
 
 ---
 
-## US-NAV-001: Configure Page Navigation
+## US-PAGES-NAV-001: Configure Page Navigation
 
 **As a** developer,
 **I want to** configure navigation menus for my pages,
@@ -47,20 +47,21 @@ pages:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                       | E2E Spec            |
-| ------ | ----------------------------------------------- | ------------------- |
-| AC-001 | Navigation renders in specified position        | `APP-PAGES-NAV-001` |
-| AC-002 | Navigation items display labels correctly       | `APP-PAGES-NAV-002` |
-| AC-003 | Navigation items link to correct paths          | `APP-PAGES-NAV-003` |
-| AC-004 | Navigation supports icons for items             | `APP-PAGES-NAV-004` |
-| AC-005 | Sticky navigation stays fixed on scroll         | `APP-PAGES-NAV-005` |
-| AC-006 | Transparent navigation overlays content         | `APP-PAGES-NAV-006` |
-| AC-007 | Active navigation item is highlighted           | `APP-PAGES-NAV-007` |
-| AC-008 | Navigation respects responsive breakpoints      | `APP-PAGES-NAV-008` |
-| AC-009 | Mobile navigation displays hamburger menu       | `APP-PAGES-NAV-009` |
-| AC-010 | Navigation dropdown menus expand on hover/click | `APP-PAGES-NAV-010` |
-| AC-011 | Navigation supports nested menu items           | `APP-PAGES-NAV-011` |
-| AC-012 | Empty navigation array renders no menu          | `APP-PAGES-NAV-012` |
+| ID     | Criterion                                               | E2E Spec                   | Status |
+| ------ | ------------------------------------------------------- | -------------------------- | ------ |
+| AC-001 | Navigation renders in specified position                | `APP-PAGES-NAV-001`        | ✅     |
+| AC-002 | Navigation items display labels correctly               | `APP-PAGES-NAV-002`        | ✅     |
+| AC-003 | Navigation items link to correct paths                  | `APP-PAGES-NAV-003`        | ✅     |
+| AC-004 | Navigation supports icons for items                     | `APP-PAGES-NAV-004`        | ✅     |
+| AC-005 | Sticky navigation stays fixed on scroll                 | `APP-PAGES-NAV-005`        | ✅     |
+| AC-006 | Transparent navigation overlays content                 | `APP-PAGES-NAV-006`        | ✅     |
+| AC-007 | Active navigation item is highlighted                   | `APP-PAGES-NAV-007`        | ✅     |
+| AC-008 | Navigation respects responsive breakpoints              | `APP-PAGES-NAV-008`        | ✅     |
+| AC-009 | Mobile navigation displays hamburger menu               | `APP-PAGES-NAV-009`        | ✅     |
+| AC-010 | Navigation dropdown menus expand on hover/click         | `APP-PAGES-NAV-010`        | ✅     |
+| AC-011 | Navigation supports nested menu items                   | `APP-PAGES-NAV-011`        | ✅     |
+| AC-012 | Empty navigation array renders no menu                  | `APP-PAGES-NAV-012`        | ✅     |
+| AC-013 | User can complete full navigation workflow (regression) | `APP-PAGES-NAV-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -69,7 +70,7 @@ pages:
 
 ---
 
-## US-NAV-002: Call-to-Action Sections
+## US-PAGES-NAV-002: Call-to-Action Sections
 
 **As a** developer,
 **I want to** add call-to-action (CTA) sections to pages,
@@ -100,18 +101,19 @@ pages:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                    | E2E Spec            |
-| ------ | -------------------------------------------- | ------------------- |
-| AC-001 | CTA heading renders with correct text        | `APP-PAGES-CTA-001` |
-| AC-002 | CTA subheading renders below heading         | `APP-PAGES-CTA-002` |
-| AC-003 | Primary button displays with correct text    | `APP-PAGES-CTA-003` |
-| AC-004 | Primary button links to correct path         | `APP-PAGES-CTA-004` |
-| AC-005 | Secondary button displays with correct style | `APP-PAGES-CTA-005` |
-| AC-006 | CTA respects alignment setting               | `APP-PAGES-CTA-006` |
-| AC-007 | CTA background applies gradient correctly    | `APP-PAGES-CTA-007` |
-| AC-008 | CTA background supports image                | `APP-PAGES-CTA-008` |
-| AC-009 | CTA buttons support variant styling          | `APP-PAGES-CTA-009` |
-| AC-010 | CTA section is responsive on mobile          | `APP-PAGES-CTA-010` |
+| ID     | Criterion                                        | E2E Spec                   | Status |
+| ------ | ------------------------------------------------ | -------------------------- | ------ |
+| AC-001 | CTA heading renders with correct text            | `APP-PAGES-CTA-001`        | ✅     |
+| AC-002 | CTA subheading renders below heading             | `APP-PAGES-CTA-002`        | ✅     |
+| AC-003 | Primary button displays with correct text        | `APP-PAGES-CTA-003`        | ✅     |
+| AC-004 | Primary button links to correct path             | `APP-PAGES-CTA-004`        | ✅     |
+| AC-005 | Secondary button displays with correct style     | `APP-PAGES-CTA-005`        | ✅     |
+| AC-006 | CTA respects alignment setting                   | `APP-PAGES-CTA-006`        | ✅     |
+| AC-007 | CTA background applies gradient correctly        | `APP-PAGES-CTA-007`        | ✅     |
+| AC-008 | CTA background supports image                    | `APP-PAGES-CTA-008`        | ✅     |
+| AC-009 | CTA buttons support variant styling              | `APP-PAGES-CTA-009`        | ✅     |
+| AC-010 | CTA section is responsive on mobile              | `APP-PAGES-CTA-010`        | ✅     |
+| AC-011 | User can complete full CTA workflow (regression) | `APP-PAGES-CTA-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -120,7 +122,7 @@ pages:
 
 ---
 
-## US-NAV-003: Navigation Links
+## US-PAGES-NAV-003: Navigation Links
 
 **As a** developer,
 **I want to** configure navigation links with various behaviors,
@@ -155,18 +157,19 @@ pages:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                      | E2E Spec                 |
-| ------ | ---------------------------------------------- | ------------------------ |
-| AC-001 | Navigation link renders with label             | `APP-PAGES-NAVLINKS-001` |
-| AC-002 | Navigation link navigates to internal path     | `APP-PAGES-NAVLINKS-002` |
-| AC-003 | External link opens in new tab                 | `APP-PAGES-NAVLINKS-003` |
-| AC-004 | External link includes rel attributes          | `APP-PAGES-NAVLINKS-004` |
-| AC-005 | Navigation link displays badge when configured | `APP-PAGES-NAVLINKS-005` |
-| AC-006 | Badge color applies correctly                  | `APP-PAGES-NAVLINKS-006` |
-| AC-007 | Link IDs must be unique                        | `APP-PAGES-NAVLINKS-007` |
-| AC-008 | Missing path returns validation error          | `APP-PAGES-NAVLINKS-008` |
-| AC-009 | Empty label returns validation error           | `APP-PAGES-NAVLINKS-009` |
-| AC-010 | Links support keyboard navigation              | `APP-PAGES-NAVLINKS-010` |
+| ID     | Criterion                                                     | E2E Spec                        | Status |
+| ------ | ------------------------------------------------------------- | ------------------------------- | ------ |
+| AC-001 | Navigation link renders with label                            | `APP-PAGES-NAVLINKS-001`        | ✅     |
+| AC-002 | Navigation link navigates to internal path                    | `APP-PAGES-NAVLINKS-002`        | ✅     |
+| AC-003 | External link opens in new tab                                | `APP-PAGES-NAVLINKS-003`        | ✅     |
+| AC-004 | External link includes rel attributes                         | `APP-PAGES-NAVLINKS-004`        | ✅     |
+| AC-005 | Navigation link displays badge when configured                | `APP-PAGES-NAVLINKS-005`        | ✅     |
+| AC-006 | Badge color applies correctly                                 | `APP-PAGES-NAVLINKS-006`        | ✅     |
+| AC-007 | Link IDs must be unique                                       | `APP-PAGES-NAVLINKS-007`        | ✅     |
+| AC-008 | Missing path returns validation error                         | `APP-PAGES-NAVLINKS-008`        | ✅     |
+| AC-009 | Empty label returns validation error                          | `APP-PAGES-NAVLINKS-009`        | ✅     |
+| AC-010 | Links support keyboard navigation                             | `APP-PAGES-NAVLINKS-010`        | ✅     |
+| AC-011 | User can complete full navigation links workflow (regression) | `APP-PAGES-NAVLINKS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -187,9 +190,9 @@ pages:
 
 ## Coverage Summary
 
-| User Story | Title            | Spec Count            | Status   |
-| ---------- | ---------------- | --------------------- | -------- |
-| US-NAV-001 | Page Navigation  | 12                    | Complete |
-| US-NAV-002 | Call-to-Action   | 10                    | Complete |
-| US-NAV-003 | Navigation Links | 10                    | Complete |
-| **Total**  |                  | **32 + 3 regression** |          |
+| User Story       | Title            | Spec Count            | Status   |
+| ---------------- | ---------------- | --------------------- | -------- |
+| US-PAGES-NAV-001 | Page Navigation  | 12                    | Complete |
+| US-PAGES-NAV-002 | Call-to-Action   | 10                    | Complete |
+| US-PAGES-NAV-003 | Navigation Links | 10                    | Complete |
+| **Total**        |                  | **32 + 3 regression** |          |

@@ -12,7 +12,7 @@ Sovrium provides a comprehensive animation system for creating smooth, performan
 
 ---
 
-## US-ANIMATIONS-001: Configure Keyframe Animations
+## US-THEME-ANIMATIONS-001: Configure Keyframe Animations
 
 **As a** developer,
 **I want to** define keyframe animations,
@@ -54,31 +54,32 @@ theme:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                       | E2E Spec                   |
-| ------ | ----------------------------------------------- | -------------------------- |
-| AC-001 | Keyframe animation is generated                 | `APP-THEME-ANIMATIONS-001` |
-| AC-002 | Animation duration is applied                   | `APP-THEME-ANIMATIONS-002` |
-| AC-003 | Animation timing function is applied            | `APP-THEME-ANIMATIONS-003` |
-| AC-004 | Animation delay is supported                    | `APP-THEME-ANIMATIONS-004` |
-| AC-005 | Infinite iteration is supported                 | `APP-THEME-ANIMATIONS-005` |
-| AC-006 | Custom iteration count is supported             | `APP-THEME-ANIMATIONS-006` |
-| AC-007 | Animation direction is configurable             | `APP-THEME-ANIMATIONS-007` |
-| AC-008 | Animation fill mode is configurable             | `APP-THEME-ANIMATIONS-008` |
-| AC-009 | Multiple keyframe stops are supported           | `APP-THEME-ANIMATIONS-009` |
-| AC-010 | Percentage keyframe stops work                  | `APP-THEME-ANIMATIONS-010` |
-| AC-011 | From/to syntax works                            | `APP-THEME-ANIMATIONS-011` |
-| AC-012 | Animation generates utility class               | `APP-THEME-ANIMATIONS-012` |
-| AC-013 | Invalid keyframe returns validation error       | `APP-THEME-ANIMATIONS-013` |
-| AC-014 | Animation name must be unique                   | `APP-THEME-ANIMATIONS-014` |
-| AC-015 | Animation supports transform property           | `APP-THEME-ANIMATIONS-015` |
-| AC-016 | Animation supports opacity property             | `APP-THEME-ANIMATIONS-016` |
-| AC-017 | Animation supports scale property               | `APP-THEME-ANIMATIONS-017` |
-| AC-018 | Animation supports rotate property              | `APP-THEME-ANIMATIONS-018` |
-| AC-019 | Animation is paused when prefers-reduced-motion | `APP-THEME-ANIMATIONS-019` |
-| AC-020 | Animation generates CSS variables               | `APP-THEME-ANIMATIONS-020` |
-| AC-021 | Default timing functions are available          | `APP-THEME-ANIMATIONS-021` |
-| AC-022 | Cubic-bezier timing is supported                | `APP-THEME-ANIMATIONS-022` |
-| AC-023 | Spring-based timing is supported                | `APP-THEME-ANIMATIONS-023` |
+| ID     | Criterion                                              | E2E Spec                          | Status |
+| ------ | ------------------------------------------------------ | --------------------------------- | ------ |
+| AC-001 | Keyframe animation is generated                        | `APP-THEME-ANIMATIONS-001`        | ✅     |
+| AC-002 | Animation duration is applied                          | `APP-THEME-ANIMATIONS-002`        | ✅     |
+| AC-003 | Animation timing function is applied                   | `APP-THEME-ANIMATIONS-003`        | ✅     |
+| AC-004 | Animation delay is supported                           | `APP-THEME-ANIMATIONS-004`        | ✅     |
+| AC-005 | Infinite iteration is supported                        | `APP-THEME-ANIMATIONS-005`        | ✅     |
+| AC-006 | Custom iteration count is supported                    | `APP-THEME-ANIMATIONS-006`        | ✅     |
+| AC-007 | Animation direction is configurable                    | `APP-THEME-ANIMATIONS-007`        | ✅     |
+| AC-008 | Animation fill mode is configurable                    | `APP-THEME-ANIMATIONS-008`        | ✅     |
+| AC-009 | Multiple keyframe stops are supported                  | `APP-THEME-ANIMATIONS-009`        | ✅     |
+| AC-010 | Percentage keyframe stops work                         | `APP-THEME-ANIMATIONS-010`        | ✅     |
+| AC-011 | From/to syntax works                                   | `APP-THEME-ANIMATIONS-011`        | ✅     |
+| AC-012 | Animation generates utility class                      | `APP-THEME-ANIMATIONS-012`        | ✅     |
+| AC-013 | Invalid keyframe returns validation error              | `APP-THEME-ANIMATIONS-013`        | ✅     |
+| AC-014 | Animation name must be unique                          | `APP-THEME-ANIMATIONS-014`        | ✅     |
+| AC-015 | Animation supports transform property                  | `APP-THEME-ANIMATIONS-015`        | ✅     |
+| AC-016 | Animation supports opacity property                    | `APP-THEME-ANIMATIONS-016`        | ✅     |
+| AC-017 | Animation supports scale property                      | `APP-THEME-ANIMATIONS-017`        | ✅     |
+| AC-018 | Animation supports rotate property                     | `APP-THEME-ANIMATIONS-018`        | ✅     |
+| AC-019 | Animation is paused when prefers-reduced-motion        | `APP-THEME-ANIMATIONS-019`        | ✅     |
+| AC-020 | Animation generates CSS variables                      | `APP-THEME-ANIMATIONS-020`        | ✅     |
+| AC-021 | Default timing functions are available                 | `APP-THEME-ANIMATIONS-021`        | ✅     |
+| AC-022 | Cubic-bezier timing is supported                       | `APP-THEME-ANIMATIONS-022`        | ✅     |
+| AC-023 | Spring-based timing is supported                       | `APP-THEME-ANIMATIONS-023`        | ✅     |
+| AC-024 | User can complete full animation workflow (regression) | `APP-THEME-ANIMATIONS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -97,7 +98,7 @@ theme:
 
 ## Coverage Summary
 
-| User Story        | Title      | Spec Count            | Status   |
-| ----------------- | ---------- | --------------------- | -------- |
-| US-ANIMATIONS-001 | Animations | 23                    | Complete |
-| **Total**         |            | **23 + 1 regression** |          |
+| User Story              | Title      | Spec Count            | Status   |
+| ----------------------- | ---------- | --------------------- | -------- |
+| US-THEME-ANIMATIONS-001 | Animations | 23                    | Complete |
+| **Total**               |            | **23 + 1 regression** |          |

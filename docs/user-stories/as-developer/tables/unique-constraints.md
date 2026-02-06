@@ -12,7 +12,7 @@ Sovrium supports unique constraints at both the single-field and composite (mult
 
 ---
 
-## US-UNIQUE-001: Single-Field Unique Constraint
+## US-TABLES-UNIQUE-001: Single-Field Unique Constraint
 
 **As a** developer,
 **I want to** mark individual fields as unique,
@@ -41,13 +41,13 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                     | E2E Spec                      |
-| ------ | ------------------------------------------------------------- | ----------------------------- |
-| AC-001 | Creates PostgreSQL UNIQUE constraint on field                 | `APP-TABLES-FIELD-UNIQUE-001` |
-| AC-002 | Insert with duplicate value returns 400 with constraint error | `APP-TABLES-FIELD-UNIQUE-002` |
-| AC-003 | Update to duplicate value returns 400 with constraint error   | `APP-TABLES-FIELD-UNIQUE-003` |
-| AC-004 | Unique constraint is case-sensitive by default                | `APP-TABLES-FIELD-UNIQUE-004` |
-| AC-005 | Unique constraint allows multiple NULL values (SQL standard)  | `APP-TABLES-FIELD-UNIQUE-005` |
+| ID     | Criterion                                                     | E2E Spec                      | Status |
+| ------ | ------------------------------------------------------------- | ----------------------------- | ------ |
+| AC-001 | Creates PostgreSQL UNIQUE constraint on field                 | `APP-TABLES-FIELD-UNIQUE-001` | ✅     |
+| AC-002 | Insert with duplicate value returns 400 with constraint error | `APP-TABLES-FIELD-UNIQUE-002` | ✅     |
+| AC-003 | Update to duplicate value returns 400 with constraint error   | `APP-TABLES-FIELD-UNIQUE-003` | ✅     |
+| AC-004 | Unique constraint is case-sensitive by default                | `APP-TABLES-FIELD-UNIQUE-004` | ✅     |
+| AC-005 | Unique constraint allows multiple NULL values (SQL standard)  | `APP-TABLES-FIELD-UNIQUE-005` | ✅     |
 
 ### Implementation References
 
@@ -56,7 +56,7 @@ tables:
 
 ---
 
-## US-UNIQUE-002: Composite Unique Constraints
+## US-TABLES-UNIQUE-002: Composite Unique Constraints
 
 **As a** developer,
 **I want to** define unique constraints across multiple fields,
@@ -103,17 +103,18 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                           | E2E Spec                           |
-| ------ | ------------------------------------------------------------------- | ---------------------------------- |
-| AC-001 | Creates PostgreSQL UNIQUE constraint on field combination           | `APP-TABLES-UNIQUECONSTRAINTS-001` |
-| AC-002 | Insert with duplicate combination returns 400 with constraint error | `APP-TABLES-UNIQUECONSTRAINTS-002` |
-| AC-003 | Update to duplicate combination returns 400 with constraint error   | `APP-TABLES-UNIQUECONSTRAINTS-003` |
-| AC-004 | Constraint name is generated if not provided                        | `APP-TABLES-UNIQUECONSTRAINTS-004` |
-| AC-005 | Supports 2 or more fields in composite constraint                   | `APP-TABLES-UNIQUECONSTRAINTS-005` |
-| AC-006 | Duplicate constraint names are rejected                             | `APP-TABLES-UNIQUECONSTRAINTS-006` |
-| AC-007 | Invalid field names in constraint are rejected                      | `APP-TABLES-UNIQUECONSTRAINTS-007` |
-| AC-008 | Constraint is updated when field is renamed                         | `APP-TABLES-UNIQUECONSTRAINTS-008` |
-| AC-009 | Constraint is dropped when field is deleted                         | `APP-TABLES-UNIQUECONSTRAINTS-009` |
+| ID     | Criterion                                                           | E2E Spec                                  | Status |
+| ------ | ------------------------------------------------------------------- | ----------------------------------------- | ------ |
+| AC-001 | Creates PostgreSQL UNIQUE constraint on field combination           | `APP-TABLES-UNIQUECONSTRAINTS-001`        | ✅     |
+| AC-002 | Insert with duplicate combination returns 400 with constraint error | `APP-TABLES-UNIQUECONSTRAINTS-002`        | ✅     |
+| AC-003 | Update to duplicate combination returns 400 with constraint error   | `APP-TABLES-UNIQUECONSTRAINTS-003`        | ✅     |
+| AC-004 | Constraint name is generated if not provided                        | `APP-TABLES-UNIQUECONSTRAINTS-004`        | ✅     |
+| AC-005 | Supports 2 or more fields in composite constraint                   | `APP-TABLES-UNIQUECONSTRAINTS-005`        | ✅     |
+| AC-006 | Duplicate constraint names are rejected                             | `APP-TABLES-UNIQUECONSTRAINTS-006`        | ✅     |
+| AC-007 | Invalid field names in constraint are rejected                      | `APP-TABLES-UNIQUECONSTRAINTS-007`        | ✅     |
+| AC-008 | Constraint is updated when field is renamed                         | `APP-TABLES-UNIQUECONSTRAINTS-008`        | ✅     |
+| AC-009 | Constraint is dropped when field is deleted                         | `APP-TABLES-UNIQUECONSTRAINTS-009`        | ✅     |
+| AC-010 | User can complete full unique constraints workflow (regression)     | `APP-TABLES-UNIQUECONSTRAINTS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -122,7 +123,7 @@ tables:
 
 ---
 
-## US-UNIQUE-003: NULL Handling in Unique Constraints
+## US-TABLES-UNIQUE-003: NULL Handling in Unique Constraints
 
 **As a** developer,
 **I want to** understand how NULL values interact with unique constraints,
@@ -153,15 +154,16 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                         | E2E Spec                                |
-| ------ | ----------------------------------------------------------------- | --------------------------------------- |
-| AC-001 | Multiple NULL values are allowed for unique fields (SQL standard) | `APP-TABLES-UNIQUECONSTRAINTS-NULL-001` |
-| AC-002 | Non-NULL duplicate values are rejected                            | `APP-TABLES-UNIQUECONSTRAINTS-NULL-002` |
-| AC-003 | NULL does not conflict with any other value                       | `APP-TABLES-UNIQUECONSTRAINTS-NULL-003` |
-| AC-004 | Composite constraints with NULL in any field allow duplicates     | `APP-TABLES-UNIQUECONSTRAINTS-NULL-004` |
-| AC-005 | Updating NULL to existing value returns constraint error          | `APP-TABLES-UNIQUECONSTRAINTS-NULL-005` |
-| AC-006 | Updating value to NULL is always allowed                          | `APP-TABLES-UNIQUECONSTRAINTS-NULL-006` |
-| AC-007 | NULLS NOT DISTINCT option can be configured (PostgreSQL 15+)      | `APP-TABLES-UNIQUECONSTRAINTS-NULL-007` |
+| ID     | Criterion                                                         | E2E Spec                                       | Status |
+| ------ | ----------------------------------------------------------------- | ---------------------------------------------- | ------ |
+| AC-001 | Multiple NULL values are allowed for unique fields (SQL standard) | `APP-TABLES-UNIQUECONSTRAINTS-NULL-001`        | ✅     |
+| AC-002 | Non-NULL duplicate values are rejected                            | `APP-TABLES-UNIQUECONSTRAINTS-NULL-002`        | ✅     |
+| AC-003 | NULL does not conflict with any other value                       | `APP-TABLES-UNIQUECONSTRAINTS-NULL-003`        | ✅     |
+| AC-004 | Composite constraints with NULL in any field allow duplicates     | `APP-TABLES-UNIQUECONSTRAINTS-NULL-004`        | ✅     |
+| AC-005 | Updating NULL to existing value returns constraint error          | `APP-TABLES-UNIQUECONSTRAINTS-NULL-005`        | ✅     |
+| AC-006 | Updating value to NULL is always allowed                          | `APP-TABLES-UNIQUECONSTRAINTS-NULL-006`        | ✅     |
+| AC-007 | NULLS NOT DISTINCT option can be configured (PostgreSQL 15+)      | `APP-TABLES-UNIQUECONSTRAINTS-NULL-007`        | ✅     |
+| AC-008 | User can complete full NULL constraints workflow (regression)     | `APP-TABLES-UNIQUECONSTRAINTS-NULL-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -221,9 +223,9 @@ tables:
 
 ## Coverage Summary
 
-| User Story    | Title                          | Spec Count            | Status   |
-| ------------- | ------------------------------ | --------------------- | -------- |
-| US-UNIQUE-001 | Single-Field Unique Constraint | 5                     | Complete |
-| US-UNIQUE-002 | Composite Unique Constraints   | 9                     | Complete |
-| US-UNIQUE-003 | NULL Handling                  | 7                     | Complete |
-| **Total**     |                                | **21 + 2 regression** |          |
+| User Story           | Title                          | Spec Count            | Status   |
+| -------------------- | ------------------------------ | --------------------- | -------- |
+| US-TABLES-UNIQUE-001 | Single-Field Unique Constraint | 5                     | Complete |
+| US-TABLES-UNIQUE-002 | Composite Unique Constraints   | 9                     | Complete |
+| US-TABLES-UNIQUE-003 | NULL Handling                  | 7                     | Complete |
+| **Total**            |                                | **21 + 2 regression** |          |

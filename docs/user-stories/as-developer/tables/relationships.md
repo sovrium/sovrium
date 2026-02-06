@@ -12,7 +12,64 @@ Sovrium supports relational data modeling with linked records, lookups, rollups,
 
 ---
 
-## US-RELATIONSHIPS-001: Many-to-One Relationships
+## US-TABLES-RELATIONSHIPS-000: Foreign Key Constraints
+
+**As a** developer,
+**I want to** create foreign key constraints between tables,
+**so that** referential integrity is enforced at the database level.
+
+### Configuration
+
+```yaml
+tables:
+  - id: 1
+    name: customers
+    fields:
+      - id: 1
+        name: name
+        type: single-line-text
+        required: true
+
+  - id: 2
+    name: orders
+    fields:
+      - id: 1
+        name: customer_id
+        type: relationship
+        relatedTable: customers
+        relationType: many-to-one
+        onDelete: cascade
+        onUpdate: cascade
+```
+
+### Acceptance Criteria
+
+| ID     | Criterion                                                | E2E Spec                   | Status |
+| ------ | -------------------------------------------------------- | -------------------------- | ------ |
+| AC-001 | Creates foreign key column referencing parent table      | `APP-TABLES-FK-001`        | ✅     |
+| AC-002 | Rejects INSERT when foreign key references non-existent  | `APP-TABLES-FK-002`        | ✅     |
+| AC-003 | Rejects DELETE of parent record with dependent children  | `APP-TABLES-FK-003`        | ✅     |
+| AC-004 | CASCADE DELETE removes child records with parent         | `APP-TABLES-FK-004`        | ✅     |
+| AC-005 | SET NULL on child records when parent is deleted         | `APP-TABLES-FK-005`        | ✅     |
+| AC-006 | Supports self-referential foreign keys                   | `APP-TABLES-FK-006`        | ✅     |
+| AC-007 | Allows circular dependencies between tables              | `APP-TABLES-FK-007`        | ✅     |
+| AC-008 | Creates index on foreign key column by default           | `APP-TABLES-FK-008`        | ✅     |
+| AC-009 | Supports composite foreign keys                          | `APP-TABLES-FK-009`        | ✅     |
+| AC-010 | Rejects FK creation when parent table does not exist     | `APP-TABLES-FK-010`        | ✅     |
+| AC-011 | Rejects FK when referenced column is not unique/PK       | `APP-TABLES-FK-011`        | ✅     |
+| AC-012 | CASCADE UPDATE updates child records when parent changes | `APP-TABLES-FK-012`        | ✅     |
+| AC-013 | Supports one-to-one relationship via unique FK           | `APP-TABLES-FK-013`        | ✅     |
+| AC-014 | Supports many-to-many via junction table with FKs        | `APP-TABLES-FK-014`        | ✅     |
+| AC-015 | User can complete full foreign key workflow (regression) | `APP-TABLES-FK-REGRESSION` | ✅     |
+
+### Implementation References
+
+- **Schema**: `src/domain/models/app/table/field-types/relationship.ts`
+- **E2E Spec**: `specs/app/tables/relationships/foreign-keys.spec.ts`
+
+---
+
+## US-TABLES-RELATIONSHIPS-001: Many-to-One Relationships
 
 **As a** developer,
 **I want to** define many-to-one relationships between tables,
@@ -49,13 +106,13 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                          | E2E Spec                                  |
-| ------ | -------------------------------------------------- | ----------------------------------------- |
-| AC-001 | Creates PostgreSQL INTEGER column with FOREIGN KEY | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-001` |
-| AC-002 | Validates referenced record exists                 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-002` |
-| AC-003 | Creates index on relationship column by default    | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-003` |
-| AC-004 | Returns related record when expanded               | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-004` |
-| AC-005 | Supports filtering by related record ID            | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-005` |
+| ID     | Criterion                                          | E2E Spec                                  | Status |
+| ------ | -------------------------------------------------- | ----------------------------------------- | ------ |
+| AC-001 | Creates PostgreSQL INTEGER column with FOREIGN KEY | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-001` | ✅     |
+| AC-002 | Validates referenced record exists                 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-002` | ✅     |
+| AC-003 | Creates index on relationship column by default    | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-003` | ✅     |
+| AC-004 | Returns related record when expanded               | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-004` | ✅     |
+| AC-005 | Supports filtering by related record ID            | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-005` | ✅     |
 
 ### Implementation References
 
@@ -64,7 +121,7 @@ tables:
 
 ---
 
-## US-RELATIONSHIPS-002: One-to-One Relationships
+## US-TABLES-RELATIONSHIPS-002: One-to-One Relationships
 
 **As a** developer,
 **I want to** define one-to-one relationships between tables,
@@ -99,11 +156,11 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                             | E2E Spec                                  |
-| ------ | ----------------------------------------------------- | ----------------------------------------- |
-| AC-001 | Creates PostgreSQL FOREIGN KEY with UNIQUE constraint | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-006` |
-| AC-002 | Prevents multiple records linking to same parent      | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-007` |
-| AC-003 | Returns 400 on duplicate link attempt                 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-008` |
+| ID     | Criterion                                             | E2E Spec                                  | Status |
+| ------ | ----------------------------------------------------- | ----------------------------------------- | ------ |
+| AC-001 | Creates PostgreSQL FOREIGN KEY with UNIQUE constraint | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-006` | ✅     |
+| AC-002 | Prevents multiple records linking to same parent      | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-007` | ✅     |
+| AC-003 | Returns 400 on duplicate link attempt                 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-008` | ✅     |
 
 ### Implementation References
 
@@ -112,7 +169,7 @@ tables:
 
 ---
 
-## US-RELATIONSHIPS-003: Many-to-Many Relationships
+## US-TABLES-RELATIONSHIPS-003: Many-to-Many Relationships
 
 **As a** developer,
 **I want to** define many-to-many relationships between tables,
@@ -147,13 +204,13 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                            | E2E Spec                                  |
-| ------ | ---------------------------------------------------- | ----------------------------------------- |
-| AC-001 | Auto-creates junction table ({table1}\_{table2})     | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-009` |
-| AC-002 | Junction table has composite primary key             | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-010` |
-| AC-003 | Supports linking multiple records                    | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-011` |
-| AC-004 | Returns array of related records when expanded       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-012` |
-| AC-005 | Creates reciprocal field on related table (optional) | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-013` |
+| ID     | Criterion                                            | E2E Spec                                  | Status |
+| ------ | ---------------------------------------------------- | ----------------------------------------- | ------ |
+| AC-001 | Auto-creates junction table ({table1}\_{table2})     | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-009` | ✅     |
+| AC-002 | Junction table has composite primary key             | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-010` | ✅     |
+| AC-003 | Supports linking multiple records                    | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-011` | ✅     |
+| AC-004 | Returns array of related records when expanded       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-012` | ✅     |
+| AC-005 | Creates reciprocal field on related table (optional) | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-013` | ✅     |
 
 ### Implementation References
 
@@ -162,7 +219,7 @@ tables:
 
 ---
 
-## US-RELATIONSHIPS-004: Self-Referencing Relationships
+## US-TABLES-RELATIONSHIPS-004: Self-Referencing Relationships
 
 **As a** developer,
 **I want to** define self-referencing relationships,
@@ -189,13 +246,13 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                          | E2E Spec                                  |
-| ------ | -------------------------------------------------- | ----------------------------------------- |
-| AC-001 | Creates self-referential foreign key               | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-014` |
-| AC-002 | Allows NULL for root-level records                 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-015` |
-| AC-003 | Supports tree traversal queries                    | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-016` |
-| AC-004 | Prevents circular references (optional validation) | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-017` |
-| AC-005 | Returns ancestors/descendants when requested       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-018` |
+| ID     | Criterion                                          | E2E Spec                                  | Status |
+| ------ | -------------------------------------------------- | ----------------------------------------- | ------ |
+| AC-001 | Creates self-referential foreign key               | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-014` | ✅     |
+| AC-002 | Allows NULL for root-level records                 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-015` | ❓     |
+| AC-003 | Supports tree traversal queries                    | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-016` | ❓     |
+| AC-004 | Prevents circular references (optional validation) | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-017` | ❓     |
+| AC-005 | Returns ancestors/descendants when requested       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-018` | ❓     |
 
 ### Implementation References
 
@@ -204,7 +261,7 @@ tables:
 
 ---
 
-## US-RELATIONSHIPS-005: Cascade Behaviors
+## US-TABLES-RELATIONSHIPS-005: Cascade Behaviors
 
 **As a** developer,
 **I want to** configure cascade behaviors for relationships,
@@ -238,13 +295,13 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                         | E2E Spec                                  |
-| ------ | ------------------------------------------------- | ----------------------------------------- |
-| AC-001 | onDelete: cascade deletes child records           | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-019` |
-| AC-002 | onDelete: set-null sets foreign key to NULL       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-020` |
-| AC-003 | onDelete: restrict prevents parent deletion       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-021` |
-| AC-004 | onUpdate: cascade updates foreign keys            | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-022` |
-| AC-005 | Returns appropriate error on constraint violation | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-023` |
+| ID     | Criterion                                         | E2E Spec                                  | Status |
+| ------ | ------------------------------------------------- | ----------------------------------------- | ------ |
+| AC-001 | onDelete: cascade deletes child records           | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-019` | ❓     |
+| AC-002 | onDelete: set-null sets foreign key to NULL       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-020` | ❓     |
+| AC-003 | onDelete: restrict prevents parent deletion       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-021` | ❓     |
+| AC-004 | onUpdate: cascade updates foreign keys            | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-022` | ❓     |
+| AC-005 | Returns appropriate error on constraint violation | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-023` | ❓     |
 
 ### Implementation References
 
@@ -253,7 +310,7 @@ tables:
 
 ---
 
-## US-RELATIONSHIPS-006: Lookup Fields
+## US-TABLES-RELATIONSHIPS-006: Lookup Fields
 
 **As a** developer,
 **I want to** define lookup fields to display values from related records,
@@ -285,13 +342,13 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                           | E2E Spec                            |
-| ------ | --------------------------------------------------- | ----------------------------------- |
-| AC-001 | Does not create database column (computed at query) | `APP-TABLES-FIELD-TYPES-LOOKUP-001` |
-| AC-002 | Returns value from related record                   | `APP-TABLES-FIELD-TYPES-LOOKUP-002` |
-| AC-003 | Updates automatically when source record changes    | `APP-TABLES-FIELD-TYPES-LOOKUP-003` |
-| AC-004 | Returns NULL when relationship is NULL              | `APP-TABLES-FIELD-TYPES-LOOKUP-004` |
-| AC-005 | Supports nested lookups (lookup from lookup)        | `APP-TABLES-FIELD-TYPES-LOOKUP-005` |
+| ID     | Criterion                                           | E2E Spec                            | Status |
+| ------ | --------------------------------------------------- | ----------------------------------- | ------ |
+| AC-001 | Does not create database column (computed at query) | `APP-TABLES-FIELD-TYPES-LOOKUP-001` | ✅     |
+| AC-002 | Returns value from related record                   | `APP-TABLES-FIELD-TYPES-LOOKUP-002` | ✅     |
+| AC-003 | Updates automatically when source record changes    | `APP-TABLES-FIELD-TYPES-LOOKUP-003` | ✅     |
+| AC-004 | Returns NULL when relationship is NULL              | `APP-TABLES-FIELD-TYPES-LOOKUP-004` | ✅     |
+| AC-005 | Supports nested lookups (lookup from lookup)        | `APP-TABLES-FIELD-TYPES-LOOKUP-005` | ✅     |
 
 ### Implementation References
 
@@ -300,7 +357,7 @@ tables:
 
 ---
 
-## US-RELATIONSHIPS-007: Rollup Fields
+## US-TABLES-RELATIONSHIPS-007: Rollup Fields
 
 **As a** developer,
 **I want to** define rollup fields to aggregate values from related records,
@@ -347,15 +404,15 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                            | E2E Spec                            |
-| ------ | ---------------------------------------------------- | ----------------------------------- |
-| AC-001 | Supports COUNT aggregation                           | `APP-TABLES-FIELD-TYPES-ROLLUP-001` |
-| AC-002 | Supports SUM aggregation                             | `APP-TABLES-FIELD-TYPES-ROLLUP-002` |
-| AC-003 | Supports AVG aggregation                             | `APP-TABLES-FIELD-TYPES-ROLLUP-003` |
-| AC-004 | Supports MIN/MAX aggregation                         | `APP-TABLES-FIELD-TYPES-ROLLUP-004` |
-| AC-005 | Updates automatically when linked records change     | `APP-TABLES-FIELD-TYPES-ROLLUP-005` |
-| AC-006 | Supports filtering linked records before aggregation | `APP-TABLES-FIELD-TYPES-ROLLUP-006` |
-| AC-007 | Returns 0 or NULL when no linked records exist       | `APP-TABLES-FIELD-TYPES-ROLLUP-007` |
+| ID     | Criterion                                            | E2E Spec                            | Status |
+| ------ | ---------------------------------------------------- | ----------------------------------- | ------ |
+| AC-001 | Supports COUNT aggregation                           | `APP-TABLES-FIELD-TYPES-ROLLUP-001` | ✅     |
+| AC-002 | Supports SUM aggregation                             | `APP-TABLES-FIELD-TYPES-ROLLUP-002` | ✅     |
+| AC-003 | Supports AVG aggregation                             | `APP-TABLES-FIELD-TYPES-ROLLUP-003` | ✅     |
+| AC-004 | Supports MIN/MAX aggregation                         | `APP-TABLES-FIELD-TYPES-ROLLUP-004` | ✅     |
+| AC-005 | Updates automatically when linked records change     | `APP-TABLES-FIELD-TYPES-ROLLUP-005` | ✅     |
+| AC-006 | Supports filtering linked records before aggregation | `APP-TABLES-FIELD-TYPES-ROLLUP-006` | ✅     |
+| AC-007 | Returns 0 or NULL when no linked records exist       | `APP-TABLES-FIELD-TYPES-ROLLUP-007` | ✅     |
 
 ### Implementation References
 
@@ -364,7 +421,7 @@ tables:
 
 ---
 
-## US-RELATIONSHIPS-008: Count Fields
+## US-TABLES-RELATIONSHIPS-008: Count Fields
 
 **As a** developer,
 **I want to** define count fields to count related records,
@@ -388,13 +445,13 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                        | E2E Spec                           |
-| ------ | ------------------------------------------------ | ---------------------------------- |
-| AC-001 | Counts related records efficiently               | `APP-TABLES-FIELD-TYPES-COUNT-001` |
-| AC-002 | Updates automatically when linked records change | `APP-TABLES-FIELD-TYPES-COUNT-002` |
-| AC-003 | Returns 0 when no linked records exist           | `APP-TABLES-FIELD-TYPES-COUNT-003` |
-| AC-004 | Supports filtering before counting               | `APP-TABLES-FIELD-TYPES-COUNT-004` |
-| AC-005 | Excludes soft-deleted records by default         | `APP-TABLES-FIELD-TYPES-COUNT-005` |
+| ID     | Criterion                                        | E2E Spec                           | Status |
+| ------ | ------------------------------------------------ | ---------------------------------- | ------ |
+| AC-001 | Counts related records efficiently               | `APP-TABLES-FIELD-TYPES-COUNT-001` | ✅     |
+| AC-002 | Updates automatically when linked records change | `APP-TABLES-FIELD-TYPES-COUNT-002` | ✅     |
+| AC-003 | Returns 0 when no linked records exist           | `APP-TABLES-FIELD-TYPES-COUNT-003` | ✅     |
+| AC-004 | Supports filtering before counting               | `APP-TABLES-FIELD-TYPES-COUNT-004` | ✅     |
+| AC-005 | Excludes soft-deleted records by default         | `APP-TABLES-FIELD-TYPES-COUNT-005` | ✅     |
 
 ### Implementation References
 
@@ -403,7 +460,7 @@ tables:
 
 ---
 
-## US-RELATIONSHIPS-009: Relationship Display Options
+## US-TABLES-RELATIONSHIPS-009: Relationship Display Options
 
 **As a** developer,
 **I want to** configure how related records are displayed,
@@ -427,12 +484,12 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                       | E2E Spec                                    |
-| ------ | ----------------------------------------------- | ------------------------------------------- |
-| AC-001 | Uses displayField for UI representation         | `APP-TABLES-FIELD-RELATIONSHIP-DISPLAY-001` |
-| AC-002 | Filters available options based on limitToView  | `APP-TABLES-FIELD-RELATIONSHIP-DISPLAY-002` |
-| AC-003 | Supports multiple display fields (concatenated) | `APP-TABLES-FIELD-RELATIONSHIP-DISPLAY-003` |
-| AC-004 | Returns display value in API response           | `APP-TABLES-FIELD-RELATIONSHIP-DISPLAY-004` |
+| ID     | Criterion                                       | E2E Spec                                    | Status |
+| ------ | ----------------------------------------------- | ------------------------------------------- | ------ |
+| AC-001 | Uses displayField for UI representation         | `APP-TABLES-FIELD-RELATIONSHIP-DISPLAY-001` | ❓     |
+| AC-002 | Filters available options based on limitToView  | `APP-TABLES-FIELD-RELATIONSHIP-DISPLAY-002` | ❓     |
+| AC-003 | Supports multiple display fields (concatenated) | `APP-TABLES-FIELD-RELATIONSHIP-DISPLAY-003` | ❓     |
+| AC-004 | Returns display value in API response           | `APP-TABLES-FIELD-RELATIONSHIP-DISPLAY-004` | ❓     |
 
 ### Implementation References
 
@@ -443,25 +500,27 @@ tables:
 
 ## Regression Tests
 
-| Spec ID                               | Workflow                                             | Status |
-| ------------------------------------- | ---------------------------------------------------- | ------ |
-| `APP-TABLES-RELATIONSHIPS-REGRESSION` | Developer creates tables with all relationship types | `[x]`  |
-| `APP-TABLES-CASCADE-REGRESSION`       | Cascade behaviors work correctly on CRUD operations  | `[x]`  |
-| `APP-TABLES-LOOKUP-ROLLUP-REGRESSION` | Lookup and rollup fields compute correctly           | `[x]`  |
+| Spec ID                               | Workflow                                              | Status |
+| ------------------------------------- | ----------------------------------------------------- | ------ |
+| `APP-TABLES-FK-REGRESSION`            | Developer creates and manages foreign key constraints | `[x]`  |
+| `APP-TABLES-RELATIONSHIPS-REGRESSION` | Developer creates tables with all relationship types  | `[x]`  |
+| `APP-TABLES-CASCADE-REGRESSION`       | Cascade behaviors work correctly on CRUD operations   | `[x]`  |
+| `APP-TABLES-LOOKUP-ROLLUP-REGRESSION` | Lookup and rollup fields compute correctly            | `[x]`  |
 
 ---
 
 ## Coverage Summary
 
-| User Story           | Title                      | Spec Count            | Status   |
-| -------------------- | -------------------------- | --------------------- | -------- |
-| US-RELATIONSHIPS-001 | Many-to-One Relationships  | 5                     | Complete |
-| US-RELATIONSHIPS-002 | One-to-One Relationships   | 3                     | Complete |
-| US-RELATIONSHIPS-003 | Many-to-Many Relationships | 5                     | Complete |
-| US-RELATIONSHIPS-004 | Self-Referencing           | 5                     | Complete |
-| US-RELATIONSHIPS-005 | Cascade Behaviors          | 5                     | Complete |
-| US-RELATIONSHIPS-006 | Lookup Fields              | 5                     | Complete |
-| US-RELATIONSHIPS-007 | Rollup Fields              | 7                     | Complete |
-| US-RELATIONSHIPS-008 | Count Fields               | 5                     | Complete |
-| US-RELATIONSHIPS-009 | Display Options            | 4                     | Complete |
-| **Total**            |                            | **44 + 3 regression** |          |
+| User Story                  | Title                      | Spec Count            | Status   |
+| --------------------------- | -------------------------- | --------------------- | -------- |
+| US-TABLES-RELATIONSHIPS-000 | Foreign Key Constraints    | 15                    | Complete |
+| US-TABLES-RELATIONSHIPS-001 | Many-to-One Relationships  | 5                     | Complete |
+| US-TABLES-RELATIONSHIPS-002 | One-to-One Relationships   | 3                     | Complete |
+| US-TABLES-RELATIONSHIPS-003 | Many-to-Many Relationships | 5                     | Complete |
+| US-TABLES-RELATIONSHIPS-004 | Self-Referencing           | 5                     | Complete |
+| US-TABLES-RELATIONSHIPS-005 | Cascade Behaviors          | 5                     | Complete |
+| US-TABLES-RELATIONSHIPS-006 | Lookup Fields              | 5                     | Complete |
+| US-TABLES-RELATIONSHIPS-007 | Rollup Fields              | 7                     | Complete |
+| US-TABLES-RELATIONSHIPS-008 | Count Fields               | 5                     | Complete |
+| US-TABLES-RELATIONSHIPS-009 | Display Options            | 4                     | Complete |
+| **Total**                   |                            | **59 + 4 regression** |          |
