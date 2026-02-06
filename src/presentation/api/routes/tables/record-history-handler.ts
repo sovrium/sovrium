@@ -104,43 +104,15 @@ async function fetchActivities(tableName: string, recordId: string, limit: numbe
 }
 
 /**
- * Handle GET /api/tables/:tableId/records/:recordId/history
- *
- * Retrieves the complete change history for a specific record.
- *
- * Features:
- * - Chronological ordering (oldest to newest)
- * - User metadata for each activity
- * - Pagination support (limit/offset)
- * - 1-year retention policy enforcement
- *
- * Authentication: Always required (activity APIs require auth)
+ * Build the Effect program for fetching record history
  */
-export async function handleGetRecordHistory(c: Context, app: App) {
-  const { tableName } = getTableContext(c)
-  const tableId = c.req.param('tableId')
-  const recordId = c.req.param('recordId')
-
-  // Parse pagination params
-  const limitParam = c.req.query('limit')
-  const offsetParam = c.req.query('offset')
-  const limit = limitParam ? parseInt(limitParam, 10) : 100
-  const offset = offsetParam ? parseInt(offsetParam, 10) : 0
-
-  // Validate table exists
-  const table = app.tables?.find((t) => t.id === parseInt(tableId, 10))
-  if (!table) {
-    return c.json(
-      {
-        success: false,
-        message: 'Table not found',
-        code: 'TABLE_NOT_FOUND',
-      },
-      404
-    )
-  }
-
-  const program = Effect.gen(function* () {
+function buildRecordHistoryProgram(
+  tableName: string,
+  recordId: string,
+  limit: number,
+  offset: number
+) {
+  return Effect.gen(function* () {
     const exists = yield* Effect.tryPromise({
       try: () => checkRecordExists(tableName, String(recordId)),
       catch: (error) => new DatabaseError({ message: 'Failed to check record', cause: error }),
@@ -177,6 +149,46 @@ export async function handleGetRecordHistory(c: Context, app: App) {
       pagination: { limit, offset, total },
     }
   })
+}
+
+/**
+ * Handle GET /api/tables/:tableId/records/:recordId/history
+ *
+ * Retrieves the complete change history for a specific record.
+ *
+ * Features:
+ * - Chronological ordering (oldest to newest)
+ * - User metadata for each activity
+ * - Pagination support (limit/offset)
+ * - 1-year retention policy enforcement
+ *
+ * Authentication: Always required (activity APIs require auth)
+ */
+export async function handleGetRecordHistory(c: Context, app: App) {
+  const { tableName } = getTableContext(c)
+  const tableId = c.req.param('tableId')
+  const recordId = c.req.param('recordId')
+
+  // Parse pagination params
+  const limitParam = c.req.query('limit')
+  const offsetParam = c.req.query('offset')
+  const limit = limitParam ? parseInt(limitParam, 10) : 100
+  const offset = offsetParam ? parseInt(offsetParam, 10) : 0
+
+  // Validate table exists
+  const table = app.tables?.find((t) => t.id === parseInt(tableId, 10))
+  if (!table) {
+    return c.json(
+      {
+        success: false,
+        message: 'Table not found',
+        code: 'TABLE_NOT_FOUND',
+      },
+      404
+    )
+  }
+
+  const program = buildRecordHistoryProgram(tableName, String(recordId), limit, offset)
 
   return runEffect(c, program)
 }
