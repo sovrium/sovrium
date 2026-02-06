@@ -462,24 +462,22 @@ export function listComments(config: {
   }[],
   SessionContextError
 > {
-  const { session, recordId, limit, offset, sortOrder } = config
-  return withSessionContext(session, (_tx) =>
-    Effect.gen(function* () {
-      const result = yield* Effect.tryPromise<Array<CommentQueryRow>, SessionContextError>({
-        try: () => executeListCommentsQuery(recordId, { limit, offset, sortOrder }),
-        catch: (error) => new SessionContextError('Failed to list comments', error),
-      })
-
-      return result.map((row) =>
-        transformCommentRow({
-          ...row,
-          userName: row.userName ?? undefined,
-          userEmail: row.userEmail ?? undefined,
-          userImage: row.userImage ?? undefined,
-        })
-      )
+  const { recordId, limit, offset, sortOrder } = config
+  return Effect.gen(function* () {
+    const result = yield* Effect.tryPromise<Array<CommentQueryRow>, SessionContextError>({
+      try: () => executeListCommentsQuery(recordId, { limit, offset, sortOrder }),
+      catch: (error) => new SessionContextError('Failed to list comments', error),
     })
-  )
+
+    return result.map((row) =>
+      transformCommentRow({
+        ...row,
+        userName: row.userName ?? undefined,
+        userEmail: row.userEmail ?? undefined,
+        userImage: row.userImage ?? undefined,
+      })
+    )
+  })
 }
 
 /**
@@ -489,19 +487,17 @@ export function getCommentsCount(config: {
   readonly session: Readonly<Session>
   readonly recordId: string
 }): Effect.Effect<number, SessionContextError> {
-  const { session, recordId } = config
-  return withSessionContext(session, (tx) =>
-    Effect.gen(function* () {
-      const result = yield* Effect.tryPromise<Array<{ count: number }>, SessionContextError>({
-        try: () =>
-          (tx as ReturnType<typeof db>)
-            .select({ count: sql<number>`count(*)::int` })
-            .from(recordComments)
-            .where(and(eq(recordComments.recordId, recordId), isNull(recordComments.deletedAt))),
-        catch: (error) => new SessionContextError('Failed to count comments', error),
-      })
-
-      return result[0]?.count ?? 0
+  const { recordId } = config
+  return Effect.gen(function* () {
+    const result = yield* Effect.tryPromise<Array<{ count: number }>, SessionContextError>({
+      try: () =>
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(recordComments)
+          .where(and(eq(recordComments.recordId, recordId), isNull(recordComments.deletedAt))),
+      catch: (error) => new SessionContextError('Failed to count comments', error),
     })
-  )
+
+    return result[0]?.count ?? 0
+  })
 }
