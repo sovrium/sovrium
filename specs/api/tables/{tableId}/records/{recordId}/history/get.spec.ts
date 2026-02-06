@@ -135,7 +135,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-004: should return 404 when record does not exist',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -171,7 +171,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-005: should return empty history when no activities exist',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -206,7 +206,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-006: should include user metadata for each activity',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -251,7 +251,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-007: should exclude activities older than 1 year (retention policy)',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -295,7 +295,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-008: should support pagination for record history',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -344,7 +344,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-009: should show complete lifecycle including delete',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -424,7 +424,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-REGRESSION: user can view complete change history for a record',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
