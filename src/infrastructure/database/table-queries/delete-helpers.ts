@@ -7,7 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { SessionContextError } from '@/infrastructure/database'
+import { SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
 import { validateTableName, validateColumnName } from './validation'
 
 /**
@@ -16,8 +16,7 @@ import { validateTableName, validateColumnName } from './validation'
  * Helper function to cascade soft delete to child records based on onDelete: 'cascade' configuration
  */
 export async function cascadeSoftDelete(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type is complex Drizzle type
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordId: string,
   app: {
@@ -79,8 +78,7 @@ export async function cascadeSoftDelete(
  * Fetch record before deletion for activity logging
  */
 export function fetchRecordBeforeDeletion(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type is complex Drizzle type
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordId: string
 ): Effect.Effect<Record<string, unknown> | undefined, SessionContextError> {
@@ -100,8 +98,7 @@ export function fetchRecordBeforeDeletion(
  * Execute soft delete operation
  */
 export function executeSoftDelete(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type is complex Drizzle type
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordId: string
 ): Effect.Effect<boolean, SessionContextError> {
@@ -122,8 +119,7 @@ export function executeSoftDelete(
  * Execute hard delete operation
  */
 export function executeHardDelete(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type is complex Drizzle type
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordId: string
 ): Effect.Effect<boolean, SessionContextError> {
@@ -144,8 +140,7 @@ export function executeHardDelete(
  * Check if table has deleted_at column for soft delete support
  */
 export function checkDeletedAtColumn(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type is complex Drizzle type
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string
 ): Effect.Effect<boolean, SessionContextError> {
   return Effect.tryPromise({

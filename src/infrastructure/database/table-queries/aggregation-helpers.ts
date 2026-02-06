@@ -7,7 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { SessionContextError } from '@/infrastructure/database'
+import { SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
 import { generateSqlCondition } from '../filter-operators'
 import { validateColumnName } from './validation'
 
@@ -131,8 +131,7 @@ export function parseAggregationResult(
  * Check if table has deleted_at column
  */
 export function checkDeletedAtColumn(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string
 ): Effect.Effect<boolean, SessionContextError> {
   return Effect.tryPromise({

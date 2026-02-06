@@ -7,7 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { SessionContextError } from '@/infrastructure/database'
+import { SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
 import { validateColumnName } from './validation'
 
 /**
@@ -29,8 +29,7 @@ export function validateFieldsNotEmpty(
  * Fetch record before update for activity logging (CRUD version)
  */
 export function fetchRecordBeforeUpdateCRUD(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordId: string
 ): Effect.Effect<Record<string, unknown> | undefined, SessionContextError> {
@@ -62,8 +61,7 @@ export function buildUpdateSetClauseCRUD(
  * Execute UPDATE query with permission enforcement
  */
 export function executeRecordUpdateCRUD(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordId: string,
   setClause: Readonly<ReturnType<typeof sql.join>>

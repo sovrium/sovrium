@@ -14,6 +14,10 @@ import {
   executeHardDelete,
   checkDeletedAtColumn,
 } from './delete-helpers'
+import type { DrizzleTransaction } from '@/infrastructure/database'
+
+const asTx = (mock: { execute: (...args: any[]) => any }) =>
+  mock as unknown as Readonly<DrizzleTransaction>
 
 describe('cascadeSoftDelete', () => {
   describe('when app has tables with cascade relationships', () => {
@@ -67,7 +71,7 @@ describe('cascadeSoftDelete', () => {
         ],
       }
 
-      await cascadeSoftDelete(mockTx, 'posts', 'post-123', app)
+      await cascadeSoftDelete(asTx(mockTx), 'posts', 'post-123', app)
 
       // Should check for deleted_at column in child table
       expect(checkColumnCalled).toBe(true)
@@ -123,7 +127,7 @@ describe('cascadeSoftDelete', () => {
         ],
       }
 
-      await cascadeSoftDelete(mockTx, 'posts', 'post-123', app)
+      await cascadeSoftDelete(asTx(mockTx), 'posts', 'post-123', app)
 
       // Should cascade to both comments and likes
       expect(updateCount).toBe(2)
@@ -168,7 +172,7 @@ describe('cascadeSoftDelete', () => {
         ],
       }
 
-      await cascadeSoftDelete(mockTx, 'posts', 'post-123', app)
+      await cascadeSoftDelete(asTx(mockTx), 'posts', 'post-123', app)
 
       // Should check for deleted_at
       expect(checkColumnCalled).toBe(true)
@@ -187,7 +191,9 @@ describe('cascadeSoftDelete', () => {
       const app = {}
 
       // Should not throw
-      await expect(cascadeSoftDelete(mockTx, 'users', 'user-123', app)).resolves.toBeUndefined()
+      await expect(
+        cascadeSoftDelete(asTx(mockTx), 'users', 'user-123', app)
+      ).resolves.toBeUndefined()
     })
 
     test('returns without error when app.tables is empty array', async () => {
@@ -198,7 +204,9 @@ describe('cascadeSoftDelete', () => {
       const app = { tables: [] }
 
       // Should not throw
-      await expect(cascadeSoftDelete(mockTx, 'users', 'user-123', app)).resolves.toBeUndefined()
+      await expect(
+        cascadeSoftDelete(asTx(mockTx), 'users', 'user-123', app)
+      ).resolves.toBeUndefined()
     })
   })
 
@@ -250,7 +258,7 @@ describe('cascadeSoftDelete', () => {
         ],
       }
 
-      await cascadeSoftDelete(mockTx, 'posts', 'post-123', app)
+      await cascadeSoftDelete(asTx(mockTx), 'posts', 'post-123', app)
 
       // Should only cascade to comments (not favorites)
       expect(updateCount).toBe(1)
@@ -292,7 +300,7 @@ describe('cascadeSoftDelete', () => {
         ],
       }
 
-      await cascadeSoftDelete(mockTx, 'users', 'user-123', app)
+      await cascadeSoftDelete(asTx(mockTx), 'users', 'user-123', app)
 
       // Should execute queries (checking for deleted_at column)
       expect(executeCalled).toBe(true)
@@ -330,7 +338,7 @@ describe('cascadeSoftDelete', () => {
       }
 
       // Should throw validation error (invalid table name)
-      await expect(cascadeSoftDelete(mockTx, 'posts', 'post-123', app)).rejects.toThrow(
+      await expect(cascadeSoftDelete(asTx(mockTx), 'posts', 'post-123', app)).rejects.toThrow(
         'Invalid table name'
       )
     })
@@ -365,7 +373,7 @@ describe('cascadeSoftDelete', () => {
       }
 
       // Should throw validation error (invalid column name)
-      await expect(cascadeSoftDelete(mockTx, 'posts', 'post-123', app)).rejects.toThrow(
+      await expect(cascadeSoftDelete(asTx(mockTx), 'posts', 'post-123', app)).rejects.toThrow(
         'Invalid column name'
       )
     })
@@ -387,7 +395,7 @@ describe('fetchRecordBeforeDeletion', () => {
         },
       }
 
-      const program = fetchRecordBeforeDeletion(mockTx, 'users', '123')
+      const program = fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
       const result = await Effect.runPromise(program)
 
       expect(result).toEqual(mockRecord)
@@ -403,7 +411,7 @@ describe('fetchRecordBeforeDeletion', () => {
         },
       }
 
-      const program = fetchRecordBeforeDeletion(mockTx, 'users', '123')
+      const program = fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
       await Effect.runPromise(program)
 
       // Verify query was executed (can't directly inspect sql.identifier but query should be defined)
@@ -417,7 +425,7 @@ describe('fetchRecordBeforeDeletion', () => {
         execute: async () => [],
       }
 
-      const program = fetchRecordBeforeDeletion(mockTx, 'users', '999')
+      const program = fetchRecordBeforeDeletion(asTx(mockTx), 'users', '999')
       const result = await Effect.runPromise(program)
 
       expect(result).toBeUndefined()
@@ -432,7 +440,7 @@ describe('fetchRecordBeforeDeletion', () => {
         },
       }
 
-      const program = fetchRecordBeforeDeletion(mockTx, 'users', '123')
+      const program = fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
 
       try {
         await Effect.runPromise(program)
@@ -453,7 +461,7 @@ describe('fetchRecordBeforeDeletion', () => {
         },
       }
 
-      const program = fetchRecordBeforeDeletion(mockTx, 'users', '123')
+      const program = fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
 
       try {
         await Effect.runPromise(program)
@@ -475,7 +483,7 @@ describe('executeSoftDelete', () => {
         },
       }
 
-      const program = executeSoftDelete(mockTx, 'users', '123')
+      const program = executeSoftDelete(asTx(mockTx), 'users', '123')
       const result = await Effect.runPromise(program)
 
       expect(result).toBe(true)
@@ -491,7 +499,7 @@ describe('executeSoftDelete', () => {
         },
       }
 
-      const program = executeSoftDelete(mockTx, 'users', '123')
+      const program = executeSoftDelete(asTx(mockTx), 'users', '123')
       await Effect.runPromise(program)
 
       expect(executedQuery).toBeDefined()
@@ -507,7 +515,7 @@ describe('executeSoftDelete', () => {
         },
       }
 
-      const program = executeSoftDelete(mockTx, 'users', '999')
+      const program = executeSoftDelete(asTx(mockTx), 'users', '999')
       const result = await Effect.runPromise(program)
 
       expect(result).toBe(false)
@@ -522,7 +530,7 @@ describe('executeSoftDelete', () => {
         },
       }
 
-      const program = executeSoftDelete(mockTx, 'users', '123')
+      const program = executeSoftDelete(asTx(mockTx), 'users', '123')
 
       try {
         await Effect.runPromise(program)
@@ -542,7 +550,7 @@ describe('executeSoftDelete', () => {
         },
       }
 
-      const program = executeSoftDelete(mockTx, 'users', '123')
+      const program = executeSoftDelete(asTx(mockTx), 'users', '123')
 
       try {
         await Effect.runPromise(program)
@@ -564,7 +572,7 @@ describe('executeHardDelete', () => {
         },
       }
 
-      const program = executeHardDelete(mockTx, 'users', '123')
+      const program = executeHardDelete(asTx(mockTx), 'users', '123')
       const result = await Effect.runPromise(program)
 
       expect(result).toBe(true)
@@ -580,7 +588,7 @@ describe('executeHardDelete', () => {
         },
       }
 
-      const program = executeHardDelete(mockTx, 'users', '123')
+      const program = executeHardDelete(asTx(mockTx), 'users', '123')
       await Effect.runPromise(program)
 
       expect(executedQuery).toBeDefined()
@@ -596,7 +604,7 @@ describe('executeHardDelete', () => {
         },
       }
 
-      const program = executeHardDelete(mockTx, 'users', '999')
+      const program = executeHardDelete(asTx(mockTx), 'users', '999')
       const result = await Effect.runPromise(program)
 
       expect(result).toBe(false)
@@ -611,7 +619,7 @@ describe('executeHardDelete', () => {
         },
       }
 
-      const program = executeHardDelete(mockTx, 'users', '123')
+      const program = executeHardDelete(asTx(mockTx), 'users', '123')
 
       try {
         await Effect.runPromise(program)
@@ -631,7 +639,7 @@ describe('executeHardDelete', () => {
         },
       }
 
-      const program = executeHardDelete(mockTx, 'users', '123')
+      const program = executeHardDelete(asTx(mockTx), 'users', '123')
 
       try {
         await Effect.runPromise(program)
@@ -653,7 +661,7 @@ describe('checkDeletedAtColumn', () => {
         },
       }
 
-      const program = checkDeletedAtColumn(mockTx, 'users')
+      const program = checkDeletedAtColumn(asTx(mockTx), 'users')
       const result = await Effect.runPromise(program)
 
       expect(result).toBe(true)
@@ -669,7 +677,7 @@ describe('checkDeletedAtColumn', () => {
         },
       }
 
-      const program = checkDeletedAtColumn(mockTx, 'users')
+      const program = checkDeletedAtColumn(asTx(mockTx), 'users')
       const result = await Effect.runPromise(program)
 
       expect(result).toBe(false)
@@ -684,7 +692,7 @@ describe('checkDeletedAtColumn', () => {
         },
       }
 
-      const program = checkDeletedAtColumn(mockTx, 'users')
+      const program = checkDeletedAtColumn(asTx(mockTx), 'users')
 
       try {
         await Effect.runPromise(program)
@@ -704,7 +712,7 @@ describe('checkDeletedAtColumn', () => {
         },
       }
 
-      const program = checkDeletedAtColumn(mockTx, 'users')
+      const program = checkDeletedAtColumn(asTx(mockTx), 'users')
 
       try {
         await Effect.runPromise(program)

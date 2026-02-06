@@ -14,6 +14,7 @@ import {
   SessionContextError,
   ForbiddenError,
   ValidationError,
+  type DrizzleTransaction,
 } from '@/infrastructure/database'
 import { logActivity } from './activity-log-helpers'
 import { validateTableName, validateColumnName } from './validation'
@@ -31,8 +32,7 @@ export class BatchValidationError extends Data.TaggedError('BatchValidationError
  * Helper to create a single record within a transaction
  */
 async function createSingleRecord(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: Readonly<any>,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string,
   fields: Readonly<Record<string, unknown>>
 ): Promise<Readonly<Record<string, unknown>> | undefined> {
@@ -138,8 +138,7 @@ export function batchCreateRecords(
  * Helper to update existing record
  */
 async function updateSingleRecord(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: Readonly<any>,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordId: string,
   params: { readonly fields: Record<string, unknown>; readonly fieldsToMergeOn: readonly string[] }
@@ -172,8 +171,7 @@ type UpsertResult = {
  * Check if record exists based on merge fields
  */
 function findExistingRecord(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string,
   fields: Readonly<Record<string, unknown>>,
   fieldsToMergeOn: readonly string[]
@@ -200,8 +198,7 @@ function findExistingRecord(
  * Handle update path in upsert
  */
 function handleUpsertUpdate(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   params: {
     readonly session: Readonly<Session>
     readonly tableName: string
@@ -251,8 +248,7 @@ function handleUpsertUpdate(
  * Handle create path in upsert
  */
 function handleUpsertCreate(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   params: {
     readonly session: Readonly<Session>
     readonly tableName: string
@@ -294,8 +290,7 @@ function handleUpsertCreate(
  * Process single upsert operation
  */
 function processSingleUpsert(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   params: {
     readonly session: Readonly<Session>
     readonly tableName: string
@@ -351,8 +346,7 @@ function validateMergeFieldsPresent(
  * This prevents database NOT NULL constraint violations
  */
 async function validateRequiredFieldsInRecord(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string,
   record: Readonly<Record<string, unknown>>,
   recordIndex: number
@@ -367,7 +361,7 @@ async function validateRequiredFieldsInRecord(
         AND is_nullable = 'NO'
         AND column_default IS NULL
     `
-  )) as ReadonlyArray<{ column_name: string }>
+  )) as unknown as ReadonlyArray<{ column_name: string }>
 
   const requiredFields = schemaQuery.map((row) => row.column_name)
 
@@ -389,8 +383,7 @@ async function validateRequiredFieldsInRecord(
  * Validate all records have required fields BEFORE processing
  */
 function validateAllRecordsHaveRequiredFields(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordsData: readonly Record<string, unknown>[]
 ): Effect.Effect<void, BatchValidationError> {
@@ -466,10 +459,7 @@ export function upsertRecords(
 /**
  * Check if user has permission to restore records
  */
-async function checkRestorePermission(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any
-): Promise<void> {
+async function checkRestorePermission(tx: Readonly<DrizzleTransaction>): Promise<void> {
   const roleResult = (await tx.execute(
     sql`SELECT current_setting('app.user_role', true) as role`
   )) as Array<{ role: string | null }>
@@ -485,8 +475,7 @@ async function checkRestorePermission(
  * Validate records exist and are soft-deleted
  */
 async function validateRecordsForRestore(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Promise<void> {
@@ -533,8 +522,7 @@ async function validateRecordsForRestore(
  * Check restore permission with Effect error handling
  */
 function checkRestorePermissionWithEffect(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any
+  tx: Readonly<DrizzleTransaction>
 ): Effect.Effect<void, SessionContextError | ForbiddenError> {
   return Effect.tryPromise({
     try: () => checkRestorePermission(tx),
@@ -551,8 +539,7 @@ function checkRestorePermissionWithEffect(
  * Validate records for restore with Effect error handling
  */
 function validateRecordsForRestoreWithEffect(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Effect.Effect<void, SessionContextError> {
@@ -569,8 +556,7 @@ function validateRecordsForRestoreWithEffect(
  * Execute restore query using parameterized IN clause
  */
 function executeRestoreQuery(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   tableName: string,
   recordIds: readonly string[]
@@ -645,8 +631,7 @@ function extractFieldsFromUpdate(update: {
  * Fetch record before update for activity logging
  */
 function fetchRecordBeforeUpdate(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordId: string
 ): Effect.Effect<Record<string, unknown> | undefined, never> {
@@ -679,8 +664,7 @@ function buildUpdateSetClause(
  * Execute UPDATE query and return updated record
  */
 function executeRecordUpdate(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordId: string,
   setClause: Readonly<ReturnType<typeof sql.join>>
@@ -718,8 +702,7 @@ function executeRecordUpdate(
  * Update a single record within a batch operation
  */
 function updateSingleRecordInBatch(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string,
   session: Readonly<Session>,
   update: { readonly id: string; readonly fields?: Record<string, unknown> }
@@ -789,8 +772,7 @@ export function batchUpdateRecords(
  * Validate records exist for batch delete
  */
 async function validateRecordsForDelete(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Transaction type from db.transaction callback
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Promise<void> {
@@ -819,8 +801,7 @@ async function validateRecordsForDelete(
  * Validate records exist for batch delete with Effect error handling
  */
 function validateRecordsForDeleteWithEffect(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Effect.Effect<void, SessionContextError> {
@@ -837,8 +818,7 @@ function validateRecordsForDeleteWithEffect(
  * Fetch records before deletion for activity logging
  */
 function fetchRecordsBeforeDelete(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
@@ -861,8 +841,7 @@ function fetchRecordsBeforeDelete(
  * Check if table supports soft delete (has deleted_at column)
  */
 function checkSoftDeleteSupport(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   tableName: string
 ): Effect.Effect<boolean, SessionContextError> {
   return Effect.tryPromise({
@@ -880,8 +859,7 @@ function checkSoftDeleteSupport(
  * Execute delete query (soft or hard delete based on parameters)
  */
 function executeDeleteQuery(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  tx: any,
+  tx: Readonly<DrizzleTransaction>,
   params: {
     readonly tableName: string
     readonly recordIds: readonly string[]
