@@ -15,9 +15,9 @@ Sovrium provides a system-wide activity logging API that tracks all user and sys
 
 ## US-API-ACTIVITY-001: List Activity Logs
 
-**As a** developer,
+**As a** business admin,
 **I want to** retrieve a paginated list of activity logs,
-**so that** administrators can monitor system activity and audit user actions.
+**so that** I can monitor system activity and audit user actions.
 
 ### API Request
 
@@ -94,9 +94,9 @@ GET /api/activity?page=1&pageSize=20&table=orders&action=update
 
 ## US-API-ACTIVITY-002: Get Activity Details
 
-**As a** developer,
+**As a** business admin,
 **I want to** retrieve details of a specific activity log entry,
-**so that** users can view the full context of an action.
+**so that** I can view the full context of an action.
 
 ### API Request
 
@@ -147,7 +147,7 @@ GET /api/activity/act_123
 
 ## US-API-ACTIVITY-003: Activity API Rate Limiting
 
-**As a** developer,
+**As a** business admin,
 **I want to** have rate limiting on activity API endpoints,
 **so that** the system is protected from abuse and excessive API calls.
 

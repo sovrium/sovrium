@@ -16,15 +16,17 @@
 
 | Area                                                | Description                                                | Stories |
 | --------------------------------------------------- | ---------------------------------------------------------- | ------- |
-| [**Authentication**](./authentication/)             | User sign-up, sign-in, 2FA, sessions, admin management     | 7 files |
-| [**Tables**](./tables/)                             | Table definitions, field types, relationships, permissions | 6 files |
-| [**Records API**](./records-api/)                   | CRUD operations, batch processing, filtering, soft-delete  | 5 files |
-| [**Activity API**](./activity-api/)                 | Activity logging, audit trail, rate limiting               | 1 file  |
-| [**Pages**](./pages/)                               | Routes, layouts, scripts, common schemas, SEO metadata     | 6 files |
+| [**Authentication**](./authentication/)             | User sign-up, sign-in, 2FA, sessions, security enforcement | 5 files |
+| [**Tables**](./tables/)                             | Table definitions, field types, relationships, permissions | 7 files |
+| [**Records API**](./records-api/)                   | CRUD operations, batch processing, filtering, soft-delete  | 7 files |
+| [**Pages**](./pages/)                               | Routes, layouts, scripts, common schemas, SEO metadata     | 7 files |
 | [**Theming**](./theming/)                           | Design tokens, responsive design, animations               | 3 files |
 | [**Internationalization**](./internationalization/) | Multi-language application support                         | 1 file  |
 | [**CLI**](./cli/)                                   | Server commands, static site generation                    | 2 files |
 | [**Migrations**](./migrations/)                     | Schema evolution, migration versioning                     | 2 files |
+| [**App Schema**](./app-schema/)                     | Application metadata configuration                        | 1 file  |
+| [**API**](./api/)                                   | Health check endpoint                                      | 1 file  |
+| [**Templates**](./templates/)                       | Landing page templates                                     | 1 file  |
 
 ## Quick Links
 
@@ -35,8 +37,9 @@
 - [Magic Link Auth](./authentication/magic-link-auth.md) - Passwordless email links
 - [Password Recovery](./authentication/password-recovery.md) - Reset and change password
 - [Session Management](./authentication/session-management.md) - Sessions, sign-out, revocation
-- [Admin User Management](./authentication/admin-user-management.md) - Admin CRUD, ban, impersonate
-- [Admin Bootstrap](./authentication/admin-bootstrap.md) - Automatic admin account on first startup
+- [Security Enforcement](./authentication/security-enforcement.md) - Rate limiting, disabled auth
+
+> **Admin-related stories** (bootstrap, user management, impersonation) have been moved to [Business Admin User Stories](../as-business-admin/).
 
 ### Tables
 
@@ -46,6 +49,7 @@
 - [Permissions](./tables/permissions.md) - RBAC, field-level, record-level access
 - [Views](./tables/views.md) - Filtered and sorted views
 - [Unique Constraints](./tables/unique-constraints.md) - Composite unique indexes
+- [Rate Limiting](./tables/rate-limiting.md) - Table endpoint rate limiting
 
 ### Records API
 
@@ -54,6 +58,8 @@
 - [Filtering & Sorting](./records-api/filtering-sorting.md) - Query parameters
 - [Soft Delete & Restore](./records-api/soft-delete-restore.md) - Trash and recovery
 - [Record History](./records-api/record-history.md) - Audit trail, comments
+- [Record Formatting](./records-api/record-formatting.md) - Response formatting
+- [Upsert Records](./records-api/upsert-records.md) - Upsert operations
 
 ### Pages
 
@@ -63,6 +69,7 @@
 - [SEO Meta](./pages/seo-meta.md) - Title, description, OpenGraph, structured data types
 - [Client-Side Scripts](./pages/scripts.md) - Feature flags, external/inline scripts
 - [Common Schemas](./pages/common-schemas.md) - Primitive definitions, props, responsive, variables
+- [Interactions](./pages/interactions.md) - Page interactions
 
 ### Theming
 
@@ -79,9 +86,17 @@
 - [Starting Server](./cli/starting-server.md) - `sovrium start` command
 - [Building Static](./cli/building-static.md) - `sovrium build` command
 
-### Activity API
+### App Schema
 
-- [Activity Logging](./activity-api/activity-logging.md) - List activity, details, rate limiting
+- [App Metadata](./app-schema/app-metadata.md) - Application metadata configuration
+
+### API
+
+- [Health Check](./api/health-check.md) - Health check endpoint
+
+### Templates
+
+- [Landing Page](./templates/landing-page.md) - Landing page template
 
 ### Migrations
 

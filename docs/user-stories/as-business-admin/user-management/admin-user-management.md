@@ -8,9 +8,9 @@
 
 ## US-AUTH-ADMIN-001: Create User
 
-**As a** developer,
-**I want to** allow administrators to create user accounts,
-**so that** they can onboard users without requiring self-registration.
+**As a** business admin,
+**I want to** create user accounts,
+**so that** I can onboard users without requiring self-registration.
 
 ### Configuration
 
@@ -48,9 +48,9 @@ auth:
 
 ## US-AUTH-ADMIN-002: List Users
 
-**As a** developer,
-**I want to** allow administrators to list all users,
-**so that** they can view and manage the user base.
+**As a** business admin,
+**I want to** list all users,
+**so that** I can view and manage the user base.
 
 ### Acceptance Criteria
 
@@ -74,9 +74,9 @@ auth:
 
 ## US-AUTH-ADMIN-003: Get User Details
 
-**As a** developer,
-**I want to** allow administrators to view detailed user information,
-**so that** they can manage individual user accounts.
+**As a** business admin,
+**I want to** view detailed user information,
+**so that** I can manage individual user accounts.
 
 ### Acceptance Criteria
 
@@ -99,9 +99,9 @@ auth:
 
 ## US-AUTH-ADMIN-004: Set User Role
 
-**As a** developer,
-**I want to** allow administrators to change user roles,
-**so that** they can manage user permissions and access levels.
+**As a** business admin,
+**I want to** change user roles,
+**so that** I can manage user permissions and access levels.
 
 ### Acceptance Criteria
 
@@ -126,9 +126,9 @@ auth:
 
 ## US-AUTH-ADMIN-005: Set User Password
 
-**As a** developer,
-**I want to** allow administrators to reset user passwords,
-**so that** they can help users who are locked out of their accounts.
+**As a** business admin,
+**I want to** reset user passwords,
+**so that** I can help users who are locked out of their accounts.
 
 ### Acceptance Criteria
 
@@ -152,9 +152,9 @@ auth:
 
 ## US-AUTH-ADMIN-006: List User Sessions
 
-**As a** developer,
-**I want to** allow administrators to view a user's active sessions,
-**so that** they can monitor and manage user access.
+**As a** business admin,
+**I want to** view a user's active sessions,
+**so that** I can monitor and manage user access.
 
 ### Acceptance Criteria
 
@@ -178,9 +178,9 @@ auth:
 
 ## US-AUTH-ADMIN-007: Revoke User Session
 
-**As a** developer,
-**I want to** allow administrators to revoke specific user sessions,
-**so that** they can force logout from suspicious or compromised sessions.
+**As a** business admin,
+**I want to** revoke specific user sessions,
+**so that** I can force logout from suspicious or compromised sessions.
 
 ### Acceptance Criteria
 
@@ -205,9 +205,9 @@ auth:
 
 ## US-AUTH-ADMIN-008: Impersonate User
 
-**As a** developer,
-**I want to** allow administrators to impersonate users,
-**so that** they can troubleshoot issues by seeing the application as that user.
+**As a** business admin,
+**I want to** impersonate users,
+**so that** I can troubleshoot issues by seeing the application as that user.
 
 ### Configuration
 
@@ -241,9 +241,9 @@ auth:
 
 ## US-AUTH-ADMIN-009: Stop Impersonating
 
-**As a** developer,
-**I want to** allow administrators to end impersonation sessions,
-**so that** they can return to their own account.
+**As a** business admin,
+**I want to** end impersonation sessions,
+**so that** I can return to my own account.
 
 ### Acceptance Criteria
 
@@ -265,8 +265,8 @@ auth:
 
 ## US-AUTH-ADMIN-010: Default Role Configuration
 
-**As a** developer,
-**I want to** configure a default role for new users,
+**As a** business admin,
+**I want** new users to be assigned a default role,
 **so that** all users get appropriate permissions when created.
 
 ### Configuration
@@ -296,8 +296,8 @@ auth:
 
 ## US-AUTH-ADMIN-011: Admin Plugin Disabled Behavior
 
-**As a** developer,
-**I want** admin endpoints to return 404 when admin plugin is disabled,
+**As a** business admin,
+**I want** admin endpoints to return 404 when the admin plugin is disabled,
 **so that** unauthorized users cannot discover admin functionality.
 
 ### Configuration

@@ -15,7 +15,7 @@ Sovrium supports automatic admin account creation on first startup using environ
 
 ## US-AUTH-BOOTSTRAP-001: Admin Bootstrap on First Startup
 
-**As a** developer,
+**As a** business admin,
 **I want to** have an admin account automatically created on first startup,
 **so that** I can access the admin panel without manual database operations.
 

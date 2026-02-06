@@ -1,26 +1,33 @@
 # User Stories
 
-> User stories organized by role, describing real developer needs and behaviors when building applications with Sovrium.
+> User stories organized by role, describing real needs and behaviors when building and managing applications with Sovrium.
 
 ## Roles
 
-| Role                             | Description                                   | Features                                                                   |
-| -------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------- |
-| [**Developer**](./as-developer/) | Technical builders creating apps with Sovrium | Authentication, Tables, Records API, Pages, Theming, i18n, CLI, Migrations |
+| Role                                          | Description                                               | Features                                                                   |
+| --------------------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [**Developer**](./as-developer/)              | Technical builders creating apps with Sovrium              | Authentication, Tables, Records API, Pages, Theming, i18n, CLI, Migrations |
+| [**Business Admin**](./as-business-admin/)    | Administrators managing users, activity, and operations    | User Management, Activity Monitoring                                       |
 
 ## Structure
 
 ```
 docs/user-stories/
-└── as-developer/
-    ├── authentication/     # Sign-up, sign-in, 2FA, sessions
-    ├── tables/             # Table definitions, field types, permissions
-    ├── records-api/        # CRUD operations, batch, filtering
-    ├── pages/              # Routes, layouts, blocks, SEO
-    ├── theming/            # Design tokens, responsive, animations
-    ├── internationalization/  # Multi-language support
-    ├── cli/                # Server start, static build
-    └── migrations/         # Schema evolution, versioning
+├── as-developer/
+│   ├── authentication/     # Sign-up, sign-in, 2FA, sessions, security
+│   ├── tables/             # Table definitions, field types, permissions
+│   ├── records-api/        # CRUD operations, batch, filtering
+│   ├── pages/              # Routes, layouts, blocks, SEO
+│   ├── theming/            # Design tokens, responsive, animations
+│   ├── internationalization/  # Multi-language support
+│   ├── cli/                # Server start, static build
+│   ├── templates/          # Landing page templates
+│   ├── app-schema/         # App metadata
+│   ├── api/                # Health check
+│   └── migrations/         # Schema evolution, versioning
+└── as-business-admin/
+    ├── user-management/    # Admin bootstrap, user CRUD, roles, sessions, impersonation
+    └── activity-monitoring/  # Activity logs, audit trail
 ```
 
 ## User Story Format
