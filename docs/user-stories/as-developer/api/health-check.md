@@ -47,16 +47,6 @@ GET /api/health
 | AC-003 | Does not require authentication                        | `API-HEALTH-003`        | ✅     |
 | AC-004 | Health endpoint returns expected response (regression) | `API-HEALTH-REGRESSION` | ✅     |
 
-### Removed Acceptance Criteria
-
-The following criteria were removed because they do not match the current implementation and are not planned:
-
-| ID     | Original Criterion                             | Reason Removed                                                                                                |
-| ------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| AC-002 | Includes application version in response       | Health endpoint returns `app.name`, not a `version` field. Version is not part of the health response schema. |
-| AC-004 | Returns 503 Service Unavailable when unhealthy | No 503 path exists in the implementation. The endpoint returns 200 or 500 (internal error) only.              |
-| AC-006 | Includes database connectivity status          | Health endpoint does not perform database connectivity checks. It returns app status and metadata only.       |
-
 ### Implementation Notes
 
 - The health endpoint response shape is `{ status: 'ok', timestamp: string, app: { name: string } }`

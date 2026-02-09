@@ -939,7 +939,7 @@ function findMatchingApiSchema(
     const union = new Set([...objKeys, ...keys]).size
     const score = intersection / union
 
-    if (score > bestScore && score > 0.5) {
+    if (score > bestScore && score >= 0.5) {
       bestScore = score
       bestMatch = { name, schema }
     }
@@ -992,7 +992,7 @@ function validateJsonResponseCoherence(
           .join('; ')
         issues.push({
           file: file.relativePath,
-          severity: 'warning',
+          severity: 'error',
           message: `JSON block does not match ${match.name}: ${errorSummary}`,
           line: block.lineNumber,
         })
