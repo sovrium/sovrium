@@ -796,6 +796,196 @@ function findSimilarKey(invalidPath: string, validPaths: readonly string[]): str
 }
 
 /**
+ * Compute the Levenshtein (edit) distance between two strings.
+ * Uses a space-optimized single-row dynamic programming approach.
+ */
+function levenshteinDistance(a: string, b: string): number {
+  if (a.length === 0) return b.length
+  if (b.length === 0) return a.length
+
+  // Ensure b is the shorter string for space optimization
+  if (a.length < b.length) {
+    const tmp = a
+    a = b
+    b = tmp
+  }
+
+  const bLen = b.length
+  const row = Array.from({ length: bLen + 1 }, (_, i) => i)
+
+  for (let i = 0; i < a.length; i++) {
+    let prev = i + 1
+    for (let j = 0; j < bLen; j++) {
+      const cost = a[i] === b[j] ? 0 : 1
+      const val = Math.min(
+        prev + 1, // insert
+        (row[j + 1] ?? 0) + 1, // delete
+        (row[j] ?? 0) + cost // substitute
+      )
+      row[j] = prev
+      prev = val
+    }
+    row[bLen] = prev
+  }
+
+  return row[bLen] ?? 0
+}
+
+/**
+ * Recursively collect all property names from a JSON Schema tree.
+ * Walks into $defs, anyOf/oneOf, items, and nested properties.
+ */
+function extractAllSchemaPropertyNames(schema: Record<string, unknown>): Set<string> {
+  const names = new Set<string>()
+
+  function walk(node: unknown): void {
+    if (node === null || typeof node !== 'object' || Array.isArray(node)) return
+    const obj = node as Record<string, unknown>
+
+    // Collect property names at this level
+    const props = obj['properties'] as Record<string, unknown> | undefined
+    if (props) {
+      for (const key of Object.keys(props)) {
+        names.add(key)
+        walk(props[key])
+      }
+    }
+
+    // Walk $defs
+    const defs = obj['$defs'] as Record<string, unknown> | undefined
+    if (defs) {
+      for (const def of Object.values(defs)) {
+        walk(def)
+      }
+    }
+
+    // Walk anyOf / oneOf branches
+    for (const keyword of ['anyOf', 'oneOf'] as const) {
+      const branches = obj[keyword] as unknown[] | undefined
+      if (branches) {
+        for (const branch of branches) {
+          walk(branch)
+        }
+      }
+    }
+
+    // Walk items (array element schemas)
+    if (obj['items']) {
+      walk(obj['items'])
+    }
+
+    // Walk additionalProperties if it's a schema object
+    if (obj['additionalProperties'] && typeof obj['additionalProperties'] === 'object') {
+      walk(obj['additionalProperties'])
+    }
+  }
+
+  walk(schema)
+  return names
+}
+
+/**
+ * Recursively extract all object keys from a parsed YAML value,
+ * including keys inside arrays (unlike extractDotPaths which skips arrays).
+ */
+function extractAllKeys(obj: unknown): Set<string> {
+  const keys = new Set<string>()
+
+  function walk(node: unknown): void {
+    if (node === null || typeof node !== 'object') return
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        walk(item)
+      }
+      return
+    }
+    for (const key of Object.keys(node as Record<string, unknown>)) {
+      keys.add(key)
+      walk((node as Record<string, unknown>)[key])
+    }
+  }
+
+  walk(obj)
+  return keys
+}
+
+/**
+ * Check if two strings are plural/singular variants of each other.
+ * E.g., "filter"/"filters", "role"/"roles", "table"/"tables".
+ */
+function isPluralVariant(a: string, b: string): boolean {
+  const lower_a = a.toLowerCase()
+  const lower_b = b.toLowerCase()
+  return lower_a + 's' === lower_b || lower_b + 's' === lower_a
+}
+
+/**
+ * Detect likely typos in YAML keys by comparing against known schema property names.
+ * Uses Levenshtein distance == 1 with min key length 4 and plural exclusion.
+ */
+function validateYamlKeyTypos(
+  files: readonly UserStoryFileValidation[],
+  schemaPropertyNames: Set<string>,
+  topLevelKeys: Set<string>
+): StoryValidationIssue[] {
+  const issues: StoryValidationIssue[] = []
+  const schemaNames = [...schemaPropertyNames]
+
+  for (const file of files) {
+    const content = file.rawContent
+    if (!content) continue
+
+    const yamlBlocks = extractYamlConfigBlocks(content)
+
+    for (const block of yamlBlocks) {
+      let parsed: unknown
+      try {
+        parsed = parseYaml(block.yaml)
+      } catch {
+        continue
+      }
+
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) continue
+
+      const rootKeys = Object.keys(parsed as Record<string, unknown>)
+      const isAppConfig = rootKeys.some((k) => topLevelKeys.has(k))
+      if (!isAppConfig) continue
+
+      const yamlKeys = extractAllKeys(parsed)
+
+      for (const key of yamlKeys) {
+        // Skip keys already in schema, short keys, or known schema keys
+        if (schemaPropertyNames.has(key) || key.length < 5) continue
+
+        // Find closest schema property by Levenshtein distance
+        let bestDistance = Infinity
+        let bestMatch = ''
+        for (const schemaName of schemaNames) {
+          // Only compare keys of similar length (optimization)
+          if (Math.abs(key.length - schemaName.length) > 1) continue
+          const dist = levenshteinDistance(key, schemaName)
+          if (dist < bestDistance) {
+            bestDistance = dist
+            bestMatch = schemaName
+          }
+        }
+
+        if (bestDistance === 1 && !isPluralVariant(key, bestMatch)) {
+          issues.push({
+            file: file.relativePath,
+            severity: 'error',
+            message: `YAML key "${key}" looks like a typo for "${bestMatch}" (edit distance: 1)`,
+            line: block.lineNumber,
+          })
+        }
+      }
+    }
+  }
+
+  return issues
+}
+
+/**
  * Validate YAML config blocks in user story files against the AppSchema.
  */
 function validateYamlConfigCoherence(
@@ -1023,11 +1213,15 @@ function validateSchemaCoherence(
 
   const yamlIssues = validateYamlConfigCoherence(files, validPaths, recordPaths, topLevelKeys)
 
+  // Part 1b: YAML key typo detection (Levenshtein-based)
+  const schemaPropertyNames = extractAllSchemaPropertyNames(jsonSchema)
+  const typoIssues = validateYamlKeyTypos(files, schemaPropertyNames, topLevelKeys)
+
   // Part 2: JSON API response validation against Zod schemas
   const apiRegistry = buildApiSchemaRegistry()
   const jsonIssues = validateJsonResponseCoherence(files, apiRegistry)
 
-  return [...yamlIssues, ...jsonIssues]
+  return [...yamlIssues, ...typoIssues, ...jsonIssues]
 }
 
 // =============================================================================
