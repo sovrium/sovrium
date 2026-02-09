@@ -873,12 +873,6 @@ function calculateQualityScore(files: SpecFile[]): number {
 
       totalPoints += testPoints
     }
-
-    // Deduct for issues
-    for (const issue of file.issues) {
-      if (issue.type === 'error') maxPoints += 10
-      else if (issue.type === 'warning') maxPoints += 5
-    }
   }
 
   return maxPoints > 0 ? Math.round((totalPoints / maxPoints) * 100) : 100
@@ -1646,19 +1640,14 @@ function calculateDomainSummaries(files: SpecFile[]): DomainSummary[] {
     const fixmeTests = domainFiles.reduce((sum, f) => sum + f.metadata.fixmeTests, 0)
     const progressPercent = totalTests > 0 ? Math.round((passingTests / totalTests) * 100) : 100
 
-    // Determine status based on progress and issues
-    const hasErrors = domainFiles.some((f) => f.issues.some((i) => i.type === 'error'))
-    const hasWarnings = domainFiles.some((f) => f.issues.some((i) => i.type === 'warning'))
-
+    // Determine status based on progress
     let status: '🟢' | '🟡' | '🔴'
-    if (hasErrors) {
-      status = '🔴'
-    } else if (progressPercent === 100 && !hasWarnings) {
+    if (progressPercent === 100) {
       status = '🟢'
-    } else if (progressPercent >= 80 || (progressPercent === 100 && hasWarnings)) {
+    } else if (progressPercent >= 50) {
       status = '🟡'
     } else {
-      status = '🟡'
+      status = '🔴'
     }
 
     summaries.push({
@@ -1680,9 +1669,8 @@ function calculateDomainSummaries(files: SpecFile[]): DomainSummary[] {
 /**
  * Get a human-readable status label based on progress.
  */
-function getStatusLabel(progressPercent: number, hasIssues: boolean): string {
-  if (progressPercent === 100 && !hasIssues) return 'Complete'
-  if (progressPercent === 100 && hasIssues) return 'Review Needed'
+function getStatusLabel(progressPercent: number): string {
+  if (progressPercent === 100) return 'Complete'
   if (progressPercent >= 80) return 'Almost Done'
   if (progressPercent >= 50) return 'In Progress'
   return 'Early Stage'
@@ -1693,10 +1681,9 @@ function getStatusLabel(progressPercent: number, hasIssues: boolean): string {
  */
 function getOverallHealth(
   progressPercent: number,
-  errors: number,
   avgFixesPerDay: number
 ): { emoji: string; label: string } {
-  if (errors > 0) return { emoji: '🔴', label: 'Blocked' }
+  if (progressPercent === 100) return { emoji: '🟢', label: 'Complete' }
   if (avgFixesPerDay >= 25 && progressPercent >= 50) return { emoji: '🟢', label: 'On Track' }
   if (avgFixesPerDay >= 15) return { emoji: '🟡', label: 'Progressing' }
   return { emoji: '🟡', label: 'Needs Attention' }
@@ -1716,11 +1703,7 @@ function generateMarkdown(state: SpecState): string {
   const progressEmpty = 20 - progressFilled
 
   // Get overall health status
-  const health = getOverallHealth(
-    progressPercent,
-    state.summary.issuesByType.errors,
-    state.tddAutomation.avgFixesPerDay
-  )
+  const health = getOverallHealth(progressPercent, state.tddAutomation.avgFixesPerDay)
 
   // Calculate ETA text
   let etaText = 'Unknown'
@@ -1769,9 +1752,6 @@ function generateMarkdown(state: SpecState): string {
       `| **Estimated Completion** | ${state.tddAutomation.estimatedCompletionDate} (${etaText}) | ${health.emoji} ${health.label} |`
     )
   }
-  lines.push(
-    `| **Blockers** | ${state.summary.issuesByType.errors} errors, ${state.summary.issuesByType.warnings} warnings | ${state.summary.issuesByType.errors === 0 ? '🟢 Clear' : '🔴 Blocked'} |`
-  )
   lines.push('')
 
   // ==========================================================================
@@ -1799,45 +1779,26 @@ function generateMarkdown(state: SpecState): string {
   lines.push('## 🎯 Next Steps')
   lines.push('')
 
-  // Collect all issues
-  const allIssues = state.files.flatMap((f) =>
-    f.issues.map((i) => ({ ...i, file: f.relativePath }))
-  )
-  const errors = allIssues.filter((i) => i.type === 'error')
-  const warnings = allIssues.filter((i) => i.type === 'warning')
-
-  // Priority 1 - Immediate Action
-  if (errors.length > 0 || state.duplicateSpecIds.length > 0) {
+  // Priority 1 - Immediate Action (duplicate spec IDs only)
+  if (state.duplicateSpecIds.length > 0) {
     lines.push('### 🚨 Priority 1 - Immediate Action')
     lines.push('')
-    if (state.duplicateSpecIds.length > 0) {
-      lines.push(
-        `- **Fix ${state.duplicateSpecIds.length} duplicate spec IDs** - Critical for TDD queue`
-      )
-      for (const dup of state.duplicateSpecIds.slice(0, 3)) {
-        lines.push(`  - \`${dup.specId}\` appears ${dup.locations.length} times`)
-      }
-    }
-    for (const error of errors.slice(0, 5)) {
-      const location = error.line ? `:${error.line}` : ''
-      lines.push(`- ❌ **${error.code}** in \`${error.file}${location}\``)
+    lines.push(
+      `- **Fix ${state.duplicateSpecIds.length} duplicate spec IDs** - Critical for TDD queue`
+    )
+    for (const dup of state.duplicateSpecIds.slice(0, 3)) {
+      lines.push(`  - \`${dup.specId}\` appears ${dup.locations.length} times`)
     }
     lines.push('')
   }
 
-  // Priority 2 - This Week
-  if (warnings.length > 0 || state.coverageGaps.length > 0) {
+  // Priority 2 - This Week (coverage gaps only)
+  if (state.coverageGaps.length > 0) {
     lines.push('### ⚠️ Priority 2 - This Week')
     lines.push('')
-    for (const warning of warnings.slice(0, 5)) {
-      const location = warning.line ? `:${warning.line}` : ''
-      lines.push(`- **Fix warning** in \`${warning.file}${location}\` (${warning.code})`)
-    }
-    if (state.coverageGaps.length > 0) {
-      lines.push(
-        `- **Review ${state.coverageGaps.length} coverage gaps** - Add missing test scenarios`
-      )
-    }
+    lines.push(
+      `- **Review ${state.coverageGaps.length} coverage gaps** - Add missing test scenarios`
+    )
     lines.push('')
   }
 
@@ -1872,9 +1833,6 @@ function generateMarkdown(state: SpecState): string {
   lines.push(`| @regression Tests | ${state.summary.totalRegressions} |`)
   lines.push(`| ✅ Passing | ${state.summary.totalPassing} |`)
   lines.push(`| ⏸️ Fixme | ${state.summary.totalFixme} |`)
-  lines.push(`| ❌ Errors | ${state.summary.issuesByType.errors} |`)
-  lines.push(`| ⚠️ Warnings | ${state.summary.issuesByType.warnings} |`)
-  lines.push(`| 💡 Suggestions | ${state.summary.issuesByType.suggestions} |`)
   lines.push(`| 🔄 Duplicate IDs | ${state.summary.duplicateSpecIds} |`)
   lines.push(`| 🔗 Orphaned Spec IDs | ${state.summary.orphanedSpecIds} |`)
   lines.push('')
@@ -2051,10 +2009,10 @@ function generateMarkdown(state: SpecState): string {
   }
 
   // ==========================================================================
-  // ISSUES REQUIRING ATTENTION
+  // STRUCTURAL ISSUES (Duplicate IDs, Coverage Gaps)
   // ==========================================================================
-  if (state.duplicateSpecIds.length > 0 || state.coverageGaps.length > 0 || allIssues.length > 0) {
-    lines.push('## ⚡ Issues Requiring Attention')
+  if (state.duplicateSpecIds.length > 0 || state.coverageGaps.length > 0) {
+    lines.push('## ⚡ Structural Issues')
     lines.push('')
 
     // Duplicate Spec IDs
@@ -2069,45 +2027,6 @@ function generateMarkdown(state: SpecState): string {
         for (const loc of dup.locations) {
           lines.push(`- \`${loc.file}:${loc.line}\``)
         }
-        lines.push('')
-      }
-    }
-
-    // Quality Issues
-    if (allIssues.length > 0) {
-      const suggestions = allIssues.filter((i) => i.type === 'suggestion')
-
-      if (errors.length > 0) {
-        lines.push('### ❌ Errors')
-        lines.push('')
-        for (const issue of errors) {
-          const location = issue.line ? `:${issue.line}` : ''
-          lines.push(`- **${issue.code}** in \`${issue.file}${location}\``)
-          lines.push(`  ${issue.message}`)
-        }
-        lines.push('')
-      }
-
-      if (warnings.length > 0) {
-        lines.push('### ⚠️ Warnings')
-        lines.push('')
-        for (const issue of warnings) {
-          const location = issue.line ? `:${issue.line}` : ''
-          lines.push(`- **${issue.code}** in \`${issue.file}${location}\``)
-          lines.push(`  ${issue.message}`)
-        }
-        lines.push('')
-      }
-
-      if (suggestions.length > 0) {
-        lines.push('<details>')
-        lines.push('<summary>💡 Suggestions</summary>')
-        lines.push('')
-        for (const issue of suggestions) {
-          lines.push(`- **${issue.code}** in \`${issue.file}\` - ${issue.message}`)
-        }
-        lines.push('')
-        lines.push('</details>')
         lines.push('')
       }
     }
@@ -2135,10 +2054,7 @@ function generateMarkdown(state: SpecState): string {
   for (const domain of domainSummaries) {
     const domainProgressFilled = Math.round(domain.progressPercent / 5)
     const domainProgressEmpty = 20 - domainProgressFilled
-    const statusLabel = getStatusLabel(
-      domain.progressPercent,
-      domain.files.some((f) => f.issues.length > 0)
-    )
+    const statusLabel = getStatusLabel(domain.progressPercent)
 
     lines.push(`### ${domain.domain}`)
     lines.push('')
@@ -2154,14 +2070,7 @@ function generateMarkdown(state: SpecState): string {
     lines.push('')
 
     for (const file of domain.files) {
-      const statusEmoji =
-        file.metadata.fixmeTests > 0
-          ? '🚧'
-          : file.issues.some((i) => i.type === 'error')
-            ? '❌'
-            : file.issues.some((i) => i.type === 'warning')
-              ? '⚠️'
-              : '✅'
+      const statusEmoji = file.metadata.fixmeTests > 0 ? '🚧' : '✅'
 
       const fileProgress =
         file.metadata.totalTests > 0
@@ -2563,13 +2472,6 @@ async function main() {
   console.log(`  └─ Fixme:       ${totalFixme}`)
   console.log('')
   const orphanedCount = orphanedSpecIds.length
-  const totalIssuesWithOrphaned = allIssuesWithDuplicates.length + orphanedCount
-  const errorsWithOrphaned = errorsWithDuplicates + orphanedCount
-  console.log(`Issues:          ${totalIssuesWithOrphaned} total`)
-  console.log(`  ├─ Errors:      ${errorsWithOrphaned}`)
-  console.log(`  ├─ Warnings:    ${warningsWithDuplicates}`)
-  console.log(`  └─ Suggestions: ${suggestionsWithDuplicates}`)
-  console.log('')
 
   // TDD Automation stats
   if (tddAutomation.totalFixed > 0 || totalFixme > 0) {
@@ -2595,28 +2497,6 @@ async function main() {
                 : `~${Math.ceil(days / 30)} months`
       console.log('')
       console.log(`ETA: ${etaText} (${tddAutomation.estimatedCompletionDate})`)
-    }
-    console.log('')
-  }
-
-  if (duplicateSpecIds.length > 0) {
-    console.log('❌ DUPLICATE SPEC IDs:')
-    for (const dup of duplicateSpecIds) {
-      console.log(`   ${dup.specId} (${dup.locations.length} occurrences):`)
-      for (const loc of dup.locations) {
-        console.log(`     - ${loc.file}:${loc.line}`)
-      }
-    }
-    console.log('')
-  }
-
-  if (errorsWithDuplicates > 0) {
-    console.log('❌ ERRORS:')
-    for (const file of analyzedFiles) {
-      for (const issue of file.issues.filter((i) => i.type === 'error')) {
-        console.log(`   ${file.relativePath}:${issue.line || '?'} - ${issue.code}`)
-        console.log(`     ${issue.message}`)
-      }
     }
     console.log('')
   }
