@@ -68,10 +68,12 @@ jobs:
           IS_TDD_AUTOMATION=$(echo "$RESULT" | tail -1 | jq -r '.isTDDAutomation')
           IS_FIXME_REMOVAL_ONLY=$(echo "$RESULT" | tail -1 | jq -r '.isFixmeRemovalOnly')
 
-          echo "is_test_only=$IS_TEST_ONLY" >> $GITHUB_OUTPUT
-          echo "target_spec=$TARGET_SPEC" >> $GITHUB_OUTPUT
-          echo "is_tdd_automation=$IS_TDD_AUTOMATION" >> $GITHUB_OUTPUT
-          echo "is_fixme_removal_only=$IS_FIXME_REMOVAL_ONLY" >> $GITHUB_OUTPUT
+          {
+            echo "is_test_only=$IS_TEST_ONLY"
+            echo "target_spec=$TARGET_SPEC"
+            echo "is_tdd_automation=$IS_TDD_AUTOMATION"
+            echo "is_fixme_removal_only=$IS_FIXME_REMOVAL_ONLY"
+          } >> "$GITHUB_OUTPUT"
 
   # ============================================================================
   # PARALLEL STATIC ANALYSIS JOBS
@@ -207,7 +209,12 @@ jobs:
           node -e "try { require.resolve('tailwindcss'); console.log('✓ tailwindcss resolved'); } catch(e) { console.error('✗ tailwindcss NOT resolved'); process.exit(1); }"
           node -e "try { require.resolve('@tailwindcss/postcss'); console.log('✓ @tailwindcss/postcss resolved'); } catch(e) { console.error('✗ @tailwindcss/postcss NOT resolved'); process.exit(1); }"
           echo "Checking if CSS files exist..."
-          test -f node_modules/tw-animate-css/dist/tw-animate.css && echo "✓ tw-animate-css CSS file found" || (echo "✗ tw-animate-css CSS file NOT found" && exit 1)
+          if test -f node_modules/tw-animate-css/dist/tw-animate.css; then
+            echo "✓ tw-animate-css CSS file found"
+          else
+            echo "✗ tw-animate-css CSS file NOT found"
+            exit 1
+          fi
 
       - name: Run unit tests
         run: bun test:unit
@@ -253,7 +260,7 @@ jobs:
 
       - name: Get Playwright version
         id: playwright-version
-        run: echo "version=$(bun pm ls @playwright/test | grep '@playwright/test' | awk '{print $2}' | head -n 1)" >> $GITHUB_OUTPUT
+        run: echo "version=$(bun pm ls @playwright/test | grep '@playwright/test' | awk '{print $2}' | head -n 1)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -275,14 +282,14 @@ jobs:
             local image=$1
             local max_attempts=3
 
-            for attempt in $(seq 1 $max_attempts); do
+            for attempt in $(seq 1 "$max_attempts"); do
               echo "  Pulling $image (attempt $attempt/$max_attempts)..."
               if docker pull "$image" 2>&1; then
                 echo "  ✅ $image pulled successfully"
                 return 0
               fi
 
-              if [ $attempt -lt $max_attempts ]; then
+              if [ "$attempt" -lt "$max_attempts" ]; then
                 echo "  ⚠️ Pull failed, waiting 10s before retry..."
                 sleep 10
               fi
@@ -349,6 +356,7 @@ jobs:
             CHANGED_SPECS=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | grep '\.spec\.ts$' || true)
             if [ -n "$CHANGED_SPECS" ]; then
               echo "Running: $CHANGED_SPECS"
+              # shellcheck disable=SC2086
               bunx playwright test $CHANGED_SPECS --reporter=github,json
               # Move JSON results to predictable location
               if [ -f "test-results.json" ]; then
@@ -418,7 +426,7 @@ jobs:
 
       - name: Get Playwright version
         id: playwright-version
-        run: echo "version=$(bun pm ls @playwright/test | grep '@playwright/test' | awk '{print $2}' | head -n 1)" >> $GITHUB_OUTPUT
+        run: echo "version=$(bun pm ls @playwright/test | grep '@playwright/test' | awk '{print $2}' | head -n 1)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -440,14 +448,14 @@ jobs:
             local image=$1
             local max_attempts=3
 
-            for attempt in $(seq 1 $max_attempts); do
+            for attempt in $(seq 1 "$max_attempts"); do
               echo "  Pulling $image (attempt $attempt/$max_attempts)..."
               if docker pull "$image" 2>&1; then
                 echo "  ✅ $image pulled successfully"
                 return 0
               fi
 
-              if [ $attempt -lt $max_attempts ]; then
+              if [ "$attempt" -lt "$max_attempts" ]; then
                 echo "  ⚠️ Pull failed, waiting 10s before retry..."
                 sleep 10
               fi
@@ -657,7 +665,7 @@ jobs:
             fi
           fi
 
-          echo "e2e_failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "e2e_failed=$FAILED" >> "$GITHUB_OUTPUT"
 
       - name: Classify test failures
         id: classify-failures
@@ -678,11 +686,13 @@ jobs:
           FAILURE_TYPE=$(echo "$RESULT" | tail -1 | jq -r '.failureType')
           INFRA_ERROR_TYPE=$(echo "$RESULT" | tail -1 | jq -r '.infraErrorType // ""')
 
-          echo "has_regressions=$HAS_REGRESSIONS" >> $GITHUB_OUTPUT
-          echo "regression_specs=$REGRESSION_SPECS" >> $GITHUB_OUTPUT
-          echo "target_spec=$TARGET_SPEC_OUT" >> $GITHUB_OUTPUT
-          echo "failure_type=$FAILURE_TYPE" >> $GITHUB_OUTPUT
-          echo "infra_error_type=$INFRA_ERROR_TYPE" >> $GITHUB_OUTPUT
+          {
+            echo "has_regressions=$HAS_REGRESSIONS"
+            echo "regression_specs=$REGRESSION_SPECS"
+            echo "target_spec=$TARGET_SPEC_OUT"
+            echo "failure_type=$FAILURE_TYPE"
+            echo "infra_error_type=$INFRA_ERROR_TYPE"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Add target failure label
         if: |
@@ -752,7 +762,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -883,7 +893,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Enable auto-merge failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -906,6 +916,8 @@ jobs:
     steps:
       - name: Check if update needed
         id: check-update
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           echo "🔍 Checking if spec progress update is needed..."
           echo "   All tests passed: ${{ needs.test.outputs.all-passed }}"
@@ -913,7 +925,6 @@ jobs:
           echo "   Ref: ${{ github.ref }}"
 
           # Get commit message for PR merge detection (use printf for safe string handling)
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
           printf "   Commit message: %s\n" "$COMMIT_MSG"
           echo ""
 
@@ -1027,17 +1038,18 @@ jobs:
       contents: write
     steps:
       - name: Delete branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          REPO: ${{ github.repository }}
         run: |
-          BRANCH="${{ github.event.pull_request.head.ref }}"
           echo "🗑️  Deleting unmerged branch: $BRANCH"
 
           gh api \
             --method DELETE \
-            /repos/${{ github.repository }}/git/refs/heads/$BRANCH \
+            "/repos/$REPO/git/refs/heads/$BRANCH" \
             && echo "✅ Branch deleted successfully" \
             || echo "⚠️  Branch may already be deleted"
-        env:
-          GH_TOKEN: ${{ github.token }}
 
   # ============================================================================
   # TDD AUTOMATION: TRIGGER CLAUDE CODE ON FAILURE
@@ -1099,13 +1111,13 @@ jobs:
           # Quality failure only: lint/typecheck/unit fail, but E2E passes (or no E2E ran)
           # Test failure: E2E tests fail
           if [ "$E2E_FAILED" = "true" ]; then
-            echo "failure-type=$E2E_FAILURE_TYPE" >> $GITHUB_OUTPUT
+            echo "failure-type=$E2E_FAILURE_TYPE" >> "$GITHUB_OUTPUT"
             echo "🧪 Test failure detected (E2E)"
           elif [ "$LINT_RESULT" = "failure" ] || [ "$TYPECHECK_RESULT" = "failure" ] || [ "$UNIT_RESULT" = "failure" ]; then
-            echo "failure-type=quality_only" >> $GITHUB_OUTPUT
+            echo "failure-type=quality_only" >> "$GITHUB_OUTPUT"
             echo "🔧 Quality failure detected (lint/typecheck/unit)"
           else
-            echo "failure-type=unknown" >> $GITHUB_OUTPUT
+            echo "failure-type=unknown" >> "$GITHUB_OUTPUT"
             echo "⚠️  Unknown failure type"
           fi
 
@@ -1119,9 +1131,11 @@ jobs:
           ATTEMPT=$(echo "$PR_TITLE" | grep -oP 'Attempt\s+\K\d+' || echo "1")
           MAX_ATTEMPTS=$(echo "$PR_TITLE" | grep -oP 'Attempt\s+\d+/\K\d+' || echo "5")
 
-          echo "spec-id=$SPEC_ID" >> $GITHUB_OUTPUT
-          echo "attempt=$ATTEMPT" >> $GITHUB_OUTPUT
-          echo "max-attempts=$MAX_ATTEMPTS" >> $GITHUB_OUTPUT
+          {
+            echo "spec-id=$SPEC_ID"
+            echo "attempt=$ATTEMPT"
+            echo "max-attempts=$MAX_ATTEMPTS"
+          } >> "$GITHUB_OUTPUT"
 
           echo "📋 Parsed: Spec=$SPEC_ID, Attempt=$ATTEMPT/$MAX_ATTEMPTS"
 
@@ -1139,11 +1153,11 @@ jobs:
           echo "Incrementing attempt: $CURRENT_ATTEMPT -> $NEW_ATTEMPT (max: $MAX_ATTEMPTS)"
 
           if [ "$NEW_ATTEMPT" -gt "$MAX_ATTEMPTS" ]; then
-            echo "exceeded=true" >> $GITHUB_OUTPUT
-            echo "new-attempt=$CURRENT_ATTEMPT" >> $GITHUB_OUTPUT
+            echo "exceeded=true" >> "$GITHUB_OUTPUT"
+            echo "new-attempt=$CURRENT_ATTEMPT" >> "$GITHUB_OUTPUT"
           else
-            echo "exceeded=false" >> $GITHUB_OUTPUT
-            echo "new-attempt=$NEW_ATTEMPT" >> $GITHUB_OUTPUT
+            echo "exceeded=false" >> "$GITHUB_OUTPUT"
+            echo "new-attempt=$NEW_ATTEMPT" >> "$GITHUB_OUTPUT"
 
             # Update PR title
             RESULT=$(bun run scripts/tdd-automation/core/update-pr-title.ts "$PR_NUMBER" 2>&1) || true
@@ -1173,9 +1187,11 @@ jobs:
           RESULT=$(bun run scripts/tdd-automation/workflows/test/check-staleness.ts 2>&1 | tail -1)
 
           # Parse JSON output and set GitHub outputs
-          echo "pending-tests=$(echo "$RESULT" | jq -r '.pendingTests')" >> "$GITHUB_OUTPUT"
-          echo "active-claude=$(echo "$RESULT" | jq -r '.activeClaude')" >> "$GITHUB_OUTPUT"
-          echo "should-trigger=$(echo "$RESULT" | jq -r '.shouldTrigger')" >> "$GITHUB_OUTPUT"
+          {
+            echo "pending-tests=$(echo "$RESULT" | jq -r '.pendingTests')"
+            echo "active-claude=$(echo "$RESULT" | jq -r '.activeClaude')"
+            echo "should-trigger=$(echo "$RESULT" | jq -r '.shouldTrigger')"
+          } >> "$GITHUB_OUTPUT"
 
           # Set skip-reason only if not triggering
           SKIP_REASON=$(echo "$RESULT" | jq -r '.skipReason // empty')
@@ -1230,7 +1246,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -1304,7 +1320,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -1318,7 +1334,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          TARGET_SPEC: ${{ needs.e2e-results.outputs.target_spec || needs.detect-change-type.outputs.target_spec || 'specs/' }}
+          TARGET_SPEC: ${{ needs.e2e-results.outputs.target_spec || 'specs/' }}
           SPEC_ID: ${{ steps.parse.outputs.spec-id }}
           NEW_ATTEMPT: ${{ steps.increment.outputs.new-attempt }}
           MAX_ATTEMPTS: ${{ steps.parse.outputs.max-attempts }}
@@ -1334,10 +1350,8 @@ jobs:
           # - target_only: Use e2e-test-fixer (actual test failures)
           if [ "$FAILURE_TYPE" = "quality_only" ]; then
             AGENT="codebase-refactor-auditor"
-            AGENT_WORKFLOW="codebase-refactor-auditor"
           else
             AGENT="e2e-test-fixer"
-            AGENT_WORKFLOW="e2e-test-fixer"
           fi
 
           echo "   Selected agent: $AGENT"
@@ -1354,7 +1368,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -1382,7 +1396,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Label add failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -1398,7 +1412,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Disable auto-merge failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -1432,7 +1446,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else

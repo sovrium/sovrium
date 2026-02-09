@@ -58,6 +58,7 @@ jobs:
           echo "  Staleness threshold: $STALENESS_THRESHOLD"
 
           # Get active test runs on TDD branches (queued or in_progress, updated recently)
+          # shellcheck disable=SC2016
           ACTIVE_TEST_RUNS=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
@@ -70,6 +71,7 @@ jobs:
             )] | length' 2>/dev/null || echo "0")
 
           # Also check queued runs
+          # shellcheck disable=SC2016
           QUEUED_TEST_RUNS=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
@@ -100,28 +102,32 @@ jobs:
       - name: Add workflow summary (active PR)
         if: steps.check.outputs.has-active == 'true'
         run: |
-          echo "## ⏸️ Active TDD PR Exists" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Serial processing constraint: another TDD PR is currently in progress." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Skipping credit check** to save API costs (~\$0.01 per probe)." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Workflow will retry after current PR completes." >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## ⏸️ Active TDD PR Exists"
+            echo ""
+            echo "Serial processing constraint: another TDD PR is currently in progress."
+            echo ""
+            echo "**Skipping credit check** to save API costs (~\$0.01 per probe)."
+            echo ""
+            echo "Workflow will retry after current PR completes."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Add workflow summary (active tests)
         if: steps.check.outputs.has-active == 'false' && steps.check-tests.outputs.has-active-tests == 'true'
         run: |
-          echo "## ⏳ Test Workflows Running" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Active test workflows detected on TDD branches." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Count**: ${{ steps.check-tests.outputs.active-count }} test run(s) in progress or queued" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Skipping PR creation** to avoid race conditions." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "PR Creator will run again after test completion (via \`workflow_run\` trigger)." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "_Note: Only counts runs updated within the last 30 minutes (staleness filter)._" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## ⏳ Test Workflows Running"
+            echo ""
+            echo "Active test workflows detected on TDD branches."
+            echo ""
+            echo "**Count**: ${{ steps.check-tests.outputs.active-count }} test run(s) in progress or queued"
+            echo ""
+            echo "**Skipping PR creation** to avoid race conditions."
+            echo ""
+            echo "PR Creator will run again after test completion (via \`workflow_run\` trigger)."
+            echo ""
+            echo "_Note: Only counts runs updated within the last 30 minutes (staleness filter)._"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   check-credits:
     needs: check-active-pr
@@ -182,9 +188,11 @@ jobs:
           COST=$(echo "$RESULT_JSON" | jq -r '.total_cost_usd // 0')
           ERROR_MSG=$(echo "$RESULT_JSON" | jq -r '.errors // [] | join(", ")')
 
-          echo "probe-failed=false" >> "$GITHUB_OUTPUT"
-          echo "is-error=$IS_ERROR" >> "$GITHUB_OUTPUT"
-          echo "cost=$COST" >> "$GITHUB_OUTPUT"
+          {
+            echo "probe-failed=false"
+            echo "is-error=$IS_ERROR"
+            echo "cost=$COST"
+          } >> "$GITHUB_OUTPUT"
 
           # Detect exhaustion: is_error=true AND total_cost_usd=0
           if [ "$IS_ERROR" = "true" ] && { [ "$COST" = "0" ] || [ "$COST" = "0.0" ]; }; then
@@ -204,10 +212,12 @@ jobs:
           PROBE_FAILED: ${{ steps.parse-probe.outputs.probe-failed }}
         run: |
           RESULT=$(bun run scripts/tdd-automation/workflows/pr-creator/check-credits.ts 2>&1)
-          echo "can-proceed=$(echo "$RESULT" | tail -1 | jq -r '.canProceed')" >> "$GITHUB_OUTPUT"
-          echo "exhausted=$(echo "$RESULT" | tail -1 | jq -r '.exhausted // false')" >> "$GITHUB_OUTPUT"
-          echo "daily-spend=$(echo "$RESULT" | tail -1 | jq -r '.dailySpend')" >> "$GITHUB_OUTPUT"
-          echo "weekly-spend=$(echo "$RESULT" | tail -1 | jq -r '.weeklySpend')" >> "$GITHUB_OUTPUT"
+          {
+            echo "can-proceed=$(echo "$RESULT" | tail -1 | jq -r '.canProceed')"
+            echo "exhausted=$(echo "$RESULT" | tail -1 | jq -r '.exhausted // false')"
+            echo "daily-spend=$(echo "$RESULT" | tail -1 | jq -r '.dailySpend')"
+            echo "weekly-spend=$(echo "$RESULT" | tail -1 | jq -r '.weeklySpend')"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Add workflow summary
         if: always()
@@ -218,28 +228,34 @@ jobs:
           WEEKLY_SPEND="${{ steps.check.outputs.weekly-spend }}"
 
           if [ "$EXHAUSTED" = "true" ]; then
-            echo "## 🚫 Claude Code API Credits Exhausted" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "API probe confirmed credits are exhausted." >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "- Daily spend: \$${DAILY_SPEND}" >> $GITHUB_STEP_SUMMARY
-            echo "- Weekly spend: \$${WEEKLY_SPEND}" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**Action Required**: Contact Anthropic support or wait for credit reset." >> $GITHUB_STEP_SUMMARY
+            {
+              echo "## 🚫 Claude Code API Credits Exhausted"
+              echo ""
+              echo "API probe confirmed credits are exhausted."
+              echo ""
+              echo "- Daily spend: \$${DAILY_SPEND}"
+              echo "- Weekly spend: \$${WEEKLY_SPEND}"
+              echo ""
+              echo "**Action Required**: Contact Anthropic support or wait for credit reset."
+            } >> "$GITHUB_STEP_SUMMARY"
           elif [ "$CAN_PROCEED" = "false" ]; then
-            echo "## ⏸️ Credit Limit Exceeded" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Budget limits reached:" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "- Daily spend: \$${DAILY_SPEND} / \$200" >> $GITHUB_STEP_SUMMARY
-            echo "- Weekly spend: \$${WEEKLY_SPEND} / \$1000" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "## ⏸️ Credit Limit Exceeded"
+              echo ""
+              echo "Budget limits reached:"
+              echo ""
+              echo "- Daily spend: \$${DAILY_SPEND} / \$200"
+              echo "- Weekly spend: \$${WEEKLY_SPEND} / \$1000"
+            } >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "## ✅ Credits Available" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "TDD automation proceeding:" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "- Daily spend: \$${DAILY_SPEND} / \$200" >> $GITHUB_STEP_SUMMARY
-            echo "- Weekly spend: \$${WEEKLY_SPEND} / \$1000" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "## ✅ Credits Available"
+              echo ""
+              echo "TDD automation proceeding:"
+              echo ""
+              echo "- Daily spend: \$${DAILY_SPEND} / \$200"
+              echo "- Weekly spend: \$${WEEKLY_SPEND} / \$1000"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
   create-pr:
@@ -270,8 +286,10 @@ jobs:
           BLOCKED_FILES=$(echo "$RESULT" | tail -1 | jq -r '.excludedList')
           BLOCKED_COUNT=$(echo "$RESULT" | tail -1 | jq -r '.count')
 
-          echo "files=$BLOCKED_FILES" >> "$GITHUB_OUTPUT"
-          echo "count=$BLOCKED_COUNT" >> "$GITHUB_OUTPUT"
+          {
+            echo "files=$BLOCKED_FILES"
+            echo "count=$BLOCKED_COUNT"
+          } >> "$GITHUB_OUTPUT"
 
           if [ "$BLOCKED_COUNT" -gt 0 ]; then
             echo "🚫 Found $BLOCKED_COUNT blocked file(s): $BLOCKED_FILES"
@@ -302,11 +320,13 @@ jobs:
             PRIORITY=$(echo "$SPEC_JSON" | jq -r '.priority')
 
             echo "Found spec: $SPEC_ID (priority: $PRIORITY) at line $SPEC_LINE"
-            echo "found=true" >> "$GITHUB_OUTPUT"
-            echo "spec-id=$SPEC_ID" >> "$GITHUB_OUTPUT"
-            echo "spec-file=$SPEC_FILE" >> "$GITHUB_OUTPUT"
-            echo "spec-line=$SPEC_LINE" >> "$GITHUB_OUTPUT"
-            echo "priority=$PRIORITY" >> "$GITHUB_OUTPUT"
+            {
+              echo "found=true"
+              echo "spec-id=$SPEC_ID"
+              echo "spec-file=$SPEC_FILE"
+              echo "spec-line=$SPEC_LINE"
+              echo "priority=$PRIORITY"
+            } >> "$GITHUB_OUTPUT"
           else
             echo "No pending specs found"
             echo "found=false" >> "$GITHUB_OUTPUT"
@@ -390,11 +410,13 @@ jobs:
             echo "Do not manually edit the attempt count in the title."
           } > /tmp/pr_body.md
           # Append dynamic content
-          echo "" >> /tmp/pr_body.md
-          echo "Spec ID: \`$SPEC_ID\`" >> /tmp/pr_body.md
-          echo "File: \`$SPEC_FILE\`" >> /tmp/pr_body.md
-          echo "Priority: $PRIORITY" >> /tmp/pr_body.md
-          echo "Max Attempts: $MAX_ATTEMPTS" >> /tmp/pr_body.md
+          {
+            echo ""
+            echo "Spec ID: \`$SPEC_ID\`"
+            echo "File: \`$SPEC_FILE\`"
+            echo "Priority: $PRIORITY"
+            echo "Max Attempts: $MAX_ATTEMPTS"
+          } >> /tmp/pr_body.md
 
           # Create PR with timeout and retry logic
           for attempt in {1..3}; do
@@ -409,7 +431,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::PR creation failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -428,7 +450,7 @@ jobs:
                 break
               fi
 
-              if [ $attempt -lt 3 ]; then
+              if [ "$attempt" -lt 3 ]; then
                 echo "::warning::Enable auto-merge failed (attempt $attempt/3), retrying in 10s..."
                 sleep 10
               else

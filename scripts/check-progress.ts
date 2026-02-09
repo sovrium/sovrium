@@ -2301,6 +2301,7 @@ async function main() {
   const verifyProgress = args.includes('--verify-progress')
   const shouldFix = args.includes('--fix')
   const shouldUpdateStories = args.includes('--update-stories')
+  const strictMode = args.includes('--strict')
 
   console.log('Analyzing spec files...')
   console.log('')
@@ -2753,6 +2754,15 @@ async function main() {
 
   // Exit with error code if there are errors (including duplicates) (unless --no-error or --filter is used)
   if (errorsWithDuplicates > 0 && !noErrorExit) {
+    process.exit(1)
+  }
+
+  // Strict mode: fail on ANY issues (errors, warnings, suggestions, or orphaned spec IDs)
+  // Used by `bun run quality` to enforce zero-issue spec quality
+  if (
+    strictMode &&
+    errorsWithDuplicates + warningsWithDuplicates + suggestionsWithDuplicates + orphanedCount > 0
+  ) {
     process.exit(1)
   }
 }

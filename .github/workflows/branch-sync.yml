@@ -52,11 +52,11 @@ jobs:
             echo "pr_list<<EOF"
             echo "$PR_LIST"
             echo "EOF"
-          } >> $GITHUB_OUTPUT
+          } >> "$GITHUB_OUTPUT"
 
           # Count PRs
           PR_COUNT=$(echo "$PR_LIST" | jq 'length')
-          echo "pr_count=$PR_COUNT" >> $GITHUB_OUTPUT
+          echo "pr_count=$PR_COUNT" >> "$GITHUB_OUTPUT"
 
           if [ "$PR_COUNT" -eq 0 ]; then
             echo "✅ No active TDD PRs to sync"

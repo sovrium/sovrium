@@ -172,7 +172,7 @@ jobs:
                 break
               fi
 
-              if [ $attempt -lt 3 ]; then
+              if [ "$attempt" -lt 3 ]; then
                 echo "  ⚠️ Retry in 10s..."
                 sleep 10
               else

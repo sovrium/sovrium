@@ -81,6 +81,8 @@ bun test:e2e:update-snapshots:spec # Update @spec test snapshots only
 bun run quality                    # Check code quality with smart E2E detection
 bun run quality --skip-e2e         # Skip E2E tests entirely
 bun run quality --skip-coverage    # Skip coverage check (gradual adoption)
+bun run quality --skip-specs       # Skip spec quality validation
+bun run quality --skip-workflows   # Skip GitHub Actions workflow linting (actionlint)
 bun run quality --skip-format      # Skip Prettier formatting check
 bun run quality --skip-knip        # Skip Knip unused code detection
 bun run quality --include-effect   # Include Effect diagnostics (slow, skipped by default)
@@ -126,7 +128,7 @@ git push origin main               # Triggers release ONLY with "release:" type
 
 ## Smart Testing Strategy
 
-`bun run quality` runs: ESLint → TypeScript → Unit Tests → Knip → Coverage Check → Smart E2E (affected @regression specs only)
+`bun run quality` runs: ESLint → Workflow Lint → TypeScript → Unit Tests → Knip → Coverage Check → Spec Quality → Smart E2E (affected @regression specs only)
 
 **E2E Detection**: Analyzes changed files and runs only related @regression specs (skips if docs/scripts only changed).
 
@@ -134,6 +136,8 @@ git push origin main               # Triggers release ONLY with "release:" type
 |------|--------|
 | `--skip-e2e` | Skip E2E tests entirely |
 | `--skip-coverage` | Skip domain coverage check |
+| `--skip-specs` | Skip spec quality validation |
+| `--skip-workflows` | Skip GitHub Actions workflow linting (actionlint) |
 | `--skip-format` | Skip Prettier formatting check |
 | `--skip-knip` | Skip unused code detection |
 | `--include-effect` | Include Effect diagnostics (slow) |

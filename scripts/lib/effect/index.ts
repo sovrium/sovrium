@@ -185,3 +185,8 @@ export type {
   CoverageResult,
   LayerConfig,
 } from './CoverageService'
+
+// Quality Report Service
+export { QualityCheckFailedError, printSummary } from './QualityReportService'
+
+export type { CheckResult } from './QualityReportService'

@@ -7,7 +7,7 @@
  */
 
 /**
- * Quality check script - runs formatting, linting, type checking, Effect diagnostics, unit tests, Knip (unused code), spec count validation, coverage check, and smart E2E regression tests
+ * Quality check script - runs formatting, linting, workflow linting, type checking, Effect diagnostics, unit tests, Knip (unused code), spec count validation, coverage check, spec quality validation, and smart E2E regression tests
  *
  * Usage:
  *   bun run quality                   # Run all checks (Effect diagnostics skipped by default)
@@ -15,6 +15,8 @@
  *   bun run quality --skip-format     # Skip Prettier formatting check
  *   bun run quality --skip-e2e        # Skip E2E tests entirely
  *   bun run quality --skip-coverage   # Skip coverage check (gradual adoption)
+ *   bun run quality --skip-specs      # Skip spec quality validation
+ *   bun run quality --skip-workflows  # Skip GitHub Actions workflow linting (actionlint)
  *   bun run quality --include-effect  # Include Effect diagnostics (slow, ~60-120s)
  *   bun run quality --skip-knip       # Skip Knip unused code detection
  *   bun run quality --no-cache        # Disable all caching (ESLint, Prettier, TypeScript incremental)
@@ -54,7 +56,6 @@
  */
 
 import { basename, dirname, extname, join } from 'node:path'
-import * as Data from 'effect/Data'
 import * as Effect from 'effect/Effect'
 import * as Layer from 'effect/Layer'
 import {
@@ -68,7 +69,6 @@ import {
   logError,
   skip,
   section,
-  // New services for smart testing
   GitService,
   GitServiceLive,
   SpecMappingService,
@@ -76,25 +76,10 @@ import {
   CoverageService,
   CoverageServiceLive,
   DEFAULT_LAYERS,
+  QualityCheckFailedError,
+  printSummary,
 } from './lib/effect'
-import type { LayerConfig } from './lib/effect'
-
-/**
- * Check result with timing information
- */
-interface CheckResult {
-  readonly name: string
-  readonly success: boolean
-  readonly duration: number
-  readonly error?: string
-}
-
-/**
- * Quality check failed error
- */
-class QualityCheckFailedError extends Data.TaggedError('QualityCheckFailedError')<{
-  readonly checks: readonly CheckResult[]
-}> {}
+import type { CheckResult, LayerConfig } from './lib/effect'
 
 /**
  * E2E decision result
@@ -112,6 +97,8 @@ interface QualityOptions {
   readonly file?: string
   readonly skipE2E: boolean
   readonly skipCoverage: boolean
+  readonly skipSpecs: boolean
+  readonly skipWorkflows: boolean
   readonly includeEffect: boolean
   readonly skipKnip: boolean
   readonly skipFormat: boolean
@@ -127,6 +114,8 @@ const parseArgs = (): QualityOptions => {
     file: args.find((a) => !a.startsWith('--')),
     skipE2E: args.includes('--skip-e2e'),
     skipCoverage: args.includes('--skip-coverage'),
+    skipSpecs: args.includes('--skip-specs'),
+    skipWorkflows: args.includes('--skip-workflows'),
     includeEffect: args.includes('--include-effect'),
     skipKnip: args.includes('--skip-knip'),
     skipFormat: args.includes('--skip-format'),
@@ -616,7 +605,25 @@ const runFullChecks = (options: QualityOptions) =>
       return results
     }
 
-    // 3. TypeScript check
+    // 3. GitHub Actions workflow linting (actionlint)
+    if (!options.skipWorkflows) {
+      const workflowResult = yield* runCheck('Workflow Lint', ['actionlint'], 30_000)
+      results.push(workflowResult)
+      if (!workflowResult.success) {
+        yield* logError('\n⚠️  Stopping checks due to Workflow Lint failure (fail-fast mode)')
+        yield* Effect.log('  Run `bun run lint:workflows` to see detailed workflow issues')
+        return results
+      }
+    } else {
+      yield* skip('Workflow Lint skipped (--skip-workflows flag)')
+      results.push({
+        name: 'Workflow Lint',
+        success: true,
+        duration: 0,
+      })
+    }
+
+    // 4. TypeScript check
     const tscCmd = options.noCache
       ? ['bunx', 'tsc', '--noEmit']
       : ['bunx', 'tsc', '--noEmit', '--incremental']
@@ -627,7 +634,7 @@ const runFullChecks = (options: QualityOptions) =>
       return results
     }
 
-    // 4. Effect diagnostics (optional)
+    // 5. Effect diagnostics (optional)
     if (options.includeEffect) {
       const effectResult = yield* runEffectDiagnostics
       results.push(effectResult)
@@ -644,7 +651,7 @@ const runFullChecks = (options: QualityOptions) =>
       })
     }
 
-    // 5. Unit tests
+    // 6. Unit tests
     const unitResult = yield* runCheck(
       'Unit Tests',
       ['bun', 'test', '.test.ts', '.test.tsx'],
@@ -656,7 +663,7 @@ const runFullChecks = (options: QualityOptions) =>
       return results
     }
 
-    // 6. Knip (unused code detection)
+    // 7. Knip (unused code detection)
     if (!options.skipKnip) {
       const knipResult = yield* runCheck('Knip', ['bunx', 'knip'], 30_000)
       results.push(knipResult)
@@ -674,7 +681,7 @@ const runFullChecks = (options: QualityOptions) =>
       })
     }
 
-    // 7. Coverage check (optional)
+    // 8. Coverage check (optional)
     if (!options.skipCoverage) {
       const coverageResult = yield* runCoverageCheck(DEFAULT_LAYERS)
       results.push(coverageResult)
@@ -691,7 +698,29 @@ const runFullChecks = (options: QualityOptions) =>
       })
     }
 
-    // 8. Smart E2E detection
+    // 9. Spec Quality Validation (errors, warnings, suggestions from spec analysis)
+    if (!options.skipSpecs) {
+      const specResult = yield* runCheck(
+        'Spec Quality',
+        ['bun', 'run', 'scripts/check-progress.ts', '--strict'],
+        60_000
+      )
+      results.push(specResult)
+      if (!specResult.success) {
+        yield* logError('\n⚠️  Stopping checks due to Spec Quality failure (fail-fast mode)')
+        yield* Effect.log('  Run `bun run progress` to see detailed spec quality report')
+        return results
+      }
+    } else {
+      yield* skip('Spec Quality skipped (--skip-specs flag)')
+      results.push({
+        name: 'Spec Quality',
+        success: true,
+        duration: 0,
+      })
+    }
+
+    // 10. Smart E2E detection
     if (options.skipE2E) {
       yield* skip('E2E tests skipped (--skip-e2e flag)')
       results.push({
@@ -737,64 +766,6 @@ const runFullChecks = (options: QualityOptions) =>
 /**
  * Print summary of check results
  */
-const printSummary = (results: readonly CheckResult[], overallDuration: number) =>
-  Effect.gen(function* () {
-    const sep = '─'.repeat(50)
-    yield* Effect.log('')
-    yield* Effect.log(sep)
-    yield* Effect.log('📊 Quality Check Summary')
-    yield* Effect.log(sep)
-
-    for (const result of results) {
-      const status = result.success ? '✅' : '❌'
-      yield* Effect.log(`${status} ${result.name.padEnd(20)} ${result.duration}ms`)
-    }
-
-    yield* Effect.log(sep)
-    yield* Effect.log(`Total time: ${overallDuration}ms`)
-    yield* Effect.log(sep)
-
-    const allPassed = results.every((r) => r.success)
-
-    if (allPassed) {
-      yield* success('All quality checks passed!')
-    } else {
-      const failedChecks = results
-        .filter((r) => !r.success)
-        .map((r) => r.name)
-        .join(', ')
-      yield* logError(`Quality checks failed: ${failedChecks}`)
-      yield* Effect.log('')
-      yield* Effect.log('Run individual commands to see detailed errors:')
-
-      const failedNames = new Set(results.filter((r) => !r.success).map((r) => r.name))
-      if (failedNames.has('Prettier')) yield* Effect.log('  bun format')
-      if (failedNames.has('ESLint')) yield* Effect.log('  bun run lint')
-      if (failedNames.has('TypeScript')) yield* Effect.log('  bun run typecheck')
-      if (failedNames.has('Effect Diagnostics')) {
-        yield* Effect.log(
-          '  bun node_modules/@effect/language-service/cli.js diagnostics --project tsconfig.json'
-        )
-        yield* Effect.log('  Add --include-effect flag to run this check')
-      }
-      if (failedNames.has('Unit Tests')) yield* Effect.log('  bun test:unit')
-      if (failedNames.has('Knip')) {
-        yield* Effect.log('  bun run clean')
-        yield* Effect.log('  Or use: bun run quality --skip-knip')
-      }
-      if (failedNames.has('Spec Counts')) {
-        yield* Effect.log('  bun run validate:spec-counts --fix')
-      }
-      if (failedNames.has('Coverage Check')) {
-        yield* Effect.log('  Add missing .test.ts files for source files')
-        yield* Effect.log('  Or use: bun run quality --skip-coverage')
-      }
-      if (failedNames.has('E2E Regression Tests')) yield* Effect.log('  bun test:e2e:regression')
-
-      return yield* new QualityCheckFailedError({ checks: results })
-    }
-  })
-
 /**
  * Main quality check program
  */

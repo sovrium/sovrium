@@ -83,11 +83,13 @@ jobs:
           # shellcheck disable=SC2016
           SPEC_FILE=$(echo "$COMMENT_BODY" | grep -oP 'File: `\K[^`]+' | head -1 || echo "")
           if [ -z "$SPEC_FILE" ]; then
+            # shellcheck disable=SC2016
             SPEC_FILE=$(echo "$COMMENT_BODY" | grep -oP '`specs/[^`]+`' | tr -d '`' | head -1 || echo "")
           fi
           echo "spec-file=$SPEC_FILE" >> "$GITHUB_OUTPUT"
 
           # Extract spec ID (format: Spec: `SPEC-ID`)
+          # shellcheck disable=SC2016
           SPEC_ID=$(echo "$COMMENT_BODY" | grep -oP 'Spec: `\K[^`]+' | head -1 || echo "")
           echo "spec-id=$SPEC_ID" >> "$GITHUB_OUTPUT"
 
@@ -135,20 +137,22 @@ jobs:
           RESULT=$(bun run scripts/tdd-automation/workflows/claude-code/check-credits.ts 2>&1 | tail -1)
 
           # Parse JSON output and set workflow outputs
-          echo "credits-ok=$(echo "$RESULT" | jq -r '.creditsOk')" >> "$GITHUB_OUTPUT"
-          echo "limit-type=$(echo "$RESULT" | jq -r '.limitType')" >> "$GITHUB_OUTPUT"
-          echo "daily-runs=0" >> "$GITHUB_OUTPUT"
-          echo "weekly-runs=0" >> "$GITHUB_OUTPUT"
-          echo "actual-daily=$(echo "$RESULT" | jq -r '.dailySpend')" >> "$GITHUB_OUTPUT"
-          echo "actual-weekly=$(echo "$RESULT" | jq -r '.weeklySpend')" >> "$GITHUB_OUTPUT"
-          echo "daily-limit=$(echo "$RESULT" | jq -r '.dailyLimit')" >> "$GITHUB_OUTPUT"
-          echo "weekly-limit=$(echo "$RESULT" | jq -r '.weeklyLimit')" >> "$GITHUB_OUTPUT"
-          echo "daily-remaining=$(echo "$RESULT" | jq -r '.dailyRemaining')" >> "$GITHUB_OUTPUT"
-          echo "weekly-remaining=$(echo "$RESULT" | jq -r '.weeklyRemaining')" >> "$GITHUB_OUTPUT"
-          echo "daily-percent=$(echo "$RESULT" | jq -r '.dailyPercent')" >> "$GITHUB_OUTPUT"
-          echo "weekly-percent=$(echo "$RESULT" | jq -r '.weeklyPercent')" >> "$GITHUB_OUTPUT"
-          echo "hours-until-daily-reset=$(echo "$RESULT" | jq -r '.hoursUntilDailyReset')" >> "$GITHUB_OUTPUT"
-          echo "days-until-weekly-reset=$(echo "$RESULT" | jq -r '.daysUntilWeeklyReset')" >> "$GITHUB_OUTPUT"
+          {
+            echo "credits-ok=$(echo "$RESULT" | jq -r '.creditsOk')"
+            echo "limit-type=$(echo "$RESULT" | jq -r '.limitType')"
+            echo "daily-runs=0"
+            echo "weekly-runs=0"
+            echo "actual-daily=$(echo "$RESULT" | jq -r '.dailySpend')"
+            echo "actual-weekly=$(echo "$RESULT" | jq -r '.weeklySpend')"
+            echo "daily-limit=$(echo "$RESULT" | jq -r '.dailyLimit')"
+            echo "weekly-limit=$(echo "$RESULT" | jq -r '.weeklyLimit')"
+            echo "daily-remaining=$(echo "$RESULT" | jq -r '.dailyRemaining')"
+            echo "weekly-remaining=$(echo "$RESULT" | jq -r '.weeklyRemaining')"
+            echo "daily-percent=$(echo "$RESULT" | jq -r '.dailyPercent')"
+            echo "weekly-percent=$(echo "$RESULT" | jq -r '.weeklyPercent')"
+            echo "hours-until-daily-reset=$(echo "$RESULT" | jq -r '.hoursUntilDailyReset')"
+            echo "days-until-weekly-reset=$(echo "$RESULT" | jq -r '.daysUntilWeeklyReset')"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Post credit usage comment (always)
         env:
@@ -180,7 +184,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -352,7 +356,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Label add failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -370,7 +374,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Disable auto-merge failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -403,7 +407,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -455,9 +459,11 @@ jobs:
 
           # Store prompt for action
           PROMPT=$(cat /tmp/claude_prompt.txt)
-          echo "prompt<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$PROMPT" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          {
+            echo "prompt<<EOF"
+            echo "$PROMPT"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Run Claude Code Action
         id: claude-code
@@ -604,20 +610,24 @@ jobs:
             # Format cost to 2 decimal places
             COST_FORMATTED=$(printf "%.2f" "$TOTAL_COST")
 
-            echo "duration-ms=$DURATION_MS" >> "$GITHUB_OUTPUT"
-            echo "duration-formatted=$DURATION_FORMATTED" >> "$GITHUB_OUTPUT"
-            echo "num-turns=$NUM_TURNS" >> "$GITHUB_OUTPUT"
-            echo "total-cost=$COST_FORMATTED" >> "$GITHUB_OUTPUT"
+            {
+              echo "duration-ms=$DURATION_MS"
+              echo "duration-formatted=$DURATION_FORMATTED"
+              echo "num-turns=$NUM_TURNS"
+              echo "total-cost=$COST_FORMATTED"
+            } >> "$GITHUB_OUTPUT"
 
             echo "📊 Execution Metrics:"
             echo "   Duration: $DURATION_FORMATTED ($DURATION_MS ms)"
             echo "   Turns: $NUM_TURNS"
             echo "   Total Cost: \$$COST_FORMATTED"
           else
-            echo "duration-ms=0" >> "$GITHUB_OUTPUT"
-            echo "duration-formatted=N/A" >> "$GITHUB_OUTPUT"
-            echo "num-turns=0" >> "$GITHUB_OUTPUT"
-            echo "total-cost=0.00" >> "$GITHUB_OUTPUT"
+            {
+              echo "duration-ms=0"
+              echo "duration-formatted=N/A"
+              echo "num-turns=0"
+              echo "total-cost=0.00"
+            } >> "$GITHUB_OUTPUT"
             echo "⚠️ No execution file found - metrics unavailable"
           fi
 
@@ -650,7 +660,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -804,7 +814,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Label add failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -820,7 +830,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -836,7 +846,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Workflow trigger failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -877,7 +887,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Label add failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -918,7 +928,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -934,7 +944,7 @@ jobs:
               break
             fi
 
-            if [ $attempt -lt 3 ]; then
+            if [ "$attempt" -lt 3 ]; then
               echo "::warning::Workflow trigger failed (attempt $attempt/3), retrying in 10s..."
               sleep 10
             else
@@ -978,7 +988,7 @@ jobs:
                     break
                   fi
 
-                  if [ $attempt -lt 3 ]; then
+                  if [ "$attempt" -lt 3 ]; then
                     echo "::warning::Label add failed (attempt $attempt/3), retrying in 10s..."
                     sleep 10
                   else
@@ -1013,7 +1023,7 @@ jobs:
                     break
                   fi
 
-                  if [ $attempt -lt 3 ]; then
+                  if [ "$attempt" -lt 3 ]; then
                     echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
                     sleep 10
                   else
