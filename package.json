@@ -152,7 +152,7 @@
     "dompurify": "^3.3.1",
     "drizzle-orm": "^0.45.1",
     "effect": "^3.19.16",
-    "hono": "^4.11.8",
+    "hono": "^4.11.9",
     "jiti": "^2.6.1",
     "js-yaml": "^4.1.1",
     "lucide-react": "^0.563.0",
