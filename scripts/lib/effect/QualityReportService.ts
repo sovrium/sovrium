@@ -78,13 +78,6 @@ export const printSummary = (results: readonly CheckResult[], overallDuration: n
         yield* Effect.log('  bun run lint:workflows')
         yield* Effect.log('  Or use: bun run quality --skip-workflows')
       }
-      if (failedNames.has('Spec Counts')) {
-        yield* Effect.log('  bun run validate:spec-counts --fix')
-      }
-      if (failedNames.has('Spec Quality')) {
-        yield* Effect.log('  bun run progress')
-        yield* Effect.log('  Or use: bun run quality --skip-specs')
-      }
       if (failedNames.has('Coverage Check')) {
         yield* Effect.log('  Add missing .test.ts files for source files')
         yield* Effect.log('  Or use: bun run quality --skip-coverage')

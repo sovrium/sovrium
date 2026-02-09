@@ -7,7 +7,13 @@
  */
 
 /**
- * Quality check script - runs formatting, linting, workflow linting, type checking, Effect diagnostics, unit tests, Knip (unused code), spec count validation, coverage check, spec quality validation, and smart E2E regression tests
+ * Code Quality Check (Tier 1) - runs formatting, linting, workflow linting, type checking,
+ * Effect diagnostics, unit tests, Knip (unused code), coverage check, and smart E2E regression tests
+ *
+ * This is Tier 1 of the two-tier quality pipeline:
+ *   Tier 1: bun run quality     → Code quality (format, lint, types, tests, knip, coverage, e2e)
+ *   Tier 2: bun run progress    → Content quality + reporting (specs, user stories, SPEC-PROGRESS.md)
+ *   Both:   bun run check:all   → quality && progress --strict
  *
  * Usage:
  *   bun run quality                   # Run all checks (Effect diagnostics skipped by default)
@@ -15,7 +21,6 @@
  *   bun run quality --skip-format     # Skip Prettier formatting check
  *   bun run quality --skip-e2e        # Skip E2E tests entirely
  *   bun run quality --skip-coverage   # Skip coverage check (gradual adoption)
- *   bun run quality --skip-specs      # Skip spec quality validation
  *   bun run quality --skip-workflows  # Skip GitHub Actions workflow linting (actionlint)
  *   bun run quality --include-effect  # Include Effect diagnostics (slow, ~60-120s)
  *   bun run quality --skip-knip       # Skip Knip unused code detection
@@ -97,7 +102,6 @@ interface QualityOptions {
   readonly file?: string
   readonly skipE2E: boolean
   readonly skipCoverage: boolean
-  readonly skipSpecs: boolean
   readonly skipWorkflows: boolean
   readonly includeEffect: boolean
   readonly skipKnip: boolean
@@ -114,7 +118,6 @@ const parseArgs = (): QualityOptions => {
     file: args.find((a) => !a.startsWith('--')),
     skipE2E: args.includes('--skip-e2e'),
     skipCoverage: args.includes('--skip-coverage'),
-    skipSpecs: args.includes('--skip-specs'),
     skipWorkflows: args.includes('--skip-workflows'),
     includeEffect: args.includes('--include-effect'),
     skipKnip: args.includes('--skip-knip'),
@@ -698,29 +701,7 @@ const runFullChecks = (options: QualityOptions) =>
       })
     }
 
-    // 9. Spec Quality Validation (errors, warnings, suggestions from spec analysis)
-    if (!options.skipSpecs) {
-      const specResult = yield* runCheck(
-        'Spec Quality',
-        ['bun', 'run', 'scripts/check-progress.ts', '--strict'],
-        60_000
-      )
-      results.push(specResult)
-      if (!specResult.success) {
-        yield* logError('\n⚠️  Stopping checks due to Spec Quality failure (fail-fast mode)')
-        yield* Effect.log('  Run `bun run progress` to see detailed spec quality report')
-        return results
-      }
-    } else {
-      yield* skip('Spec Quality skipped (--skip-specs flag)')
-      results.push({
-        name: 'Spec Quality',
-        success: true,
-        duration: 0,
-      })
-    }
-
-    // 10. Smart E2E detection
+    // 9. Smart E2E detection
     if (options.skipE2E) {
       yield* skip('E2E tests skipped (--skip-e2e flag)')
       results.push({

@@ -113,6 +113,7 @@ You are an elite Product Specifications Architect for the Sovrium project. You s
 | **Generate regression test** | `Skill({ skill: "regression-test-generator", args: "specs/path/file.spec.ts" })` | After creating @spec tests |
 | **Validate regression sync** | `Skill({ skill: "regression-test-generator", args: "specs/path/file.spec.ts --check" })` | Before handoff to e2e-test-fixer |
 | **Validate test quality** | `bun run progress` | Before handoff (must be 0 errors/warnings) |
+| **Validate user stories** | `bun run progress --no-quality-gate` | After modifying docs/user-stories/ files |
 | **Research competitors** | `WebSearch({ query: "{platform} {feature} documentation" })` | Before designing specifications |
 
 ### Skills Used
@@ -126,7 +127,7 @@ This agent invokes the following skills:
 
 ### Test Quality Validation Criteria
 
-**Script**: `bun run progress`
+**Scripts**: `bun run progress --no-quality-gate` (validates both specs and user stories)
 
 **What it validates** (must be 0 errors and 0 warnings):
 - ✅ Spec ID format valid (`DOMAIN-FEATURE-NNN` pattern)
@@ -771,7 +772,7 @@ test.fixme(
 - [ ] **Authentication fixtures used** - Using `signIn`/`signUp`/`createAuthenticatedUser` (NOT raw API calls)
 - [ ] **@regression test exists** - ONE per feature, generated via regression-test-generator skill
 - [ ] **Regression test validated** - Run skill with `--check` to verify sync with @spec tests
-- [ ] **Quality check passes** - `bun run progress` shows 0 errors/warnings
+- [ ] **Quality check passes** - `bun run progress --no-quality-gate --strict` shows 0 errors/warnings
 
 ### Handoff Notification Template
 

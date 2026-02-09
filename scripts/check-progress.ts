@@ -8,12 +8,20 @@
 /* eslint-disable max-lines -- Self-contained utility script */
 
 /**
- * Spec Quality Analyzer
+ * Spec & Content Quality Analyzer (Tier 2)
  *
- * Analyzes E2E test files (.spec.ts) for quality and generates a SPEC-PROGRESS.md file
- * that serves as a single source of truth for test coverage and specification review.
+ * Analyzes E2E test files (.spec.ts) and user story files (.md) for quality,
+ * then generates a SPEC-PROGRESS.md file as the single source of truth for
+ * test coverage and specification review.
  *
- * Quality checks:
+ * Two-tier architecture:
+ * - Tier 1: `bun run quality` — Code quality (format, lint, types, tests, coverage, e2e)
+ * - Tier 2: `bun run progress` — Content quality + reporting (this script)
+ *
+ * Quality gate: Runs `bun run typecheck` before analysis to ensure code compiles.
+ * Use --no-quality-gate to skip this (e.g., in CI where quality already verified).
+ *
+ * Spec quality checks:
  * - Test naming (descriptive, follows conventions)
  * - Spec IDs (APP-*, API-*, STATIC-*, etc.)
  * - GIVEN/WHEN/THEN structure in comments
@@ -21,29 +29,47 @@
  * - Coverage gaps and missing behaviors
  * - Header "Spec Count: X" matches actual @spec count
  *
+ * User story quality checks:
+ * - H1 title present
+ * - Feature Area metadata
+ * - User story structure (As a / I want to / so that)
+ * - Acceptance Criteria table with 4 columns
+ * - AC/US ID format validation
+ * - Implementation References section
+ * - Schema/Spec file references exist on disk
+ * - Spec IDs in AC tables match actual spec files
+ * - No duplicate US/AC IDs
+ *
  * Usage:
  *   bun run scripts/check-progress.ts [options]
  *
  * Options:
- *   --filter=pattern   Filter files by regex pattern (e.g., --filter=version)
- *   --fixme            Show list of fixme tests for prioritization
- *   --fix              Auto-fix header count mismatches
- *   --no-error         Don't exit with error code on quality issues
- *   --verify-progress  Cross-reference with GitHub PRs/issues to detect discrepancies
- *   --update-stories   Update user story files with test status column (✅/⏳/❓)
+ *   --filter=pattern     Filter files by regex pattern (e.g., --filter=version)
+ *   --fixme              Show list of fixme tests for prioritization
+ *   --fix                Auto-fix header count mismatches
+ *   --no-error           Don't exit with error code on quality issues
+ *   --no-quality-gate    Skip typecheck prerequisite (for CI where quality already verified)
+ *   --skip-stories       Skip user story validation
+ *   --strict             Exit 1 if any quality issues found (errors, warnings, suggestions)
+ *   --verify-progress    Cross-reference with GitHub PRs/issues to detect discrepancies
+ *   --update-stories     Update user story files with test status column (✅/⏳/❓)
  *
  * Output:
  *   - SPEC-PROGRESS.md: Reviewable specification state document
  *   - Console: Quality report with issues and suggestions
  *
  * Examples:
- *   bun run progress                    # Full analysis
- *   bun run progress --filter=version   # Analyze only version specs
- *   bun run progress --fixme            # Show fixme tests to implement next
- *   bun run progress --fix              # Auto-fix header count mismatches
- *   bun run progress --update-stories   # Update user stories with test status
+ *   bun run progress                       # Full analysis (with quality gate)
+ *   bun run progress --no-quality-gate     # Skip typecheck prerequisite
+ *   bun run progress --skip-stories        # Skip user story validation
+ *   bun run progress --filter=version      # Analyze only version specs
+ *   bun run progress --fixme               # Show fixme tests to implement next
+ *   bun run progress --fix                 # Auto-fix header count mismatches
+ *   bun run progress --update-stories      # Update user stories with test status
+ *   bun run progress --strict              # Fail on any issues
  */
 
+import { execSync } from 'node:child_process'
 import { readdir, readFile, writeFile, unlink, access } from 'node:fs/promises'
 import { join, relative, basename } from 'node:path'
 import * as prettier from 'prettier'
@@ -263,6 +289,436 @@ const ACCEPTANCE_CRITERIA_TABLE_ROW_PATTERN =
 const DOMAIN_PATTERN = />\s*\*\*Domain\*\*:\s*(\S+)/
 const FEATURE_AREA_PATTERN = />\s*\*\*Feature Area\*\*:\s*(\S+)/
 const ROLE_PATTERN = />\s*\*\*Role\*\*:\s*(.+)/
+
+// =============================================================================
+// User Story Validation Types & Patterns (merged from check-user-stories.ts)
+// =============================================================================
+
+interface StoryValidationIssue {
+  readonly file: string
+  readonly severity: 'error' | 'warning' | 'info'
+  readonly message: string
+  readonly line?: number
+}
+
+interface UserStorySection {
+  readonly id: string
+  readonly title: string
+  readonly lineNumber: number
+  readonly hasAsA: boolean
+  readonly hasIWantTo: boolean
+  readonly hasSoThat: boolean
+  readonly hasAcceptanceCriteria: boolean
+  readonly hasImplementationReferences: boolean
+  readonly acIds: readonly string[]
+  readonly specIds: readonly string[]
+  readonly schemaRefs: readonly string[]
+  readonly specFileRefs: readonly string[]
+}
+
+interface UserStoryFileValidation {
+  readonly path: string
+  readonly relativePath: string
+  readonly hasH1: boolean
+  readonly hasFeatureArea: boolean
+  readonly stories: readonly UserStorySection[]
+  readonly issues: readonly StoryValidationIssue[]
+}
+
+// Patterns for structural validation
+const US_HEADING_PATTERN = /^## (US-[\w-]+):\s*(.+)/
+const AC_ROW_PATTERN = /^\|\s*(AC-\d+)\s*\|/
+const SPEC_ID_IN_AC_PATTERN = /`([\w-]+)`/
+const IMPL_SCHEMA_PATTERN = /\*\*Schema\*\*:\s*`([^`]+)`/
+const IMPL_SPEC_PATTERN = /\*\*E2E Spec\*\*:\s*`([^`]+)`/
+const USER_STORIES_RELATIVE_DIR = 'docs/user-stories'
+
+// =============================================================================
+// User Story Validation Functions (merged from check-user-stories.ts)
+// =============================================================================
+
+/**
+ * Parse a single user story section (between ## US- headings) for structural validation.
+ */
+function parseStorySection(
+  file: string,
+  id: string,
+  title: string,
+  lineNumber: number,
+  lines: readonly string[],
+  issues: StoryValidationIssue[]
+): UserStorySection {
+  const content = lines.join('\n')
+
+  // Check US ID format: US-{FEATURE-SEGMENTS}-{NNN}
+  if (!/^US-[A-Z][\w-]*-\d+$/.test(id)) {
+    issues.push({
+      file,
+      severity: 'warning',
+      message: `US ID "${id}" does not follow US-{FEATURE}-{NNN} pattern`,
+      line: lineNumber,
+    })
+  }
+
+  // Check "As a" / "I want to" / "so that"
+  const hasAsA = /\*\*As a\*\*/.test(content)
+  const hasIWantTo = /\*\*I want to\*\*/.test(content)
+  const hasSoThat = /\*\*so that\*\*/.test(content)
+
+  if (!hasAsA)
+    issues.push({
+      file,
+      severity: 'error',
+      message: `${id}: Missing "**As a**" phrase`,
+      line: lineNumber,
+    })
+  if (!hasIWantTo)
+    issues.push({
+      file,
+      severity: 'error',
+      message: `${id}: Missing "**I want to**" phrase`,
+      line: lineNumber,
+    })
+  if (!hasSoThat)
+    issues.push({
+      file,
+      severity: 'error',
+      message: `${id}: Missing "**so that**" phrase`,
+      line: lineNumber,
+    })
+
+  // Check Acceptance Criteria
+  const hasAcceptanceCriteria = /### Acceptance Criteria/.test(content)
+  if (!hasAcceptanceCriteria)
+    issues.push({
+      file,
+      severity: 'error',
+      message: `${id}: Missing ### Acceptance Criteria section`,
+      line: lineNumber,
+    })
+
+  // Parse AC rows
+  const acIds: string[] = []
+  const specIds: string[] = []
+  let inAcTable = false
+  let acTableHeaderSeen = false
+
+  for (const line of lines) {
+    if (/### Acceptance Criteria/.test(line)) {
+      inAcTable = true
+      acTableHeaderSeen = false
+      continue
+    }
+    if (inAcTable && /^###?\s/.test(line) && !/### Acceptance Criteria/.test(line)) {
+      inAcTable = false
+      continue
+    }
+    if (inAcTable) {
+      if (/^\|[\s-|]+\|$/.test(line)) {
+        acTableHeaderSeen = true
+        continue
+      }
+      if (!acTableHeaderSeen && /^\|.*ID.*\|/.test(line)) {
+        const columns = line.split('|').filter((c) => c.trim().length > 0)
+        if (columns.length !== 4)
+          issues.push({
+            file,
+            severity: 'warning',
+            message: `${id}: AC table header has ${columns.length} columns, expected 4`,
+          })
+        continue
+      }
+      const acMatch = AC_ROW_PATTERN.exec(line)
+      if (acMatch?.[1]) {
+        acIds.push(acMatch[1])
+        const specColumn = line.split('|')[3] ?? ''
+        const specMatch = SPEC_ID_IN_AC_PATTERN.exec(specColumn)
+        if (specMatch?.[1]) specIds.push(specMatch[1])
+      }
+    }
+  }
+
+  // Check for empty AC table
+  if (hasAcceptanceCriteria && acIds.length === 0)
+    issues.push({ file, severity: 'warning', message: `${id}: Acceptance Criteria table is empty` })
+
+  // Duplicate AC IDs
+  const seenAcIds = new Set<string>()
+  for (const acId of acIds) {
+    if (seenAcIds.has(acId))
+      issues.push({ file, severity: 'error', message: `${id}: Duplicate AC ID: ${acId}` })
+    seenAcIds.add(acId)
+  }
+
+  // Check Implementation References
+  const hasImplementationReferences = /### Implementation References/.test(content)
+  if (!hasImplementationReferences)
+    issues.push({
+      file,
+      severity: 'warning',
+      message: `${id}: Missing ### Implementation References section`,
+      line: lineNumber,
+    })
+
+  // Extract schema and spec file references
+  const schemaRefs: string[] = []
+  const specFileRefs: string[] = []
+  let inImplRefs = false
+  for (const line of lines) {
+    if (/### Implementation References/.test(line)) {
+      inImplRefs = true
+      continue
+    }
+    if (inImplRefs && /^###?\s/.test(line)) {
+      inImplRefs = false
+      continue
+    }
+    if (inImplRefs) {
+      const schemaMatch = IMPL_SCHEMA_PATTERN.exec(line)
+      if (schemaMatch?.[1]) schemaRefs.push(schemaMatch[1])
+      const specFileMatch = IMPL_SPEC_PATTERN.exec(line)
+      if (specFileMatch?.[1]) specFileRefs.push(specFileMatch[1])
+    }
+  }
+
+  return {
+    id,
+    title,
+    lineNumber,
+    hasAsA,
+    hasIWantTo,
+    hasSoThat,
+    hasAcceptanceCriteria,
+    hasImplementationReferences,
+    acIds,
+    specIds,
+    schemaRefs,
+    specFileRefs,
+  }
+}
+
+/**
+ * Parse a user story markdown file for structural validation.
+ */
+function parseUserStoryFileForValidation(
+  relativePath: string,
+  content: string
+): UserStoryFileValidation {
+  const lines = content.split('\n')
+  const issues: StoryValidationIssue[] = []
+
+  const hasH1 = lines.some((line) => /^# .+/.test(line))
+  if (!hasH1) issues.push({ file: relativePath, severity: 'error', message: 'Missing H1 title' })
+
+  const hasFeatureArea = lines.some((line) => />\s*\*\*Feature Area\*\*:/.test(line))
+  if (!hasFeatureArea)
+    issues.push({ file: relativePath, severity: 'error', message: 'Missing Feature Area metadata' })
+
+  const stories: UserStorySection[] = []
+  let currentStoryStart = -1
+  let currentStoryId = ''
+  let currentStoryTitle = ''
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? ''
+    const match = US_HEADING_PATTERN.exec(line)
+    if (match) {
+      if (currentStoryStart >= 0) {
+        const storyContent = lines.slice(currentStoryStart, i)
+        stories.push(
+          parseStorySection(
+            relativePath,
+            currentStoryId,
+            currentStoryTitle,
+            currentStoryStart + 1,
+            storyContent,
+            issues
+          )
+        )
+      }
+      currentStoryStart = i
+      currentStoryId = match[1] ?? ''
+      currentStoryTitle = match[2] ?? ''
+    }
+  }
+  if (currentStoryStart >= 0) {
+    stories.push(
+      parseStorySection(
+        relativePath,
+        currentStoryId,
+        currentStoryTitle,
+        currentStoryStart + 1,
+        lines.slice(currentStoryStart),
+        issues
+      )
+    )
+  }
+
+  if (stories.length === 0)
+    issues.push({ file: relativePath, severity: 'error', message: 'No user story sections found' })
+
+  // Check duplicate US IDs
+  const seenUsIds = new Set<string>()
+  for (const s of stories) {
+    if (seenUsIds.has(s.id))
+      issues.push({
+        file: relativePath,
+        severity: 'error',
+        message: `Duplicate user story ID: ${s.id}`,
+      })
+    seenUsIds.add(s.id)
+  }
+
+  return {
+    path: `${USER_STORIES_RELATIVE_DIR}/${relativePath}`,
+    relativePath,
+    hasH1,
+    hasFeatureArea,
+    stories,
+    issues,
+  }
+}
+
+/**
+ * Validate that file references in user stories actually exist on disk.
+ */
+async function validateFileReferences(
+  files: readonly UserStoryFileValidation[]
+): Promise<StoryValidationIssue[]> {
+  const issues: StoryValidationIssue[] = []
+  for (const file of files) {
+    for (const story of file.stories) {
+      for (const schemaRef of story.schemaRefs) {
+        try {
+          await access(schemaRef)
+        } catch {
+          try {
+            await access(schemaRef.replace(/\/$/, ''))
+          } catch {
+            issues.push({
+              file: file.relativePath,
+              severity: 'warning',
+              message: `${story.id}: Schema path does not exist: ${schemaRef}`,
+            })
+          }
+        }
+      }
+      for (const specRef of story.specFileRefs) {
+        try {
+          await access(specRef)
+        } catch {
+          try {
+            await access(specRef.replace(/\/$/, ''))
+          } catch {
+            issues.push({
+              file: file.relativePath,
+              severity: 'warning',
+              message: `${story.id}: E2E Spec path does not exist: ${specRef}`,
+            })
+          }
+        }
+      }
+    }
+  }
+  return issues
+}
+
+/**
+ * Validate that spec IDs referenced in AC tables actually exist in spec files.
+ * Reuses the allSpecIds set already collected from spec file analysis.
+ */
+function validateSpecIdReferences(
+  files: readonly UserStoryFileValidation[],
+  allSpecIds: Set<string>
+): StoryValidationIssue[] {
+  const issues: StoryValidationIssue[] = []
+  for (const file of files) {
+    for (const story of file.stories) {
+      for (const specId of story.specIds) {
+        if (!allSpecIds.has(specId)) {
+          issues.push({
+            file: file.relativePath,
+            severity: 'warning',
+            message: `${story.id}: Spec ID "${specId}" not found in any spec file`,
+          })
+        }
+      }
+    }
+  }
+  return issues
+}
+
+/**
+ * Run user story validation and return all issues.
+ */
+async function runUserStoryValidation(allSpecIds: Set<string>): Promise<{
+  files: UserStoryFileValidation[]
+  issues: StoryValidationIssue[]
+  totalStories: number
+  totalACs: number
+}> {
+  // Find all user story files
+  const userStoryFiles = await findUserStoryFiles(USER_STORIES_DIR)
+  const storyFiles = userStoryFiles.filter((f) => !f.endsWith('README.md'))
+
+  if (storyFiles.length === 0) {
+    return { files: [], issues: [], totalStories: 0, totalACs: 0 }
+  }
+
+  // Parse all files
+  const parsedFiles: UserStoryFileValidation[] = []
+  for (const filePath of storyFiles) {
+    const content = await readFile(filePath, 'utf-8')
+    const relativePath = filePath.replace(`${USER_STORIES_DIR}/`, '')
+    parsedFiles.push(parseUserStoryFileForValidation(relativePath, content))
+  }
+
+  // Validate file references
+  const refIssues = await validateFileReferences(parsedFiles)
+
+  // Validate spec ID references (reuses allSpecIds from spec analysis)
+  const specIdIssues = validateSpecIdReferences(parsedFiles, allSpecIds)
+
+  // Collect all issues
+  const allIssues: StoryValidationIssue[] = [
+    ...parsedFiles.flatMap((f) => f.issues),
+    ...refIssues,
+    ...specIdIssues,
+  ]
+
+  const totalStories = parsedFiles.reduce((sum, f) => sum + f.stories.length, 0)
+  const totalACs = parsedFiles.reduce(
+    (sum, f) => sum + f.stories.reduce((s, story) => s + story.acIds.length, 0),
+    0
+  )
+
+  return { files: parsedFiles, issues: allIssues, totalStories, totalACs }
+}
+
+// =============================================================================
+// Quality Gate
+// =============================================================================
+
+/**
+ * Run typecheck as a quality gate. Returns true if it passed.
+ */
+function runQualityGate(): boolean {
+  console.log('Running quality gate (typecheck)...')
+  try {
+    execSync('bun run typecheck', { stdio: 'pipe', timeout: 60_000 })
+    console.log('✅ Quality gate passed (typecheck)')
+    console.log('')
+    return true
+  } catch {
+    console.error('❌ Quality gate FAILED (typecheck)')
+    console.error('   Code must compile before running content analysis.')
+    console.error('   Fix type errors first: bun run typecheck')
+    console.error('   Or run full quality checks: bun run quality')
+    console.error('')
+    console.error('   Tip: Use --no-quality-gate to skip this check')
+    return false
+  }
+}
 
 // =============================================================================
 // Analysis Functions
@@ -2211,6 +2667,16 @@ async function main() {
   const shouldFix = args.includes('--fix')
   const shouldUpdateStories = args.includes('--update-stories')
   const strictMode = args.includes('--strict')
+  const noQualityGate = args.includes('--no-quality-gate')
+  const skipStories = args.includes('--skip-stories')
+
+  // Quality gate: typecheck must pass before content analysis
+  if (!noQualityGate) {
+    const gateOk = runQualityGate()
+    if (!gateOk) {
+      process.exit(1)
+    }
+  }
 
   console.log('Analyzing spec files...')
   console.log('')
@@ -2632,17 +3098,97 @@ async function main() {
     }
   }
 
+  // User Story Validation (merged from check-user-stories.ts)
+  let storyValidationErrors = 0
+  let storyValidationWarnings = 0
+  if (!skipStories) {
+    console.log('')
+    console.log('━'.repeat(60))
+    console.log('📝 USER STORY QUALITY VALIDATION')
+    console.log('━'.repeat(60))
+    console.log('')
+
+    // Build a set of all spec IDs from analyzed files
+    const allSpecIds = new Set<string>()
+    for (const file of analyzedFiles) {
+      for (const test of file.tests) {
+        if (test.id) allSpecIds.add(test.id)
+      }
+    }
+
+    const storyResult = await runUserStoryValidation(allSpecIds)
+
+    if (storyResult.files.length === 0) {
+      console.log('⚠️  No user story files found in docs/user-stories/')
+    } else {
+      const errors = storyResult.issues.filter((i) => i.severity === 'error')
+      const warnings = storyResult.issues.filter((i) => i.severity === 'warning')
+      const infos = storyResult.issues.filter((i) => i.severity === 'info')
+      storyValidationErrors = errors.length
+      storyValidationWarnings = warnings.length
+
+      if (errors.length > 0) {
+        console.log(`❌ Errors (${errors.length}):`)
+        for (const issue of errors) {
+          const loc = issue.line ? `:${issue.line}` : ''
+          console.log(`  ❌ ${issue.file}${loc}: ${issue.message}`)
+        }
+        console.log('')
+      }
+
+      if (warnings.length > 0) {
+        console.log(`⚠️  Warnings (${warnings.length}):`)
+        for (const issue of warnings) {
+          const loc = issue.line ? `:${issue.line}` : ''
+          console.log(`  ⚠️  ${issue.file}${loc}: ${issue.message}`)
+        }
+        console.log('')
+      }
+
+      if (infos.length > 0) {
+        console.log(`ℹ️  Info (${infos.length}):`)
+        for (const issue of infos) {
+          console.log(`  ℹ️  ${issue.file}: ${issue.message}`)
+        }
+        console.log('')
+      }
+
+      console.log('─'.repeat(50))
+      console.log(`📊 User Story Summary`)
+      console.log('─'.repeat(50))
+      console.log(`  Files:    ${storyResult.files.length}`)
+      console.log(`  Stories:  ${storyResult.totalStories}`)
+      console.log(`  ACs:      ${storyResult.totalACs}`)
+      console.log(`  Errors:   ${errors.length}`)
+      console.log(`  Warnings: ${warnings.length}`)
+      console.log('─'.repeat(50))
+
+      if (errors.length === 0) {
+        console.log('✅ User story quality validation passed!')
+      } else {
+        console.log(`❌ User story validation found ${errors.length} error(s)`)
+      }
+    }
+  } else {
+    console.log('')
+    console.log('⏭️  User story validation skipped (--skip-stories flag)')
+  }
+
   // Exit with error code if there are errors (including duplicates) (unless --no-error or --filter is used)
   if (errorsWithDuplicates > 0 && !noErrorExit) {
     process.exit(1)
   }
 
-  // Strict mode: fail on ANY issues (errors, warnings, suggestions, or orphaned spec IDs)
-  // Used by `bun run quality` to enforce zero-issue spec quality
-  if (
-    strictMode &&
-    errorsWithDuplicates + warningsWithDuplicates + suggestionsWithDuplicates + orphanedCount > 0
-  ) {
+  // Strict mode: fail on ANY issues (errors, warnings, suggestions, orphaned spec IDs, or story issues)
+  // Used by `bun run check:all` to enforce zero-issue content quality
+  const totalStrictIssues =
+    errorsWithDuplicates +
+    warningsWithDuplicates +
+    suggestionsWithDuplicates +
+    orphanedCount +
+    storyValidationErrors +
+    storyValidationWarnings
+  if (strictMode && totalStrictIssues > 0) {
     process.exit(1)
   }
 }

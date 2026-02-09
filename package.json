@@ -79,6 +79,7 @@
     "progress": "bun run scripts/check-progress.ts",
     "validate:specs": "bun run scripts/validate-specs.ts",
     "validate:docs:versions": "bun run scripts/validate-doc-versions.ts",
+    "check:all": "bun run quality && bun run progress --strict",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",

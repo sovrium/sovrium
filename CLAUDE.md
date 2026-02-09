@@ -77,17 +77,24 @@ bun test:e2e:regression            # Run @regression tests only (optimized)
 bun test:e2e:update-snapshots      # Update ALL snapshots (ARIA + visual)
 bun test:e2e:update-snapshots:spec # Update @spec test snapshots only
 
-# Utility Scripts (Additional)
-bun run quality                    # Check code quality with smart E2E detection
+# Two-Tier Quality Pipeline
+# Tier 1: Code quality (format, lint, types, tests, coverage, e2e)
+bun run quality                    # Run code quality checks with smart E2E detection
 bun run quality --skip-e2e         # Skip E2E tests entirely
 bun run quality --skip-coverage    # Skip coverage check (gradual adoption)
-bun run quality --skip-specs       # Skip spec quality validation
 bun run quality --skip-workflows   # Skip GitHub Actions workflow linting (actionlint)
 bun run quality --skip-format      # Skip Prettier formatting check
 bun run quality --skip-knip        # Skip Knip unused code detection
 bun run quality --include-effect   # Include Effect diagnostics (slow, skipped by default)
 bun run quality --no-cache         # Disable all caching (ESLint, Prettier, TypeScript incremental)
-bun run progress                   # Analyze spec tests (user stories, metrics tracking)
+# Tier 2: Content quality + reporting (specs, user stories, SPEC-PROGRESS.md) — requires typecheck
+bun run progress                   # Analyze specs + user stories, generate SPEC-PROGRESS.md
+bun run progress --no-quality-gate # Skip typecheck prerequisite
+bun run progress --skip-stories    # Skip user story validation
+bun run progress --strict          # Fail on any content quality issues
+# Both tiers combined
+bun run check:all                  # Run quality && progress --strict
+# Other utility scripts
 bun run validate:specs             # Validate spec test structure and conventions
 bun run validate:docs:versions     # Validate documentation versions match package.json
 bun run test:cleanup               # Kill zombie test processes (Playwright, browsers)
@@ -128,20 +135,32 @@ git push origin main               # Triggers release ONLY with "release:" type
 
 ## Smart Testing Strategy
 
-`bun run quality` runs: ESLint → Workflow Lint → TypeScript → Unit Tests → Knip → Coverage Check → Spec Quality → Smart E2E (affected @regression specs only)
+**Two-Tier Architecture**:
+- **Tier 1** `bun run quality`: Prettier → ESLint → Workflow Lint → TypeScript → Effect Diagnostics → Unit Tests → Knip → Coverage Check → Smart E2E
+- **Tier 2** `bun run progress`: Quality Gate (typecheck) → Spec Analysis → User Story Validation → SPEC-PROGRESS.md generation
+- **Both** `bun run check:all`: quality && progress --strict
 
 **E2E Detection**: Analyzes changed files and runs only related @regression specs (skips if docs/scripts only changed).
+
+**Tier 1 Flags** (`bun run quality`):
 
 | Flag | Effect |
 |------|--------|
 | `--skip-e2e` | Skip E2E tests entirely |
 | `--skip-coverage` | Skip domain coverage check |
-| `--skip-specs` | Skip spec quality validation |
 | `--skip-workflows` | Skip GitHub Actions workflow linting (actionlint) |
 | `--skip-format` | Skip Prettier formatting check |
 | `--skip-knip` | Skip unused code detection |
 | `--include-effect` | Include Effect diagnostics (slow) |
 | `--no-cache` | Disable ESLint, Prettier, and TypeScript caching (clean run) |
+
+**Tier 2 Flags** (`bun run progress`):
+
+| Flag | Effect |
+|------|--------|
+| `--no-quality-gate` | Skip typecheck prerequisite |
+| `--skip-stories` | Skip user story validation |
+| `--strict` | Fail on any content quality issues |
 
 **Coverage**: Domain layer 93.4% (enforced). Other layers not yet enforced.
 
