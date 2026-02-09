@@ -43,7 +43,7 @@ While Effect Schema is the primary validation library for domain models, Zod is 
 ### 1. Schema Definition
 
 ```typescript
-// src/domain/models/api/health-schemas.ts
+// src/domain/models/api/health.ts
 import { z } from 'zod'
 
 // Define schema for API response
@@ -69,7 +69,7 @@ export type HealthResponse = z.infer<typeof HealthResponseSchema>
 ```typescript
 // src/presentation/api/routes/health.ts
 import { createRoute, OpenAPIHono } from '@hono/zod-openapi'
-import { HealthResponseSchema } from '@/domain/models/api/health-schemas'
+import { HealthResponseSchema } from '@/domain/models/api/health'
 
 const route = createRoute({
   method: 'get',
@@ -185,7 +185,7 @@ export const ErrorResponseSchema = z.object({
 ### Shared Schemas
 
 ```typescript
-// src/domain/models/api/common-schemas.ts
+// src/domain/models/api/common.ts
 import { z } from 'zod'
 
 // Pagination params (reusable)

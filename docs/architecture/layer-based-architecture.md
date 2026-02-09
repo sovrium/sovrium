@@ -110,7 +110,7 @@ API route validation uses Zod for OpenAPI integration:
 
 ```
 src/domain/models/api/
-├── health-schemas.ts       # Health check endpoint schemas
+├── health.ts               # Health check endpoint schemas
 └── *.ts                    # Other API contract schemas
 ```
 

@@ -107,11 +107,11 @@ export class InsufficientPermissionsError {
 - **Domain**: Effect Schema validation errors (no dedicated directory)
 - **Application**: `src/application/errors/` (AppValidationError, StaticGenerationError)
 - **Infrastructure**: `src/infrastructure/errors/` (ServerCreationError, CSSCompilationError, AuthError, etc.)
-- **Presentation**: `src/domain/models/api/error-schemas.ts` (Zod schemas for API responses)
+- **Presentation**: `src/domain/models/api/error.ts` (Zod schemas for API responses)
 
 ### API Error Schemas (Response Formatting)
 
-Located in `src/domain/models/api/error-schemas.ts`:
+Located in `src/domain/models/api/error.ts`:
 
 ```typescript
 import { z } from 'zod'

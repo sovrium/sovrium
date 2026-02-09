@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { errorResponseSchema } from '@/domain/models/api/error-schemas'
+import { errorResponseSchema } from '@/domain/models/api/error'
 import { sanitizeError, getStatusCode } from './error-sanitizer'
 import type { Context } from 'hono'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'

@@ -11,7 +11,7 @@ import { test, expect } from '@/specs/fixtures'
  * E2E Tests for GET /api/health
  *
  * Source: src/infrastructure/server/route-setup/api-routes.ts
- * Schema: src/domain/models/api/health-schemas.ts
+ * Schema: src/domain/models/api/health.ts
  * Domain: api
  * Spec Count: 3
  *

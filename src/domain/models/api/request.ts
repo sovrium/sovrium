@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod'
-import { fieldValueSchema } from './tables-schemas'
+import { fieldValueSchema } from './tables'
 
 // ============================================================================
 // Record Request Schemas

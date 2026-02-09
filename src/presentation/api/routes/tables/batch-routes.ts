@@ -21,13 +21,13 @@ import {
   batchDeleteRecordsRequestSchema,
   batchRestoreRecordsRequestSchema,
   upsertRecordsRequestSchema,
-} from '@/domain/models/api/request-schemas'
+} from '@/domain/models/api/request'
 import {
   batchCreateRecordsResponseSchema,
   batchUpdateRecordsResponseSchema,
   batchDeleteRecordsResponseSchema,
   upsertRecordsResponseSchema,
-} from '@/domain/models/api/tables-schemas'
+} from '@/domain/models/api/tables'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'

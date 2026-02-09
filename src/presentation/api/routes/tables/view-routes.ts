@@ -11,10 +11,7 @@ import {
   getViewProgram,
   getViewRecordsProgram,
 } from '@/application/use-cases/tables/programs'
-import {
-  getViewResponseSchema,
-  getViewRecordsResponseSchema,
-} from '@/domain/models/api/tables-schemas'
+import { getViewResponseSchema, getViewRecordsResponseSchema } from '@/domain/models/api/tables'
 import { runEffect } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'

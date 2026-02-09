@@ -15,7 +15,7 @@ import {
   type BatchValidationError,
 } from '@/infrastructure/database/table-queries'
 import { transformRecords, type TransformedRecord } from './utils/record-transformer'
-import type { BatchRestoreRecordsResponse } from '@/domain/models/api/tables-schemas'
+import type { BatchRestoreRecordsResponse } from '@/domain/models/api/tables'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type {

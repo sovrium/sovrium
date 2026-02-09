@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod'
-import { timestampSchema } from './common-schemas'
+import { timestampSchema } from './common'
 
 // ============================================================================
 // User Schemas

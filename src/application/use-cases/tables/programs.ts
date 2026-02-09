@@ -26,7 +26,7 @@ import type {
   ListRecordsResponse,
   GetRecordResponse,
   RestoreRecordResponse,
-} from '@/domain/models/api/tables-schemas'
+} from '@/domain/models/api/tables'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 

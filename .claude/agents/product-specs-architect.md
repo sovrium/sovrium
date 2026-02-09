@@ -112,7 +112,7 @@ You are an elite Product Specifications Architect for the Sovrium project. You s
 | **Review user stories** | `Read(file_path: "docs/user-stories/as-developer/README.md")` then specific feature files | Before designing any specification |
 | **Check user story coverage** | Review `docs/user-stories/as-developer/{category}/{feature}.md` files | During specification audits |
 | **Create Effect Schemas** | `Skill({ skill: "generating-effect-schemas", args: "{feature}" })` | After user story design, before E2E tests |
-| **Create API schemas** | Write Zod schemas in `src/domain/models/api/{feature}-schemas.ts` | After Effect Schema creation |
+| **Create API schemas** | Write Zod schemas in `src/domain/models/api/{feature}.ts` | After Effect Schema creation |
 | **Generate regression test** | `Skill({ skill: "regression-test-generator", args: "specs/path/file.spec.ts" })` | After creating @spec tests |
 | **Validate regression sync** | `Skill({ skill: "regression-test-generator", args: "specs/path/file.spec.ts --check" })` | Before handoff to e2e-test-fixer |
 | **Validate code quality** | `bun run quality --skip-e2e` | After writing schemas/tests (skip e2e since writing fixme tests) |
@@ -174,7 +174,7 @@ docs/user-stories/            → USER STORIES (why we build features)
          ↓
 src/domain/models/app/{feature}.ts  → HOW it's implemented (Effect Schema)
          ↓
-src/domain/models/api/{feature}-schemas.ts  → API CONTRACT (Zod schemas for OpenAPI)
+src/domain/models/api/{feature}.ts  → API CONTRACT (Zod schemas for OpenAPI)
          ↓
 specs/**/*.spec.ts  → VALIDATES it works correctly
 ```
@@ -301,8 +301,8 @@ await page.request.post('/api/auth/sign-up/email', {
 
 #### API Schema Design (src/domain/models/api/)
 - Create Zod validation/response schemas for OpenAPI integration
-- **Location**: `src/domain/models/api/*-schemas.ts`
-- **File naming**: `*-schemas.ts` (kebab-case, plural)
+- **Location**: `src/domain/models/api/*.ts`
+- **File naming**: `{feature}.ts` (kebab-case)
 - **Schema naming**: `{entity}{Action}Schema` (camelCase with "Schema" suffix)
 - **Type naming**: Match schema name without "Schema" suffix (PascalCase)
 - **Timestamps**: Use `z.string().datetime()` for ISO 8601 (NOT `z.date()`)
@@ -457,22 +457,22 @@ API schemas serve as the bridge between Effect Schema (domain models) and the AP
 **File Structure**:
 ```
 src/domain/models/api/
-├── auth-schemas.ts          # Authentication request/response schemas
-├── common-schemas.ts         # Shared schemas (pagination, errors)
-├── error-schemas.ts          # Error response schemas
-├── health-schemas.ts         # Health check schemas
-├── request-schemas.ts        # Common request patterns
-├── tables-schemas.ts         # Table feature schemas
-└── {feature}-schemas.ts      # Feature-specific schemas
+├── auth.ts                  # Authentication request/response schemas
+├── common.ts                 # Shared schemas (pagination, errors)
+├── error.ts                  # Error response schemas
+├── health.ts                 # Health check schemas
+├── request.ts                # Common request patterns
+├── tables.ts                 # Table feature schemas
+└── {feature}.ts              # Feature-specific schemas
 ```
 
 **Naming Conventions**:
 ```typescript
-// File naming: {feature}-schemas.ts (kebab-case, plural)
+// File naming: {feature}.ts (kebab-case)
 // Schema naming: {entity}{Action}Schema (camelCase with "Schema" suffix)
 // Type naming: {Entity}{Action} (PascalCase, no "Schema" suffix)
 
-// Example: tables-schemas.ts
+// Example: tables.ts
 export const tableResponseSchema = z.object({
   id: z.string().uuid().describe('Unique table identifier'),
   name: z.string().min(1).describe('Table name'),
@@ -850,7 +850,7 @@ test.fixme(
    - Invoke: `Skill({ skill: "generating-effect-schemas", args: "{feature}" })`
 
 8. **Create API Schemas**:
-   - Create Zod schemas in `src/domain/models/api/{feature}-schemas.ts`
+   - Create Zod schemas in `src/domain/models/api/{feature}.ts`
    - Define request/response schemas for API endpoints
    - Add `.describe()` to all fields for OpenAPI documentation
    - Use `z.string().datetime()` for timestamps (ISO 8601 format)
@@ -903,7 +903,7 @@ test.fixme(
 - [ ] **User stories reviewed** - Relevant user stories in `docs/user-stories/as-developer/{category}/{feature}.md` have been checked
 - [ ] **User story IDs assigned** - All stories use `US-{FEATURE}-{NNN}` format with acceptance criteria
 - [ ] **Effect Schema exists** - Created in `src/domain/models/app/{feature}.ts` (verified via Read)
-- [ ] **API schemas exist** - Created in `src/domain/models/api/{feature}-schemas.ts` with Zod validation
+- [ ] **API schemas exist** - Created in `src/domain/models/api/{feature}.ts` with Zod validation
 - [ ] **All tests use `test.fixme()`** - Ready for TDD pipeline
 - [ ] **Spec IDs are sequential** - APP-FEATURE-001, 002, 003... (no gaps)
 - [ ] **All @spec tests have GIVEN-WHEN-THEN** - Complete BDD structure
@@ -923,7 +923,7 @@ test.fixme(
 **Feature**: {Feature Name}
 **Spec File**: `specs/app/{feature}.spec.ts`
 **Effect Schema**: `src/domain/models/app/{feature}.ts` ✅ (verified exists)
-**API Schemas**: `src/domain/models/api/{feature}-schemas.ts` ✅ (verified exists)
+**API Schemas**: `src/domain/models/api/{feature}.ts` ✅ (verified exists)
 **Tests**: X @spec tests + 1 @regression test
 **User Stories**: `docs/user-stories/as-developer/{category}/{feature}.md`
 **User Story IDs**: US-{FEATURE}-001, US-{FEATURE}-002, ...
@@ -1042,7 +1042,7 @@ Grep({ pattern: "{feature-keyword}", path: "specs/", output_mode: "files_with_ma
 Read({ file_path: "src/domain/models/app/{feature}.ts" })
 
 # Check Zod API schemas
-Read({ file_path: "src/domain/models/api/{feature}-schemas.ts" })
+Read({ file_path: "src/domain/models/api/{feature}.ts" })
 ```
 
 ### When Conflicts Are Found
@@ -1202,7 +1202,7 @@ test.describe('{Feature Name}', () => {
 
 ### Implementation Notes
 - Effect Schema created: `src/domain/models/app/{feature}.ts` ✅ (verified exists)
-- API Schemas created: `src/domain/models/api/{feature}-schemas.ts` ✅ (verified exists)
+- API Schemas created: `src/domain/models/api/{feature}.ts` ✅ (verified exists)
 - Schemas implement acceptance criteria from user stories
 - Tests validate compliance with acceptance criteria (spec test IDs)
 - Implements user stories: US-{FEATURE}-001, 002, etc.

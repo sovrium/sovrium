@@ -20,15 +20,12 @@ import {
   deleteRecordProgram,
   permanentlyDeleteRecordProgram,
 } from '@/application/use-cases/tables/programs'
-import {
-  createRecordRequestSchema,
-  updateRecordRequestSchema,
-} from '@/domain/models/api/request-schemas'
+import { createRecordRequestSchema, updateRecordRequestSchema } from '@/domain/models/api/request'
 import {
   listRecordsResponseSchema,
   getRecordResponseSchema,
   createRecordResponseSchema,
-} from '@/domain/models/api/tables-schemas'
+} from '@/domain/models/api/tables'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import {

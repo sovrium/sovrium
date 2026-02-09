@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod'
-import { paginationSchema, timestampSchema } from './common-schemas'
+import { paginationSchema, timestampSchema } from './common'
 
 // ============================================================================
 // Field Schemas

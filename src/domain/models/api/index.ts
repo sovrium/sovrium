@@ -12,27 +12,28 @@
  * and OpenAPI documentation generation.
  *
  * Schema Organization:
- * - common-schemas: Pagination, timestamps, generic responses
- * - error-schemas: Error response formats
- * - health-schemas: Health check endpoint
- * - auth-schemas: Authentication and authorization
- * - tables-schemas: Table and record operations
+ * - common: Pagination, timestamps, generic responses
+ * - error: Error response formats
+ * - health: Health check endpoint
+ * - auth: Authentication and authorization
+ * - tables: Table and record operations
+ * - request: Request input validation
  */
 
 // Common schemas
-export * from './common-schemas'
+export * from './common'
 
 // Error schemas
-export * from './error-schemas'
+export * from './error'
 
 // Health check schemas
-export * from './health-schemas'
+export * from './health'
 
 // Authentication schemas
-export * from './auth-schemas'
+export * from './auth'
 
 // Table and record schemas
-export * from './tables-schemas'
+export * from './tables'
 
 // Request schemas (input validation)
-export * from './request-schemas'
+export * from './request'

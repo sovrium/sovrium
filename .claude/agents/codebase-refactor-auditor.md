@@ -1017,8 +1017,8 @@ src/domain/
 │   ├── app/            # App configuration models
 │   ├── table/          # Table domain models
 │   └── api/            # Zod API contract schemas
-│       ├── table-schemas.ts
-│       └── user-schemas.ts
+│       ├── tables.ts
+│       └── user.ts
 └── utils/              # Pure utility functions (format-detection, content-parsing)
 ```
 
@@ -1059,10 +1059,10 @@ const CreateTableInput = Schema.Struct({
 ✅ **CORRECT**: Import Zod API schemas from domain
 ```typescript
 // src/presentation/api/routes/tables.ts
-import { tableResponseSchema } from '@/domain/models/api/table-schemas' // ✅ Allowed
+import { tableResponseSchema } from '@/domain/models/api/tables' // ✅ Allowed
 
 // src/application/use-cases/get-table.ts
-import { tableResponseSchema } from '@/domain/models/api/table-schemas' // ✅ Allowed
+import { tableResponseSchema } from '@/domain/models/api/tables' // ✅ Allowed
 ```
 
 ### Migration History Reference

@@ -99,7 +99,7 @@ bun add @hookform/resolvers    # 5.2.2 - React Hook Form + Zod integration
 
 | Location                               | Purpose                        | Imports Allowed                     |
 | -------------------------------------- | ------------------------------ | ----------------------------------- |
-| `src/domain/models/api/*-schemas.ts`   | OpenAPI API contracts          | `zod`, `@hono/zod-openapi`          |
+| `src/domain/models/api/*.ts`           | OpenAPI API contracts          | `zod`, `@hono/zod-openapi`          |
 | `src/presentation/api/routes/*.ts`     | API route request validation   | `@hono/zod-validator`               |
 | `src/presentation/components/**/*.tsx` | Client-side form validation    | `zod`, `@hookform/resolvers`        |
 | `src/presentation/hooks/*.ts`          | Form hooks with Zod validation | `zod`, `react-hook-form`, resolvers |
@@ -119,10 +119,10 @@ bun add @hookform/resolvers    # 5.2.2 - React Hook Form + Zod integration
 
 ### 1. Server API Models (OpenAPI Integration)
 
-**File**: `src/domain/models/api/*-schemas.ts`
+**File**: `src/domain/models/api/*.ts`
 
 ```typescript
-// src/domain/models/api/user-schemas.ts
+// src/domain/models/api/user.ts
 import { z } from 'zod'
 
 /**
@@ -166,7 +166,7 @@ export type UpdateUserRequest = z.infer<typeof updateUserRequestSchema>
 
 **Key Conventions**:
 
-- File naming: `*-schemas.ts` (plural, kebab-case)
+- File naming: `*.ts` (kebab-case, e.g., `user.ts`, `health.ts`)
 - Schema naming: `{entity}{Action}Schema` (camelCase with "Schema" suffix)
 - Type naming: Match schema name without "Schema" suffix (PascalCase)
 - Descriptions: Use `.describe()` for OpenAPI documentation
@@ -186,7 +186,7 @@ import {
   createUserRequestSchema,
   updateUserRequestSchema,
   type UserResponse,
-} from '@/domain/models/api/user-schemas'
+} from '@/domain/models/api/user'
 
 export const createUsersRoute = () => {
   const route = new Hono()
@@ -309,7 +309,7 @@ Exports OpenAPI schema to `schemas/{version}/app.openapi.json` for:
 ```typescript
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
 import { z } from 'zod'
-import { userResponseSchema, createUserRequestSchema } from '@/domain/models/api/user-schemas'
+import { userResponseSchema, createUserRequestSchema } from '@/domain/models/api/user'
 
 const createOpenApiApp = () => {
   const app = new OpenAPIHono()
@@ -525,7 +525,7 @@ export const TableSchema = Schema.Struct({
 
 export type Table = typeof TableSchema.Type
 
-// src/domain/models/api/table-schemas.ts (Zod)
+// src/domain/models/api/tables.ts (Zod)
 import { z } from 'zod'
 
 export const tableResponseSchema = z.object({
@@ -541,7 +541,7 @@ export type TableResponse = z.infer<typeof tableResponseSchema>
 import { Effect } from 'effect'
 import { Hono } from 'hono'
 import { TableSchema, type Table } from '@/domain/models/table'
-import { tableResponseSchema, type TableResponse } from '@/domain/models/api/table-schemas'
+import { tableResponseSchema, type TableResponse } from '@/domain/models/api/tables'
 
 export const createTablesRoute = () => {
   const route = new Hono()
@@ -597,15 +597,15 @@ export const createTablesRoute = () => {
 ✅ **Do**: Define Zod schemas once in `src/domain/models/api/`, import everywhere
 
 ```typescript
-// src/domain/models/api/user-schemas.ts
+// src/domain/models/api/user.ts
 export const userSchema = z.object({ name: z.string() })
 
 // src/presentation/api/routes/users.ts
-import { userSchema } from '@/domain/models/api/user-schemas'
+import { userSchema } from '@/domain/models/api/user'
 route.post('/', zValidator('json', userSchema), ...)
 
 // src/presentation/api/openapi-schema.ts
-import { userSchema } from '@/domain/models/api/user-schemas'
+import { userSchema } from '@/domain/models/api/user'
 const createUserRoute = createRoute({
   request: { body: { content: { 'application/json': { schema: userSchema } } } }
 })
@@ -753,7 +753,7 @@ EXCEPTION: Zod is allowed in src/domain/models/api for OpenAPI/Hono integration.
 
 **Solutions**:
 
-1. **For API schemas**: Move to `src/domain/models/api/*-schemas.ts`
+1. **For API schemas**: Move to `src/domain/models/api/*.ts`
 2. **For domain models**: Use Effect Schema instead
 3. **For validation**: Use Effect Schema in application layer
 

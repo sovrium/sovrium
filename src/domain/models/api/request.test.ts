@@ -13,7 +13,7 @@ import {
   batchUpdateRecordsRequestSchema,
   batchDeleteRecordsRequestSchema,
   upsertRecordsRequestSchema,
-} from './request-schemas'
+} from './request'
 
 describe('createRecordRequestSchema', () => {
   describe('valid inputs', () => {

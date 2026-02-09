@@ -52,7 +52,7 @@ Sovrium uses a **dual-track API architecture** that provides both type-safe RPC 
 **What This Means for Code Generation**:
 
 - ✅ **Use Effect Schema**: All domain models, validators, and business logic
-- ✅ **Use Zod**: ONLY for `src/domain/models/api/*-schemas.ts` files (OpenAPI contracts)
+- ✅ **Use Zod**: ONLY for `src/domain/models/api/*.ts` files (OpenAPI contracts)
 - ❌ **Don't use Zod**: Anywhere else in `src/` (ESLint will error)
 - ✅ **Use `@hono/zod-validator`**: ONLY in `src/presentation/api/routes/*.ts` for request validation
 
@@ -123,8 +123,8 @@ src/
 ├── domain/
 │   └── models/
 │       └── api/
-│           ├── health-schemas.ts       # Shared Zod schemas
-│           └── table-schemas.ts        # Future: table schemas
+│           ├── health.ts               # Shared Zod schemas
+│           └── tables.ts               # Future: table schemas
 │
 ├── presentation/
 │   └── api/
@@ -156,7 +156,7 @@ schemas/
 Create shared schemas in `src/domain/models/api/`:
 
 ```typescript
-// src/domain/models/api/user-schemas.ts
+// src/domain/models/api/user.ts
 // NOTE: Zod import is ONLY allowed in src/domain/models/api/ files
 import { z } from 'zod'
 
@@ -189,7 +189,7 @@ import {
   userResponseSchema,
   createUserRequestSchema,
   type UserResponse,
-} from '@/domain/models/api/user-schemas'
+} from '@/domain/models/api/user'
 
 export const createUsersRoute = () => {
   const route = new Hono()
@@ -281,7 +281,7 @@ Update `src/presentation/api/openapi-schema.ts`:
 
 ```typescript
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
-import { userResponseSchema, createUserRequestSchema } from '@/domain/models/api/user-schemas'
+import { userResponseSchema, createUserRequestSchema } from '@/domain/models/api/user'
 
 const createOpenApiApp = () => {
   const app = new OpenAPIHono()
@@ -663,7 +663,7 @@ EXCEPTION: Zod is allowed in src/domain/models/api for OpenAPI/Hono integration.
 
 **Solution**:
 
-1. **For API schemas**: Move Zod schema to `src/domain/models/api/*-schemas.ts`
+1. **For API schemas**: Move Zod schema to `src/domain/models/api/*.ts`
 2. **For domain models**: Use Effect Schema instead of Zod
 3. **For validation**: Use Effect Schema throughout application layer
 
@@ -697,7 +697,7 @@ export const UserSchema = Schema.Struct({
 | ------------------------------ | --------------------- | --------------------------------------- | --------------------------- |
 | Domain model validation        | Effect Schema         | `src/domain/models/*.ts`                | Project standard            |
 | Business logic validation      | Effect Schema         | `src/domain/validators/*.ts`            | Type safety + DI            |
-| API request/response contracts | Zod                   | `src/domain/models/api/*-schemas.ts`    | OpenAPI tooling requirement |
+| API request/response contracts | Zod                   | `src/domain/models/api/*.ts`            | OpenAPI tooling requirement |
 | API route validation           | `@hono/zod-validator` | `src/presentation/api/routes/*.ts`      | OpenAPI integration         |
 | Client-side forms              | Zod                   | React Hook Form integration             | Client validation only      |
 | Database models                | Drizzle Schema        | `src/infrastructure/database/schema.ts` | ORM requirement             |
@@ -729,14 +729,14 @@ export const TableSchema = Schema.Struct({
 
 ### Use Zod When:
 
-- ✅ Defining OpenAPI API contracts in `src/domain/models/api/*-schemas.ts`
+- ✅ Defining OpenAPI API contracts in `src/domain/models/api/*.ts`
 - ✅ Using `@hono/zod-validator` in `src/presentation/api/routes/*.ts`
 - ✅ Client-side React Hook Form validation (presentation layer only)
 
 **Example**:
 
 ```typescript
-// src/domain/models/api/table-schemas.ts
+// src/domain/models/api/tables.ts
 import { z } from 'zod'
 
 export const tableResponseSchema = z.object({
@@ -752,7 +752,7 @@ export const tableResponseSchema = z.object({
 When you need to convert between Zod (API layer) and Effect Schema (domain layer):
 
 ```typescript
-// src/domain/models/api/table-schemas.ts
+// src/domain/models/api/tables.ts
 import { z } from 'zod'
 import { Schema } from 'effect'
 import { TableSchema } from '@/domain/models/table'
