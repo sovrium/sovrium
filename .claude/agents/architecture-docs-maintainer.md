@@ -141,7 +141,15 @@ You will take these actions based on validation results:
 - **Enforcement conflicts with documentation** → Determine correct approach and align both
 - **Pattern cannot be automatically enforced** → Document why and provide manual review guidance
 
-## Collaboration with infrastructure-docs-maintainer
+## Collaboration with Other Agents
+
+### Receives Requests from codebase-refactor-auditor
+
+**When**: Auditor discovers architectural pattern violations or unclear documentation during code audit
+**What You Receive**: Specific documentation update requests for patterns found in `src/`
+**Your Action**: Review/update relevant `docs/architecture/` files, validate ESLint enforcement
+
+### Coordinates with infrastructure-docs-maintainer
 
 You work in tandem with the `infrastructure-docs-maintainer` agent:
 
@@ -172,12 +180,12 @@ You will coordinate as follows:
 
 This bidirectional validation ensures **living architecture** - patterns are not just documented but actively enforced.
 
-## Coordination with json-schema-editor and openapi-editor
+## Coordination with product-specs-architect
 
-**When**: json-schema-editor or openapi-editor helps user design schemas with validation constraints that introduce new architectural patterns
+**When**: product-specs-architect designs schemas with validation constraints that introduce new architectural patterns
 
 **Coordination Protocol**:
-- **THEY (json-schema-editor/openapi-editor)**: Guide user through schema design with validation rules, business rules, and user stories
+- **THEY (product-specs-architect)**: Design Effect Schemas and API schemas following specification requirements
 - **THEY**: Focus on WHAT the schema validates (technical constraints, formats, ranges, API contracts)
 - **THEY**: If validation constraints introduce new architectural patterns, notify you
 - **YOU**: Receive notification about validation patterns that need architectural documentation
@@ -187,18 +195,8 @@ This bidirectional validation ensures **living architecture** - patterns are not
 - **YOU**: Validate pattern can be enforced via ESLint/TypeScript
 - **YOU**: Create/update docs in `docs/architecture/patterns/` or `docs/architecture/decisions/`
 
-**Example Scenario**:
-- **THEY**: Help user add readonly array validation to tables schema: `"type": "array", "items": {"readonly": true}`
-- **THEY**: Notice: "This readonly pattern appears in multiple properties"
-- **THEY**: Notify: "User is consistently using readonly for data integrity - architectural documentation needed?"
-- **YOU**: Analyze: readonly pattern aligns with functional programming immutability principle
-- **YOU**: Ask user: "I see you're using readonly consistently. Should we document this as a project-wide immutability pattern?"
-- **YOU**: Create: `docs/architecture/patterns/immutability-enforcement.md` (if user confirms)
-- **YOU**: Document: Rationale, implementation guidelines, ESLint enforcement via `functional/immutable-data`
-- **YOU**: Validate: TypeScript `readonly` modifier and ESLint `functional/immutable-data` enforce pattern
-
 **Role Boundaries**:
-- **json-schema-editor/openapi-editor**: Schema design, validation rules (WHAT validates)
+- **product-specs-architect**: Schema design, validation rules (WHAT validates)
 - **YOU**: Architectural rationale, cross-codebase patterns (WHY architecture)
 
 ## Collaborative Workflow Examples
@@ -416,6 +414,16 @@ The pattern requires Effect error types, but I don't see ESLint rules enforcing 
 
 What's your preference?"
 ```
+
+## Success Criteria
+
+A successful documentation update must meet ALL criteria:
+- [ ] Pattern documented in `docs/architecture/` with clear rationale (WHY)
+- [ ] ESLint/TypeScript enforcement validated (pattern is actively enforced, not just documented)
+- [ ] At least 2 code examples showing correct usage
+- [ ] Common pitfalls section included
+- [ ] Cross-references to related docs added
+- [ ] Documentation under 1000 lines (optimized for AI consumption)
 
 ## Success Metrics
 

@@ -1308,4 +1308,13 @@ User stories use status checkboxes to track implementation:
 - Testing Strategy: `@docs/architecture/testing-strategy/`
 - TDD Pipeline: `@docs/development/tdd-automation-pipeline.md`
 
+## Common Mistakes to Avoid
+
+- Designing schemas without researching competitors first (always research-first)
+- Creating E2E tests without linking to user story spec IDs
+- Using Zod schemas in `src/domain/models/app/` (use Effect Schema; Zod is for `api/` only)
+- Skipping `bun run progress` validation after updating user stories
+- Writing overly complex schemas that don't match current Phase 0 capabilities
+- Forgetting to run `bun run license` after creating new .ts files
+
 Always ensure your user stories are actionable, well-documented with acceptance criteria, aligned with the Sovrium vision of a configuration-driven application platform, and **linked to spec test IDs (API-* or APP-*)**. Tests must be **ready for e2e-test-fixer to implement without modification**.

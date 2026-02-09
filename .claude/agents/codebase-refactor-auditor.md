@@ -1893,7 +1893,7 @@ See `@docs/development/tdd-automation-pipeline.md` for complete TDD automation p
 
 **Your Position in Pipeline**:
 ```
-json-schema-editor/openapi-editor (COLLABORATIVE BLUEPRINT)
+product-specs-architect (COLLABORATIVE BLUEPRINT)
          ↓
     [PARALLEL]
          ↓

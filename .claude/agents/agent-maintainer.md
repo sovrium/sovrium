@@ -62,7 +62,7 @@ Claude Code uses three distinct mechanisms, each serving different purposes:
 | Mechanism | Purpose | Characteristics | Examples |
 |-----------|---------|-----------------|----------|
 | **Skills** | Reusable specialized processing | Deterministic, format handling, tool integrations, invoked programmatically | `generating-e2e-tests`, `generating-effect-schemas`, `validating-json-schemas` |
-| **Agents** | Complex autonomous workflows | Decision-making, multi-file coordination, collaborative guidance | `e2e-test-fixer`, `json-schema-editor`, `codebase-refactor-auditor` |
+| **Agents** | Complex autonomous workflows | Decision-making, multi-file coordination, collaborative guidance | `e2e-test-fixer`, `codebase-refactor-auditor`, `product-specs-architect` |
 | **Commands** | User-facing shortcuts | Simple lookups, single-step tasks, frequently used operations | `/docs`, `/help`, `/clear` |
 
 **Current Project Ecosystem**:
@@ -73,7 +73,7 @@ Claude Code uses three distinct mechanisms, each serving different purposes:
 - `checking-best-practices`, `detecting-code-duplication`, `validating-config`, `tracking-dependencies`, `validating-json-schemas`, `scanning-security`
 
 **Agents** (`.claude/agents/`):
-- `json-schema-editor`, `openapi-editor`, `e2e-test-fixer`, `codebase-refactor-auditor`, `architecture-docs-maintainer`, `infrastructure-docs-maintainer`, `product-specs-architect`, `admin-specs-designer`
+- `e2e-test-fixer`, `codebase-refactor-auditor`, `architecture-docs-maintainer`, `infrastructure-docs-maintainer`, `product-specs-architect`, `tdd-pipeline-maintainer`, `agent-maintainer`
 
 **Key Distinction**: Skills are **invoked programmatically** by agents or main Claude (e.g., `Skill(skill: "generating-e2e-tests")`). Agents orchestrate complex workflows with autonomous decision-making.
 
@@ -112,6 +112,11 @@ Skills use **gerund form** (verb + -ing) for naming:
 | `validating-json-schemas` | `json-schema-validator` |
 | `checking-best-practices` | `best-practices-checker` |
 
+**Why gerund form?** Skills represent **ongoing processes** (generating, validating, checking), not completed states or actor nouns (generator, validator, checker). This naming:
+1. Distinguishes skills from agents (which use noun phrases like `e2e-test-fixer`)
+2. Reflects their programmatic invocation nature (they process, not decide)
+3. Maintains consistency across the entire skill ecosystem
+
 ### When to Invoke Skills (for Agents)
 
 Agents should invoke skills when:
@@ -138,7 +143,7 @@ Agents should invoke skills when:
 
 | Issue | Problem | Solution |
 |-------|---------|----------|
-| Using `command` parameter | Old syntax, not recognized | Use `skill` parameter |
+| Using `command` parameter | Legacy syntax (pre-2025), not recognized by current Claude Code | Use `skill` parameter: `Skill({ skill: "..." })` |
 | Imperative naming | Inconsistent with ecosystem | Use gerund form (verb + -ing) |
 | Missing skill invocation | Agent duplicates skill logic | Invoke existing skill instead |
 | No args when needed | Skill fails without context | Pass required file path or parameters |
@@ -187,7 +192,7 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, Skill, TodoWrite, LSP, WebSear
 | `architecture-docs-maintainer` | Inherits all | Documentation work needs full access |
 | `infrastructure-docs-maintainer` | Inherits all | Documentation work needs full access |
 | `product-specs-architect` | Inherits all | Design work needs full access |
-| `tdd-workflow-maintainer` | Inherits all | Workflow analysis needs full access |
+| `tdd-pipeline-maintainer` | Inherits all | Workflow analysis needs full access |
 
 ### Documentation Requirements
 
@@ -204,6 +209,17 @@ model: sonnet
 <!-- Justification: [Why these tools are needed/excluded] -->
 ```
 
+### Exception Patterns Reference
+
+When reviewing agents, be aware of documented architectural exceptions:
+
+| Exception | Location | Rationale |
+|-----------|----------|-----------|
+| Zod in `src/domain/models/api/` | ESLint `eslint/infrastructure.config.ts` lines 72-108 | OpenAPI tooling requires Zod; Effect Schema used everywhere else |
+| Presentation layer Zod access | Same ESLint config | Client forms (React Hook Form) + API routes need Zod |
+
+Agents that reference these exceptions (e.g., `codebase-refactor-auditor` auditing Zod usage) should be aware of the enforcement mechanism.
+
 ## Command/Skill Optimization Framework
 
 When reviewing agents, evaluate if the role should be delegated to a different mechanism:
@@ -212,7 +228,7 @@ When reviewing agents, evaluate if the role should be delegated to a different m
 |-----------|----------|-------------------|----------|
 | **Command** | Simple lookups/shortcuts | Single-step task, no multi-file coordination, user-facing frequency | `/docs`, `/help`, `/clear` |
 | **Skill** | Specialized processing | Format handling, tool integrations, reusable across agents | `pdf`, `xlsx`, `ms-office-suite` |
-| **Agent** | Complex workflows | Autonomous decisions, multi-file operations, collaborative guidance | `e2e-test-fixer`, `json-schema-editor`, `openapi-editor` |
+| **Agent** | Complex workflows | Autonomous decisions, multi-file operations, collaborative guidance | `e2e-test-fixer`, `product-specs-architect`, `codebase-refactor-auditor` |
 
 **Optimization Questions**:
 - Does agent perform simple lookups that could be a command?
@@ -277,14 +293,13 @@ Review agents and skills when their core workflows change:
 
 | Agent | Review Triggers |
 |-------|----------------|
-| **json-schema-editor** | JSON Schema Draft 7 patterns change, specs array structure evolves, handoff protocols to generating-e2e-tests skill |
-| **openapi-editor** | OpenAPI 3.1.0 patterns change, API design best practices evolve, handoff protocols to generating-e2e-tests skill |
 | **e2e-test-fixer** | GREEN implementation workflow changes, handoff from generating-e2e-tests skill, refactoring criteria updates |
 | **codebase-refactor-auditor** | Two-phase approach adjustments, baseline validation changes, audit report format evolves |
 | **architecture-docs-maintainer** | Architectural enforcement patterns change, ESLint/TypeScript validation updates |
 | **infrastructure-docs-maintainer** | Tool documentation standards change, configuration validation updates |
 | **product-specs-architect** | Specification design patterns evolve, cross-domain consistency requirements change |
-| **admin-specs-designer** | Admin interface patterns change, CRUD specification standards evolve |
+| **tdd-pipeline-maintainer** | TDD automation pipeline changes, workflow YAML/TS script updates, cost protection adjustments |
+| **agent-maintainer** | Agent taxonomy evolves, skill naming conventions change, new agents/skills added |
 
 **Skills**:
 

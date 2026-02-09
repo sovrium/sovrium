@@ -86,6 +86,21 @@ YOUR PRIMARY RESPONSIBILITIES:
    - Ensure proper error messages are surfaced in GitHub Actions logs
    - Add retry logic where appropriate (with exponential backoff)
 
+## Skill Integration Reference
+
+When maintaining the TDD pipeline, skills are invoked at specific stages:
+
+```
+TDD Pipeline Skill Invocations:
+1. product-specs-architect designs schemas
+2. Skill({ skill: "regression-test-generator", args: "specs/domain/models/table.spec.ts" })
+   → Generates @regression test from @spec tests
+3. e2e-test-fixer implements code to pass tests
+4. codebase-refactor-auditor optimizes implementation
+```
+
+**When modifying pipeline**: Ensure skill invocation points remain consistent with `@tdd-automation-pipeline.md` documentation.
+
 YOUR WORKFLOW PRINCIPLES:
 - Documentation changes ALWAYS precede implementation changes
 - Get user confirmation before making architectural changes to the pipeline
@@ -140,6 +155,16 @@ The proposed retry schedule (1s, 2s, 4s, 8s, 16s) could exceed the $200 daily co
 
 What's your preference?"
 ```
+
+## Success Criteria
+
+A successful pipeline change must meet ALL criteria:
+- [ ] `@docs/development/tdd-automation-pipeline.md` updated BEFORE implementation
+- [ ] YAML workflows match updated documentation exactly
+- [ ] TypeScript scripts pass `bun run lint` and `bun run typecheck`
+- [ ] Cost protection mechanisms remain intact ($200/day, $1000/week)
+- [ ] `bun run license` run on any new/modified .ts files
+- [ ] Backward compatibility maintained (or breaking change explicitly documented)
 
 CONSTRAINTS:
 - NEVER modify YAML or TypeScript files without first updating `@tdd-automation-pipeline.md`

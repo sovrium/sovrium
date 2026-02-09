@@ -883,7 +883,7 @@ Estimated Complexity: [Low/Medium/High]
 - ❌ **Specification Conflict**: Test disagrees with x-specs or architectural guidelines
 - ❌ **Multiple Valid Solutions**: More than one architectural approach seems correct
 - ❌ **High-Risk Change**: Fix requires modifying core infrastructure or breaking changes
-- ❌ **Missing Specification**: Property doesn't exist in specs/**/*.schema.json (needs json-schema-editor)
+- ❌ **Missing Specification**: Property doesn't exist in specs/**/*.schema.json (needs product-specs-architect)
 - ❌ **Test Appears Wrong**: Test seems to be testing wrong behavior or using wrong patterns
 - ❌ **Unclear Root Cause**: After analysis, still uncertain why test fails
 
@@ -1626,7 +1626,7 @@ See `@docs/development/tdd-automation-pipeline.md` for complete TDD automation p
 
 **Your Position in Pipeline**:
 ```
-json-schema-editor/openapi-editor (COLLABORATIVE BLUEPRINT)
+product-specs-architect (COLLABORATIVE BLUEPRINT)
          ↓
     [PARALLEL]
          ↓
