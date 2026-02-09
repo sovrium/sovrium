@@ -126,7 +126,7 @@ DELETE /api/tables/1/records/batch
 | AC-008 | Supports permanent=true for hard delete       | `API-TABLES-RECORDS-BATCH-DELETE-008`        | ⏳     |
 | AC-009 | Permanent delete requires admin role          | `API-TABLES-RECORDS-BATCH-DELETE-009`        | ⏳     |
 | AC-010 | Maximum batch size is 100 records             | `API-TABLES-RECORDS-BATCH-DELETE-010`        | ⏳     |
-| AC-011 | Returns count of actually deleted records |  | ❓ |
+| AC-011 | Returns count of actually deleted records     |                                              | ❓     |
 | AC-012 | User batch soft-deletes records (regression)  | `API-TABLES-RECORDS-BATCH-DELETE-REGRESSION` | ✅     |
 
 ### Implementation References
@@ -159,9 +159,9 @@ POST /api/tables/1/records/batch/restore
 | AC-003 | Returns 400 when ids array is empty              | `API-TABLES-RECORDS-BATCH-RESTORE-003`        | ⏳     |
 | AC-004 | Returns 401 when not authenticated               | `API-TABLES-RECORDS-BATCH-RESTORE-004`        | ✅     |
 | AC-005 | Returns 403 when user lacks restore permission   | `API-TABLES-RECORDS-BATCH-RESTORE-005`        | ⏳     |
-| AC-006 | Clears deleted_at timestamp for restored records |  | ❓ |
-| AC-007 | Skips records that are not soft-deleted |  | ❓ |
-| AC-008 | Maximum batch size is 100 records |  | ❓ |
+| AC-006 | Clears deleted_at timestamp for restored records |                                               | ❓     |
+| AC-007 | Skips records that are not soft-deleted          |                                               | ❓     |
+| AC-008 | Maximum batch size is 100 records                |                                               | ❓     |
 | AC-009 | User batch restores records (regression)         | `API-TABLES-RECORDS-BATCH-RESTORE-REGRESSION` | ⏳     |
 
 ### Implementation References

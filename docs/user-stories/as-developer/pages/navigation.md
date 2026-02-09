@@ -65,7 +65,6 @@ pages:
 
 ### Implementation References
 
-
 ---
 
 ## US-PAGES-NAV-002: Call-to-Action Sections
@@ -114,7 +113,6 @@ pages:
 | AC-011 | User can complete full CTA workflow (regression) | `APP-PAGES-CTA-REGRESSION` | ✅     |
 
 ### Implementation References
-
 
 ---
 
@@ -168,7 +166,6 @@ pages:
 | AC-011 | User can complete full navigation links workflow (regression) | `APP-PAGES-NAVLINKS-REGRESSION` | ✅     |
 
 ### Implementation References
-
 
 ---
 

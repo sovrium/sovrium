@@ -646,7 +646,7 @@ const runFullChecks = (options: QualityOptions) =>
         return results
       }
     } else {
-      yield* skip('Effect Diagnostics skipped (use --include-effect to include)')
+      yield* skip(' Effect Diagnostics skipped (use --include-effect to include)')
       results.push({
         name: 'Effect Diagnostics',
         success: true,
@@ -716,7 +716,7 @@ const runFullChecks = (options: QualityOptions) =>
     const e2eDecision = yield* determineE2ESpecs
 
     if (!e2eDecision.run) {
-      yield* skip(`Skipping E2E: ${e2eDecision.reason}`)
+      yield* skip(` Skipping E2E: ${e2eDecision.reason}`)
       results.push({
         name: 'E2E Regression Tests',
         success: true,

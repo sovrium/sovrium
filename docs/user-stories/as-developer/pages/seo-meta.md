@@ -256,7 +256,6 @@ meta:
 
 ### Implementation References
 
-
 ---
 
 ## US-PAGES-META-006: Performance Hints
@@ -308,7 +307,6 @@ pages:
 | AC-011 | User can complete full performance hints workflow (regression) | `APP-PAGES-PRELOAD-REGRESSION` | ✅     |
 
 ### Implementation References
-
 
 ---
 

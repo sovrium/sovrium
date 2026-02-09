@@ -980,7 +980,7 @@ jobs:
 
       - name: Analyze spec progress
         if: steps.check-update.outputs.should-update == 'true'
-        run: bun run progress --no-quality-gate
+        run: bun run progress
 
       - name: Commit spec progress updates
         if: steps.check-update.outputs.should-update == 'true'
