@@ -6,13 +6,10 @@
  */
 
 import { Effect, Data } from 'effect'
+import { healthResponseSchema, type HealthResponse } from '@/domain/schema/api/health-schemas'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import { authMiddleware, requireAuth } from '@/presentation/api/middleware/auth'
 import { chainTableRoutes, chainAuthRoutes, chainActivityRoutes } from '@/presentation/api/routes'
-import {
-  healthResponseSchema,
-  type HealthResponse,
-} from '@/presentation/api/schemas/health-schemas'
 import {
   extractClientIp,
   isTablesRateLimitExceeded,

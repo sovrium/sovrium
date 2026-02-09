@@ -23,3 +23,6 @@ export {
 } from './format-detection'
 
 export { parseJsonContent, parseYamlContent, parseSchemaContent } from './content-parsing'
+
+// API contract schemas (Zod - for OpenAPI and API validation)
+export * from './api'

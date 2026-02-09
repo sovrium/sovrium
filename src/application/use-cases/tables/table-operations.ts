@@ -15,9 +15,9 @@ import {
 } from './permissions/permissions'
 import { processRecords } from './utils/list-helpers'
 import type { App } from '@/domain/models/app'
+import type { GetTableResponse } from '@/domain/schema/api/tables-schemas'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { SessionContextError } from '@/infrastructure/database/session-context'
-import type { GetTableResponse } from '@/presentation/api/schemas/tables-schemas'
 
 /* eslint-disable functional/no-expression-statements -- Error subclass requires super() and this.name assignment */
 

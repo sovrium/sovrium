@@ -62,6 +62,9 @@ export default [
         { type: 'domain-service', pattern: 'src/domain/services/**/*', mode: 'file' },
         { type: 'domain-factory', pattern: 'src/domain/factories/**/*', mode: 'file' },
 
+        // DOMAIN LAYER - Schema Definitions (app config + API contracts)
+        { type: 'domain-schema', pattern: 'src/domain/schema/**/*', mode: 'file' },
+
         // ==========================================
         // APPLICATION LAYER - Use Cases (Phase-based)
         // ==========================================
@@ -189,6 +192,7 @@ export default [
                 'domain-model-table',
                 'domain-model-page',
                 'domain-model-automation',
+                'domain-schema',
               ],
               message:
                 'App model violation: Can import feature models (table, page, automation) for schema composition.',
@@ -197,19 +201,19 @@ export default [
             // Feature models - ONLY import from app model (NO CROSS-FEATURE IMPORTS)
             {
               from: ['domain-model-table'],
-              allow: ['domain-model-app', 'domain-model-table'],
+              allow: ['domain-model-app', 'domain-model-table', 'domain-schema'],
               message:
                 'Table model violation: Can only import from app model. FORBIDDEN: Cannot import from page/automation models (strict feature isolation).',
             },
             {
               from: ['domain-model-page'],
-              allow: ['domain-model-app', 'domain-model-page'],
+              allow: ['domain-model-app', 'domain-model-page', 'domain-schema'],
               message:
                 'Page model violation: Can only import from app model. FORBIDDEN: Cannot import from table/automation models (strict feature isolation).',
             },
             {
               from: ['domain-model-automation'],
-              allow: ['domain-model-app', 'domain-model-automation'],
+              allow: ['domain-model-app', 'domain-model-automation', 'domain-schema'],
               message:
                 'Automation model violation: Can only import from app model. FORBIDDEN: Cannot import from table/page models (strict feature isolation).',
             },
@@ -223,6 +227,7 @@ export default [
                 'domain-model-page',
                 'domain-model-automation',
                 'domain-validator',
+                'domain-schema',
               ],
               message:
                 'Domain validator violation: Can only import domain models and other validators. No application/infrastructure dependencies.',
@@ -238,6 +243,7 @@ export default [
                 'domain-model-automation',
                 'domain-validator',
                 'domain-service',
+                'domain-schema',
               ],
               message:
                 'Domain service violation: Can only import domain models, validators, and other services. Must remain pure.',
@@ -254,9 +260,24 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
+                'domain-schema',
               ],
               message:
                 'Domain factory violation: Can only import domain models, validators, services, and other factories.',
+            },
+
+            // Domain schemas - Can import domain models (for type references) and other schemas
+            {
+              from: ['domain-schema'],
+              allow: [
+                'domain-model-app',
+                'domain-model-table',
+                'domain-model-page',
+                'domain-model-automation',
+                'domain-schema',
+              ],
+              message:
+                'Domain schema violation: Can only import domain models and other schemas. Keep schema definitions pure.',
             },
 
             // ==========================================
@@ -284,6 +305,7 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
+                'domain-schema',
                 // Application layer
                 'application-port',
                 'application-service',
@@ -323,6 +345,7 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
+                'domain-schema',
               ],
               message:
                 'Port violation: Can only import domain models and errors for interface definitions. Keep ports lightweight.',
@@ -339,6 +362,7 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
+                'domain-schema',
                 'application-port',
                 'application-error',
                 'application-service',
@@ -375,6 +399,7 @@ export default [
                 'domain-model-table',
                 'domain-model-page',
                 'domain-model-automation',
+                'domain-schema',
                 // Application errors (error classes and handlers can import each other)
                 'application-error',
                 // Application use-cases (for error type imports)
@@ -428,6 +453,7 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
+                'domain-schema',
                 'application-port', // ONLY ports, NOT use-cases
                 // Allow infrastructure services to import each other
                 'infrastructure-config',
@@ -461,6 +487,7 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
+                'domain-schema',
                 'application-port',
                 'infrastructure-config',
                 'infrastructure-database',
@@ -493,6 +520,7 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
+                'domain-schema',
                 'application-use-case-server',
                 'application-use-case-config',
                 'application-use-case-database',
@@ -514,6 +542,7 @@ export default [
               from: ['presentation-api-middleware'],
               allow: [
                 'domain-model-app',
+                'domain-schema',
                 'application-error',
                 'application-use-case', // Middleware may enrich context via application services
                 'presentation-api-middleware',
@@ -532,6 +561,7 @@ export default [
                 'domain-model-page',
                 'domain-model-automation',
                 'domain-validator',
+                'domain-schema',
                 'application-use-case-server',
                 'application-use-case-config',
                 'application-use-case-database',
@@ -555,6 +585,7 @@ export default [
                 'domain-model-table',
                 'domain-model-page',
                 'domain-model-automation',
+                'domain-schema',
                 'presentation-util',
               ],
               message:
@@ -572,6 +603,7 @@ export default [
                 'domain-validator',
                 'domain-service',
                 'domain-factory',
+                'domain-schema',
                 'presentation-api-util',
                 'presentation-api-middleware',
                 'presentation-util',

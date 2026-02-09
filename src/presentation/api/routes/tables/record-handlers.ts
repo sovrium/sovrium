@@ -23,12 +23,12 @@ import {
 import {
   createRecordRequestSchema,
   updateRecordRequestSchema,
-} from '@/presentation/api/schemas/request-schemas'
+} from '@/domain/schema/api/request-schemas'
 import {
   listRecordsResponseSchema,
   getRecordResponseSchema,
   createRecordResponseSchema,
-} from '@/presentation/api/schemas/tables-schemas'
+} from '@/domain/schema/api/tables-schemas'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import {

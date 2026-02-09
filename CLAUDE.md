@@ -34,7 +34,7 @@
 | **Effect** | ^3.19.15 | Functional programming, DI, error handling | @docs/infrastructure/framework/effect.md |
 | **Effect Schema** | ^3.19.15 | Server validation (domain/application/infrastructure) | @docs/infrastructure/framework/effect.md |
 | **Hono** | ^4.11.7 | Web framework (API routes, RPC client, OpenAPI) | @docs/infrastructure/framework/hono.md |
-| **Zod** | ^4.3.6 | OpenAPI integration ONLY (src/presentation/api/schemas/) + client forms | @docs/infrastructure/api/zod-hono-openapi.md |
+| **Zod** | ^4.3.6 | OpenAPI integration ONLY (src/domain/schema/api/) + client forms | @docs/infrastructure/api/zod-hono-openapi.md |
 | **js-yaml** | ^4.1.1 | YAML parser (CLI config files only) | @docs/infrastructure/parsing/js-yaml.md |
 | **Better Auth** | ^1.4.18 | Authentication | @docs/infrastructure/framework/better-auth.md |
 | **Drizzle ORM** | ^0.45.1 | Database (PostgreSQL via bun:sql) | @docs/infrastructure/database/drizzle.md |
@@ -87,9 +87,8 @@ bun run quality --skip-format      # Skip Prettier formatting check
 bun run quality --skip-knip        # Skip Knip unused code detection
 bun run quality --include-effect   # Include Effect diagnostics (slow, skipped by default)
 bun run quality --no-cache         # Disable all caching (ESLint, Prettier, TypeScript incremental)
-# Tier 2: Content quality + reporting (specs, user stories, SPEC-PROGRESS.md) — requires typecheck
+# Tier 2: Content quality + reporting (specs, user stories, SPEC-PROGRESS.md)
 bun run progress                   # Analyze specs + user stories, generate SPEC-PROGRESS.md
-bun run progress --no-quality-gate # Skip typecheck prerequisite
 bun run progress --skip-stories    # Skip user story validation
 bun run progress --strict          # Fail on any content quality issues
 # Both tiers combined
@@ -158,7 +157,6 @@ git push origin main               # Triggers release ONLY with "release:" type
 
 | Flag | Effect |
 |------|--------|
-| `--no-quality-gate` | Skip typecheck prerequisite |
 | `--skip-stories` | Skip user story validation |
 | `--strict` | Fail on any content quality issues |
 

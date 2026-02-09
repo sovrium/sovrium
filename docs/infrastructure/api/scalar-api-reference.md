@@ -73,7 +73,7 @@ Scalar aggregates two independent OpenAPI schemas:
 
 1. **Application API** (`/api/openapi.json`):
    - Custom business logic endpoints
-   - Generated from Zod schemas in `src/presentation/api/schemas/`
+   - Generated from Zod schemas in `src/domain/schema/api/`
    - See `@docs/infrastructure/api/hono-rpc-openapi.md` for details
 
 2. **Authentication API** (`/api/auth/openapi.json`):
@@ -182,10 +182,10 @@ curl http://localhost:3000/api/auth/openapi.json | jq
 
 When adding new API endpoints, they automatically appear in Scalar:
 
-1. **Create Zod schema** in `src/presentation/api/schemas/`:
+1. **Create Zod schema** in `src/domain/schema/api/`:
 
    ```typescript
-   // src/presentation/api/schemas/users-schemas.ts
+   // src/domain/schema/api/users-schemas.ts
    export const userResponseSchema = z.object({
      id: z.string(),
      name: z.string(),

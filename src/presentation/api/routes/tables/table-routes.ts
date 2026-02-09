@@ -16,7 +16,7 @@ import { getUserRole } from '@/application/use-cases/tables/user-role'
 import {
   getTableResponseSchema,
   getTablePermissionsResponseSchema,
-} from '@/presentation/api/schemas/tables-schemas'
+} from '@/domain/schema/api/tables-schemas'
 import { getSessionContext, getTableContext } from '@/presentation/api/utils/context-helpers'
 import { runEffect } from '@/presentation/api/utils/run-effect'
 import type { App } from '@/domain/models/app'

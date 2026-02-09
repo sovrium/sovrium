@@ -23,12 +23,12 @@ import { processRecords, applyPagination } from './utils/list-helpers'
 import { transformRecord } from './utils/record-transformer'
 import type { TransformedRecord } from './utils/record-transformer'
 import type { App } from '@/domain/models/app'
-import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type {
   ListRecordsResponse,
   GetRecordResponse,
   RestoreRecordResponse,
-} from '@/presentation/api/schemas/tables-schemas'
+} from '@/domain/schema/api/tables-schemas'
+import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 // Re-export from table-operations
 export {

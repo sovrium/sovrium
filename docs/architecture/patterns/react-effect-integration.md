@@ -104,7 +104,7 @@ await Effect.runPromise(program)
 ```typescript
 // src/presentation/api/routes/tables.ts
 import { Effect } from 'effect'
-import { errorResponseSchema } from '@/presentation/api/schemas/error-schemas'
+import { errorResponseSchema } from '@/domain/schema/api/error-schemas'
 
 async function runEffect<T>(
   c: Context,

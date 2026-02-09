@@ -16,13 +16,13 @@ import {
 } from '@/infrastructure/database/table-queries'
 import { transformRecords, type TransformedRecord } from './utils/record-transformer'
 import type { App } from '@/domain/models/app'
+import type { BatchRestoreRecordsResponse } from '@/domain/schema/api/tables-schemas'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type {
   ForbiddenError,
   SessionContextError,
   ValidationError,
 } from '@/infrastructure/database/session-context'
-import type { BatchRestoreRecordsResponse } from '@/presentation/api/schemas/tables-schemas'
 
 export function batchCreateProgram(
   session: Readonly<Session>,
