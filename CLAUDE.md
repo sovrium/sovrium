@@ -54,7 +54,7 @@
 | **Field-Level Permissions** | Granular read/write control per field based on role |
 | **Security** | Return 404 for unauthorized access attempts (prevents enumeration) |
 
-**Documentation**: See `@docs/architecture/patterns/authorization-*.md` (6 comprehensive guides)
+**Documentation**: See `@docs/architecture/patterns/authorization-*.md` (7 comprehensive guides)
 
 ## Essential Commands
 

@@ -93,6 +93,45 @@ See `@docs/architecture/testing-strategy/06-test-file-naming-convention.md` for 
 
 **Run all tests**: `bun test:all` (unit + E2E)
 
+## Documentation Structure
+
+```
+testing-strategy.md (you are here)
+│
+├── Getting Started
+│   └── 01-start.md ─────────────────── Quick start commands & workflow
+│
+├── Core Concepts
+│   ├── 02-overview.md ──────────────── Dual-timing strategy explained
+│   ├── 03-testing-approach.md ──────── E2E-First TDD + Unit-After workflow
+│   ├── 04-managing-red-tests.md ────── Playwright .fixme modifier guide
+│   ├── 05-quick-reference.md ──────── Decision matrix for test timing
+│   └── 06-test-file-naming.md ──────── Pattern-based naming convention
+│
+├── Testing Principles
+│   └── 07-testing-principles.md ────── F.I.R.S.T + Given-When-Then
+│
+├── Playwright Best Practices
+│   └── 08-playwright-best-practices.md  Locators, assertions, anti-patterns
+│
+├── Test Execution
+│   └── 09-test-execution-strategies.md  Tag-based (@spec, @regression)
+│
+├── Quality Assurance
+│   ├── 10-best-practices-summary.md ── Consolidated checklist
+│   ├── 11-anti-patterns-to-avoid.md ── Common mistakes & red flags
+│   └── 12-enforcement-and-code-review.md  ESLint rules + PR checklist
+│
+├── Advanced Topics
+│   ├── 14-using-test-steps.md ──────── test.step() for readability
+│   ├── 15-authentication-testing.md ── Auth flow testing patterns
+│   ├── status-code-guidelines.md ───── HTTP status code testing
+│   └── permission-testing-layers.md ── Permission test layer separation
+│
+└── References
+    └── 13-references.md ────────────── External links & resources
+```
+
 ## On-Demand Documentation
 
 For detailed information, import the relevant documentation file:
@@ -148,6 +187,18 @@ For detailed information, import the relevant documentation file:
   - Automated enforcement (ESLint rules)
   - Pull request review checklist
   - Red flags for rejecting PRs
+
+### Advanced Topics
+
+- **Using test.step for Readability**: `@docs/architecture/testing-strategy/14-using-test-steps-for-readability.md`
+  - Mandatory `test.step()` pattern for @regression tests
+  - Benefits: better CI logs, improved debugging, self-documenting flows
+- **Authentication Testing Strategy**: `@docs/architecture/testing-strategy/15-authentication-testing-strategy.md`
+  - Auth flow testing patterns for Better Auth integration
+- **HTTP Status Code Guidelines**: `@docs/architecture/testing-strategy/status-code-guidelines.md`
+  - When to use exact matching vs accepting multiple status codes
+- **Permission Testing Layers**: `@docs/architecture/testing-strategy/permission-testing-layers.md`
+  - Two-layer permission testing strategy (unit + E2E)
 
 ### References
 
