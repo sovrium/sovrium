@@ -16,10 +16,10 @@
 
 ```yaml
 auth:
-  rateLimit:
-    enabled: true
-    window: 60 # seconds
-    maxAttempts: 5
+  emailAndPassword: true
+# Note: Rate limiting is configured at the Better Auth server level,
+# not in the AppSchema. The auth config enables the endpoints that
+# are protected by rate limiting.
 ```
 
 ### Acceptance Criteria
@@ -49,8 +49,9 @@ auth:
 ### Configuration
 
 ```yaml
-auth:
-  enabled: false
+# When no auth methods are configured, authentication is implicitly disabled.
+# Simply omit the auth key or leave it empty:
+name: my-public-app
 ```
 
 ### Acceptance Criteria

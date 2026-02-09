@@ -16,9 +16,10 @@
 
 ```yaml
 auth:
-  session:
-    expiresIn: 604800 # 7 days in seconds
-    updateAge: 86400 # 1 day - threshold for automatic refresh
+  emailAndPassword: true
+# Note: Session configuration (expiresIn, updateAge) is managed at the
+# Better Auth server level, not in the AppSchema. The auth config enables
+# the authentication methods whose sessions are managed by Better Auth.
 ```
 
 ### Acceptance Criteria

@@ -22,8 +22,6 @@ Sovrium provides a comprehensive theming system based on design tokens. Design t
 
 ```yaml
 theme:
-  name: default
-  darkMode: auto # auto | light | dark
   colors:
     primary: '#3b82f6'
     secondary: '#8b5cf6'
@@ -146,28 +144,20 @@ theme:
 ```yaml
 theme:
   fonts:
-    sans: 'Inter, ui-sans-serif, system-ui, sans-serif'
-    serif: 'Merriweather, ui-serif, Georgia, serif'
-    mono: 'Fira Code, ui-monospace, monospace'
-    display: 'Playfair Display, serif'
-  fontSizes:
-    xs: '0.75rem'
-    sm: '0.875rem'
-    base: '1rem'
-    lg: '1.125rem'
-    xl: '1.25rem'
-    2xl: '1.5rem'
-    3xl: '1.875rem'
-    4xl: '2.25rem'
-  lineHeights:
-    tight: '1.25'
-    normal: '1.5'
-    relaxed: '1.75'
-  fontWeights:
-    normal: '400'
-    medium: '500'
-    semibold: '600'
-    bold: '700'
+    sans:
+      family: 'Inter, ui-sans-serif, system-ui, sans-serif'
+    serif:
+      family: 'Merriweather, ui-serif, Georgia, serif'
+    mono:
+      family: 'Fira Code, ui-monospace, monospace'
+    display:
+      family: 'Playfair Display, serif'
+      size: '2.25rem'
+      lineHeight: '1.25'
+      weights: [400, 700]
+  # Note: Font sizes, line heights, and font weights are configured per font
+  # entry via the size, lineHeight, and weights fields respectively.
+  # For example, fonts.display.size sets the display font size.
 ```
 
 ### Acceptance Criteria

@@ -17,7 +17,6 @@
 ```yaml
 auth:
   emailAndPassword:
-    enabled: true
     minPasswordLength: 8
 ```
 
@@ -54,7 +53,6 @@ auth:
 ```yaml
 auth:
   emailAndPassword:
-    enabled: true
     requireEmailVerification: true
 ```
 
@@ -84,8 +82,7 @@ auth:
 
 ```yaml
 auth:
-  emailAndPassword:
-    enabled: true
+  emailAndPassword: true
 ```
 
 ### Acceptance Criteria

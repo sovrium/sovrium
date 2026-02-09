@@ -120,10 +120,10 @@ project/
 ```yaml
 # app.yaml
 name: My Site
-deployment:
-  platform: github-pages
-  basePath: /my-repo
-  customDomain: example.com
+# Note: Deployment settings (platform, basePath, customDomain) are passed
+# via CLI flags rather than the AppSchema:
+#   sovrium build app.yaml --base /my-repo
+# The build command generates platform-specific files based on CLI options.
 ```
 
 ### Generated Files

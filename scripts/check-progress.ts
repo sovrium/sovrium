@@ -8,21 +8,19 @@
 /* eslint-disable max-lines -- Self-contained utility script */
 
 /**
- * Spec & Content Quality Analyzer (Tier 2)
+ * Content Quality Analyzer (Tier 2)
  *
- * Analyzes E2E test files (.spec.ts) and user story files (.md) for quality,
- * then generates a SPEC-PROGRESS.md file as the single source of truth for
- * test coverage and specification review.
+ * Analyzes E2E test files (.spec.ts) and user story files (.md) for content
+ * quality, then generates a SPEC-PROGRESS.md report as the single source of
+ * truth for test coverage and specification review.
  *
  * Two-tier architecture:
  * - Tier 1: `bun run quality` — Code quality (format, lint, types, tests, coverage, e2e)
  * - Tier 2: `bun run progress` — Content quality + reporting (this script)
- *
- * Quality gate: Runs `bun run typecheck` before analysis to ensure code compiles.
- * Use --no-quality-gate to skip this (e.g., in CI where quality already verified).
+ * - Both:   `bun run check:all` — quality && progress --strict
  *
  * Spec quality checks:
- * - Test naming (descriptive, follows conventions)
+ * - Test naming conventions and descriptiveness
  * - Spec IDs (APP-*, API-*, STATIC-*, etc.)
  * - GIVEN/WHEN/THEN structure in comments
  * - Test organization (@spec vs @regression tags)
@@ -30,8 +28,7 @@
  * - Header "Spec Count: X" matches actual @spec count
  *
  * User story quality checks:
- * - H1 title present
- * - Feature Area metadata
+ * - H1 title and Feature Area metadata
  * - User story structure (As a / I want to / so that)
  * - Acceptance Criteria table with 4 columns
  * - AC/US ID format validation
@@ -44,23 +41,17 @@
  *   bun run scripts/check-progress.ts [options]
  *
  * Options:
- *   --filter=pattern     Filter files by regex pattern (e.g., --filter=version)
+ *   --filter=pattern     Filter files by regex pattern
  *   --fixme              Show list of fixme tests for prioritization
  *   --fix                Auto-fix header count mismatches
  *   --no-error           Don't exit with error code on quality issues
- *   --no-quality-gate    Skip typecheck prerequisite (for CI where quality already verified)
  *   --skip-stories       Skip user story validation
- *   --strict             Exit 1 if any quality issues found (errors, warnings, suggestions)
- *   --verify-progress    Cross-reference with GitHub PRs/issues to detect discrepancies
- *   --update-stories     Update user story files with test status column (✅/⏳/❓)
- *
- * Output:
- *   - SPEC-PROGRESS.md: Reviewable specification state document
- *   - Console: Quality report with issues and suggestions
+ *   --strict             Exit 1 if any quality issues found
+ *   --verify-progress    Cross-reference with GitHub PRs/issues
+ *   --update-stories     Update user story files with test status
  *
  * Examples:
- *   bun run progress                       # Full analysis (with quality gate)
- *   bun run progress --no-quality-gate     # Skip typecheck prerequisite
+ *   bun run progress                       # Full content analysis
  *   bun run progress --skip-stories        # Skip user story validation
  *   bun run progress --filter=version      # Analyze only version specs
  *   bun run progress --fixme               # Show fixme tests to implement next
@@ -69,10 +60,13 @@
  *   bun run progress --strict              # Fail on any issues
  */
 
-import { execSync } from 'node:child_process'
 import { readdir, readFile, writeFile, unlink, access } from 'node:fs/promises'
 import { join, relative, basename } from 'node:path'
+import { JSONSchema } from 'effect'
+import { load as parseYaml } from 'js-yaml'
 import * as prettier from 'prettier'
+import * as apiSchemas from '../src/domain/models/api'
+import { AppSchema } from '../src/domain/models/app'
 
 // =============================================================================
 // Types
@@ -323,6 +317,7 @@ interface UserStoryFileValidation {
   readonly hasFeatureArea: boolean
   readonly stories: readonly UserStorySection[]
   readonly issues: readonly StoryValidationIssue[]
+  readonly rawContent: string
 }
 
 // Patterns for structural validation
@@ -576,6 +571,7 @@ function parseUserStoryFileForValidation(
     hasFeatureArea,
     stories,
     issues,
+    rawContent: content,
   }
 }
 
@@ -648,6 +644,390 @@ function validateSpecIdReferences(
   return issues
 }
 
+// =============================================================================
+// Schema Coherence Validation (YAML config + JSON API responses)
+// =============================================================================
+
+/**
+ * Generate JSON Schema from AppSchema at runtime.
+ * Uses the same approach as scripts/export-schema.ts.
+ */
+function generateAppJsonSchema(): object {
+  return JSONSchema.make(AppSchema) as object
+}
+
+/**
+ * Recursively extract all valid dot-paths from a JSON Schema object.
+ * Handles $ref, anyOf/oneOf (union types), properties, and Record types
+ * (patternProperties/additionalProperties).
+ *
+ * Returns { paths, recordPaths } where:
+ * - paths: Set of all explicitly named dot-paths
+ * - recordPaths: Set of paths that accept arbitrary sub-keys (Record types)
+ */
+function extractValidPaths(
+  schema: Record<string, unknown>,
+  defs?: Record<string, unknown>,
+  prefix?: string
+): { paths: Set<string>; recordPaths: Set<string> } {
+  const paths = new Set<string>()
+  const recordPaths = new Set<string>()
+  const resolvedDefs = defs ?? (schema['$defs'] as Record<string, unknown> | undefined)
+
+  // Resolve $ref
+  const resolve = (node: Record<string, unknown>): Record<string, unknown> => {
+    const ref = node['$ref'] as string | undefined
+    if (ref && resolvedDefs) {
+      const defKey = ref.replace(/^#\/\$defs\//, '')
+      return (resolvedDefs[defKey] as Record<string, unknown>) ?? node
+    }
+    return node
+  }
+
+  const walk = (node: Record<string, unknown>, currentPrefix: string) => {
+    const resolved = resolve(node)
+
+    // Handle properties directly
+    const props = resolved['properties'] as Record<string, unknown> | undefined
+    if (props) {
+      for (const key of Object.keys(props)) {
+        const fullPath = currentPrefix ? `${currentPrefix}.${key}` : key
+        paths.add(fullPath)
+        walk(props[key] as Record<string, unknown>, fullPath)
+      }
+    }
+
+    // Detect Record types: patternProperties or object additionalProperties with no named props.
+    // These accept any sub-key (e.g., theme.colors, theme.spacing, theme.shadows).
+    const hasPatternProps = resolved['patternProperties'] !== undefined
+    const hasObjectAdditionalProps =
+      resolved['additionalProperties'] !== undefined &&
+      typeof resolved['additionalProperties'] === 'object'
+    const hasNoNamedProps = !props || Object.keys(props).length === 0
+
+    if ((hasPatternProps || hasObjectAdditionalProps) && hasNoNamedProps && currentPrefix) {
+      recordPaths.add(currentPrefix)
+    }
+
+    // Handle anyOf / oneOf (union types like boolean | object)
+    const branches =
+      (resolved['anyOf'] as Array<Record<string, unknown>> | undefined) ??
+      (resolved['oneOf'] as Array<Record<string, unknown>> | undefined)
+    if (branches) {
+      for (const branch of branches) {
+        walk(resolve(branch), currentPrefix)
+      }
+    }
+  }
+
+  walk(schema, prefix ?? '')
+  return { paths, recordPaths }
+}
+
+/**
+ * Extract fenced YAML code blocks from markdown content.
+ * Returns array of { yaml, lineNumber }.
+ */
+function extractYamlConfigBlocks(content: string): Array<{ yaml: string; lineNumber: number }> {
+  const blocks: Array<{ yaml: string; lineNumber: number }> = []
+  const lines = content.split('\n')
+  let inBlock = false
+  let blockLines: string[] = []
+  let blockStart = 0
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? ''
+    if (!inBlock && line.trim() === '```yaml') {
+      inBlock = true
+      blockLines = []
+      blockStart = i + 2 // 1-indexed, next line
+    } else if (inBlock && line.trim() === '```') {
+      inBlock = false
+      blocks.push({ yaml: blockLines.join('\n'), lineNumber: blockStart })
+    } else if (inBlock) {
+      blockLines.push(line)
+    }
+  }
+
+  return blocks
+}
+
+/**
+ * Recursively extract dot-paths from a plain JS object.
+ */
+function extractDotPaths(obj: unknown, prefix?: string): string[] {
+  if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return []
+  const paths: string[] = []
+  for (const key of Object.keys(obj as Record<string, unknown>)) {
+    const fullPath = prefix ? `${prefix}.${key}` : key
+    paths.push(fullPath)
+    paths.push(...extractDotPaths((obj as Record<string, unknown>)[key], fullPath))
+  }
+  return paths
+}
+
+/**
+ * Find the most similar valid key for "did you mean?" suggestions.
+ */
+function findSimilarKey(invalidPath: string, validPaths: readonly string[]): string | null {
+  const parts = invalidPath.split('.')
+  const lastPart = parts[parts.length - 1] ?? ''
+  const parentPath = parts.slice(0, -1).join('.')
+
+  // Check sibling keys (same parent)
+  const siblings = validPaths.filter((p) => {
+    const pParts = p.split('.')
+    return pParts.slice(0, -1).join('.') === parentPath
+  })
+
+  for (const sibling of siblings) {
+    const siblingLast = sibling.split('.').pop() ?? ''
+    if (
+      (lastPart && siblingLast.toLowerCase().includes(lastPart.toLowerCase())) ||
+      (lastPart && lastPart.toLowerCase().includes(siblingLast.toLowerCase()))
+    ) {
+      return sibling
+    }
+  }
+
+  return null
+}
+
+/**
+ * Validate YAML config blocks in user story files against the AppSchema.
+ */
+function validateYamlConfigCoherence(
+  files: readonly UserStoryFileValidation[],
+  validPaths: Set<string>,
+  recordPaths: Set<string>,
+  topLevelKeys: Set<string>
+): StoryValidationIssue[] {
+  const issues: StoryValidationIssue[] = []
+  const validPathsArray = [...validPaths]
+
+  // Check if a path falls under a Record-typed ancestor (any sub-key is valid)
+  const isUnderRecordPath = (docPath: string): boolean => {
+    for (const rp of recordPaths) {
+      if (docPath.startsWith(rp + '.')) return true
+    }
+    return false
+  }
+
+  for (const file of files) {
+    const content = file.rawContent
+    if (!content) continue
+
+    const yamlBlocks = extractYamlConfigBlocks(content)
+
+    for (const block of yamlBlocks) {
+      let parsed: unknown
+      try {
+        parsed = parseYaml(block.yaml)
+      } catch {
+        // Unparseable YAML — skip silently (could be pseudo-code)
+        continue
+      }
+
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) continue
+
+      const rootKeys = Object.keys(parsed as Record<string, unknown>)
+      // Only validate blocks whose root keys are AppSchema top-level keys
+      const isAppConfig = rootKeys.some((k) => topLevelKeys.has(k))
+      if (!isAppConfig) continue
+
+      const docPaths = extractDotPaths(parsed)
+      for (const docPath of docPaths) {
+        if (!validPaths.has(docPath) && !isUnderRecordPath(docPath)) {
+          const hint = findSimilarKey(docPath, validPathsArray)
+          const hintText = hint ? ` (did you mean "${hint}"?)` : ''
+          issues.push({
+            file: file.relativePath,
+            severity: 'warning',
+            message: `YAML config path "${docPath}" does not exist in AppSchema${hintText}`,
+            line: block.lineNumber,
+          })
+        }
+      }
+    }
+  }
+
+  return issues
+}
+
+/**
+ * Extract fenced JSON code blocks from markdown content.
+ * Skips blocks that look like HTTP requests.
+ */
+function extractJsonResponseBlocks(content: string): Array<{ json: string; lineNumber: number }> {
+  const blocks: Array<{ json: string; lineNumber: number }> = []
+  const lines = content.split('\n')
+  let inBlock = false
+  let blockLines: string[] = []
+  let blockStart = 0
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] ?? ''
+    if (!inBlock && line.trim() === '```json') {
+      inBlock = true
+      blockLines = []
+      blockStart = i + 2
+    } else if (inBlock && line.trim() === '```') {
+      inBlock = false
+      const text = blockLines.join('\n').trim()
+      // Skip HTTP request blocks
+      if (!/^(POST|GET|PUT|PATCH|DELETE|HEAD|OPTIONS)\s/i.test(text)) {
+        blocks.push({ json: text, lineNumber: blockStart })
+      }
+    } else if (inBlock) {
+      blockLines.push(line)
+    }
+  }
+
+  return blocks
+}
+
+/**
+ * Build a registry of Zod response schemas from the API schemas barrel export.
+ * Only includes exports that look like Zod schema objects (have .safeParse method).
+ */
+function buildApiSchemaRegistry(): Map<string, { schema: unknown; keys: Set<string> }> {
+  const registry = new Map<string, { schema: unknown; keys: Set<string> }>()
+
+  for (const [name, value] of Object.entries(apiSchemas)) {
+    // Only include exports that look like Zod schemas
+    const v = value as unknown as Record<string, unknown>
+    if (
+      v &&
+      typeof v === 'object' &&
+      'safeParse' in v &&
+      typeof v.safeParse === 'function' &&
+      name.endsWith('Schema')
+    ) {
+      // Extract top-level keys from Zod schema shape
+      const shape = v.shape as Record<string, unknown> | undefined
+      if (shape) {
+        registry.set(name, {
+          schema: v,
+          keys: new Set(Object.keys(shape)),
+        })
+      }
+    }
+  }
+
+  return registry
+}
+
+/**
+ * Find the best matching API schema for a JSON object using Jaccard similarity on keys.
+ */
+function findMatchingApiSchema(
+  jsonObj: Record<string, unknown>,
+  registry: Map<string, { schema: unknown; keys: Set<string> }>
+): { name: string; schema: unknown } | null {
+  const objKeys = new Set(Object.keys(jsonObj))
+  if (objKeys.size === 0) return null
+
+  let bestMatch: { name: string; schema: unknown } | null = null
+  let bestScore = 0
+
+  for (const [name, { schema, keys }] of registry) {
+    if (keys.size === 0) continue
+    // Jaccard similarity = intersection / union
+    const intersection = [...objKeys].filter((k) => keys.has(k)).length
+    const union = new Set([...objKeys, ...keys]).size
+    const score = intersection / union
+
+    if (score > bestScore && score > 0.5) {
+      bestScore = score
+      bestMatch = { name, schema }
+    }
+  }
+
+  return bestMatch
+}
+
+/**
+ * Validate JSON response blocks in user story files against Zod API schemas.
+ */
+function validateJsonResponseCoherence(
+  files: readonly UserStoryFileValidation[],
+  registry: Map<string, { schema: unknown; keys: Set<string> }>
+): StoryValidationIssue[] {
+  const issues: StoryValidationIssue[] = []
+
+  for (const file of files) {
+    const content = file.rawContent
+    if (!content) continue
+
+    const jsonBlocks = extractJsonResponseBlocks(content)
+
+    for (const block of jsonBlocks) {
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(block.json)
+      } catch {
+        // Unparseable JSON — skip silently (could be pseudo-code or partial)
+        continue
+      }
+
+      if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) continue
+
+      const match = findMatchingApiSchema(parsed as Record<string, unknown>, registry)
+      if (!match) continue // No matching schema found — skip silently
+
+      // Run safeParse for full validation
+      const zodSchema = match.schema as {
+        safeParse: (data: unknown) => {
+          success: boolean
+          error?: { issues: Array<{ path: Array<string | number>; message: string }> }
+        }
+      }
+      const result = zodSchema.safeParse(parsed)
+      if (!result.success && result.error) {
+        const errorSummary = result.error.issues
+          .slice(0, 3)
+          .map((iss) => `${iss.path.join('.')}: ${iss.message}`)
+          .join('; ')
+        issues.push({
+          file: file.relativePath,
+          severity: 'warning',
+          message: `JSON block does not match ${match.name}: ${errorSummary}`,
+          line: block.lineNumber,
+        })
+      }
+    }
+  }
+
+  return issues
+}
+
+/**
+ * Run schema coherence validation: YAML app config + JSON API responses.
+ * Returns StoryValidationIssue[] with severity 'warning'.
+ */
+function validateSchemaCoherence(
+  files: readonly UserStoryFileValidation[]
+): StoryValidationIssue[] {
+  // Part 1: YAML config validation against AppSchema
+  const jsonSchema = generateAppJsonSchema() as Record<string, unknown>
+  const { paths: validPaths, recordPaths } = extractValidPaths(jsonSchema)
+  const topLevelKeys = new Set<string>()
+  const props = jsonSchema['properties'] as Record<string, unknown> | undefined
+  if (props) {
+    for (const key of Object.keys(props)) {
+      topLevelKeys.add(key)
+    }
+  }
+
+  const yamlIssues = validateYamlConfigCoherence(files, validPaths, recordPaths, topLevelKeys)
+
+  // Part 2: JSON API response validation against Zod schemas
+  const apiRegistry = buildApiSchemaRegistry()
+  const jsonIssues = validateJsonResponseCoherence(files, apiRegistry)
+
+  return [...yamlIssues, ...jsonIssues]
+}
+
 /**
  * Run user story validation and return all issues.
  */
@@ -679,11 +1059,15 @@ async function runUserStoryValidation(allSpecIds: Set<string>): Promise<{
   // Validate spec ID references (reuses allSpecIds from spec analysis)
   const specIdIssues = validateSpecIdReferences(parsedFiles, allSpecIds)
 
+  // Validate schema coherence (YAML app config + JSON API responses)
+  const schemaCoherenceIssues = validateSchemaCoherence(parsedFiles)
+
   // Collect all issues
   const allIssues: StoryValidationIssue[] = [
     ...parsedFiles.flatMap((f) => f.issues),
     ...refIssues,
     ...specIdIssues,
+    ...schemaCoherenceIssues,
   ]
 
   const totalStories = parsedFiles.reduce((sum, f) => sum + f.stories.length, 0)
@@ -693,31 +1077,6 @@ async function runUserStoryValidation(allSpecIds: Set<string>): Promise<{
   )
 
   return { files: parsedFiles, issues: allIssues, totalStories, totalACs }
-}
-
-// =============================================================================
-// Quality Gate
-// =============================================================================
-
-/**
- * Run typecheck as a quality gate. Returns true if it passed.
- */
-function runQualityGate(): boolean {
-  console.log('Running quality gate (typecheck)...')
-  try {
-    execSync('bun run typecheck', { stdio: 'pipe', timeout: 60_000 })
-    console.log('✅ Quality gate passed (typecheck)')
-    console.log('')
-    return true
-  } catch {
-    console.error('❌ Quality gate FAILED (typecheck)')
-    console.error('   Code must compile before running content analysis.')
-    console.error('   Fix type errors first: bun run typecheck')
-    console.error('   Or run full quality checks: bun run quality')
-    console.error('')
-    console.error('   Tip: Use --no-quality-gate to skip this check')
-    return false
-  }
 }
 
 // =============================================================================
@@ -2662,21 +3021,11 @@ async function main() {
   const args = process.argv.slice(2)
   const filterPattern = args.find((a) => a.startsWith('--filter='))?.replace('--filter=', '')
   const showFixmeOnly = args.includes('--fixme')
-  const noErrorExit = args.includes('--no-error') || !!filterPattern
   const verifyProgress = args.includes('--verify-progress')
   const shouldFix = args.includes('--fix')
   const shouldUpdateStories = args.includes('--update-stories')
   const strictMode = args.includes('--strict')
-  const noQualityGate = args.includes('--no-quality-gate')
   const skipStories = args.includes('--skip-stories')
-
-  // Quality gate: typecheck must pass before content analysis
-  if (!noQualityGate) {
-    const gateOk = runQualityGate()
-    if (!gateOk) {
-      process.exit(1)
-    }
-  }
 
   console.log('Analyzing spec files...')
   console.log('')
@@ -2904,77 +3253,249 @@ async function main() {
     console.log(`✅ Updated: ${README_FILE}`)
   }
 
-  // Console output
-  console.log('')
-  console.log('━'.repeat(60))
-  console.log('📊 SPEC QUALITY REPORT')
-  console.log('━'.repeat(60))
-  console.log('')
-  console.log(`Quality Score: ${qualityScore}%`)
-  console.log('')
-
-  // User Stories metrics (shown first)
-  if (userStoryMetrics && userStoryMetrics.totalStories > 0) {
-    const notSpecifiedPercent = userStoryMetrics.storiesToSpecifyPercent
-    const specifiedFixmePercent = userStoryMetrics.storiesSpecifiedNotImplementedPercent
-    const specifiedPassingPercent = userStoryMetrics.storiesSpecifiedAndImplementedPercent
-    console.log(`User Stories:    ${userStoryMetrics.totalStories} total`)
-    console.log(
-      `  ├─ Not Specified:      ${userStoryMetrics.storiesToSpecify.length} (${notSpecifiedPercent}%)`
-    )
-    console.log(
-      `  ├─ Specified (Fixme):  ${userStoryMetrics.storiesSpecifiedNotImplemented.length} (${specifiedFixmePercent}%)`
-    )
-    console.log(
-      `  └─ Specified (Passing): ${userStoryMetrics.storiesSpecifiedAndImplemented.length} (${specifiedPassingPercent}%)`
-    )
-    console.log('')
-  }
-
-  console.log(`Tests:           ${totalTests} total`)
-  console.log(`  ├─ @spec:       ${totalSpecs}`)
-  console.log(`  ├─ @regression: ${totalRegressions}`)
-  console.log(`  ├─ Passing:     ${totalPassing}`)
-  console.log(`  └─ Fixme:       ${totalFixme}`)
-  console.log('')
+  // ── Content Quality Checks (matches quality script visual flow) ──
+  // Flow: section header → step checks → summary → final status
   const orphanedCount = orphanedSpecIds.length
+  const sep = '─'.repeat(50)
+  const wideSep = '─'.repeat(80)
 
-  // TDD Automation stats
-  if (tddAutomation.totalFixed > 0 || totalFixme > 0) {
-    console.log('TDD Automation:')
-    console.log(`  ├─ Fixed (90d):  ${tddAutomation.totalFixed}`)
-    console.log(`  │  ├─ Pipeline:  ${tddAutomation.fixedByPipeline}`)
-    console.log(`  │  └─ Manual:    ${tddAutomation.fixedManually}`)
-    console.log(`  ├─ Last 24h:     ${tddAutomation.fixedLast24h}`)
-    console.log(`  ├─ Last 7d:      ${tddAutomation.fixedLast7d}`)
-    console.log(`  ├─ Avg/Day:      ${tddAutomation.avgFixesPerDay}`)
-    console.log(`  └─ Remaining:    ${totalFixme}`)
-    if (tddAutomation.estimatedDaysRemaining !== null) {
-      const days = tddAutomation.estimatedDaysRemaining
-      const etaText =
-        days === 0
-          ? 'Less than 1 day'
-          : days === 1
-            ? '~1 day'
-            : days < 7
-              ? `~${days} days`
-              : days < 30
-                ? `~${Math.ceil(days / 7)} weeks`
-                : `~${Math.ceil(days / 30)} months`
-      console.log('')
-      console.log(`ETA: ${etaText} (${tddAutomation.estimatedCompletionDate})`)
+  // ── Step 1: User Story Validation ──
+  let storyValidationErrors = 0
+  let storyValidationWarnings = 0
+  let storyResult: Awaited<ReturnType<typeof runUserStoryValidation>> | null = null
+  console.log('')
+  console.log(wideSep)
+  console.log('Running content quality checks')
+  console.log(wideSep)
+  console.log('')
+
+  if (!skipStories) {
+    console.log('🔄 User Stories...')
+
+    const allSpecIds = new Set<string>()
+    for (const file of analyzedFiles) {
+      for (const test of file.tests) {
+        if (test.id) allSpecIds.add(test.id)
+      }
     }
-    console.log('')
+
+    storyResult = await runUserStoryValidation(allSpecIds)
+
+    if (storyResult.files.length === 0) {
+      console.log('⚠️  No user story files found in docs/user-stories/')
+    } else {
+      const errors = storyResult.issues.filter((i) => i.severity === 'error')
+      const warnings = storyResult.issues.filter((i) => i.severity === 'warning')
+      const infos = storyResult.issues.filter((i) => i.severity === 'info')
+      storyValidationErrors = errors.length
+      storyValidationWarnings = warnings.length
+
+      if (errors.length > 0) {
+        console.log(`❌ User Stories failed (${errors.length} errors, ${warnings.length} warnings)`)
+        for (const issue of errors) {
+          const loc = issue.line ? `:${issue.line}` : ''
+          console.log(`   ${issue.file}${loc}: ${issue.message}`)
+        }
+        if (warnings.length > 0 && strictMode) {
+          for (const issue of warnings.slice(0, 10)) {
+            const loc = issue.line ? `:${issue.line}` : ''
+            console.log(`   ${issue.file}${loc}: ${issue.message}`)
+          }
+          if (warnings.length > 10) {
+            console.log(`   ... and ${warnings.length - 10} more warnings`)
+          }
+        }
+      } else {
+        console.log(
+          `✅ User Stories passed (${storyResult.files.length} files, ${storyResult.totalStories} stories, ${storyResult.totalACs} ACs)`
+        )
+      }
+
+      if (infos.length > 0 && strictMode) {
+        for (const issue of infos.slice(0, 10)) {
+          console.log(`   ℹ️  ${issue.file}: ${issue.message}`)
+        }
+        if (infos.length > 10) {
+          console.log(`   ... and ${infos.length - 10} more`)
+        }
+      }
+    }
+  } else {
+    console.log('⏭️  User Stories skipped (--skip-stories)')
   }
 
-  console.log('━'.repeat(60))
-  console.log(`✅ Generated: ${OUTPUT_FILE}`)
-  console.log('━'.repeat(60))
+  // ── Step 2: Spec Tests ──
+  const specErrors = errorsWithDuplicates
+  const specWarnings = warningsWithDuplicates
+
+  if (specErrors > 0) {
+    console.log(`❌ Spec Tests failed (${specErrors} errors, ${specWarnings} warnings)`)
+    // Show up to 10 errors
+    const allErrors = analyzedFiles.flatMap((f) =>
+      f.issues.filter((i) => i.type === 'error').map((i) => ({ file: f.relativePath, ...i }))
+    )
+    for (const issue of allErrors.slice(0, 10)) {
+      const loc = issue.line ? `:${issue.line}` : ''
+      console.log(`   ${issue.file}${loc}: ${issue.message}`)
+    }
+    if (allErrors.length > 10) {
+      console.log(`   ... and ${allErrors.length - 10} more errors`)
+    }
+  } else {
+    console.log(`✅ Spec Tests passed (${totalTests} tests, ${qualityScore}% quality)`)
+  }
+
+  // ── Step 3: TDD Pipeline ──
+  if (tddAutomation.totalFixed > 0 || totalFixme > 0) {
+    console.log(
+      `🔄 TDD Pipeline (${totalFixme} remaining, ${tddAutomation.totalFixed} fixed in 90d)`
+    )
+  } else {
+    console.log('✅ TDD Pipeline (no remaining fixme)')
+  }
+
+  // ── Determine pass/fail before choosing output mode ──
+  const totalErrors = errorsWithDuplicates + storyValidationErrors
+  const totalWarnings = warningsWithDuplicates + storyValidationWarnings
+  const totalIssues = totalErrors + totalWarnings
+  const hasFailed = totalIssues > 0
+
+  if (hasFailed) {
+    // ── Failure mode: show all errors and warnings directly ──
+    // This output is optimized for agents (product-specs-architect) to parse and fix issues
+    console.log('')
+    console.log(sep)
+    console.log(`❌ Content Quality: ${totalErrors} error(s), ${totalWarnings} warning(s)`)
+    console.log(sep)
+
+    // Collect all spec test issues with file context
+    const specIssues = analyzedFiles.flatMap((f) =>
+      f.issues
+        .filter((i) => i.type === 'error' || i.type === 'warning')
+        .map((i) => ({ file: f.relativePath, ...i }))
+    )
+
+    // Collect user story issues
+    const storyIssues = !skipStories
+      ? (storyResult?.issues ?? []).filter(
+          (i) => i.severity === 'error' || i.severity === 'warning'
+        )
+      : []
+
+    // Display spec test errors/warnings
+    if (specIssues.length > 0) {
+      console.log('')
+      console.log('  Spec Tests:')
+      for (const issue of specIssues) {
+        const severity = issue.type === 'error' ? 'ERROR' : 'WARN'
+        const loc = issue.line ? `:${issue.line}` : ''
+        console.log(`    [${severity}] ${issue.file}${loc}: ${issue.message}`)
+      }
+    }
+
+    // Display user story errors/warnings
+    if (storyIssues.length > 0) {
+      console.log('')
+      console.log('  User Stories:')
+      for (const issue of storyIssues) {
+        const severity = issue.severity === 'error' ? 'ERROR' : 'WARN'
+        const loc = issue.line ? `:${issue.line}` : ''
+        console.log(`    [${severity}] ${issue.file}${loc}: ${issue.message}`)
+      }
+    }
+
+    console.log('')
+    console.log(sep)
+    console.log(`Generated: ${OUTPUT_FILE}`)
+    console.log(sep)
+  } else {
+    // ── Success mode: show full summary report ──
+    console.log('')
+    console.log(sep)
+    console.log('📊 Content Quality Summary')
+    console.log(sep)
+
+    // User Stories section
+    console.log('')
+    console.log('  User Stories')
+    if (userStoryMetrics && userStoryMetrics.totalStories > 0) {
+      const notSpecCount = userStoryMetrics.storiesToSpecify.length
+      const fixmeCount = userStoryMetrics.storiesSpecifiedNotImplemented.length
+      const passingCount = userStoryMetrics.storiesSpecifiedAndImplemented.length
+      const notSpecPct = userStoryMetrics.storiesToSpecifyPercent
+      const fixmePct = userStoryMetrics.storiesSpecifiedNotImplementedPercent
+      const passingPct = userStoryMetrics.storiesSpecifiedAndImplementedPercent
+
+      console.log(`  Total               ${userStoryMetrics.totalStories}`)
+      if (passingCount > 0) {
+        console.log(`  Specified (pass)    ${passingCount} (${passingPct}%)`)
+      }
+      if (fixmeCount > 0) {
+        console.log(`  Specified (fixme)   ${fixmeCount} (${fixmePct}%)`)
+      }
+      if (notSpecCount > 0) {
+        console.log(`  Not specified       ${notSpecCount} (${notSpecPct}%)`)
+      }
+    } else {
+      console.log('  No user stories found')
+    }
+
+    // Spec Tests section
+    console.log('')
+    console.log('  Spec Tests')
+    const progressPercent2 = Math.round((totalPassing / Math.max(totalTests, 1)) * 100)
+    const barLen = 20
+    const filled = Math.round((progressPercent2 / 100) * barLen)
+    const progressBar = '█'.repeat(filled) + '░'.repeat(barLen - filled)
+    console.log(`  [${progressBar}] ${progressPercent2}%`)
+    console.log(`  @spec               ${totalSpecs}`)
+    console.log(`  @regression         ${totalRegressions}`)
+    console.log(`  Passing             ${totalPassing}`)
+    if (totalFixme > 0) {
+      console.log(`  Fixme               ${totalFixme}`)
+    }
+    if (orphanedCount > 0) {
+      console.log(`  Orphaned IDs        ${orphanedCount}`)
+    }
+    console.log(`  Quality Score       ${qualityScore}%`)
+
+    // TDD Pipeline section
+    if (tddAutomation.totalFixed > 0 || totalFixme > 0) {
+      console.log('')
+      console.log('  TDD Pipeline')
+      console.log(
+        `  Fixed (90d)         ${tddAutomation.totalFixed} (pipeline: ${tddAutomation.fixedByPipeline}, manual: ${tddAutomation.fixedManually})`
+      )
+      console.log(`  Last 24h            ${tddAutomation.fixedLast24h}`)
+      console.log(`  Last 7d             ${tddAutomation.fixedLast7d}`)
+      console.log(`  Avg/day             ${tddAutomation.avgFixesPerDay}`)
+      console.log(`  Remaining           ${totalFixme}`)
+      if (tddAutomation.estimatedDaysRemaining !== null) {
+        const days = tddAutomation.estimatedDaysRemaining
+        const etaText =
+          days === 0
+            ? 'less than 1 day'
+            : days === 1
+              ? '~1 day'
+              : days < 7
+                ? `~${days} days`
+                : days < 30
+                  ? `~${Math.ceil(days / 7)} weeks`
+                  : `~${Math.ceil(days / 30)} months`
+        console.log(`  ETA                 ${etaText} (${tddAutomation.estimatedCompletionDate})`)
+      }
+    }
+
+    console.log('')
+    console.log(sep)
+    console.log(`Generated: ${OUTPUT_FILE}`)
+    console.log(sep)
+  }
 
   // Show fixme tests for prioritization
   if (showFixmeOnly) {
     console.log('')
-    console.log('FIXME TESTS (Next to implement):')
+    console.log('FIXME TESTS (next to implement):')
     console.log('')
     for (const file of analyzedFiles) {
       const fixmeTests = file.tests.filter((t) => t.isFixme)
@@ -2991,205 +3512,112 @@ async function main() {
   // Verify progress against GitHub PRs/issues and commits
   if (verifyProgress) {
     console.log('')
-    console.log('━'.repeat(60))
-    console.log('PROGRESS VERIFICATION (GitHub Cross-Reference)')
-    console.log('━'.repeat(60))
+    console.log(wideSep)
+    console.log('GitHub Verification')
+    console.log(wideSep)
     console.log('')
 
     // Collect fixme and passing spec IDs from analyzed files
-    const fixmeSpecIds = new Set<string>()
-    const passingSpecIds = new Set<string>()
+    const verifyFixmeIds = new Set<string>()
+    const verifyPassingIds = new Set<string>()
 
     for (const file of analyzedFiles) {
       for (const test of file.tests) {
         if (test.id) {
           if (test.isFixme) {
-            fixmeSpecIds.add(test.id)
+            verifyFixmeIds.add(test.id)
           } else {
-            passingSpecIds.add(test.id)
+            verifyPassingIds.add(test.id)
           }
         }
       }
     }
 
-    console.log(`Codebase Status:`)
-    console.log(`   ├─ Fixme spec IDs:   ${fixmeSpecIds.size}`)
-    console.log(`   └─ Passing spec IDs: ${passingSpecIds.size}`)
+    console.log(`Fixme spec IDs:   ${verifyFixmeIds.size}`)
+    console.log(`Passing spec IDs: ${verifyPassingIds.size}`)
     console.log('')
-
     console.log('Fetching GitHub references...')
-    const verification = await verifyProgressFromGitHub(fixmeSpecIds, passingSpecIds)
 
-    // Group references by type
+    const verification = await verifyProgressFromGitHub(verifyFixmeIds, verifyPassingIds)
+
     const prRefs = verification.allReferences.filter((r) => r.type === 'pr')
     const issueRefs = verification.allReferences.filter((r) => r.type === 'issue')
     const commitRefs = verification.allReferences.filter((r) => r.type === 'commit')
 
-    // Deduplicate spec IDs across all sources
     const uniqueSpecIdsFromPRs = new Set(prRefs.map((r) => r.specId))
     const uniqueSpecIdsFromIssues = new Set(issueRefs.map((r) => r.specId))
     const uniqueSpecIdsFromCommits = new Set(commitRefs.map((r) => r.specId))
 
     console.log('')
-    console.log(`GitHub References Found:`)
+    console.log(`✅ Merged PRs         ${prRefs.length} (${uniqueSpecIdsFromPRs.size} unique)`)
     console.log(
-      `   ├─ Merged PRs:        ${prRefs.length} (${uniqueSpecIdsFromPRs.size} unique spec IDs)`
+      `✅ Closed Issues      ${issueRefs.length} (${uniqueSpecIdsFromIssues.size} unique)`
     )
     console.log(
-      `   ├─ Closed Issues:     ${issueRefs.length} (${uniqueSpecIdsFromIssues.size} unique spec IDs)`
+      `✅ Commits            ${commitRefs.length} (${uniqueSpecIdsFromCommits.size} unique)`
     )
-    console.log(
-      `   └─ Commits:           ${commitRefs.length} (${uniqueSpecIdsFromCommits.size} unique spec IDs)`
-    )
-    console.log('')
-    console.log(`   Total unique spec IDs tracked: ${verification.fixedSpecIds.size}`)
-    console.log('')
+    console.log(`✅ Total Tracked      ${verification.fixedSpecIds.size} unique spec IDs`)
 
-    // Show discrepancies
     if (verification.discrepancies.length > 0) {
-      console.log('⚠️  DISCREPANCIES DETECTED:')
+      console.log('')
+      console.log(`❌ Discrepancies (${verification.discrepancies.length}):`)
       console.log('')
       for (const disc of verification.discrepancies) {
-        console.log(`   ❌ ${disc.specId} (${disc.status})`)
-        console.log(`      ${disc.suggestion}`)
-        console.log(`      References:`)
+        console.log(`  ${disc.specId} (${disc.status})`)
+        console.log(`    ${disc.suggestion}`)
         for (const ref of disc.references.slice(0, 3)) {
           switch (ref.type) {
             case 'pr':
-              console.log(`        - PR #${ref.number}: ${ref.title.substring(0, 60)}...`)
+              console.log(`    PR #${ref.number}: ${ref.title.substring(0, 60)}`)
               break
             case 'issue':
-              console.log(`        - Issue #${ref.number}: ${ref.title.substring(0, 60)}...`)
+              console.log(`    Issue #${ref.number}: ${ref.title.substring(0, 60)}`)
               break
             case 'commit':
-              console.log(`        - Commit ${ref.hash}: ${ref.title.substring(0, 60)}...`)
+              console.log(`    Commit ${ref.hash}: ${ref.title.substring(0, 60)}`)
               break
           }
         }
         if (disc.references.length > 3) {
-          console.log(`        ... and ${disc.references.length - 3} more references`)
+          console.log(`    ... and ${disc.references.length - 3} more`)
         }
         console.log('')
       }
-
-      console.log('━'.repeat(60))
-      console.log(`❌ Found ${verification.discrepancies.length} discrepancies`)
-      console.log(
-        '   These specs appear to be fixed in PRs/commits but are still marked as .fixme()'
-      )
-      console.log(
-        '   Action: Remove .fixme() from these tests or investigate why they are still failing'
-      )
-      console.log('━'.repeat(60))
+      console.log('Action: Remove .fixme() from these tests or investigate failures')
     } else {
-      console.log('✅ No discrepancies found - all fixed specs are correctly tracked!')
+      console.log('')
+      console.log('✅ No discrepancies found')
     }
-    console.log('')
 
-    // Show recent fixes from GitHub for comparison
     const recentPRs = prRefs.slice(0, 10)
     if (recentPRs.length > 0) {
-      console.log('Recent Merged PRs with Spec IDs (last 10):')
+      console.log('')
+      console.log('Recent merged PRs:')
       for (const pr of recentPRs) {
         const dateStr = new Date(pr.date).toISOString().substring(0, 16).replace('T', ' ')
-        console.log(`   PR #${pr.number} | ${dateStr} | ${pr.specId}`)
+        console.log(`  #${pr.number} ${dateStr} ${pr.specId}`)
       }
-      console.log('')
     }
+
+    console.log(sep)
   }
 
-  // User Story Validation (merged from check-user-stories.ts)
-  let storyValidationErrors = 0
-  let storyValidationWarnings = 0
-  if (!skipStories) {
-    console.log('')
-    console.log('━'.repeat(60))
-    console.log('📝 USER STORY QUALITY VALIDATION')
-    console.log('━'.repeat(60))
-    console.log('')
-
-    // Build a set of all spec IDs from analyzed files
-    const allSpecIds = new Set<string>()
-    for (const file of analyzedFiles) {
-      for (const test of file.tests) {
-        if (test.id) allSpecIds.add(test.id)
-      }
-    }
-
-    const storyResult = await runUserStoryValidation(allSpecIds)
-
-    if (storyResult.files.length === 0) {
-      console.log('⚠️  No user story files found in docs/user-stories/')
-    } else {
-      const errors = storyResult.issues.filter((i) => i.severity === 'error')
-      const warnings = storyResult.issues.filter((i) => i.severity === 'warning')
-      const infos = storyResult.issues.filter((i) => i.severity === 'info')
-      storyValidationErrors = errors.length
-      storyValidationWarnings = warnings.length
-
-      if (errors.length > 0) {
-        console.log(`❌ Errors (${errors.length}):`)
-        for (const issue of errors) {
-          const loc = issue.line ? `:${issue.line}` : ''
-          console.log(`  ❌ ${issue.file}${loc}: ${issue.message}`)
-        }
-        console.log('')
-      }
-
-      if (warnings.length > 0) {
-        console.log(`⚠️  Warnings (${warnings.length}):`)
-        for (const issue of warnings) {
-          const loc = issue.line ? `:${issue.line}` : ''
-          console.log(`  ⚠️  ${issue.file}${loc}: ${issue.message}`)
-        }
-        console.log('')
-      }
-
-      if (infos.length > 0) {
-        console.log(`ℹ️  Info (${infos.length}):`)
-        for (const issue of infos) {
-          console.log(`  ℹ️  ${issue.file}: ${issue.message}`)
-        }
-        console.log('')
-      }
-
-      console.log('─'.repeat(50))
-      console.log(`📊 User Story Summary`)
-      console.log('─'.repeat(50))
-      console.log(`  Files:    ${storyResult.files.length}`)
-      console.log(`  Stories:  ${storyResult.totalStories}`)
-      console.log(`  ACs:      ${storyResult.totalACs}`)
-      console.log(`  Errors:   ${errors.length}`)
-      console.log(`  Warnings: ${warnings.length}`)
-      console.log('─'.repeat(50))
-
-      if (errors.length === 0) {
-        console.log('✅ User story quality validation passed!')
-      } else {
-        console.log(`❌ User story validation found ${errors.length} error(s)`)
-      }
-    }
+  // Final status — fail on any errors or warnings
+  console.log('')
+  if (hasFailed) {
+    console.log(`❌ Content quality failed: ${totalErrors} error(s), ${totalWarnings} warning(s)`)
+    process.exit(1)
   } else {
-    console.log('')
-    console.log('⏭️  User story validation skipped (--skip-stories flag)')
+    console.log('✅ All content quality checks passed!')
   }
 
-  // Exit with error code if there are errors (including duplicates) (unless --no-error or --filter is used)
-  if (errorsWithDuplicates > 0 && !noErrorExit) {
-    process.exit(1)
-  }
-
-  // Strict mode: fail on ANY issues (errors, warnings, suggestions, orphaned spec IDs, or story issues)
+  // Strict mode: also fail on suggestions and orphaned spec IDs
   // Used by `bun run check:all` to enforce zero-issue content quality
-  const totalStrictIssues =
-    errorsWithDuplicates +
-    warningsWithDuplicates +
-    suggestionsWithDuplicates +
-    orphanedCount +
-    storyValidationErrors +
-    storyValidationWarnings
-  if (strictMode && totalStrictIssues > 0) {
-    process.exit(1)
+  if (strictMode) {
+    const totalStrictIssues = totalIssues + suggestionsWithDuplicates + orphanedCount
+    if (totalStrictIssues > 0) {
+      process.exit(1)
+    }
   }
 }
 

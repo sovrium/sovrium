@@ -149,6 +149,8 @@ This agent invokes the following skills:
 - ✅ Test data is not empty (no `[]`, no placeholders, no TODOs)
 - ✅ @regression test exists for each feature file
 - ✅ @regression test marked with `.fixme()`
+- ✅ YAML config paths match AppSchema (schema coherence)
+- ✅ JSON responses match Zod API schemas (API contract coherence)
 
 **Common failure examples**:
 - ❌ Gap in spec IDs: APP-001, APP-003 (missing 002)
@@ -157,6 +159,8 @@ This agent invokes the following skills:
 - ❌ Wrong tag: `@spec` test not using `.fixme()`
 - ❌ TypeScript errors in schema files
 - ❌ ESLint violations in test files
+- ❌ Stale YAML config: `auth.plugins.admin.enabled` (field doesn't exist in AppSchema)
+- ❌ JSON response mismatch: `tablePermissionSchema: manage` field missing
 
 ### Source of Truth Hierarchy
 
@@ -866,10 +870,11 @@ test.fixme(
 
 11. **Validate Quality**:
    - Run `bun run quality --skip-e2e` (code quality: format, lint, typecheck, unit tests, coverage)
-   - Run `bun run progress` (content quality: spec validation, user story checks → SPEC-PROGRESS.md)
+   - Run `bun run progress` (content quality: spec validation, user story checks, schema coherence → SPEC-PROGRESS.md)
    - **MUST have 0 errors and 0 warnings in both checks**
    - Verify all spec IDs are sequential
    - Verify @regression test covers all @spec tests (use skill with `--check`)
+   - Review schema coherence warnings: YAML paths and JSON responses must match schemas
 
 12. **Handoff to e2e-test-fixer**:
    - Notify: "RED tests ready for implementation: specs/app/{feature}.spec.ts"
@@ -989,7 +994,7 @@ test.fixme(
 
 ### When Quality Check Fails
 
-**Cause**: Code quality issues (TypeScript errors, ESLint violations) or content quality issues (spec IDs gaps, missing GIVEN-WHEN-THEN, empty test data)
+**Cause**: Code quality issues (TypeScript errors, ESLint violations) or content quality issues (spec IDs gaps, missing GIVEN-WHEN-THEN, empty test data, schema coherence warnings)
 
 **Recovery Steps**:
 1. Run `bun run quality --skip-e2e` to check code quality
@@ -1001,6 +1006,9 @@ test.fixme(
    - For spec ID gaps: Renumber tests to be sequential (001, 002, 003...)
    - For missing comments: Add GIVEN-WHEN-THEN structure to each @spec test
    - For empty data: Replace `[]` and placeholders with realistic test data
+   - For schema coherence warnings:
+     - YAML: Update dot-paths to match current AppSchema structure (check `src/domain/models/app/`)
+     - JSON: Update response examples to match Zod API schemas (check `src/domain/models/api/`)
 3. Re-run both checks until 0 errors/warnings in each
 
 ## Cross-Domain Consistency Validation
@@ -1024,9 +1032,17 @@ Grep({ pattern: "US-[A-Z]+-{FEATURE}", path: "docs/user-stories/", output_mode: 
 
 # Find existing schemas that might be affected
 Glob({ pattern: "src/domain/models/app/**/*{related-feature}*.ts" })
+Glob({ pattern: "src/domain/models/api/**/*{related-feature}*.ts" })
 
 # Search for tests that might need updates
 Grep({ pattern: "{feature-keyword}", path: "specs/", output_mode: "files_with_matches" })
+
+# Validate schema coherence (YAML/JSON examples match schemas)
+# Check AppSchema structure
+Read({ file_path: "src/domain/models/app/{feature}.ts" })
+
+# Check Zod API schemas
+Read({ file_path: "src/domain/models/api/{feature}-schemas.ts" })
 ```
 
 ### When Conflicts Are Found

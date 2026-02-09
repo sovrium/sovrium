@@ -16,11 +16,9 @@
 
 ```yaml
 auth:
-  plugins:
-    twoFactor:
-      enabled: true
-      issuer: 'My App'
-      backupCodes: true
+  twoFactor:
+    issuer: 'My App'
+    backupCodes: true
 ```
 
 ### Acceptance Criteria

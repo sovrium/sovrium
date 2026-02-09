@@ -38,8 +38,8 @@ pages:
       - id: footer
         type: footer
 languages:
-  defaultLanguage: en-US
-  supportedLanguages:
+  default: en-US
+  supported:
     - en-US
     - fr-FR
 theme:

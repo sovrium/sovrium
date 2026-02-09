@@ -16,11 +16,8 @@
 
 ```yaml
 auth:
-  plugins:
-    admin:
-      enabled: true
-      defaultRole: 'user'
-      adminRoles: ['admin', 'super-admin']
+  admin:
+    defaultRole: 'user'
 ```
 
 ### Acceptance Criteria
@@ -206,11 +203,8 @@ auth:
 
 ```yaml
 auth:
-  plugins:
-    admin:
-      enabled: true
-      allowImpersonatingAdmins: false # Security: prevent impersonating other admins
-      impersonationSessionDuration: 3600 # 1 hour
+  admin:
+    impersonation: false # Security: prevent impersonating other admins
 ```
 
 ### Acceptance Criteria
@@ -264,10 +258,8 @@ auth:
 
 ```yaml
 auth:
-  plugins:
-    admin:
-      enabled: true
-      defaultRole: 'user' # Default role assigned to new users
+  admin:
+    defaultRole: 'user' # Default role assigned to new users
 ```
 
 ### Acceptance Criteria
@@ -294,9 +286,7 @@ auth:
 
 ```yaml
 auth:
-  plugins:
-    admin:
-      enabled: false # Admin plugin disabled
+  admin: false # Admin plugin disabled
 ```
 
 ### Acceptance Criteria

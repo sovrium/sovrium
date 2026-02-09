@@ -16,10 +16,8 @@
 
 ```yaml
 auth:
-  plugins:
-    magicLink:
-      enabled: true
-      expiresIn: 900 # 15 minutes in seconds
+  magicLink:
+    expirationMinutes: 15
 ```
 
 ### Acceptance Criteria
@@ -57,7 +55,6 @@ auth:
 | AC-006 | User completes magic link verify workflow (regression)        | `API-AUTH-MAGIC-LINK-VERIFY-REGRESSION` | ✅     |
 
 ### Implementation References
-
 
 ---
 

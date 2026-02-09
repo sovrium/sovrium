@@ -17,7 +17,6 @@
 ```yaml
 auth:
   emailAndPassword:
-    enabled: true
     minPasswordLength: 8
 ```
 

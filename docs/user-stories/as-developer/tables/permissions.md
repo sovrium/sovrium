@@ -71,28 +71,11 @@ tables:
 
 ```yaml
 auth:
-  roles:
-    - id: admin
-      displayName: Administrator
-      permissions:
-        tables: all
-        admin: true
-    - id: editor
-      displayName: Editor
-      permissions:
-        tables:
-          read: all
-          create: all
-          update: all
-          delete: none
-    - id: viewer
-      displayName: Viewer
-      permissions:
-        tables:
-          read: all
-          create: none
-          update: none
-          delete: none
+  emailAndPassword: true
+  admin:
+    defaultRole: 'viewer'
+    # Roles (admin, member, viewer, owner) are built into Better Auth.
+    # Custom role definitions are managed via auth.admin configuration.
 
 tables:
   - id: 1
@@ -226,16 +209,15 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                        | E2E Spec                            | Status |
-| ------ | ---------------------------------------------------------------- | ----------------------------------- | ------ |
-| AC-001 | Owner-based filtering returns only records owned by current user |  | ❓ |
-| AC-002 | Condition-based filtering applies role-specific filters |  | ❓ |
-| AC-003 | Admin role bypasses record-level restrictions |  | ❓ |
-| AC-004 | Returns 404 for records user is not permitted to access |  | ❓ |
-| AC-005 | Record permissions combine with field permissions |  | ❓ |
+| ID     | Criterion                                                        | E2E Spec | Status |
+| ------ | ---------------------------------------------------------------- | -------- | ------ |
+| AC-001 | Owner-based filtering returns only records owned by current user |          | ❓     |
+| AC-002 | Condition-based filtering applies role-specific filters          |          | ❓     |
+| AC-003 | Admin role bypasses record-level restrictions                    |          | ❓     |
+| AC-004 | Returns 404 for records user is not permitted to access          |          | ❓     |
+| AC-005 | Record permissions combine with field permissions                |          | ❓     |
 
 ### Implementation References
-
 
 ---
 
@@ -266,25 +248,24 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                    | E2E Spec                         | Status |
-| ------ | ------------------------------------------------------------ | -------------------------------- | ------ |
-| AC-001 | RLS policies are created when table is created |  | ❓ |
-| AC-002 | RLS is enabled on table when permissions.rls.enabled is true |  | ❓ |
-| AC-003 | SELECT operations respect RLS using clause |  | ❓ |
-| AC-004 | INSERT operations respect RLS with check clause |  | ❓ |
-| AC-005 | UPDATE operations respect RLS using and with check clauses |  | ❓ |
-| AC-006 | DELETE operations respect RLS using clause |  | ❓ |
-| AC-007 | RLS policies are updated when permission config changes |  | ❓ |
-| AC-008 | RLS policies are dropped when table permissions are removed |  | ❓ |
-| AC-009 | Multiple RLS policies are combined with OR logic |  | ❓ |
-| AC-010 | RLS enforcement prevents data leakage in joins |  | ❓ |
-| AC-011 | RLS policies use parameterized session variables |  | ❓ |
-| AC-012 | Superuser can bypass RLS for maintenance operations |  | ❓ |
-| AC-013 | RLS errors return appropriate 403 response |  | ❓ |
-| AC-014 | RLS policies are validated before table creation |  | ❓ |
+| ID     | Criterion                                                    | E2E Spec | Status |
+| ------ | ------------------------------------------------------------ | -------- | ------ |
+| AC-001 | RLS policies are created when table is created               |          | ❓     |
+| AC-002 | RLS is enabled on table when permissions.rls.enabled is true |          | ❓     |
+| AC-003 | SELECT operations respect RLS using clause                   |          | ❓     |
+| AC-004 | INSERT operations respect RLS with check clause              |          | ❓     |
+| AC-005 | UPDATE operations respect RLS using and with check clauses   |          | ❓     |
+| AC-006 | DELETE operations respect RLS using clause                   |          | ❓     |
+| AC-007 | RLS policies are updated when permission config changes      |          | ❓     |
+| AC-008 | RLS policies are dropped when table permissions are removed  |          | ❓     |
+| AC-009 | Multiple RLS policies are combined with OR logic             |          | ❓     |
+| AC-010 | RLS enforcement prevents data leakage in joins               |          | ❓     |
+| AC-011 | RLS policies use parameterized session variables             |          | ❓     |
+| AC-012 | Superuser can bypass RLS for maintenance operations          |          | ❓     |
+| AC-013 | RLS errors return appropriate 403 response                   |          | ❓     |
+| AC-014 | RLS policies are validated before table creation             |          | ❓     |
 
 ### Implementation References
-
 
 ---
 
@@ -298,26 +279,22 @@ tables:
 
 ```yaml
 auth:
-  session:
-    contextVariables:
-      - name: user_id
-        source: session.user.id
-      - name: user_role
-        source: session.user.role
-      - name: user_email
-        source: session.user.email
+  emailAndPassword: true
+  admin: true
+# Note: Session context variables (user_id, user_role, user_email) are
+# automatically set by Better Auth at the server level. They are available
+# for RLS policies via current_setting('app.user_id'), etc.
 ```
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                | E2E Spec                     | Status |
-| ------ | -------------------------------------------------------- | ---------------------------- | ------ |
-| AC-001 | Session context variables are set at connection start |  | ❓ |
-| AC-002 | Session user ID is available for owner-based permissions |  | ❓ |
-| AC-003 | Session user role is available for RBAC evaluation |  | ❓ |
+| ID     | Criterion                                                | E2E Spec | Status |
+| ------ | -------------------------------------------------------- | -------- | ------ |
+| AC-001 | Session context variables are set at connection start    |          | ❓     |
+| AC-002 | Session user ID is available for owner-based permissions |          | ❓     |
+| AC-003 | Session user role is available for RBAC evaluation       |          | ❓     |
 
 ### Implementation References
-
 
 ---
 
@@ -340,7 +317,6 @@ auth:
 
 ### Implementation References
 
-
 ---
 
 ## US-TABLES-PERMISSIONS-008: API Record Permission Enforcement
@@ -351,18 +327,17 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                 | E2E Spec                            | Status |
-| ------ | --------------------------------------------------------- | ----------------------------------- | ------ |
-| AC-001 | GET /records returns only permitted records |  | ❓ |
-| AC-002 | GET /records/:id returns 404 for non-permitted records |  | ❓ |
-| AC-003 | POST /records sets owner field automatically |  | ❓ |
-| AC-004 | PATCH /records/:id rejects updates to non-owned records |  | ❓ |
-| AC-005 | DELETE /records/:id rejects deletion of non-owned records |  | ❓ |
-| AC-006 | Record count respects permission filtering |  | ❓ |
-| AC-007 | Pagination metadata reflects permitted record count |  | ❓ |
+| ID     | Criterion                                                 | E2E Spec | Status |
+| ------ | --------------------------------------------------------- | -------- | ------ |
+| AC-001 | GET /records returns only permitted records               |          | ❓     |
+| AC-002 | GET /records/:id returns 404 for non-permitted records    |          | ❓     |
+| AC-003 | POST /records sets owner field automatically              |          | ❓     |
+| AC-004 | PATCH /records/:id rejects updates to non-owned records   |          | ❓     |
+| AC-005 | DELETE /records/:id rejects deletion of non-owned records |          | ❓     |
+| AC-006 | Record count respects permission filtering                |          | ❓     |
+| AC-007 | Pagination metadata reflects permitted record count       |          | ❓     |
 
 ### Implementation References
-
 
 ---
 
@@ -394,17 +369,16 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                            | E2E Spec                             | Status |
-| ------ | ---------------------------------------------------- | ------------------------------------ | ------ |
-| AC-001 | Child table inherits parent table permissions |  | ❓ |
-| AC-002 | Override permissions take precedence over inherited |  | ❓ |
-| AC-003 | Circular inheritance is detected and rejected |  | ❓ |
-| AC-004 | Inherited permissions update when parent changes |  | ❓ |
-| AC-005 | Multiple levels of inheritance are supported |  | ❓ |
-| AC-006 | Inheritance chain is validated at configuration time |  | ❓ |
+| ID     | Criterion                                            | E2E Spec | Status |
+| ------ | ---------------------------------------------------- | -------- | ------ |
+| AC-001 | Child table inherits parent table permissions        |          | ❓     |
+| AC-002 | Override permissions take precedence over inherited  |          | ❓     |
+| AC-003 | Circular inheritance is detected and rejected        |          | ❓     |
+| AC-004 | Inherited permissions update when parent changes     |          | ❓     |
+| AC-005 | Multiple levels of inheritance are supported         |          | ❓     |
+| AC-006 | Inheritance chain is validated at configuration time |          | ❓     |
 
 ### Implementation References
-
 
 ---
 
@@ -428,6 +402,7 @@ GET /api/tables/1/permissions
   "create": true,
   "update": true,
   "delete": false,
+  "manage": false,
   "fields": {
     "name": { "read": true, "write": true },
     "salary": { "read": false, "write": false }

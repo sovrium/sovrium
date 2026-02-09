@@ -166,11 +166,9 @@ pages:
 ### Configuration
 
 ```yaml
-# App-level variables
-variables:
-  appName: 'My Application'
-  supportEmail: 'support@example.com'
-  currentYear: 2025
+# Variables are referenced via $syntax in component props.
+# The variable values are resolved at runtime from app context.
+name: 'My Application'
 
 # Using variables in pages
 pages:
