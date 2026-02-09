@@ -1,7 +1,7 @@
 # Multi-Language Applications
 
 > **Feature Area**: Internationalization (i18n)
-> **Schema**: `src/domain/models/app/languages/`
+> **Schema**: `src/domain/models/app/language/`, `src/domain/models/app/languages.ts`
 > **E2E Specs**: `specs/app/languages/`
 
 ---

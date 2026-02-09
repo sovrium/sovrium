@@ -1,7 +1,7 @@
 # App Metadata Configuration
 
 > **Feature Area**: App Schema - Metadata Properties
-> **Schema**: `src/domain/models/app/name.ts`, `src/domain/models/app/version.ts`, `src/domain/models/app/description.ts`
+> **Schema**: `src/domain/models/app/name.ts`, `src/domain/models/app/version.ts`, `src/domain/models/app/description.ts`, `src/domain/models/app/common/`
 > **E2E Specs**: `specs/app/name.spec.ts`, `specs/app/version.spec.ts`, `specs/app/description.spec.ts`
 
 ---

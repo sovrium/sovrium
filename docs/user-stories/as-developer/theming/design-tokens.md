@@ -1,7 +1,7 @@
 # Design Tokens
 
 > **Feature Area**: Theming - Design System
-> **Schema**: `src/domain/models/app/theme/`
+> **Schema**: `src/domain/models/app/theme/`, `src/domain/models/app/theme.ts`
 > **E2E Specs**: `specs/app/theme/`
 
 ---

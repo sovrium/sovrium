@@ -1,7 +1,7 @@
 # Page Blocks
 
 > **Feature Area**: Pages - Reusable Blocks
-> **Schema**: `src/domain/models/app/blocks/`
+> **Schema**: `src/domain/models/app/block/`, `src/domain/models/app/blocks.ts`
 > **E2E Specs**: `specs/app/blocks/`
 
 ---

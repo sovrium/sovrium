@@ -2,7 +2,7 @@
 
 > **Feature Area**: API - System Monitoring
 > **Implementation**: `src/infrastructure/server/route-setup/api-routes.ts`
-> **Schema**: `src/domain/models/api/health.ts`
+> **Schema**: `src/domain/models/api/`
 > **API Routes**: `GET /api/health`
 > **E2E Specs**: `specs/api/health/get.spec.ts`
 

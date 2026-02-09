@@ -1,7 +1,7 @@
 # Permissions
 
 > **Feature Area**: Tables - Permissions & Access Control
-> **Schema**: `src/domain/models/app/table/`
+> **Schema**: `src/domain/models/app/table/`, `src/domain/models/app/permissions/`
 > **E2E Specs**: `specs/app/tables/permissions/`, `specs/api/tables/permissions/`
 
 ---

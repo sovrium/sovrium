@@ -1,7 +1,7 @@
 # Creating Pages
 
 > **Feature Area**: Pages - Core Configuration
-> **Schema**: `src/domain/models/app/page/`
+> **Schema**: `src/domain/models/app/page/`, `src/domain/models/app/pages.ts`
 > **E2E Specs**: `specs/app/pages/`
 
 ---
