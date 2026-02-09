@@ -441,7 +441,9 @@ The agent respects pipeline configuration:
    - Effect.ts patterns for side effects and error handling
    - Proper dependency injection and service composition
    - Correct use of React 19 patterns (no manual memoization)
-   - Proper validation strategies (Zod for client, Effect Schema for server)
+   - Proper validation strategies (dual-schema approach):
+     - **Effect Schema**: Domain models (`src/domain/models/`), server validation (application/infrastructure layers)
+     - **Zod**: API contracts (`src/domain/schema/api/`), client forms (presentation layer)
 
    **Layer Architecture Validation Protocol** (NON-NEGOTIABLE):
    - **ALWAYS verify imports** in every file against layer boundaries
@@ -982,6 +984,96 @@ When proposing refactorings:
 ### Phase 5: Post-Refactoring Validation (MANDATORY)
 **CRITICAL**: After EVERY refactoring step, validate functionality is preserved using the Test Validation Framework above.
 
+## Dual-Schema Strategy (CRITICAL ARCHITECTURE)
+
+**Summary**: Sovrium uses TWO validation libraries with strict separation. Understanding this is essential for proper layer architecture compliance.
+
+### Schema Library Usage
+
+| Library | Version | Location | Purpose | Consumed By |
+|---------|---------|----------|---------|-------------|
+| **Effect Schema** | 3.19.15 | `src/domain/models/` | Domain models, server validation | Application, Infrastructure (via domain models) |
+| **Zod** | 4.3.6 | `src/domain/schema/api/` | API contracts (OpenAPI) | Application, Infrastructure, Presentation |
+| **Zod** | 4.3.6 | `src/presentation/` | Client forms (React Hook Form) | Presentation only |
+
+### Why API Schemas Live in Domain Layer
+
+**Location**: `src/domain/schema/api/` (NOT `src/presentation/api/schemas/` anymore)
+
+**Rationale**:
+- API schemas (Zod-based, for OpenAPI contracts) are consumed by **3 layers**: application, infrastructure, presentation
+- Cross-layer dependencies MUST be resolved by placing shared code in the **innermost common layer** (domain)
+- Moving API schemas to `domain/schema/api/` eliminates layer violations where application/infrastructure imported from presentation
+
+**ESLint Enforcement**:
+- `eslint/infrastructure.config.ts` lines 72-105 govern Zod usage
+- `src/domain/schema/api/` has explicit exception to allow Zod (lines 98-105)
+- All other `src/` files MUST use Effect Schema (except presentation layer)
+
+**Example Structure**:
+```
+src/domain/
+├── models/              # Effect Schema domain models
+│   ├── app/            # App configuration models
+│   └── table/          # Table domain models
+└── schema/
+    └── api/            # Zod API contract schemas
+        ├── table-schemas.ts
+        └── user-schemas.ts
+```
+
+### The Two Schema Purposes
+
+**Effect Schema** (`src/domain/models/`):
+- **Purpose**: Domain business logic validation
+- **Data type**: Native TypeScript types (Date objects, branded types)
+- **Usage**: Application layer use cases, infrastructure repositories
+- **Example**: `TableSchema` with `Schema.Date` for `createdAt`
+
+**Zod API Schemas** (`src/domain/schema/api/`):
+- **Purpose**: API contract definitions for OpenAPI
+- **Data type**: JSON-serializable primitives (ISO 8601 strings)
+- **Usage**: Presentation routes, application DTOs, infrastructure API clients
+- **Example**: `tableResponseSchema` with `z.string().datetime()` for `createdAt`
+
+### Common Anti-Pattern (DO NOT DO)
+
+❌ **WRONG**: Importing Zod outside allowed locations
+```typescript
+// src/application/use-cases/create-table.ts
+import { z } from 'zod' // ❌ ESLint error! Use Effect Schema
+
+const inputSchema = z.object({ name: z.string() }) // ❌ Wrong library
+```
+
+✅ **CORRECT**: Use Effect Schema in application layer
+```typescript
+// src/application/use-cases/create-table.ts
+import { Schema } from 'effect'
+
+const CreateTableInput = Schema.Struct({
+  name: Schema.NonEmptyString,
+}) // ✅ Effect Schema for domain validation
+```
+
+✅ **CORRECT**: Import Zod API schemas from domain
+```typescript
+// src/presentation/api/routes/tables.ts
+import { tableResponseSchema } from '@/domain/schema/api/table-schemas' // ✅ Allowed
+
+// src/application/use-cases/get-table.ts
+import { tableResponseSchema } from '@/domain/schema/api/table-schemas' // ✅ Allowed
+```
+
+### Migration History Reference
+
+**Previous location**: `src/presentation/api/schemas/` (DEPRECATED)
+**New location**: `src/domain/schema/api/` (CURRENT)
+**Migration date**: 2025-01 (recent architectural fix)
+**Reason**: Fix 5 layer violations where application/infrastructure imported from presentation
+
+**Agent Instruction**: If you find any references to `src/presentation/api/schemas/`, these are outdated and should be updated to `src/domain/schema/api/`.
+
 ## Layer Architecture Enforcement (CRITICAL)
 
 **Summary**: Layer-based architecture is the foundational principle of Sovrium. Every file MUST respect layer boundaries. Violations are treated as Critical severity and must be fixed immediately.
@@ -1014,6 +1106,10 @@ When proposing refactorings:
 │  CAN import: NOTHING from other layers (only external libs) │
 │  CANNOT import: application/, infrastructure/, presentation/│
 │  MUST BE: Pure functions only, NO side effects              │
+│                                                             │
+│  SPECIAL: src/domain/schema/api/ - API contracts (Zod)     │
+│    Consumed by: application, infrastructure, presentation   │
+│    Rationale: Cross-layer API contracts in innermost layer │
 └─────────────────────────────────────────────────────────────┘
                       ▲
                       │
@@ -1021,7 +1117,7 @@ When proposing refactorings:
 │                  INFRASTRUCTURE LAYER                       │
 │      (src/infrastructure/ - Database, APIs, I/O)            │
 │                                                             │
-│  CAN import: domain/                                        │
+│  CAN import: domain/ (including domain/schema/api/)         │
 │  CANNOT import: application/, presentation/                 │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -1035,6 +1131,10 @@ When auditing code, check EVERY file for these violations:
 - ❌ Side effects (console.log, fetch, database calls, file I/O)
 - ❌ Effect.ts services that perform I/O (should be in infrastructure/)
 - ❌ React components or hooks (should be in presentation/)
+- ❌ Zod schemas in `src/domain/models/` or elsewhere in domain (Effect Schema only for domain models)
+- ✅ **EXCEPTION**: `src/domain/schema/api/` contains Zod schemas for API contracts (cross-layer consumption, ESLint-approved)
+- ✅ **ALLOWED**: Effect Schema in `src/domain/models/` for domain validation
+- ✅ **ALLOWED**: Pure validation functions, type definitions, business rules
 
 **Application Layer Violations** (Critical - Must Fix Immediately):
 - ❌ Importing from `@/infrastructure/` (use Effect Context/Layer for DI)
@@ -1104,10 +1204,10 @@ When reporting layer violations, use this format:
 | **Two-Phase Approach** | Recent commits (Phase 1.1) vs older code (Phase 1.2) | STOP - identify phases before work |
 
 **Layer Architecture Quick Reference**:
-- Domain: Pure, imports NOTHING from other layers
-- Application: Imports Domain only
-- Infrastructure: Imports Domain only
-- Presentation: Imports Application + Domain (NOT Infrastructure)
+- Domain: Pure, imports NOTHING from other layers (EXCEPTION: `domain/schema/api/` for cross-layer API contracts)
+- Application: Imports Domain only (including `domain/schema/api/` for API contracts)
+- Infrastructure: Imports Domain only (including `domain/schema/api/` for API contracts)
+- Presentation: Imports Application + Domain (NOT Infrastructure directly)
 
 ### Tier 2: High Priority Rules (Address promptly)
 
