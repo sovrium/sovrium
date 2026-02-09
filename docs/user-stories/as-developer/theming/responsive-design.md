@@ -49,7 +49,6 @@ theme:
 ### Implementation References
 
 - **Schema**: `src/domain/models/app/theme/breakpoints.ts`
-- **E2E Spec**: `specs/app/theme/breakpoints/breakpoints.spec.ts`
 
 ---
 

@@ -51,7 +51,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/common/unique.ts`
 - **E2E Spec**: `specs/app/tables/field-types/common/unique.spec.ts`
 
 ---
@@ -119,7 +118,6 @@ tables:
 ### Implementation References
 
 - **Schema**: `src/domain/models/app/table/unique-constraints.ts`
-- **E2E Spec**: `specs/app/tables/unique-constraints/composite.spec.ts`
 
 ---
 
@@ -168,7 +166,6 @@ tables:
 ### Implementation References
 
 - **Schema**: `src/domain/models/app/table/unique-constraints.ts`
-- **E2E Spec**: `specs/app/tables/unique-constraints/null-handling.spec.ts`
 
 ---
 

@@ -55,7 +55,6 @@ type Dimensions = { width: number; height: number }
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/pages/common/definitions.ts`
 - **E2E Spec**: `specs/app/pages/common/definitions.spec.ts`
 
 ---
@@ -102,7 +101,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/pages/common/props.ts`
 - **E2E Spec**: `specs/app/pages/common/props.spec.ts`
 
 ---
@@ -155,7 +153,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/pages/common/responsive.ts`
 - **E2E Spec**: `specs/app/pages/common/responsive.spec.ts`
 
 ---
@@ -207,7 +204,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/pages/common/variable-reference.ts`
 - **E2E Spec**: `specs/app/pages/common/variable-reference.spec.ts`
 
 ---

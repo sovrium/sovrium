@@ -84,7 +84,6 @@ POST /api/tables/1/records/upsert
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/upsert/post.spec.ts`
 
 ---

@@ -37,7 +37,6 @@ Sovrium includes a robust migration system that manages schema changes safely. T
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/checksum.ts`
 - **E2E Spec**: `specs/migrations/migration-system/checksum.spec.ts`
 
 ---
@@ -77,7 +76,6 @@ sovrium migrate:rollback --force
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/rollback.ts`
 - **E2E Spec**: `specs/migrations/migration-system/rollback.spec.ts`
 
 ---
@@ -112,7 +110,6 @@ The migration system records:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/audit.ts`
 - **E2E Spec**: `specs/migrations/migration-system/audit-trail.spec.ts`
 
 ---
@@ -148,7 +145,6 @@ The migration system records:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/error-handling.ts`
 - **E2E Spec**: `specs/migrations/migration-system/error-handling.spec.ts`
 
 ---

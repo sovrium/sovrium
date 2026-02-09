@@ -36,7 +36,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/two-factor/enable/post.spec.ts`
 
 ---
@@ -61,7 +60,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/two-factor/verify/post.spec.ts`
 
 ---
@@ -85,7 +83,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/two-factor/disable/post.spec.ts`
 
 ---

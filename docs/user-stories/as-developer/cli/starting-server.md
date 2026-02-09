@@ -79,7 +79,6 @@ sovrium start config.yml
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/cli/start.ts`
 - **E2E Spec**: `specs/cli/start/yaml-config.spec.ts`
 
 ---
@@ -132,7 +131,6 @@ sovrium start app.json
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/cli/start.ts`
 - **E2E Spec**: `specs/cli/start/json-config.spec.ts`
 
 ---
@@ -166,7 +164,6 @@ sovrium start config.JSON   # Case-insensitive detection
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/cli/start.ts`
 - **E2E Spec**: `specs/cli/start/format-detection.spec.ts`
 
 ---
@@ -216,7 +213,6 @@ sovrium start
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/cli/start.ts`
 - **E2E Spec**: `specs/cli/start/env-schema.spec.ts`
 
 ---
@@ -252,7 +248,6 @@ sovrium start app.yaml -w
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/cli/start.ts`
 - **E2E Spec**: `specs/cli/start/watch-mode.spec.ts`
 
 ---

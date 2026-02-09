@@ -35,7 +35,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/magic-link/send/post.spec.ts`
 
 ---
@@ -59,8 +58,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
-- **E2E Spec**: `specs/api/auth/magic-link/verify/post.spec.ts`
 
 ---
 

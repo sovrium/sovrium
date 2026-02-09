@@ -34,7 +34,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/get-session/get.spec.ts`
 
 ---
@@ -58,7 +57,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/sign-out/post.spec.ts`
 
 ---
@@ -84,7 +82,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/list-sessions/get.spec.ts`
 
 ---
@@ -108,7 +105,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/revoke-session/post.spec.ts`
 
 ---
@@ -132,7 +128,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/revoke-other-sessions/post.spec.ts`
 
 ---

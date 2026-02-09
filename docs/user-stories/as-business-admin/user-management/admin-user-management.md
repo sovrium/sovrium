@@ -41,7 +41,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/admin/create-user/post.spec.ts`
 
 ---
@@ -67,7 +66,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/admin/list-users/get.spec.ts`
 
 ---
@@ -92,7 +90,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/admin/get-user/get.spec.ts`
 
 ---
@@ -119,7 +116,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/admin/set-role/post.spec.ts`
 
 ---
@@ -145,7 +141,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/admin/set-user-password/post.spec.ts`
 
 ---
@@ -171,7 +166,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/admin/list-user-sessions/get.spec.ts`
 
 ---
@@ -198,7 +192,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/admin/revoke-user-session/post.spec.ts`
 
 ---
@@ -234,7 +227,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/admin/impersonate-user/post.spec.ts`
 
 ---
@@ -258,7 +250,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/admin/stop-impersonating/post.spec.ts`
 
 ---
@@ -266,7 +257,7 @@ auth:
 ## US-AUTH-ADMIN-010: Default Role Configuration
 
 **As a** business admin,
-**I want** new users to be assigned a default role,
+**I want to** have new users assigned a default role,
 **so that** all users get appropriate permissions when created.
 
 ### Configuration
@@ -289,7 +280,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/admin/options/default-role.spec.ts`
 
 ---
@@ -297,7 +287,7 @@ auth:
 ## US-AUTH-ADMIN-011: Admin Plugin Disabled Behavior
 
 **As a** business admin,
-**I want** admin endpoints to return 404 when the admin plugin is disabled,
+**I want to** have admin endpoints return 404 when the admin plugin is disabled,
 **so that** unauthorized users cannot discover admin functionality.
 
 ### Configuration
@@ -321,7 +311,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/admin/plugin-disabled.spec.ts`
 
 ---

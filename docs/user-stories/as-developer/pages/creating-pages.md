@@ -59,7 +59,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/page.ts`
 - **E2E Spec**: `specs/app/pages/pages.spec.ts`
 
 ---
@@ -93,7 +92,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/page-id.ts`
 - **E2E Spec**: `specs/app/pages/id.spec.ts`
 
 ---
@@ -132,7 +130,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/page-name.ts`
 - **E2E Spec**: `specs/app/pages/name.spec.ts`
 
 ---
@@ -194,7 +191,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/page-path.ts`
 - **E2E Spec**: `specs/app/pages/path.spec.ts`
 
 ---
@@ -250,7 +246,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/page-sections.ts`
 - **E2E Spec**: `specs/app/pages/sections.spec.ts`
 
 ---
@@ -292,7 +287,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/page.ts`
 - **E2E Spec**: `specs/app/pages/pages.spec.ts`
 
 ---
@@ -335,7 +329,6 @@ layout:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/layout/layout.ts`
 - **E2E Spec**: `specs/app/pages/layout/layout.spec.ts`
 
 ---

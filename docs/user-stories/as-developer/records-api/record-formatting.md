@@ -47,7 +47,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/format.spec.ts`
 
 ---
@@ -85,7 +84,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/format.spec.ts`
 
 ---
@@ -124,7 +122,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/format.spec.ts`
 
 ---
@@ -145,7 +142,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/format.spec.ts`
 
 ---
@@ -167,7 +163,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/format.spec.ts`
 
 ---

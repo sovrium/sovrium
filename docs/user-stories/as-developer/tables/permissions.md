@@ -57,7 +57,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/permissions.ts`
 - **E2E Spec**: `specs/app/tables/permissions/table-permissions.spec.ts`
 
 ---
@@ -123,7 +122,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/roles.ts`
 - **E2E Spec**: `specs/app/tables/permissions/permissions.spec.ts`
 
 ---
@@ -178,7 +176,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-permissions.ts`
 - **E2E Spec**: `specs/app/tables/permissions/field-permissions.spec.ts`
 
 ---
@@ -231,16 +228,14 @@ tables:
 
 | ID     | Criterion                                                        | E2E Spec                            | Status |
 | ------ | ---------------------------------------------------------------- | ----------------------------------- | ------ |
-| AC-001 | Owner-based filtering returns only records owned by current user | `APP-TABLES-RECORD-PERMISSIONS-001` | ❓     |
-| AC-002 | Condition-based filtering applies role-specific filters          | `APP-TABLES-RECORD-PERMISSIONS-002` | ❓     |
-| AC-003 | Admin role bypasses record-level restrictions                    | `APP-TABLES-RECORD-PERMISSIONS-003` | ❓     |
-| AC-004 | Returns 404 for records user is not permitted to access          | `APP-TABLES-RECORD-PERMISSIONS-004` | ❓     |
-| AC-005 | Record permissions combine with field permissions                | `APP-TABLES-RECORD-PERMISSIONS-005` | ❓     |
+| AC-001 | Owner-based filtering returns only records owned by current user |  | ❓ |
+| AC-002 | Condition-based filtering applies role-specific filters |  | ❓ |
+| AC-003 | Admin role bypasses record-level restrictions |  | ❓ |
+| AC-004 | Returns 404 for records user is not permitted to access |  | ❓ |
+| AC-005 | Record permissions combine with field permissions |  | ❓ |
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/record-permissions.ts`
-- **E2E Spec**: `specs/app/tables/permissions/record-permissions.spec.ts`
 
 ---
 
@@ -273,25 +268,23 @@ tables:
 
 | ID     | Criterion                                                    | E2E Spec                         | Status |
 | ------ | ------------------------------------------------------------ | -------------------------------- | ------ |
-| AC-001 | RLS policies are created when table is created               | `APP-TABLES-RLS-ENFORCEMENT-001` | ❓     |
-| AC-002 | RLS is enabled on table when permissions.rls.enabled is true | `APP-TABLES-RLS-ENFORCEMENT-002` | ❓     |
-| AC-003 | SELECT operations respect RLS using clause                   | `APP-TABLES-RLS-ENFORCEMENT-003` | ❓     |
-| AC-004 | INSERT operations respect RLS with check clause              | `APP-TABLES-RLS-ENFORCEMENT-004` | ❓     |
-| AC-005 | UPDATE operations respect RLS using and with check clauses   | `APP-TABLES-RLS-ENFORCEMENT-005` | ❓     |
-| AC-006 | DELETE operations respect RLS using clause                   | `APP-TABLES-RLS-ENFORCEMENT-006` | ❓     |
-| AC-007 | RLS policies are updated when permission config changes      | `APP-TABLES-RLS-ENFORCEMENT-007` | ❓     |
-| AC-008 | RLS policies are dropped when table permissions are removed  | `APP-TABLES-RLS-ENFORCEMENT-008` | ❓     |
-| AC-009 | Multiple RLS policies are combined with OR logic             | `APP-TABLES-RLS-ENFORCEMENT-009` | ❓     |
-| AC-010 | RLS enforcement prevents data leakage in joins               | `APP-TABLES-RLS-ENFORCEMENT-010` | ❓     |
-| AC-011 | RLS policies use parameterized session variables             | `APP-TABLES-RLS-ENFORCEMENT-011` | ❓     |
-| AC-012 | Superuser can bypass RLS for maintenance operations          | `APP-TABLES-RLS-ENFORCEMENT-012` | ❓     |
-| AC-013 | RLS errors return appropriate 403 response                   | `APP-TABLES-RLS-ENFORCEMENT-013` | ❓     |
-| AC-014 | RLS policies are validated before table creation             | `APP-TABLES-RLS-ENFORCEMENT-014` | ❓     |
+| AC-001 | RLS policies are created when table is created |  | ❓ |
+| AC-002 | RLS is enabled on table when permissions.rls.enabled is true |  | ❓ |
+| AC-003 | SELECT operations respect RLS using clause |  | ❓ |
+| AC-004 | INSERT operations respect RLS with check clause |  | ❓ |
+| AC-005 | UPDATE operations respect RLS using and with check clauses |  | ❓ |
+| AC-006 | DELETE operations respect RLS using clause |  | ❓ |
+| AC-007 | RLS policies are updated when permission config changes |  | ❓ |
+| AC-008 | RLS policies are dropped when table permissions are removed |  | ❓ |
+| AC-009 | Multiple RLS policies are combined with OR logic |  | ❓ |
+| AC-010 | RLS enforcement prevents data leakage in joins |  | ❓ |
+| AC-011 | RLS policies use parameterized session variables |  | ❓ |
+| AC-012 | Superuser can bypass RLS for maintenance operations |  | ❓ |
+| AC-013 | RLS errors return appropriate 403 response |  | ❓ |
+| AC-014 | RLS policies are validated before table creation |  | ❓ |
 
 ### Implementation References
 
-- **Schema**: `src/infrastructure/database/rls/policies.ts`
-- **E2E Spec**: `specs/app/tables/permissions/rls-enforcement.spec.ts`
 
 ---
 
@@ -319,14 +312,12 @@ auth:
 
 | ID     | Criterion                                                | E2E Spec                     | Status |
 | ------ | -------------------------------------------------------- | ---------------------------- | ------ |
-| AC-001 | Session context variables are set at connection start    | `APP-TABLES-SESSION-CTX-001` | ❓     |
-| AC-002 | Session user ID is available for owner-based permissions | `APP-TABLES-SESSION-CTX-002` | ❓     |
-| AC-003 | Session user role is available for RBAC evaluation       | `APP-TABLES-SESSION-CTX-003` | ❓     |
+| AC-001 | Session context variables are set at connection start |  | ❓ |
+| AC-002 | Session user ID is available for owner-based permissions |  | ❓ |
+| AC-003 | Session user role is available for RBAC evaluation |  | ❓ |
 
 ### Implementation References
 
-- **Schema**: `src/infrastructure/auth/session-context.ts`
-- **E2E Spec**: `specs/app/tables/permissions/session-context.spec.ts`
 
 ---
 
@@ -349,8 +340,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/middleware/field-permissions.ts`
-- **E2E Spec**: `specs/api/tables/permissions/field-permissions.spec.ts`
 
 ---
 
@@ -364,18 +353,16 @@ auth:
 
 | ID     | Criterion                                                 | E2E Spec                            | Status |
 | ------ | --------------------------------------------------------- | ----------------------------------- | ------ |
-| AC-001 | GET /records returns only permitted records               | `API-TABLES-PERMISSIONS-RECORD-001` | ❓     |
-| AC-002 | GET /records/:id returns 404 for non-permitted records    | `API-TABLES-PERMISSIONS-RECORD-002` | ❓     |
-| AC-003 | POST /records sets owner field automatically              | `API-TABLES-PERMISSIONS-RECORD-003` | ❓     |
-| AC-004 | PATCH /records/:id rejects updates to non-owned records   | `API-TABLES-PERMISSIONS-RECORD-004` | ❓     |
-| AC-005 | DELETE /records/:id rejects deletion of non-owned records | `API-TABLES-PERMISSIONS-RECORD-005` | ❓     |
-| AC-006 | Record count respects permission filtering                | `API-TABLES-PERMISSIONS-RECORD-006` | ❓     |
-| AC-007 | Pagination metadata reflects permitted record count       | `API-TABLES-PERMISSIONS-RECORD-007` | ❓     |
+| AC-001 | GET /records returns only permitted records |  | ❓ |
+| AC-002 | GET /records/:id returns 404 for non-permitted records |  | ❓ |
+| AC-003 | POST /records sets owner field automatically |  | ❓ |
+| AC-004 | PATCH /records/:id rejects updates to non-owned records |  | ❓ |
+| AC-005 | DELETE /records/:id rejects deletion of non-owned records |  | ❓ |
+| AC-006 | Record count respects permission filtering |  | ❓ |
+| AC-007 | Pagination metadata reflects permitted record count |  | ❓ |
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/middleware/record-permissions.ts`
-- **E2E Spec**: `specs/api/tables/permissions/record-permissions.spec.ts`
 
 ---
 
@@ -409,17 +396,15 @@ tables:
 
 | ID     | Criterion                                            | E2E Spec                             | Status |
 | ------ | ---------------------------------------------------- | ------------------------------------ | ------ |
-| AC-001 | Child table inherits parent table permissions        | `API-TABLES-PERMISSIONS-INHERIT-001` | ❓     |
-| AC-002 | Override permissions take precedence over inherited  | `API-TABLES-PERMISSIONS-INHERIT-002` | ❓     |
-| AC-003 | Circular inheritance is detected and rejected        | `API-TABLES-PERMISSIONS-INHERIT-003` | ❓     |
-| AC-004 | Inherited permissions update when parent changes     | `API-TABLES-PERMISSIONS-INHERIT-004` | ❓     |
-| AC-005 | Multiple levels of inheritance are supported         | `API-TABLES-PERMISSIONS-INHERIT-005` | ❓     |
-| AC-006 | Inheritance chain is validated at configuration time | `API-TABLES-PERMISSIONS-INHERIT-006` | ❓     |
+| AC-001 | Child table inherits parent table permissions |  | ❓ |
+| AC-002 | Override permissions take precedence over inherited |  | ❓ |
+| AC-003 | Circular inheritance is detected and rejected |  | ❓ |
+| AC-004 | Inherited permissions update when parent changes |  | ❓ |
+| AC-005 | Multiple levels of inheritance are supported |  | ❓ |
+| AC-006 | Inheritance chain is validated at configuration time |  | ❓ |
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/permission-inheritance.ts`
-- **E2E Spec**: `specs/api/tables/permissions/permission-inheritance.spec.ts`
 
 ---
 
@@ -464,7 +449,6 @@ GET /api/tables/1/permissions
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/permissions.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/permissions/get.spec.ts`
 
 ---

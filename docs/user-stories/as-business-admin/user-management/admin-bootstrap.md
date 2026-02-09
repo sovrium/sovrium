@@ -60,7 +60,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/infrastructure/auth/admin-bootstrap.ts`
 - **E2E Spec**: `specs/api/auth/admin/bootstrap/admin-bootstrap.spec.ts`
 
 ---

@@ -81,7 +81,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/history.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/{recordId}/history/get.spec.ts`
 
 ---
@@ -134,7 +133,6 @@ GET /api/tables/1/records/123/comments
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/comments.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/{recordId}/comments/get.spec.ts`
 
 ---
@@ -186,7 +184,6 @@ Content-Type: application/json
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/comments.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/{recordId}/comments/post.spec.ts`
 
 ---
@@ -218,7 +215,6 @@ GET /api/tables/1/records/123/comments/1
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/comments.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/{recordId}/comments/{commentId}/get.spec.ts`
 
 ---
@@ -258,7 +254,6 @@ Content-Type: application/json
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/comments.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/{recordId}/comments/{commentId}/patch.spec.ts`
 
 ---
@@ -292,7 +287,6 @@ DELETE /api/tables/1/records/123/comments/1
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/comments.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/{recordId}/comments/{commentId}/delete.spec.ts`
 
 ---

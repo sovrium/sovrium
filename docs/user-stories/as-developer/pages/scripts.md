@@ -56,7 +56,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/pages/scripts/scripts.ts`
 - **E2E Spec**: `specs/app/pages/scripts/scripts.spec.ts`
 
 ---
@@ -101,7 +100,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/pages/scripts/features.ts`
 - **E2E Spec**: `specs/app/pages/scripts/features.spec.ts`
 
 ---
@@ -151,7 +149,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/pages/scripts/external-scripts.ts`
 - **E2E Spec**: `specs/app/pages/scripts/external-scripts.spec.ts`
 
 ---
@@ -200,7 +197,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/pages/scripts/inline-scripts.ts`
 - **E2E Spec**: `specs/app/pages/scripts/inline-scripts.spec.ts`
 
 ---

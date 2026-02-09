@@ -58,7 +58,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/add-field.ts`
 - **E2E Spec**: `specs/migrations/schema-evolution/add-field.spec.ts`
 
 ---
@@ -81,7 +80,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/remove-field.ts`
 - **E2E Spec**: `specs/migrations/schema-evolution/remove-field.spec.ts`
 
 ---
@@ -104,7 +102,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/rename-field.ts`
 - **E2E Spec**: `specs/migrations/schema-evolution/rename-field.spec.ts`
 
 ---
@@ -127,7 +124,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/rename-table.ts`
 - **E2E Spec**: `specs/migrations/schema-evolution/rename-table.spec.ts`
 
 ---
@@ -152,7 +148,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/modify-type.ts`
 - **E2E Spec**: `specs/migrations/schema-evolution/modify-field-type.spec.ts`
 
 ---
@@ -175,7 +170,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/modify-constraints.ts`
 - **E2E Spec**: `specs/migrations/schema-evolution/modify-field-constraints.spec.ts`
 
 ---
@@ -197,7 +191,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/modify-default.ts`
 - **E2E Spec**: `specs/migrations/schema-evolution/modify-field-default.spec.ts`
 
 ---
@@ -220,7 +213,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/modify-options.ts`
 - **E2E Spec**: `specs/migrations/schema-evolution/modify-field-options.spec.ts`
 
 ---
@@ -243,7 +235,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/modify-required.ts`
 - **E2E Spec**: `specs/migrations/schema-evolution/modify-field-required.spec.ts`
 
 ---
@@ -265,7 +256,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/modify-unique.ts`
 - **E2E Spec**: `specs/migrations/schema-evolution/modify-field-unique.spec.ts`
 
 ---
@@ -290,7 +280,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/modify-index.ts`
 - **E2E Spec**: `specs/migrations/schema-evolution/modify-indexes.spec.ts`
 
 ---
@@ -314,7 +303,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/modify-unique-constraints.ts`
 - **E2E Spec**: `specs/migrations/schema-evolution/modify-unique-constraints.spec.ts`
 
 ---
@@ -339,7 +327,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/migrations/views.ts`
 - **E2E Spec**: `specs/migrations/schema-evolution/views.spec.ts`
 
 ---

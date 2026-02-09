@@ -1,7 +1,6 @@
 # Page Interactions
 
 > **Feature Area**: Pages - Component Interactions
-> **Schema**: `src/domain/models/app/page/common.ts`
 > **E2E Specs**: `specs/app/pages/common/interactions/`
 
 ---
@@ -55,7 +54,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/common.ts`
 - **E2E Spec**: `specs/app/pages/common/interactions/click-interaction.spec.ts`
 
 ---
@@ -102,7 +100,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/common.ts`
 - **E2E Spec**: `specs/app/pages/common/interactions/hover-interaction.spec.ts`
 
 ---
@@ -145,7 +142,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/common.ts`
 - **E2E Spec**: `specs/app/pages/common/interactions/entrance-animation.spec.ts`
 
 ---
@@ -194,8 +190,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/common.ts`
-- **E2E Spec**: `specs/app/pages/common/interactions/scroll-animation.spec.ts`
 
 ---
 
@@ -241,7 +235,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/common.ts`
 - **E2E Spec**: `specs/app/pages/common/interactions/interactions.spec.ts`
 
 ---

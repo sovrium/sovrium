@@ -68,7 +68,6 @@ theme:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/theme/theme.ts`
 - **E2E Spec**: `specs/app/theme/theme.spec.ts`
 
 ---

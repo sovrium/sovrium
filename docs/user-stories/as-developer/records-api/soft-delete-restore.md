@@ -48,7 +48,6 @@ DELETE /api/tables/1/records/123
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/{recordId}/delete.spec.ts`
 
 ---
@@ -92,7 +91,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/{recordId}/delete.spec.ts`
 
 ---
@@ -139,7 +137,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/{recordId}/delete.spec.ts`
 
 ---
@@ -182,7 +179,6 @@ POST /api/tables/1/records/123/restore
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/{recordId}/restore/post.spec.ts`
 
 ---
@@ -213,14 +209,13 @@ Content-Type: application/json
 | AC-003 | Returns 400 when any record ID is invalid                  | `API-TABLES-RECORDS-BATCH-RESTORE-003`        | ⏳     |
 | AC-004 | Skips records that are not deleted                         | `API-TABLES-RECORDS-BATCH-RESTORE-004`        | ✅     |
 | AC-005 | Returns partial success response with error details        | `API-TABLES-RECORDS-BATCH-RESTORE-005`        | ⏳     |
-| AC-006 | Returns 401 when not authenticated                         | `API-TABLES-RECORDS-BATCH-RESTORE-006`        | ❓     |
-| AC-007 | Returns 403 when user lacks restore permission             | `API-TABLES-RECORDS-BATCH-RESTORE-007`        | ❓     |
-| AC-008 | Logs batch restore operation to activity history           | `API-TABLES-RECORDS-BATCH-RESTORE-008`        | ❓     |
+| AC-006 | Returns 401 when not authenticated |  | ❓ |
+| AC-007 | Returns 403 when user lacks restore permission |  | ❓ |
+| AC-008 | Logs batch restore operation to activity history |  | ❓ |
 | AC-009 | User can complete full batch restore workflow (regression) | `API-TABLES-RECORDS-BATCH-RESTORE-REGRESSION` | ⏳     |
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/batch/restore/post.spec.ts`
 
 ---
@@ -265,7 +260,6 @@ GET /api/tables/1/trash
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/trash/get.spec.ts`
 
 ---
@@ -295,7 +289,6 @@ GET /api/tables/1/records?includeDeleted=only
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/include-deleted.spec.ts`
 
 ---

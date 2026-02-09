@@ -65,8 +65,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/navigation/navigation.ts`
-- **E2E Spec**: `specs/app/pages/navigation/navigation.spec.ts`
 
 ---
 
@@ -117,8 +115,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/navigation/cta.ts`
-- **E2E Spec**: `specs/app/pages/navigation/cta.spec.ts`
 
 ---
 
@@ -173,8 +169,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/navigation/nav-links.ts`
-- **E2E Spec**: `specs/app/pages/navigation/nav-links.spec.ts`
 
 ---
 

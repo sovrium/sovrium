@@ -76,7 +76,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/view.ts`
 - **E2E Spec**: `specs/app/tables/views/views.spec.ts`
 
 ---
@@ -99,7 +98,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/view.ts`
 - **E2E Spec**: `specs/app/tables/views/view.spec.ts`
 
 ---
@@ -123,7 +121,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/view-condition.ts`
 - **E2E Spec**: `specs/app/tables/views/view-condition.spec.ts`
 
 ---
@@ -179,7 +176,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/view-filter.ts`
 - **E2E Spec**: `specs/app/tables/views/view-filters.spec.ts`
 
 ---
@@ -223,7 +219,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/view-sort.ts`
 - **E2E Spec**: `specs/app/tables/views/view-sorts.spec.ts`
 
 ---
@@ -278,7 +273,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/view-fields.ts`
 - **E2E Spec**: `specs/app/tables/views/view-fields.spec.ts`
 
 ---
@@ -321,7 +315,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/view-group-by.ts`
 - **E2E Spec**: `specs/app/tables/views/view-group-by.spec.ts`
 
 ---
@@ -351,7 +344,6 @@ GET /api/tables/1/views
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/views.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/views/get.spec.ts`
 
 ---
@@ -384,7 +376,6 @@ GET /api/tables/1/views/2
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/views.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/views/{viewId}/get.spec.ts`
 
 ---
@@ -417,7 +408,6 @@ GET /api/tables/1/views/2/records?limit=20&offset=0
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/views.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/views/{viewId}/records/get.spec.ts`
 
 ---

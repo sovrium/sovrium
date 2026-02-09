@@ -51,7 +51,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/get.spec.ts`
 
 ---
@@ -80,7 +79,6 @@ GET /api/tables/1/records?sort=priority:desc,name:asc
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/get.spec.ts`
 
 ---
@@ -108,7 +106,6 @@ GET /api/tables/1/records?fields=id,name,status
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/get.spec.ts`
 
 ---
@@ -154,7 +151,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/get.spec.ts`
 
 ---
@@ -181,7 +177,6 @@ GET /api/tables/1/records?groupBy=status
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/get.spec.ts`
 
 ---
@@ -207,7 +202,6 @@ GET /api/tables/1/records?aggregate=sum:amount,count:id,avg:quantity
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/get.spec.ts`
 
 ---

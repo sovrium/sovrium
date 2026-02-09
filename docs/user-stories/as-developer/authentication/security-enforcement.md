@@ -36,7 +36,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/rate-limiting.spec.ts`
 
 ---
@@ -66,7 +65,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/enforcement/disabled-auth.spec.ts`
 
 ---

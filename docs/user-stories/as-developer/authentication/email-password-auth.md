@@ -39,7 +39,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/sign-up/email/post.spec.ts`
 
 ---
@@ -71,7 +70,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/sign-up/email/post.spec.ts`
 
 ---
@@ -106,7 +104,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/sign-in/email/post.spec.ts`
 
 ---
@@ -132,7 +129,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/change-email/post.spec.ts`
 
 ---
@@ -157,7 +153,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/update-user/post.spec.ts`
 
 ---
@@ -182,7 +177,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/verify-email/get.spec.ts`
 
 ---
@@ -207,7 +201,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/send-verification-email/post.spec.ts`
 
 ---

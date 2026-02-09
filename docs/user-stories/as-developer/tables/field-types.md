@@ -64,7 +64,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/single-line-text.ts`
 - **E2E Spec**: `specs/app/tables/field-types/single-line-text-field.spec.ts`
 
 ---
@@ -105,7 +104,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/long-text.ts`
 - **E2E Spec**: `specs/app/tables/field-types/long-text-field.spec.ts`
 
 ---
@@ -143,7 +141,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/rich-text.ts`
 - **E2E Spec**: `specs/app/tables/field-types/rich-text-field.spec.ts`
 
 ---
@@ -187,7 +184,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/integer.ts`
 - **E2E Spec**: `specs/app/tables/field-types/integer-field.spec.ts`
 
 ---
@@ -227,7 +223,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/decimal.ts`
 - **E2E Spec**: `specs/app/tables/field-types/decimal-field.spec.ts`
 
 ---
@@ -266,7 +261,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/percentage.ts`
 - **E2E Spec**: `specs/app/tables/field-types/percentage-field.spec.ts`
 
 ---
@@ -306,7 +300,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/currency.ts`
 - **E2E Spec**: `specs/app/tables/field-types/currency-field.spec.ts`
 
 ---
@@ -347,7 +340,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/datetime.ts`
 - **E2E Spec**: `specs/app/tables/field-types/datetime-field.spec.ts`
 
 ---
@@ -387,7 +379,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/date.ts`
 - **E2E Spec**: `specs/app/tables/field-types/date-field.spec.ts`
 
 ---
@@ -428,7 +419,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/time.ts`
 - **E2E Spec**: `specs/app/tables/field-types/time-field.spec.ts`
 
 ---
@@ -465,7 +455,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/duration.ts`
 - **E2E Spec**: `specs/app/tables/field-types/duration-field.spec.ts`
 
 ---
@@ -509,7 +498,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/single-select.ts`
 - **E2E Spec**: `specs/app/tables/field-types/single-select-field.spec.ts`
 
 ---
@@ -552,7 +540,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/multi-select.ts`
 - **E2E Spec**: `specs/app/tables/field-types/multi-select-field.spec.ts`
 
 ---
@@ -593,7 +580,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/checkbox.ts`
 - **E2E Spec**: `specs/app/tables/field-types/checkbox-field.spec.ts`
 
 ---
@@ -640,7 +626,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/status.ts`
 - **E2E Spec**: `specs/app/tables/field-types/status-field.spec.ts`
 
 ---
@@ -679,7 +664,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/email.ts`
 - **E2E Spec**: `specs/app/tables/field-types/email-field.spec.ts`
 
 ---
@@ -718,7 +702,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/url.ts`
 - **E2E Spec**: `specs/app/tables/field-types/url-field.spec.ts`
 
 ---
@@ -755,7 +738,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/phone-number.ts`
 - **E2E Spec**: `specs/app/tables/field-types/phone-number-field.spec.ts`
 
 ---
@@ -793,7 +775,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/rating.ts`
 - **E2E Spec**: `specs/app/tables/field-types/rating-field.spec.ts`
 
 ---
@@ -823,14 +804,13 @@ tables:
 | ------ | ----------------------------------------------------- | -------------------------------------------- | ------ |
 | AC-001 | Creates PostgreSQL INTEGER column                     | `APP-TABLES-FIELD-TYPES-PROGRESS-001`        | ✅     |
 | AC-002 | Enforces CHECK constraint for 0-100 range             | `APP-TABLES-FIELD-TYPES-PROGRESS-002`        | ✅     |
-| AC-003 | Supports NOT NULL constraint (default 0)              | `APP-TABLES-FIELD-TYPES-PROGRESS-003`        | ❓     |
-| AC-004 | Supports DEFAULT value                                | `APP-TABLES-FIELD-TYPES-PROGRESS-004`        | ❓     |
-| AC-005 | Returns as percentage in API responses                | `APP-TABLES-FIELD-TYPES-PROGRESS-005`        | ❓     |
+| AC-003 | Supports NOT NULL constraint (default 0) |  | ❓ |
+| AC-004 | Supports DEFAULT value |  | ❓ |
+| AC-005 | Returns as percentage in API responses |  | ❓ |
 | AC-006 | User can complete full progress workflow (regression) | `APP-TABLES-FIELD-TYPES-PROGRESS-REGRESSION` | ✅     |
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/progress.ts`
 - **E2E Spec**: `specs/app/tables/field-types/progress-field.spec.ts`
 
 ---
@@ -867,7 +847,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/color.ts`
 - **E2E Spec**: `specs/app/tables/field-types/color-field.spec.ts`
 
 ---
@@ -905,7 +884,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/barcode.ts`
 - **E2E Spec**: `specs/app/tables/field-types/barcode-field.spec.ts`
 
 ---
@@ -943,7 +921,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/created-at.ts`
 - **E2E Spec**: `specs/app/tables/field-types/created-at-field.spec.ts`
 
 ---
@@ -967,7 +944,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/updated-at.ts`
 - **E2E Spec**: `specs/app/tables/field-types/updated-at-field.spec.ts`
 
 ---
@@ -991,7 +967,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/deleted-at.ts`
 - **E2E Spec**: `specs/app/tables/field-types/deleted-at-field.spec.ts`
 
 ---
@@ -1015,7 +990,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/created-by.ts`
 - **E2E Spec**: `specs/app/tables/field-types/created-by-field.spec.ts`
 
 ---
@@ -1039,7 +1013,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/updated-by.ts`
 - **E2E Spec**: `specs/app/tables/field-types/updated-by-field.spec.ts`
 
 ---
@@ -1063,7 +1036,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/deleted-by.ts`
 - **E2E Spec**: `specs/app/tables/field-types/deleted-by-field.spec.ts`
 
 ---
@@ -1101,7 +1073,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/autonumber.ts`
 - **E2E Spec**: `specs/app/tables/field-types/autonumber-field.spec.ts`
 
 ---
@@ -1366,7 +1337,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/formula.ts`
 - **E2E Spec**: `specs/app/tables/field-types/formula-field.spec.ts`
 
 ---
@@ -1403,7 +1373,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/json.ts`
 - **E2E Spec**: `specs/app/tables/field-types/json-field.spec.ts`
 
 ---
@@ -1441,7 +1410,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/array.ts`
 - **E2E Spec**: `specs/app/tables/field-types/array-field.spec.ts`
 
 ---
@@ -1478,7 +1446,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/geolocation.ts`
 - **E2E Spec**: `specs/app/tables/field-types/geolocation-field.spec.ts`
 
 ---
@@ -1519,7 +1486,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/user.ts`
 - **E2E Spec**: `specs/app/tables/field-types/user-field.spec.ts`
 
 ---
@@ -1561,7 +1527,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/button.ts`
 - **E2E Spec**: `specs/app/tables/field-types/button-field.spec.ts`
 
 ---
@@ -1604,7 +1569,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/relationship.ts`
 - **E2E Spec**: `specs/app/tables/field-types/relationship-field.spec.ts`
 
 ---
@@ -1645,7 +1609,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/count.ts`
 - **E2E Spec**: `specs/app/tables/field-types/count-field.spec.ts`
 
 ---
@@ -1689,7 +1652,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/lookup.ts`
 - **E2E Spec**: `specs/app/tables/field-types/lookup-field.spec.ts`
 
 ---
@@ -1737,7 +1699,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/rollup.ts`
 - **E2E Spec**: `specs/app/tables/field-types/rollup-field.spec.ts`
 
 ---
@@ -1777,7 +1738,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/single-attachment.ts`
 - **E2E Spec**: `specs/app/tables/field-types/single-attachment-field.spec.ts`
 
 ---
@@ -1818,7 +1778,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/multiple-attachments.ts`
 - **E2E Spec**: `specs/app/tables/field-types/multiple-attachments-field.spec.ts`
 
 ---
@@ -1858,7 +1817,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/common/required.ts`
 - **E2E Spec**: `specs/app/tables/field-types/common/required.spec.ts`
 
 ---
@@ -1899,7 +1857,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/common/indexed.ts`
 - **E2E Spec**: `specs/app/tables/field-types/common/indexed.spec.ts`
 
 ---
@@ -1940,7 +1897,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/common/unique.ts`
 - **E2E Spec**: `specs/app/tables/field-types/common/unique.spec.ts`
 
 ---
@@ -1968,7 +1924,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/table/field-types/datetime.ts`
 - **E2E Spec**: `specs/app/tables/field-types/timezone-handling.spec.ts`
 
 ---

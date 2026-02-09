@@ -58,7 +58,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/meta/meta.ts`
 - **E2E Spec**: `specs/app/pages/meta/meta.spec.ts`
 
 ---
@@ -213,7 +212,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/meta/structured-data.ts`
 - **E2E Spec**: `specs/app/pages/meta/structured-data/structured-data.spec.ts`
 
 ---
@@ -258,8 +256,6 @@ meta:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/meta/favicons.ts`
-- **E2E Spec**: `specs/app/pages/meta/favicons.spec.ts`
 
 ---
 
@@ -313,8 +309,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/meta/performance.ts`
-- **E2E Spec**: `specs/app/pages/meta/performance.spec.ts`
 
 ---
 
@@ -452,7 +446,6 @@ meta:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/meta/performance/dns-prefetch.ts`
 - **E2E Spec**: `specs/app/pages/meta/performance/dns-prefetch.spec.ts`
 
 ---
@@ -497,7 +490,6 @@ meta:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/page/meta/favicons/favicon-set.ts`
 - **E2E Spec**: `specs/app/pages/meta/favicons/favicon-set.spec.ts`
 
 ---

@@ -69,7 +69,6 @@ theme:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/cli/build.ts`
 - **E2E Spec**: `specs/cli/build/generation.spec.ts`
 
 ---
@@ -106,7 +105,6 @@ project/
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/cli/build.ts`
 - **E2E Spec**: `specs/cli/build/assets.spec.ts`
 
 ---
@@ -153,7 +151,6 @@ dist/
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/cli/build.ts`
 - **E2E Spec**: `specs/cli/build/deployment.spec.ts`
 
 ---
@@ -213,7 +210,6 @@ dist/
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/cli/build.ts`
 - **E2E Spec**: `specs/cli/build/i18n.spec.ts`
 
 ---

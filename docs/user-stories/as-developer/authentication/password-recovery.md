@@ -37,7 +37,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/change-password/post.spec.ts`
 
 ---
@@ -63,7 +62,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/request-password-reset/post.spec.ts`
 
 ---
@@ -90,7 +88,6 @@ auth:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/auth/auth.ts`
 - **E2E Spec**: `specs/api/auth/reset-password/post.spec.ts`
 
 ---

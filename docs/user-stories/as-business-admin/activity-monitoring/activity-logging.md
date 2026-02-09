@@ -179,7 +179,6 @@ api:
 
 ### Implementation References
 
-- **Schema**: `src/infrastructure/rate-limit/`
 - **E2E Spec**: `specs/api/activity/rate-limiting.spec.ts`
 
 ---

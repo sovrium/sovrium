@@ -84,7 +84,6 @@ theme:
 ### Implementation References
 
 - **Schema**: `src/domain/models/app/theme/animations.ts`
-- **E2E Spec**: `specs/app/theme/animations/animations.spec.ts`
 
 ---
 

@@ -55,7 +55,6 @@ languages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/languages/languages.ts`
 - **E2E Spec**: `specs/app/languages/languages.spec.ts`
 
 ---
@@ -78,7 +77,6 @@ languages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/languages/languages.ts`
 - **E2E Spec**: `specs/app/languages/languages.spec.ts`
 
 ---
@@ -123,7 +121,6 @@ translations:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/languages/translations.ts`
 - **E2E Spec**: `specs/app/languages/languages.spec.ts`
 
 ---
@@ -155,7 +152,6 @@ settings:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/languages/config.ts`
 - **E2E Spec**: `specs/app/languages/languages.spec.ts`
 
 ---
@@ -199,7 +195,6 @@ languages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/languages/config.ts`
 - **E2E Spec**: `specs/app/languages/language-config.spec.ts`
 
 ---

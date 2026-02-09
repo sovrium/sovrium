@@ -62,7 +62,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/blocks/block.ts`
 - **E2E Spec**: `specs/app/blocks/blocks.spec.ts`
 
 ---
@@ -115,7 +114,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/blocks/block-variables.ts`
 - **E2E Spec**: `specs/app/blocks/blocks.spec.ts`
 
 ---
@@ -166,7 +164,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/blocks/language-switcher.ts`
 - **E2E Spec**: `specs/app/blocks/language-switcher.spec.ts`
 
 ---
@@ -213,7 +210,6 @@ blocks:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/blocks/block-children.ts`
 - **E2E Spec**: `specs/app/blocks/common/block-children.spec.ts`
 
 ---
@@ -262,7 +258,6 @@ blocks:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/blocks/block-props.ts`
 - **E2E Spec**: `specs/app/blocks/common/block-props.spec.ts`
 
 ---
@@ -316,7 +311,6 @@ pages:
 
 ### Implementation References
 
-- **Schema**: `src/domain/models/app/blocks/block-reference.ts`
 - **E2E Spec**: `specs/app/blocks/common/block-reference.spec.ts`
 
 ---

@@ -48,7 +48,6 @@ POST /api/tables/1/records
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/post.spec.ts`
 
 ---
@@ -98,7 +97,6 @@ GET /api/tables/1/records?limit=10&offset=0&sort=created_at:desc
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/get.spec.ts`
 
 ---
@@ -133,7 +131,6 @@ GET /api/tables/1/records/42
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/{recordId}/get.spec.ts`
 
 ---
@@ -179,7 +176,6 @@ PATCH /api/tables/1/records/42
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/{recordId}/patch.spec.ts`
 
 ---
@@ -219,7 +215,6 @@ DELETE /api/tables/1/records/42
 
 ### Implementation References
 
-- **Schema**: `src/presentation/api/routes/records.ts`
 - **E2E Spec**: `specs/api/tables/{tableId}/records/{recordId}/delete.spec.ts`
 
 ---

@@ -51,7 +51,6 @@ tables:
 
 ### Implementation References
 
-- **Schema**: `src/infrastructure/rate-limit/`
 - **E2E Spec**: `specs/api/tables/rate-limiting.spec.ts`
 
 ---
