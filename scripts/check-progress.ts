@@ -270,6 +270,8 @@ const OUTPUT_FILE = join(process.cwd(), 'SPEC-PROGRESS.md')
 const OLD_OUTPUT_FILE = join(process.cwd(), 'SPEC-STATE.md') // For migration
 const README_FILE = join(process.cwd(), 'README.md')
 const USER_STORIES_DIR = join(process.cwd(), 'docs/user-stories')
+const SCHEMA_MODEL_DIRS = ['src/domain/models/app', 'src/domain/models/api']
+const FILE_HEADER_SCHEMA_PATTERN = /^>\s*\*\*Schema\*\*:\s*(.+)/m
 
 // User Story parsing patterns
 const USER_STORY_STATUS_PATTERN = /\*\*Status\*\*:\s*`\[([x~\s])\]`/
@@ -1028,6 +1030,134 @@ function validateSchemaCoherence(
   return [...yamlIssues, ...jsonIssues]
 }
 
+// =============================================================================
+// Schema-to-User-Story Linking Validation
+// =============================================================================
+
+/**
+ * Recursively discover all schema .ts files in SCHEMA_MODEL_DIRS,
+ * excluding test files and barrel exports (index.ts).
+ */
+async function discoverSchemaFiles(): Promise<readonly string[]> {
+  const cwd = process.cwd()
+  const files: string[] = []
+
+  async function walk(dir: string) {
+    try {
+      const entries = await readdir(join(cwd, dir), { withFileTypes: true })
+      for (const entry of entries) {
+        const relPath = join(dir, entry.name)
+        if (entry.isDirectory()) {
+          await walk(relPath)
+        } else if (
+          entry.name.endsWith('.ts') &&
+          !entry.name.endsWith('.test.ts') &&
+          entry.name !== 'index.ts'
+        ) {
+          files.push(relPath)
+        }
+      }
+    } catch {
+      // Directory doesn't exist or can't be read
+    }
+  }
+
+  for (const dir of SCHEMA_MODEL_DIRS) {
+    await walk(dir)
+  }
+  return files.sort()
+}
+
+/**
+ * Collect ALL schema references from both file-level headers and per-story
+ * Implementation References sections across all user story files.
+ */
+function collectAllSchemaRefs(files: readonly UserStoryFileValidation[]): Set<string> {
+  const refs = new Set<string>()
+
+  for (const file of files) {
+    // Extract header-level refs: > **Schema**: `path1`, `path2`
+    const headerMatch = FILE_HEADER_SCHEMA_PATTERN.exec(file.rawContent)
+    if (headerMatch?.[1]) {
+      const backtickRefs = headerMatch[1].matchAll(/`([^`]+)`/g)
+      for (const m of backtickRefs) {
+        if (m[1]) refs.add(m[1])
+      }
+    }
+
+    // Collect per-story Implementation References schema refs
+    for (const story of file.stories) {
+      for (const ref of story.schemaRefs) {
+        refs.add(ref)
+      }
+    }
+  }
+
+  return refs
+}
+
+/**
+ * Check if a schema file is covered by any ref (exact match or directory prefix).
+ * Refs ending in .ts are matched exactly; all others are treated as directory
+ * prefixes (with or without trailing slash).
+ */
+function isSchemaFileCovered(schemaFile: string, refs: Set<string>): boolean {
+  for (const ref of refs) {
+    if (ref.endsWith('.ts')) {
+      if (schemaFile === ref) return true
+    } else {
+      const dirPrefix = ref.endsWith('/') ? ref : `${ref}/`
+      if (schemaFile.startsWith(dirPrefix)) return true
+    }
+  }
+  return false
+}
+
+/**
+ * Validate that every schema file in SCHEMA_MODEL_DIRS is referenced
+ * by at least one user story (either in header or Implementation References).
+ * Groups orphaned files by parent directory when 3+ are unlinked.
+ */
+async function validateSchemaLinking(
+  files: readonly UserStoryFileValidation[]
+): Promise<readonly StoryValidationIssue[]> {
+  const schemaFiles = await discoverSchemaFiles()
+  const refs = collectAllSchemaRefs(files)
+  const issues: StoryValidationIssue[] = []
+
+  // Find unlinked files
+  const unlinked = schemaFiles.filter((f) => !isSchemaFileCovered(f, refs))
+
+  // Group by parent directory for concise reporting
+  const byDir = new Map<string, string[]>()
+  for (const f of unlinked) {
+    const dir = f.substring(0, f.lastIndexOf('/') + 1)
+    const existing = byDir.get(dir) ?? []
+    existing.push(f)
+    byDir.set(dir, existing)
+  }
+
+  for (const [dir, dirFiles] of byDir) {
+    if (dirFiles.length >= 3) {
+      issues.push({
+        file: 'schema-linking',
+        severity: 'warning',
+        message: `${dirFiles.length} schema files under ${dir} not linked to any user story`,
+      })
+    } else {
+      for (const f of dirFiles) {
+        issues.push({
+          file: 'schema-linking',
+          severity: 'warning',
+          message: `Schema file not linked to any user story: ${f}`,
+        })
+      }
+    }
+  }
+
+  return issues
+}
+
 /**
  * Run user story validation and return all issues.
  */
@@ -1062,12 +1192,16 @@ async function runUserStoryValidation(allSpecIds: Set<string>): Promise<{
   // Validate schema coherence (YAML app config + JSON API responses)
   const schemaCoherenceIssues = validateSchemaCoherence(parsedFiles)
 
+  // Validate schema-to-user-story linking (every schema file must be documented)
+  const schemaLinkingIssues = await validateSchemaLinking(parsedFiles)
+
   // Collect all issues
   const allIssues: StoryValidationIssue[] = [
     ...parsedFiles.flatMap((f) => f.issues),
     ...refIssues,
     ...specIdIssues,
     ...schemaCoherenceIssues,
+    ...schemaLinkingIssues,
   ]
 
   const totalStories = parsedFiles.reduce((sum, f) => sum + f.stories.length, 0)
