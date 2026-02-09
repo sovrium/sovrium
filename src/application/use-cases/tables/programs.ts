@@ -22,12 +22,12 @@ import { filterReadableFields } from './utils/field-read-filter'
 import { processRecords, applyPagination } from './utils/list-helpers'
 import { transformRecord } from './utils/record-transformer'
 import type { TransformedRecord } from './utils/record-transformer'
-import type { App } from '@/domain/models/app'
 import type {
   ListRecordsResponse,
   GetRecordResponse,
   RestoreRecordResponse,
-} from '@/domain/schema/api/tables-schemas'
+} from '@/domain/models/api/tables-schemas'
+import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 // Re-export from table-operations

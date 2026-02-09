@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod'
-import { validationErrorResponseSchema } from '@/domain/schema/api/error-schemas'
+import { validationErrorResponseSchema } from '@/domain/models/api/error-schemas'
 import type { Context, TypedResponse } from 'hono'
 
 /**

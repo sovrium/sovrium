@@ -2,7 +2,7 @@
 
 > **Feature Area**: API - System Monitoring
 > **Implementation**: `src/infrastructure/server/route-setup/api-routes.ts`
-> **Schema**: `src/domain/schema/api/health-schemas.ts`
+> **Schema**: `src/domain/models/api/health-schemas.ts`
 > **API Routes**: `GET /api/health`
 > **E2E Specs**: `specs/api/health/get.spec.ts`
 
@@ -69,7 +69,7 @@ The following criteria were removed because they do not match the current implem
 ### Implementation References
 
 - **Route Setup**: `src/infrastructure/server/route-setup/api-routes.ts` (lines 182-222)
-- **Response Schema**: `src/domain/schema/api/health-schemas.ts`
+- **Response Schema**: `src/domain/models/api/health-schemas.ts`
 - **OpenAPI Schema**: `src/infrastructure/server/route-setup/openapi-schema.ts`
 - **E2E Spec**: `specs/api/health/get.spec.ts`
 

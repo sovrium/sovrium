@@ -20,7 +20,7 @@ import {
   isUrl,
   parseJsonContent,
   parseYamlContent,
-} from '@/domain/schema'
+} from '@/domain/utils'
 import {
   loadSchemaFromFile as loadFromFile,
   fileExists,

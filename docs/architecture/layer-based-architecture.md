@@ -71,7 +71,7 @@ Handle user interactions, render UI, route HTTP requests, present data to users.
 - **React 19** - UI components
 - **Hono** - HTTP routing
 - **Tailwind CSS** - Styling
-- **Zod** - OpenAPI schema validation and client forms (`src/domain/schema/api/`)
+- **Zod** - OpenAPI schema validation and client forms (`src/domain/models/api/`)
 
 ### Example: Hono Route Handler
 
@@ -109,7 +109,7 @@ app.get('/users/:id', async (c) => {
 API route validation uses Zod for OpenAPI integration:
 
 ```
-src/domain/schema/api/
+src/domain/models/api/
 ├── health-schemas.ts       # Health check endpoint schemas
 └── *.ts                    # Other API contract schemas
 ```
@@ -253,7 +253,7 @@ src/domain/models/
 **Validation Libraries**:
 
 - **Domain layer**: Effect Schema ONLY for type-safe domain validation
-- **Presentation layer**: Zod for OpenAPI schema generation, HTTP contracts, and client forms (see `src/domain/schema/api/`)
+- **Presentation layer**: Zod for OpenAPI schema generation, HTTP contracts, and client forms (see `src/domain/models/api/`)
 
 ### Example: Domain Validator
 

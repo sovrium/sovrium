@@ -58,7 +58,7 @@ Zod is **restricted** in most of `src/` to prevent architectural inconsistency. 
 
 | Location                             | Purpose                   | Why Zod is Allowed            |
 | ------------------------------------ | ------------------------- | ----------------------------- |
-| `src/domain/schema/api/*-schemas.ts` | OpenAPI API contracts     | OpenAPI tooling compatibility |
+| `src/domain/models/api/*-schemas.ts` | OpenAPI API contracts     | OpenAPI tooling compatibility |
 | `src/presentation/**/*.{ts,tsx}`     | Client forms + API routes | React Hook Form + Hono        |
 
 **Key Points**:

@@ -14,7 +14,7 @@ import {
 import {
   getViewResponseSchema,
   getViewRecordsResponseSchema,
-} from '@/domain/schema/api/tables-schemas'
+} from '@/domain/models/api/tables-schemas'
 import { runEffect } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import type { App } from '@/domain/models/app'

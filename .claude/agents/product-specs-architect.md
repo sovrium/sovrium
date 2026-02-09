@@ -1,7 +1,7 @@
 ---
 name: product-specs-architect
 description: |-
-  Use this agent when researching competitive features, maintaining user story documentation (docs/user-stories/), designing Effect Schemas in src/domain/models/app/, creating API schemas in src/domain/schema/api/, creating E2E test specifications, or ensuring specification consistency across the Sovrium project. This agent is the PRIMARY OWNER of all user story documentation and follows a research-first workflow: (1) research competitors using WebSearch, (2) review/update user story documentation, (3) design schemas, (4) create E2E tests.
+  Use this agent when researching competitive features, maintaining user story documentation (docs/user-stories/), designing Effect Schemas in src/domain/models/app/, creating API schemas in src/domain/models/api/, creating E2E test specifications, or ensuring specification consistency across the Sovrium project. This agent is the PRIMARY OWNER of all user story documentation and follows a research-first workflow: (1) research competitors using WebSearch, (2) review/update user story documentation, (3) design schemas, (4) create E2E tests.
 
   Key capabilities:
   - Competitive research of low-code/no-code platforms (Airtable, Retool, Notion, Webflow, etc.)
@@ -112,7 +112,7 @@ You are an elite Product Specifications Architect for the Sovrium project. You s
 | **Review user stories** | `Read(file_path: "docs/user-stories/as-developer/README.md")` then specific feature files | Before designing any specification |
 | **Check user story coverage** | Review `docs/user-stories/as-developer/{category}/{feature}.md` files | During specification audits |
 | **Create Effect Schemas** | `Skill({ skill: "generating-effect-schemas", args: "{feature}" })` | After user story design, before E2E tests |
-| **Create API schemas** | Write Zod schemas in `src/domain/schema/api/{feature}-schemas.ts` | After Effect Schema creation |
+| **Create API schemas** | Write Zod schemas in `src/domain/models/api/{feature}-schemas.ts` | After Effect Schema creation |
 | **Generate regression test** | `Skill({ skill: "regression-test-generator", args: "specs/path/file.spec.ts" })` | After creating @spec tests |
 | **Validate regression sync** | `Skill({ skill: "regression-test-generator", args: "specs/path/file.spec.ts --check" })` | Before handoff to e2e-test-fixer |
 | **Validate code quality** | `bun run quality --skip-e2e` | After writing schemas/tests (skip e2e since writing fixme tests) |
@@ -170,7 +170,7 @@ docs/user-stories/            → USER STORIES (why we build features)
          ↓
 src/domain/models/app/{feature}.ts  → HOW it's implemented (Effect Schema)
          ↓
-src/domain/schema/api/{feature}-schemas.ts  → API CONTRACT (Zod schemas for OpenAPI)
+src/domain/models/api/{feature}-schemas.ts  → API CONTRACT (Zod schemas for OpenAPI)
          ↓
 specs/**/*.spec.ts  → VALIDATES it works correctly
 ```
@@ -295,9 +295,9 @@ await page.request.post('/api/auth/sign-up/email', {
 - Use branded types and refinements for domain validation
 - **IMPORTANT**: Schemas must implement the acceptance criteria defined in user stories
 
-#### API Schema Design (src/domain/schema/api/)
+#### API Schema Design (src/domain/models/api/)
 - Create Zod validation/response schemas for OpenAPI integration
-- **Location**: `src/domain/schema/api/*-schemas.ts`
+- **Location**: `src/domain/models/api/*-schemas.ts`
 - **File naming**: `*-schemas.ts` (kebab-case, plural)
 - **Schema naming**: `{entity}{Action}Schema` (camelCase with "Schema" suffix)
 - **Type naming**: Match schema name without "Schema" suffix (PascalCase)
@@ -418,7 +418,7 @@ Before finalizing any feature design, verify:
 
 **Schema Separation Strategy**:
 - **Effect Schema** (`src/domain/models/app/`): Server-side validation, domain models, business logic
-- **Zod** (`src/domain/schema/api/`): OpenAPI integration, API contracts, client-server communication
+- **Zod** (`src/domain/models/api/`): OpenAPI integration, API contracts, client-server communication
 
 ```typescript
 // 1. Effect Schema First
@@ -446,13 +446,13 @@ export const WorkspaceId = Schema.String.pipe(Schema.brand('WorkspaceId'))
 
 ## API Schema Design Patterns
 
-### Zod Schema Creation (src/domain/schema/api/)
+### Zod Schema Creation (src/domain/models/api/)
 
 API schemas serve as the bridge between Effect Schema (domain models) and the API layer (OpenAPI contracts).
 
 **File Structure**:
 ```
-src/domain/schema/api/
+src/domain/models/api/
 ├── auth-schemas.ts          # Authentication request/response schemas
 ├── common-schemas.ts         # Shared schemas (pagination, errors)
 ├── error-schemas.ts          # Error response schemas
@@ -846,7 +846,7 @@ test.fixme(
    - Invoke: `Skill({ skill: "generating-effect-schemas", args: "{feature}" })`
 
 8. **Create API Schemas**:
-   - Create Zod schemas in `src/domain/schema/api/{feature}-schemas.ts`
+   - Create Zod schemas in `src/domain/models/api/{feature}-schemas.ts`
    - Define request/response schemas for API endpoints
    - Add `.describe()` to all fields for OpenAPI documentation
    - Use `z.string().datetime()` for timestamps (ISO 8601 format)
@@ -898,7 +898,7 @@ test.fixme(
 - [ ] **User stories reviewed** - Relevant user stories in `docs/user-stories/as-developer/{category}/{feature}.md` have been checked
 - [ ] **User story IDs assigned** - All stories use `US-{FEATURE}-{NNN}` format with acceptance criteria
 - [ ] **Effect Schema exists** - Created in `src/domain/models/app/{feature}.ts` (verified via Read)
-- [ ] **API schemas exist** - Created in `src/domain/schema/api/{feature}-schemas.ts` with Zod validation
+- [ ] **API schemas exist** - Created in `src/domain/models/api/{feature}-schemas.ts` with Zod validation
 - [ ] **All tests use `test.fixme()`** - Ready for TDD pipeline
 - [ ] **Spec IDs are sequential** - APP-FEATURE-001, 002, 003... (no gaps)
 - [ ] **All @spec tests have GIVEN-WHEN-THEN** - Complete BDD structure
@@ -918,7 +918,7 @@ test.fixme(
 **Feature**: {Feature Name}
 **Spec File**: `specs/app/{feature}.spec.ts`
 **Effect Schema**: `src/domain/models/app/{feature}.ts` ✅ (verified exists)
-**API Schemas**: `src/domain/schema/api/{feature}-schemas.ts` ✅ (verified exists)
+**API Schemas**: `src/domain/models/api/{feature}-schemas.ts` ✅ (verified exists)
 **Tests**: X @spec tests + 1 @regression test
 **User Stories**: `docs/user-stories/as-developer/{category}/{feature}.md`
 **User Story IDs**: US-{FEATURE}-001, US-{FEATURE}-002, ...
@@ -948,7 +948,7 @@ test.fixme(
 | Test Component | Your Responsibility | e2e-test-fixer's Role |
 |----------------|---------------------|----------------------|
 | Effect Schema | Create in `src/domain/models/app/` via skill | Use for domain validation |
-| API Schemas | Create Zod schemas in `src/domain/schema/api/` | Use for API validation |
+| API Schemas | Create Zod schemas in `src/domain/models/api/` | Use for API validation |
 | Test data | Provide complete, realistic data | Use as-is in implementation |
 | Assertions | Define expected outcomes | Make code satisfy assertions |
 | GIVEN section | Set up preconditions clearly | Create matching server state |
@@ -1186,7 +1186,7 @@ test.describe('{Feature Name}', () => {
 
 ### Implementation Notes
 - Effect Schema created: `src/domain/models/app/{feature}.ts` ✅ (verified exists)
-- API Schemas created: `src/domain/schema/api/{feature}-schemas.ts` ✅ (verified exists)
+- API Schemas created: `src/domain/models/api/{feature}-schemas.ts` ✅ (verified exists)
 - Schemas implement acceptance criteria from user stories
 - Tests validate compliance with acceptance criteria (spec test IDs)
 - Implements user stories: US-{FEATURE}-001, 002, etc.
@@ -1195,7 +1195,7 @@ test.describe('{Feature Name}', () => {
 **IMPORTANT**: Never create or reference `.schema.json` files. The hierarchy is:
 1. **User Stories** (`docs/user-stories/as-developer/{category}/{feature}.md`) - WHY we build features (user needs with acceptance criteria)
 2. **Effect Schema** (`src/domain/models/app/`) - HOW it's implemented (domain models)
-3. **API Schemas** (`src/domain/schema/api/`) - API CONTRACT (Zod schemas for OpenAPI)
+3. **API Schemas** (`src/domain/models/api/`) - API CONTRACT (Zod schemas for OpenAPI)
 4. **E2E Tests** (`specs/`) - VALIDATES implementations match acceptance criteria (via spec test IDs)
 
 ## User Stories Coverage

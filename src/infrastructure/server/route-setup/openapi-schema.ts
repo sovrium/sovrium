@@ -6,7 +6,7 @@
  */
 
 import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
-import { healthResponseSchema } from '@/domain/schema/api/health-schemas'
+import { healthResponseSchema } from '@/domain/models/api/health-schemas'
 
 /**
  * OpenAPI Schema Generator

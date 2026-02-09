@@ -66,12 +66,12 @@ export default [
   // Zod Restriction - Forbid Zod usage in src/ (except allowed locations)
   // Project standard: Effect Schema for server validation
   // EXCEPTIONS:
-  // - src/domain/schema/api/ - API contract schemas (Zod for OpenAPI compatibility)
+  // - src/domain/models/api/ - API contract schemas (Zod for OpenAPI compatibility)
   // - src/presentation/ - Client forms (React Hook Form) + API route validation
   {
     files: ['src/**/*.{ts,tsx}'],
     ignores: [
-      'src/domain/schema/api/**/*.{ts,tsx}', // API contract schemas (Zod for OpenAPI)
+      'src/domain/models/api/**/*.{ts,tsx}', // API contract schemas (Zod for OpenAPI)
       'src/presentation/**/*.{ts,tsx}', // Exception for presentation layer (forms, API routes, OpenAPI)
     ],
     rules: {
@@ -98,7 +98,7 @@ export default [
   // Zod Allowed - Domain API schema exception
   // API contract schemas use Zod for OpenAPI tooling compatibility
   {
-    files: ['src/domain/schema/api/**/*.{ts,tsx}'],
+    files: ['src/domain/models/api/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': 'off', // Allow Zod for API contract definitions
     },

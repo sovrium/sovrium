@@ -34,7 +34,7 @@
 | **Effect** | ^3.19.15 | Functional programming, DI, error handling | @docs/infrastructure/framework/effect.md |
 | **Effect Schema** | ^3.19.15 | Server validation (domain/application/infrastructure) | @docs/infrastructure/framework/effect.md |
 | **Hono** | ^4.11.7 | Web framework (API routes, RPC client, OpenAPI) | @docs/infrastructure/framework/hono.md |
-| **Zod** | ^4.3.6 | OpenAPI integration ONLY (src/domain/schema/api/) + client forms | @docs/infrastructure/api/zod-hono-openapi.md |
+| **Zod** | ^4.3.6 | OpenAPI integration ONLY (src/domain/models/api/) + client forms | @docs/infrastructure/api/zod-hono-openapi.md |
 | **js-yaml** | ^4.1.1 | YAML parser (CLI config files only) | @docs/infrastructure/parsing/js-yaml.md |
 | **Better Auth** | ^1.4.18 | Authentication | @docs/infrastructure/framework/better-auth.md |
 | **Drizzle ORM** | ^0.45.1 | Database (PostgreSQL via bun:sql) | @docs/infrastructure/database/drizzle.md |

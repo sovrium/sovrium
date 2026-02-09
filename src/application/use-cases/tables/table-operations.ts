@@ -14,8 +14,8 @@ import {
   evaluateFieldPermissions,
 } from './permissions/permissions'
 import { processRecords } from './utils/list-helpers'
+import type { GetTableResponse } from '@/domain/models/api/tables-schemas'
 import type { App } from '@/domain/models/app'
-import type { GetTableResponse } from '@/domain/schema/api/tables-schemas'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { SessionContextError } from '@/infrastructure/database/session-context'
 

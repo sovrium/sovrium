@@ -11,7 +11,7 @@
  * File system I/O operations for loading schema files.
  */
 
-import { detectFormat, getFileExtension, parseJsonContent, parseYamlContent } from '@/domain/schema'
+import { detectFormat, getFileExtension, parseJsonContent, parseYamlContent } from '@/domain/utils'
 import type { AppEncoded } from '@/domain/models/app'
 
 /**

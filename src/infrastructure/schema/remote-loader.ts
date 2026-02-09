@@ -15,7 +15,7 @@ import {
   detectFormatFromContentType,
   detectFormatFromUrl,
   parseSchemaContent,
-} from '@/domain/schema'
+} from '@/domain/utils'
 import type { AppEncoded } from '@/domain/models/app'
 
 /**
