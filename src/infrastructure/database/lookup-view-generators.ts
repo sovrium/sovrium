@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { sanitizeTableName } from './field-utils'
 import {
   generateReverseLookupExpression,
   generateManyToManyLookupExpression,
@@ -15,7 +16,6 @@ import {
   mapAggregationToPostgres,
   getDefaultValueForAggregation,
 } from './lookup-view-helpers'
-import { sanitizeTableName } from './field-utils'
 import {
   getBaseFields,
   generateInsertTrigger,

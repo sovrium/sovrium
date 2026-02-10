@@ -6,10 +6,10 @@
  */
 
 import { Effect } from 'effect'
+import { sanitizeTableName } from '../field-utils'
 import { createVolatileFormulaTriggers } from '../formula-trigger-generators'
 import { generateIndexStatements } from '../index-generators'
 import { shouldUseView, getBaseTableName } from '../lookup-view-generators'
-import { sanitizeTableName } from '../field-utils'
 import {
   executeSQLStatements,
   executeSQLStatementsParallel,

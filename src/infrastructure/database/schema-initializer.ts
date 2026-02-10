@@ -10,7 +10,6 @@ import { Config, Effect, Console, Data, Runtime, type ConfigError } from 'effect
 import { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import { logInfo } from '@/infrastructure/logging/logger'
-import { sanitizeTableName } from './field-utils'
 import {
   needsUsersTable,
   needsUpdatedByTrigger,
@@ -18,7 +17,7 @@ import {
   ensureUpdatedByTriggerFunction,
   type BetterAuthUsersTableRequired,
 } from './auth-validation'
-import { isManyToManyRelationship } from './field-utils'
+import { sanitizeTableName, isManyToManyRelationship } from './field-utils'
 import {
   getPreviousSchema,
   logRollbackOperation,

@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { isRelationshipField, isUserField } from './sql-generators'
 import { sanitizeTableName } from './field-utils'
+import { isRelationshipField, isUserField } from './sql-generators'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 

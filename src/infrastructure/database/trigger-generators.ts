@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { Table } from '@/domain/models/app/table'
 import { sanitizeTableName } from './field-utils'
+import type { Table } from '@/domain/models/app/table'
 
 /**
  * Generate triggers for created-at fields (set on INSERT, prevent UPDATE)

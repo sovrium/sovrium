@@ -6,11 +6,11 @@
  */
 
 import { Effect } from 'effect'
+import { sanitizeTableName } from '../field-utils'
 import { shouldUseView, getBaseTableName } from '../lookup-view-generators'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql-execution'
 import { generateCreateTableSQL } from './create-table-sql'
 import { areTypesCompatible } from './type-compatibility'
-import { sanitizeTableName } from '../field-utils'
 import type { Table } from '@/domain/models/app/table'
 
 /**
