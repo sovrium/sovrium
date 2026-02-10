@@ -32,23 +32,22 @@ The following roles are always available without configuration:
 
 | Role   | Level | Description                               |
 | ------ | ----- | ----------------------------------------- |
-| owner  | 100   | Full control, cannot be default role      |
 | admin  | 80    | Can manage members and settings           |
 | member | 40    | Standard access to organization resources |
 | viewer | 10    | Read-only access                          |
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                                       | E2E Spec | Status |
-| ------ | ------------------------------------------------------------------------------- | -------- | ------ |
-| AC-001 | Built-in roles (owner=100, admin=80, member=40, viewer=10) are always available |          | ⏳     |
-| AC-002 | Custom roles defined with `name`, optional `description`, optional `level`      |          | ⏳     |
-| AC-003 | Role names must be unique (no duplicates including built-in roles)              |          | ⏳     |
-| AC-004 | Role names follow naming convention (lowercase, alphanumeric, hyphens)          |          | ⏳     |
-| AC-005 | Hierarchy level determines role ordering (higher = more permissions)            |          | ⏳     |
-| AC-006 | Roles used in table permissions are validated against defined roles             |          | ⏳     |
-| AC-007 | Schema validation error when table permission references undefined role         |          | ⏳     |
-| AC-008 | Empty roles array is valid (only built-in roles available)                      |          | ⏳     |
+| ID     | Criterion                                                                  | E2E Spec | Status |
+| ------ | -------------------------------------------------------------------------- | -------- | ------ |
+| AC-001 | Built-in roles (admin=80, member=40, viewer=10) are always available       |          | ⏳     |
+| AC-002 | Custom roles defined with `name`, optional `description`, optional `level` |          | ⏳     |
+| AC-003 | Role names must be unique (no duplicates including built-in roles)         |          | ⏳     |
+| AC-004 | Role names follow naming convention (lowercase, alphanumeric, hyphens)     |          | ⏳     |
+| AC-005 | Hierarchy level determines role ordering (higher = more permissions)       |          | ⏳     |
+| AC-006 | Roles used in table permissions are validated against defined roles        |          | ⏳     |
+| AC-007 | Schema validation error when table permission references undefined role    |          | ⏳     |
+| AC-008 | Empty roles array is valid (only built-in roles available)                 |          | ⏳     |
 
 ### Implementation References
 
@@ -76,13 +75,12 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                                      | E2E Spec | Status |
-| ------ | ------------------------------------------------------------------------------ | -------- | ------ |
-| AC-001 | `auth.defaultRole` accepts built-in roles (admin, member, viewer -- not owner) |          | ⏳     |
-| AC-002 | `auth.defaultRole` accepts custom role names (if defined in auth.roles)        |          | ⏳     |
-| AC-003 | Default role defaults to `member` when not specified                           |          | ⏳     |
-| AC-004 | Schema validation error when defaultRole references undefined custom role      |          | ⏳     |
-| AC-005 | Owner role cannot be set as defaultRole                                        |          | ⏳     |
+| ID     | Criterion                                                                 | E2E Spec | Status |
+| ------ | ------------------------------------------------------------------------- | -------- | ------ |
+| AC-001 | `auth.defaultRole` accepts built-in roles (admin, member, viewer)         |          | ⏳     |
+| AC-002 | `auth.defaultRole` accepts custom role names (if defined in auth.roles)   |          | ⏳     |
+| AC-003 | Default role defaults to `member` when not specified                      |          | ⏳     |
+| AC-004 | Schema validation error when defaultRole references undefined custom role |          | ⏳     |
 
 ### Implementation References
 
@@ -95,5 +93,5 @@ auth:
 | User Story        | Title                   | Spec Count | Status  |
 | ----------------- | ----------------------- | ---------- | ------- |
 | US-AUTH-ROLES-001 | Define Custom Roles     | 8          | Pending |
-| US-AUTH-ROLES-002 | Default Role Assignment | 5          | Pending |
-| **Total**         |                         | **13**     |         |
+| US-AUTH-ROLES-002 | Default Role Assignment | 4          | Pending |
+| **Total**         |                         | **12**     |         |

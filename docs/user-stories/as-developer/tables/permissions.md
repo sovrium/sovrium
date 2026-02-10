@@ -185,11 +185,11 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                | E2E Spec | Status |
-| ------ | -------------------------------------------------------- | -------- | ------ |
-| AC-001 | Session context variables are set at connection start    |          | ❓     |
-| AC-002 | Session user ID is available for owner-based permissions |          | ❓     |
-| AC-003 | Session user role is available for RBAC evaluation       |          | ❓     |
+| ID     | Criterion                                                       | E2E Spec | Status |
+| ------ | --------------------------------------------------------------- | -------- | ------ |
+| AC-001 | Session context variables are set at connection start           |          | ❓     |
+| AC-002 | Session organization ID is available for multi-tenant isolation |          | ❓     |
+| AC-003 | Session user role is available for RBAC evaluation              |          | ❓     |
 
 ### Implementation References
 

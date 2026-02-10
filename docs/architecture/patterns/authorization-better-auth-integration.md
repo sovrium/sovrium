@@ -81,7 +81,7 @@ export const members = pgTable('_sovrium_auth_members', {
   userId: text('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
-  role: text('role').notNull(), // 'owner', 'admin', 'member', 'viewer'
+  role: text('role').notNull(), // 'admin', 'member', 'viewer'
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -190,7 +190,7 @@ interface Session {
     id: string
     email: string
     name: string
-    userId: string // From organization plugin
+    organizationId: string // From organization plugin
     role: 'admin' | 'member' | 'viewer'
   }
   session: {
@@ -226,7 +226,7 @@ export const requireAuth = createMiddleware(async (c, next) => {
 
   // Store user context in Hono context
   c.set('user', session.user)
-  c.set('userId', session.user.userId)
+  c.set('organizationId', session.user.organizationId)
   c.set('role', session.user.role)
 
   await next()
@@ -262,23 +262,19 @@ const DEFAULT_PERMISSIONS = {
 Organization ID from Better Auth is used for:
 
 1. **Isolation**: Users can only access data from their organization
-2. **Auto-injection**: Records are automatically tagged with user's organization ID
-3. **Multi-tenancy**: Each organization's data is isolated
+2. **Multi-tenancy**: Each organization's data is isolated
 
 ```typescript
 // Get organization ID from authenticated user
-const userId = c.get('userId')
+const organizationId = c.get('organizationId')
 
-// Use in database queries
+// Use in database queries for multi-tenant isolation
 const records = await db.query.records.findMany({
-  where: eq(records.userId, userId),
+  where: eq(records.organizationId, organizationId),
 })
 
-// Auto-inject on create
-const newRecord = await db.insert(records).values({
-  ...recordData,
-  userId: userId,
-})
+// Note: organizationId filtering is the responsibility of the application layer
+// based on the specific multi-tenancy requirements of each table
 ```
 
 ## Accessing User Context in Routes
@@ -293,7 +289,7 @@ const app = new Hono()
 app.get('/tables/:tableId/records', requireAuth, async (c) => {
   // Extract user context from Hono context
   const user = c.get('user')
-  const userId = c.get('userId')
+  const organizationId = c.get('organizationId')
   const role = c.get('role')
 
   // Use in authorization checks
@@ -303,9 +299,9 @@ app.get('/tables/:tableId/records', requireAuth, async (c) => {
     return c.json({ error: 'Forbidden' }, 403)
   }
 
-  // Use userId in query filters
+  // Use organizationId in query filters if multi-tenant isolation is required
   const records = await db.query.records.findMany({
-    where: eq(records.userId, userId),
+    where: eq(records.organizationId, organizationId),
   })
 
   return c.json({ records })
@@ -376,7 +372,7 @@ For E2E tests, create test sessions:
 const testUser = {
   id: 1,
   email: 'test@example.com',
-  userId: 'org_123',
+  organizationId: 'org_123',
   role: 'admin',
 }
 
@@ -401,7 +397,7 @@ The authorization service receives user context from Better Auth:
 // Authorization service receives user object
 interface User {
   id: string
-  userId: string
+  organizationId: string
   role: 'admin' | 'member' | 'viewer'
 }
 
@@ -412,7 +408,7 @@ async function checkTablePermission(
   operation: 'read' | 'create' | 'update' | 'delete'
 ): Promise<boolean> {
   // Fetch table permissions configuration
-  const permissions = await getTablePermissions(tableId, user.userId)
+  const permissions = await getTablePermissions(tableId, user.organizationId)
 
   // Check if user role has permission for operation
   return permissions[user.role]?.table?.[operation] ?? false

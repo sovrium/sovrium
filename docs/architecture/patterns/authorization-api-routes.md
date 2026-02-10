@@ -51,7 +51,7 @@ export const requireAuth = createMiddleware(async (c, next) => {
   }
 
   c.set('user', session.user)
-  c.set('userId', session.user.userId)
+  c.set('organizationId', session.user.organizationId)
 
   await next()
 })
@@ -113,28 +113,22 @@ const filteredRecords = records.map((record) =>
 return c.json({ records: filteredRecords })
 ```
 
-### 5. Enforce Owner Isolation
+### 5. Enforce Multi-Tenant Isolation (if applicable)
 
 ```typescript
-// Add owner filter to all queries
-const userId = c.get('userId')
+// If multi-tenant isolation is required, filter by organization
+const organizationId = c.get('organizationId')
 
-// For CREATE - auto-inject userId
-const recordData = {
-  ...body,
-  userId: userId, // Always use authenticated user's ID
-}
-
-// For READ/UPDATE/DELETE - filter by owner
+// For READ/UPDATE/DELETE - filter by organization
 const record = await db.query.records.findFirst({
   where: and(
     eq(records.id, recordId),
-    eq(records.userId, userId) // Data access control
+    eq(records.organizationId, organizationId) // Multi-tenant isolation
   ),
 })
 
 if (!record) {
-  return c.json({ error: 'Record not found' }, 404) // Not 403 - prevents owner enumeration
+  return c.json({ error: 'Record not found' }, 404) // Not 403 - prevents data enumeration
 }
 ```
 
@@ -143,13 +137,13 @@ if (!record) {
 **CRITICAL**: Always check permissions in this order to prevent information leakage:
 
 1. **Authentication** (401) - Check if user is authenticated
-2. **Owner Isolation** (404) - Check if record belongs to user
+2. **Multi-Tenant Isolation** (404) - Check if record belongs to user's organization (if applicable)
 3. **Table-Level Permissions** (403) - Check if user can perform operation
 4. **Field-Level Permissions** (403) - Check if user can access specific fields
 
 **Why this order?**
 
-- Returning 403 before checking owner isolation would reveal that a record exists for another user
+- Returning 403 before checking isolation would reveal that a record exists in another organization
 - Always return 404 for unauthorized access, never 403
 
 ## Error Response Format
@@ -173,7 +167,7 @@ if (!record) {
   "message": "You do not have permission to write to field: salary"
 }
 
-// 404 Not Found (org isolation)
+// 404 Not Found (isolation)
 {
   "error": "Record not found"
 }
@@ -194,19 +188,18 @@ for (const field of Object.keys(body)) {
 }
 ```
 
-## Owner Override Prevention
+## System Field Protection
 
-Users cannot create or update records for a different owner:
+System-managed fields should be protected from client modification:
 
 ```typescript
-// Prevent userId override
-if (body.userId && body.userId !== userId) {
-  return c.json({ error: 'Forbidden', message: 'Cannot create records for different owner' }, 403)
-}
+const SYSTEM_FIELDS = ['id', 'created_at', 'updated_at', 'organizationId']
 
-// Prevent changing userId on updates
-if (existingRecord.userId !== userId) {
-  return c.json({ error: 'Forbidden', message: 'Cannot change userId' }, 403)
+// Prevent system field modification
+for (const field of Object.keys(body)) {
+  if (SYSTEM_FIELDS.includes(field)) {
+    return c.json({ error: 'Forbidden', message: `Cannot modify system field: ${field}` }, 403)
+  }
 }
 ```
 
@@ -236,13 +229,13 @@ app.post('/tables/:tableId/records/batch', requireAuth, async (c) => {
   for (const record of records) {
     // Check field-level permissions
     // Check readonly fields
-    // Check userId
+    // Check system fields
   }
 
   // Start transaction
   const result = await db.transaction(async (tx) => {
-    // Insert all records with auto-injected userId
-    return await tx.insert(records).values(records.map((r) => ({ ...r, userId: userId })))
+    // Insert all records
+    return await tx.insert(records).values(records)
   })
 
   return c.json({ created: result.length })
@@ -255,7 +248,7 @@ Every authorization spec must verify:
 
 1. **401** - Unauthenticated access rejected
 2. **403** - Insufficient permissions rejected
-3. **404** - Cross-org access returns "not found"
+3. **404** - Cross-organization access returns "not found" (if multi-tenant)
 4. **200/201** - Authorized access succeeds
 5. **Field filtering** - Protected fields excluded from response
 6. **Transaction rollback** - No partial updates on permission failure

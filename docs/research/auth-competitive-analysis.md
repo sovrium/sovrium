@@ -473,10 +473,10 @@ Supabase doesn't provide built-in teams - you implement via:
 **Multi-Tenant Pattern:**
 
 ```sql
--- All tables have owner_id column
+-- Example: Multi-tenant isolation using organization_id
 ALTER TABLE todos ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Tenant isolation" ON todos
-  USING (owner_id = auth.uid());
+  USING (organization_id = current_organization_id());
 ```
 
 #### Authentication (for End Users)
@@ -534,11 +534,10 @@ CREATE POLICY "Tenant isolation" ON todos
 
 **What works well:**
 
-- 4-tier hierarchy: Owner > Admin > Member > Viewer
-- Owner is always singular (or very limited)
-- Admin can do everything except delete/transfer ownership
+- 3-4 tier hierarchy: Admin > Member > Viewer (with optional Owner at org level)
+- Admin can do everything except potentially delete/transfer organization ownership
 - Member is the default for new users
-- Guest/Viewer for external read-only access
+- Viewer for read-only access
 
 ### 2. Separation of Account/Workspace vs Resource Permissions
 
@@ -593,7 +592,7 @@ Organization (optional, for multi-workspace)
     └── Workspace (billing boundary)
         └── App (self-contained unit)
             └── Table
-                └── Record (with owner_id)
+                └── Record (with optional organization_id for multi-tenant isolation)
             └── Page
             └── Automation
 ```
@@ -606,29 +605,23 @@ Organization (optional, for multi-workspace)
 
 ### 2. Role System
 
-**Workspace Roles:**
+**Workspace/Organization Roles:**
 | Role | Description |
 |------|-------------|
-| **Owner** | Single owner, billing, can delete workspace |
-| **Admin** | Manage members, apps, cannot delete workspace |
+| **Admin** | Manage members, apps, organization settings |
 | **Member** | Create/access apps, standard user |
-| **Guest** | Invited to specific apps, limited features |
+| **Viewer** | Read-only access to apps |
 
-**App Roles:**
-| Role | Description |
-|------|-------------|
-| **Owner** | Full app control (auto-assigned to creator) |
-| **Editor** | Modify schema, data, automations |
-| **Contributor** | Add/edit records, cannot modify schema |
-| **Viewer** | Read-only access |
+**Note**: Some platforms have an "Owner" role at the organization level for billing and organization deletion. This is organization-level administrative control, not a permission model for data access.
 
 ### 3. Permission Granularity (Progressive)
 
 **Phase 0 (MVP):**
 
-- Workspace roles only
-- App-level permissions (Owner, Editor, Viewer)
-- `owner_id` filtering on all queries (multi-tenant isolation)
+- Organization roles: Admin, Member, Viewer
+- Table-level permissions (read, create, update, delete, comment)
+- Field-level permissions (read, write)
+- Optional `organization_id` filtering for multi-tenant isolation
 
 **Phase 1 (Post-MVP):**
 
@@ -695,12 +688,11 @@ Organization (optional, for multi-workspace)
 
 ### 8. Multi-Tenant Data Isolation
 
-**Implement like Supabase RLS:**
+**Multi-tenant isolation (if required):**
 
-- Every table has `owner_id` column (user who created record)
-- Optional `workspace_id` for workspace-level isolation
-- All queries filtered by current user's ownership/access
-- Return 404 (not 403) for unauthorized access attempts
+- Optional `organization_id` column for organization-level isolation
+- Queries can be filtered by organization context when needed
+- Return 404 (not 403) for unauthorized access attempts to prevent enumeration
 
 ### 9. Security Best Practices
 
