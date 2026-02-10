@@ -6,7 +6,6 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { Effect } from 'effect'
 import { SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
 import { validateTableName, validateColumnName } from './validation'
 
@@ -76,80 +75,82 @@ export async function cascadeSoftDelete(
 
 /**
  * Fetch record before deletion for activity logging
+ * Promise-based for transaction use
  */
-export function fetchRecordBeforeDeletion(
+export async function fetchRecordBeforeDeletion(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordId: string
-): Effect.Effect<Record<string, unknown> | undefined, SessionContextError> {
-  return Effect.tryPromise({
-    try: async () => {
-      const tableIdent = sql.identifier(tableName)
-      const recordBefore = (await tx.execute(
-        sql`SELECT * FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
-      )) as readonly Record<string, unknown>[]
-      return recordBefore[0]
-    },
-    catch: (error) => new SessionContextError(`Failed to fetch record before deletion`, error),
-  })
+): Promise<Record<string, unknown> | undefined> {
+  try {
+    const tableIdent = sql.identifier(tableName)
+    const recordBefore = (await tx.execute(
+      sql`SELECT * FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
+    )) as readonly Record<string, unknown>[]
+    return recordBefore[0]
+  } catch (error) {
+    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
+    throw new SessionContextError(`Failed to fetch record before deletion`, error)
+  }
 }
 
 /**
  * Execute soft delete operation
+ * Promise-based for transaction use
  */
-export function executeSoftDelete(
+export async function executeSoftDelete(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordId: string
-): Effect.Effect<boolean, SessionContextError> {
-  return Effect.tryPromise({
-    try: async () => {
-      const tableIdent = sql.identifier(tableName)
-      const result = (await tx.execute(
-        sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
-      )) as readonly Record<string, unknown>[]
-      return result.length > 0
-    },
-    catch: (error) =>
-      new SessionContextError(`Failed to delete record ${recordId} from ${tableName}`, error),
-  })
+): Promise<boolean> {
+  try {
+    const tableIdent = sql.identifier(tableName)
+    const result = (await tx.execute(
+      sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
+    )) as readonly Record<string, unknown>[]
+    return result.length > 0
+  } catch (error) {
+    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
+    throw new SessionContextError(`Failed to delete record ${recordId} from ${tableName}`, error)
+  }
 }
 
 /**
  * Execute hard delete operation
+ * Promise-based for transaction use
  */
-export function executeHardDelete(
+export async function executeHardDelete(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
   recordId: string
-): Effect.Effect<boolean, SessionContextError> {
-  return Effect.tryPromise({
-    try: async () => {
-      const tableIdent = sql.identifier(tableName)
-      const result = (await tx.execute(
-        sql`DELETE FROM ${tableIdent} WHERE id = ${recordId} RETURNING id`
-      )) as readonly Record<string, unknown>[]
-      return result.length > 0
-    },
-    catch: (error) =>
-      new SessionContextError(`Failed to delete record ${recordId} from ${tableName}`, error),
-  })
+): Promise<boolean> {
+  try {
+    const tableIdent = sql.identifier(tableName)
+    const result = (await tx.execute(
+      sql`DELETE FROM ${tableIdent} WHERE id = ${recordId} RETURNING id`
+    )) as readonly Record<string, unknown>[]
+    return result.length > 0
+  } catch (error) {
+    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
+    throw new SessionContextError(`Failed to delete record ${recordId} from ${tableName}`, error)
+  }
 }
 
 /**
  * Check if table has deleted_at column for soft delete support
+ * Promise-based for transaction use
  */
-export function checkDeletedAtColumn(
+export async function checkDeletedAtColumn(
   tx: Readonly<DrizzleTransaction>,
   tableName: string
-): Effect.Effect<boolean, SessionContextError> {
-  return Effect.tryPromise({
-    try: async () => {
-      const columnCheck = (await tx.execute(
-        sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
-      )) as readonly Record<string, unknown>[]
-      return columnCheck.length > 0
-    },
-    catch: (error) => new SessionContextError(`Failed to check columns for ${tableName}`, error),
-  })
+): Promise<boolean> {
+  try {
+    const columnCheck = (await tx.execute(
+      sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_at'`
+    )) as readonly Record<string, unknown>[]
+    return columnCheck.length > 0
+  } catch (error) {
+    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
+    throw new SessionContextError(`Failed to check columns for ${tableName}`, error)
+  }
 }

@@ -6,7 +6,6 @@
  */
 
 import { describe, test, expect } from 'bun:test'
-import { Effect } from 'effect'
 import {
   cascadeSoftDelete,
   fetchRecordBeforeDeletion,
@@ -395,8 +394,7 @@ describe('fetchRecordBeforeDeletion', () => {
         },
       }
 
-      const program = fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
-      const result = await Effect.runPromise(program)
+      const result = await fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
 
       expect(result).toEqual(mockRecord)
     })
@@ -411,8 +409,7 @@ describe('fetchRecordBeforeDeletion', () => {
         },
       }
 
-      const program = fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
-      await Effect.runPromise(program)
+      await fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
 
       // Verify query was executed (can't directly inspect sql.identifier but query should be defined)
       expect(executedQuery).toBeDefined()
@@ -425,8 +422,7 @@ describe('fetchRecordBeforeDeletion', () => {
         execute: async () => [],
       }
 
-      const program = fetchRecordBeforeDeletion(asTx(mockTx), 'users', '999')
-      const result = await Effect.runPromise(program)
+      const result = await fetchRecordBeforeDeletion(asTx(mockTx), 'users', '999')
 
       expect(result).toBeUndefined()
     })
@@ -440,13 +436,11 @@ describe('fetchRecordBeforeDeletion', () => {
         },
       }
 
-      const program = fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
-
       try {
-        await Effect.runPromise(program)
+        await fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
-        // Effect wraps errors in FiberFailure, check message contains SessionContextError text
+        // Promise rejection wraps the SessionContextError
         expect(error).toHaveProperty('message')
         expect((error as Error).message).toContain('Failed to fetch record before deletion')
       }
@@ -461,10 +455,8 @@ describe('fetchRecordBeforeDeletion', () => {
         },
       }
 
-      const program = fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
-
       try {
-        await Effect.runPromise(program)
+        await fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect((error as Error).message).toContain('Failed to fetch record before deletion')
@@ -483,8 +475,7 @@ describe('executeSoftDelete', () => {
         },
       }
 
-      const program = executeSoftDelete(asTx(mockTx), 'users', '123')
-      const result = await Effect.runPromise(program)
+      const result = await executeSoftDelete(asTx(mockTx), 'users', '123')
 
       expect(result).toBe(true)
     })
@@ -499,8 +490,7 @@ describe('executeSoftDelete', () => {
         },
       }
 
-      const program = executeSoftDelete(asTx(mockTx), 'users', '123')
-      await Effect.runPromise(program)
+      await executeSoftDelete(asTx(mockTx), 'users', '123')
 
       expect(executedQuery).toBeDefined()
     })
@@ -515,8 +505,7 @@ describe('executeSoftDelete', () => {
         },
       }
 
-      const program = executeSoftDelete(asTx(mockTx), 'users', '999')
-      const result = await Effect.runPromise(program)
+      const result = await executeSoftDelete(asTx(mockTx), 'users', '999')
 
       expect(result).toBe(false)
     })
@@ -530,10 +519,9 @@ describe('executeSoftDelete', () => {
         },
       }
 
-      const program = executeSoftDelete(asTx(mockTx), 'users', '123')
+      await executeSoftDelete(asTx(mockTx), 'users', '123')
 
       try {
-        await Effect.runPromise(program)
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect(error).toHaveProperty('message')
@@ -550,10 +538,9 @@ describe('executeSoftDelete', () => {
         },
       }
 
-      const program = executeSoftDelete(asTx(mockTx), 'users', '123')
+      await executeSoftDelete(asTx(mockTx), 'users', '123')
 
       try {
-        await Effect.runPromise(program)
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect((error as Error).message).toContain('Failed to delete record')
@@ -572,8 +559,7 @@ describe('executeHardDelete', () => {
         },
       }
 
-      const program = executeHardDelete(asTx(mockTx), 'users', '123')
-      const result = await Effect.runPromise(program)
+      const result = await executeHardDelete(asTx(mockTx), 'users', '123')
 
       expect(result).toBe(true)
     })
@@ -588,8 +574,7 @@ describe('executeHardDelete', () => {
         },
       }
 
-      const program = executeHardDelete(asTx(mockTx), 'users', '123')
-      await Effect.runPromise(program)
+      await executeHardDelete(asTx(mockTx), 'users', '123')
 
       expect(executedQuery).toBeDefined()
     })
@@ -604,8 +589,7 @@ describe('executeHardDelete', () => {
         },
       }
 
-      const program = executeHardDelete(asTx(mockTx), 'users', '999')
-      const result = await Effect.runPromise(program)
+      const result = await executeHardDelete(asTx(mockTx), 'users', '999')
 
       expect(result).toBe(false)
     })
@@ -619,10 +603,9 @@ describe('executeHardDelete', () => {
         },
       }
 
-      const program = executeHardDelete(asTx(mockTx), 'users', '123')
+      await executeHardDelete(asTx(mockTx), 'users', '123')
 
       try {
-        await Effect.runPromise(program)
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect(error).toHaveProperty('message')
@@ -639,10 +622,9 @@ describe('executeHardDelete', () => {
         },
       }
 
-      const program = executeHardDelete(asTx(mockTx), 'users', '123')
+      await executeHardDelete(asTx(mockTx), 'users', '123')
 
       try {
-        await Effect.runPromise(program)
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect((error as Error).message).toContain('Failed to delete record')
@@ -661,8 +643,7 @@ describe('checkDeletedAtColumn', () => {
         },
       }
 
-      const program = checkDeletedAtColumn(asTx(mockTx), 'users')
-      const result = await Effect.runPromise(program)
+      const result = await checkDeletedAtColumn(asTx(mockTx), 'users')
 
       expect(result).toBe(true)
     })
@@ -677,8 +658,7 @@ describe('checkDeletedAtColumn', () => {
         },
       }
 
-      const program = checkDeletedAtColumn(asTx(mockTx), 'users')
-      const result = await Effect.runPromise(program)
+      const result = await checkDeletedAtColumn(asTx(mockTx), 'users')
 
       expect(result).toBe(false)
     })
@@ -692,10 +672,9 @@ describe('checkDeletedAtColumn', () => {
         },
       }
 
-      const program = checkDeletedAtColumn(asTx(mockTx), 'users')
+      await checkDeletedAtColumn(asTx(mockTx), 'users')
 
       try {
-        await Effect.runPromise(program)
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect(error).toHaveProperty('message')
@@ -712,10 +691,9 @@ describe('checkDeletedAtColumn', () => {
         },
       }
 
-      const program = checkDeletedAtColumn(asTx(mockTx), 'users')
+      await checkDeletedAtColumn(asTx(mockTx), 'users')
 
       try {
-        await Effect.runPromise(program)
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect((error as Error).message).toContain('Failed to check columns')

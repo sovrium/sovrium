@@ -133,14 +133,10 @@ export function updateRecord(
         db.transaction(async (tx) => {
           validateTableName(tableName)
 
-          const entries = await Effect.runPromise(validateFieldsNotEmpty(fields))
-          const before = await Effect.runPromise(
-            fetchRecordBeforeUpdateCRUD(tx, tableName, recordId)
-          )
+          const entries = await validateFieldsNotEmpty(fields)
+          const before = await fetchRecordBeforeUpdateCRUD(tx, tableName, recordId)
           const setClause = buildUpdateSetClauseCRUD(entries)
-          const updated = await Effect.runPromise(
-            executeRecordUpdateCRUD(tx, tableName, recordId, setClause)
-          )
+          const updated = await executeRecordUpdateCRUD(tx, tableName, recordId, setClause)
           return { recordBefore: before, updatedRecord: updated }
         }),
       catch: (error) =>
@@ -204,16 +200,14 @@ export function deleteRecord(
           validateTableName(tableName)
 
           // Check if table supports soft delete
-          const hasSoftDelete = await Effect.runPromise(checkDeletedAtColumn(tx, tableName))
+          const hasSoftDelete = await checkDeletedAtColumn(tx, tableName)
 
           // Fetch record before deletion for activity logging
-          const recordBeforeData = await Effect.runPromise(
-            fetchRecordBeforeDeletion(tx, tableName, recordId)
-          )
+          const recordBeforeData = await fetchRecordBeforeDeletion(tx, tableName, recordId)
 
           if (hasSoftDelete) {
             // Execute soft delete
-            const success = await Effect.runPromise(executeSoftDelete(tx, tableName, recordId))
+            const success = await executeSoftDelete(tx, tableName, recordId)
 
             if (!success) {
               return { success: false, recordBeforeData: undefined }
@@ -228,7 +222,7 @@ export function deleteRecord(
             return { success: true, recordBeforeData }
           } else {
             // Execute hard delete
-            const success = await Effect.runPromise(executeHardDelete(tx, tableName, recordId))
+            const success = await executeHardDelete(tx, tableName, recordId)
             return { success, recordBeforeData: undefined }
           }
         }),
@@ -278,12 +272,10 @@ export function permanentlyDeleteRecord(
           validateTableName(tableName)
 
           // Fetch record before deletion for activity logging
-          const recordBeforeData = await Effect.runPromise(
-            fetchRecordBeforeDeletion(tx, tableName, recordId)
-          )
+          const recordBeforeData = await fetchRecordBeforeDeletion(tx, tableName, recordId)
 
           // Execute hard delete
-          const success = await Effect.runPromise(executeHardDelete(tx, tableName, recordId))
+          const success = await executeHardDelete(tx, tableName, recordId)
 
           return { success, recordBeforeData: success ? recordBeforeData : undefined }
         }),
