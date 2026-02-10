@@ -29,9 +29,8 @@ pages:
         - src: 'https://cdn.example.com/lib.js'
           async: true
       inlineScripts:
-        - id: init
-          trigger: load
-          code: 'console.log("App initialized")'
+        - code: 'console.log("App initialized")'
+          position: body-end
     sections: []
 ```
 
@@ -163,20 +162,17 @@ pages:
     path: /landing
     scripts:
       inlineScripts:
-        - id: gtag-init
-          trigger: load
-          code: |
+        - code: |
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
             gtag('config', 'G-XXXXXXXXXX');
-        - id: page-log
-          trigger: load
-          code: 'console.log("Page loaded")'
+          position: head
+        - code: 'console.log("Page loaded")'
+          position: body-end
           async: true
-        - id: app-config
-          trigger: load
-          code: 'window.APP_CONFIG = { apiUrl: "/api" }'
+        - code: 'window.APP_CONFIG = { apiUrl: "/api" }'
+          position: body-start
     sections: []
 ```
 

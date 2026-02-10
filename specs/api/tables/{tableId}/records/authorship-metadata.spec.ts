@@ -15,9 +15,9 @@ import { test, expect } from '@/specs/fixtures'
  * Spec Count: 23
  *
  * Authorship Metadata Behavior:
- * - created_by: Auto-set to current user ID on record creation, immutable
- * - updated_by: Auto-set to current user ID on record creation and updates
- * - deleted_by: Auto-set to current user ID on soft delete, cleared on restore
+ * - createdBy: Auto-set to current user ID on record creation, immutable
+ * - updatedBy: Auto-set to current user ID on record creation and updates
+ * - deletedBy: Auto-set to current user ID on soft delete, cleared on restore
  * - All authorship fields are read-only via the API (user-provided values ignored)
  * - When no auth configured, authorship fields are NULL
  * - Fields reference Better Auth's users table (TEXT id / UUID)
@@ -120,7 +120,7 @@ test.describe('Record Authorship Metadata', () => {
       // THEN: Response includes created_by field with user ID
       expect(response.status()).toBe(201)
       const data = await response.json()
-      expect(data.created_by).toBe(user.id)
+      expect(data.createdBy).toBe(user.id)
     }
   )
 
@@ -402,7 +402,7 @@ test.describe('Record Authorship Metadata', () => {
       // THEN: Response includes updated_by field
       expect(response.status()).toBe(200)
       const data = await response.json()
-      expect(data.updated_by).toBe(user.id)
+      expect(data.updatedBy).toBe(user.id)
     }
   )
 
@@ -579,8 +579,8 @@ test.describe('Record Authorship Metadata', () => {
       expect(response.status()).toBe(200)
       const data = await response.json()
       expect(data.records).toHaveLength(1)
-      expect(data.records[0].deleted_by).toBeDefined()
-      expect(data.records[0].deleted_by.id).toBe(user.id)
+      expect(data.records[0].deletedBy).toBeDefined()
+      expect(data.records[0].deletedBy.id).toBe(user.id)
     }
   )
 
@@ -1071,7 +1071,7 @@ test.describe('Record Authorship Metadata', () => {
       // THEN: Response includes created_by field
       expect(response.status()).toBe(200)
       const data = await response.json()
-      expect(data.created_by).toBe(user.id)
+      expect(data.createdBy).toBe(user.id)
     }
   )
 
@@ -1118,7 +1118,7 @@ test.describe('Record Authorship Metadata', () => {
       // THEN: Response includes updated_by field
       expect(response.status()).toBe(200)
       const data = await response.json()
-      expect(data.updated_by).toBe(user.id)
+      expect(data.updatedBy).toBe(user.id)
     }
   )
 
@@ -1167,8 +1167,8 @@ test.describe('Record Authorship Metadata', () => {
       expect(data.records.length).toBeGreaterThanOrEqual(2)
 
       for (const record of data.records) {
-        expect(record.created_by).toBe(user.id)
-        expect(record.updated_by).toBe(user.id)
+        expect(record.createdBy).toBe(user.id)
+        expect(record.updatedBy).toBe(user.id)
       }
     }
   )
@@ -1221,7 +1221,7 @@ test.describe('Record Authorship Metadata', () => {
         expect(response.status()).toBe(201)
 
         const data = await response.json()
-        expect(data.created_by).toBe(alice.id)
+        expect(data.createdBy).toBe(alice.id)
       })
 
       await test.step('API-TABLES-RECORDS-AUTHORSHIP-007: updated_by equals created_by on initial creation', async () => {
@@ -1325,8 +1325,8 @@ test.describe('Record Authorship Metadata', () => {
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data.created_by).toBeDefined()
-        expect(data.updated_by).toBeDefined()
+        expect(data.createdBy).toBeDefined()
+        expect(data.updatedBy).toBeDefined()
       })
 
       await test.step('API-TABLES-RECORDS-AUTHORSHIP-023: authorship fields in list response', async () => {
@@ -1336,8 +1336,8 @@ test.describe('Record Authorship Metadata', () => {
         const data = await response.json()
         expect(data.records.length).toBeGreaterThanOrEqual(1)
         for (const record of data.records) {
-          expect(record.created_by).toBeDefined()
-          expect(record.updated_by).toBeDefined()
+          expect(record.createdBy).toBeDefined()
+          expect(record.updatedBy).toBeDefined()
         }
       })
     }

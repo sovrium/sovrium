@@ -26,25 +26,25 @@ pages:
     name: home
     path: /
     sections:
-      - id: hero
-        type: hero
+      - type: hero
         props:
+          id: hero
           title: Welcome to My App
   - id: 2
     name: about
     path: /about
     sections:
-      - id: about-content
-        type: content
+      - type: content
         props:
+          id: about-content
           body: About us content here
   - id: 3
     name: contact
     path: /contact
     sections:
-      - id: contact-form
-        type: contact
+      - type: contact
         props:
+          id: contact-form
           formId: contact-form
 ```
 
@@ -215,25 +215,25 @@ pages:
     name: home
     path: /
     sections:
-      - id: hero
-        type: hero
+      - type: hero
         props:
+          id: hero
           title: Welcome
           subtitle: Build amazing apps
           cta:
             text: Get Started
             link: /signup
-      - id: features
-        type: features
+      - type: features
         props:
+          id: features
           items:
             - title: Fast
               icon: zap
             - title: Secure
               icon: shield
-      - id: testimonials
-        type: testimonials
+      - type: testimonials
         props:
+          id: testimonials
           heading: What our users say
 ```
 

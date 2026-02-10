@@ -72,9 +72,9 @@ pages:
   - name: dashboard
     path: /dashboard
     sections:
-      - id: hero
-        type: hero
+      - type: hero
         props:
+          id: hero
           title: 'Welcome to $appName'
           subtitle: 'Your dashboard'
           showCta: true
@@ -120,9 +120,9 @@ pages:
   - name: home
     path: /home
     sections:
-      - id: navigation
-        type: custom
+      - type: custom
         props:
+          id: navigation
           showSearch: false
           responsive:
             sm:
@@ -177,14 +177,14 @@ pages:
   - name: about
     path: /about
     sections:
-      - id: heading
-        type: custom
+      - type: custom
         props:
+          id: heading
           title: 'Welcome to $appName'
           subtitle: 'Contact us at $supportEmail'
-      - id: footer
-        type: custom
+      - type: custom
         props:
+          id: footer
           copyright: 'Copyright $currentYear $appName'
           links:
             - text: 'Email: $supportEmail'

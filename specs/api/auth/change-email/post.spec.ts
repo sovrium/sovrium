@@ -408,6 +408,13 @@ test.describe('Change email address', () => {
         const data = await response.json()
         expect(data).toHaveProperty('status', true)
 
+        // CRITICAL: Wait for Better Auth background tasks to execute before checking email.
+        // Better Auth has backgroundTasks.enabled=true which defers email sending via setImmediate
+        // after the HTTP response is sent. This prevents race conditions where waitForEmail
+        // starts polling before the background task begins executing.
+        // 200ms is conservative enough for the event loop to process the deferred task.
+        await page.waitForTimeout(200)
+
         // Verify email was sent to the NEW email address with custom subject
         const email = await mailpit.waitForEmail(
           (e) => e.To[0]?.Address === newWorkflowEmail && e.Subject.includes('TestApp')

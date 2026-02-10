@@ -702,6 +702,14 @@ function extractValidPaths(
 
     const resolved = resolve(node)
 
+    // Schema.Unknown fields accept any sub-key (e.g., structuredData, analytics custom config).
+    // These serialize as {"$id": "/schemas/unknown", "title": "unknown"} with no properties/items.
+    if (resolved['$id'] === '/schemas/unknown' && currentPrefix) {
+      recordPaths.add(currentPrefix)
+      if (defKey) expandingDefs.delete(defKey) // eslint-disable-line drizzle/enforce-delete-with-where -- Set.delete(), not Drizzle
+      return
+    }
+
     // Handle properties directly
     const props = resolved['properties'] as Record<string, unknown> | undefined
     if (props) {

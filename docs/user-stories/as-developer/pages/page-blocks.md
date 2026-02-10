@@ -22,24 +22,26 @@ Blocks in Sovrium are reusable content components that can be included in page s
 
 ```yaml
 blocks:
-  - id: 1
-    name: cta-banner
+  - name: cta-banner
     type: banner
-    content:
-      title: '{{title}}'
-      description: '{{description}}'
-      button:
-        text: '{{buttonText}}'
-        link: '{{buttonLink}}'
+    children:
+      - type: heading
+        content: '$title'
+      - type: paragraph
+        content: '$description'
+      - type: button
+        content: '$buttonText'
+        props:
+          href: '$buttonLink'
 
 pages:
   - id: 1
     name: home
     path: /
     sections:
-      - id: cta
-        type: cta
+      - type: cta
         props:
+          id: cta
           block: cta-banner
           variables:
             title: Get Started Today
@@ -79,23 +81,28 @@ pages:
 
 ```yaml
 blocks:
-  - id: 1
-    name: feature-card
+  - name: feature-card
     type: card
-    content:
-      icon: '{{icon}}'
-      title: '{{title}}'
-      description: '{{description}}'
-      link: "{{link | default: '#'}}" # With default value
+    children:
+      - type: icon
+        content: '$icon'
+      - type: heading
+        content: '$title'
+      - type: paragraph
+        content: '$description'
+      - type: link
+        content: 'Learn more'
+        props:
+          href: "$link | default: '#'" # With default value
 
 pages:
   - id: 1
     name: features
     path: /features
     sections:
-      - id: feature
-        type: custom
+      - type: custom
         props:
+          id: feature
           block: feature-card
           variables:
             icon: rocket
@@ -134,19 +141,19 @@ pages:
 
 ```yaml
 languages:
-  - code: en
-    name: English
-    default: true
-  - code: fr
-    name: Français
-  - code: es
-    name: Español
+  default: en
+  supported:
+    - locale: en
+      label: English
+    - locale: fr
+      label: Français
+    - locale: es
+      label: Español
 
 blocks:
-  - id: 100
-    name: lang-switcher
+  - name: lang-switcher
     type: language-switcher
-    content:
+    props:
       style: dropdown # dropdown | flags | list
       showNames: true
       showFlags: true
@@ -156,9 +163,9 @@ pages:
     name: home
     path: /
     sections:
-      - id: lang
-        type: custom
+      - type: custom
         props:
+          id: lang
           block: lang-switcher
 ```
 
@@ -187,18 +194,17 @@ pages:
 
 ```yaml
 blocks:
-  - id: 1
-    name: card-with-children
+  - name: card-with-children
     type: section
     children:
       - type: heading
-        content: '{{title}}'
+        content: '$title'
       - type: text
-        content: '{{description}}'
+        content: '$description'
       - type: button
-        content:
-          text: '{{buttonText}}'
-          link: '{{buttonLink}}'
+        content: '$buttonText'
+        props:
+          href: '$buttonLink'
 ```
 
 ### Acceptance Criteria
@@ -233,8 +239,7 @@ blocks:
 
 ```yaml
 blocks:
-  - id: 1
-    name: styled-card
+  - name: styled-card
     type: card
     props:
       className: featured-card
@@ -281,27 +286,27 @@ blocks:
 
 ```yaml
 blocks:
-  - id: 1
-    name: hero-section
+  - name: hero-section
     type: hero
-    content:
-      title: '{{title}}'
+    children:
+      - type: heading
+        content: '$title'
 
 pages:
   - id: 1
     name: home
     path: /
     sections:
-      - id: hero-1
-        type: custom
+      - type: custom
         props:
+          id: hero-1
           block: hero-section # Reference by name
           variables:
             title: Welcome Home
-      - id: hero-2
-        type: custom
+      - type: custom
         props:
-          block: 1 # Reference by ID
+          id: hero-2
+          block: hero-section # Reference by name
           variables:
             title: Welcome Again
 ```

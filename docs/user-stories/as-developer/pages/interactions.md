@@ -24,9 +24,9 @@ pages:
   - name: home
     path: /
     sections:
-      - id: cta-button
-        type: custom
+      - type: custom
         props:
+          id: cta-button
           interactions:
             click:
               animation: pulse # pulse | ripple | bounce
@@ -73,9 +73,9 @@ pages:
   - name: home
     path: /
     sections:
-      - id: hover-button
-        type: custom
+      - type: custom
         props:
+          id: hover-button
           interactions:
             hover:
               transform: scale(1.05) # CSS transform
@@ -121,9 +121,9 @@ pages:
   - name: home
     path: /
     sections:
-      - id: animated-section
-        type: custom
+      - type: custom
         props:
+          id: animated-section
           interactions:
             entrance:
               animation: fadeIn # fadeIn | fadeInUp | fadeInDown | zoomIn | slideIn
@@ -165,9 +165,9 @@ pages:
   - name: home
     path: /
     sections:
-      - id: scroll-section
-        type: custom
+      - type: custom
         props:
+          id: scroll-section
           interactions:
             scroll:
               animation: fadeInUp # fadeIn | fadeInUp | fadeInDown | zoomIn | slideIn
@@ -213,9 +213,9 @@ pages:
   - name: home
     path: /
     sections:
-      - id: interactive-button
-        type: custom
+      - type: custom
         props:
+          id: interactive-button
           interactions:
             entrance:
               animation: fadeIn

@@ -29,19 +29,22 @@ pages:
     meta:
       title: Sovrium
     sections:
-      - id: navigation
-        type: custom
+      - type: custom
         props:
+          id: navigation
           component: navigation
-      - id: hero
-        type: hero
-      - id: features
-        type: features
-      - id: cta
-        type: cta
-      - id: footer
-        type: custom
+      - type: hero
         props:
+          id: hero
+      - type: features
+        props:
+          id: features
+      - type: cta
+        props:
+          id: cta
+      - type: custom
+        props:
+          id: footer
           component: footer
 languages:
   default: en-US

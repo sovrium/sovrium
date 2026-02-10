@@ -84,9 +84,9 @@ pages:
     name: home
     path: /
     sections:
-      - id: cta
-        type: cta
+      - type: cta
         props:
+          id: cta
           heading: Get Started Today
           subheading: Join thousands of users building amazing apps
           primaryButton:
