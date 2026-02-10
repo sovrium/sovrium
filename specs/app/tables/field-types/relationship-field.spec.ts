@@ -1058,7 +1058,7 @@ test.describe('Relationship Field', () => {
                 name: 'assignee_id',
                 type: 'relationship',
                 relatedTable: 'contacts',
-                displayField: ['first_name', 'last_name'],
+                displayField: 'first_name',
               },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },

@@ -141,7 +141,7 @@ test.describe('Progress Field', () => {
                 id: 2,
                 name: 'completion',
                 type: 'progress',
-                defaultValue: 50,
+                default: 50,
               },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },

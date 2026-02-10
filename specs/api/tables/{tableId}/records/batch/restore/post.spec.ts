@@ -310,7 +310,7 @@ test.describe('Batch Restore records', () => {
       const restored = await executeQuery(
         `SELECT id, deleted_at FROM tasks WHERE id IN (${deleted.map((r: any) => r.id).join(',')})`
       )
-      for (const record of restored) {
+      for (const record of restored.rows) {
         expect(record.deleted_at).toBeNull()
       }
     }

@@ -84,6 +84,56 @@ export const TablePermissionsSchema = Schema.Struct({
    * ```
    */
   fields: Schema.optional(TableFieldPermissionsSchema),
+
+  /**
+   * INHERIT — inherit permissions from a parent table by name.
+   *
+   * When set, this table inherits all permissions from the specified parent table.
+   * Any explicitly defined permissions on this table take precedence over inherited ones.
+   * Circular inheritance chains are detected and rejected at configuration time.
+   *
+   * @example Inherit permissions from parent table
+   * ```yaml
+   * permissions:
+   *   inherit: articles
+   * ```
+   *
+   * @future Not yet implemented — target design for permission inheritance feature.
+   */
+  inherit: Schema.optional(
+    Schema.String.pipe(
+      Schema.nonEmptyString({ message: () => 'inherit table name must not be empty' }),
+      Schema.annotations({
+        description: 'Name of the parent table to inherit permissions from',
+      })
+    )
+  ),
+
+  /**
+   * OVERRIDE — override specific inherited permissions.
+   *
+   * Only meaningful when `inherit` is set. Allows overriding specific
+   * permission operations from the parent table while inheriting the rest.
+   *
+   * @example Override read permission from inherited parent
+   * ```yaml
+   * permissions:
+   *   inherit: articles
+   *   override:
+   *     read: ['admin']
+   * ```
+   *
+   * @future Not yet implemented — target design for permission inheritance feature.
+   */
+  override: Schema.optional(
+    Schema.Struct({
+      read: Schema.optional(TablePermissionSchema),
+      comment: Schema.optional(TablePermissionSchema),
+      create: Schema.optional(TablePermissionSchema),
+      update: Schema.optional(TablePermissionSchema),
+      delete: Schema.optional(TablePermissionSchema),
+    })
+  ),
 }).pipe(
   Schema.annotations({
     title: 'Table Permissions',
