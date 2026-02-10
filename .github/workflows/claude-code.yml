@@ -40,6 +40,7 @@ jobs:
       is-valid: ${{ steps.validate.outputs.is-valid }}
       pr-number: ${{ github.event.issue.number }}
       pr-branch: ${{ steps.pr-info.outputs.branch }}
+      pr-title: ${{ steps.pr-info.outputs.title }}
       agent-type: ${{ steps.parse.outputs.agent-type }}
       spec-file: ${{ steps.parse.outputs.spec-file }}
       spec-id: ${{ steps.parse.outputs.spec-id }}
@@ -51,12 +52,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          PR_DATA=$(gh pr view "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --json headRefName,labels)
+          PR_DATA=$(gh pr view "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --json headRefName,labels,title)
           BRANCH=$(echo "$PR_DATA" | jq -r '.headRefName')
+          TITLE=$(echo "$PR_DATA" | jq -r '.title')
           HAS_LABEL=$(echo "$PR_DATA" | jq -r '.labels[].name' | grep -c "tdd-automation" || echo "0")
           IS_TDD_BRANCH=$(echo "$BRANCH" | grep -c "^tdd/" || echo "0")
 
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
 
           if [ "$HAS_LABEL" -gt 0 ] || [ "$IS_TDD_BRANCH" -gt 0 ]; then
             echo "is-tdd=true" >> "$GITHUB_OUTPUT"
@@ -418,6 +421,39 @@ jobs:
           # Exit workflow early (don't run Claude Code on conflicts)
           exit 1
 
+      - name: Determine model and budget
+        id: model-config
+        env:
+          PR_TITLE: ${{ needs.validate.outputs.pr-title }}
+        run: |
+          # Parse PR title to extract attempt number
+          # Title format: [TDD] Implement <spec-id> | Attempt X/Y
+          if [[ "$PR_TITLE" =~ Attempt\ ([0-9]+)/([0-9]+) ]]; then
+            ATTEMPT="${BASH_REMATCH[1]}"
+            MAX_ATTEMPTS="${BASH_REMATCH[2]}"
+            echo "📊 Attempt $ATTEMPT of $MAX_ATTEMPTS"
+          else
+            # Default to attempt 1 if title format is not recognized
+            ATTEMPT=1
+            MAX_ATTEMPTS=5
+            echo "⚠️ Could not parse attempt number from PR title, defaulting to attempt 1"
+          fi
+
+          # Model escalation: Sonnet for attempts 1-3, Opus for attempts 4-5
+          if [ "$ATTEMPT" -le 3 ]; then
+            MODEL="claude-sonnet-4-5"
+            BUDGET="10.00"
+            echo "🧠 Using Claude Sonnet 4.5 (attempt $ATTEMPT/3, \$10 budget)"
+          else
+            MODEL="claude-opus-4-6"
+            BUDGET="15.00"
+            echo "🚀 Using Claude Opus 4.6 (attempt $ATTEMPT, \$15 budget) - escalated for hard spec"
+          fi
+
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+          echo "budget=$BUDGET" >> "$GITHUB_OUTPUT"
+          echo "attempt=$ATTEMPT" >> "$GITHUB_OUTPUT"
+
       - name: Configure agent
         id: agent-config
         env:
@@ -473,7 +509,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: ${{ steps.agent-config.outputs.prompt }}
-          claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd 10.00
+          claude_args: ${{ steps.agent-config.outputs.claude-args }} --model ${{ steps.model-config.outputs.model }} --max-budget-usd ${{ steps.model-config.outputs.budget }}
           track_progress: true
           use_sticky_comment: true
 
@@ -486,7 +522,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: ${{ steps.agent-config.outputs.prompt }}
-          claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd 10.00
+          claude_args: ${{ steps.agent-config.outputs.claude-args }} --model ${{ steps.model-config.outputs.model }} --max-budget-usd ${{ steps.model-config.outputs.budget }}
           track_progress: true
           use_sticky_comment: true
 
