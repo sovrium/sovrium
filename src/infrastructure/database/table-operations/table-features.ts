@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { sanitizeTableName } from '../field-utils'
 import { createVolatileFormulaTriggers } from '../formula-trigger-generators'
 import { generateIndexStatements } from '../index-generators'
 import { shouldUseView, getBaseTableName } from '../lookup-view-generators'
@@ -36,8 +37,10 @@ export const applyTableFeatures = (
   table: Table
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
+    // Sanitize table name for PostgreSQL
+    const sanitized = sanitizeTableName(table.name)
     // Determine actual table name (base table if using VIEW)
-    const physicalTableName = shouldUseView(table) ? getBaseTableName(table.name) : table.name
+    const physicalTableName = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
 
     // Create table object with physical table name for trigger generation
     const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
@@ -70,8 +73,10 @@ export const applyTableFeaturesWithoutIndexes = (
   table: Table
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
+    // Sanitize table name for PostgreSQL
+    const sanitized = sanitizeTableName(table.name)
     // Determine actual table name (base table if using VIEW)
-    const physicalTableName = shouldUseView(table) ? getBaseTableName(table.name) : table.name
+    const physicalTableName = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
 
     // Create table object with physical table name for trigger generation
     const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table

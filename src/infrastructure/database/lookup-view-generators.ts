@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { sanitizeTableName } from './field-utils'
 import {
   generateReverseLookupExpression,
   generateManyToManyLookupExpression,
@@ -334,12 +335,14 @@ export const generateLookupViewSQL = (table: Table): string => {
     return '' // No lookup, rollup, or count fields - no VIEW needed
   }
 
+  const sanitized = sanitizeTableName(table.name)
+
   // Always include base.* to get all columns from the base table (including auto-generated id)
   const baseFieldsWildcard = 'base.*'
 
   // Generate expressions for lookup, rollup, and count fields
   const lookupExpressions = lookupFields.map((field) =>
-    generateLookupExpression(field, 'base', table.fields, table.name)
+    generateLookupExpression(field, 'base', table.fields, sanitized)
   )
   const rollupExpressions = rollupFields.map((field) =>
     generateRollupExpression(field, 'base', table.fields)
@@ -359,10 +362,10 @@ export const generateLookupViewSQL = (table: Table): string => {
     ...countExpressions,
   ].join(',\n    ')
 
-  return `CREATE OR REPLACE VIEW ${table.name} AS
+  return `CREATE OR REPLACE VIEW ${sanitized} AS
   SELECT
     ${selectClause}
-  FROM ${table.name}_base AS base
+  FROM ${sanitized}_base AS base
   ${joins ? joins : ''}`
 }
 
@@ -387,8 +390,9 @@ export const generateLookupViewTriggers = (table: Table): readonly string[] => {
     return [] // No VIEW, no triggers needed
   }
 
-  const baseTableName = getBaseTableName(table.name)
-  const viewName = table.name
+  const sanitized = sanitizeTableName(table.name)
+  const baseTableName = getBaseTableName(sanitized)
+  const viewName = sanitized
   const baseFields = getBaseFields(table)
 
   return [
