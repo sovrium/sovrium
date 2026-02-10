@@ -8,9 +8,20 @@
 import { test, expect } from '@/specs/fixtures'
 
 /**
- * E2E Tests for Table-Level Permissions
+ * E2E Tests for Table-Level Permissions (API-Level Enforcement)
  *
- * Source: src/domain/models/app/table/permissions/index.ts
+ * PURPOSE: Verify table-level read permissions are enforced at the API layer
+ *
+ * TESTING STRATEGY:
+ * - Tests authenticate as different roles (member, viewer, admin)
+ * - Make HTTP requests to /api/tables/{id}/records
+ * - Assert on HTTP status codes (200 = allowed, 403 = denied, 401 = unauthenticated)
+ *
+ * PERMISSION BEHAVIOR:
+ * - read: string[] (e.g. ['member']) → Only listed roles + admin can read; viewer denied
+ * - read: 'all' / 'authenticated' → Admin and member can read; viewer denied by default
+ * - permissions: {} (no read) → Admin and member can read (default allow); viewer denied
+ *
  * Domain: app
  * Spec Count: 3
  *
@@ -25,9 +36,16 @@ test.describe('Table-Level Permissions', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-TABLE-PERMISSIONS-001: should grant SELECT access to user with member role when table has role-based read permission',
+    'APP-TABLES-TABLE-PERMISSIONS-001: should allow member and deny viewer when table has role-based read permission',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+    async ({
+      request,
+      startServerWithSchema,
+      executeQuery,
+      createAuthenticatedUser,
+      createAuthenticatedViewer,
+      signOut,
+    }) => {
       // GIVEN: table with role-based read permission for 'member' role
       await startServerWithSchema({
         name: 'test-app',
@@ -41,7 +59,6 @@ test.describe('Table-Level Permissions', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'created_by', type: 'user' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
@@ -51,67 +68,46 @@ test.describe('Table-Level Permissions', () => {
         ],
       })
 
-      // Create test users
-      const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
-      const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
+      // Insert test data
+      await executeQuery(`INSERT INTO projects (title) VALUES ('Project Alpha'), ('Project Beta')`)
 
-      await executeQuery([
-        'ALTER TABLE projects ENABLE ROW LEVEL SECURITY',
-        "CREATE POLICY member_read ON projects FOR SELECT USING (auth.user_has_role('member'))",
-        `INSERT INTO projects (title, created_by) VALUES ('Project 1', '${user1.user.id}'), ('Project 2', '${user2.user.id}')`,
-      ])
+      // Create member user (default role) and verify access
+      await createAuthenticatedUser({ email: 'member@example.com' })
 
-      // WHEN: user with 'member' role requests records
-      // THEN: PostgreSQL RLS policy grants SELECT access
+      // WHEN: member requests records via API
+      const memberResponse = await request.get('/api/tables/1/records')
 
-      // RLS policy exists for member role
-      const policyCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='projects' AND policyname='member_read'"
-      )
-      // THEN: assertion
-      expect(policyCount.count).toBe('1')
+      // THEN: member gets 200 with records
+      expect(memberResponse.status()).toBe(200)
+      const memberData = await memberResponse.json()
+      expect(memberData.records).toHaveLength(2)
+      expect(memberData.records[0].fields).toHaveProperty('title', 'Project Alpha')
 
-      // Policy uses USING clause for SELECT
-      const policyDetails = await executeQuery(
-        "SELECT cmd, qual FROM pg_policies WHERE tablename='projects' AND policyname='member_read'"
-      )
-      // THEN: assertion
-      expect(policyDetails).toMatchObject({
-        cmd: 'SELECT',
-        qual: "auth.user_has_role('member'::text)",
-      })
+      // Sign out member, create viewer
+      await signOut()
+      await createAuthenticatedViewer({ email: 'viewer@example.com' })
 
-      // Member user can SELECT records
-      const memberResult = await executeQuery([
-        'SET ROLE member_user',
-        "SET app.user_role = 'member'",
-        'SELECT COUNT(*) as count FROM projects',
-      ])
-      // THEN: assertion
-      expect(memberResult.count).toBe('2')
+      // WHEN: viewer requests records via API
+      const viewerResponse = await request.get('/api/tables/1/records')
 
-      // Non-member user cannot SELECT records (RLS filters to 0 rows)
-      // Note: RLS doesn't throw errors - it returns 0 rows when policy denies access
-      // THEN: assertion
-      const guestResult = await executeQuery([
-        'SET ROLE guest_user',
-        "SET app.user_role = 'guest'",
-        'SELECT COUNT(*) as count FROM projects',
-      ])
-      expect(guestResult.count).toBe('0')
+      // THEN: viewer gets 403 Forbidden (not in read: ['member'] list)
+      expect(viewerResponse.status()).toBe(403)
     }
   )
 
   test(
-    'APP-TABLES-TABLE-PERMISSIONS-002: should allow SELECT without RLS policy when table has public read permission',
+    'APP-TABLES-TABLE-PERMISSIONS-002: should allow authenticated users when table has public read permission',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: table with public read permission
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+      // GIVEN: table with 'all' read permission (public access for authenticated users)
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+        },
         tables: [
           {
-            id: 3,
+            id: 1,
             name: 'articles',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
@@ -126,52 +122,46 @@ test.describe('Table-Level Permissions', () => {
         ],
       })
 
-      await executeQuery([
-        "INSERT INTO articles (title, content) VALUES ('Article 1', 'Content 1'), ('Article 2', 'Content 2')",
-      ])
-
-      // WHEN: unauthenticated user requests records
-      // THEN: PostgreSQL allows SELECT without RLS policy (public access)
-
-      // RLS is not enabled for public tables
-      const rlsStatus = await executeQuery(
-        "SELECT relrowsecurity FROM pg_class WHERE relname='articles'"
+      // Insert test data
+      await executeQuery(
+        `INSERT INTO articles (title, content) VALUES ('Article 1', 'Content 1'), ('Article 2', 'Content 2')`
       )
-      // THEN: assertion
-      expect(rlsStatus.relrowsecurity).toBe(false)
 
-      // No RLS policies exist
-      const policyCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='articles'"
-      )
-      // THEN: assertion
-      expect(policyCount.count).toBe('0')
+      // Create authenticated member user
+      await createAuthenticatedUser({ email: 'member@example.com' })
 
-      // Any user can SELECT records
-      const anyUserResult = await executeQuery('SELECT COUNT(*) as count FROM articles')
-      // THEN: assertion
-      expect(anyUserResult.count).toBe('2')
+      // WHEN: authenticated member requests records via API
+      const response = await request.get('/api/tables/1/records')
 
-      // Unauthenticated session can SELECT records
-      const unauthResult = await executeQuery([
-        'RESET ROLE',
-        'SELECT COUNT(*) as count FROM articles',
-      ])
-      // THEN: assertion
-      expect(unauthResult.count).toBe('2')
+      // THEN: member gets 200 with all records
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data.records).toHaveLength(2)
+      expect(data.records[0].fields).toHaveProperty('title', 'Article 1')
+      expect(data.records[1].fields).toHaveProperty('title', 'Article 2')
     }
   )
 
   test(
-    'APP-TABLES-TABLE-PERMISSIONS-003: should deny all SELECT access by default when table has no read permission specified',
+    'APP-TABLES-TABLE-PERMISSIONS-003: should allow member and deny viewer when table has no read permission specified',
     { tag: '@spec' },
-    async ({ page: _page, startServerWithSchema, executeQuery }) => {
-      // GIVEN: table with no read permission specified (default deny)
+    async ({
+      request,
+      startServerWithSchema,
+      executeQuery,
+      createAuthenticatedUser,
+      createAuthenticatedViewer,
+      signOut,
+    }) => {
+      // GIVEN: table with no read permission specified (default behavior)
       await startServerWithSchema({
         name: 'test-app',
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+        },
         tables: [
           {
-            id: 5,
+            id: 1,
             name: 'secrets',
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
@@ -183,178 +173,133 @@ test.describe('Table-Level Permissions', () => {
         ],
       })
 
-      await executeQuery([
-        'ALTER TABLE secrets ENABLE ROW LEVEL SECURITY',
-        "INSERT INTO secrets (data) VALUES ('Secret 1')",
-      ])
+      // Insert test data
+      await executeQuery(`INSERT INTO secrets (data) VALUES ('Secret Data')`)
 
-      // WHEN: any user attempts to read records
-      // THEN: PostgreSQL RLS policy denies all SELECT access by default
+      // Create member user (default role) — member is allowed by default
+      await createAuthenticatedUser({ email: 'member@example.com' })
 
-      // RLS is enabled
-      const rlsStatus = await executeQuery(
-        "SELECT relrowsecurity FROM pg_class WHERE relname='secrets'"
-      )
-      // THEN: assertion
-      expect(rlsStatus.relrowsecurity).toBe(true)
+      // WHEN: member requests records via API
+      const memberResponse = await request.get('/api/tables/1/records')
 
-      // No SELECT policies exist (default deny)
-      const policyCount = await executeQuery(
-        "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='secrets' AND cmd='SELECT'"
-      )
-      // THEN: assertion
-      expect(policyCount.count).toBe('0')
+      // THEN: member gets 200 (non-viewer roles allowed by default)
+      expect(memberResponse.status()).toBe(200)
+      const memberData = await memberResponse.json()
+      expect(memberData.records).toHaveLength(1)
+      expect(memberData.records[0].fields).toHaveProperty('data', 'Secret Data')
 
-      // Admin user cannot SELECT (no policy)
-      const adminResult = await executeQuery([
-        'SET ROLE admin_user',
-        'SELECT COUNT(*) as count FROM secrets',
-      ])
-      // THEN: assertion
-      expect(adminResult.count).toBe('0')
+      // Sign out member, create viewer
+      await signOut()
+      await createAuthenticatedViewer({ email: 'viewer@example.com' })
 
-      // Any user gets empty result set (RLS blocks)
-      const memberResult = await executeQuery([
-        'SET ROLE member_user',
-        'SELECT COUNT(*) as count FROM secrets',
-      ])
-      // THEN: assertion
-      expect(memberResult.count).toBe('0')
+      // WHEN: viewer requests records via API
+      const viewerResponse = await request.get('/api/tables/1/records')
+
+      // THEN: viewer gets 403 Forbidden (viewers denied by default)
+      expect(viewerResponse.status()).toBe(403)
     }
   )
 
   // ============================================================================
   // @regression test - OPTIMIZED integration (exactly one test)
-  // Generated from 3 @spec tests - covers: role-based permissions, public access, default deny
+  // Generated from 3 @spec tests — covers: role-based permissions, public access, default deny
   // ============================================================================
 
   test(
     'APP-TABLES-TBL-PERMS-REGRESSION: user can complete full table-permissions workflow',
     { tag: '@regression' },
-    async ({ page: _page, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      await test.step('APP-TABLES-TBL-PERMS-001: Grant SELECT to member role with role-based read', async () => {
-        // GIVEN: table with role-based read permission for 'member' role
-        await startServerWithSchema({
-          name: 'test-app',
-          auth: {
-            strategies: [{ type: 'emailAndPassword' }],
+    async ({
+      request,
+      startServerWithSchema,
+      executeQuery,
+      createAuthenticatedUser,
+      createAuthenticatedViewer,
+      signOut,
+    }) => {
+      // SETUP: Single schema with all 3 tables (each step uses its own table ID)
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'projects',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: {
+              read: ['member'],
+            },
           },
-          tables: [
-            {
-              id: 1,
-              name: 'projects',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'created_by', type: 'user' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: ['member'],
-              },
+          {
+            id: 2,
+            name: 'articles',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: {
+              read: 'all',
             },
-          ],
-        })
-
-        const user1 = await createAuthenticatedUser({ email: 'user1@example.com' })
-        const user2 = await createAuthenticatedUser({ email: 'user2@example.com' })
-
-        await executeQuery([
-          'ALTER TABLE projects ENABLE ROW LEVEL SECURITY',
-          "CREATE POLICY member_read ON projects FOR SELECT USING (auth.user_has_role('member'))",
-          `INSERT INTO projects (title, created_by) VALUES ('Project 1', '${user1.user.id}'), ('Project 2', '${user2.user.id}')`,
-        ])
-
-        // THEN: RLS policy exists and member can SELECT
-        const policyCount = await executeQuery(
-          "SELECT COUNT(*) as count FROM pg_policies WHERE tablename='projects' AND policyname='member_read'"
-        )
-        expect(policyCount.count).toBe('1')
-
-        const memberResult = await executeQuery([
-          'SET ROLE member_user',
-          "SET app.user_role = 'member'",
-          'SELECT COUNT(*) as count FROM projects',
-        ])
-        expect(memberResult.count).toBe('2')
-
-        const guestResult = await executeQuery([
-          'SET ROLE guest_user',
-          "SET app.user_role = 'guest'",
-          'SELECT COUNT(*) as count FROM projects',
-        ])
-        expect(guestResult.count).toBe('0')
+          },
+          {
+            id: 3,
+            name: 'secrets',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'data', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: {},
+          },
+        ],
       })
 
-      await test.step('APP-TABLES-TBL-PERMS-002: Allow SELECT without RLS for public read', async () => {
-        // GIVEN: table with public read permission
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 3,
-              name: 'articles',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'title', type: 'single-line-text' },
-                { id: 3, name: 'content', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                read: 'all',
-              },
-            },
-          ],
-        })
+      await executeQuery(`INSERT INTO projects (title) VALUES ('Project Alpha'), ('Project Beta')`)
+      await executeQuery(`INSERT INTO articles (title) VALUES ('Article 1'), ('Article 2')`)
+      await executeQuery(`INSERT INTO secrets (data) VALUES ('Secret Data')`)
 
-        await executeQuery([
-          "INSERT INTO articles (title, content) VALUES ('Article 1', 'Content 1'), ('Article 2', 'Content 2')",
-        ])
+      await test.step('APP-TABLES-TBL-PERMS-001: Role-based read — member allowed, viewer denied', async () => {
+        // Member can read projects (read: ['member'])
+        await createAuthenticatedUser({ email: 'member@example.com' })
+        const memberResponse = await request.get('/api/tables/1/records')
+        expect(memberResponse.status()).toBe(200)
+        const memberData = await memberResponse.json()
+        expect(memberData.records).toHaveLength(2)
 
-        // THEN: RLS not enabled, any user can SELECT
-        const rlsStatus = await executeQuery(
-          "SELECT relrowsecurity FROM pg_class WHERE relname='articles'"
-        )
-        expect(rlsStatus.relrowsecurity).toBe(false)
-
-        const anyUserResult = await executeQuery('SELECT COUNT(*) as count FROM articles')
-        expect(anyUserResult.count).toBe('2')
+        // Viewer denied
+        await signOut()
+        await createAuthenticatedViewer({ email: 'viewer@example.com' })
+        const viewerResponse = await request.get('/api/tables/1/records')
+        expect(viewerResponse.status()).toBe(403)
+        await signOut()
       })
 
-      await test.step('APP-TABLES-TBL-PERMS-003: Deny all SELECT by default with no read permission', async () => {
-        // GIVEN: table with no read permission specified (default deny)
-        await startServerWithSchema({
-          name: 'test-app',
-          tables: [
-            {
-              id: 5,
-              name: 'secrets',
-              fields: [
-                { id: 1, name: 'id', type: 'integer', required: true },
-                { id: 2, name: 'data', type: 'single-line-text' },
-              ],
-              primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {},
-            },
-          ],
-        })
+      await test.step('APP-TABLES-TBL-PERMS-002: Public read — authenticated member allowed', async () => {
+        await createAuthenticatedUser({ email: 'member2@example.com' })
+        const response = await request.get('/api/tables/2/records')
+        expect(response.status()).toBe(200)
+        const data = await response.json()
+        expect(data.records).toHaveLength(2)
+        await signOut()
+      })
 
-        await executeQuery([
-          'ALTER TABLE secrets ENABLE ROW LEVEL SECURITY',
-          "INSERT INTO secrets (data) VALUES ('Secret 1')",
-        ])
+      await test.step('APP-TABLES-TBL-PERMS-003: Default deny — member allowed, viewer denied', async () => {
+        // Member allowed (default allow for non-viewers)
+        await createAuthenticatedUser({ email: 'member3@example.com' })
+        const memberResponse = await request.get('/api/tables/3/records')
+        expect(memberResponse.status()).toBe(200)
 
-        // THEN: RLS enabled, no policies, all users get empty results
-        const rlsStatus = await executeQuery(
-          "SELECT relrowsecurity FROM pg_class WHERE relname='secrets'"
-        )
-        expect(rlsStatus.relrowsecurity).toBe(true)
-
-        const adminResult = await executeQuery([
-          'SET ROLE admin_user',
-          'SELECT COUNT(*) as count FROM secrets',
-        ])
-        expect(adminResult.count).toBe('0')
+        // Viewer denied (default deny for viewers)
+        await signOut()
+        await createAuthenticatedViewer({ email: 'viewer2@example.com' })
+        const viewerResponse = await request.get('/api/tables/3/records')
+        expect(viewerResponse.status()).toBe(403)
       })
     }
   )

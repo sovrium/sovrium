@@ -29,7 +29,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
   // ============================================================================
 
   test(
-    'API-AUTH-ADMIN-PLUGIN-001: list users endpoint returns 404 without admin plugin',
+    'API-AUTH-ADMIN-PLUGIN-001: list users endpoint returns 403 without admin plugin',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Server with auth but WITHOUT admin plugin configured
@@ -37,7 +37,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
-          // No admin plugin - admin endpoints should not exist
+          // No admin plugin - admin endpoints deny access
         },
       })
 
@@ -51,8 +51,8 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
       // WHEN: User attempts to access list users endpoint
       const response = await page.request.get('/api/auth/admin/list-users')
 
-      // THEN: Returns 404 Not Found (endpoint does not exist without plugin)
-      expect(response.status()).toBe(404)
+      // THEN: Returns 403 Forbidden (admin plugin disabled, routes deny access)
+      expect(response.status()).toBe(403)
     }
   )
 
@@ -84,7 +84,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
   )
 
   test(
-    'API-AUTH-ADMIN-PLUGIN-003: ban user endpoint returns 404 without admin plugin',
+    'API-AUTH-ADMIN-PLUGIN-003: ban user endpoint returns 403 without admin plugin',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Server with auth but WITHOUT admin plugin configured
@@ -92,7 +92,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
-          // No admin plugin
+          // No admin plugin - admin endpoints deny access
         },
       })
 
@@ -110,13 +110,13 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
         },
       })
 
-      // THEN: Returns 404 Not Found (endpoint does not exist without plugin)
-      expect(response.status()).toBe(404)
+      // THEN: Returns 403 Forbidden (admin plugin disabled, routes deny access)
+      expect(response.status()).toBe(403)
     }
   )
 
   test(
-    'API-AUTH-ADMIN-PLUGIN-004: set role endpoint returns 404 without admin plugin',
+    'API-AUTH-ADMIN-PLUGIN-004: set role endpoint returns 403 without admin plugin',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp }) => {
       // GIVEN: Server with auth but WITHOUT admin plugin configured
@@ -124,7 +124,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
-          // No admin plugin
+          // No admin plugin - admin endpoints deny access
         },
       })
 
@@ -142,8 +142,8 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
         },
       })
 
-      // THEN: Returns 404 Not Found (endpoint does not exist without plugin)
-      expect(response.status()).toBe(404)
+      // THEN: Returns 403 Forbidden (admin plugin disabled, routes deny access)
+      expect(response.status()).toBe(403)
     }
   )
 
@@ -171,23 +171,23 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
         name: 'Test User',
       })
 
-      await test.step('API-AUTH-ADMIN-PLUGIN-001: list users returns 404', async () => {
+      await test.step('API-AUTH-ADMIN-PLUGIN-001: list users returns 403', async () => {
         // WHEN: User attempts to access list users endpoint
         const response = await page.request.get('/api/auth/admin/list-users')
 
-        // THEN: Returns 404 Not Found (endpoint does not exist without plugin)
-        expect(response.status()).toBe(404)
+        // THEN: Returns 403 Forbidden (admin plugin disabled, routes deny access)
+        expect(response.status()).toBe(403)
       })
 
       await test.step('API-AUTH-ADMIN-PLUGIN-002: get user returns 404', async () => {
         // WHEN: User attempts to access get user endpoint with any user ID
         const response = await page.request.get('/api/auth/admin/user/123')
 
-        // THEN: Returns 404 Not Found (endpoint does not exist without plugin)
+        // THEN: Returns 404 Not Found (dynamic route not registered without admin plugin)
         expect(response.status()).toBe(404)
       })
 
-      await test.step('API-AUTH-ADMIN-PLUGIN-003: ban user returns 404', async () => {
+      await test.step('API-AUTH-ADMIN-PLUGIN-003: ban user returns 403', async () => {
         // WHEN: User attempts to ban a user via admin endpoint
         const response = await page.request.post('/api/auth/admin/ban-user', {
           data: {
@@ -196,11 +196,11 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
           },
         })
 
-        // THEN: Returns 404 Not Found (endpoint does not exist without plugin)
-        expect(response.status()).toBe(404)
+        // THEN: Returns 403 Forbidden (admin plugin disabled, routes deny access)
+        expect(response.status()).toBe(403)
       })
 
-      await test.step('API-AUTH-ADMIN-PLUGIN-004: set role returns 404', async () => {
+      await test.step('API-AUTH-ADMIN-PLUGIN-004: set role returns 403', async () => {
         // WHEN: User attempts to set user role via admin endpoint
         const response = await page.request.post('/api/auth/admin/set-role', {
           data: {
@@ -209,8 +209,8 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
           },
         })
 
-        // THEN: Returns 404 Not Found (endpoint does not exist without plugin)
-        expect(response.status()).toBe(404)
+        // THEN: Returns 403 Forbidden (admin plugin disabled, routes deny access)
+        expect(response.status()).toBe(403)
       })
     }
   )

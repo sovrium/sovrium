@@ -36,7 +36,6 @@ export const isManyToManyRelationship = (
  * This utility is used by:
  * - table-operations.ts: CREATE TABLE generation
  * - schema-migration-helpers.ts: ALTER TABLE generation
- * - field-permission-generators.ts: Column-level permission grants
  *
  * @param field - Field configuration from table schema
  * @returns true if field needs a database column, false if UI-only/virtual

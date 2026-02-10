@@ -1168,23 +1168,10 @@ export type { CliServerResult, CliOutputResult } from './fixtures/cli'
 export {
   splitSQLStatements,
   executeStatementsInTransaction,
-  executeQueryAsRole,
-  generateRoleName,
-  verifyRlsPolicyExists,
-  getRlsPolicies,
-  verifyRlsEnabled,
-  expectQueryToSucceed,
-  expectQueryToFailWithRls,
-  expectQueryToReturnZeroRows,
   verifyRecordExists,
   verifyRecordNotExists,
 } from './fixtures/database'
-export type {
-  RoleContext,
-  ExecuteQueryFn,
-  RlsPolicyInfo,
-  QuerySuccessOptions,
-} from './fixtures/database'
+export type { ExecuteQueryFn } from './fixtures/database'
 export type {
   ServerFixtures,
   AuthResult,

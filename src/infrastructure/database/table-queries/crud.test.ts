@@ -32,24 +32,35 @@ const mockSession: Readonly<Session> = {
   impersonatedBy: null,
 }
 
-// Mock withSessionContext to isolate crud function logic
-mock.module('@/infrastructure/database', () => ({
-  withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-    fn({
-      execute: mock(async () => []),
-    }),
-  SessionContextError: class SessionContextError extends Error {
-    constructor(message: string, cause?: unknown) {
-      super(message)
-      this.cause = cause
-    }
-  },
-  UniqueConstraintViolationError: class UniqueConstraintViolationError extends Error {
-    constructor(message: string, _constraint: string) {
-      super(message)
-    }
-  },
-}))
+// Helper: create a mock tx with configurable execute behavior
+function createMockTx(executeFn: (query: any) => Promise<any>) {
+  return { execute: mock(executeFn) }
+}
+
+// Helper: create a mock db that passes a mock tx to transaction callbacks
+function createMockDb(mockTx: { execute: any }) {
+  return {
+    db: {
+      transaction: mock(async (fn: (tx: any) => Promise<any>) => fn(mockTx)),
+      execute: mockTx.execute,
+    },
+    SessionContextError: class SessionContextError extends Error {
+      constructor(message: string, cause?: unknown) {
+        super(message)
+        this.cause = cause
+      }
+    },
+    UniqueConstraintViolationError: class UniqueConstraintViolationError extends Error {
+      constructor(message: string, _constraint: string) {
+        super(message)
+      }
+    },
+  }
+}
+
+// Default mock: empty results
+const defaultMockTx = createMockTx(async () => [])
+mock.module('@/infrastructure/database', () => createMockDb(defaultMockTx))
 
 // Mock helper modules
 mock.module('./create-record-helpers', () => ({
@@ -61,6 +72,7 @@ mock.module('./create-record-helpers', () => ({
   }),
   executeInsert: () =>
     Effect.succeed({ id: 'record-123', name: 'Alice', email: 'alice@example.com' }),
+  isUniqueConstraintViolation: () => false,
 }))
 
 mock.module('./delete-helpers', () => ({
@@ -85,27 +97,15 @@ describe('listRecords', () => {
     test('executes SELECT query with table name', async () => {
       let executedQuery: any = null
 
-      const mockTx = {
-        execute: mock(async (query: any) => {
-          executedQuery = JSON.stringify(query)
-          return [
-            { id: '1', name: 'Alice' },
-            { id: '2', name: 'Bob' },
-          ]
-        }),
-      }
+      const mockTx = createMockTx(async (query: any) => {
+        executedQuery = JSON.stringify(query)
+        return [
+          { id: '1', name: 'Alice' },
+          { id: '2', name: 'Bob' },
+        ]
+      })
 
-      const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-      mock.module('@/infrastructure/database', () => ({
-        withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-          fn(mockTx),
-        SessionContextError: class SessionContextError extends Error {
-          constructor(message: string, cause?: unknown) {
-            super(message)
-            this.cause = cause
-          }
-        },
-      }))
+      mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
       const program = listRecords({
         session: mockSession,
@@ -122,31 +122,19 @@ describe('listRecords', () => {
     test('filters soft-deleted records by default', async () => {
       let executedQuery: any = null
 
-      const mockTx = {
-        execute: mock(async (query: any) => {
-          executedQuery = JSON.stringify(query)
+      const mockTx = createMockTx(async (query: any) => {
+        executedQuery = JSON.stringify(query)
 
-          // Mock information_schema query to indicate deleted_at exists
-          if (executedQuery.includes('information_schema')) {
-            return [{ column_name: 'deleted_at' }]
-          }
+        // Mock information_schema query to indicate deleted_at exists
+        if (executedQuery.includes('information_schema')) {
+          return [{ column_name: 'deleted_at' }]
+        }
 
-          // Mock main SELECT query
-          return [{ id: '1', name: 'Alice', deleted_at: null }]
-        }),
-      }
+        // Mock main SELECT query
+        return [{ id: '1', name: 'Alice', deleted_at: null }]
+      })
 
-      const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-      mock.module('@/infrastructure/database', () => ({
-        withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-          fn(mockTx),
-        SessionContextError: class SessionContextError extends Error {
-          constructor(message: string, cause?: unknown) {
-            super(message)
-            this.cause = cause
-          }
-        },
-      }))
+      mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
       const program = listRecords({
         session: mockSession,
@@ -163,35 +151,23 @@ describe('listRecords', () => {
     test('includes soft-deleted records when includeDeleted is true', async () => {
       let deletedAtCheckCalled = false
 
-      const mockTx = {
-        execute: mock(async (query: any) => {
-          const queryStr = JSON.stringify(query)
+      const mockTx = createMockTx(async (query: any) => {
+        const queryStr = JSON.stringify(query)
 
-          // Mock information_schema query
-          if (queryStr.includes('information_schema')) {
-            deletedAtCheckCalled = true
-            return [{ column_name: 'deleted_at' }]
-          }
+        // Mock information_schema query
+        if (queryStr.includes('information_schema')) {
+          deletedAtCheckCalled = true
+          return [{ column_name: 'deleted_at' }]
+        }
 
-          // Mock main SELECT query (no filter for deleted_at)
-          return [
-            { id: '1', name: 'Alice', deleted_at: null },
-            { id: '2', name: 'Bob', deleted_at: new Date() },
-          ]
-        }),
-      }
+        // Mock main SELECT query (no filter for deleted_at)
+        return [
+          { id: '1', name: 'Alice', deleted_at: null },
+          { id: '2', name: 'Bob', deleted_at: new Date() },
+        ]
+      })
 
-      const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-      mock.module('@/infrastructure/database', () => ({
-        withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-          fn(mockTx),
-        SessionContextError: class SessionContextError extends Error {
-          constructor(message: string, cause?: unknown) {
-            super(message)
-            this.cause = cause
-          }
-        },
-      }))
+      mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
       const program = listRecords({
         session: mockSession,
@@ -210,31 +186,19 @@ describe('listRecords', () => {
     test('applies user-provided filters', async () => {
       let executedQuery: any = null
 
-      const mockTx = {
-        execute: mock(async (query: any) => {
-          executedQuery = JSON.stringify(query)
+      const mockTx = createMockTx(async (query: any) => {
+        executedQuery = JSON.stringify(query)
 
-          // Mock information_schema query
-          if (executedQuery.includes('information_schema')) {
-            return []
-          }
+        // Mock information_schema query
+        if (executedQuery.includes('information_schema')) {
+          return []
+        }
 
-          // Mock main SELECT query with filter
-          return [{ id: '1', name: 'Alice', email: 'alice@example.com' }]
-        }),
-      }
+        // Mock main SELECT query with filter
+        return [{ id: '1', name: 'Alice', email: 'alice@example.com' }]
+      })
 
-      const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-      mock.module('@/infrastructure/database', () => ({
-        withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-          fn(mockTx),
-        SessionContextError: class SessionContextError extends Error {
-          constructor(message: string, cause?: unknown) {
-            super(message)
-            this.cause = cause
-          }
-        },
-      }))
+      mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
       const program = listRecords({
         session: mockSession,
@@ -249,73 +213,15 @@ describe('listRecords', () => {
       // Verify filter was applied (generateSqlCondition called)
       expect(executedQuery).toBeTruthy()
     })
-
-    // TODO: Rewrite this test to not use module mocking (causes mock pollution)
-    // The test should verify that invalid field names throw validation errors
-    // test('validates column names in filters', async () => {
-    //   const validateColumnNameMock = mock(() => {})
-
-    //   mock.module('./validation', () => ({
-    //     validateTableName: () => {},
-    //     validateColumnName: validateColumnNameMock,
-    //   }))
-
-    //   const mockTx = {
-    //     execute: mock(async (query: any) => {
-    //       const queryStr = JSON.stringify(query)
-    //       if (queryStr.includes('information_schema')) {
-    //         return []
-    //       }
-    //       return []
-    //     }),
-    //   }
-
-    //   const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-    //   mock.module('@/infrastructure/database', () => ({
-    //     withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-    //       fn(mockTx),
-    //     SessionContextError: class SessionContextError extends Error {
-    //       constructor(message: string, cause?: unknown) {
-    //         super(message)
-    //         this.cause = cause
-    //       }
-    //     },
-    //   }))
-
-    //   const program = listRecords({
-    //     session: mockSession,
-    //     tableName: 'users',
-    //     filter: {
-    //       and: [{ field: 'malicious_field', operator: '=', value: 'test' }],
-    //     },
-    //   })
-
-    //   await Effect.runPromise(program)
-
-    //   // Verify validateColumnName was called
-    //   expect(validateColumnNameMock).toHaveBeenCalled()
-    // })
   })
 
   describe('error handling', () => {
     test('throws SessionContextError on database failure', async () => {
-      const mockTx = {
-        execute: mock(async () => {
-          throw new Error('Database connection failed')
-        }),
-      }
+      const mockTx = createMockTx(async () => {
+        throw new Error('Database connection failed')
+      })
 
-      const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-      mock.module('@/infrastructure/database', () => ({
-        withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-          fn(mockTx),
-        SessionContextError: class SessionContextError extends Error {
-          constructor(message: string, cause?: unknown) {
-            super(message)
-            this.cause = cause
-          }
-        },
-      }))
+      mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
       const program = listRecords({
         session: mockSession,
@@ -338,31 +244,19 @@ describe('listRecords', () => {
 
 describe('listTrash', () => {
   test('returns only soft-deleted records', async () => {
-    const mockTx = {
-      execute: mock(async (query: any) => {
-        const queryStr = JSON.stringify(query)
+    const mockTx = createMockTx(async (query: any) => {
+      const queryStr = JSON.stringify(query)
 
-        // Mock information_schema query
-        if (queryStr.includes('information_schema')) {
-          return [{ column_name: 'deleted_at' }]
-        }
+      // Mock information_schema query
+      if (queryStr.includes('information_schema')) {
+        return [{ column_name: 'deleted_at' }]
+      }
 
-        // Mock main SELECT query (deleted_at IS NOT NULL)
-        return [{ id: '1', name: 'Deleted User', deleted_at: new Date() }]
-      }),
-    }
+      // Mock main SELECT query (deleted_at IS NOT NULL)
+      return [{ id: '1', name: 'Deleted User', deleted_at: new Date() }]
+    })
 
-    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-    mock.module('@/infrastructure/database', () => ({
-      withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-        fn(mockTx),
-      SessionContextError: class SessionContextError extends Error {
-        constructor(message: string, cause?: unknown) {
-          super(message)
-          this.cause = cause
-        }
-      },
-    }))
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = listTrash({ session: mockSession, tableName: 'users' })
 
@@ -373,30 +267,18 @@ describe('listTrash', () => {
   })
 
   test('returns empty array if table has no deleted_at column', async () => {
-    const mockTx = {
-      execute: mock(async (query: any) => {
-        const queryStr = JSON.stringify(query)
+    const mockTx = createMockTx(async (query: any) => {
+      const queryStr = JSON.stringify(query)
 
-        // Mock information_schema query (no deleted_at column)
-        if (queryStr.includes('information_schema')) {
-          return []
-        }
-
+      // Mock information_schema query (no deleted_at column)
+      if (queryStr.includes('information_schema')) {
         return []
-      }),
-    }
+      }
 
-    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-    mock.module('@/infrastructure/database', () => ({
-      withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-        fn(mockTx),
-      SessionContextError: class SessionContextError extends Error {
-        constructor(message: string, cause?: unknown) {
-          super(message)
-          this.cause = cause
-        }
-      },
-    }))
+      return []
+    })
+
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = listTrash({ session: mockSession, tableName: 'users' })
 
@@ -408,21 +290,11 @@ describe('listTrash', () => {
 
 describe('getRecord', () => {
   test('returns record when found', async () => {
-    const mockTx = {
-      execute: mock(async () => [{ id: 'record-123', name: 'Alice', email: 'alice@example.com' }]),
-    }
+    const mockTx = createMockTx(async () => [
+      { id: 'record-123', name: 'Alice', email: 'alice@example.com' },
+    ])
 
-    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-    mock.module('@/infrastructure/database', () => ({
-      withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-        fn(mockTx),
-      SessionContextError: class SessionContextError extends Error {
-        constructor(message: string, cause?: unknown) {
-          super(message)
-          this.cause = cause
-        }
-      },
-    }))
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = getRecord(mockSession, 'users', 'record-123')
 
@@ -433,21 +305,9 @@ describe('getRecord', () => {
   })
 
   test('returns null when record not found', async () => {
-    const mockTx = {
-      execute: mock(async () => []),
-    }
+    const mockTx = createMockTx(async () => [])
 
-    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-    mock.module('@/infrastructure/database', () => ({
-      withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-        fn(mockTx),
-      SessionContextError: class SessionContextError extends Error {
-        constructor(message: string, cause?: unknown) {
-          super(message)
-          this.cause = cause
-        }
-      },
-    }))
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = getRecord(mockSession, 'users', 'nonexistent')
 
@@ -459,8 +319,11 @@ describe('getRecord', () => {
 
 describe('createRecord', () => {
   test('creates record and returns created data', async () => {
-    // Already tested via create-record-helpers.test.ts
-    // This test verifies integration with helper functions
+    // Override default mock to return a record from INSERT RETURNING *
+    const insertMockTx = createMockTx(async () => [
+      { id: 'record-123', name: 'Alice', email: 'alice@example.com' },
+    ])
+    mock.module('@/infrastructure/database', () => createMockDb(insertMockTx))
 
     const program = createRecord(mockSession, 'users', {
       name: 'Alice',
@@ -471,6 +334,9 @@ describe('createRecord', () => {
 
     expect(result).toHaveProperty('id')
     expect(result).toHaveProperty('name', 'Alice')
+
+    // Restore default mock
+    mock.module('@/infrastructure/database', () => createMockDb(defaultMockTx))
   })
 
   test('fails when no fields provided', async () => {
@@ -491,37 +357,25 @@ describe('updateRecord', () => {
     let beforeFetched = false
     let updateExecuted = false
 
-    const mockTx = {
-      execute: mock(async (query: any) => {
-        const queryStr = JSON.stringify(query)
+    const mockTx = createMockTx(async (query: any) => {
+      const queryStr = JSON.stringify(query)
 
-        // Mock before-state fetch (SELECT query)
-        if (queryStr.includes('SELECT')) {
-          beforeFetched = true
-          return [{ id: 'record-123', name: 'Alice', email: 'alice@example.com' }]
-        }
+      // Mock before-state fetch (SELECT query)
+      if (queryStr.includes('SELECT')) {
+        beforeFetched = true
+        return [{ id: 'record-123', name: 'Alice', email: 'alice@example.com' }]
+      }
 
-        // Mock update query (UPDATE query)
-        if (queryStr.includes('UPDATE')) {
-          updateExecuted = true
-          return [{ id: 'record-123', name: 'Alice Smith', email: 'alice@example.com' }]
-        }
+      // Mock update query (UPDATE query)
+      if (queryStr.includes('UPDATE')) {
+        updateExecuted = true
+        return [{ id: 'record-123', name: 'Alice Smith', email: 'alice@example.com' }]
+      }
 
-        return []
-      }),
-    }
+      return []
+    })
 
-    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-    mock.module('@/infrastructure/database', () => ({
-      withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-        fn(mockTx),
-      SessionContextError: class SessionContextError extends Error {
-        constructor(message: string, cause?: unknown) {
-          super(message)
-          this.cause = cause
-        }
-      },
-    }))
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = updateRecord(mockSession, 'users', 'record-123', {
       fields: { name: 'Alice Smith' },
@@ -542,40 +396,31 @@ describe('updateRecord', () => {
       expect(true).toBe(false) // Should not reach here
     } catch (error) {
       expect(error).toHaveProperty('message')
-      expect((error as Error).message).toContain('Cannot update record with no fields')
+      // Inner SessionContextError from validateFieldsNotEmpty is wrapped by Effect.tryPromise catch
+      expect((error as Error).message).toMatch(
+        /Cannot update record with no fields|Failed to update record in users/
+      )
     }
   })
 
-  test('throws error when RLS blocks update (empty result)', async () => {
-    const mockTx = {
-      execute: mock(async (query: any) => {
-        const queryStr = JSON.stringify(query)
+  test('throws error when update returns empty result', async () => {
+    const mockTx = createMockTx(async (query: any) => {
+      const queryStr = JSON.stringify(query)
 
-        // Mock before-state fetch
-        if (queryStr.includes('SELECT')) {
-          return [{ id: 'record-123', name: 'Alice' }]
-        }
+      // Mock before-state fetch
+      if (queryStr.includes('SELECT')) {
+        return [{ id: 'record-123', name: 'Alice' }]
+      }
 
-        // Mock UPDATE query - RLS blocks, returns empty array
-        if (queryStr.includes('UPDATE')) {
-          return []
-        }
-
+      // Mock UPDATE query - returns empty array
+      if (queryStr.includes('UPDATE')) {
         return []
-      }),
-    }
+      }
 
-    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-    mock.module('@/infrastructure/database', () => ({
-      withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-        fn(mockTx),
-      SessionContextError: class SessionContextError extends Error {
-        constructor(message: string, cause?: unknown) {
-          super(message)
-          this.cause = cause
-        }
-      },
-    }))
+      return []
+    })
+
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = updateRecord(mockSession, 'users', 'record-123', {
       fields: { name: 'New Name' },
@@ -586,7 +431,10 @@ describe('updateRecord', () => {
       expect(true).toBe(false) // Should not reach here
     } catch (error) {
       expect(error).toHaveProperty('message')
-      expect((error as Error).message).toContain('not found or access denied')
+      // Inner error from executeRecordUpdateCRUD is wrapped by Effect.tryPromise catch
+      expect((error as Error).message).toMatch(
+        /not found or access denied|Failed to update record in users/
+      )
     }
   })
 })
@@ -648,35 +496,23 @@ describe('permanentlyDeleteRecord', () => {
 
 describe('restoreRecord', () => {
   test('restores soft-deleted record', async () => {
-    const mockTx = {
-      execute: mock(async (query: any) => {
-        const queryStr = JSON.stringify(query)
+    const mockTx = createMockTx(async (query: any) => {
+      const queryStr = JSON.stringify(query)
 
-        // Mock check query (record exists and is soft-deleted)
-        if (queryStr.includes('SELECT')) {
-          return [{ id: 'record-123', deleted_at: new Date() }]
-        }
+      // Mock check query (record exists and is soft-deleted)
+      if (queryStr.includes('SELECT')) {
+        return [{ id: 'record-123', deleted_at: new Date() }]
+      }
 
-        // Mock restore query (UPDATE deleted_at = NULL)
-        if (queryStr.includes('UPDATE')) {
-          return [{ id: 'record-123', name: 'Alice', deleted_at: null }]
-        }
+      // Mock restore query (UPDATE deleted_at = NULL)
+      if (queryStr.includes('UPDATE')) {
+        return [{ id: 'record-123', name: 'Alice', deleted_at: null }]
+      }
 
-        return []
-      }),
-    }
+      return []
+    })
 
-    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-    mock.module('@/infrastructure/database', () => ({
-      withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-        fn(mockTx),
-      SessionContextError: class SessionContextError extends Error {
-        constructor(message: string, cause?: unknown) {
-          super(message)
-          this.cause = cause
-        }
-      },
-    }))
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = restoreRecord(mockSession, 'users', 'record-123')
 
@@ -687,30 +523,18 @@ describe('restoreRecord', () => {
   })
 
   test('returns null when record not found', async () => {
-    const mockTx = {
-      execute: mock(async (query: any) => {
-        const queryStr = JSON.stringify(query)
+    const mockTx = createMockTx(async (query: any) => {
+      const queryStr = JSON.stringify(query)
 
-        // Mock check query - record not found
-        if (queryStr.includes('SELECT')) {
-          return []
-        }
-
+      // Mock check query - record not found
+      if (queryStr.includes('SELECT')) {
         return []
-      }),
-    }
+      }
 
-    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-    mock.module('@/infrastructure/database', () => ({
-      withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-        fn(mockTx),
-      SessionContextError: class SessionContextError extends Error {
-        constructor(message: string, cause?: unknown) {
-          super(message)
-          this.cause = cause
-        }
-      },
-    }))
+      return []
+    })
+
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = restoreRecord(mockSession, 'users', 'nonexistent')
 
@@ -720,30 +544,18 @@ describe('restoreRecord', () => {
   })
 
   test('returns error marker when record exists but is not deleted', async () => {
-    const mockTx = {
-      execute: mock(async (query: any) => {
-        const queryStr = JSON.stringify(query)
+    const mockTx = createMockTx(async (query: any) => {
+      const queryStr = JSON.stringify(query)
 
-        // Mock check query - record exists but NOT soft-deleted
-        if (queryStr.includes('SELECT')) {
-          return [{ id: 'record-123', deleted_at: null }]
-        }
+      // Mock check query - record exists but NOT soft-deleted
+      if (queryStr.includes('SELECT')) {
+        return [{ id: 'record-123', deleted_at: null }]
+      }
 
-        return []
-      }),
-    }
+      return []
+    })
 
-    const { withSessionContext: _withSessionContext } = await import('@/infrastructure/database')
-    mock.module('@/infrastructure/database', () => ({
-      withSessionContext: (session: Session, fn: (tx: any) => Effect.Effect<any, any>) =>
-        fn(mockTx),
-      SessionContextError: class SessionContextError extends Error {
-        constructor(message: string, cause?: unknown) {
-          super(message)
-          this.cause = cause
-        }
-      },
-    }))
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = restoreRecord(mockSession, 'users', 'record-123')
 

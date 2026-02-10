@@ -12,7 +12,7 @@
  * - Type definitions (types.ts)
  * - Server utilities (server.ts)
  * - CLI utilities (cli.ts)
- * - Database/RLS testing utilities (database.ts)
+ * - Database testing utilities (database.ts)
  * - Main Playwright test fixture (re-exported from ../fixtures.ts)
  */
 
@@ -39,18 +39,10 @@ export {
   captureCliOutput,
 } from './cli'
 
-// Export database/RLS testing utilities
+// Export database testing utilities
 export {
   splitSQLStatements,
   executeStatementsInTransaction,
-  executeQueryAsRole,
-  generateRoleName,
-  verifyRlsPolicyExists,
-  getRlsPolicies,
-  verifyRlsEnabled,
-  expectQueryToSucceed,
-  expectQueryToFailWithRls,
-  expectQueryToReturnZeroRows,
   verifyRecordExists,
   verifyRecordNotExists,
 } from './database'

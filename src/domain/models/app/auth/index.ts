@@ -168,9 +168,9 @@ export const AuthSchema = Schema.Struct({
 
     // Validate defaultRole references a defined role (if custom role name)
     if (config.defaultRole && config.roles) {
-      const builtInNonOwner = ['admin', 'member', 'viewer']
+      const builtInRoles = ['admin', 'member', 'viewer']
       const customRoleNames = config.roles.map((r) => r.name)
-      const allValidRoles = [...builtInNonOwner, ...customRoleNames]
+      const allValidRoles = [...builtInRoles, ...customRoleNames]
       if (!allValidRoles.includes(config.defaultRole)) {
         return `Default role '${config.defaultRole}' is not a built-in role or defined in auth.roles`
       }

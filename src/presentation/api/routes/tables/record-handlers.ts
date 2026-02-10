@@ -52,15 +52,15 @@ import type { Context } from 'hono'
 type SessionContext = ReturnType<typeof getTableContext>['session']
 
 /**
- * Check viewer read permission - viewers have restricted access
+ * Check read permission for a table based on user role
  * Returns error response if permission denied, undefined otherwise
  */
-function checkViewerReadPermission(
+function checkReadPermission(
   table: Parameters<typeof hasReadPermission>[0],
   userRole: string,
   c: Context
 ) {
-  if (userRole === 'viewer' && !hasReadPermission(table, userRole)) {
+  if (!hasReadPermission(table, userRole)) {
     return c.json(
       {
         success: false,
@@ -77,8 +77,8 @@ export async function handleListRecords(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
   const table = app.tables?.find((t) => t.name === tableName)
 
-  // Check viewer permission (other roles filtered by RLS at row level)
-  const permissionError = checkViewerReadPermission(table, userRole, c)
+  // Check table-level read permission
+  const permissionError = checkReadPermission(table, userRole, c)
   if (permissionError) return permissionError
 
   const filter = parseFilter(c, app, tableName, userRole)
@@ -133,8 +133,8 @@ export async function handleListTrash(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
   const table = app.tables?.find((t) => t.name === tableName)
 
-  // Check viewer permission (other roles filtered by RLS at row level)
-  const permissionError = checkViewerReadPermission(table, userRole, c)
+  // Check table-level read permission
+  const permissionError = checkReadPermission(table, userRole, c)
   if (permissionError) return permissionError
 
   // Parse filter parameter

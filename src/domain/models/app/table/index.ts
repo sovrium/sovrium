@@ -199,8 +199,8 @@ export const TableSchema = Schema.Struct({
   /**
    * Table-level permissions (high-level RBAC abstraction).
    *
-   * Automatically generates RLS policies based on permission configuration.
-   * Supports public, authenticated, role-based, and owner-based access control.
+   * Configures application-layer permission enforcement.
+   * Supports public, authenticated, and role-based access control.
    *
    * @example Role-based permissions
    * ```typescript

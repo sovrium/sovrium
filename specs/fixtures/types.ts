@@ -124,17 +124,8 @@ export type CliOutputResult = {
 }
 
 /**
- * RLS Testing types
+ * Database query execution function type
  */
-export interface RoleContext {
-  /** PostgreSQL database role to SET ROLE to (e.g., 'member_user', 'admin_user') */
-  dbRole?: string
-  /** Application user ID to set in app.user_id session variable */
-  userId?: string
-  /** Application user role to set in app.user_role session variable */
-  userRole?: string
-}
-
 export type ExecuteQueryFn = (
   query: string | string[],
   params?: unknown[]
@@ -143,30 +134,6 @@ export type ExecuteQueryFn = (
   rowCount: number
   [key: string]: any
 }>
-
-export interface RlsPolicyInfo {
-  schemaname: string
-  tablename: string
-  policyname: string
-  permissive: string
-  roles: string[]
-  cmd: string
-  qual: string | null
-  with_check: string | null
-}
-
-export interface QuerySuccessOptions {
-  /** Minimum number of rows expected (default: 0) */
-  minRows?: number
-  /** Maximum number of rows expected */
-  maxRows?: number
-  /** Exact number of rows expected */
-  exactRows?: number
-  /** Fields that must be present in results */
-  requiredFields?: string[]
-  /** Fields that must NOT be present in results (for field-level permission tests) */
-  forbiddenFields?: string[]
-}
 
 /**
  * Server fixture types

@@ -15,6 +15,24 @@ import {
 import { validateColumnName } from './validation'
 
 /**
+ * Check if an object has PostgreSQL unique constraint violation markers
+ * (code 23505, constraint name, or 'unique constraint' in message)
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Error cause structure is dynamic
+function hasUniqueViolationMarkers(obj: any): boolean {
+  return obj?.code === '23505' || !!obj?.constraint || !!obj?.message?.includes('unique constraint')
+}
+
+/**
+ * Check if an error is a PostgreSQL unique constraint violation (code 23505)
+ * Checks the error itself and its cause for violation markers.
+ */
+export function isUniqueConstraintViolation(error: unknown): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Error cause structure is dynamic
+  return hasUniqueViolationMarkers(error) || hasUniqueViolationMarkers((error as any)?.cause)
+}
+
+/**
  * Build SQL columns and values for INSERT query
  */
 export function buildInsertClauses(
@@ -53,15 +71,7 @@ export function executeInsert(
       return insertResult[0] ?? {}
     },
     catch: (error) => {
-      // PostgreSQL unique constraint error code or constraint name in error cause
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Error cause structure is dynamic
-      const cause = (error as any)?.cause
-      const isUniqueViolation =
-        cause?.code === '23505' ||
-        cause?.constraint ||
-        cause?.message?.includes('unique constraint')
-
-      if (isUniqueViolation) {
+      if (isUniqueConstraintViolation(error)) {
         return new UniqueConstraintViolationError('Unique constraint violation', error)
       }
       return new SessionContextError(`Failed to create record in ${tableName}`, error)

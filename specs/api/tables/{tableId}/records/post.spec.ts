@@ -604,62 +604,6 @@ test.describe('Create new record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-CREATE-012: should auto-inject owner_id',
-    { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: User creates record in table with owner_id field
-      await startServerWithSchema({
-        name: 'test-app',
-        auth: { strategies: [{ type: 'emailAndPassword' }] },
-        tables: [
-          {
-            id: 13,
-            name: 'projects',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              {
-                id: 2,
-                name: 'owner_id',
-                type: 'user',
-                required: true,
-              },
-            ],
-          },
-        ],
-      })
-
-      const { user } = await createAuthenticatedUser({ email: 'user@example.com' })
-
-      // WHEN: owner_id field exists in table
-      const response = await request.post('/api/tables/13/records', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        data: {
-          fields: {
-            name: 'Alpha Project',
-          },
-        },
-      })
-
-      // THEN: owner_id is automatically injected from user's session
-      expect(response.status()).toBe(201)
-
-      const data = await response.json()
-      // THEN: assertion
-      expect(data.fields.name).toBe('Alpha Project')
-      expect(data.fields.owner_id).toBe(user.id)
-
-      // Verify database record has correct owner_id
-      const result = await executeQuery(`
-        SELECT owner_id FROM projects WHERE name = 'Alpha Project'
-      `)
-      // THEN: assertion
-      expect(result.rows[0].owner_id).toBe(user.id)
-    }
-  )
-
-  test(
     'API-TABLES-RECORDS-CREATE-013: should return 201 with filtered fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -861,14 +805,6 @@ test.describe('Create new record', () => {
               { id: 1, name: 'email', type: 'email', required: true, unique: true },
               { id: 2, name: 'first_name', type: 'single-line-text' },
               { id: 3, name: 'last_name', type: 'single-line-text' },
-            ],
-          },
-          {
-            id: 2,
-            name: 'projects',
-            fields: [
-              { id: 1, name: 'name', type: 'single-line-text' },
-              { id: 2, name: 'owner_id', type: 'user', required: true },
             ],
           },
           {
@@ -1193,26 +1129,6 @@ test.describe('Create new record', () => {
         expect(data.message).toBe("Cannot write to field 'salary': insufficient permissions")
         expect(data.code).toBe('FORBIDDEN')
         expect(data).toHaveProperty('field')
-      })
-
-      await test.step('API-TABLES-RECORDS-CREATE-012: should auto-inject owner_id', async () => {
-        const { user } = await createAuthenticatedUser({ email: 'owner@example.com' })
-
-        const response = await request.post('/api/tables/2/records', {
-          headers: { 'Content-Type': 'application/json' },
-          data: { fields: { name: 'Alpha Project' } },
-        })
-
-        expect(response.status()).toBe(201)
-
-        const data = await response.json()
-        expect(data.fields.name).toBe('Alpha Project')
-        expect(data.fields.owner_id).toBe(user.id)
-
-        const result = await executeQuery(`
-          SELECT owner_id FROM projects WHERE name = 'Alpha Project'
-        `)
-        expect(result.rows[0].owner_id).toBe(user.id)
       })
 
       await test.step('API-TABLES-RECORDS-CREATE-013: should return 201 with filtered fields', async () => {

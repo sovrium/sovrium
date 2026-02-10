@@ -84,10 +84,10 @@ test.describe('Admin Default User Role', () => {
         })
 
         // THEN: User has default role assigned
-        expect((user1.user as { role?: string }).role).toBe('user')
+        expect((user1.user as { role?: string }).role).toBe('member')
       })
 
-      await test.step('API-AUTH-ADMIN-OPT-DEFAULT-ROLE-002: Falls back to user role when not configured', async () => {
+      await test.step('API-AUTH-ADMIN-OPT-DEFAULT-ROLE-002: Falls back to member role when not configured', async () => {
         // WHEN: Another new user signs up
         const user2 = await signUp({
           email: 'user2@example.com',
@@ -95,8 +95,8 @@ test.describe('Admin Default User Role', () => {
           name: 'User 2',
         })
 
-        // THEN: Falls back to user role (consistent assignment)
-        expect((user2.user as { role?: string }).role).toBe('user')
+        // THEN: Falls back to member role (consistent assignment)
+        expect((user2.user as { role?: string }).role).toBe('member')
         expect((user1!.user as { role?: string }).role).toBe((user2.user as { role?: string }).role)
       })
     }

@@ -247,7 +247,7 @@ test.describe('Verify Magic Link', () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
-            strategies: [{ type: 'magicLink' }],
+            strategies: [{ type: 'emailAndPassword' }, { type: 'magicLink' }],
           },
         })
 

@@ -6,7 +6,6 @@
  */
 
 import { Effect } from 'effect'
-import { generateFieldPermissionGrants } from '../field-permission-generators'
 import { createVolatileFormulaTriggers } from '../formula-trigger-generators'
 import { generateIndexStatements } from '../index-generators'
 import { shouldUseView, getBaseTableName } from '../lookup-view-generators'
@@ -25,13 +24,12 @@ import {
 import type { Table } from '@/domain/models/app/table'
 
 /**
- * Apply table features (indexes, triggers, field permissions)
+ * Apply table features (indexes, triggers)
  * Shared by both createNewTable and migrateExistingTable
  * Note: Triggers are applied to the base table, not the VIEW
  *
- * Performance optimization: Operations are grouped by dependency:
- * - Group 1 (parallel): indexes, triggers (created-at, autonumber, updated-by, formula)
- * - Group 2 (parallel): field permission grants
+ * Field-level permissions are enforced at the application layer,
+ * not via PostgreSQL column-level GRANTs.
  */
 export const applyTableFeatures = (
   tx: TransactionLike,
@@ -44,7 +42,7 @@ export const applyTableFeatures = (
     // Create table object with physical table name for trigger generation
     const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
 
-    // Group 1: Indexes and triggers (can run in parallel - all independent)
+    // Indexes and triggers (can run in parallel - all independent)
     // These create IF NOT EXISTS so order doesn't matter
     yield* Effect.all(
       [
@@ -57,19 +55,15 @@ export const applyTableFeatures = (
       ],
       { concurrency: 'unbounded' }
     )
-
-    // Group 2: Field permission grants
-    yield* executeSQLStatementsParallel(tx, generateFieldPermissionGrants(physicalTable))
   })
 
 /**
- * Apply table features without indexes (triggers, field permissions)
+ * Apply table features without indexes (triggers only)
  * Used during migration when indexes are handled separately by syncIndexes
  * Note: Triggers are applied to the base table, not the VIEW
  *
- * Performance optimization: Operations are grouped by dependency:
- * - Group 1 (parallel): triggers (created-at, autonumber, updated-by, formula)
- * - Group 2 (parallel): field permission grants
+ * Field-level permissions are enforced at the application layer,
+ * not via PostgreSQL column-level GRANTs.
  */
 export const applyTableFeaturesWithoutIndexes = (
   tx: TransactionLike,
@@ -82,7 +76,7 @@ export const applyTableFeaturesWithoutIndexes = (
     // Create table object with physical table name for trigger generation
     const physicalTable = shouldUseView(table) ? { ...table, name: physicalTableName } : table
 
-    // Group 1: Triggers (can run in parallel - all independent)
+    // Triggers (can run in parallel - all independent)
     // These create IF NOT EXISTS so order doesn't matter
     yield* Effect.all(
       [
@@ -94,7 +88,4 @@ export const applyTableFeaturesWithoutIndexes = (
       ],
       { concurrency: 'unbounded' }
     )
-
-    // Group 2: Field permission grants
-    yield* executeSQLStatementsParallel(tx, generateFieldPermissionGrants(physicalTable))
   })

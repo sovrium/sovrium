@@ -7,10 +7,11 @@
 
 /* eslint-disable max-lines -- Batch operations file contains multiple distinct operations (create, update, upsert, delete, restore) with their helper functions. Each operation requires validation, transaction handling, and activity logging. Further splitting would create artificial file boundaries and harm cohesion. */
 
-import { sql } from 'drizzle-orm'
-import { Effect, Data } from 'effect'
+import { sql, eq } from 'drizzle-orm'
+import { Effect, Data, Exit, Cause } from 'effect'
+import { users, type Session } from '@/infrastructure/auth/better-auth/schema'
 import {
-  withSessionContext,
+  db,
   SessionContextError,
   ForbiddenError,
   ValidationError,
@@ -18,7 +19,6 @@ import {
 } from '@/infrastructure/database'
 import { logActivity } from './activity-log-helpers'
 import { validateTableName, validateColumnName } from './validation'
-import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
  * Batch validation error - returned when batch validation fails
@@ -27,6 +27,21 @@ export class BatchValidationError extends Data.TaggedError('BatchValidationError
   readonly message: string
   readonly details?: readonly string[]
 }> {}
+
+/**
+ * Run an Effect inside a database transaction, properly unwrapping errors.
+ *
+ * Unlike Effect.runPromise which wraps errors in FiberFailure (breaking instanceof checks
+ * in outer catch handlers), this helper extracts the original error via Cause.squash
+ * and re-throws it directly. This ensures SessionContextError, ValidationError, etc.
+ * are properly detected by instanceof in Effect.tryPromise catch handlers.
+ */
+async function runEffectInTx<A, E>(effect: Effect.Effect<A, E, never>): Promise<A> {
+  const exit = await Effect.runPromiseExit(effect)
+  if (Exit.isSuccess(exit)) return exit.value
+  // eslint-disable-next-line functional/no-throw-statements -- Required to propagate Effect errors in async transaction context
+  throw Cause.squash(exit.cause)
+}
 
 /**
  * Helper to create a single record within a transaction
@@ -72,7 +87,7 @@ async function createSingleRecord(
 }
 
 /**
- * Batch create records with session context
+ * Batch create records
  *
  * Creates multiple records in a single transaction.
  * Permissions applied via application layer.
@@ -87,51 +102,48 @@ export function batchCreateRecords(
   tableName: string,
   recordsData: readonly Record<string, unknown>[]
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
-  return withSessionContext(session, (tx) =>
-    Effect.gen(function* () {
-      validateTableName(tableName)
+  return Effect.gen(function* () {
+    const createdRecords = yield* Effect.tryPromise({
+      try: () =>
+        db.transaction(async (tx) => {
+          validateTableName(tableName)
 
-      if (recordsData.length === 0) {
-        return yield* Effect.fail(
-          new SessionContextError('Cannot create batch with no records', undefined)
-        )
-      }
+          if (recordsData.length === 0) {
+            // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
+            throw new SessionContextError('Cannot create batch with no records', undefined)
+          }
 
-      // Process records sequentially with immutable array building
-      const createdRecords = yield* Effect.reduce(
-        recordsData,
-        [] as readonly Record<string, unknown>[],
-        (acc, fields) =>
-          Effect.gen(function* () {
-            const record = yield* Effect.tryPromise({
-              try: async () => {
-                const result = await createSingleRecord(tx, tableName, fields)
-                return result
-              },
-              catch: (error) =>
-                new SessionContextError(`Failed to create record in ${tableName}`, error),
-            })
+          // Process records sequentially, collecting results
+          const records = await recordsData.reduce(
+            async (accPromise, fields) => {
+              const acc = await accPromise
+              const record = await createSingleRecord(tx, tableName, fields)
+              return record ? [...acc, record as Record<string, unknown>] : acc
+            },
+            Promise.resolve([] as readonly Record<string, unknown>[])
+          )
 
-            if (record) {
-              // Log activity for created record
-              yield* logActivity({
-                session,
-                tableName,
-                action: 'create',
-                recordId: String(record.id),
-                changes: { after: record },
-              })
-
-              return [...acc, record]
-            }
-
-            return acc
-          })
-      )
-
-      return createdRecords
+          return records
+        }),
+      catch: (error) =>
+        error instanceof SessionContextError
+          ? error
+          : new SessionContextError(`Failed to create batch records in ${tableName}`, error),
     })
-  )
+
+    // Log activity for each created record
+    yield* Effect.forEach(createdRecords, (record) =>
+      logActivity({
+        session,
+        tableName,
+        action: 'create',
+        recordId: String(record.id),
+        changes: { after: record },
+      })
+    ).pipe(Effect.asVoid)
+
+    return createdRecords
+  })
 }
 
 /**
@@ -420,55 +432,77 @@ export function upsertRecords(
   recordsData: readonly Record<string, unknown>[],
   fieldsToMergeOn: readonly string[]
 ): Effect.Effect<UpsertResult, SessionContextError | BatchValidationError | ValidationError> {
-  return withSessionContext(session, (tx) =>
-    Effect.gen(function* () {
-      validateTableName(tableName)
+  return Effect.gen(function* () {
+    validateTableName(tableName)
 
-      if (recordsData.length === 0) {
-        return yield* Effect.fail(
-          new SessionContextError('Cannot upsert batch with no records', undefined)
-        )
-      }
-
-      if (fieldsToMergeOn.length === 0) {
-        return yield* Effect.fail(
-          new SessionContextError('Cannot upsert without merge fields', undefined)
-        )
-      }
-
-      fieldsToMergeOn.forEach((field) => validateColumnName(field))
-
-      // Validate merge fields are present in all records BEFORE processing
-      yield* validateMergeFieldsPresent(recordsData, fieldsToMergeOn)
-
-      // Validate all records have required fields BEFORE processing
-      yield* validateAllRecordsHaveRequiredFields(tx, tableName, recordsData)
-
-      const result = yield* Effect.reduce(
-        recordsData,
-        { records: [], created: 0, updated: 0 } as UpsertResult,
-        (acc, fields) =>
-          processSingleUpsert(tx, { session, tableName, fields, fieldsToMergeOn, acc })
+    if (recordsData.length === 0) {
+      return yield* Effect.fail(
+        new SessionContextError('Cannot upsert batch with no records', undefined)
       )
+    }
 
-      return result
+    if (fieldsToMergeOn.length === 0) {
+      return yield* Effect.fail(
+        new SessionContextError('Cannot upsert without merge fields', undefined)
+      )
+    }
+
+    fieldsToMergeOn.forEach((field) => validateColumnName(field))
+
+    // Validate merge fields are present in all records BEFORE processing
+    yield* validateMergeFieldsPresent(recordsData, fieldsToMergeOn)
+
+    // Execute upsert in a transaction
+    const result = yield* Effect.tryPromise({
+      try: () =>
+        db.transaction(async (tx) => {
+          // eslint-disable-next-line functional/no-expression-statements -- Required for transaction validation
+          await runEffectInTx(validateAllRecordsHaveRequiredFields(tx, tableName, recordsData))
+
+          return await runEffectInTx(
+            Effect.reduce(
+              recordsData,
+              { records: [], created: 0, updated: 0 } as UpsertResult,
+              (acc, fields) =>
+                processSingleUpsert(tx, { session, tableName, fields, fieldsToMergeOn, acc })
+            )
+          )
+        }),
+      catch: (error) => {
+        if (error instanceof SessionContextError) return error
+        if (error instanceof BatchValidationError) {
+          // Re-wrap BatchValidationError as SessionContextError to match return type
+          return new SessionContextError(error.message, error)
+        }
+        return new SessionContextError(`Failed to upsert records in ${tableName}`, error)
+      },
     })
-  )
+
+    return result
+  })
 }
 
 /**
  * Check if user has permission to restore records
+ * Looks up user role from the database (application-layer enforcement)
  */
-async function checkRestorePermission(tx: Readonly<DrizzleTransaction>): Promise<void> {
-  const roleResult = (await tx.execute(
-    sql`SELECT current_setting('app.user_role', true) as role`
-  )) as Array<{ role: string | null }>
+function checkRestorePermission(
+  session: Readonly<Session>
+): Effect.Effect<void, ForbiddenError | SessionContextError> {
+  return Effect.gen(function* () {
+    const result = yield* Effect.tryPromise({
+      try: () =>
+        db.select({ role: users.role }).from(users).where(eq(users.id, session.userId)).limit(1),
+      catch: (error) => new SessionContextError('Failed to check user role', error),
+    })
 
-  const userRole = roleResult[0]?.role
-  if (userRole === 'viewer') {
-    // eslint-disable-next-line functional/no-throw-statements -- Required for Effect.tryPromise error handling
-    throw new ForbiddenError('You do not have permission to restore records in this table')
-  }
+    const userRole = result[0]?.role
+    if (userRole === 'viewer') {
+      return yield* Effect.fail(
+        new ForbiddenError('You do not have permission to restore records in this table')
+      )
+    }
+  })
 }
 
 /**
@@ -503,36 +537,6 @@ async function validateRecordsForRestore(
         : `Record ${firstError.recordId} is not deleted`
     )
   }
-}
-
-/**
- * Batch restore soft-deleted records with session context
- *
- * Restores multiple soft-deleted records in a transaction.
- * Validates all records exist and are soft-deleted before restoring any.
- * Rolls back if any record fails validation.
- * Permissions applied via application layer.
- *
- * @param session - Better Auth session
- * @param tableName - Name of the table
- * @param recordIds - Array of record IDs to restore
- * @returns Effect resolving to number of restored records or error
- */
-/**
- * Check restore permission with Effect error handling
- */
-function checkRestorePermissionWithEffect(
-  tx: Readonly<DrizzleTransaction>
-): Effect.Effect<void, SessionContextError | ForbiddenError> {
-  return Effect.tryPromise({
-    try: () => checkRestorePermission(tx),
-    catch: (error) => {
-      if (error instanceof Error && error.name === 'ForbiddenError') {
-        return new ForbiddenError(error.message)
-      }
-      return new SessionContextError('Permission check failed', error)
-    },
-  })
 }
 
 /**
@@ -595,26 +599,48 @@ function logRestoreActivities(
   ).pipe(Effect.asVoid)
 }
 
+/**
+ * Batch restore soft-deleted records
+ *
+ * Restores multiple soft-deleted records in a transaction.
+ * Validates all records exist and are soft-deleted before restoring any.
+ * Rolls back if any record fails validation.
+ * Permissions applied via application layer.
+ *
+ * @param session - Better Auth session
+ * @param tableName - Name of the table
+ * @param recordIds - Array of record IDs to restore
+ * @returns Effect resolving to number of restored records or error
+ */
 export function batchRestoreRecords(
   session: Readonly<Session>,
   tableName: string,
   recordIds: readonly string[]
 ): Effect.Effect<number, SessionContextError | ForbiddenError> {
-  return withSessionContext(session, (tx) =>
-    Effect.gen(function* () {
-      validateTableName(tableName)
-      const tableIdent = sql.identifier(tableName)
+  return Effect.gen(function* () {
+    yield* checkRestorePermission(session)
 
-      yield* checkRestorePermissionWithEffect(tx)
-      yield* validateRecordsForRestoreWithEffect(tx, tableIdent, recordIds)
+    const restoredRecords = yield* Effect.tryPromise({
+      try: () =>
+        db.transaction(async (tx) => {
+          validateTableName(tableName)
+          const tableIdent = sql.identifier(tableName)
 
-      const restoredRecords = yield* executeRestoreQuery(tx, tableIdent, tableName, recordIds)
+          // eslint-disable-next-line functional/no-expression-statements -- Required for transaction validation
+          await runEffectInTx(validateRecordsForRestoreWithEffect(tx, tableIdent, recordIds))
 
-      yield* logRestoreActivities(session, tableName, restoredRecords)
-
-      return restoredRecords.length
+          return await runEffectInTx(executeRestoreQuery(tx, tableIdent, tableName, recordIds))
+        }),
+      catch: (error) =>
+        error instanceof SessionContextError
+          ? error
+          : new SessionContextError(`Failed to restore records in ${tableName}`, error),
     })
-  )
+
+    yield* logRestoreActivities(session, tableName, restoredRecords)
+
+    return restoredRecords.length
+  })
 }
 /**
  * Extract fields from update object (requires nested format)
@@ -733,7 +759,7 @@ function updateSingleRecordInBatch(
 }
 
 /**
- * Batch update records with session context
+ * Batch update records
  *
  * Updates multiple records in a transaction with permission enforcement.
  * Only records the user has permission to update will be affected.
@@ -749,23 +775,27 @@ export function batchUpdateRecords(
   tableName: string,
   updates: readonly { readonly id: string; readonly fields?: Record<string, unknown> }[]
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError | ValidationError> {
-  return withSessionContext(session, (tx) =>
-    Effect.gen(function* () {
-      validateTableName(tableName)
+  return Effect.tryPromise({
+    try: () =>
+      db.transaction(async (tx) => {
+        validateTableName(tableName)
 
-      // Process updates sequentially with immutable array building
-      const updatedRecords = yield* Effect.reduce(
-        updates,
-        [] as readonly Record<string, unknown>[],
-        (acc, update) =>
-          updateSingleRecordInBatch(tx, tableName, session, update).pipe(
-            Effect.map((record) => (record ? [...acc, record] : acc))
+        return await runEffectInTx(
+          // Process updates sequentially with immutable array building
+          Effect.reduce(updates, [] as readonly Record<string, unknown>[], (acc, update) =>
+            updateSingleRecordInBatch(tx, tableName, session, update).pipe(
+              Effect.map((record) => (record ? [...acc, record] : acc))
+            )
           )
-      )
-
-      return updatedRecords
-    })
-  )
+        )
+      }),
+    catch: (error) =>
+      error instanceof SessionContextError
+        ? error
+        : error instanceof ValidationError
+          ? error
+          : new SessionContextError(`Failed to batch update records in ${tableName}`, error),
+  })
 }
 
 /**
@@ -910,7 +940,7 @@ function logDeleteActivities(
 }
 
 /**
- * Batch delete records with session context
+ * Batch delete records
  *
  * Deletes multiple records (soft or hard delete based on parameters).
  * Validates all records exist before deleting any.
@@ -929,26 +959,38 @@ export function batchDeleteRecords(
   recordIds: readonly string[],
   permanent = false
 ): Effect.Effect<number, SessionContextError> {
-  return withSessionContext(session, (tx) =>
-    Effect.gen(function* () {
-      validateTableName(tableName)
-      const tableIdent = sql.identifier(tableName)
+  return Effect.gen(function* () {
+    const { deletedCount, recordsBefore } = yield* Effect.tryPromise({
+      try: () =>
+        db.transaction(async (tx) => {
+          validateTableName(tableName)
+          const tableIdent = sql.identifier(tableName)
 
-      yield* validateRecordsForDeleteWithEffect(tx, tableIdent, recordIds)
+          // eslint-disable-next-line functional/no-expression-statements -- Required for transaction validation
+          await runEffectInTx(validateRecordsForDeleteWithEffect(tx, tableIdent, recordIds))
 
-      const recordsBefore = yield* fetchRecordsBeforeDelete(tx, tableIdent, recordIds)
-      const hasSoftDelete = yield* checkSoftDeleteSupport(tx, tableName)
+          const before = await runEffectInTx(fetchRecordsBeforeDelete(tx, tableIdent, recordIds))
+          const hasSoftDelete = await runEffectInTx(checkSoftDeleteSupport(tx, tableName))
 
-      const deletedCount = yield* executeDeleteQuery(tx, {
-        tableName,
-        recordIds,
-        hasSoftDelete,
-        permanent,
-      })
+          const count = await runEffectInTx(
+            executeDeleteQuery(tx, {
+              tableName,
+              recordIds,
+              hasSoftDelete,
+              permanent,
+            })
+          )
 
-      yield* logDeleteActivities(session, tableName, recordsBefore)
-
-      return deletedCount
+          return { deletedCount: count, recordsBefore: before }
+        }),
+      catch: (error) =>
+        error instanceof SessionContextError
+          ? error
+          : new SessionContextError(`Failed to delete records in ${tableName}`, error),
     })
-  )
+
+    yield* logDeleteActivities(session, tableName, recordsBefore)
+
+    return deletedCount
+  })
 }

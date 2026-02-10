@@ -405,17 +405,17 @@ test.describe('User Field', () => {
           email: 'sarah-step4@example.com',
         })
         await executeQuery([
-          `INSERT INTO documents (title, owner) VALUES ('Project Plan', '${sarah.user.id}'), ('Budget Report', '${sarah.user.id}')`,
+          `INSERT INTO documents (title, author) VALUES ('Project Plan', '${sarah.user.id}'), ('Budget Report', '${sarah.user.id}')`,
         ])
-        const ownerInfo = await executeQuery(
-          'SELECT d.id, d.title, u.name as owner_name, u.email as owner_email FROM documents d JOIN auth.user u ON d.owner = u.id WHERE d.id = 1'
+        const authorInfo = await executeQuery(
+          'SELECT d.id, d.title, u.name as author_name, u.email as author_email FROM documents d JOIN auth.user u ON d.author = u.id WHERE d.id = 1'
         )
-        expect(ownerInfo.id).toBe(1)
-        expect(ownerInfo.title).toBe('Project Plan')
-        expect(ownerInfo.owner_name).toBe('Sarah Connor')
-        expect(ownerInfo.owner_email).toBe('sarah-step4@example.com')
+        expect(authorInfo.id).toBe(1)
+        expect(authorInfo.title).toBe('Project Plan')
+        expect(authorInfo.author_name).toBe('Sarah Connor')
+        expect(authorInfo.author_email).toBe('sarah-step4@example.com')
         const documentsByUser = await executeQuery(
-          "SELECT COUNT(*) as count FROM documents d JOIN auth.user u ON d.owner = u.id WHERE u.email = 'sarah-step4@example.com'"
+          "SELECT COUNT(*) as count FROM documents d JOIN auth.user u ON d.author = u.id WHERE u.email = 'sarah-step4@example.com'"
         )
         expect(Number(documentsByUser.count)).toBe(2)
       })

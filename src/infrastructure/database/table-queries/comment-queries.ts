@@ -8,7 +8,7 @@
 import { sql, eq, and, isNull, desc, asc } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { users } from '@/infrastructure/auth/better-auth/schema'
-import { withSessionContext, SessionContextError } from '@/infrastructure/database'
+import { SessionContextError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import { recordComments } from '@/infrastructure/database/drizzle/schema/record-comments'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -33,8 +33,8 @@ export function createComment(config: {
   SessionContextError
 > {
   const { session, tableId, recordId, content } = config
-  return withSessionContext(session, (tx) =>
-    Effect.gen(function* () {
+  return Effect.tryPromise({
+    try: async () => {
       const now = new Date()
       const values = {
         id: crypto.randomUUID(),
@@ -46,13 +46,11 @@ export function createComment(config: {
         updatedAt: now,
       }
 
-      const result = yield* Effect.tryPromise({
-        try: () => tx.insert(recordComments).values(values).returning(),
-        catch: (error) => new SessionContextError('Failed to create comment', error),
-      })
+      const result = await db.insert(recordComments).values(values).returning()
 
       if (result.length === 0) {
-        return yield* Effect.fail(new SessionContextError('Failed to create comment'))
+        // eslint-disable-next-line functional/no-throw-statements -- Required inside Effect.tryPromise for error propagation
+        throw new SessionContextError('Failed to create comment')
       }
 
       const comment = result[0]!
@@ -64,8 +62,12 @@ export function createComment(config: {
         content: comment.content,
         createdAt: comment.createdAt,
       }
-    })
-  )
+    },
+    catch: (error) =>
+      error instanceof SessionContextError
+        ? error
+        : new SessionContextError('Failed to create comment', error),
+  })
 }
 
 /**
@@ -185,27 +187,25 @@ export function getCommentWithUser(config: {
   | undefined,
   SessionContextError
 > {
-  const { session, commentId } = config
-  return withSessionContext(session, () =>
-    Effect.gen(function* () {
-      const result = yield* Effect.tryPromise<Array<CommentQueryRow>, SessionContextError>({
-        try: () => executeCommentQuery(commentId),
-        catch: (error) => new SessionContextError('Failed to get comment', error),
-      })
-
-      if (result.length === 0 || !result[0]) {
-        return undefined
-      }
-
-      const row = result[0]
-      return transformCommentRow({
-        ...row,
-        userName: row.userName ?? undefined,
-        userEmail: row.userEmail ?? undefined,
-        userImage: row.userImage ?? undefined,
-      })
+  const { commentId } = config
+  return Effect.gen(function* () {
+    const result = yield* Effect.tryPromise<Array<CommentQueryRow>, SessionContextError>({
+      try: () => executeCommentQuery(commentId),
+      catch: (error) => new SessionContextError('Failed to get comment', error),
     })
-  )
+
+    if (result.length === 0 || !result[0]) {
+      return undefined
+    }
+
+    const row = result[0]
+    return transformCommentRow({
+      ...row,
+      userName: row.userName ?? undefined,
+      userEmail: row.userEmail ?? undefined,
+      userImage: row.userImage ?? undefined,
+    })
+  })
 }
 
 /**
@@ -225,32 +225,30 @@ export function checkRecordExists(config: {
   readonly tableName: string
   readonly recordId: string
 }): Effect.Effect<boolean, SessionContextError> {
-  const { session, tableName, recordId } = config
-  return withSessionContext(session, (tx) =>
-    Effect.gen(function* () {
-      // Check if table has deleted_at column
-      const columnsResult = yield* Effect.tryPromise({
-        try: () =>
-          tx.execute(
-            sql`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ${tableName} AND column_name = 'deleted_at'`
-          ),
-        catch: (error) => new SessionContextError('Failed to check table columns', error),
-      })
-
-      const hasDeletedAt = (columnsResult as readonly Record<string, unknown>[]).some(
-        (row) => row.column_name === 'deleted_at'
-      )
-
-      // Check if record exists
-      const query = buildRecordCheckQuery(tableName, recordId, hasDeletedAt)
-      const result = yield* Effect.tryPromise({
-        try: () => tx.execute(query),
-        catch: (error) => new SessionContextError('Failed to check record existence', error),
-      })
-
-      return result.length > 0
+  const { tableName, recordId } = config
+  return Effect.gen(function* () {
+    // Check if table has deleted_at column
+    const columnsResult = yield* Effect.tryPromise({
+      try: () =>
+        db.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ${tableName} AND column_name = 'deleted_at'`
+        ),
+      catch: (error) => new SessionContextError('Failed to check table columns', error),
     })
-  )
+
+    const hasDeletedAt = (columnsResult as readonly Record<string, unknown>[]).some(
+      (row) => row.column_name === 'deleted_at'
+    )
+
+    // Check if record exists
+    const query = buildRecordCheckQuery(tableName, recordId, hasDeletedAt)
+    const result = yield* Effect.tryPromise({
+      try: () => db.execute(query),
+      catch: (error) => new SessionContextError('Failed to check record existence', error),
+    })
+
+    return result.length > 0
+  })
 }
 
 /**
@@ -267,29 +265,27 @@ export function getUserById(config: {
   | undefined,
   SessionContextError
 > {
-  const { session, userId } = config
-  return withSessionContext(session, (tx) =>
-    Effect.gen(function* () {
-      const result = yield* Effect.tryPromise({
-        try: () =>
-          tx
-            .select({ id: users.id, role: users.role })
-            .from(users)
-            .where(eq(users.id, userId))
-            .limit(1),
-        catch: (error) => new SessionContextError('Failed to get user', error),
-      })
-
-      if (result.length === 0 || !result[0]) {
-        return undefined
-      }
-
-      return {
-        id: result[0].id,
-        role: result[0].role ?? undefined,
-      }
+  const { userId } = config
+  return Effect.gen(function* () {
+    const result = yield* Effect.tryPromise({
+      try: () =>
+        db
+          .select({ id: users.id, role: users.role })
+          .from(users)
+          .where(eq(users.id, userId))
+          .limit(1),
+      catch: (error) => new SessionContextError('Failed to get user', error),
     })
-  )
+
+    if (result.length === 0 || !result[0]) {
+      return undefined
+    }
+
+    return {
+      id: result[0].id,
+      role: result[0].role ?? undefined,
+    }
+  })
 }
 
 /**
@@ -299,26 +295,27 @@ export function deleteComment(config: {
   readonly session: Readonly<Session>
   readonly commentId: string
 }): Effect.Effect<void, SessionContextError> {
-  const { session, commentId } = config
-  return withSessionContext(session, (tx) =>
-    Effect.gen(function* () {
+  const { commentId } = config
+  return Effect.tryPromise({
+    try: async () => {
       const now = new Date()
 
-      const result = yield* Effect.tryPromise({
-        try: () =>
-          tx
-            .update(recordComments)
-            .set({ deletedAt: now, updatedAt: now })
-            .where(and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt)))
-            .returning(),
-        catch: (error) => new SessionContextError('Failed to delete comment', error),
-      })
+      const result = await db
+        .update(recordComments)
+        .set({ deletedAt: now, updatedAt: now })
+        .where(and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt)))
+        .returning()
 
       if (result.length === 0) {
-        return yield* Effect.fail(new SessionContextError('Comment not found'))
+        // eslint-disable-next-line functional/no-throw-statements -- Required inside Effect.tryPromise for error propagation
+        throw new SessionContextError('Comment not found')
       }
-    })
-  )
+    },
+    catch: (error) =>
+      error instanceof SessionContextError
+        ? error
+        : new SessionContextError('Failed to delete comment', error),
+  })
 }
 
 /**
@@ -337,31 +334,29 @@ export function getCommentForAuth(config: {
   | undefined,
   SessionContextError
 > {
-  const { session, commentId } = config
-  return withSessionContext(session, (tx) =>
-    Effect.gen(function* () {
-      const result = yield* Effect.tryPromise({
-        try: () =>
-          tx
-            .select({
-              id: recordComments.id,
-              userId: recordComments.userId,
-              recordId: recordComments.recordId,
-              tableId: recordComments.tableId,
-            })
-            .from(recordComments)
-            .where(and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt)))
-            .limit(1),
-        catch: (error) => new SessionContextError('Failed to get comment', error),
-      })
-
-      if (result.length === 0 || !result[0]) {
-        return undefined
-      }
-
-      return result[0]
+  const { commentId } = config
+  return Effect.gen(function* () {
+    const result = yield* Effect.tryPromise({
+      try: () =>
+        db
+          .select({
+            id: recordComments.id,
+            userId: recordComments.userId,
+            recordId: recordComments.recordId,
+            tableId: recordComments.tableId,
+          })
+          .from(recordComments)
+          .where(and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt)))
+          .limit(1),
+      catch: (error) => new SessionContextError('Failed to get comment', error),
     })
-  )
+
+    if (result.length === 0 || !result[0]) {
+      return undefined
+    }
+
+    return result[0]
+  })
 }
 
 /**
