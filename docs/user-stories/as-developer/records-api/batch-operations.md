@@ -126,8 +126,9 @@ DELETE /api/tables/1/records/batch
 | AC-008 | Supports permanent=true for hard delete       | `API-TABLES-RECORDS-BATCH-DELETE-008`        | ⏳     |
 | AC-009 | Permanent delete requires admin role          | `API-TABLES-RECORDS-BATCH-DELETE-009`        | ⏳     |
 | AC-010 | Maximum batch size is 100 records             | `API-TABLES-RECORDS-BATCH-DELETE-010`        | ⏳     |
-| AC-011 | Returns count of actually deleted records     |                                              | ❓     |
-| AC-012 | User batch soft-deletes records (regression)  | `API-TABLES-RECORDS-BATCH-DELETE-REGRESSION` | ✅     |
+| AC-011 | Batch delete skips already soft-deleted records and returns count of newly deleted only |                                              | ⏳     |
+| AC-012 | Admin permanent delete with permanent=true hard deletes records                        |                                              | ⏳     |
+| AC-013 | User batch soft-deletes records (regression)                                           | `API-TABLES-RECORDS-BATCH-DELETE-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -226,7 +227,7 @@ POST /api/tables/1/records/upsert
 | -------------------- | --------------------- | --------------------- | -------- |
 | US-RECORDS-BATCH-001 | Batch Create Records  | 13                    | Complete |
 | US-RECORDS-BATCH-002 | Batch Update Records  | 11                    | Complete |
-| US-RECORDS-BATCH-003 | Batch Delete Records  | 11                    | Complete |
+| US-RECORDS-BATCH-003 | Batch Delete Records  | 13                    | Complete |
 | US-RECORDS-BATCH-004 | Batch Restore Records | 8                     | Complete |
 | US-RECORDS-BATCH-005 | Upsert Records        | 8                     | Complete |
-| **Total**            |                       | **51 + 5 regression** |          |
+| **Total**            |                       | **53 + 5 regression** |          |

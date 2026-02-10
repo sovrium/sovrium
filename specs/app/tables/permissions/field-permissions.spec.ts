@@ -739,7 +739,7 @@ test.describe('Field-Level Permissions', () => {
         `INSERT INTO private_notes (title, secret_content) VALUES ('Note 1', 'Top Secret Data')`
       )
 
-      await test.step('APP-TABLES-FIELD-PERMS-001: Admin-only field excluded for member', async () => {
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-001: Admin-only field excluded for member', async () => {
         // Member excluded from salary
         await createAuthenticatedUser({ email: 'member@example.com' })
         const memberResponse = await request.get('/api/tables/1/records')
@@ -758,7 +758,7 @@ test.describe('Field-Level Permissions', () => {
         await signOut()
       })
 
-      await test.step('APP-TABLES-FIELD-PERMS-003: Multiple field permissions — filtered per role', async () => {
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-003: Multiple field permissions — filtered per role', async () => {
         // Member sees name, email, department but NOT salary
         await createAuthenticatedUser({ email: 'member2@example.com' })
         const memberResponse = await request.get('/api/tables/2/records')
@@ -779,7 +779,7 @@ test.describe('Field-Level Permissions', () => {
         await signOut()
       })
 
-      await test.step('APP-TABLES-FIELD-PERMS-004: Public read field — visible to member', async () => {
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-004: Public read field — visible to member', async () => {
         await createAuthenticatedUser({ email: 'member3@example.com' })
         const response = await request.get('/api/tables/3/records')
         expect(response.status()).toBe(200)
@@ -788,7 +788,7 @@ test.describe('Field-Level Permissions', () => {
         await signOut()
       })
 
-      await test.step('APP-TABLES-FIELD-PERMS-006: No restrictions — all fields visible', async () => {
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-006: No restrictions — all fields visible', async () => {
         await createAuthenticatedUser({ email: 'member4@example.com' })
         const response = await request.get('/api/tables/4/records')
         expect(response.status()).toBe(200)
@@ -799,7 +799,7 @@ test.describe('Field-Level Permissions', () => {
         await signOut()
       })
 
-      await test.step('APP-TABLES-FIELD-PERMS-007: Dual-layer — member sees base fields, admin sees all', async () => {
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-007: Dual-layer — member sees base fields, admin sees all', async () => {
         // Member sees name only
         await createAuthenticatedUser({ email: 'member5@example.com' })
         const memberResponse = await request.get('/api/tables/5/records')
@@ -820,7 +820,7 @@ test.describe('Field-Level Permissions', () => {
         await signOut()
       })
 
-      await test.step('APP-TABLES-FIELD-PERMS-009: Complementary — admin-only field excluded for member', async () => {
+      await test.step('APP-TABLES-FIELD-PERMISSIONS-009: Complementary — admin-only field excluded for member', async () => {
         // Member excluded from secret_content
         await createAuthenticatedUser({ email: 'member6@example.com' })
         const memberResponse = await request.get('/api/tables/6/records')

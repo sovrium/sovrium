@@ -206,7 +206,7 @@ test.describe('Table-Level Permissions', () => {
   // ============================================================================
 
   test(
-    'APP-TABLES-TBL-PERMS-REGRESSION: user can complete full table-permissions workflow',
+    'APP-TABLES-TABLE-PERMISSIONS-REGRESSION: user can complete full table-permissions workflow',
     { tag: '@regression' },
     async ({
       request,
@@ -264,7 +264,7 @@ test.describe('Table-Level Permissions', () => {
       await executeQuery(`INSERT INTO articles (title) VALUES ('Article 1'), ('Article 2')`)
       await executeQuery(`INSERT INTO secrets (data) VALUES ('Secret Data')`)
 
-      await test.step('APP-TABLES-TBL-PERMS-001: Role-based read — member allowed, viewer denied', async () => {
+      await test.step('APP-TABLES-TABLE-PERMISSIONS-001: Role-based read — member allowed, viewer denied', async () => {
         // Member can read projects (read: ['member'])
         await createAuthenticatedUser({ email: 'member@example.com' })
         const memberResponse = await request.get('/api/tables/1/records')
@@ -280,7 +280,7 @@ test.describe('Table-Level Permissions', () => {
         await signOut()
       })
 
-      await test.step('APP-TABLES-TBL-PERMS-002: Public read — authenticated member allowed', async () => {
+      await test.step('APP-TABLES-TABLE-PERMISSIONS-002: Public read — authenticated member allowed', async () => {
         await createAuthenticatedUser({ email: 'member2@example.com' })
         const response = await request.get('/api/tables/2/records')
         expect(response.status()).toBe(200)
@@ -289,7 +289,7 @@ test.describe('Table-Level Permissions', () => {
         await signOut()
       })
 
-      await test.step('APP-TABLES-TBL-PERMS-003: Default deny — member allowed, viewer denied', async () => {
+      await test.step('APP-TABLES-TABLE-PERMISSIONS-003: Default deny — member allowed, viewer denied', async () => {
         // Member allowed (default allow for non-viewers)
         await createAuthenticatedUser({ email: 'member3@example.com' })
         const memberResponse = await request.get('/api/tables/3/records')

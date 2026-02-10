@@ -56,7 +56,7 @@ Each operation accepts one of 3 formats:
 | AC-003 | Role array permission restricts to listed roles                    | `APP-TABLES-TABLE-PERMISSIONS-003` | ✅     |
 | AC-004 | Returns 401 for unauthenticated access to non-`all` operations     |                                    | ⏳     |
 | AC-005 | Returns 403 for unauthorized role attempting restricted ops        |                                    | ⏳     |
-| AC-006 | User can complete full table-permissions workflow (regression)     | `APP-TABLES-TBL-PERMS-REGRESSION`  | ✅     |
+| AC-006 | User can complete full table-permissions workflow (regression)     | `APP-TABLES-TABLE-PERMISSIONS-REGRESSION`  | ✅     |
 | AC-007 | `comment` permission controls who can add comments to records      |                                    | ⏳     |
 | AC-008 | All 5 operations (read, comment, create, update, delete) supported |                                    | ⏳     |
 | AC-009 | Unknown role names in permissions trigger validation warning       |                                    | ⏳     |

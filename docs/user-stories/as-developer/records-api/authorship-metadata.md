@@ -244,6 +244,7 @@ The API silently ignores the `createdBy` value provided by the user and sets it 
 | AC-001 | createdBy is included in GET single record response                     | `API-TABLES-RECORDS-AUTHORSHIP-021` | ⏳     |
 | AC-002 | updatedBy is included in GET single record response                     | `API-TABLES-RECORDS-AUTHORSHIP-022` | ⏳     |
 | AC-003 | Authorship fields are included in list records response for each record | `API-TABLES-RECORDS-AUTHORSHIP-023` | ⏳     |
+| AC-004 | Full authorship lifecycle across CRUD operations (regression)           | `API-TABLES-RECORDS-AUTHORSHIP-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -269,5 +270,5 @@ The API silently ignores the `createdBy` value provided by the user and sets it 
 | US-API-AUTHORSHIP-004 | Read-Only Enforcement         | 3                     | Complete |
 | US-API-AUTHORSHIP-005 | Multi-User Scenarios          | 2                     | Complete |
 | US-API-AUTHORSHIP-006 | Batch Operations              | 3                     | Complete |
-| US-API-AUTHORSHIP-007 | API Response Inclusion        | 3                     | Complete |
-| **Total**             |                               | **23 + 1 regression** |          |
+| US-API-AUTHORSHIP-007 | API Response Inclusion        | 4                     | Complete |
+| **Total**             |                               | **24**                |          |

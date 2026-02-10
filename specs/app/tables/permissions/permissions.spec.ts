@@ -629,7 +629,7 @@ test.describe('Table Permissions', () => {
         `INSERT INTO reports (title, confidential) VALUES ('Q1', 'Revenue details')`
       )
 
-      await test.step('APP-TABLES-PERMS-001: Admin-only table — member and viewer denied', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-001: Admin-only table — member and viewer denied', async () => {
         // Member denied
         await createAuthenticatedUser({ email: 'member@example.com' })
         const memberResponse = await request.get('/api/tables/1/records')
@@ -643,7 +643,7 @@ test.describe('Table Permissions', () => {
         await signOut()
       })
 
-      await test.step('APP-TABLES-PERMS-002: Field-level filtering — member sees name but not salary_info', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-002: Field-level filtering — member sees name but not salary_info', async () => {
         await createAuthenticatedUser({ email: 'member2@example.com' })
         const response = await request.get('/api/tables/2/records')
         expect(response.status()).toBe(200)
@@ -653,7 +653,7 @@ test.describe('Table Permissions', () => {
         await signOut()
       })
 
-      await test.step('APP-TABLES-PERMS-003: Hierarchical permissions — admin sees all fields, member filtered', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-003: Hierarchical permissions — admin sees all fields, member filtered', async () => {
         // Member sees title but not salary_info
         await createAuthenticatedUser({ email: 'member3@example.com' })
         const memberResponse = await request.get('/api/tables/3/records')
@@ -672,7 +672,7 @@ test.describe('Table Permissions', () => {
         await signOut()
       })
 
-      await test.step('APP-TABLES-PERMS-004: Admin-only restriction — member and viewer both denied', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-004: Admin-only restriction — member and viewer both denied', async () => {
         await createAuthenticatedUser({ email: 'member4@example.com' })
         expect((await request.get('/api/tables/4/records')).status()).toBe(403)
 
@@ -682,7 +682,7 @@ test.describe('Table Permissions', () => {
         await signOut()
       })
 
-      await test.step('APP-TABLES-PERMS-005: Full hierarchy — admin all, member filtered, viewer denied', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-005: Full hierarchy — admin all, member filtered, viewer denied', async () => {
         // Admin sees all
         await createAuthenticatedAdmin({ email: 'admin2@example.com' })
         const adminResponse = await request.get('/api/tables/5/records')
@@ -706,14 +706,14 @@ test.describe('Table Permissions', () => {
         await signOut()
       })
 
-      await test.step('APP-TABLES-PERMS-006: Accept custom roles beyond default set', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-006: Accept custom roles beyond default set', async () => {
         // Table 99 with read: ['super_admin'] was included in the schema above.
         // Server started successfully, proving custom roles are accepted.
         const result = await executeQuery(`SELECT COUNT(*) as cnt FROM custom_role_table`)
         expect(Number(result.rows[0].cnt)).toBe(0)
       })
 
-      await test.step('APP-TABLES-PERMS-007: Reject field permission referencing non-existent field', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-007: Reject field permission referencing non-existent field', async () => {
         await expect(
           startServerWithSchema({
             name: 'test-app-error2',
@@ -740,7 +740,7 @@ test.describe('Table Permissions', () => {
         ).rejects.toThrow(/field.*salary.*not found|field.*does not exist/i)
       })
 
-      await test.step('APP-TABLES-PERMS-008: Reject duplicate field permissions', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-008: Reject duplicate field permissions', async () => {
         await expect(
           startServerWithSchema({
             name: 'test-app-error3',
@@ -771,7 +771,7 @@ test.describe('Table Permissions', () => {
         ).rejects.toThrow(/duplicate.*field.*permission|conflicting.*permission/i)
       })
 
-      await test.step('APP-TABLES-PERMS-010: Reject circular relationship dependency', async () => {
+      await test.step('APP-TABLES-PERMISSIONS-010: Reject circular relationship dependency', async () => {
         await expect(
           startServerWithSchema({
             name: 'test-app-error5',
