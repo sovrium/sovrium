@@ -1,4 +1,4 @@
-# Zod + Hono + OpenAPI Integration v4.3.5
+# Zod + Hono + OpenAPI Integration v4.3.6
 
 ## Overview
 
@@ -12,8 +12,8 @@
 
 | Library           | Version | Usage                     | Allowed Locations                     | Why                                |
 | ----------------- | ------- | ------------------------- | ------------------------------------- | ---------------------------------- |
-| **Effect Schema** | 3.19.14 | Server validation, domain | All `src/` files (default)            | Project standard, Effect ecosystem |
-| **Zod**           | 4.3.5   | OpenAPI + client forms    | `src/domain/models/api/` + forms only | OpenAPI tooling compatibility      |
+| **Effect Schema** | 3.19.16 | Server validation, domain | All `src/` files (default)            | Project standard, Effect ecosystem |
+| **Zod**           | 4.3.6   | OpenAPI + client forms    | `src/domain/models/api/` + forms only | OpenAPI tooling compatibility      |
 
 **Why This Separation Exists**:
 
@@ -28,7 +28,7 @@
 ```bash
 # Already in package.json
 bun add zod                    # 4.3.6 - Schema validation
-bun add @hono/zod-openapi      # 1.2.0 - OpenAPI schema generation
+bun add @hono/zod-openapi      # 1.2.1 - OpenAPI schema generation
 bun add @hono/zod-validator    # 0.7.6 - Hono request validation
 bun add @hookform/resolvers    # 5.2.2 - React Hook Form + Zod integration
 ```

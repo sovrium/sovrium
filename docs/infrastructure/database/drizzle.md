@@ -32,7 +32,7 @@ Drizzle is already installed in Sovrium:
     "@types/bun": "latest"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.8"
+    "drizzle-kit": "^0.31.9"
   }
 }
 ```

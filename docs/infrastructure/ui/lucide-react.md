@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Version**: ^0.562.0
+**Version**: ^0.563.0
 **Purpose**: Beautiful, consistent, open-source icon library for React applications
 **Layer**: Presentation (React components only)
 
@@ -26,7 +26,7 @@ Lucide React is already installed in Sovrium:
 ```json
 {
   "dependencies": {
-    "lucide-react": "^0.562.0"
+    "lucide-react": "^0.563.0"
   }
 }
 ```
