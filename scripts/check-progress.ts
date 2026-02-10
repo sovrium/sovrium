@@ -686,7 +686,20 @@ function extractValidPaths(
     return node
   }
 
+  // Track $defs currently being expanded in the ancestor chain to detect cycles.
+  // Recursive schemas (e.g., ViewFilterNode → ViewFilterNode, SectionItem → Children → SectionItem)
+  // would cause infinite recursion without this guard.
+  const expandingDefs = new Set<string>()
+
   const walk = (node: Record<string, unknown>, currentPrefix: string) => {
+    // Cycle detection: if this node is a $ref, check if the target def is already being expanded
+    const ref = node['$ref'] as string | undefined
+    const defKey = ref?.replace(/^#\/\$defs\//, '')
+    if (defKey) {
+      if (expandingDefs.has(defKey)) return // Cycle detected — stop recursion
+      expandingDefs.add(defKey)
+    }
+
     const resolved = resolve(node)
 
     // Handle properties directly
@@ -717,8 +730,20 @@ function extractValidPaths(
       (resolved['oneOf'] as Array<Record<string, unknown>> | undefined)
     if (branches) {
       for (const branch of branches) {
-        walk(resolve(branch), currentPrefix)
+        walk(branch, currentPrefix)
       }
+    }
+
+    // Handle array items (traverse into array element schema)
+    const items = resolved['items'] as Record<string, unknown> | undefined
+    if (items) {
+      walk(items, currentPrefix)
+    }
+
+    // Remove from expanding set so sibling branches can still reference this def
+    if (defKey) {
+      // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is Set.delete(), not a Drizzle query
+      expandingDefs.delete(defKey)
     }
   }
 
@@ -758,7 +783,17 @@ function extractYamlConfigBlocks(content: string): Array<{ yaml: string; lineNum
  * Recursively extract dot-paths from a plain JS object.
  */
 function extractDotPaths(obj: unknown, prefix?: string): string[] {
-  if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return []
+  if (obj === null || typeof obj !== 'object') return []
+  if (Array.isArray(obj)) {
+    // Traverse array elements to extract paths from object items
+    const pathSet = new Set<string>()
+    for (const item of obj) {
+      for (const p of extractDotPaths(item, prefix)) {
+        pathSet.add(p)
+      }
+    }
+    return [...pathSet]
+  }
   const paths: string[] = []
   for (const key of Object.keys(obj as Record<string, unknown>)) {
     const fullPath = prefix ? `${prefix}.${key}` : key
@@ -1186,6 +1221,24 @@ function validateJsonResponseCoherence(
           message: `JSON block does not match ${match.name}: ${errorSummary}`,
           line: block.lineNumber,
         })
+      }
+
+      // Detect extra keys not in the matched schema (Zod strips them silently)
+      if (result.success) {
+        const matchEntry = registry.get(match.name)
+        if (matchEntry) {
+          const extraKeys = Object.keys(parsed as Record<string, unknown>).filter(
+            (k) => !matchEntry.keys.has(k)
+          )
+          if (extraKeys.length > 0) {
+            issues.push({
+              file: file.relativePath,
+              severity: 'warning',
+              message: `JSON block has keys not in matched schema ${match.name}: ${extraKeys.join(', ')}`,
+              line: block.lineNumber,
+            })
+          }
+        }
       }
     }
   }

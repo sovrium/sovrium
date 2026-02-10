@@ -131,17 +131,23 @@ tables:
     fields:
       - name: name
         type: single-line-text
-        permissions:
-          read: all
-          write: ['admin', 'hr']
       - name: salary
         type: currency
-        permissions:
-          read: ['admin', 'hr']
-          write: ['admin']
       - name: department
         type: single-line-text
-        permissions:
+    permissions:
+      read: all
+      create: ['admin']
+      update: ['admin']
+      delete: ['admin']
+      fields:
+        - field: name
+          read: all
+          write: ['admin', 'hr']
+        - field: salary
+          read: ['admin', 'hr']
+          write: ['admin']
+        - field: department
           read: all
           write: ['admin']
 ```
@@ -271,11 +277,12 @@ GET /api/tables/:tableId/permissions
 
 ```json
 {
-  "read": true,
-  "create": true,
-  "update": true,
-  "delete": false,
-  "manage": false,
+  "table": {
+    "read": true,
+    "create": true,
+    "update": true,
+    "delete": false
+  },
   "fields": {
     "name": { "read": true, "write": true },
     "salary": { "read": false, "write": false }
