@@ -39,7 +39,7 @@ test.describe('List table views', () => {
       // GIVEN: A table with 3 views using different domain configurations
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -134,7 +134,7 @@ test.describe('List table views', () => {
       // GIVEN: A table with fields but no views configured
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -169,7 +169,7 @@ test.describe('List table views', () => {
       // GIVEN: Server running but non-existent table ID
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -203,7 +203,7 @@ test.describe('List table views', () => {
       // GIVEN: Server running with auth enabled but NO authenticated user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -234,7 +234,7 @@ test.describe('List table views', () => {
       // GIVEN: A table with 2 views — one admin-only, one unrestricted
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -284,7 +284,7 @@ test.describe('List table views', () => {
       // Setup: Start server with tasks table and 3 views
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

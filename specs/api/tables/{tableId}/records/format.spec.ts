@@ -40,7 +40,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with currency field configured with EUR currency
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -76,7 +76,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with currency field configured with symbol after amount
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -111,7 +111,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with currency field configured with 0 decimal places (JPY)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -146,7 +146,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with currency field configured to use parentheses for negatives
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -187,7 +187,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with currency field configured with space as thousands separator
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -228,7 +228,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with currency field configured with period as thousands separator
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -273,7 +273,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with date field configured with US format
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -308,7 +308,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with date field configured with European format
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -343,7 +343,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with date field configured with ISO format
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -378,7 +378,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with date field configured to include time
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -413,7 +413,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with date field configured with specific timezone
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -458,7 +458,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with datetime field configured with 12-hour time format
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -495,7 +495,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with datetime field configured with 24-hour time format
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -532,7 +532,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with datetime field configured with specific timezone
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -567,7 +567,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with datetime field configured to use local timezone
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -609,7 +609,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with duration field configured with h:mm format
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -644,7 +644,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with duration field configured with h:mm:ss format
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -679,7 +679,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with duration field configured with decimal format
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -720,7 +720,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with single-attachment field restricted to images only
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -766,7 +766,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with single-attachment field with 5MB max file size
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -813,7 +813,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with datetime field (stored in UTC)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -852,7 +852,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with datetime field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -889,7 +889,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with datetime field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -926,7 +926,7 @@ test.describe('Record Display Formatting', () => {
       // GIVEN: table with multiple datetime fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -980,7 +980,7 @@ test.describe('Record Display Formatting', () => {
       // Setup: Create tables with various formatted field types
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

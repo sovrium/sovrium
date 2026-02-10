@@ -38,7 +38,7 @@ test.describe('Verify email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -81,7 +81,7 @@ test.describe('Verify email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -104,7 +104,7 @@ test.describe('Verify email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -127,7 +127,7 @@ test.describe('Verify email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -150,7 +150,7 @@ test.describe('Verify email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -197,7 +197,7 @@ test.describe('Verify email address', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -253,7 +253,7 @@ test.describe('Verify email address', () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         })
 

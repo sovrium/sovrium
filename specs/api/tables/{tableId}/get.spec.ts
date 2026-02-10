@@ -32,7 +32,7 @@ test.describe('Get table by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -44,10 +44,7 @@ test.describe('Get table by ID', () => {
               { id: 3, name: 'first_name', type: 'single-line-text' },
             ],
             permissions: {
-              read: {
-                type: 'roles',
-                roles: ['owner', 'admin', 'member'],
-              },
+              read: ['admin', 'member'],
             },
           },
         ],
@@ -91,7 +88,7 @@ test.describe('Get table by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -133,7 +130,7 @@ test.describe('Get table by ID', () => {
       // GIVEN: A running server with existing table and auth enabled
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -166,7 +163,7 @@ test.describe('Get table by ID', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -218,7 +215,7 @@ test.describe('Get table by ID', () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
           tables: [
             {
@@ -230,10 +227,7 @@ test.describe('Get table by ID', () => {
                 { id: 3, name: 'first_name', type: 'single-line-text' },
               ],
               permissions: {
-                read: {
-                  type: 'roles',
-                  roles: ['owner', 'admin', 'member'],
-                },
+                read: ['admin', 'member'],
               },
             },
             {

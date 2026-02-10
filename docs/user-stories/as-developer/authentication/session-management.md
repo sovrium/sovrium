@@ -16,7 +16,8 @@
 
 ```yaml
 auth:
-  emailAndPassword: true
+  strategies:
+    - type: emailAndPassword
 # Note: Session configuration (expiresIn, updateAge) is managed at the
 # Better Auth server level, not in the AppSchema. The auth config enables
 # the authentication methods whose sessions are managed by Better Auth.

@@ -39,7 +39,7 @@ test.describe('Get view details', () => {
       // GIVEN: A table with a basic view
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -82,7 +82,7 @@ test.describe('Get view details', () => {
       // GIVEN: A table with a view that has nested AND filters
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -156,7 +156,7 @@ test.describe('Get view details', () => {
       // GIVEN: A table with a view that has multi-field sorts
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -208,7 +208,7 @@ test.describe('Get view details', () => {
       // GIVEN: A table with a view that has fields array and groupBy configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -264,7 +264,7 @@ test.describe('Get view details', () => {
       // GIVEN: A table with a default view and a non-default view
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -324,7 +324,7 @@ test.describe('Get view details', () => {
       // GIVEN: A table that exists but does not have the requested view
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -364,7 +364,7 @@ test.describe('Get view details', () => {
       // GIVEN: Server running but non-existent table ID
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -398,7 +398,7 @@ test.describe('Get view details', () => {
       // GIVEN: Server running with auth enabled but NO authenticated user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -439,7 +439,7 @@ test.describe('Get view details', () => {
       // Setup: Start server with tasks table and multiple views
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

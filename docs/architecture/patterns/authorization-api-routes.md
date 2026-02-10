@@ -7,7 +7,7 @@ This document describes how to implement authorization in Hono API routes for ta
 1. Authentication (401 if missing)
 2. Table-level permissions (403 if forbidden)
 3. Field-level permissions (403 for protected fields, filtering for responses)
-4. Owner isolation (404 for unauthorized access)
+4. Data access control (404 for unauthorized access)
 
 ## Architecture Layers
 
@@ -24,7 +24,7 @@ This document describes how to implement authorization in Hono API routes for ta
 │  - Check table-level permissions            │
 │  - Check field-level permissions            │
 │  - Filter response fields                   │
-│  - Apply owner isolation             │
+│  - Apply data access filtering             │
 └─────────────────────────────────────────────┘
                     ↓
 ┌─────────────────────────────────────────────┐
@@ -119,17 +119,17 @@ return c.json({ records: filteredRecords })
 // Add owner filter to all queries
 const userId = c.get('userId')
 
-// For CREATE - auto-inject owner_id
+// For CREATE - auto-inject userId
 const recordData = {
   ...body,
-  owner_id: userId, // Always use authenticated user's ID
+  userId: userId, // Always use authenticated user's ID
 }
 
 // For READ/UPDATE/DELETE - filter by owner
 const record = await db.query.records.findFirst({
   where: and(
     eq(records.id, recordId),
-    eq(records.owner_id, userId) // Owner isolation
+    eq(records.userId, userId) // Data access control
   ),
 })
 
@@ -199,14 +199,14 @@ for (const field of Object.keys(body)) {
 Users cannot create or update records for a different owner:
 
 ```typescript
-// Prevent owner_id override
-if (body.owner_id && body.owner_id !== userId) {
+// Prevent userId override
+if (body.userId && body.userId !== userId) {
   return c.json({ error: 'Forbidden', message: 'Cannot create records for different owner' }, 403)
 }
 
-// Prevent changing owner_id on updates
-if (existingRecord.owner_id !== userId) {
-  return c.json({ error: 'Forbidden', message: 'Cannot change owner_id' }, 403)
+// Prevent changing userId on updates
+if (existingRecord.userId !== userId) {
+  return c.json({ error: 'Forbidden', message: 'Cannot change userId' }, 403)
 }
 ```
 
@@ -236,13 +236,13 @@ app.post('/tables/:tableId/records/batch', requireAuth, async (c) => {
   for (const record of records) {
     // Check field-level permissions
     // Check readonly fields
-    // Check owner_id
+    // Check userId
   }
 
   // Start transaction
   const result = await db.transaction(async (tx) => {
-    // Insert all records with auto-injected owner_id
-    return await tx.insert(records).values(records.map((r) => ({ ...r, owner_id: userId })))
+    // Insert all records with auto-injected userId
+    return await tx.insert(records).values(records.map((r) => ({ ...r, userId: userId })))
   })
 
   return c.json({ created: result.length })

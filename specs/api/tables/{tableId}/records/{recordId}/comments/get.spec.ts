@@ -36,7 +36,7 @@ test.describe('List comments on a record', () => {
       // GIVEN: Table with a record that has multiple comments
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -88,7 +88,7 @@ test.describe('List comments on a record', () => {
       // GIVEN: Table with a record that has no comments
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 2,
@@ -120,7 +120,7 @@ test.describe('List comments on a record', () => {
       // GIVEN: A record with comments in an authenticated app
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 3,
@@ -148,7 +148,7 @@ test.describe('List comments on a record', () => {
       // GIVEN: Table exists but record does not
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 4,
@@ -179,7 +179,7 @@ test.describe('List comments on a record', () => {
       // GIVEN: Record with active and soft-deleted comments
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 6,
@@ -223,7 +223,7 @@ test.describe('List comments on a record', () => {
       // GIVEN: Record with comments from different users
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 7,
@@ -276,7 +276,7 @@ test.describe('List comments on a record', () => {
       // GIVEN: Record with many comments (15 comments)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 8,
@@ -329,7 +329,7 @@ test.describe('List comments on a record', () => {
       // GIVEN: Record with comments at different times
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 9,
@@ -377,7 +377,7 @@ test.describe('List comments on a record', () => {
       // GIVEN: Record with a comment that was edited
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 10,
@@ -419,7 +419,7 @@ test.describe('List comments on a record', () => {
       // GIVEN: User without read permission for the table
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 11,
@@ -461,7 +461,7 @@ test.describe('List comments on a record', () => {
       // Setup: Initialize server with tasks table
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

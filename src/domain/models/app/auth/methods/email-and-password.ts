@@ -24,15 +24,14 @@ import { Schema } from 'effect'
  *
  * @example
  * ```typescript
- * // Simple enable
- * { emailAndPassword: true }
+ * // Simple enable (as strategy)
+ * { type: 'emailAndPassword' }
  *
  * // With configuration
  * {
- *   emailAndPassword: {
- *     requireEmailVerification: true,
- *     minPasswordLength: 12
- *   }
+ *   type: 'emailAndPassword',
+ *   requireEmailVerification: true,
+ *   minPasswordLength: 12
  * }
  * ```
  */

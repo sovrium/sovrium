@@ -198,50 +198,6 @@ interface GetRecordConfig {
   readonly includeDeleted?: boolean
 }
 
-/**
- * Check if record passes ownership check
- * Returns true if access is allowed, false if denied
- */
-/**
- * Check if user has role-based read permissions that bypass ownership checks
- */
-function hasRoleBasedReadPermission(
-  table:
-    | {
-        readonly permissions?: {
-          readonly read?: { readonly type?: string; readonly roles?: readonly string[] }
-        }
-      }
-    | undefined,
-  userRole?: string
-): boolean {
-  if (table?.permissions?.read?.type !== 'roles') return false
-  const allowedRoles = table.permissions.read.roles
-  return Boolean(userRole && allowedRoles?.includes(userRole))
-}
-
-/**
- * Check if record passes ownership check
- * Returns true if access is allowed, false if denied
- */
-function passesOwnershipCheck(config: {
-  readonly record: Readonly<Record<string, unknown>>
-  readonly userId: string
-  readonly app: App
-  readonly tableName: string
-  readonly userRole?: string
-}): boolean {
-  const { record, userId, app, tableName, userRole } = config
-  const recordUserId = record['user_id'] ?? record['owner_id']
-  const table = app.tables?.find((t) => t.name === tableName)
-  const hasOwnerField = table?.fields.some((f) => f.name === 'user_id' || f.name === 'owner_id')
-
-  if (!hasOwnerField || recordUserId === undefined) return true
-  if (hasRoleBasedReadPermission(table, userRole)) return true
-
-  return String(recordUserId) === String(userId)
-}
-
 export function createGetRecordProgram(
   config: GetRecordConfig
 ): Effect.Effect<GetRecordResponse, SessionContextError> {
@@ -251,12 +207,6 @@ export function createGetRecordProgram(
 
     const record = yield* getRecord(session, tableName, recordId, includeDeleted)
     if (!record) return yield* Effect.fail(new SessionContextError('Record not found'))
-
-    // Enforce ownership check (return 404 to prevent enumeration)
-    // Role-based permissions bypass ownership checks (RLS already enforced at DB level)
-    if (!passesOwnershipCheck({ record, userId, app, tableName, userRole })) {
-      return yield* Effect.fail(new SessionContextError('Record not found'))
-    }
 
     const filteredRecord = filterReadableFields({ app, tableName, userRole, userId, record })
     const transformed = transformRecord(filteredRecord, { app, tableName })
@@ -285,12 +235,8 @@ interface CreateRecordConfig {
 export function createRecordProgram(config: CreateRecordConfig) {
   const { session, tableName, fields, app, userRole } = config
   return Effect.gen(function* () {
-    // Create record with session context (owner_id set automatically)
+    // Create record with session context
     const record = yield* createRecord(session, tableName, fields)
-
-    // Extract owner_id from raw record BEFORE transformation
-    // (transformRecord moves these into fields.owner_id)
-    const ownerId = record.owner_id
 
     const transformed = transformRecord(record)
 
@@ -315,10 +261,8 @@ export function createRecordProgram(config: CreateRecordConfig) {
         : transformed.fields
 
     // Return in format expected by tests: system fields at root, user fields nested
-    // owner_id needs to be at root level for API compatibility
     return {
       id: transformed.id,
-      ...(ownerId !== undefined ? { owner_id: ownerId } : {}),
       fields: filteredFields,
       createdAt: transformed.createdAt,
       updatedAt: transformed.updatedAt,

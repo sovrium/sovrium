@@ -31,7 +31,7 @@ test.describe('Create new record', () => {
       // GIVEN: A running server with valid table
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -90,7 +90,7 @@ test.describe('Create new record', () => {
       // GIVEN: A running server with valid table but attempting to access non-existent table
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -136,7 +136,7 @@ test.describe('Create new record', () => {
       // GIVEN: A table with required email field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -185,7 +185,7 @@ test.describe('Create new record', () => {
       // GIVEN: A table with unique email constraint and existing record
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 3,
@@ -248,7 +248,7 @@ test.describe('Create new record', () => {
       // GIVEN: A valid table with auth enabled
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 4,
@@ -282,14 +282,14 @@ test.describe('Create new record', () => {
       // GIVEN: A member user without create permission for the table
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 5,
             name: 'projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
             permissions: {
-              create: { type: 'roles', roles: ['admin'] }, // Only admin can create
+              create: ['admin'], // Only admin can create
             },
           },
         ],
@@ -328,7 +328,7 @@ test.describe('Create new record', () => {
       // GIVEN: An admin user with write access to all fields including sensitive
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 8,
@@ -382,7 +382,7 @@ test.describe('Create new record', () => {
       // GIVEN: A member user attempting to create with write-protected field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 9,
@@ -396,7 +396,7 @@ test.describe('Create new record', () => {
               fields: [
                 {
                   field: 'salary',
-                  write: { type: 'roles', roles: ['admin'] }, // Only admin can write salary
+                  write: ['admin'], // Only admin can write salary
                 },
               ],
             },
@@ -440,7 +440,7 @@ test.describe('Create new record', () => {
       // GIVEN: A viewer user with very limited write permissions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 10,
@@ -453,7 +453,7 @@ test.describe('Create new record', () => {
               fields: [
                 {
                   field: 'email',
-                  write: { type: 'roles', roles: ['admin'] }, // Only admin can write email
+                  write: ['admin'], // Only admin can write email
                 },
               ],
             },
@@ -496,7 +496,7 @@ test.describe('Create new record', () => {
       // GIVEN: User attempts to set system-managed readonly fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 11,
@@ -544,7 +544,7 @@ test.describe('Create new record', () => {
       // GIVEN: Multiple fields with different write permission levels
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 12,
@@ -560,11 +560,11 @@ test.describe('Create new record', () => {
               fields: [
                 {
                   field: 'salary',
-                  write: { type: 'roles', roles: ['admin'] }, // Only admin can write salary
+                  write: ['admin'], // Only admin can write salary
                 },
                 {
                   field: 'ssn',
-                  write: { type: 'roles', roles: ['admin'] }, // Only admin can write ssn
+                  write: ['admin'], // Only admin can write ssn
                 },
               ],
             },
@@ -610,7 +610,7 @@ test.describe('Create new record', () => {
       // GIVEN: User creates record in table with owner_id field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 13,
@@ -666,7 +666,7 @@ test.describe('Create new record', () => {
       // GIVEN: Field write restrictions and table permission all apply
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 15,
@@ -680,8 +680,8 @@ test.describe('Create new record', () => {
               fields: [
                 {
                   field: 'salary',
-                  read: { type: 'roles', roles: ['admin'] }, // Only admin can read salary
-                  write: { type: 'roles', roles: ['admin'] }, // Only admin can write salary
+                  read: ['admin'], // Only admin can read salary
+                  write: ['admin'], // Only admin can write salary
                 },
               ],
             },
@@ -777,7 +777,7 @@ test.describe('Create new record', () => {
       // GIVEN: Application with auth and activity logging
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 17,
@@ -852,7 +852,7 @@ test.describe('Create new record', () => {
       // GIVEN: Consolidated configuration from all @spec tests
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -883,8 +883,8 @@ test.describe('Create new record', () => {
               fields: [
                 {
                   field: 'salary',
-                  read: { type: 'roles', roles: ['admin'] },
-                  write: { type: 'roles', roles: ['admin'] },
+                  read: ['admin'],
+                  write: ['admin'],
                 },
               ],
             },
@@ -913,7 +913,7 @@ test.describe('Create new record', () => {
             name: 'restricted_projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
             permissions: {
-              create: { type: 'roles', roles: ['admin'] },
+              create: ['admin'],
             },
           },
           {
@@ -930,11 +930,11 @@ test.describe('Create new record', () => {
               fields: [
                 {
                   field: 'salary',
-                  write: { type: 'roles', roles: ['admin'] },
+                  write: ['admin'],
                 },
                 {
                   field: 'ssn',
-                  write: { type: 'roles', roles: ['admin'] },
+                  write: ['admin'],
                 },
               ],
             },
@@ -950,7 +950,7 @@ test.describe('Create new record', () => {
               fields: [
                 {
                   field: 'email',
-                  write: { type: 'roles', roles: ['admin'] },
+                  write: ['admin'],
                 },
               ],
             },

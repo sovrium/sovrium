@@ -216,16 +216,12 @@ export function setupAuthRoutes(honoApp: Readonly<Hono>, app?: App): Readonly<Ho
   // This instance is reused across all requests to maintain internal state
   const authInstance = createAuthInstance(app.auth)
 
-  // Apply authentication check middleware first (if admin plugin is enabled)
+  // Apply authentication check middleware (admin features always enabled when auth is configured)
   // This ensures 401 is returned before any parameter validation, preventing information leakage
-  const appWithAuthCheck = app.auth.admin
-    ? applyAuthCheckMiddleware(honoApp, authInstance)
-    : honoApp
+  const appWithAuthCheck = applyAuthCheckMiddleware(honoApp, authInstance)
 
-  // Apply rate limiting middleware to admin routes (if admin plugin is enabled)
-  const appWithAdminRateLimit = app.auth.admin
-    ? applyRateLimitMiddleware(appWithAuthCheck)
-    : appWithAuthCheck
+  // Apply rate limiting middleware to admin routes
+  const appWithAdminRateLimit = applyRateLimitMiddleware(appWithAuthCheck)
 
   // Apply rate limiting middleware to authentication endpoints (sign-in, sign-up, password reset)
   const appWithAuthRateLimit = applyAuthRateLimitMiddleware(appWithAdminRateLimit)

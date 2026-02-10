@@ -496,7 +496,7 @@ const initializeSchemaInternal = (
     if (tablesNeedUsersTable && !hasAuthConfig) {
       return yield* new AuthConfigRequiredForUserFields({
         message:
-          'User fields (user, created-by, updated-by) require auth configuration. Please add auth: { methods: ["email-and-password"] } to your app schema.',
+          'User fields (user, created-by, updated-by) require auth configuration. Please add auth: { strategies: [{ type: "emailAndPassword" }] } to your app schema.',
       })
     }
 

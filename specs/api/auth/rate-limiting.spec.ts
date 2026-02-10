@@ -45,7 +45,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -89,7 +89,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -128,7 +128,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -165,7 +165,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -208,7 +208,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -243,7 +243,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -297,7 +297,7 @@ test.describe('Rate Limiting - Security Critical Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 

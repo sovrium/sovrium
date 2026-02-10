@@ -18,29 +18,24 @@ import {
 
 describe('permissions', () => {
   describe('hasPermission', () => {
-    test('should return true for public permission', () => {
-      const result = hasPermission({ type: 'public' }, 'member')
+    test('should return true for "all" permission', () => {
+      const result = hasPermission('all', 'member')
       expect(result).toBe(true)
     })
 
-    test('should return true for authenticated permission', () => {
-      const result = hasPermission({ type: 'authenticated' }, 'viewer')
+    test('should return true for "authenticated" permission', () => {
+      const result = hasPermission('authenticated', 'viewer')
       expect(result).toBe(true)
     })
 
-    test('should return true for roles permission when role matches', () => {
-      const result = hasPermission({ type: 'roles', roles: ['admin', 'member'] }, 'admin')
+    test('should return true for roles array when role matches', () => {
+      const result = hasPermission(['admin', 'member'], 'admin')
       expect(result).toBe(true)
     })
 
-    test('should return false for roles permission when role does not match', () => {
-      const result = hasPermission({ type: 'roles', roles: ['admin'] }, 'viewer')
+    test('should return false for roles array when role does not match', () => {
+      const result = hasPermission(['admin'], 'viewer')
       expect(result).toBe(false)
-    })
-
-    test('should return true for owner permission', () => {
-      const result = hasPermission({ type: 'owner' }, 'member')
-      expect(result).toBe(true)
     })
 
     test('should return false for undefined permission', () => {
@@ -48,8 +43,8 @@ describe('permissions', () => {
       expect(result).toBe(false)
     })
 
-    test('should return false for roles without roles array', () => {
-      const result = hasPermission({ type: 'roles' }, 'member')
+    test('should return false for null permission', () => {
+      const result = hasPermission(null, 'member')
       expect(result).toBe(false)
     })
   })
@@ -57,10 +52,6 @@ describe('permissions', () => {
   describe('isAdminRole', () => {
     test('should return true for admin role', () => {
       expect(isAdminRole('admin')).toBe(true)
-    })
-
-    test('should return true for owner role', () => {
-      expect(isAdminRole('owner')).toBe(true)
     })
 
     test('should return false for member role', () => {
@@ -74,29 +65,17 @@ describe('permissions', () => {
 
   describe('checkPermissionWithAdminOverride', () => {
     test('should return true when isAdmin is true regardless of permission', () => {
-      const result = checkPermissionWithAdminOverride(
-        true,
-        { type: 'roles', roles: ['viewer'] },
-        'admin'
-      )
+      const result = checkPermissionWithAdminOverride(true, ['viewer'], 'admin')
       expect(result).toBe(true)
     })
 
     test('should check permission when isAdmin is false', () => {
-      const result = checkPermissionWithAdminOverride(
-        false,
-        { type: 'roles', roles: ['member'] },
-        'member'
-      )
+      const result = checkPermissionWithAdminOverride(false, ['member'], 'member')
       expect(result).toBe(true)
     })
 
     test('should return false when not admin and permission denied', () => {
-      const result = checkPermissionWithAdminOverride(
-        false,
-        { type: 'roles', roles: ['admin'] },
-        'member'
-      )
+      const result = checkPermissionWithAdminOverride(false, ['admin'], 'member')
       expect(result).toBe(false)
     })
   })
@@ -114,10 +93,10 @@ describe('permissions', () => {
 
     test('should evaluate role-based permissions for non-admin', () => {
       const tablePerms = {
-        read: { type: 'authenticated' as const },
-        create: { type: 'roles' as const, roles: ['admin', 'member'] },
-        update: { type: 'roles' as const, roles: ['admin'] },
-        delete: { type: 'roles' as const, roles: ['owner'] },
+        read: 'authenticated' as const,
+        create: ['admin', 'member'] as string[],
+        update: ['admin'] as string[],
+        delete: ['admin'] as string[],
       }
 
       const permissions = evaluateTablePermissions(tablePerms, 'member', false)
@@ -132,9 +111,7 @@ describe('permissions', () => {
 
   describe('evaluateFieldPermissions', () => {
     test('should grant all permissions for admin', () => {
-      const fieldPerms = [
-        { field: 'email', read: { type: 'roles' as const, roles: ['admin'] }, write: undefined },
-      ]
+      const fieldPerms = [{ field: 'email', read: ['admin'] as string[], write: undefined }]
 
       const permissions = evaluateFieldPermissions(fieldPerms, 'admin', true)
 
@@ -146,13 +123,13 @@ describe('permissions', () => {
       const fieldPerms = [
         {
           field: 'email',
-          read: { type: 'authenticated' as const },
-          write: { type: 'roles' as const, roles: ['admin'] },
+          read: 'authenticated' as const,
+          write: ['admin'] as string[],
         },
         {
           field: 'password',
-          read: { type: 'roles' as const, roles: ['owner'] },
-          write: { type: 'roles' as const, roles: ['owner'] },
+          read: ['admin'] as string[],
+          write: ['admin'] as string[],
         },
       ]
 
@@ -172,17 +149,15 @@ describe('permissions', () => {
   })
 
   describe('hasCreatePermission', () => {
-    test('should return true when create permission is not roles-based', () => {
-      const table = { permissions: { create: { type: 'authenticated' as const } } }
-
-      const hasPermission = hasCreatePermission(table, 'member')
+    test('should return true when no create permission defined', () => {
+      const hasPermission = hasCreatePermission(undefined, 'member')
 
       expect(hasPermission).toBe(true)
     })
 
     test('should return true when role is in allowed roles', () => {
       const table = {
-        permissions: { create: { type: 'roles' as const, roles: ['admin', 'member'] } },
+        permissions: { create: ['admin', 'member'] },
       }
 
       const hasPermission = hasCreatePermission(table, 'member')
@@ -191,32 +166,30 @@ describe('permissions', () => {
     })
 
     test('should return false when role is not in allowed roles', () => {
-      const table = { permissions: { create: { type: 'roles' as const, roles: ['admin'] } } }
+      const table = { permissions: { create: ['admin'] } }
 
       const hasPermission = hasCreatePermission(table, 'member')
 
       expect(hasPermission).toBe(false)
     })
 
-    test('should return true when no create permission defined', () => {
-      const hasPermission = hasCreatePermission(undefined, 'member')
+    test('should deny viewers by default', () => {
+      const hasPermission = hasCreatePermission(undefined, 'viewer')
 
-      expect(hasPermission).toBe(true)
+      expect(hasPermission).toBe(false)
     })
   })
 
   describe('hasDeletePermission', () => {
-    test('should return true when delete permission is not roles-based', () => {
-      const table = { permissions: { delete: { type: 'authenticated' as const } } }
-
-      const hasPermission = hasDeletePermission(table, 'member')
+    test('should return true when no delete permission defined for non-viewer', () => {
+      const hasPermission = hasDeletePermission(undefined, 'member')
 
       expect(hasPermission).toBe(true)
     })
 
     test('should return true when role is in allowed roles', () => {
       const table = {
-        permissions: { delete: { type: 'roles' as const, roles: ['admin', 'owner'] } },
+        permissions: { delete: ['admin', 'member'] },
       }
 
       const hasPermission = hasDeletePermission(table, 'admin')
@@ -225,17 +198,17 @@ describe('permissions', () => {
     })
 
     test('should return false when role is not in allowed roles', () => {
-      const table = { permissions: { delete: { type: 'roles' as const, roles: ['owner'] } } }
+      const table = { permissions: { delete: ['admin'] } }
 
       const hasPermission = hasDeletePermission(table, 'member')
 
       expect(hasPermission).toBe(false)
     })
 
-    test('should return true when no delete permission defined', () => {
-      const hasPermission = hasDeletePermission(undefined, 'member')
+    test('should deny viewers by default', () => {
+      const hasPermission = hasDeletePermission(undefined, 'viewer')
 
-      expect(hasPermission).toBe(true)
+      expect(hasPermission).toBe(false)
     })
   })
 })

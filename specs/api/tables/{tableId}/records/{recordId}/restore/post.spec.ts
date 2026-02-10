@@ -37,7 +37,7 @@ test.describe('Restore record', () => {
       // GIVEN: Table with a soft-deleted record
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -83,7 +83,7 @@ test.describe('Restore record', () => {
       // GIVEN: Table exists but record ID=9999 does not
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 2,
@@ -118,7 +118,7 @@ test.describe('Restore record', () => {
       // GIVEN: Table with an active (non-deleted) record
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 3,
@@ -156,7 +156,7 @@ test.describe('Restore record', () => {
       // GIVEN: An unauthenticated user with auth enabled
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 4,
@@ -195,7 +195,7 @@ test.describe('Restore record', () => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 5,
@@ -233,7 +233,7 @@ test.describe('Restore record', () => {
       // GIVEN: A member user with delete permission (same permissions as delete)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 6,
@@ -278,7 +278,7 @@ test.describe('Restore record', () => {
       // GIVEN: Application with auth and activity logging configured
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 8,
@@ -336,7 +336,7 @@ test.describe('Restore record', () => {
       // GIVEN: A user who will restore records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 9,
@@ -389,7 +389,7 @@ test.describe('Restore record', () => {
       // Setup: Create schema with tasks table supporting soft delete
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

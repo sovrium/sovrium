@@ -97,7 +97,7 @@ test.describe('GET /api/health', () => {
       // GIVEN: Application with authentication enabled (protected routes exist)
       await startServerWithSchema({
         name: 'auth-health-test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
       })
 
       // WHEN: Unauthenticated client sends GET request to /api/health

@@ -77,22 +77,14 @@ export function validateFilterFieldPermissions(
  * Check if user's role has read permission
  */
 function hasReadPermission(permission: TablePermission, userRole: string): boolean {
-  switch (permission.type) {
-    case 'public':
-      return true
-
-    case 'authenticated':
-      return true // User is authenticated (has session)
-
-    case 'roles':
-      return permission.roles?.includes(userRole) ?? false
-
-    case 'owner':
-      // Owner check requires row-level context (cannot determine at filter validation time)
-      // For filtering, we conservatively deny owner-only fields unless user is admin/owner role
-      return ['owner', 'admin'].includes(userRole)
-
-    default:
-      return false
+  if (permission === 'all') {
+    return true
   }
+  if (permission === 'authenticated') {
+    return true // User is authenticated (has session)
+  }
+  if (Array.isArray(permission)) {
+    return permission.includes(userRole)
+  }
+  return false
 }

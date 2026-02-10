@@ -37,7 +37,7 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -83,7 +83,7 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -136,7 +136,7 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -169,7 +169,7 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -202,7 +202,7 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -236,7 +236,7 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -261,7 +261,7 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -295,7 +295,7 @@ test.describe('Change password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -331,7 +331,7 @@ test.describe('Change password', () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         })
 

@@ -35,7 +35,7 @@ test.describe('Delete comment', () => {
       // GIVEN: User's own comment on a record
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -81,7 +81,7 @@ test.describe('Delete comment', () => {
       // GIVEN: Comment authored by different user, admin user deleting it
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 2,
@@ -125,7 +125,7 @@ test.describe('Delete comment', () => {
       // GIVEN: Comment on a record in authenticated app
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 3,
@@ -157,7 +157,7 @@ test.describe('Delete comment', () => {
       // GIVEN: Comment authored by different user, non-admin attempting to delete
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 4,
@@ -197,7 +197,7 @@ test.describe('Delete comment', () => {
       // GIVEN: Table with record but comment does not exist
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 5,
@@ -231,7 +231,7 @@ test.describe('Delete comment', () => {
       // GIVEN: Comment on record owned by different user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 6,
@@ -278,7 +278,7 @@ test.describe('Delete comment', () => {
       // GIVEN: Already soft-deleted comment
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 7,
@@ -317,7 +317,7 @@ test.describe('Delete comment', () => {
       // GIVEN: User's own comment
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 8,
@@ -358,7 +358,7 @@ test.describe('Delete comment', () => {
       // GIVEN: User's own comment
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 9,
@@ -408,7 +408,7 @@ test.describe('Delete comment', () => {
       // Setup: Start server with tasks table
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

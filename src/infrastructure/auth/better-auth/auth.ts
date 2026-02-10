@@ -9,6 +9,7 @@ import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { createAuthMiddleware, APIError } from 'better-auth/api'
 import { openAPI } from 'better-auth/plugins'
+import { getStrategy, hasStrategy } from '@/domain/models/app/auth'
 import { db } from '@/infrastructure/database'
 import { createEmailHandlers } from './email-handlers'
 import { buildAdminPlugin } from './plugins/admin'
@@ -26,9 +27,10 @@ import type { Auth } from '@/domain/models/app/auth'
  * - {PROVIDER}_CLIENT_SECRET (e.g., GOOGLE_CLIENT_SECRET)
  */
 export const buildSocialProviders = (authConfig?: Auth) => {
-  if (!authConfig?.oauth?.providers) return {}
+  const oauthStrategy = getStrategy(authConfig, 'oauth')
+  if (!oauthStrategy?.providers) return {}
 
-  return authConfig.oauth.providers.reduce(
+  return oauthStrategy.providers.reduce(
     (providers, provider) => {
       const envVarPrefix = provider.toUpperCase()
       return {
@@ -105,18 +107,15 @@ export function buildEmailAndPasswordConfig(
   authConfig: Auth | undefined,
   handlers: Readonly<ReturnType<typeof createEmailHandlers>>
 ) {
-  const emailAndPasswordConfig =
-    authConfig?.emailAndPassword && typeof authConfig.emailAndPassword === 'object'
-      ? authConfig.emailAndPassword
-      : {}
-  const requireEmailVerification = emailAndPasswordConfig.requireEmailVerification ?? false
+  const strategy = getStrategy(authConfig, 'emailAndPassword')
+  const requireEmailVerification = strategy?.requireEmailVerification ?? false
 
   return {
-    enabled: true,
+    enabled: hasStrategy(authConfig, 'emailAndPassword'),
     requireEmailVerification,
     sendResetPassword: handlers.passwordReset,
-    minPasswordLength: 8,
-    maxPasswordLength: 128,
+    minPasswordLength: strategy?.minPasswordLength ?? 8,
+    maxPasswordLength: strategy?.maxPasswordLength ?? 128,
   }
 }
 

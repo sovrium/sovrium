@@ -37,7 +37,7 @@ test.describe('Revoke all other sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -79,7 +79,7 @@ test.describe('Revoke all other sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -99,7 +99,7 @@ test.describe('Revoke all other sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -136,7 +136,7 @@ test.describe('Revoke all other sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -177,7 +177,7 @@ test.describe('Revoke all other sessions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -235,7 +235,7 @@ test.describe('Revoke all other sessions', () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         })
       })

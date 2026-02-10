@@ -57,17 +57,17 @@ describe('createAuthLayer', () => {
     expect(layer).toBeDefined()
   })
 
-  test('creates layer with empty config', () => {
-    const authConfig: AuthConfig = {}
+  test('creates layer with minimal config', () => {
+    const authConfig: AuthConfig = {
+      strategies: [{ type: 'emailAndPassword' as const }],
+    }
     const layer = createAuthLayer(authConfig)
     expect(layer).toBeDefined()
   })
 
   test('creates layer with email and password config', () => {
     const authConfig: AuthConfig = {
-      emailAndPassword: {
-        requireEmailVerification: true,
-      },
+      strategies: [{ type: 'emailAndPassword' as const, requireEmailVerification: true }],
     }
     const layer = createAuthLayer(authConfig)
     expect(layer).toBeDefined()
@@ -75,9 +75,7 @@ describe('createAuthLayer', () => {
 
   test('creates layer with OAuth config', () => {
     const authConfig: AuthConfig = {
-      oauth: {
-        providers: ['google', 'github'],
-      },
+      strategies: [{ type: 'oauth' as const, providers: ['google', 'github'] as const }],
     }
     const layer = createAuthLayer(authConfig)
     expect(layer).toBeDefined()
@@ -85,11 +83,12 @@ describe('createAuthLayer', () => {
 
   test('creates layer with all features enabled', () => {
     const authConfig: AuthConfig = {
-      emailAndPassword: true,
-      oauth: { providers: ['google'] },
-      admin: true,
+      strategies: [
+        { type: 'emailAndPassword' as const },
+        { type: 'oauth' as const, providers: ['google'] as const },
+        { type: 'magicLink' as const },
+      ],
       twoFactor: true,
-      magicLink: true,
     }
     const layer = createAuthLayer(authConfig)
     expect(layer).toBeDefined()

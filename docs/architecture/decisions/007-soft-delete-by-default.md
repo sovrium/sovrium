@@ -106,7 +106,7 @@ OR admin can "Delete Permanently" (hard delete)
 1. **Storage**: Implement scheduled cleanup of old trash records (e.g., auto-delete after 90 days)
 2. **Performance**: Index `deleted_at` column, use partial indexes for active records
 3. **Queries**: Abstract filtering via database views and Effect.ts services
-4. **Permissions**: Clear RBAC rules (owner/admin can permanent delete, all roles can trash/restore)
+4. **Permissions**: Clear RBAC rules (admin can permanent delete, all roles can trash/restore)
 
 ---
 

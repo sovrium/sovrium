@@ -21,8 +21,8 @@
  * @returns PostgreSQL expression with current_setting() calls
  *
  * @example
- * translatePermissionCondition('{userId} = owner_id')
- * // Returns: "current_setting('app.user_id', true)::TEXT = owner_id"
+ * translatePermissionCondition('{userId} = author_id')
+ * // Returns: "current_setting('app.user_id', true)::TEXT = author_id"
  *
  * @example
  * translatePermissionCondition('draft = false OR {userId} = author_id')

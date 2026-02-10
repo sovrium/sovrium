@@ -14,38 +14,38 @@ describe('FieldPermissionSchema', () => {
     test('should accept field with read permission only', () => {
       const input = {
         field: 'salary',
-        read: { type: 'roles' as const, roles: ['admin'] },
+        read: ['admin'] as string[],
       }
       const result = Schema.decodeUnknownSync(FieldPermissionSchema)(input)
       expect(result).toEqual({
         field: 'salary',
-        read: { type: 'roles', roles: ['admin'] },
+        read: ['admin'],
       })
     })
 
     test('should accept field with write permission only', () => {
       const input = {
         field: 'email',
-        write: { type: 'owner' as const, field: 'user_id' },
+        write: ['admin'] as string[],
       }
       const result = Schema.decodeUnknownSync(FieldPermissionSchema)(input)
       expect(result).toEqual({
         field: 'email',
-        write: { type: 'owner', field: 'user_id' },
+        write: ['admin'],
       })
     })
 
     test('should accept field with both read and write permissions', () => {
       const input = {
         field: 'email',
-        read: { type: 'authenticated' as const },
-        write: { type: 'owner' as const, field: 'user_id' },
+        read: 'authenticated' as const,
+        write: ['admin'] as string[],
       }
       const result = Schema.decodeUnknownSync(FieldPermissionSchema)(input)
       expect(result).toEqual({
         field: 'email',
-        read: { type: 'authenticated' },
-        write: { type: 'owner', field: 'user_id' },
+        read: 'authenticated',
+        write: ['admin'],
       })
     })
 
@@ -55,15 +55,15 @@ describe('FieldPermissionSchema', () => {
       expect(result).toEqual({ field: 'description' })
     })
 
-    test('should accept public read permission', () => {
+    test('should accept "all" read permission', () => {
       const input = {
         field: 'title',
-        read: { type: 'public' as const },
+        read: 'all' as const,
       }
       const result = Schema.decodeUnknownSync(FieldPermissionSchema)(input)
       expect(result).toEqual({
         field: 'title',
-        read: { type: 'public' },
+        read: 'all',
       })
     })
   })
@@ -72,7 +72,7 @@ describe('FieldPermissionSchema', () => {
     test('should reject missing field name', () => {
       expect(() =>
         Schema.decodeUnknownSync(FieldPermissionSchema)({
-          read: { type: 'authenticated' },
+          read: 'authenticated',
         })
       ).toThrow()
     })
@@ -81,7 +81,7 @@ describe('FieldPermissionSchema', () => {
       expect(() =>
         Schema.decodeUnknownSync(FieldPermissionSchema)({
           field: 'salary',
-          read: { type: 'invalid' },
+          read: 'invalid',
         })
       ).toThrow()
     })
@@ -109,8 +109,8 @@ describe('FieldPermissionSchema', () => {
 describe('TableFieldPermissionsSchema', () => {
   test('should accept array of field permissions', () => {
     const input = [
-      { field: 'salary', read: { type: 'roles' as const, roles: ['admin'] } },
-      { field: 'email', read: { type: 'authenticated' as const } },
+      { field: 'salary', read: ['admin'] as string[] },
+      { field: 'email', read: 'authenticated' as const },
     ]
     const result = Schema.decodeUnknownSync(TableFieldPermissionsSchema)(input)
     expect(result).toHaveLength(2)

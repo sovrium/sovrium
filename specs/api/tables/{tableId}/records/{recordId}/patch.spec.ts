@@ -31,7 +31,7 @@ test.describe('Update record', () => {
       // GIVEN: Table 'users' with record ID=1 (email='old@example.com', name='Old Name')
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -93,7 +93,7 @@ test.describe('Update record', () => {
       // GIVEN: Table 'users' exists but record ID=9999 does not
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 2,
@@ -138,7 +138,7 @@ test.describe('Update record', () => {
       // GIVEN: An unauthenticated user (no Bearer token) with auth enabled
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 3,
@@ -183,14 +183,14 @@ test.describe('Update record', () => {
       // GIVEN: A member user without update permission for the table
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 4,
             name: 'projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
             permissions: {
-              update: { type: 'roles', roles: ['admin'] },
+              update: ['admin'],
             },
           },
         ],
@@ -235,7 +235,7 @@ test.describe('Update record', () => {
       // GIVEN: A viewer user without update permission
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 5,
@@ -287,7 +287,7 @@ test.describe('Update record', () => {
       // GIVEN: An admin user with write access to all fields including sensitive
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 7,
@@ -342,7 +342,7 @@ test.describe('Update record', () => {
       // GIVEN: A member user attempting to update write-protected field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 8,
@@ -404,7 +404,7 @@ test.describe('Update record', () => {
       // GIVEN: User attempts to update system-managed readonly fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 9,
@@ -458,7 +458,7 @@ test.describe('Update record', () => {
       // GIVEN: Member user updates only permitted fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 10,
@@ -522,7 +522,7 @@ test.describe('Update record', () => {
       // GIVEN: Field write restrictions and table permission apply
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 12,
@@ -581,7 +581,7 @@ test.describe('Update record', () => {
       // GIVEN: Multiple fields with different write permission levels
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 13,
@@ -646,7 +646,7 @@ test.describe('Update record', () => {
       // GIVEN: Member updates record and has field-level read restrictions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 14,
@@ -711,7 +711,7 @@ test.describe('Update record', () => {
       // GIVEN: Application with auth and activity logging configured
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 15,
@@ -778,7 +778,7 @@ test.describe('Update record', () => {
       // GIVEN: Record with multiple fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 16,
@@ -839,7 +839,7 @@ test.describe('Update record', () => {
       // GIVEN: Two different users in the system
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 17,
@@ -899,7 +899,7 @@ test.describe('Update record', () => {
       // GIVEN: Consolidated configuration from all @spec tests
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -931,8 +931,8 @@ test.describe('Update record', () => {
               fields: [
                 {
                   field: 'salary',
-                  read: { type: 'roles', roles: ['admin'] },
-                  write: { type: 'roles', roles: ['admin'] },
+                  read: ['admin'],
+                  write: ['admin'],
                 },
               ],
             },
@@ -942,7 +942,7 @@ test.describe('Update record', () => {
             name: 'projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
             permissions: {
-              update: { type: 'roles', roles: ['admin'] },
+              update: ['admin'],
             },
           },
           {

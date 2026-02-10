@@ -51,134 +51,90 @@ export { SPECIAL_FIELDS }
  */
 
 /**
- * Run all structural validations (formula fields, primary keys, indexes).
+ * Validate table schema including fields, permissions, views, and roles.
+ * Orchestrates all validation functions from extracted modules.
  *
- * @param table - Table to validate
- * @param fieldNames - Set of valid field names
- * @returns Validation error object if invalid, undefined if valid
+ * IMPORTANT: This function uses a generic type parameter instead of an inline type annotation
+ * to avoid narrowing the Table type when used with Schema.filter(). Inline type annotations
+ * would cause TypeScript to narrow the schema's output type, removing properties like `id`,
+ * `required`, etc. from fields — cascading errors to all downstream consumers.
+ *
+ * @param table - Table to validate (type inferred from Schema.filter)
+ * @returns Validation error object if invalid, true if valid
  */
-const validateTableStructure = (
-  table: {
-    readonly fields: ReadonlyArray<{
-      readonly name: string
-      readonly type: string
-      readonly formula?: string
-    }>
-    readonly primaryKey?: { readonly type: string; readonly fields?: ReadonlyArray<string> }
-    readonly indexes?: ReadonlyArray<{
-      readonly name: string
-      readonly fields: ReadonlyArray<string>
-    }>
-  },
-  fieldNames: ReadonlySet<string>
-): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
-  // Validate formula fields
-  const formulaError = validateFormulaFields(table.fields)
-  if (formulaError) return formulaError
+type ValidationError = { readonly message: string; readonly path: ReadonlyArray<string> }
 
-  // Validate primary key if present
+const validateStructure = (
+  table: Record<string, unknown>,
+  fieldNames: ReadonlySet<string>
+): ValidationError | undefined => {
   if (table.primaryKey) {
-    const primaryKeyError = validatePrimaryKey(table.primaryKey, fieldNames)
+    const primaryKey = table.primaryKey as {
+      readonly type: string
+      readonly fields?: ReadonlyArray<string>
+    }
+    const primaryKeyError = validatePrimaryKey(primaryKey, fieldNames)
     if (primaryKeyError) return primaryKeyError
   }
 
-  // Validate indexes if present
-  if (table.indexes && table.indexes.length > 0) {
-    const indexError = validateIndexes(table.indexes, fieldNames)
+  const indexes = table.indexes as
+    | ReadonlyArray<{ readonly name: string; readonly fields: ReadonlyArray<string> }>
+    | undefined
+  if (indexes && indexes.length > 0) {
+    const indexError = validateIndexes(indexes, fieldNames)
     if (indexError) return indexError
   }
 
   return undefined
 }
 
-/**
- * Run all access control validations (permissions and views).
- *
- * @param table - Table to validate
- * @param fieldNames - Set of valid field names
- * @returns Validation error object if invalid, undefined if valid
- */
-const validateTableAccessControl = (
-  table: {
-    readonly fields: ReadonlyArray<{
-      readonly name: string
-      readonly type: string
-      readonly formula?: string
-    }>
-    readonly views?: ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }>
-    readonly permissions?: {
-      readonly organizationScoped?: boolean
-      readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-      readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-      readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-      readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-      readonly fields?: ReadonlyArray<{
-        readonly field: string
-        readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-        readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-      }>
-      readonly records?: ReadonlyArray<{ readonly action: string; readonly condition: string }>
-    }
-  },
+const validateAccessAndViews = (
+  table: Record<string, unknown>,
+  fields: ReadonlyArray<{
+    readonly name: string
+    readonly type: string
+    readonly formula?: string
+  }>,
   fieldNames: ReadonlySet<string>
-): { readonly message: string; readonly path: ReadonlyArray<string> } | undefined => {
-  // Validate permissions if present
+): ValidationError | undefined => {
   if (table.permissions) {
-    const permissionsError = validateTablePermissions(table.permissions, table.fields, fieldNames)
+    const permissions = table.permissions as {
+      readonly fields?: ReadonlyArray<{ readonly field: string }>
+    }
+    const permissionsError = validateTablePermissions(permissions, fields, fieldNames)
     if (permissionsError) return permissionsError
   }
 
-  // Validate views if present
-  if (table.views && table.views.length > 0) {
-    const viewsError = validateViews(table.views, table.fields, fieldNames)
+  const views = table.views as
+    | ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }>
+    | undefined
+  if (views && views.length > 0) {
+    const viewsError = validateViews(views, fields, fieldNames)
     if (viewsError) return viewsError
   }
 
   return undefined
 }
 
-/**
- * Validate table schema including fields, permissions, views, and roles.
- * Orchestrates all validation functions from extracted modules.
- *
- * @param table - Table to validate
- * @returns Validation error object if invalid, true if valid
- */
-const validateTableSchema = (table: {
-  readonly fields: ReadonlyArray<{
+const validateTableSchema = (table: Record<string, unknown>): ValidationError | true => {
+  const fields = table.fields as ReadonlyArray<{
     readonly name: string
     readonly type: string
     readonly formula?: string
   }>
-  readonly primaryKey?: { readonly type: string; readonly fields?: ReadonlyArray<string> }
-  readonly indexes?: ReadonlyArray<{
-    readonly name: string
-    readonly fields: ReadonlyArray<string>
-  }>
-  readonly views?: ReadonlyArray<{ readonly id: string | number; readonly isDefault?: boolean }>
-  readonly permissions?: {
-    readonly organizationScoped?: boolean
-    readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly create?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly update?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly delete?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    readonly fields?: ReadonlyArray<{
-      readonly field: string
-      readonly read?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-      readonly write?: { readonly type: string; readonly roles?: ReadonlyArray<string> }
-    }>
-    readonly records?: ReadonlyArray<{ readonly action: string; readonly condition: string }>
-  }
-}): { readonly message: string; readonly path: ReadonlyArray<string> } | true => {
-  const fieldNames = new Set(table.fields.map((field) => field.name))
+  const fieldNames = new Set(fields.map((field) => field.name))
 
-  // Validate structural aspects (fields, constraints, indexes)
-  const structureError = validateTableStructure(table, fieldNames)
+  // Validate formula fields (always required)
+  const formulaError = validateFormulaFields(fields)
+  if (formulaError) return formulaError
+
+  // Validate structural constraints (primaryKey, indexes)
+  const structureError = validateStructure(table, fieldNames)
   if (structureError) return structureError
 
-  // Validate access control (permissions, views)
-  const accessControlError = validateTableAccessControl(table, fieldNames)
-  if (accessControlError) return accessControlError
+  // Validate access control and views (permissions, views)
+  const accessError = validateAccessAndViews(table, fields, fieldNames)
+  if (accessError) return accessError
 
   return true
 }
@@ -249,19 +205,11 @@ export const TableSchema = Schema.Struct({
    * @example Role-based permissions
    * ```typescript
    * permissions: {
-   *   read: { type: 'roles', roles: ['member'] },
-   *   create: { type: 'roles', roles: ['admin'] },
-   *   update: { type: 'authenticated' },
-   *   delete: { type: 'roles', roles: ['admin'] },
-   * }
-   * ```
-   *
-   * @example Owner-based access
-   * ```typescript
-   * permissions: {
-   *   read: { type: 'owner', field: 'user_id' },
-   *   update: { type: 'owner', field: 'user_id' },
-   *   delete: { type: 'owner', field: 'user_id' },
+   *   read: 'all',
+   *   comment: 'authenticated',
+   *   create: ['admin', 'editor'],
+   *   update: ['admin', 'editor'],
+   *   delete: ['admin'],
    * }
    * ```
    *

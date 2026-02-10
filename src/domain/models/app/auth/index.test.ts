@@ -7,137 +7,113 @@
 
 import { describe, expect, test } from 'bun:test'
 import { Schema, SchemaAST } from 'effect'
-import { AuthSchema, getEnabledMethods, hasAnyMethodEnabled, isMethodEnabled } from '.'
+import { AuthSchema, getEnabledMethods, hasAnyMethodEnabled, isMethodEnabled, type Auth } from '.'
 
 describe('AuthSchema', () => {
   describe('valid configurations', () => {
-    test('should accept full auth configuration with all plugins', () => {
+    test('should accept minimal configuration with single strategy', () => {
       const input = {
-        emailAndPassword: true,
-        admin: true,
+        strategies: [{ type: 'emailAndPassword' as const }],
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({
-        emailAndPassword: true,
-        admin: true,
-      })
+      expect(result.strategies).toHaveLength(1)
+      expect(result.strategies[0]!.type).toBe('emailAndPassword')
     })
 
-    test('should accept auth with only authentication method', () => {
+    test('should accept multiple strategies', () => {
       const input = {
-        emailAndPassword: true,
+        strategies: [{ type: 'emailAndPassword' as const }, { type: 'magicLink' as const }],
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({
-        emailAndPassword: true,
-      })
+      expect(result.strategies).toHaveLength(2)
     })
 
-    test('should accept auth with admin plugin only', () => {
+    test('should accept strategy with config options', () => {
       const input = {
-        emailAndPassword: true,
-        admin: true,
+        strategies: [{ type: 'emailAndPassword' as const, minPasswordLength: 12 }],
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({
-        emailAndPassword: true,
-        admin: true,
-      })
-    })
-
-    test('should accept auth without plugins', () => {
-      const input = {
-        emailAndPassword: true,
-      }
-      const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({
-        emailAndPassword: true,
-      })
-    })
-
-    test('should accept plugin with config object', () => {
-      const input = {
-        emailAndPassword: true,
-        admin: { impersonation: true },
-      }
-      const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({
-        emailAndPassword: true,
-        admin: { impersonation: true },
-      })
-    })
-
-    test('should accept OAuth configuration as peer method', () => {
-      const input = {
-        emailAndPassword: true,
-        oauth: { providers: ['google', 'github'] },
-      }
-      const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({
-        emailAndPassword: true,
-        oauth: { providers: ['google', 'github'] },
-      })
-    })
-
-    test('should accept OAuth as the only authentication method', () => {
-      const input = {
-        oauth: { providers: ['google', 'github'] },
-      }
-      const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({
-        oauth: { providers: ['google', 'github'] },
-      })
-    })
-
-    test('should accept multiple authentication methods', () => {
-      const input = {
-        emailAndPassword: true,
-        magicLink: true,
-      }
-      const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({
-        emailAndPassword: true,
-        magicLink: true,
-      })
-    })
-
-    test('should accept authentication method with config', () => {
-      const input = {
-        emailAndPassword: { minPasswordLength: 12 },
-      }
-      const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({
-        emailAndPassword: { minPasswordLength: 12 },
-      })
+      expect(result.strategies[0]!.type).toBe('emailAndPassword')
     })
 
     test('should accept emailAndPassword with requireEmailVerification', () => {
       const input = {
-        emailAndPassword: { requireEmailVerification: true },
+        strategies: [{ type: 'emailAndPassword' as const, requireEmailVerification: true }],
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({
-        emailAndPassword: { requireEmailVerification: true },
-      })
+      expect(result.strategies[0]!.type).toBe('emailAndPassword')
     })
 
-    test('should accept enterprise configuration', () => {
+    test('should accept OAuth strategy with providers', () => {
       const input = {
-        emailAndPassword: true,
-        magicLink: true,
-        oauth: { providers: ['google', 'github'] },
-        plugins: {
-          admin: { impersonation: true },
-          organization: { maxMembersPerOrg: 50 },
-        },
+        strategies: [
+          { type: 'emailAndPassword' as const },
+          { type: 'oauth' as const, providers: ['google', 'github'] },
+        ],
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result.oauth?.providers).toEqual(['google', 'github'])
+      expect(result.strategies).toHaveLength(2)
+      const oauth = result.strategies.find((s) => s.type === 'oauth')
+      expect(oauth).toBeDefined()
+      if (oauth?.type === 'oauth') {
+        expect(oauth.providers).toEqual(['google', 'github'])
+      }
+    })
+
+    test('should accept OAuth as the only strategy', () => {
+      const input = {
+        strategies: [{ type: 'oauth' as const, providers: ['google', 'github'] }],
+      }
+      const result = Schema.decodeUnknownSync(AuthSchema)(input)
+      expect(result.strategies).toHaveLength(1)
+      expect(result.strategies[0]!.type).toBe('oauth')
+    })
+
+    test('should accept magicLink strategy with expirationMinutes', () => {
+      const input = {
+        strategies: [{ type: 'magicLink' as const, expirationMinutes: 30 }],
+      }
+      const result = Schema.decodeUnknownSync(AuthSchema)(input)
+      expect(result.strategies[0]!.type).toBe('magicLink')
+    })
+
+    test('should accept configuration with defaultRole', () => {
+      const input = {
+        strategies: [{ type: 'emailAndPassword' as const }],
+        defaultRole: 'viewer',
+      }
+      const result = Schema.decodeUnknownSync(AuthSchema)(input)
+      expect(result.defaultRole).toBe('viewer')
+    })
+
+    test('should accept configuration with custom roles', () => {
+      const input = {
+        strategies: [{ type: 'emailAndPassword' as const }],
+        roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
+      }
+      const result = Schema.decodeUnknownSync(AuthSchema)(input)
+      expect(result.roles).toHaveLength(1)
+    })
+
+    test('should accept enterprise configuration with all strategies', () => {
+      const input = {
+        strategies: [
+          { type: 'emailAndPassword' as const },
+          { type: 'magicLink' as const },
+          { type: 'oauth' as const, providers: ['google', 'github'] },
+        ],
+        twoFactor: true,
+        roles: [{ name: 'editor', level: 30 }],
+        defaultRole: 'member',
+      }
+      const result = Schema.decodeUnknownSync(AuthSchema)(input)
+      expect(result.strategies).toHaveLength(3)
+      expect(result.twoFactor).toBe(true)
     })
 
     test('should accept email templates configuration', () => {
       const input = {
-        emailAndPassword: true,
+        strategies: [{ type: 'emailAndPassword' as const }],
         emailTemplates: {
           verification: {
             subject: 'Verify your email',
@@ -161,41 +137,36 @@ describe('AuthSchema', () => {
       )
       expect(result.emailTemplates?.magicLink?.html).toContain('$url')
     })
-
-    test('should accept magicLink with expirationMinutes', () => {
-      const input = {
-        magicLink: { expirationMinutes: 30 },
-      }
-      const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result.magicLink).toEqual({ expirationMinutes: 30 })
-    })
   })
 
   describe('invalid configurations', () => {
-    test('should reject empty object (no method enabled)', () => {
+    test('should reject empty object (missing strategies)', () => {
       const input = {}
-      expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow(
-        'At least one authentication method must be enabled'
-      )
+      expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow()
     })
 
-    test('should reject config with only plugins (no method enabled)', () => {
+    test('should reject config with empty strategies array', () => {
       const input = {
-        plugins: { admin: true },
+        strategies: [],
       }
-      expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow(
-        'At least one authentication method must be enabled'
-      )
+      expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow()
+    })
+
+    test('should reject duplicate strategy types', () => {
+      const input = {
+        strategies: [{ type: 'emailAndPassword' as const }, { type: 'emailAndPassword' as const }],
+      }
+      expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow()
     })
 
     test('should strip unknown top-level fields (Effect Schema default behavior)', () => {
       const input = {
-        emailAndPassword: true,
+        strategies: [{ type: 'emailAndPassword' as const }],
         unknownField: 'value',
       }
       // Effect Schema strips unknown fields by default (lenient mode)
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
-      expect(result).toEqual({ emailAndPassword: true })
+      expect(result.strategies).toHaveLength(1)
       expect(result).not.toHaveProperty('unknownField')
     })
   })
@@ -203,27 +174,27 @@ describe('AuthSchema', () => {
   describe('validation rules', () => {
     test('should reject two-factor without emailAndPassword', () => {
       const input = {
-        magicLink: true,
+        strategies: [{ type: 'magicLink' as const }],
         twoFactor: true,
       }
       expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow(
-        'Two-factor authentication requires emailAndPassword authentication'
+        'Two-factor authentication requires emailAndPassword strategy'
       )
     })
 
     test('should reject two-factor with only oauth', () => {
       const input = {
-        oauth: { providers: ['google'] },
+        strategies: [{ type: 'oauth' as const, providers: ['google'] }],
         twoFactor: true,
       }
       expect(() => Schema.decodeUnknownSync(AuthSchema)(input)).toThrow(
-        'Two-factor authentication requires emailAndPassword authentication'
+        'Two-factor authentication requires emailAndPassword strategy'
       )
     })
 
     test('should accept two-factor with emailAndPassword', () => {
       const input = {
-        emailAndPassword: true,
+        strategies: [{ type: 'emailAndPassword' as const }],
         twoFactor: true,
       }
       const result = Schema.decodeUnknownSync(AuthSchema)(input)
@@ -253,9 +224,9 @@ describe('AuthSchema', () => {
       expect(examples._tag).toBe('Some')
       if (examples._tag === 'Some') {
         expect(examples.value.length).toBeGreaterThan(0)
-        // First example should be minimal config with flat structure
+        // First example should be minimal config with strategies array
         expect(examples.value[0]).toEqual({
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         })
       }
     })
@@ -263,23 +234,33 @@ describe('AuthSchema', () => {
 })
 
 describe('isMethodEnabled', () => {
-  test('should return true for boolean true', () => {
-    expect(isMethodEnabled({ emailAndPassword: true }, 'emailAndPassword')).toBe(true)
-    expect(isMethodEnabled({ magicLink: true }, 'magicLink')).toBe(true)
+  test('should return true for emailAndPassword strategy', () => {
+    const auth: Auth = { strategies: [{ type: 'emailAndPassword' }] }
+    expect(isMethodEnabled(auth, 'emailAndPassword')).toBe(true)
   })
 
-  test('should return true for oauth with providers', () => {
-    expect(isMethodEnabled({ oauth: { providers: ['google'] } }, 'oauth')).toBe(true)
+  test('should return true for magicLink strategy', () => {
+    const auth: Auth = { strategies: [{ type: 'magicLink' }] }
+    expect(isMethodEnabled(auth, 'magicLink')).toBe(true)
   })
 
-  test('should return true for config object', () => {
-    expect(
-      isMethodEnabled({ emailAndPassword: { minPasswordLength: 12 } }, 'emailAndPassword')
-    ).toBe(true)
+  test('should return true for oauth strategy with providers', () => {
+    const auth: Auth = {
+      strategies: [{ type: 'oauth', providers: ['google'] }],
+    }
+    expect(isMethodEnabled(auth, 'oauth')).toBe(true)
   })
 
-  test('should return false for undefined method', () => {
-    expect(isMethodEnabled({ emailAndPassword: true }, 'magicLink')).toBe(false)
+  test('should return true for strategy with config object', () => {
+    const auth: Auth = {
+      strategies: [{ type: 'emailAndPassword', minPasswordLength: 12 }],
+    }
+    expect(isMethodEnabled(auth, 'emailAndPassword')).toBe(true)
+  })
+
+  test('should return false for absent strategy', () => {
+    const auth: Auth = { strategies: [{ type: 'emailAndPassword' }] }
+    expect(isMethodEnabled(auth, 'magicLink')).toBe(false)
   })
 
   test('should return false for undefined config', () => {
@@ -288,25 +269,31 @@ describe('isMethodEnabled', () => {
 })
 
 describe('getEnabledMethods', () => {
-  test('should return all enabled methods', () => {
-    const config = { emailAndPassword: true, magicLink: true }
-    const enabled = getEnabledMethods(config)
+  test('should return all enabled strategies', () => {
+    const auth: Auth = {
+      strategies: [{ type: 'emailAndPassword' }, { type: 'magicLink' }],
+    }
+    const enabled = getEnabledMethods(auth)
     expect(enabled).toContain('emailAndPassword')
     expect(enabled).toContain('magicLink')
     expect(enabled).toHaveLength(2)
   })
 
   test('should include oauth when configured', () => {
-    const config = { emailAndPassword: true, oauth: { providers: ['google'] as const } }
-    const enabled = getEnabledMethods(config)
+    const auth: Auth = {
+      strategies: [{ type: 'emailAndPassword' }, { type: 'oauth', providers: ['google'] }],
+    }
+    const enabled = getEnabledMethods(auth)
     expect(enabled).toContain('emailAndPassword')
     expect(enabled).toContain('oauth')
     expect(enabled).toHaveLength(2)
   })
 
-  test('should include methods with config objects', () => {
-    const config = { emailAndPassword: { requireEmailVerification: true } }
-    const enabled = getEnabledMethods(config)
+  test('should include strategies with config objects', () => {
+    const auth: Auth = {
+      strategies: [{ type: 'emailAndPassword', requireEmailVerification: true }],
+    }
+    const enabled = getEnabledMethods(auth)
     expect(enabled).toContain('emailAndPassword')
     expect(enabled).toHaveLength(1)
   })
@@ -317,14 +304,17 @@ describe('getEnabledMethods', () => {
 })
 
 describe('hasAnyMethodEnabled', () => {
-  test('should return true when at least one method is enabled', () => {
-    expect(hasAnyMethodEnabled({ emailAndPassword: true })).toBe(true)
-    expect(hasAnyMethodEnabled({ magicLink: true })).toBe(true)
-    expect(hasAnyMethodEnabled({ oauth: { providers: ['google'] as const } })).toBe(true)
+  test('should return true when at least one strategy is defined', () => {
+    const emailAuth: Auth = { strategies: [{ type: 'emailAndPassword' }] }
+    const magicAuth: Auth = { strategies: [{ type: 'magicLink' }] }
+    const oauthAuth: Auth = { strategies: [{ type: 'oauth', providers: ['google'] }] }
+    expect(hasAnyMethodEnabled(emailAuth)).toBe(true)
+    expect(hasAnyMethodEnabled(magicAuth)).toBe(true)
+    expect(hasAnyMethodEnabled(oauthAuth)).toBe(true)
   })
 
-  test('should return false when no methods are enabled', () => {
-    expect(hasAnyMethodEnabled({})).toBe(false)
+  test('should return false when no strategies defined', () => {
+    expect(hasAnyMethodEnabled({ strategies: [] } as any)).toBe(false)
   })
 
   test('should return false for undefined', () => {

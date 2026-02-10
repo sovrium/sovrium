@@ -287,7 +287,7 @@ function validateUpdateForbiddenFields(
   forbiddenFields: readonly string[],
   c: Context
 ): Response | undefined {
-  const SYSTEM_PROTECTED_FIELDS = new Set(['user_id', 'owner_id'])
+  const SYSTEM_PROTECTED_FIELDS = new Set(['user_id'])
   const attemptedForbiddenFields = forbiddenFields.filter(
     (field) => !SYSTEM_PROTECTED_FIELDS.has(field)
   )
@@ -425,13 +425,13 @@ export async function handleDeleteRecord(c: Context, app: App) {
   const recordId = c.req.param('recordId')
   const permanent = c.req.query('permanent') === 'true'
 
-  // Permanent delete requires admin or owner role
+  // Permanent delete requires admin role
   if (permanent) {
-    if (userRole !== 'admin' && userRole !== 'owner') {
+    if (userRole !== 'admin') {
       return c.json(
         {
           success: false,
-          message: 'Only admins and owners can permanently delete records',
+          message: 'Only admins can permanently delete records',
           code: 'FORBIDDEN',
         },
         403

@@ -8,52 +8,59 @@
 
 ## Overview
 
-Sovrium implements a layered permission system using PostgreSQL Row-Level Security (RLS) and Better Auth integration. Permissions are defined at three levels: table-level, field-level, and record-level, with support for role-based access control (RBAC).
+Sovrium implements a layered permission system with Better Auth integration. Permissions are defined at two levels: table-level and field-level, with support for role-based access control (RBAC).
+
+Permission values use a simplified 3-format system:
+
+- `all` — Everyone (including unauthenticated users)
+- `authenticated` — Any logged-in user
+- `['admin', 'editor']` — Specific role names (array)
 
 ---
 
 ## US-TABLES-PERMISSIONS-001: Table-Level Access Control
 
 **As a** developer,
-**I want to** define table-level permissions for different roles,
-**so that** I can control which users can read, create, update, or delete records in each table.
+**I want to** define table-level permissions for CRUD operations and comments,
+**so that** I can control which users can read, create, update, delete, or comment on records in each table.
 
 ### Configuration
 
 ```yaml
 tables:
-  - id: 1
-    name: products
+  - name: articles
     permissions:
-      public: false # Require authentication
-      roles:
-        admin:
-          read: true
-          create: true
-          update: true
-          delete: true
-        member:
-          read: true
-          create: true
-          update: true
-          delete: false
-        viewer:
-          read: true
-          create: false
-          update: false
-          delete: false
+      read: all
+      comment: authenticated
+      create: ['admin', 'editor']
+      update: ['admin', 'editor']
+      delete: ['admin']
 ```
+
+### Permission Format
+
+Each operation accepts one of 3 formats:
+
+| Format          | Meaning                        | Example                  |
+| --------------- | ------------------------------ | ------------------------ |
+| `all`           | Everyone (including anonymous) | `read: all`              |
+| `authenticated` | Any logged-in user             | `comment: authenticated` |
+| Role array      | Specific roles only            | `create: ['admin']`      |
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                      | E2E Spec                           | Status |
-| ------ | -------------------------------------------------------------- | ---------------------------------- | ------ |
-| AC-001 | Public tables allow unauthenticated read access                | `APP-TABLES-TABLE-PERMISSIONS-001` | ✅     |
-| AC-002 | Private tables require authentication for all operations       | `APP-TABLES-TABLE-PERMISSIONS-002` | ✅     |
-| AC-003 | Role-based permissions are enforced at table level             | `APP-TABLES-TABLE-PERMISSIONS-003` | ✅     |
-| AC-004 | Returns 401 for unauthenticated access to private tables       | `APP-TABLES-TABLE-PERMISSIONS-004` | ✅     |
-| AC-005 | Returns 403 for unauthorized role attempting restricted ops    | `APP-TABLES-TABLE-PERMISSIONS-005` | ✅     |
-| AC-006 | User can complete full table-permissions workflow (regression) | `APP-TABLES-TBL-PERMS-REGRESSION`  | ✅     |
+| ID     | Criterion                                                          | E2E Spec                           | Status |
+| ------ | ------------------------------------------------------------------ | ---------------------------------- | ------ |
+| AC-001 | `all` permission allows unauthenticated access                     | `APP-TABLES-TABLE-PERMISSIONS-001` | ✅     |
+| AC-002 | `authenticated` permission requires login for the operation        | `APP-TABLES-TABLE-PERMISSIONS-002` | ✅     |
+| AC-003 | Role array permission restricts to listed roles                    | `APP-TABLES-TABLE-PERMISSIONS-003` | ✅     |
+| AC-004 | Returns 401 for unauthenticated access to non-`all` operations     |                                    | ⏳     |
+| AC-005 | Returns 403 for unauthorized role attempting restricted ops        |                                    | ⏳     |
+| AC-006 | User can complete full table-permissions workflow (regression)     | `APP-TABLES-TBL-PERMS-REGRESSION`  | ✅     |
+| AC-007 | `comment` permission controls who can add comments to records      |                                    | ⏳     |
+| AC-008 | All 5 operations (read, comment, create, update, delete) supported |                                    | ⏳     |
+| AC-009 | Unknown role names in permissions trigger validation warning       |                                    | ⏳     |
+| AC-010 | Omitted operations default to deny                                 |                                    | ⏳     |
 
 ### Implementation References
 
@@ -64,27 +71,28 @@ tables:
 ## US-TABLES-PERMISSIONS-002: Role-Based Access Control (RBAC)
 
 **As a** developer,
-**I want to** define custom roles with specific permissions,
+**I want to** use roles to control table permissions,
 **so that** I can implement fine-grained access control based on user roles.
 
 ### Configuration
 
 ```yaml
 auth:
-  emailAndPassword: true
-  admin:
-    defaultRole: 'viewer'
-    # Roles (admin, member, viewer, owner) are built into Better Auth.
-    # Custom role definitions are managed via auth.admin configuration.
+  strategies:
+    - type: emailAndPassword
+  defaultRole: viewer
+  roles:
+    - name: editor
+      description: 'Can edit content'
+      level: 30
 
 tables:
-  - id: 1
-    name: articles
+  - name: articles
     permissions:
-      roles:
-        admin: { read: true, create: true, update: true, delete: true }
-        editor: { read: true, create: true, update: true, delete: false }
-        viewer: { read: true, create: false, update: false, delete: false }
+      read: all
+      create: ['admin', 'editor']
+      update: ['admin', 'editor']
+      delete: ['admin']
 ```
 
 ### Acceptance Criteria
@@ -119,27 +127,23 @@ tables:
 
 ```yaml
 tables:
-  - id: 1
-    name: employees
+  - name: employees
     fields:
-      - id: 1
-        name: name
-        type: single-line-text
-        permissions:
-          read: [admin, hr, viewer]
-          write: [admin, hr]
-      - id: 2
-        name: salary
-        type: currency
-        permissions:
-          read: [admin, hr] # Hidden from viewer role
-          write: [admin] # Only admin can update
-      - id: 3
-        name: department
+      - name: name
         type: single-line-text
         permissions:
           read: all
-          write: [admin]
+          write: ['admin', 'hr']
+      - name: salary
+        type: currency
+        permissions:
+          read: ['admin', 'hr']
+          write: ['admin']
+      - name: department
+        type: single-line-text
+        permissions:
+          read: all
+          write: ['admin']
 ```
 
 ### Acceptance Criteria
@@ -151,8 +155,8 @@ tables:
 | AC-003 | Field permissions override table-level permissions             | `APP-TABLES-FIELD-PERMISSIONS-003`        | ✅     |
 | AC-004 | Returns 403 when attempting to write read-only field           | `APP-TABLES-FIELD-PERMISSIONS-004`        | ✅     |
 | AC-005 | Hidden fields are not included in list/detail responses        | `APP-TABLES-FIELD-PERMISSIONS-005`        | ✅     |
-| AC-006 | Field permission "all" grants access to all roles              | `APP-TABLES-FIELD-PERMISSIONS-006`        | ✅     |
-| AC-007 | Field permission "none" denies access to all roles             | `APP-TABLES-FIELD-PERMISSIONS-007`        | ✅     |
+| AC-006 | Field permission `all` grants access to all roles              | `APP-TABLES-FIELD-PERMISSIONS-006`        | ✅     |
+| AC-007 | Field permissions use same 3-format system as table-level      | `APP-TABLES-FIELD-PERMISSIONS-007`        | ✅     |
 | AC-008 | Computed fields respect source field permissions               | `APP-TABLES-FIELD-PERMISSIONS-008`        | ⏳     |
 | AC-009 | Relationship fields respect related table permissions          | `APP-TABLES-FIELD-PERMISSIONS-009`        | ✅     |
 | AC-010 | User can complete full field-permissions workflow (regression) | `APP-TABLES-FIELD-PERMISSIONS-REGRESSION` | ✅     |
@@ -163,113 +167,7 @@ tables:
 
 ---
 
-## US-TABLES-PERMISSIONS-004: Record-Level Permissions
-
-**As a** developer,
-**I want to** define permissions at the record level based on ownership or conditions,
-**so that** users can only access records they own or match specific criteria.
-
-### Configuration
-
-```yaml
-tables:
-  - id: 1
-    name: user_profiles
-    fields:
-      - id: 1
-        name: user_id
-        type: relationship
-        relatedTable: users
-        relationType: many-to-one
-    permissions:
-      recordLevel:
-        enabled: true
-        ownerField: user_id # Users can only access their own profile
-        conditions:
-          - role: admin
-            access: all # Admins can access all records
-          - role: member
-            access: owned # Members can only access owned records
-
-  - id: 2
-    name: documents
-    permissions:
-      recordLevel:
-        enabled: true
-        conditions:
-          - role: admin
-            access: all
-          - role: editor
-            filter:
-              status: [draft, published] # Editors can only see draft/published
-          - role: viewer
-            filter:
-              status: published # Viewers can only see published
-```
-
-### Acceptance Criteria
-
-| ID     | Criterion                                                        | E2E Spec | Status |
-| ------ | ---------------------------------------------------------------- | -------- | ------ |
-| AC-001 | Owner-based filtering returns only records owned by current user |          | ❓     |
-| AC-002 | Condition-based filtering applies role-specific filters          |          | ❓     |
-| AC-003 | Admin role bypasses record-level restrictions                    |          | ❓     |
-| AC-004 | Returns 404 for records user is not permitted to access          |          | ❓     |
-| AC-005 | Record permissions combine with field permissions                |          | ❓     |
-
-### Implementation References
-
----
-
-## US-TABLES-PERMISSIONS-005: PostgreSQL Row-Level Security (RLS)
-
-**As a** developer,
-**I want to** enforce permissions using PostgreSQL Row-Level Security,
-**so that** access control is enforced at the database level for maximum security.
-
-### Configuration
-
-```yaml
-tables:
-  - id: 1
-    name: sensitive_data
-    permissions:
-      rls:
-        enabled: true
-        policies:
-          - name: owner_policy
-            operation: all
-            using: "user_id = current_setting('app.user_id')::integer"
-          - name: admin_bypass
-            operation: all
-            using: "current_setting('app.user_role') = 'admin'"
-            withCheck: true
-```
-
-### Acceptance Criteria
-
-| ID     | Criterion                                                    | E2E Spec | Status |
-| ------ | ------------------------------------------------------------ | -------- | ------ |
-| AC-001 | RLS policies are created when table is created               |          | ❓     |
-| AC-002 | RLS is enabled on table when permissions.rls.enabled is true |          | ❓     |
-| AC-003 | SELECT operations respect RLS using clause                   |          | ❓     |
-| AC-004 | INSERT operations respect RLS with check clause              |          | ❓     |
-| AC-005 | UPDATE operations respect RLS using and with check clauses   |          | ❓     |
-| AC-006 | DELETE operations respect RLS using clause                   |          | ❓     |
-| AC-007 | RLS policies are updated when permission config changes      |          | ❓     |
-| AC-008 | RLS policies are dropped when table permissions are removed  |          | ❓     |
-| AC-009 | Multiple RLS policies are combined with OR logic             |          | ❓     |
-| AC-010 | RLS enforcement prevents data leakage in joins               |          | ❓     |
-| AC-011 | RLS policies use parameterized session variables             |          | ❓     |
-| AC-012 | Superuser can bypass RLS for maintenance operations          |          | ❓     |
-| AC-013 | RLS errors return appropriate 403 response                   |          | ❓     |
-| AC-014 | RLS policies are validated before table creation             |          | ❓     |
-
-### Implementation References
-
----
-
-## US-TABLES-PERMISSIONS-006: Session Context Integration
+## US-TABLES-PERMISSIONS-004: Session Context Integration
 
 **As a** developer,
 **I want to** use Better Auth session data for permission evaluation,
@@ -279,11 +177,10 @@ tables:
 
 ```yaml
 auth:
-  emailAndPassword: true
-  admin: true
+  strategies:
+    - type: emailAndPassword
 # Note: Session context variables (user_id, user_role, user_email) are
-# automatically set by Better Auth at the server level. They are available
-# for RLS policies via current_setting('app.user_id'), etc.
+# automatically set by Better Auth at the server level.
 ```
 
 ### Acceptance Criteria
@@ -298,7 +195,7 @@ auth:
 
 ---
 
-## US-TABLES-PERMISSIONS-007: API Field Permission Enforcement
+## US-TABLES-PERMISSIONS-005: API Field Permission Enforcement
 
 **As a** developer,
 **I want to** API responses to respect field-level permissions,
@@ -319,29 +216,7 @@ auth:
 
 ---
 
-## US-TABLES-PERMISSIONS-008: API Record Permission Enforcement
-
-**As a** developer,
-**I want to** API endpoints to enforce record-level permissions,
-**so that** users can only access and modify permitted records.
-
-### Acceptance Criteria
-
-| ID     | Criterion                                                 | E2E Spec | Status |
-| ------ | --------------------------------------------------------- | -------- | ------ |
-| AC-001 | GET /records returns only permitted records               |          | ❓     |
-| AC-002 | GET /records/:id returns 404 for non-permitted records    |          | ❓     |
-| AC-003 | POST /records sets owner field automatically              |          | ❓     |
-| AC-004 | PATCH /records/:id rejects updates to non-owned records   |          | ❓     |
-| AC-005 | DELETE /records/:id rejects deletion of non-owned records |          | ❓     |
-| AC-006 | Record count respects permission filtering                |          | ❓     |
-| AC-007 | Pagination metadata reflects permitted record count       |          | ❓     |
-
-### Implementation References
-
----
-
-## US-TABLES-PERMISSIONS-009: Permission Inheritance
+## US-TABLES-PERMISSIONS-006: Permission Inheritance
 
 **As a** developer,
 **I want to** define permission inheritance rules,
@@ -351,20 +226,18 @@ auth:
 
 ```yaml
 tables:
-  - id: 1
-    name: projects
+  - name: projects
     permissions:
-      roles:
-        admin: { read: true, create: true, update: true, delete: true }
-        member: { read: true, create: false, update: false, delete: false }
+      read: all
+      create: ['admin']
+      update: ['admin']
+      delete: ['admin']
 
-  - id: 2
-    name: tasks
+  - name: tasks
     permissions:
-      inherit: projects # Inherit permissions from projects table
+      inherit: projects
       override:
-        member:
-          create: true # Members can create tasks in projects they can read
+        create: ['admin', 'member']
 ```
 
 ### Acceptance Criteria
@@ -382,7 +255,7 @@ tables:
 
 ---
 
-## US-TABLES-PERMISSIONS-010: Check User Permissions
+## US-TABLES-PERMISSIONS-007: Check User Permissions
 
 **As a** developer,
 **I want to** check what permissions a user has for a specific table,
@@ -391,7 +264,7 @@ tables:
 ### API Request
 
 ```
-GET /api/tables/1/permissions
+GET /api/tables/:tableId/permissions
 ```
 
 ### Response
@@ -433,8 +306,6 @@ GET /api/tables/1/permissions
 | Spec ID                                   | Workflow                                                 | Status |
 | ----------------------------------------- | -------------------------------------------------------- | ------ |
 | `APP-TABLES-PERMISSIONS-REGRESSION`       | Developer configures RBAC and permissions work correctly | `[x]`  |
-| `APP-TABLES-RLS-REGRESSION`               | RLS policies are enforced at database level              | `[x]`  |
-| `API-TABLES-PERMISSIONS-REGRESSION`       | API respects all permission levels                       | `[x]`  |
 | `API-TABLES-PERMISSIONS-CHECK-REGRESSION` | User checks table permissions                            | `[x]`  |
 | `API-TABLES-PERMISSIONS-FIELD-REGRESSION` | Complete field permission enforcement workflow           | `[x]`  |
 
@@ -442,16 +313,13 @@ GET /api/tables/1/permissions
 
 ## Coverage Summary
 
-| User Story                | Title                         | Spec Count            | Status   |
-| ------------------------- | ----------------------------- | --------------------- | -------- |
-| US-TABLES-PERMISSIONS-001 | Table-Level Access Control    | 5                     | Complete |
-| US-TABLES-PERMISSIONS-002 | Role-Based Access Control     | 10                    | Complete |
-| US-TABLES-PERMISSIONS-003 | Field-Level Permissions       | 9                     | Complete |
-| US-TABLES-PERMISSIONS-004 | Record-Level Permissions      | 5                     | Complete |
-| US-TABLES-PERMISSIONS-005 | PostgreSQL RLS                | 14                    | Complete |
-| US-TABLES-PERMISSIONS-006 | Session Context Integration   | 3                     | Complete |
-| US-TABLES-PERMISSIONS-007 | API Field Permission Enforce  | 6                     | Complete |
-| US-TABLES-PERMISSIONS-008 | API Record Permission Enforce | 7                     | Complete |
-| US-TABLES-PERMISSIONS-009 | Permission Inheritance        | 6                     | Complete |
-| US-TABLES-PERMISSIONS-010 | Check User Permissions        | 7                     | Complete |
-| **Total**                 |                               | **72 + 5 regression** |          |
+| User Story                | Title                        | Spec Count            | Status   |
+| ------------------------- | ---------------------------- | --------------------- | -------- |
+| US-TABLES-PERMISSIONS-001 | Table-Level Access Control   | 10                    | Partial  |
+| US-TABLES-PERMISSIONS-002 | Role-Based Access Control    | 11                    | Complete |
+| US-TABLES-PERMISSIONS-003 | Field-Level Permissions      | 10                    | Complete |
+| US-TABLES-PERMISSIONS-004 | Session Context Integration  | 3                     | Pending  |
+| US-TABLES-PERMISSIONS-005 | API Field Permission Enforce | 6                     | Complete |
+| US-TABLES-PERMISSIONS-006 | Permission Inheritance       | 6                     | Pending  |
+| US-TABLES-PERMISSIONS-007 | Check User Permissions       | 7                     | Complete |
+| **Total**                 |                              | **53 + 3 regression** |          |

@@ -1326,7 +1326,7 @@ describe('sql-generators', () => {
             options: ['active', 'inactive'],
           },
           {
-            name: 'owner',
+            name: 'author',
             type: 'user',
           },
         ] as any,
@@ -1343,7 +1343,7 @@ describe('sql-generators', () => {
         "CONSTRAINT check_status_enum CHECK (status IN ('active', 'inactive'))"
       )
       expect(result).toContain(
-        'CONSTRAINT products_owner_fkey FOREIGN KEY (owner) REFERENCES auth.user(id)'
+        'CONSTRAINT products_author_fkey FOREIGN KEY (author) REFERENCES auth.user(id)'
       )
     })
 

@@ -26,9 +26,9 @@ HTTP Request → Better Auth Guard → Permission Check → (Block or Allow) →
 ```typescript
 // Better Auth Access Control statement format
 const statements = ac.newStatementBuilder({
-  'projects:read': ['owner', 'admin', 'member'],
-  'projects:write': ['owner', 'admin'],
-  'projects:delete': ['owner'],
+  'projects:read': ['admin', 'member', 'viewer'],
+  'projects:write': ['admin', 'member'],
+  'projects:delete': ['admin'],
 })
 ```
 
@@ -53,13 +53,13 @@ test.fixme('API-AUTH-ENFORCEMENT-009: should block at API layer for unauthorized
 
 ### Pattern 2: Application-Layer Filtering
 
-Better Auth allows the role, then application code filters the rows based on ownership or other criteria.
+Better Auth allows the role, then application code filters the rows based on user context or other criteria.
 
-**Scenario**: Admin can read projects, but application filters to their organization's projects.
+**Scenario**: Admin can read projects, but application filters based on user context.
 
 ```
 Request → Better Auth: hasPermission('projects:read') → ALLOWED
-       → Application: WHERE owner_id = current_user → Returns 5 of 100 rows
+       → Application: Applies user-specific filters → Returns filtered results
 ```
 
 ### Pattern 3: Field-Level Filtering
@@ -73,26 +73,15 @@ Request → Better Auth: hasPermission('records:read') → ALLOWED
        → Application: Filters out salary field for non-admin users
 ```
 
-### Pattern 4: Owner Isolation
+### Pattern 4: User-Based Filtering
 
-Application layer verifies organization membership.
+Better Auth checks permission type, application code filters based on user context.
 
-**Scenario**: User tries to access record from different organization.
-
-```
-Request → Better Auth: User is authenticated, has member role → ALLOWED
-       → Application: owner_id = 'org_456' ≠ user's 'org_123' → 404 Not Found
-```
-
-### Pattern 5: Owner-Based Access
-
-Better Auth checks permission type, application code filters to owned records only.
-
-**Scenario**: User with `records:read` permission can only see records they created.
+**Scenario**: User with `records:read` permission sees records based on their role and context.
 
 ```
 Request → Better Auth: hasPermission('records:read') → ALLOWED
-       → Application: WHERE created_by = current_user → Returns only user's 3 records
+       → Application: Applies role-based filtering → Returns user's accessible records
 ```
 
 ## Implementation Guide
@@ -121,14 +110,14 @@ Request → Better Auth: hasPermission('records:read') → ALLOWED
         { "id": 3, "name": "budget", "type": "currency" }
       ],
       "permissions": {
-        "read": { "type": "roles", "roles": ["owner", "admin", "member"] },
-        "create": { "type": "roles", "roles": ["owner", "admin"] },
-        "update": { "type": "roles", "roles": ["owner", "admin"] },
-        "delete": { "type": "roles", "roles": ["owner"] },
+        "read": ["admin", "member", "viewer"],
+        "create": ["admin", "member"],
+        "update": ["admin", "member"],
+        "delete": ["admin"],
         "fieldPermissions": {
           "budget": {
-            "read": { "type": "roles", "roles": ["owner", "admin"] },
-            "write": { "type": "roles", "roles": ["owner"] }
+            "read": ["admin"],
+            "write": ["admin"]
           }
         }
       }
@@ -145,10 +134,10 @@ import { createAccessControl } from 'better-auth/plugins/access-control'
 
 export const ac = createAccessControl({
   statements: {
-    'projects:read': ['owner', 'admin', 'member'],
-    'projects:create': ['owner', 'admin'],
-    'projects:update': ['owner', 'admin'],
-    'projects:delete': ['owner'],
+    'projects:read': ['admin', 'member', 'viewer'],
+    'projects:create': ['admin', 'member'],
+    'projects:update': ['admin', 'member'],
+    'projects:delete': ['admin'],
   },
 })
 
@@ -175,13 +164,10 @@ Row and field filtering is implemented in the application layer:
 export async function getRecords(user: User, tableId: number) {
   const table = await getTable(tableId)
 
-  // Build query with owner filtering
+  // Build query with filtering
   let query = db.select().from(records).where(eq(records.tableId, tableId))
 
-  // Apply owner isolation
-  if (table.permissions.read.type === 'owner') {
-    query = query.where(eq(records.ownerId, user.organizationId))
-  }
+  // Apply role-based filtering as needed based on permissions
 
   // Apply field filtering based on permissions
   const allowedFields = getReadableFields(table, user.role)
@@ -245,9 +231,9 @@ test.fixme(
 | Scenario                   | Better Auth | Application | Result         |
 | -------------------------- | ----------- | ----------- | -------------- |
 | User lacks role permission | Blocks      | Never runs  | 403 Forbidden  |
-| User has role, owns record | Allows      | Returns     | Record visible |
-| User has role, doesn't own | Allows      | Filters     | Empty result   |
-| User has role, wrong org   | Allows      | Filters     | 404 Not Found  |
+| User has role permission   | Allows      | Returns     | Record visible |
+| User has role, filtered    | Allows      | Filters     | Empty result   |
+| Resource not accessible    | Allows      | Filters     | 404 Not Found  |
 
 ## Performance Considerations
 
@@ -264,7 +250,7 @@ test.fixme(
 ### Optimization Tips
 
 1. **Better Auth first**: Reject unauthorized roles before database query
-2. **Index columns**: Index columns used in filters (`owner_id`, `created_by`)
+2. **Index columns**: Index columns used in filters (`user_id`, `created_by`)
 3. **Batch queries**: Avoid N+1 queries when checking permissions
 
 ## Related Spec Tests

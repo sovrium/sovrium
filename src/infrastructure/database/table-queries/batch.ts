@@ -366,7 +366,7 @@ async function validateRequiredFieldsInRecord(
   const requiredFields = schemaQuery.map((row) => row.column_name)
 
   // System fields that are auto-generated (exclude from validation)
-  const autoFields = new Set(['id', 'created_at', 'updated_at', 'owner_id'])
+  const autoFields = new Set(['id', 'created_at', 'updated_at'])
 
   const missingFields = requiredFields.filter(
     (field) => !autoFields.has(field) && !(field in record)

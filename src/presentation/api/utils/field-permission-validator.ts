@@ -48,7 +48,7 @@ export function validateFieldWritePermissions(
       const fieldDefinition = table.fields.find((f) => f.name === fieldName)
       if (fieldDefinition?.type === 'currency') {
         // Currency fields default to admin-only write access
-        const isAdmin = userRole === 'admin' || userRole === 'owner'
+        const isAdmin = userRole === 'admin'
         if (!isAdmin) {
           return fieldName
         }
@@ -65,23 +65,14 @@ export function validateFieldWritePermissions(
  * Check if user's role has write permission
  */
 function hasWritePermission(permission: TablePermission, userRole: string): boolean {
-  switch (permission.type) {
-    case 'public':
-      return true
-
-    case 'authenticated':
-      return true // User is authenticated (has session)
-
-    case 'roles':
-      return permission.roles?.includes(userRole) ?? false
-
-    case 'owner':
-      // Owner check requires row-level context (handled by RLS)
-      // At API layer, we can't determine ownership without fetching the record
-      // So we allow it through here and let RLS enforce
-      return true
-
-    default:
-      return false
+  if (permission === 'all') {
+    return true
   }
+  if (permission === 'authenticated') {
+    return true // User is authenticated (has session)
+  }
+  if (Array.isArray(permission)) {
+    return permission.includes(userRole)
+  }
+  return false
 }

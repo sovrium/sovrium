@@ -30,7 +30,7 @@ test.describe('User Field', () => {
       // GIVEN: table configuration with user field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -82,7 +82,7 @@ test.describe('User Field', () => {
       // GIVEN: table configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 2,
@@ -129,7 +129,7 @@ test.describe('User Field', () => {
       // GIVEN: users created via Better Auth
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 999,
@@ -188,7 +188,7 @@ test.describe('User Field', () => {
       // GIVEN: user created via Better Auth
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 3,
@@ -196,7 +196,7 @@ test.describe('User Field', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'owner', type: 'user' },
+              { id: 3, name: 'author', type: 'user' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },
@@ -208,7 +208,7 @@ test.describe('User Field', () => {
         email: 'sarah@example.com',
       })
 
-      // WHEN: inserting documents with owner
+      // WHEN: inserting documents with author
       await executeQuery([
         `INSERT INTO documents (title, owner) VALUES ('Project Plan', '${sarah.user.id}'), ('Budget Report', '${sarah.user.id}')`,
       ])
@@ -239,7 +239,7 @@ test.describe('User Field', () => {
       // GIVEN: table configuration with indexed user field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 4,
@@ -280,7 +280,7 @@ test.describe('User Field', () => {
       // Setup: Start server with comprehensive schema covering ALL test scenarios (except junction table)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -308,7 +308,7 @@ test.describe('User Field', () => {
             fields: [
               { id: 1, name: 'id', type: 'integer', required: true },
               { id: 2, name: 'title', type: 'single-line-text' },
-              { id: 3, name: 'owner', type: 'user' },
+              { id: 3, name: 'author', type: 'user' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
           },

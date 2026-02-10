@@ -37,7 +37,7 @@ test.describe('Create comment on a record', () => {
       // GIVEN: A running server with valid table and record
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -95,7 +95,7 @@ test.describe('Create comment on a record', () => {
       // GIVEN: Table with record and multiple users in the organization
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 2,
@@ -149,7 +149,7 @@ test.describe('Create comment on a record', () => {
       // GIVEN: Table with a valid record
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 3,
@@ -189,7 +189,7 @@ test.describe('Create comment on a record', () => {
       // GIVEN: Table with a valid record
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 4,
@@ -230,7 +230,7 @@ test.describe('Create comment on a record', () => {
       // GIVEN: A valid table with record in an authenticated app
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 5,
@@ -265,7 +265,7 @@ test.describe('Create comment on a record', () => {
       // GIVEN: Table exists but record does not
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 6,
@@ -303,7 +303,7 @@ test.describe('Create comment on a record', () => {
       // GIVEN: Record owned by different user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 7,
@@ -347,7 +347,7 @@ test.describe('Create comment on a record', () => {
       // GIVEN: User without read permission for the record
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 8,
@@ -388,7 +388,7 @@ test.describe('Create comment on a record', () => {
       // GIVEN: Authenticated user attempting to create comment
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 9,
@@ -436,7 +436,7 @@ test.describe('Create comment on a record', () => {
       // GIVEN: Authenticated user creating a comment
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 11,
@@ -495,7 +495,7 @@ test.describe('Create comment on a record', () => {
       // Setup: Start server with comprehensive configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

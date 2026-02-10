@@ -76,9 +76,9 @@ describe('filterReadableFields', () => {
     })
   })
 
-  describe('public permission', () => {
-    test('should allow all users to read public fields', () => {
-      const app = createMockApp([{ field: 'email', read: { type: 'public' } }])
+  describe('"all" permission', () => {
+    test('should allow all users to read "all" fields', () => {
+      const app = createMockApp([{ field: 'email', read: 'all' }])
       const record = { id: 'user-123', email: 'test@example.com' }
 
       const filtered = filterReadableFields({
@@ -93,9 +93,9 @@ describe('filterReadableFields', () => {
     })
   })
 
-  describe('authenticated permission', () => {
+  describe('"authenticated" permission', () => {
     test('should allow authenticated users to read authenticated fields', () => {
-      const app = createMockApp([{ field: 'email', read: { type: 'authenticated' } }])
+      const app = createMockApp([{ field: 'email', read: 'authenticated' }])
       const record = { id: 'user-123', email: 'test@example.com' }
 
       const filtered = filterReadableFields({
@@ -112,9 +112,7 @@ describe('filterReadableFields', () => {
 
   describe('roles permission', () => {
     test('should allow users with matching roles', () => {
-      const app = createMockApp([
-        { field: 'email', read: { type: 'roles', roles: ['admin', 'member'] } },
-      ])
+      const app = createMockApp([{ field: 'email', read: ['admin', 'member'] }])
       const record = { id: 'user-123', email: 'test@example.com' }
 
       const filtered = filterReadableFields({
@@ -129,7 +127,7 @@ describe('filterReadableFields', () => {
     })
 
     test('should deny users without matching roles', () => {
-      const app = createMockApp([{ field: 'password', read: { type: 'roles', roles: ['admin'] } }])
+      const app = createMockApp([{ field: 'password', read: ['admin'] }])
       const record = { id: 'user-123', email: 'test@example.com', password: 'hashed' }
 
       const filtered = filterReadableFields({
@@ -144,97 +142,12 @@ describe('filterReadableFields', () => {
     })
   })
 
-  describe('owner permission', () => {
-    test('should allow owner to read field when userId matches', () => {
-      const app = createMockApp([{ field: 'password', read: { type: 'owner', field: 'user_id' } }])
-      const record = { id: 'user-123', password: 'hashed', user_id: 'user-123' }
-
-      const filtered = filterReadableFields({
-        app,
-        tableName: 'users',
-        userRole: 'member',
-        userId: 'user-123',
-        record,
-      })
-
-      expect(filtered.password).toBe('hashed')
-    })
-
-    test('should deny non-owner when userId does not match', () => {
-      const app = createMockApp([{ field: 'password', read: { type: 'owner', field: 'user_id' } }])
-      const record = { id: 'user-456', password: 'hashed', user_id: 'user-456' }
-
-      const filtered = filterReadableFields({
-        app,
-        tableName: 'users',
-        userRole: 'member',
-        userId: 'user-123',
-        record,
-      })
-
-      expect(filtered.password).toBeUndefined()
-    })
-  })
-
-  describe('custom permission', () => {
-    test('should allow owner based on custom condition', () => {
-      const app = createMockApp([
-        { field: 'sensitive', read: { type: 'custom', condition: '{userId} = owner_id' } },
-      ])
-      const record = { id: 'record-1', sensitive: 'data', owner_id: 'user-123' }
-
-      const filtered = filterReadableFields({
-        app,
-        tableName: 'users',
-        userRole: 'member',
-        userId: 'user-123',
-        record,
-      })
-
-      expect(filtered.sensitive).toBe('data')
-    })
-
-    test('should deny non-owner based on custom condition', () => {
-      const app = createMockApp([
-        { field: 'sensitive', read: { type: 'custom', condition: '{userId} = owner_id' } },
-      ])
-      const record = { id: 'record-1', sensitive: 'data', owner_id: 'user-456' }
-
-      const filtered = filterReadableFields({
-        app,
-        tableName: 'users',
-        userRole: 'member',
-        userId: 'user-123',
-        record,
-      })
-
-      expect(filtered.sensitive).toBeUndefined()
-    })
-
-    test('should deny for unsupported custom conditions', () => {
-      const app = createMockApp([
-        { field: 'sensitive', read: { type: 'custom', condition: 'complex condition' } },
-      ])
-      const record = { id: 'record-1', sensitive: 'data' }
-
-      const filtered = filterReadableFields({
-        app,
-        tableName: 'users',
-        userRole: 'member',
-        userId: 'user-123',
-        record,
-      })
-
-      expect(filtered.sensitive).toBeUndefined()
-    })
-  })
-
   describe('mixed permissions', () => {
     test('should filter multiple fields with different permissions', () => {
       const app = createMockApp([
-        { field: 'email', read: { type: 'public' } },
-        { field: 'password', read: { type: 'roles', roles: ['admin'] } },
-        { field: 'role', read: { type: 'authenticated' } },
+        { field: 'email', read: 'all' },
+        { field: 'password', read: ['admin'] },
+        { field: 'role', read: 'authenticated' },
       ])
       const record = {
         id: 'user-123',

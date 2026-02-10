@@ -16,12 +16,7 @@ import {
   buildWhereClause,
   checkDeletedAtColumn as checkDeletedAtColumnHelper,
 } from './aggregation-helpers'
-import {
-  checkTableColumns,
-  sanitizeFields,
-  buildInsertClauses,
-  executeInsert,
-} from './create-record-helpers'
+import { buildInsertClauses, executeInsert } from './create-record-helpers'
 import {
   cascadeSoftDelete,
   fetchRecordBeforeDeletion,
@@ -254,9 +249,6 @@ export function getRecord(
 /**
  * Create a new record with session context
  *
- * Automatically sets owner_id from session.
- * Security: Silently overrides any user-provided owner_id to prevent unauthorized ownership.
- *
  * @param session - Better Auth session
  * @param tableName - Name of the table
  * @param fields - Record fields
@@ -271,26 +263,15 @@ export function createRecord(
     Effect.gen(function* () {
       yield* Effect.sync(() => validateTableName(tableName))
 
-      // Check if table has owner_id column
-      const { hasOwnerId } = yield* checkTableColumns(tableName, tx)
-
-      // Security: Filter out any user-provided owner_id
-      const sanitizedFields = sanitizeFields(fields, false, hasOwnerId)
-
       // Validate we have fields to insert
-      if (Object.keys(sanitizedFields).length === 0 && !hasOwnerId) {
+      if (Object.keys(fields).length === 0) {
         return yield* Effect.fail(
           new SessionContextError('Cannot create record with no fields', undefined)
         )
       }
 
       // Build INSERT query
-      const { columnsClause, valuesClause } = buildInsertClauses(
-        sanitizedFields,
-        false,
-        hasOwnerId,
-        session
-      )
+      const { columnsClause, valuesClause } = buildInsertClauses(fields)
 
       // Execute INSERT and get created record
       const createdRecord = yield* executeInsert(tableName, columnsClause, valuesClause, tx)

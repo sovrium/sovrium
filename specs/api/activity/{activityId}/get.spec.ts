@@ -31,7 +31,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       // GIVEN: Application with a specific activity log
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -79,7 +79,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       // GIVEN: Application with auth enabled but user not signed in
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
       })
 
       // WHEN: Unauthenticated user requests activity details
@@ -102,7 +102,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       // GIVEN: Application with authenticated user but no activity with ID 99999
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
       })
 
       await createAuthenticatedUser()
@@ -127,7 +127,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       // GIVEN: Application with activity log and user information
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -170,7 +170,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       // GIVEN: Application with delete activity log
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -212,7 +212,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       // GIVEN: Application with authenticated user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
       })
 
       await createAuthenticatedUser()
@@ -270,7 +270,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       // Setup: Start server with activity logging
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

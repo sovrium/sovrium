@@ -16,8 +16,9 @@
 
 ```yaml
 auth:
-  admin:
-    defaultRole: 'user'
+  strategies:
+    - type: emailAndPassword
+  defaultRole: 'member'
 ```
 
 ### Acceptance Criteria
@@ -203,8 +204,10 @@ auth:
 
 ```yaml
 auth:
-  admin:
-    impersonation: false # Security: prevent impersonating other admins
+  strategies:
+    - type: emailAndPassword
+# Note: Impersonation settings (e.g., allowImpersonatingAdmins) are
+# configured at the Better Auth server level, not in the AppSchema.
 ```
 
 ### Acceptance Criteria
@@ -258,8 +261,9 @@ auth:
 
 ```yaml
 auth:
-  admin:
-    defaultRole: 'user' # Default role assigned to new users
+  strategies:
+    - type: emailAndPassword
+  defaultRole: 'member' # Default role assigned to new users
 ```
 
 ### Acceptance Criteria
@@ -286,7 +290,10 @@ auth:
 
 ```yaml
 auth:
-  admin: false # Admin plugin disabled
+  strategies:
+    - type: emailAndPassword
+# Note: Admin features are always enabled when auth is configured.
+# Disabling admin endpoints is handled at the server level.
 ```
 
 ### Acceptance Criteria

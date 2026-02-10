@@ -71,9 +71,9 @@ describe('AdminConfigSchema', () => {
       expect(result).toEqual({ defaultRole: 'admin' })
     })
 
-    test('should accept valid default role: user', () => {
-      const result = Schema.decodeUnknownSync(AdminConfigSchema)({ defaultRole: 'user' })
-      expect(result).toEqual({ defaultRole: 'user' })
+    test('should accept valid default role: member', () => {
+      const result = Schema.decodeUnknownSync(AdminConfigSchema)({ defaultRole: 'member' })
+      expect(result).toEqual({ defaultRole: 'member' })
     })
 
     test('should accept valid default role: viewer', () => {

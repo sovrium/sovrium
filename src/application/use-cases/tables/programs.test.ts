@@ -28,11 +28,11 @@ const createMockApp = (): App => ({
       ],
       primaryKey: { type: 'auto-increment', field: 'id' },
       permissions: {
-        read: { type: 'roles', roles: ['admin', 'member'] },
-        create: { type: 'roles', roles: ['admin'] },
-        update: { type: 'roles', roles: ['admin'] },
-        delete: { type: 'roles', roles: ['admin'] },
-        fields: [{ field: 'email', read: { type: 'authenticated' }, write: undefined }],
+        read: ['admin', 'member'],
+        create: ['admin'],
+        update: ['admin'],
+        delete: ['admin'],
+        fields: [{ field: 'email', read: 'authenticated', write: undefined }],
       },
     },
     {
@@ -44,7 +44,7 @@ const createMockApp = (): App => ({
       ],
       primaryKey: { type: 'auto-increment', field: 'id' },
       permissions: {
-        read: { type: 'roles', roles: ['owner'] },
+        read: ['admin'],
       },
     },
   ],
@@ -59,7 +59,7 @@ describe('programs', () => {
       const result = await Effect.runPromise(program)
 
       expect(Array.isArray(result)).toBe(true)
-      expect(result).toHaveLength(1)
+      expect(result).toHaveLength(2)
       expect(result[0]).toMatchObject({
         id: '1',
         name: 'users',
@@ -90,7 +90,7 @@ describe('programs', () => {
 
       const result = await Effect.runPromise(program)
 
-      // Member can only see users table, not posts (requires owner role)
+      // Member can only see users table, not posts (requires admin role)
       expect(result).toHaveLength(1)
       expect((result[0] as { name: string })?.name).toBe('users')
     })

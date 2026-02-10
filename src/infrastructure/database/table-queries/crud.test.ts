@@ -473,7 +473,7 @@ describe('createRecord', () => {
     expect(result).toHaveProperty('name', 'Alice')
   })
 
-  test('fails when no fields provided and no owner_id column', async () => {
+  test('fails when no fields provided', async () => {
     const program = createRecord(mockSession, 'users', {})
 
     try {

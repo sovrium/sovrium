@@ -5,8 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable max-lines */
-
 import { sql, eq, and, isNull, desc, asc } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { users } from '@/infrastructure/auth/better-auth/schema'
@@ -213,27 +211,16 @@ export function getCommentWithUser(config: {
 /**
  * Build SQL query to check record existence with optional deleted_at filter
  */
-function buildRecordCheckQuery(
-  tableName: string,
-  recordId: string,
-  hasOwnerId: boolean,
-  hasDeletedAt: boolean
-) {
-  if (hasOwnerId) {
-    return hasDeletedAt
-      ? sql`SELECT owner_id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
-      : sql`SELECT owner_id FROM ${sql.identifier(tableName)} WHERE id = ${recordId}`
-  } else {
-    return hasDeletedAt
-      ? sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
-      : sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId}`
-  }
+function buildRecordCheckQuery(tableName: string, recordId: string, hasDeletedAt: boolean) {
+  return hasDeletedAt
+    ? sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
+    : sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId}`
 }
 
 /**
- * Check if a record exists in the given table and is owned by the user
+ * Check if a record exists in the given table
  */
-export function checkRecordOwnership(config: {
+export function checkRecordExists(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
   readonly recordId: string
@@ -241,44 +228,27 @@ export function checkRecordOwnership(config: {
   const { session, tableName, recordId } = config
   return withSessionContext(session, (tx) =>
     Effect.gen(function* () {
-      // Check if table has owner_id and deleted_at columns
+      // Check if table has deleted_at column
       const columnsResult = yield* Effect.tryPromise({
         try: () =>
           tx.execute(
-            sql`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ${tableName} AND column_name IN ('owner_id', 'deleted_at')`
+            sql`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ${tableName} AND column_name = 'deleted_at'`
           ),
         catch: (error) => new SessionContextError('Failed to check table columns', error),
       })
 
-      const columnNames = new Set(
-        (columnsResult as readonly Record<string, unknown>[]).map((row) => row.column_name)
+      const hasDeletedAt = (columnsResult as readonly Record<string, unknown>[]).some(
+        (row) => row.column_name === 'deleted_at'
       )
-      const hasOwnerId = columnNames.has('owner_id')
-      const hasDeletedAt = columnNames.has('deleted_at')
 
       // Check if record exists
-      const query = buildRecordCheckQuery(tableName, recordId, hasOwnerId, hasDeletedAt)
+      const query = buildRecordCheckQuery(tableName, recordId, hasDeletedAt)
       const result = yield* Effect.tryPromise({
         try: () => tx.execute(query),
-        catch: (error) => new SessionContextError('Failed to check record ownership', error),
+        catch: (error) => new SessionContextError('Failed to check record existence', error),
       })
 
-      if (result.length === 0) {
-        return false
-      }
-
-      // If no owner_id column, allow access
-      if (!hasOwnerId) {
-        return true
-      }
-
-      const record = result[0] as { owner_id?: string | null }
-      // If owner_id is NULL or undefined, allow access (shared/public record)
-      if (record.owner_id === null || record.owner_id === undefined) {
-        return true
-      }
-      // Check ownership
-      return String(record.owner_id) === String(session.userId)
+      return result.length > 0
     })
   )
 }

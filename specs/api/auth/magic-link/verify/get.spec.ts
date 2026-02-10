@@ -32,7 +32,7 @@ test.describe('Verify Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          magicLink: true,
+          strategies: [{ type: 'magicLink' }],
         },
       })
 
@@ -81,7 +81,7 @@ test.describe('Verify Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          magicLink: true,
+          strategies: [{ type: 'magicLink' }],
         },
       })
 
@@ -124,7 +124,7 @@ test.describe('Verify Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          magicLink: true,
+          strategies: [{ type: 'magicLink' }],
         },
       })
 
@@ -159,7 +159,7 @@ test.describe('Verify Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          magicLink: { expirationMinutes: 1 },
+          strategies: [{ type: 'magicLink', expirationMinutes: 1 }],
         },
       })
 
@@ -215,7 +215,7 @@ test.describe('Verify Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          magicLink: true,
+          strategies: [{ type: 'magicLink' }],
         },
       })
 
@@ -247,7 +247,7 @@ test.describe('Verify Magic Link', () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
-            magicLink: true,
+            strategies: [{ type: 'magicLink' }],
           },
         })
 

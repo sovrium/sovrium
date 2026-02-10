@@ -32,7 +32,7 @@ test.describe('Table Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -44,10 +44,7 @@ test.describe('Table Permissions', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              read: {
-                type: 'roles',
-                roles: ['admin'],
-              },
+              read: ['admin'],
             },
           },
         ],
@@ -130,16 +127,11 @@ test.describe('Table Permissions', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              read: {
-                type: 'authenticated',
-              },
+              read: 'authenticated',
               fields: [
                 {
                   field: 'salary',
-                  read: {
-                    type: 'roles',
-                    roles: ['admin'],
-                  },
+                  read: ['admin'],
                 },
               ],
             },
@@ -200,7 +192,7 @@ test.describe('Table Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -215,22 +207,11 @@ test.describe('Table Permissions', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              read: {
-                type: 'authenticated',
-              },
+              read: 'authenticated',
               fields: [
                 {
                   field: 'notes',
-                  read: {
-                    type: 'custom',
-                    condition: '{userId} = owner_id',
-                  },
-                },
-              ],
-              records: [
-                {
-                  action: 'read',
-                  condition: '{userId} = owner_id',
+                  read: ['member'],
                 },
               ],
             },
@@ -370,7 +351,7 @@ test.describe('Table Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -385,21 +366,11 @@ test.describe('Table Permissions', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              read: {
-                type: 'public',
-              },
+              read: 'all',
               fields: [
                 {
                   field: 'body',
-                  read: {
-                    type: 'authenticated',
-                  },
-                },
-              ],
-              records: [
-                {
-                  action: 'read',
-                  condition: 'draft = false OR {userId} = author_id',
+                  read: 'authenticated',
                 },
               ],
             },
@@ -497,10 +468,7 @@ test.describe('Table Permissions', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              read: {
-                type: 'roles',
-                roles: ['super_admin'], // Custom role (allowed beyond default set)
-              },
+              read: ['super_admin'], // Custom role (allowed beyond default set)
             },
           },
         ],
@@ -534,7 +502,7 @@ test.describe('Table Permissions', () => {
                 fields: [
                   {
                     field: 'salary', // 'salary' field doesn't exist!
-                    read: { type: 'roles', roles: ['admin'] },
+                    read: ['admin'],
                   },
                 ],
               },
@@ -568,11 +536,11 @@ test.describe('Table Permissions', () => {
                 fields: [
                   {
                     field: 'content',
-                    read: { type: 'public' }, // Public read
+                    read: 'all', // Public read
                   },
                   {
                     field: 'content', // Duplicate field definition!
-                    read: { type: 'roles', roles: ['admin'] }, // Conflicting!
+                    read: ['admin'], // Conflicting!
                   },
                 ],
               },
@@ -602,14 +570,7 @@ test.describe('Table Permissions', () => {
                 { id: 2, name: 'title', type: 'single-line-text' },
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
-              permissions: {
-                records: [
-                  {
-                    action: 'read',
-                    condition: '{userId} = owner_id', // 'owner_id' field doesn't exist!
-                  },
-                ],
-              },
+              permissions: {},
             },
           ],
         })
@@ -681,7 +642,7 @@ test.describe('Table Permissions', () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
           tables: [
             {
@@ -697,22 +658,11 @@ test.describe('Table Permissions', () => {
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                read: {
-                  type: 'authenticated',
-                },
+                read: 'authenticated',
                 fields: [
                   {
                     field: 'salary_info',
-                    read: {
-                      type: 'roles',
-                      roles: ['admin'],
-                    },
-                  },
-                ],
-                records: [
-                  {
-                    action: 'read',
-                    condition: "{userId} = author_id OR status = 'published'",
+                    read: ['admin'],
                   },
                 ],
               },
@@ -793,10 +743,7 @@ test.describe('Table Permissions', () => {
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                read: {
-                  type: 'roles',
-                  roles: ['super_admin'],
-                },
+                read: ['super_admin'],
               },
             },
           ],
@@ -820,7 +767,7 @@ test.describe('Table Permissions', () => {
                   fields: [
                     {
                       field: 'salary',
-                      read: { type: 'roles', roles: ['admin'] },
+                      read: ['admin'],
                     },
                   ],
                 },
@@ -847,11 +794,11 @@ test.describe('Table Permissions', () => {
                   fields: [
                     {
                       field: 'content',
-                      read: { type: 'public' },
+                      read: 'all',
                     },
                     {
                       field: 'content',
-                      read: { type: 'roles', roles: ['admin'] },
+                      read: ['admin'],
                     },
                   ],
                 },
@@ -874,14 +821,7 @@ test.describe('Table Permissions', () => {
                   { id: 2, name: 'title', type: 'single-line-text' },
                 ],
                 primaryKey: { type: 'composite', fields: ['id'] },
-                permissions: {
-                  records: [
-                    {
-                      action: 'read',
-                      condition: '{userId} = owner_id',
-                    },
-                  ],
-                },
+                permissions: {},
               },
             ],
           })

@@ -2,13 +2,13 @@
 
 ## Overview
 
-This document provides complete, copy-paste-ready implementation examples for all authorization patterns in Sovrium. Each example includes error handling, permission checks, and owner isolation.
+This document provides complete, copy-paste-ready implementation examples for all authorization patterns in Sovrium. Each example includes error handling and permission checks.
 
 ## Complete Route Examples
 
 ### Example 1: List Records (GET /tables/:tableId/records)
 
-Full implementation with field filtering, pagination, and owner isolation:
+Full implementation with field filtering and pagination:
 
 ```typescript
 // src/presentation/api/routes/tables/records.ts
@@ -37,18 +37,18 @@ app.get('/tables/:tableId/records', requireAuth, async (c) => {
     )
   }
 
-  // Fetch records with org isolation
+  // Fetch records
   const records = await db.query.records.findMany({
-    where: eq(records.owner_id, userId),
+    where: eq(records.tableId, tableId),
     limit,
     offset,
   })
 
-  // Get total count (with org filter)
+  // Get total count
   const totalCount = await db
     .select({ count: count() })
     .from(records)
-    .where(eq(records.owner_id, userId))
+    .where(eq(records.tableId, tableId))
 
   // Filter fields based on user's read permissions
   const readableFields = await getReadableFields(user, tableId)
@@ -96,14 +96,6 @@ app.post('/tables/:tableId/records', requireAuth, async (c) => {
     }
   }
 
-  // Prevent owner_id override
-  if (body.owner_id && body.owner_id !== userId) {
-    return c.json(
-      { error: 'Forbidden', message: 'Cannot create records for different organization' },
-      403
-    )
-  }
-
   // Check field-level write permissions
   const writableFields = await getWritableFields(user, tableId)
   for (const field of Object.keys(body)) {
@@ -115,12 +107,13 @@ app.post('/tables/:tableId/records', requireAuth, async (c) => {
     }
   }
 
-  // Create record with auto-injected owner_id
+  // Create record
   const [newRecord] = await db
     .insert(records)
     .values({
       ...body,
-      owner_id: userId, // Always inject
+      tableId,
+      userId, // Track creating user
     })
     .returning()
 
@@ -136,7 +129,7 @@ app.post('/tables/:tableId/records', requireAuth, async (c) => {
 
 ### Example 3: Get Single Record (GET /tables/:tableId/records/:recordId)
 
-Full implementation with owner isolation check:
+Full implementation with data access check:
 
 ```typescript
 app.get('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
@@ -145,9 +138,9 @@ app.get('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
   const tableId = parseInt(c.req.param('tableId'))
   const recordId = parseInt(c.req.param('recordId'))
 
-  // Check organization ownership FIRST (before permission check)
+  // Check record exists
   const record = await db.query.records.findFirst({
-    where: and(eq(records.id, recordId), eq(records.owner_id, userId)),
+    where: eq(records.id, recordId),
   })
 
   if (!record) {
@@ -185,9 +178,9 @@ app.patch('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
   const recordId = parseInt(c.req.param('recordId'))
   const body = await c.req.json()
 
-  // Check organization ownership FIRST
+  // Check record exists
   const existingRecord = await db.query.records.findFirst({
-    where: and(eq(records.id, recordId), eq(records.owner_id, userId)),
+    where: eq(records.id, recordId),
   })
 
   if (!existingRecord) {
@@ -204,7 +197,7 @@ app.patch('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
   }
 
   // Validate readonly fields
-  const READONLY_FIELDS = ['id', 'created_at', 'updated_at', 'owner_id']
+  const READONLY_FIELDS = ['id', 'created_at', 'updated_at']
   for (const field of Object.keys(body)) {
     if (READONLY_FIELDS.includes(field)) {
       return c.json({ error: 'Forbidden', message: `Cannot modify readonly field: ${field}` }, 403)
@@ -226,7 +219,7 @@ app.patch('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
   const [updatedRecord] = await db
     .update(records)
     .set({ ...body, updated_at: new Date() })
-    .where(and(eq(records.id, recordId), eq(records.owner_id, userId)))
+    .where(eq(records.id, recordId))
     .returning()
 
   // Filter response fields
@@ -250,9 +243,9 @@ app.delete('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
   const tableId = parseInt(c.req.param('tableId'))
   const recordId = parseInt(c.req.param('recordId'))
 
-  // Check organization ownership FIRST
+  // Check record exists
   const existingRecord = await db.query.records.findFirst({
-    where: and(eq(records.id, recordId), eq(records.owner_id, userId)),
+    where: eq(records.id, recordId),
   })
 
   if (!existingRecord) {
@@ -272,7 +265,7 @@ app.delete('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
   }
 
   // Delete record
-  await db.delete(records).where(and(eq(records.id, recordId), eq(records.owner_id, userId)))
+  await db.delete(records).where(eq(records.id, recordId))
 
   return c.json({ success: true }, 200)
 })
@@ -322,7 +315,7 @@ app.post('/tables/:tableId/records/batch', requireAuth, async (c) => {
     }
 
     // Check org override
-    if (record.owner_id && record.owner_id !== userId) {
+    if (record.userId && record.userId !== userId) {
       return c.json(
         { error: 'Forbidden', message: 'Cannot create records for different organization' },
         403
@@ -334,7 +327,7 @@ app.post('/tables/:tableId/records/batch', requireAuth, async (c) => {
   const result = await db.transaction(async (tx) => {
     return await tx
       .insert(records)
-      .values(recordsToCreate.map((r) => ({ ...r, owner_id: userId })))
+      .values(recordsToCreate.map((r) => ({ ...r, userId })))
       .returning()
   })
 
@@ -362,9 +355,9 @@ app.patch('/tables/:tableId/records/batch', requireAuth, async (c) => {
   // Extract all record IDs
   const recordIds = updates.map((u) => u.id)
 
-  // Check organization ownership for ALL records
+  // Validate ALL records before processing
   const existingRecords = await db.query.records.findMany({
-    where: and(inArray(records.id, recordIds), eq(records.owner_id, userId)),
+    where: and(inArray(records.id, recordIds), eq(records.tableId, tableId)),
   })
 
   if (existingRecords.length !== recordIds.length) {
@@ -382,7 +375,7 @@ app.patch('/tables/:tableId/records/batch', requireAuth, async (c) => {
 
   // Get writable fields ONCE
   const writableFields = await getWritableFields(user, tableId)
-  const READONLY_FIELDS = ['id', 'created_at', 'updated_at', 'owner_id']
+  const READONLY_FIELDS = ['id', 'created_at', 'updated_at']
 
   // Validate ALL updates before transaction
   for (const update of updates) {
@@ -419,7 +412,7 @@ app.patch('/tables/:tableId/records/batch', requireAuth, async (c) => {
       const [updated] = await tx
         .update(records)
         .set({ ...fields, updated_at: new Date() })
-        .where(and(eq(records.id, id), eq(records.owner_id, userId)))
+        .where(and(eq(records.id, id), eq(records.tableId, tableId)))
         .returning()
 
       updatedRecords.push(updated)
@@ -449,9 +442,9 @@ app.delete('/tables/:tableId/records/batch', requireAuth, async (c) => {
   const tableId = parseInt(c.req.param('tableId'))
   const { ids } = await c.req.json()
 
-  // Check organization ownership for ALL records
+  // Validate ALL records before processing
   const existingRecords = await db.query.records.findMany({
-    where: and(inArray(records.id, ids), eq(records.owner_id, userId)),
+    where: and(inArray(records.id, ids), eq(records.tableId, tableId)),
   })
 
   if (existingRecords.length !== ids.length) {
@@ -474,7 +467,7 @@ app.delete('/tables/:tableId/records/batch', requireAuth, async (c) => {
   const result = await db.transaction(async (tx) => {
     return await tx
       .delete(records)
-      .where(and(inArray(records.id, ids), eq(records.owner_id, userId)))
+      .where(and(inArray(records.id, ids), eq(records.tableId, tableId)))
       .returning()
   })
 
@@ -498,7 +491,7 @@ export async function checkTablePermission(
 ): Promise<boolean> {
   // Fetch table permissions configuration
   const tableConfig = await db.query.tableConfigs.findFirst({
-    where: and(eq(tableConfigs.id, tableId), eq(tableConfigs.owner_id, user.userId)),
+    where: and(eq(tableConfigs.id, tableId), eq(tableConfigs.id, tableId)),
   })
 
   if (!tableConfig) {
@@ -518,7 +511,7 @@ export async function getWritableFields(
 ): Promise<string[]> {
   // Fetch table config
   const tableConfig = await db.query.tableConfigs.findFirst({
-    where: and(eq(tableConfigs.id, tableId), eq(tableConfigs.owner_id, user.userId)),
+    where: and(eq(tableConfigs.id, tableId), eq(tableConfigs.id, tableId)),
   })
 
   if (!tableConfig) {
@@ -529,7 +522,7 @@ export async function getWritableFields(
   const allFields = Object.keys(tableConfig.schema.properties)
 
   // Remove readonly fields
-  const READONLY_FIELDS = ['id', 'created_at', 'updated_at', 'owner_id']
+  const READONLY_FIELDS = ['id', 'created_at', 'updated_at']
   const mutableFields = allFields.filter((f) => !READONLY_FIELDS.includes(f))
 
   // Parse permissions
@@ -555,7 +548,7 @@ export async function getReadableFields(
 ): Promise<string[]> {
   // Fetch table config
   const tableConfig = await db.query.tableConfigs.findFirst({
-    where: and(eq(tableConfigs.id, tableId), eq(tableConfigs.owner_id, user.userId)),
+    where: and(eq(tableConfigs.id, tableId), eq(tableConfigs.id, tableId)),
   })
 
   if (!tableConfig) {

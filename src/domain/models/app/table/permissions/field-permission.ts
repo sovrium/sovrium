@@ -13,23 +13,20 @@ import { TablePermissionSchema } from './permission'
  *
  * Defines granular permissions for a specific field within a table.
  * Allows restricting read/write access to individual columns based on roles.
+ * Uses the same 3-format permission system as table-level operations.
  *
  * @example Restrict salary field to admins only
- * ```typescript
- * {
- *   field: 'salary',
- *   read: { type: 'roles', roles: ['admin'] },
- *   write: { type: 'roles', roles: ['admin'] },
- * }
+ * ```yaml
+ * - field: salary
+ *   read: ['admin', 'hr']
+ *   write: ['admin']
  * ```
  *
- * @example Make email readable by all authenticated users, writable by owner
- * ```typescript
- * {
- *   field: 'email',
- *   read: { type: 'authenticated' },
- *   write: { type: 'owner', field: 'user_id' },
- * }
+ * @example Make department readable by all, writable by admins
+ * ```yaml
+ * - field: department
+ *   read: all
+ *   write: ['admin']
  * ```
  */
 export const FieldPermissionSchema = Schema.Struct({
@@ -52,16 +49,18 @@ export const FieldPermissionSchema = Schema.Struct({
 }).pipe(
   Schema.annotations({
     title: 'Field Permission',
-    description: 'Granular permission configuration for a specific field.',
+    description:
+      "Granular permission for a specific field. Uses same format as table-level: 'all', 'authenticated', or role array.",
     examples: [
       {
         field: 'salary',
-        read: { type: 'roles' as const, roles: ['admin'] },
+        read: ['admin', 'hr'] as readonly string[],
+        write: ['admin'] as readonly string[],
       },
       {
-        field: 'email',
-        read: { type: 'authenticated' as const },
-        write: { type: 'owner' as const, field: 'user_id' },
+        field: 'department',
+        read: 'all' as const,
+        write: ['admin'] as readonly string[],
       },
     ],
   })

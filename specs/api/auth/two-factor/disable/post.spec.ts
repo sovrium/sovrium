@@ -32,7 +32,7 @@ test.describe('Disable Two-Factor Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           twoFactor: true,
         },
       })
@@ -70,7 +70,7 @@ test.describe('Disable Two-Factor Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           twoFactor: true,
         },
       })
@@ -107,7 +107,7 @@ test.describe('Disable Two-Factor Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           twoFactor: true,
         },
       })
@@ -132,7 +132,7 @@ test.describe('Disable Two-Factor Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           twoFactor: true,
         },
       })
@@ -167,7 +167,7 @@ test.describe('Disable Two-Factor Authentication', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           // No twoFactor plugin - 2FA endpoints should not exist
         },
       })
@@ -203,7 +203,7 @@ test.describe('Disable Two-Factor Authentication', () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
+            strategies: [{ type: 'emailAndPassword' }],
             twoFactor: {
               issuer: 'Test App',
             },

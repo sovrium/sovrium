@@ -17,8 +17,8 @@ export function canUserReadField(
   fieldName: string,
   userRole: string
 ): boolean {
-  // Admin and owner have access to all fields
-  if (userRole === 'admin' || userRole === 'owner') {
+  // Admin has access to all fields
+  if (userRole === 'admin') {
     return true
   }
 

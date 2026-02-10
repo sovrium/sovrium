@@ -64,7 +64,7 @@ export function validateRequiredFields(
     )
 
     // Auto-injected fields that should be excluded from required field validation
-    const autoInjectedFields = new Set(['owner_id'])
+    const autoInjectedFields = new Set<string>([])
 
     const missingRequiredFields = table.fields
       .filter(
@@ -91,12 +91,11 @@ export function validateRequiredFields(
  * Check if a field permission restricts writing based on user role
  */
 function hasWriteRoleRestriction(
-  fieldPermission: { write?: { type?: string; roles?: readonly string[] } } | null | undefined,
+  fieldPermission: { write?: 'all' | 'authenticated' | readonly string[] } | null | undefined,
   userRole: string
 ): boolean {
-  if (fieldPermission?.write?.type === 'roles') {
-    const allowedRoles = fieldPermission.write.roles ?? []
-    return !allowedRoles.includes(userRole)
+  if (Array.isArray(fieldPermission?.write)) {
+    return !fieldPermission.write.includes(userRole)
   }
   return false
 }
@@ -117,7 +116,7 @@ export function filterAllowedFields(
     const table = ctx.app.tables?.find((t) => t.name === ctx.tableName)
 
     // System-protected fields that cannot be modified
-    const SYSTEM_PROTECTED_FIELDS = new Set(['user_id', 'owner_id'])
+    const SYSTEM_PROTECTED_FIELDS = new Set(['user_id'])
 
     // Get forbidden fields based on field-level permissions (functional filter pattern)
     const forbiddenFields: readonly string[] = Object.keys(fields).filter((fieldName) => {

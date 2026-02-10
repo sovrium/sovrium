@@ -41,8 +41,7 @@ test.describe('Admin: List users', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -94,8 +93,7 @@ test.describe('Admin: List users', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -139,8 +137,7 @@ test.describe('Admin: List users', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -183,8 +180,7 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
-          admin: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -204,8 +200,7 @@ test.describe('Admin: List users', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
-          admin: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -232,8 +227,7 @@ test.describe('Admin: List users', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -278,8 +272,7 @@ test.describe('Admin: List users', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -325,8 +318,7 @@ test.describe('Admin: List users', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {

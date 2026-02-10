@@ -57,7 +57,7 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -65,7 +65,7 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
             name: 'projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              read: ['admin', 'member'],
             },
           },
         ],
@@ -100,7 +100,7 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -108,7 +108,7 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
             name: 'tasks',
             fields: [{ id: 1, name: 'title', type: 'single-line-text', required: true }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              read: ['admin', 'member'],
             },
           },
         ],
@@ -143,7 +143,7 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -151,8 +151,8 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
             name: 'tasks',
             fields: [{ id: 1, name: 'title', type: 'single-line-text', required: true }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
-              create: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              read: ['admin', 'member'],
+              create: ['admin', 'member'],
             },
           },
         ],
@@ -200,7 +200,7 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -208,7 +208,7 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
             name: 'projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              read: ['admin', 'member'],
             },
           },
         ],
@@ -243,7 +243,7 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -251,7 +251,7 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
             name: 'projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              read: ['admin', 'member'],
             },
           },
         ],
@@ -284,7 +284,7 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -292,7 +292,7 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
             name: 'projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              read: ['admin', 'member'],
             },
           },
         ],
@@ -347,7 +347,7 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -355,8 +355,8 @@ test.describe('Rate Limiting - Table API Endpoints', () => {
             name: 'projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text', required: true }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
-              create: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              read: ['admin', 'member'],
+              create: ['admin', 'member'],
             },
           },
         ],

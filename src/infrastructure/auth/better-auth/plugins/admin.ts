@@ -19,27 +19,28 @@ export interface AdminPluginConfig {
 
 /**
  * Parse admin plugin configuration from auth config
+ *
+ * Admin features are always enabled when auth is configured.
+ * Uses `defaultRole` from auth config (defaults to 'member').
  */
 export const parseAdminConfig = (authConfig?: Auth): AdminPluginConfig | undefined => {
-  if (!authConfig?.admin) return undefined
+  if (!authConfig) return undefined
 
-  const adminConfig = typeof authConfig.admin === 'boolean' ? {} : authConfig.admin
   return {
-    defaultRole: adminConfig.defaultRole ?? 'user',
-    firstUserAdmin: adminConfig.firstUserAdmin ?? true, // Default to true for easier testing
-    impersonation: adminConfig.impersonation ?? false,
+    defaultRole: authConfig.defaultRole ?? 'member',
+    firstUserAdmin: true,
+    impersonation: false,
   }
 }
 
 /**
- * Build admin plugin if enabled in auth configuration
+ * Build admin plugin if auth is configured
  *
  * The admin plugin provides:
  * - User management (list, ban, unban, impersonate)
- * - Role-based access control (admin, member, user roles)
+ * - Role-based access control (admin, member, viewer roles)
  *
- * NOTE: Role assignment hooks are now handled via databaseHooks in auth.ts
- * because Better Auth's admin plugin doesn't support hooks in its options.
+ * Admin features are always enabled when auth is configured — no separate toggle.
  */
 export const buildAdminPlugin = (authConfig?: Auth) => {
   const config = parseAdminConfig(authConfig)
@@ -48,8 +49,8 @@ export const buildAdminPlugin = (authConfig?: Auth) => {
   return [
     admin({
       defaultRole: config.defaultRole,
-      adminRoles: ['admin'], // Users with 'admin' role can impersonate
-      impersonationSessionDuration: config.impersonation ? 60 * 60 : undefined, // 1 hour in seconds if enabled
+      adminRoles: ['admin'],
+      impersonationSessionDuration: config.impersonation ? 60 * 60 : undefined,
     }),
   ]
 }

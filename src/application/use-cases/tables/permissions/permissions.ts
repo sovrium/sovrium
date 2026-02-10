@@ -8,38 +8,26 @@
 import type { TablePermissions, TableFieldPermissions } from '@/domain/models/app/table/permissions'
 
 /**
- * Check if user has permission based on permission configuration
+ * Check if user has permission based on permission configuration.
+ *
+ * Permission format (3-format system):
+ * - `'all'` — Everyone (including unauthenticated)
+ * - `'authenticated'` — Any logged-in user
+ * - `string[]` — Specific role names
  */
 export function hasPermission(permission: unknown, userRole: string): boolean {
-  // Type assertion for permission configuration
-  const perm = permission as
-    | { type: 'public' }
-    | { type: 'authenticated' }
-    | { type: 'roles'; roles?: string[] }
-    | { type: 'owner' }
-    | undefined
-
-  if (!perm) return false
-
-  switch (perm.type) {
-    case 'public':
-      return true
-    case 'authenticated':
-      return true
-    case 'roles':
-      return perm.roles?.includes(userRole) ?? false
-    case 'owner':
-      return true // Owner check requires row-level context
-    default:
-      return false
-  }
+  if (!permission) return false
+  if (permission === 'all') return true
+  if (permission === 'authenticated') return true
+  if (Array.isArray(permission)) return permission.includes(userRole)
+  return false
 }
 
 /**
  * Check if user role has admin privileges
  */
 export function isAdminRole(userRole: string): boolean {
-  return userRole === 'admin' || userRole === 'owner'
+  return userRole === 'admin'
 }
 
 /**
@@ -107,58 +95,9 @@ export function hasCreatePermission(
     return false
   }
 
-  const createPermission = table?.permissions?.create as
-    | { type: 'roles'; roles?: string[] }
-    | { type?: string }
-    | undefined
-  if (createPermission?.type !== 'roles') return true
-  // Type narrowing: we know it's the 'roles' type here
-  const allowedRoles = (createPermission as { type: 'roles'; roles?: string[] }).roles || []
-  return allowedRoles.includes(userRole)
-}
-
-/**
- * Extract delete permission configuration from table
- */
-function getDeletePermission(
-  table: Readonly<{ permissions?: Readonly<{ delete?: unknown }> }> | undefined
-):
-  | Readonly<{ type: 'roles'; roles?: readonly string[] }>
-  | Readonly<{ type?: string }>
-  | undefined {
-  // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is not a Drizzle delete operation, it's accessing a property
-  return table?.permissions?.delete as
-    | { type: 'roles'; roles?: string[] }
-    | { type?: string }
-    | undefined
-}
-
-/**
- * Check if role is allowed in role-based permission
- */
-function isRoleAllowed(
-  permission:
-    | Readonly<{ type: 'roles'; roles?: readonly string[] }>
-    | Readonly<{ type?: string }>
-    | undefined,
-  userRole: string
-): boolean {
-  if (permission?.type !== 'roles') return false
-  const allowedRoles = (permission as { type: 'roles'; roles?: string[] }).roles || []
-  return allowedRoles.includes(userRole)
-}
-
-/**
- * Check viewer-specific delete permission
- */
-function checkViewerDeletePermission(
-  deletePermission:
-    | Readonly<{ type: 'roles'; roles?: readonly string[] }>
-    | Readonly<{ type?: string }>
-    | undefined,
-  userRole: string
-): boolean {
-  return deletePermission?.type === 'roles' && isRoleAllowed(deletePermission, userRole)
+  const createPermission = table?.permissions?.create
+  if (!createPermission || !Array.isArray(createPermission)) return true
+  return createPermission.includes(userRole)
 }
 
 /**
@@ -168,16 +107,17 @@ export function hasDeletePermission(
   table: Readonly<{ permissions?: Readonly<{ delete?: unknown }> }> | undefined,
   userRole: string
 ): boolean {
-  const deletePermission = getDeletePermission(table)
+  // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is not a Drizzle delete operation, it's accessing a property
+  const deletePermission = table?.permissions?.delete
 
   // Viewers have read-only access by default - deny delete operations
   if (userRole === 'viewer') {
-    return checkViewerDeletePermission(deletePermission, userRole)
+    return Array.isArray(deletePermission) && deletePermission.includes(userRole)
   }
 
   // For non-viewers, allow if no role-based restrictions or role is in allowed list
-  if (deletePermission?.type !== 'roles') return true
-  return isRoleAllowed(deletePermission, userRole)
+  if (!deletePermission || !Array.isArray(deletePermission)) return true
+  return deletePermission.includes(userRole)
 }
 
 /**
@@ -185,32 +125,27 @@ export function hasDeletePermission(
  * Returns true if permission granted, false if denied
  *
  * Note: When no explicit permissions are defined:
- * - Admins, owners, and members: allowed by default
+ * - Admins and members: allowed by default
  * - Viewers: denied by default (tables must explicitly grant viewer update access)
  */
 export function hasUpdatePermission(
   table: Readonly<{ permissions?: Readonly<{ update?: unknown }> }> | undefined,
   userRole: string
 ): boolean {
-  const updatePermission = table?.permissions?.update as
-    | { type: 'roles'; roles?: string[] }
-    | { type?: string }
-    | undefined
+  const updatePermission = table?.permissions?.update
 
-  // If explicit role-based permissions are defined, check if user role is in allowed roles
-  if (updatePermission?.type === 'roles') {
-    const allowedRoles = (updatePermission as { type: 'roles'; roles?: string[] }).roles || []
-    return allowedRoles.includes(userRole)
+  // If explicit role array is defined, check if user role is in allowed roles
+  if (Array.isArray(updatePermission)) {
+    return updatePermission.includes(userRole)
   }
 
   // When no explicit permissions are defined:
   // - Viewers are denied access by default (must be explicitly granted)
-  // - All other roles (admin, owner, member) are allowed
+  // - All other roles (admin, member) are allowed
   if (userRole === 'viewer') {
     return false
   }
 
-  // When no explicit permissions are defined, all authenticated users (except viewers) are allowed
   return true
 }
 
@@ -219,27 +154,23 @@ export function hasUpdatePermission(
  * Returns true if permission granted, false if denied
  *
  * Note: When no explicit permissions are defined:
- * - Admins, owners, and members: allowed by default
+ * - Admins and members: allowed by default
  * - Viewers: denied by default (tables must explicitly grant viewer access)
  */
 export function hasReadPermission(
   table: Readonly<{ permissions?: Readonly<{ read?: unknown }> }> | undefined,
   userRole: string
 ): boolean {
-  const readPermission = table?.permissions?.read as
-    | { type: 'roles'; roles?: string[] }
-    | { type?: string }
-    | undefined
+  const readPermission = table?.permissions?.read
 
-  // If explicit role-based permissions are defined, check if user role is in allowed roles
-  if (readPermission?.type === 'roles') {
-    const allowedRoles = (readPermission as { type: 'roles'; roles?: string[] }).roles || []
-    return allowedRoles.includes(userRole)
+  // If explicit role array is defined, check if user role is in allowed roles
+  if (Array.isArray(readPermission)) {
+    return readPermission.includes(userRole)
   }
 
   // When no explicit permissions are defined:
   // - Viewers are denied access by default (must be explicitly granted)
-  // - All other roles (admin, owner, member) are allowed
+  // - All other roles (admin, member) are allowed
   if (userRole === 'viewer') {
     return false
   }

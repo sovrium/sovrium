@@ -16,8 +16,9 @@
 
 ```yaml
 auth:
-  emailAndPassword:
-    minPasswordLength: 8
+  strategies:
+    - type: emailAndPassword
+      minPasswordLength: 8
 ```
 
 ### Acceptance Criteria

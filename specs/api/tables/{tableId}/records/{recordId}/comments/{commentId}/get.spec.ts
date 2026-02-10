@@ -30,7 +30,7 @@ test.describe('Get single comment by ID', () => {
       // GIVEN: Table with record that has a comment
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -80,7 +80,7 @@ test.describe('Get single comment by ID', () => {
       // GIVEN: Table with record but comment does not exist
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 2,
@@ -114,7 +114,7 @@ test.describe('Get single comment by ID', () => {
       // GIVEN: Record with comment in authenticated app
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 3,
@@ -149,7 +149,7 @@ test.describe('Get single comment by ID', () => {
       // GIVEN: Comment owned by different user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 4,
@@ -195,7 +195,7 @@ test.describe('Get single comment by ID', () => {
       // GIVEN: Record with soft-deleted comment
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 5,
@@ -236,14 +236,14 @@ test.describe('Get single comment by ID', () => {
       // GIVEN: User without read permission for the record
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 6,
             name: 'confidential_tasks',
             fields: [{ id: 1, name: 'title', type: 'single-line-text', required: true }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin'] },
+              read: ['admin'],
             },
           },
         ],
@@ -280,7 +280,7 @@ test.describe('Get single comment by ID', () => {
       // GIVEN: Record with an edited comment (updatedAt > createdAt)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 7,
@@ -326,7 +326,7 @@ test.describe('Get single comment by ID', () => {
       // Setup: Start server with tasks table
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

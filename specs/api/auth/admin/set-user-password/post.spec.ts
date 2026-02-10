@@ -43,8 +43,7 @@ test.describe('Admin: Set user password', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -106,8 +105,7 @@ test.describe('Admin: Set user password', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -159,8 +157,7 @@ test.describe('Admin: Set user password', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -196,8 +193,7 @@ test.describe('Admin: Set user password', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -243,8 +239,7 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
-          admin: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -269,8 +264,7 @@ test.describe('Admin: Set user password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
-          admin: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -307,8 +301,7 @@ test.describe('Admin: Set user password', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -354,8 +347,7 @@ test.describe('Admin: Set user password', () => {
           {
             name: 'test-app',
             auth: {
-              emailAndPassword: true,
-              admin: true,
+              strategies: [{ type: 'emailAndPassword' }],
             },
           },
           {

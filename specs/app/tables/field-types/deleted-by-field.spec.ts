@@ -31,7 +31,7 @@ test.describe('Deleted By Field', () => {
       // GIVEN: table configuration with deleted_by field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -68,7 +68,7 @@ test.describe('Deleted By Field', () => {
       // GIVEN: table configuration with soft-delete fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 2,
@@ -117,7 +117,7 @@ test.describe('Deleted By Field', () => {
       // GIVEN: table configuration with soft-delete fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 3,
@@ -157,7 +157,7 @@ test.describe('Deleted By Field', () => {
       // GIVEN: table configuration with soft-delete fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 4,
@@ -218,7 +218,7 @@ test.describe('Deleted By Field', () => {
       // GIVEN: table configuration with indexed deleted_by field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 5,
@@ -266,7 +266,7 @@ test.describe('Deleted By Field', () => {
       // Setup: Start server with comprehensive schema covering ALL test scenarios
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

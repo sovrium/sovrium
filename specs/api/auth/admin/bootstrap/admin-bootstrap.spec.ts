@@ -62,8 +62,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -100,8 +99,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -135,8 +133,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -178,8 +175,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -224,8 +220,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -262,8 +257,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -294,8 +288,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -326,8 +319,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -366,8 +358,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -398,8 +389,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -434,7 +424,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
+            strategies: [{ type: 'emailAndPassword' }],
             // admin: false - plugin not enabled
           },
         },
@@ -504,8 +494,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -543,8 +532,7 @@ test.describe('Admin Bootstrap (Automatic Admin Creation)', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {

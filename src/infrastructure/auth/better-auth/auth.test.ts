@@ -33,14 +33,16 @@ describe('buildSocialProviders', () => {
     expect(result).toEqual({})
   })
 
-  test('returns empty object when oauth is not configured', () => {
-    const authConfig: Auth = {}
+  test('returns empty object when oauth strategy is not configured', () => {
+    const authConfig = { strategies: [{ type: 'emailAndPassword' as const }] } as Auth
     const result = buildSocialProviders(authConfig)
     expect(result).toEqual({})
   })
 
-  test('returns empty object when oauth.providers is empty', () => {
-    const authConfig: Auth = { oauth: { providers: [] as unknown as ['google'] } }
+  test('returns empty object when oauth providers is empty', () => {
+    const authConfig = {
+      strategies: [{ type: 'oauth' as const, providers: [] as unknown as readonly ['google'] }],
+    } as Auth
     const result = buildSocialProviders(authConfig)
     expect(result).toEqual({})
   })
@@ -49,7 +51,9 @@ describe('buildSocialProviders', () => {
     process.env.GOOGLE_CLIENT_ID = 'test-google-client-id'
     process.env.GOOGLE_CLIENT_SECRET = 'test-google-secret'
 
-    const authConfig: Auth = { oauth: { providers: ['google'] } }
+    const authConfig = {
+      strategies: [{ type: 'oauth' as const, providers: ['google'] as const }],
+    } as Auth
     const result = buildSocialProviders(authConfig)
 
     expect(result).toEqual({
@@ -66,7 +70,9 @@ describe('buildSocialProviders', () => {
     process.env.GITHUB_CLIENT_ID = 'github-id'
     process.env.GITHUB_CLIENT_SECRET = 'github-secret'
 
-    const authConfig: Auth = { oauth: { providers: ['google', 'github'] } }
+    const authConfig = {
+      strategies: [{ type: 'oauth' as const, providers: ['google', 'github'] as const }],
+    } as Auth
     const result = buildSocialProviders(authConfig)
 
     expect(result).toEqual({
@@ -82,7 +88,9 @@ describe('buildSocialProviders', () => {
   })
 
   test('uses empty string when environment variables are missing', () => {
-    const authConfig: Auth = { oauth: { providers: ['google'] } }
+    const authConfig = {
+      strategies: [{ type: 'oauth' as const, providers: ['google'] as const }],
+    } as Auth
     const result = buildSocialProviders(authConfig)
 
     expect(result).toEqual({
@@ -97,7 +105,9 @@ describe('buildSocialProviders', () => {
     process.env.FACEBOOK_CLIENT_ID = 'fb-id'
     process.env.FACEBOOK_CLIENT_SECRET = 'fb-secret'
 
-    const authConfig: Auth = { oauth: { providers: ['facebook' as 'google'] } }
+    const authConfig = {
+      strategies: [{ type: 'oauth' as const, providers: ['facebook' as 'google'] as const }],
+    } as Auth
     const result = buildSocialProviders(authConfig)
 
     expect(result).toEqual({
@@ -116,11 +126,11 @@ describe('buildEmailAndPasswordConfig', () => {
     magicLink: mock(() => Promise.resolve()),
   }
 
-  test('uses defaults when authConfig is undefined', () => {
+  test('returns disabled defaults when authConfig is undefined', () => {
     const result = buildEmailAndPasswordConfig(undefined, mockHandlers)
 
     expect(result).toEqual({
-      enabled: true,
+      enabled: false,
       requireEmailVerification: false,
       sendResetPassword: mockHandlers.passwordReset,
       minPasswordLength: 8,
@@ -128,12 +138,12 @@ describe('buildEmailAndPasswordConfig', () => {
     })
   })
 
-  test('uses defaults when emailAndPassword is not configured', () => {
-    const authConfig: Auth = {}
+  test('returns disabled defaults when emailAndPassword strategy is absent', () => {
+    const authConfig = { strategies: [{ type: 'magicLink' as const }] } as Auth
     const result = buildEmailAndPasswordConfig(authConfig, mockHandlers)
 
     expect(result).toEqual({
-      enabled: true,
+      enabled: false,
       requireEmailVerification: false,
       sendResetPassword: mockHandlers.passwordReset,
       minPasswordLength: 8,
@@ -141,8 +151,8 @@ describe('buildEmailAndPasswordConfig', () => {
     })
   })
 
-  test('uses defaults when emailAndPassword is boolean true', () => {
-    const authConfig: Auth = { emailAndPassword: true }
+  test('enables when emailAndPassword strategy is configured', () => {
+    const authConfig = { strategies: [{ type: 'emailAndPassword' as const }] } as Auth
     const result = buildEmailAndPasswordConfig(authConfig, mockHandlers)
 
     expect(result).toEqual({
@@ -155,40 +165,34 @@ describe('buildEmailAndPasswordConfig', () => {
   })
 
   test('enables email verification when configured', () => {
-    const authConfig: Auth = {
-      emailAndPassword: {
-        requireEmailVerification: true,
-      },
-    }
+    const authConfig = {
+      strategies: [{ type: 'emailAndPassword' as const, requireEmailVerification: true }],
+    } as Auth
     const result = buildEmailAndPasswordConfig(authConfig, mockHandlers)
 
     expect(result.requireEmailVerification).toBe(true)
   })
 
   test('disables email verification explicitly when configured', () => {
-    const authConfig: Auth = {
-      emailAndPassword: {
-        requireEmailVerification: false,
-      },
-    }
+    const authConfig = {
+      strategies: [{ type: 'emailAndPassword' as const, requireEmailVerification: false }],
+    } as Auth
     const result = buildEmailAndPasswordConfig(authConfig, mockHandlers)
 
     expect(result.requireEmailVerification).toBe(false)
   })
 
   test('always includes password reset handler', () => {
-    const authConfig: Auth = {}
+    const authConfig = { strategies: [{ type: 'emailAndPassword' as const }] } as Auth
     const result = buildEmailAndPasswordConfig(authConfig, mockHandlers)
 
     expect(result.sendResetPassword).toBe(mockHandlers.passwordReset)
   })
 
   test('always sets standard password length constraints', () => {
-    const authConfig: Auth = {
-      emailAndPassword: {
-        requireEmailVerification: true,
-      },
-    }
+    const authConfig = {
+      strategies: [{ type: 'emailAndPassword' as const, requireEmailVerification: true }],
+    } as Auth
     const result = buildEmailAndPasswordConfig(authConfig, mockHandlers)
 
     expect(result.minPasswordLength).toBe(8)
@@ -300,59 +304,54 @@ describe('buildAuthPlugins', () => {
     magicLink: mock(() => Promise.resolve()),
   }
 
-  test('always includes openAPI plugin', () => {
+  test('includes only openAPI plugin when authConfig is undefined', () => {
     const result = buildAuthPlugins(mockHandlers, undefined)
 
-    expect(result.length).toBeGreaterThanOrEqual(1)
-    // First plugin should be openAPI
+    expect(result.length).toBe(1) // Only openAPI
     expect(result[0]).toBeDefined()
   })
 
-  test('includes only openAPI when no features enabled', () => {
-    const authConfig: Auth = {}
+  test('includes openAPI and admin when auth is configured', () => {
+    const authConfig = { strategies: [{ type: 'emailAndPassword' as const }] } as Auth
     const result = buildAuthPlugins(mockHandlers, authConfig)
 
-    expect(result.length).toBe(1) // Only openAPI
-  })
-
-  test('includes admin plugin when enabled', () => {
-    const authConfig: Auth = { admin: true }
-    const result = buildAuthPlugins(mockHandlers, authConfig)
-
-    expect(result.length).toBe(2) // openAPI + admin
+    expect(result.length).toBe(2) // openAPI + admin (admin always enabled)
   })
 
   test('includes two-factor plugin when enabled', () => {
-    const authConfig: Auth = { twoFactor: true }
+    const authConfig = {
+      strategies: [{ type: 'emailAndPassword' as const }],
+      twoFactor: true,
+    } as Auth
     const result = buildAuthPlugins(mockHandlers, authConfig)
 
-    expect(result.length).toBe(2) // openAPI + twoFactor
+    expect(result.length).toBe(3) // openAPI + admin + twoFactor
   })
 
-  test('includes magic link plugin when enabled', () => {
-    const authConfig: Auth = { magicLink: true }
+  test('includes magic link plugin when strategy is configured', () => {
+    const authConfig = {
+      strategies: [{ type: 'magicLink' as const }],
+    } as Auth
     const result = buildAuthPlugins(mockHandlers, authConfig)
 
-    expect(result.length).toBe(2) // openAPI + magicLink
+    expect(result.length).toBe(3) // openAPI + admin + magicLink
   })
 
   test('includes all plugins when all enabled', () => {
-    const authConfig: Auth = {
-      admin: true,
+    const authConfig = {
+      strategies: [{ type: 'emailAndPassword' as const }, { type: 'magicLink' as const }],
       twoFactor: true,
-      magicLink: true,
-    }
+    } as Auth
     const result = buildAuthPlugins(mockHandlers, authConfig)
 
     expect(result.length).toBe(4) // openAPI + admin + twoFactor + magicLink
   })
 
   test('includes only enabled plugins in combination', () => {
-    const authConfig: Auth = {
-      admin: true,
-      magicLink: true,
+    const authConfig = {
+      strategies: [{ type: 'emailAndPassword' as const }, { type: 'magicLink' as const }],
       // twoFactor not enabled
-    }
+    } as Auth
     const result = buildAuthPlugins(mockHandlers, authConfig)
 
     expect(result.length).toBe(3) // openAPI + admin + magicLink (no twoFactor)

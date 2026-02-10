@@ -43,7 +43,7 @@ function shouldExcludeForViewer(fieldName: string, fieldType: string): boolean {
 
 /**
  * Check if field should be excluded based on default permission rules
- * Sensitive fields (like salary) are restricted for non-admin/owner roles
+ * Sensitive fields (like salary) are restricted for non-admin roles
  */
 function shouldExcludeFieldByDefault(
   fieldName: string,
@@ -52,8 +52,8 @@ function shouldExcludeFieldByDefault(
     | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
     | undefined
 ): boolean {
-  // Admin and owner roles have full access
-  if (userRole === 'admin' || userRole === 'owner') {
+  // Admin role has full access
+  if (userRole === 'admin') {
     return false
   }
 
@@ -143,7 +143,7 @@ export function filterReadableFields<T extends Record<string, unknown>>(
     }
 
     // Check if user has read permission for this field
-    if (hasReadPermission(fieldPermission.read, userRole, userId, record)) {
+    if (hasFieldReadPermission(fieldPermission.read, userRole, userId, record)) {
       return { ...acc, [fieldName]: record[fieldName] }
     }
 
@@ -155,38 +155,21 @@ export function filterReadableFields<T extends Record<string, unknown>>(
 }
 
 /**
- * Check if user's role has read permission
+ * Check if user's role has read permission.
+ *
+ * Permission format (3-format system):
+ * - `'all'` — Everyone
+ * - `'authenticated'` — Any logged-in user
+ * - `string[]` — Specific role names
  */
-function hasReadPermission(
+function hasFieldReadPermission(
   permission: TablePermission,
   userRole: string,
-  userId: string,
-  record: Record<string, unknown>
+  _userId: string,
+  _record: Record<string, unknown>
 ): boolean {
-  switch (permission.type) {
-    case 'public':
-      return true
-
-    case 'authenticated':
-      return true // User is authenticated (has session)
-
-    case 'roles':
-      return permission.roles?.includes(userRole) ?? false
-
-    case 'owner':
-      // Check if user owns the record
-      return record[permission.field] === userId
-
-    case 'custom':
-      // For custom conditions, check if user owns the record (simplified for owner_id pattern)
-      // Full custom condition evaluation would require parsing the condition
-      // For now, we check if the condition matches {userId} = owner_id pattern
-      if (permission.condition.includes('{userId}') && permission.condition.includes('owner_id')) {
-        return record.owner_id === userId
-      }
-      return false
-
-    default:
-      return false
-  }
+  if (permission === 'all') return true
+  if (permission === 'authenticated') return true
+  if (Array.isArray(permission)) return permission.includes(userRole)
+  return false
 }

@@ -33,7 +33,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           twoFactor: {
             issuer: 'Test App',
           },
@@ -91,7 +91,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           twoFactor: true,
         },
       })
@@ -132,7 +132,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           twoFactor: {
             issuer: 'Test App',
             backupCodes: true,
@@ -181,7 +181,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           twoFactor: true,
         },
       })
@@ -209,7 +209,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           twoFactor: true,
         },
       })
@@ -248,7 +248,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           // No twoFactor plugin - 2FA endpoints should not exist
         },
       })
@@ -286,7 +286,7 @@ test.describe('Verify Two-Factor Authentication Code', () => {
         await startServerWithSchema({
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
+            strategies: [{ type: 'emailAndPassword' }],
             twoFactor: {
               issuer: 'Test App',
               backupCodes: true,

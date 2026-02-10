@@ -6,6 +6,7 @@
  */
 
 import { magicLink } from 'better-auth/plugins'
+import { hasStrategy } from '@/domain/models/app/auth'
 import type { Auth } from '@/domain/models/app/auth'
 
 /**
@@ -19,7 +20,7 @@ export const buildMagicLinkPlugin = (
   }) => Promise<void>,
   authConfig?: Auth
 ) => {
-  return authConfig?.magicLink
+  return hasStrategy(authConfig, 'magicLink')
     ? [
         magicLink({
           sendMagicLink: async ({ email, token, url }) =>

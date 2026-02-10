@@ -43,7 +43,7 @@ test.describe('API Field Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -57,12 +57,12 @@ test.describe('API Field Permission Enforcement', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              read: { type: 'authenticated' },
+              read: 'authenticated',
               fields: [
                 {
                   field: 'salary',
-                  read: { type: 'roles', roles: ['owner', 'admin'] },
-                  write: { type: 'roles', roles: ['admin'] },
+                  read: ['admin'],
+                  write: ['admin'],
                 },
               ],
             },
@@ -103,8 +103,7 @@ test.describe('API Field Permission Enforcement', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
           tables: [
             {
@@ -117,11 +116,11 @@ test.describe('API Field Permission Enforcement', () => {
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                read: { type: 'authenticated' },
+                read: 'authenticated',
                 fields: [
                   {
                     field: 'salary',
-                    read: { type: 'roles', roles: ['owner', 'admin'] },
+                    read: ['admin'],
                   },
                 ],
               },
@@ -171,7 +170,7 @@ test.describe('API Field Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -184,13 +183,13 @@ test.describe('API Field Permission Enforcement', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              read: { type: 'authenticated' },
-              update: { type: 'authenticated' },
+              read: 'authenticated',
+              update: 'authenticated',
               fields: [
                 {
                   field: 'salary',
-                  read: { type: 'roles', roles: ['owner', 'admin'] },
-                  write: { type: 'roles', roles: ['admin'] },
+                  read: ['admin'],
+                  write: ['admin'],
                 },
               ],
             },
@@ -239,7 +238,7 @@ test.describe('API Field Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -252,17 +251,17 @@ test.describe('API Field Permission Enforcement', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              read: { type: 'authenticated' },
-              update: { type: 'authenticated' },
+              read: 'authenticated',
+              update: 'authenticated',
               fields: [
                 {
                   field: 'name',
-                  write: { type: 'authenticated' }, // Anyone can update name
+                  write: 'authenticated', // Anyone can update name
                 },
                 {
                   field: 'salary',
-                  read: { type: 'roles', roles: ['admin'] },
-                  write: { type: 'roles', roles: ['admin'] }, // Only admin can update salary
+                  read: ['admin'],
+                  write: ['admin'], // Only admin can update salary
                 },
               ],
             },
@@ -305,7 +304,7 @@ test.describe('API Field Permission Enforcement', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -318,11 +317,11 @@ test.describe('API Field Permission Enforcement', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              read: { type: 'authenticated' },
+              read: 'authenticated',
               fields: [
                 {
                   field: 'salary',
-                  read: { type: 'roles', roles: ['admin'] },
+                  read: ['admin'],
                 },
               ],
             },
@@ -379,8 +378,7 @@ test.describe('API Field Permission Enforcement', () => {
           {
             name: 'test-app',
             auth: {
-              emailAndPassword: true,
-              admin: true,
+              strategies: [{ type: 'emailAndPassword' }],
             },
             tables: [
               {
@@ -394,17 +392,17 @@ test.describe('API Field Permission Enforcement', () => {
                 ],
                 primaryKey: { type: 'composite', fields: ['id'] },
                 permissions: {
-                  read: { type: 'authenticated' },
-                  update: { type: 'authenticated' },
+                  read: 'authenticated',
+                  update: 'authenticated',
                   fields: [
                     {
                       field: 'name',
-                      write: { type: 'authenticated' }, // Anyone can update name (FIELD-004)
+                      write: 'authenticated', // Anyone can update name (FIELD-004)
                     },
                     {
                       field: 'salary',
-                      read: { type: 'roles', roles: ['owner', 'admin'] },
-                      write: { type: 'roles', roles: ['admin'] },
+                      read: ['admin'],
+                      write: ['admin'],
                     },
                   ],
                 },

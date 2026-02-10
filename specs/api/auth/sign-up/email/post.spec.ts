@@ -39,7 +39,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -71,7 +71,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -99,7 +99,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -127,7 +127,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -152,7 +152,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -181,7 +181,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -210,7 +210,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -246,7 +246,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -282,7 +282,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -312,7 +312,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -342,7 +342,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: { requireEmailVerification: true },
+          strategies: [{ type: 'emailAndPassword', requireEmailVerification: true }],
         },
       })
 
@@ -387,7 +387,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: { requireEmailVerification: true },
+          strategies: [{ type: 'emailAndPassword', requireEmailVerification: true }],
         },
       })
 
@@ -428,7 +428,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: { requireEmailVerification: true },
+          strategies: [{ type: 'emailAndPassword', requireEmailVerification: true }],
         },
       })
 
@@ -481,7 +481,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: { requireEmailVerification: true },
+          strategies: [{ type: 'emailAndPassword', requireEmailVerification: true }],
         },
         tables: [
           {
@@ -493,10 +493,10 @@ test.describe('Sign up with email and password', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              create: { type: 'roles', roles: ['member'] },
-              read: { type: 'roles', roles: ['member'] },
-              update: { type: 'roles', roles: ['member'] },
-              delete: { type: 'roles', roles: ['member'] },
+              create: ['member'],
+              read: ['member'],
+              update: ['member'],
+              delete: ['member'],
             },
           },
         ],
@@ -540,7 +540,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: { requireEmailVerification: true },
+          strategies: [{ type: 'emailAndPassword', requireEmailVerification: true }],
         },
         tables: [
           {
@@ -552,10 +552,10 @@ test.describe('Sign up with email and password', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              create: { type: 'roles', roles: ['member'] },
-              read: { type: 'roles', roles: ['member'] },
-              update: { type: 'roles', roles: ['member'] },
-              delete: { type: 'roles', roles: ['member'] },
+              create: ['member'],
+              read: ['member'],
+              update: ['member'],
+              delete: ['member'],
             },
           },
         ],
@@ -613,7 +613,7 @@ test.describe('Sign up with email and password', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 

@@ -36,7 +36,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           // No admin plugin - admin endpoints should not exist
         },
       })
@@ -64,7 +64,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           // No admin plugin
         },
       })
@@ -91,7 +91,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           // No admin plugin
         },
       })
@@ -123,7 +123,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           // No admin plugin
         },
       })
@@ -159,7 +159,7 @@ test.describe('Admin Plugin Disabled - Endpoint Availability', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           // No admin plugin - admin endpoints should not exist
         },
       })

@@ -823,27 +823,6 @@ export const test = base.extend<ServerFixtures>({
     })
   },
 
-  createAuthenticatedOwner: async (
-    { createAuthenticatedUser, executeQuery, signIn },
-    use,
-    _testInfo
-  ) => {
-    await use(async (data?: Partial<SignUpData>): Promise<AuthResult> => {
-      // Create user first
-      const user = await createAuthenticatedUser(data)
-
-      // Set role to owner using direct database update
-      await executeQuery(`UPDATE auth.user SET role = 'owner' WHERE id = $1`, [user.user.id])
-
-      // Re-authenticate to get session with updated role
-      const testId = data?.email || user.user.email
-      const password = data?.password || 'TestPassword123!'
-      const signInResult = await signIn({ email: testId, password })
-
-      return signInResult
-    })
-  },
-
   createAuthenticatedMember: async (
     { createAuthenticatedUser, executeQuery, signIn },
     use,

@@ -23,8 +23,7 @@ test.describe('Admin Default User Role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
-          admin: { defaultRole: 'user' },
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -47,7 +46,7 @@ test.describe('Admin Default User Role', () => {
       // GIVEN: Server without default role configured
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
       })
 
       // WHEN: New user signs up
@@ -70,8 +69,7 @@ test.describe('Admin Default User Role', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
-          admin: { defaultRole: 'user' },
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 

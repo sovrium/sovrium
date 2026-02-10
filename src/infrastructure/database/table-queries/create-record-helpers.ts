@@ -13,64 +13,21 @@ import {
   type DrizzleTransaction,
 } from '@/infrastructure/database'
 import { validateColumnName } from './validation'
-import type { Session } from '@/infrastructure/auth/better-auth/schema'
-
-/**
- * Check if table has owner_id column
- */
-export function checkTableColumns(
-  tableName: string,
-  tx: Readonly<DrizzleTransaction>
-): Effect.Effect<{ hasOwnerId: boolean }, SessionContextError> {
-  return Effect.tryPromise({
-    try: () =>
-      tx.execute(
-        sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'owner_id'`
-      ) as Promise<readonly Record<string, unknown>[]>,
-    catch: (error) => new SessionContextError('Failed to check table columns', error),
-  }).pipe(
-    Effect.map((result) => ({
-      hasOwnerId: result.some((row) => row.column_name === 'owner_id'),
-    }))
-  )
-}
-
-/**
- * Sanitize fields by removing owner_id if table has that column
- */
-export function sanitizeFields(
-  fields: Readonly<Record<string, unknown>>,
-  _hasOrgId: boolean,
-  hasOwnerId: boolean
-): Readonly<Record<string, unknown>> {
-  return Object.fromEntries(
-    Object.entries(fields).filter(([key]) => !(hasOwnerId && key === 'owner_id'))
-  )
-}
 
 /**
  * Build SQL columns and values for INSERT query
  */
 export function buildInsertClauses(
-  sanitizedFields: Readonly<Record<string, unknown>>,
-  _hasOrgId: boolean,
-  hasOwnerId: boolean,
-  session: Readonly<Session>
+  fields: Readonly<Record<string, unknown>>
 ): Readonly<{ columnsClause: unknown; valuesClause: unknown }> {
-  const baseEntries = Object.entries(sanitizedFields)
+  const entries = Object.entries(fields)
 
   // Build column identifiers and values
-  const baseColumnIdentifiers = baseEntries.map(([key]) => {
+  const columnIdentifiers = entries.map(([key]) => {
     validateColumnName(key)
     return sql.identifier(key)
   })
-  const baseValueParams = baseEntries.map(([, value]) => sql`${value}`)
-
-  // Add owner_id column and value from session (immutable)
-  const columnIdentifiers = hasOwnerId
-    ? [...baseColumnIdentifiers, sql.identifier('owner_id')]
-    : baseColumnIdentifiers
-  const valueParams = hasOwnerId ? [...baseValueParams, sql`${session.userId}`] : baseValueParams
+  const valueParams = entries.map(([, value]) => sql`${value}`)
 
   // Build INSERT query using sql.join for columns and values
   const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))

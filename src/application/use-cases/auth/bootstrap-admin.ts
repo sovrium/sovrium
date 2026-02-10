@@ -7,6 +7,7 @@
 
 import { eq } from 'drizzle-orm'
 import { Effect, Console, Data } from 'effect'
+import { getStrategy } from '@/domain/models/app/auth'
 import { Auth } from '@/infrastructure/auth/better-auth'
 import { users } from '@/infrastructure/auth/better-auth/schema'
 import { Database } from '@/infrastructure/database/drizzle/layer'
@@ -185,13 +186,13 @@ const checkBootstrapPreconditions = (
 
     yield* Console.log('[bootstrap-admin] Admin bootstrap config found:', config.email)
 
-    const adminPluginEnabled = Boolean(app.auth?.admin)
-    if (!adminPluginEnabled) {
-      yield* Console.log('[bootstrap-admin] Admin plugin not enabled, skipping')
+    // Admin features are always enabled when auth is configured
+    if (!app.auth) {
+      yield* Console.log('[bootstrap-admin] Auth not configured, skipping')
       return undefined
     }
 
-    yield* Console.log('[bootstrap-admin] Admin plugin is enabled')
+    yield* Console.log('[bootstrap-admin] Auth is configured')
     return config
   })
 
@@ -246,11 +247,8 @@ export const bootstrapAdmin = (
 
     const auth = yield* Auth
 
-    const emailAndPasswordConfig =
-      app.auth?.emailAndPassword && typeof app.auth.emailAndPassword === 'object'
-        ? app.auth.emailAndPassword
-        : {}
-    const requireEmailVerification = emailAndPasswordConfig.requireEmailVerification ?? false
+    const emailAndPasswordStrategy = getStrategy(app.auth, 'emailAndPassword')
+    const requireEmailVerification = emailAndPasswordStrategy?.requireEmailVerification ?? false
 
     yield* Console.log(
       `[bootstrap-admin] requireEmailVerification=${requireEmailVerification}, will set emailVerified=${!requireEmailVerification}`

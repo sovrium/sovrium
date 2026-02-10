@@ -43,7 +43,7 @@ describe('UserFieldSchema', () => {
     test('should accept user field allowing single user', () => {
       const field = {
         id: 1,
-        name: 'owner',
+        name: 'author',
         type: 'user' as const,
         allowMultiple: false,
       }

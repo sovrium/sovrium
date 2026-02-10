@@ -18,17 +18,17 @@ describe('TablePermissionsSchema', () => {
     })
 
     test('should accept read-only permission', () => {
-      const permissions = { read: { type: 'public' as const } }
+      const permissions = { read: 'all' as const }
       const result = Schema.decodeUnknownSync(TablePermissionsSchema)(permissions)
       expect(result).toEqual(permissions)
     })
 
     test('should accept all CRUD permissions', () => {
       const permissions = {
-        read: { type: 'roles' as const, roles: ['member'] },
-        create: { type: 'roles' as const, roles: ['admin'] },
-        update: { type: 'authenticated' as const },
-        delete: { type: 'roles' as const, roles: ['admin'] },
+        read: ['member'] as string[],
+        create: ['admin'] as string[],
+        update: 'authenticated' as const,
+        delete: ['admin'] as string[],
       }
       const result = Schema.decodeUnknownSync(TablePermissionsSchema)(permissions)
       expect(result).toEqual(permissions)
@@ -36,9 +36,9 @@ describe('TablePermissionsSchema', () => {
 
     test('should accept mixed permission types', () => {
       const permissions = {
-        read: { type: 'public' as const },
-        create: { type: 'roles' as const, roles: ['admin', 'editor'] },
-        update: { type: 'authenticated' as const },
+        read: 'all' as const,
+        create: ['admin', 'editor'] as string[],
+        update: 'authenticated' as const,
       }
       const result = Schema.decodeUnknownSync(TablePermissionsSchema)(permissions)
       expect(result).toEqual(permissions)
@@ -47,7 +47,7 @@ describe('TablePermissionsSchema', () => {
 
   describe('invalid table permissions', () => {
     test('should reject invalid permission type', () => {
-      const permissions = { read: { type: 'invalid' } }
+      const permissions = { read: 'invalid' }
       expect(() => Schema.decodeUnknownSync(TablePermissionsSchema)(permissions)).toThrow()
     })
 
@@ -56,80 +56,43 @@ describe('TablePermissionsSchema', () => {
     })
   })
 
-  describe('owner permission', () => {
-    test('should accept owner permission with field', () => {
-      const permissions = {
-        update: { type: 'owner' as const, field: 'owner_id' },
-        delete: { type: 'owner' as const, field: 'owner_id' },
-      }
-      const result = Schema.decodeUnknownSync(TablePermissionsSchema)(permissions)
-      expect(result.update?.type).toBe('owner')
-      if (result.update?.type === 'owner') {
-        expect(result.update.field).toBe('owner_id')
-      }
-    })
-
-    test('should accept owner permission with custom field', () => {
-      const permissions = {
-        read: { type: 'owner' as const, field: 'created_by' },
-      }
-      const result = Schema.decodeUnknownSync(TablePermissionsSchema)(permissions)
-      if (result.read?.type === 'owner') {
-        expect(result.read.field).toBe('created_by')
-      }
-    })
-  })
-
   describe('real-world use cases', () => {
     test('should accept public read, admin-only write pattern', () => {
       const permissions = {
-        read: { type: 'public' as const },
-        create: { type: 'roles' as const, roles: ['admin'] },
-        update: { type: 'roles' as const, roles: ['admin'] },
-        delete: { type: 'roles' as const, roles: ['admin'] },
+        read: 'all' as const,
+        create: ['admin'] as string[],
+        update: ['admin'] as string[],
+        delete: ['admin'] as string[],
       }
       const result = Schema.decodeUnknownSync(TablePermissionsSchema)(permissions)
-      expect(result.read?.type).toBe('public')
-      expect(result.create?.type).toBe('roles')
+      expect(result.read).toBe('all')
+      expect(result.create).toEqual(['admin'])
     })
 
     test('should accept member read, admin create/delete pattern', () => {
       const permissions = {
-        read: { type: 'roles' as const, roles: ['member'] },
-        create: { type: 'roles' as const, roles: ['admin'] },
-        update: { type: 'authenticated' as const },
-        delete: { type: 'roles' as const, roles: ['admin'] },
+        read: ['member'] as string[],
+        create: ['admin'] as string[],
+        update: 'authenticated' as const,
+        delete: ['admin'] as string[],
       }
       const result = Schema.decodeUnknownSync(TablePermissionsSchema)(permissions)
-      expect(result.read?.type).toBe('roles')
-      if (result.read?.type === 'roles') {
-        expect(result.read.roles).toContain('member')
+      expect(Array.isArray(result.read)).toBe(true)
+      if (Array.isArray(result.read)) {
+        expect(result.read).toContain('member')
       }
     })
 
     test('should accept authenticated-only access pattern', () => {
       const permissions = {
-        read: { type: 'authenticated' as const },
-        create: { type: 'authenticated' as const },
-        update: { type: 'authenticated' as const },
-        delete: { type: 'authenticated' as const },
+        read: 'authenticated' as const,
+        create: 'authenticated' as const,
+        update: 'authenticated' as const,
+        delete: 'authenticated' as const,
       }
       const result = Schema.decodeUnknownSync(TablePermissionsSchema)(permissions)
-      expect(result.read?.type).toBe('authenticated')
-      expect(result.create?.type).toBe('authenticated')
-    })
-
-    test('should accept owner-based access pattern for personal data', () => {
-      const permissions = {
-        read: { type: 'owner' as const, field: 'user_id' },
-        create: { type: 'authenticated' as const },
-        update: { type: 'owner' as const, field: 'user_id' },
-        delete: { type: 'owner' as const, field: 'user_id' },
-      }
-      const result = Schema.decodeUnknownSync(TablePermissionsSchema)(permissions)
-      expect(result.read?.type).toBe('owner')
-      expect(result.create?.type).toBe('authenticated')
-      expect(result.update?.type).toBe('owner')
+      expect(result.read).toBe('authenticated')
+      expect(result.create).toBe('authenticated')
     })
   })
 })

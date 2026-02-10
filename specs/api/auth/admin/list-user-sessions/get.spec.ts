@@ -43,8 +43,7 @@ test.describe('Admin: List user sessions', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -101,8 +100,7 @@ test.describe('Admin: List user sessions', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -141,8 +139,7 @@ test.describe('Admin: List user sessions', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -173,8 +170,7 @@ test.describe('Admin: List user sessions', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -228,8 +224,7 @@ test.describe('Admin: List user sessions', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -268,8 +263,7 @@ test.describe('Admin: List user sessions', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -320,8 +314,7 @@ test.describe('Admin: List user sessions', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -372,8 +365,7 @@ test.describe('Admin: List user sessions', () => {
           {
             name: 'test-app',
             auth: {
-              emailAndPassword: true,
-              admin: true,
+              strategies: [{ type: 'emailAndPassword' }],
             },
           },
           {

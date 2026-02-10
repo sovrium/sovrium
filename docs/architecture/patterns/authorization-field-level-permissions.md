@@ -41,7 +41,7 @@ interface TablePermissions {
 
 // Example configuration
 const employeesTablePermissions: TablePermissions = {
-  owner: {
+  admin: {
     table: { read: true, create: true, update: true, delete: true },
     fields: {}, // Full access to all fields
   },
@@ -124,7 +124,7 @@ app.get('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
 
   // Fetch record with org isolation
   const record = await db.query.records.findFirst({
-    where: and(eq(records.id, recordId), eq(records.owner_id, user.userId)),
+    where: and(eq(records.id, recordId), eq(records.admin_id, user.userId)),
   })
 
   if (!record) {
@@ -150,7 +150,7 @@ app.get('/tables/:tableId/records', requireAuth, async (c) => {
 
   // Fetch records with org isolation
   const records = await db.query.records.findMany({
-    where: eq(records.owner_id, user.userId),
+    where: eq(records.admin_id, user.userId),
   })
 
   // Filter fields for all records
@@ -221,7 +221,7 @@ app.post('/tables/:tableId/records', requireAuth, async (c) => {
   // Create record with auto-injected org ID
   const record = await db.insert(records).values({
     ...body,
-    owner_id: user.userId,
+    admin_id: user.userId,
   })
 
   // Filter response fields
@@ -243,9 +243,9 @@ app.patch('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
   const recordId = parseInt(c.req.param('recordId'))
   const body = await c.req.json()
 
-  // Check org ownership
+  // Check org adminship
   const existingRecord = await db.query.records.findFirst({
-    where: and(eq(records.id, recordId), eq(records.owner_id, user.userId)),
+    where: and(eq(records.id, recordId), eq(records.admin_id, user.userId)),
   })
 
   if (!existingRecord) {
@@ -259,7 +259,7 @@ app.patch('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
   }
 
   // Validate readonly fields
-  const READONLY_FIELDS = ['id', 'created_at', 'updated_at', 'owner_id']
+  const READONLY_FIELDS = ['id', 'created_at', 'updated_at', 'admin_id']
   for (const field of Object.keys(body)) {
     if (READONLY_FIELDS.includes(field)) {
       return c.json({ error: 'Forbidden', message: `Cannot modify readonly field: ${field}` }, 403)
@@ -330,7 +330,7 @@ app.post('/tables/:tableId/records/batch', requireAuth, async (c) => {
   const result = await db.transaction(async (tx) => {
     return await tx
       .insert(records)
-      .values(recordsToCreate.map((r) => ({ ...r, owner_id: user.userId })))
+      .values(recordsToCreate.map((r) => ({ ...r, admin_id: user.userId })))
       .returning()
   })
 

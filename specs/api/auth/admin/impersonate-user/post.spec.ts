@@ -43,10 +43,7 @@ test.describe('Admin: Impersonate user', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: {
-              impersonation: true,
-            },
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -99,10 +96,7 @@ test.describe('Admin: Impersonate user', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: {
-              impersonation: true,
-            },
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -139,10 +133,7 @@ test.describe('Admin: Impersonate user', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: {
-              impersonation: true,
-            },
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -175,10 +166,7 @@ test.describe('Admin: Impersonate user', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: {
-              impersonation: true,
-            },
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -222,10 +210,7 @@ test.describe('Admin: Impersonate user', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: {
-              impersonation: true,
-            },
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -273,10 +258,7 @@ test.describe('Admin: Impersonate user', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: {
-              impersonation: true,
-            },
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -317,10 +299,7 @@ test.describe('Admin: Impersonate user', () => {
           {
             name: 'test-app',
             auth: {
-              emailAndPassword: true,
-              admin: {
-                impersonation: true,
-              },
+              strategies: [{ type: 'emailAndPassword' }],
             },
           },
           {

@@ -1234,7 +1234,7 @@ test.describe('Data Tables', () => {
       // WHEN: server starts with this schema
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true }, // Auth config present
+        auth: { strategies: [{ type: 'emailAndPassword' }] }, // Auth config present
         tables: [
           {
             id: 30,
@@ -1733,7 +1733,7 @@ test.describe('Data Tables', () => {
       await test.step('Setup: Start server with comprehensive table configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
-          auth: { emailAndPassword: true }, // Required for user field tests
+          auth: { strategies: [{ type: 'emailAndPassword' }] }, // Required for user field tests
           tables: [
             {
               id: 1,

@@ -8,11 +8,10 @@
 
 Sovrium requires fine-grained access control for table records APIs with:
 
-- Multi-tenant owner isolation
 - Role-based access control (RBAC) with Better Auth
 - Table-level operation permissions (CRUD)
 - Field-level read/write permissions
-- Protection against cross-org enumeration attacks
+- Protection against enumeration attacks
 
 ## Decision
 
@@ -27,14 +26,13 @@ We will implement a layered authorization strategy:
 ### 2. Authorization Service (Effect.ts)
 
 - Application layer service using Effect.ts for typed error handling
-- Centralized permission checks: table-level, field-level, owner isolation
+- Centralized permission checks: table-level, field-level
 - Dependency injection via Effect Layer
 
 ### 3. Permission Model (RBAC + FBAC)
 
-**Four default roles**:
+**Three default roles**:
 
-- `owner`: Full access to all tables and fields
 - `admin`: Full access to all tables and fields
 - `member`: Read/create/update (no delete), field restrictions configurable
 - `viewer`: Read-only, field restrictions configurable
@@ -55,19 +53,17 @@ We will implement a layered authorization strategy:
 - If field not listed: `read: true`, `write: true`
 - Empty `fields: {}` grants full field access
 
-### 4. owner isolation (Multi-Tenancy)
+### 4. User-Based Data Access
 
-- Database-level isolation with `owner_id` column on all tables
-- Auto-inject `owner_id` on CREATE
-- Filter by `owner_id` on READ/UPDATE/DELETE
-- Return 404 (not 403) for cross-org access to prevent enumeration
+- User-specific data filtering where appropriate
+- Return 404 (not 403) for unauthorized access to prevent enumeration
 
 ### 5. Permission Check Order
 
 Critical order to prevent information leakage:
 
 1. **Authentication** (401) - Check user is authenticated
-2. **owner isolation** (404) - Check record belongs to user's org
+2. **Data Access** (404) - Check record exists and user has access
 3. **Table-Level Permissions** (403) - Check user can perform operation
 4. **Field-Level Permissions** (403) - Check user can access specific fields
 

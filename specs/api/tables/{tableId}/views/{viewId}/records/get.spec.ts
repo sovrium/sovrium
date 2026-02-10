@@ -44,7 +44,7 @@ test.describe('View Records API', () => {
       // GIVEN: A table with a view that filters by status='active'
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -113,7 +113,7 @@ test.describe('View Records API', () => {
       // GIVEN: A table with a view sorted by price descending
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -165,7 +165,7 @@ test.describe('View Records API', () => {
       // GIVEN: A table with a view that only shows name and email (hiding phone)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -218,7 +218,7 @@ test.describe('View Records API', () => {
       // GIVEN: A table with a view combining filters + sorts + fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -299,7 +299,7 @@ test.describe('View Records API', () => {
       // GIVEN: A table with a view restricted to admin role
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -341,7 +341,7 @@ test.describe('View Records API', () => {
       // GIVEN: A table that exists but the view does not
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -375,7 +375,7 @@ test.describe('View Records API', () => {
       // GIVEN: Server running with auth enabled but NO authenticated user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -416,7 +416,7 @@ test.describe('View Records API', () => {
       // Setup: Start server with comprehensive schema
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

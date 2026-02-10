@@ -10,7 +10,7 @@ import { SessionContextError } from '@/infrastructure/database'
 import {
   createComment,
   getCommentWithUser,
-  checkRecordOwnership,
+  checkRecordExists,
   deleteComment,
   getCommentForAuth,
   getUserById,
@@ -89,8 +89,8 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
   return Effect.gen(function* () {
     const { session, tableId, recordId, tableName, content } = config
 
-    // Check if record exists and is owned by user
-    const hasAccess = yield* checkRecordOwnership({ session, tableName, recordId })
+    // Check if record exists
+    const hasAccess = yield* checkRecordExists({ session, tableName, recordId })
     if (!hasAccess) {
       return yield* Effect.fail(new SessionContextError('Record not found'))
     }
@@ -136,8 +136,8 @@ export function deleteCommentProgram(
       return yield* Effect.fail(new SessionContextError('Comment not found'))
     }
 
-    // Check record ownership (user must have access to the record)
-    const hasRecordAccess = yield* checkRecordOwnership({
+    // Check record exists (user must have access to the record)
+    const hasRecordAccess = yield* checkRecordExists({
       session,
       tableName,
       recordId: comment.recordId,
@@ -213,14 +213,14 @@ export function getCommentProgram(config: GetCommentConfig): Effect.Effect<
       return yield* Effect.fail(new SessionContextError('Comment not found'))
     }
 
-    // Check record ownership
-    const hasRecordAccess = yield* checkRecordOwnership({
+    // Check record exists
+    const recordExists = yield* checkRecordExists({
       session,
       tableName,
       recordId: comment.recordId,
     })
 
-    if (!hasRecordAccess) {
+    if (!recordExists) {
       return yield* Effect.fail(new SessionContextError('Comment not found'))
     }
 
@@ -332,7 +332,7 @@ function verifyRecordAccess(params: {
   readonly recordId: string
 }): Effect.Effect<void, SessionContextError> {
   return Effect.gen(function* () {
-    const hasAccess = yield* checkRecordOwnership(params)
+    const hasAccess = yield* checkRecordExists(params)
     if (!hasAccess) {
       return yield* Effect.fail(new SessionContextError('Record not found'))
     }
@@ -370,7 +370,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
   return Effect.gen(function* () {
     const { session, recordId, tableName, limit, offset, sortOrder } = config
 
-    // Check record ownership
+    // Check record exists
     yield* verifyRecordAccess({ session, tableName, recordId })
 
     // List comments

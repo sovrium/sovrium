@@ -6,53 +6,43 @@
  */
 
 import { Schema } from 'effect'
-import { AuthenticatedPermissionSchema } from './authenticated'
-import { CustomPermissionSchema } from './custom'
-import { OwnerPermissionSchema } from './owner'
-import { PublicPermissionSchema } from './public'
-import { RolesPermissionSchema } from './roles'
 
 /**
  * Table Permission Schema
  *
- * Union of all permission types for a single CRUD operation.
+ * Simplified permission value for a single CRUD operation.
+ * Accepts one of 3 formats:
+ *
+ * - `'all'` — Everyone (including unauthenticated users)
+ * - `'authenticated'` — Any logged-in user
+ * - `['admin', 'editor']` — Specific role names (array)
  *
  * @example
- * ```typescript
- * // Public access
- * { type: 'public' }
- *
- * // Authenticated users only
- * { type: 'authenticated' }
- *
- * // Role-based access
- * { type: 'roles', roles: ['admin', 'member'] }
- *
- * // Owner-based access (record owner only)
- * { type: 'owner', field: 'owner_id' }
- *
- * // Custom RLS condition
- * { type: 'custom', condition: '{userId} = owner_id' }
+ * ```yaml
+ * permissions:
+ *   read: all
+ *   comment: authenticated
+ *   create: ['admin', 'editor']
+ *   update: ['admin', 'editor']
+ *   delete: ['admin']
  * ```
  */
 export const TablePermissionSchema = Schema.Union(
-  PublicPermissionSchema,
-  AuthenticatedPermissionSchema,
-  RolesPermissionSchema,
-  OwnerPermissionSchema,
-  CustomPermissionSchema
+  Schema.Literal('all'),
+  Schema.Literal('authenticated'),
+  Schema.Array(Schema.String).pipe(
+    Schema.minItems(1),
+    Schema.annotations({
+      description: 'Array of role names that have access (e.g., admin, editor). At least one role.',
+      examples: [['admin'], ['admin', 'editor'], ['admin', 'member', 'viewer']],
+    })
+  )
 ).pipe(
   Schema.annotations({
     title: 'Table Permission',
     description:
-      'Permission configuration for a single CRUD operation (public, authenticated, role-based, or owner-based).',
-    examples: [
-      { type: 'public' as const },
-      { type: 'authenticated' as const },
-      { type: 'roles' as const, roles: ['admin', 'member'] },
-      { type: 'owner' as const, field: 'owner_id' },
-      { type: 'custom' as const, condition: '{userId} = owner_id' },
-    ],
+      "Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor'].",
+    examples: ['all', 'authenticated', ['admin'], ['admin', 'editor']],
   })
 )
 

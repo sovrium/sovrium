@@ -32,7 +32,7 @@ test.describe('Field-Level Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -49,10 +49,7 @@ test.describe('Field-Level Permissions', () => {
               fields: [
                 {
                   field: 'salary',
-                  read: {
-                    type: 'roles',
-                    roles: ['admin'],
-                  },
+                  read: ['admin'],
                 },
               ],
             },
@@ -124,10 +121,7 @@ test.describe('Field-Level Permissions', () => {
               fields: [
                 {
                   field: 'email',
-                  write: {
-                    type: 'roles',
-                    roles: ['admin'],
-                  },
+                  write: ['admin'],
                 },
               ],
             },
@@ -194,22 +188,15 @@ test.describe('Field-Level Permissions', () => {
               fields: [
                 {
                   field: 'email',
-                  read: {
-                    type: 'authenticated',
-                  },
+                  read: 'authenticated',
                 },
                 {
                   field: 'salary',
-                  read: {
-                    type: 'roles',
-                    roles: ['admin'],
-                  },
+                  read: ['admin'],
                 },
                 {
                   field: 'department',
-                  read: {
-                    type: 'public',
-                  },
+                  read: 'all',
                 },
               ],
             },
@@ -283,13 +270,8 @@ test.describe('Field-Level Permissions', () => {
               fields: [
                 {
                   field: 'status',
-                  read: {
-                    type: 'public',
-                  },
-                  write: {
-                    type: 'roles',
-                    roles: ['admin'],
-                  },
+                  read: 'all',
+                  write: ['admin'],
                 },
               ],
             },
@@ -340,7 +322,7 @@ test.describe('Field-Level Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -357,10 +339,7 @@ test.describe('Field-Level Permissions', () => {
               fields: [
                 {
                   field: 'notes',
-                  write: {
-                    type: 'custom',
-                    condition: '{userId} = owner_id',
-                  },
+                  write: ['member'],
                 },
               ],
             },
@@ -425,9 +404,7 @@ test.describe('Field-Level Permissions', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              read: {
-                type: 'authenticated',
-              },
+              read: 'authenticated',
               fields: [],
             },
           },
@@ -474,8 +451,7 @@ test.describe('Field-Level Permissions', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
           tables: [
             {
@@ -489,15 +465,15 @@ test.describe('Field-Level Permissions', () => {
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                read: { type: 'roles', roles: ['member', 'admin'] }, // Better Auth: base permission
+                read: ['member', 'admin'], // Better Auth: base permission
                 fields: [
                   {
                     field: 'salary',
-                    read: { type: 'roles', roles: ['admin'] }, // RLS: field-level filtering
+                    read: ['admin'], // RLS: field-level filtering
                   },
                   {
                     field: 'ssn',
-                    read: { type: 'roles', roles: ['admin'] }, // RLS: field-level filtering
+                    read: ['admin'], // RLS: field-level filtering
                   },
                 ],
               },
@@ -575,8 +551,7 @@ test.describe('Field-Level Permissions', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
           tables: [
             {
@@ -589,11 +564,11 @@ test.describe('Field-Level Permissions', () => {
               ],
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
-                update: { type: 'roles', roles: ['member', 'admin'] }, // Better Auth: base permission
+                update: ['member', 'admin'], // Better Auth: base permission
                 fields: [
                   {
                     field: 'verified',
-                    write: { type: 'roles', roles: ['admin'] }, // RLS: field-level write restriction
+                    write: ['admin'], // RLS: field-level write restriction
                   },
                 ],
               },
@@ -675,7 +650,7 @@ test.describe('Field-Level Permissions', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -689,14 +664,11 @@ test.describe('Field-Level Permissions', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              read: { type: 'authenticated' }, // Better Auth: must be logged in
+              read: 'authenticated', // Better Auth: must be logged in
               fields: [
                 {
                   field: 'secret_content',
-                  read: {
-                    type: 'custom',
-                    condition: '{userId} = owner_id', // RLS: owner-only filtering
-                  },
+                  read: ['member'], // RLS: owner-only filtering
                 },
               ],
             },
@@ -781,8 +753,7 @@ test.describe('Field-Level Permissions', () => {
           {
             name: 'test-app',
             auth: {
-              emailAndPassword: true,
-              admin: true,
+              strategies: [{ type: 'emailAndPassword' }],
             },
             tables: [
               // Table for spec 001, 003, 007 - role-based read permissions
@@ -802,7 +773,7 @@ test.describe('Field-Level Permissions', () => {
                   fields: [
                     {
                       field: 'salary',
-                      read: { type: 'roles', roles: ['admin'] },
+                      read: ['admin'],
                     },
                   ],
                 },
@@ -824,7 +795,7 @@ test.describe('Field-Level Permissions', () => {
                   fields: [
                     {
                       field: 'email',
-                      write: { type: 'roles', roles: ['admin'] },
+                      write: ['admin'],
                     },
                   ],
                 },
@@ -843,8 +814,8 @@ test.describe('Field-Level Permissions', () => {
                   fields: [
                     {
                       field: 'status',
-                      read: { type: 'public' },
-                      write: { type: 'roles', roles: ['admin'] },
+                      read: 'all',
+                      write: ['admin'],
                     },
                   ],
                 },
@@ -862,22 +833,16 @@ test.describe('Field-Level Permissions', () => {
                 ],
                 primaryKey: { type: 'composite', fields: ['id'] },
                 permissions: {
-                  read: { type: 'authenticated' },
-                  update: { type: 'authenticated' },
+                  read: 'authenticated',
+                  update: 'authenticated',
                   fields: [
                     {
                       field: 'notes',
-                      write: {
-                        type: 'custom',
-                        condition: '{userId} = owner_id',
-                      },
+                      write: ['member'],
                     },
                     {
                       field: 'secret_content',
-                      read: {
-                        type: 'custom',
-                        condition: '{userId} = owner_id',
-                      },
+                      read: ['member'],
                     },
                   ],
                 },
@@ -894,7 +859,7 @@ test.describe('Field-Level Permissions', () => {
                 ],
                 primaryKey: { type: 'composite', fields: ['id'] },
                 permissions: {
-                  read: { type: 'authenticated' },
+                  read: 'authenticated',
                   fields: [],
                 },
               },

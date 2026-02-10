@@ -35,7 +35,7 @@ test.describe('Disabled Tables Endpoints', () => {
       // GIVEN: Server with auth enabled but no tables configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         // No tables config - tables list returns empty array
       })
 
@@ -60,7 +60,7 @@ test.describe('Disabled Tables Endpoints', () => {
       // GIVEN: Server with auth enabled but no tables configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         // No tables config - specific table returns 404
       })
 
@@ -82,7 +82,7 @@ test.describe('Disabled Tables Endpoints', () => {
       // GIVEN: Server with auth enabled but no tables configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         // No tables config - records endpoint returns 404 (table not found)
       })
 
@@ -104,7 +104,7 @@ test.describe('Disabled Tables Endpoints', () => {
       // GIVEN: Server with auth enabled but no tables configuration
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         // No tables config - create record returns 404 (table not found)
       })
 
@@ -134,7 +134,7 @@ test.describe('Disabled Tables Endpoints', () => {
       // Setup: Start server with auth enabled but no tables config
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         // No tables config - tables list returns empty array, specific tables return 404
       })
 

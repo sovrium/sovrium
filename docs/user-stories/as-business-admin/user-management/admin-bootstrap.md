@@ -32,8 +32,10 @@ SOVRIUM_ADMIN_NAME=System Administrator  # Optional, defaults to "Admin"
 
 ```yaml
 auth:
-  emailAndPassword: true
-  admin: true # Enable admin plugin (bootstrap uses env vars)
+  strategies:
+    - type: emailAndPassword
+# Admin features are always enabled when auth is configured.
+# Bootstrap uses ADMIN_EMAIL / ADMIN_PASSWORD env vars.
 ```
 
 ### Acceptance Criteria

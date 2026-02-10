@@ -26,10 +26,7 @@ test.describe('Admin: Stop Impersonating', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: {
-              impersonation: true,
-            },
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -74,10 +71,7 @@ test.describe('Admin: Stop Impersonating', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: {
-              impersonation: true,
-            },
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -125,10 +119,7 @@ test.describe('Admin: Stop Impersonating', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
-          admin: {
-            impersonation: true,
-          },
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
       await createAuthenticatedUser({
@@ -165,10 +156,7 @@ test.describe('Admin: Stop Impersonating', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
-          admin: {
-            impersonation: true,
-          },
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
       await createAuthenticatedUser({
@@ -194,10 +182,7 @@ test.describe('Admin: Stop Impersonating', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
-          admin: {
-            impersonation: true,
-          },
+          strategies: [{ type: 'emailAndPassword' }],
         },
       })
 
@@ -218,10 +203,7 @@ test.describe('Admin: Stop Impersonating', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: {
-              impersonation: true,
-            },
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {

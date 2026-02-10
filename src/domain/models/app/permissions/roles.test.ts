@@ -16,11 +16,6 @@ import {
 } from './roles'
 
 describe('StandardRoleSchema', () => {
-  test('should accept owner role', () => {
-    const result = Schema.decodeUnknownSync(StandardRoleSchema)('owner')
-    expect(result).toBe('owner')
-  })
-
   test('should accept admin role', () => {
     const result = Schema.decodeUnknownSync(StandardRoleSchema)('admin')
     expect(result).toBe('admin')
@@ -48,11 +43,6 @@ describe('StandardRoleSchema', () => {
 })
 
 describe('AdminLevelRoleSchema', () => {
-  test('should accept owner role', () => {
-    const result = Schema.decodeUnknownSync(AdminLevelRoleSchema)('owner')
-    expect(result).toBe('owner')
-  })
-
   test('should accept admin role', () => {
     const result = Schema.decodeUnknownSync(AdminLevelRoleSchema)('admin')
     expect(result).toBe('admin')
@@ -73,9 +63,9 @@ describe('UserLevelRoleSchema', () => {
     expect(result).toBe('admin')
   })
 
-  test('should accept user role', () => {
-    const result = Schema.decodeUnknownSync(UserLevelRoleSchema)('user')
-    expect(result).toBe('user')
+  test('should accept member role', () => {
+    const result = Schema.decodeUnknownSync(UserLevelRoleSchema)('member')
+    expect(result).toBe('member')
   })
 
   test('should accept viewer role', () => {
@@ -87,8 +77,8 @@ describe('UserLevelRoleSchema', () => {
     expect(() => Schema.decodeUnknownSync(UserLevelRoleSchema)('owner')).toThrow()
   })
 
-  test('should reject member role', () => {
-    expect(() => Schema.decodeUnknownSync(UserLevelRoleSchema)('member')).toThrow()
+  test('should reject unknown role', () => {
+    expect(() => Schema.decodeUnknownSync(UserLevelRoleSchema)('superadmin')).toThrow()
   })
 })
 
@@ -130,13 +120,8 @@ describe('StandardRolesArraySchema', () => {
   })
 
   test('should accept array with all standard roles', () => {
-    const result = Schema.decodeUnknownSync(StandardRolesArraySchema)([
-      'owner',
-      'admin',
-      'member',
-      'viewer',
-    ])
-    expect(result).toEqual(['owner', 'admin', 'member', 'viewer'])
+    const result = Schema.decodeUnknownSync(StandardRolesArraySchema)(['admin', 'member', 'viewer'])
+    expect(result).toEqual(['admin', 'member', 'viewer'])
   })
 
   test('should reject empty array', () => {

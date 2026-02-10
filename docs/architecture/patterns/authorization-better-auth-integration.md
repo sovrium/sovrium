@@ -55,7 +55,7 @@ export const auth = betterAuth({
 - **Namespace Isolation**: Tables prefixed with `_sovrium_auth_` to prevent conflicts
 - **Email Invitations**: Custom email handler with variable substitution
 - **Multi-tenancy**: Organization-based data isolation
-- **Role Management**: Per-organization roles (owner, admin, member, viewer)
+- **Role Management**: Per-organization roles (admin, member, viewer)
 
 ### Database Schema
 
@@ -75,7 +75,7 @@ export const organizations = pgTable('_sovrium_auth_organizations', {
 
 export const members = pgTable('_sovrium_auth_members', {
   id: text('id').primaryKey(),
-  userId: text('owner_id')
+  userId: text('userId')
     .notNull()
     .references(() => organizations.id, { onDelete: 'cascade' }),
   userId: text('user_id')
@@ -87,7 +87,7 @@ export const members = pgTable('_sovrium_auth_members', {
 
 export const invitations = pgTable('_sovrium_auth_invitations', {
   id: text('id').primaryKey(),
-  userId: text('owner_id')
+  userId: text('userId')
     .notNull()
     .references(() => organizations.id, { onDelete: 'cascade' }),
   email: text('email').notNull(),
@@ -163,7 +163,7 @@ Click here to accept the invitation: {url}
 - ✅ Multi-tenant data isolation possible
 - ✅ Organization-based RBAC
 
-> **Note**: Sovrium currently uses owner-based isolation (user-level multi-tenancy) instead of the organization plugin. This provides simpler access control where records are owned by individual users.
+> **Note**: Sovrium uses role-based access control with Better Auth roles. The organization plugin can be enabled for multi-organization support via app schema configuration.
 
 **Configuration in App Schema**:
 
@@ -191,7 +191,7 @@ interface Session {
     email: string
     name: string
     userId: string // From organization plugin
-    role: 'owner' | 'admin' | 'member' | 'viewer'
+    role: 'admin' | 'member' | 'viewer'
   }
   session: {
     id: string
@@ -238,14 +238,10 @@ export const requireAuth = createMiddleware(async (c, next) => {
 Better Auth Organization plugin provides these roles:
 
 ```typescript
-type Role = 'owner' | 'admin' | 'member' | 'viewer'
+type Role = 'admin' | 'member' | 'viewer'
 
 // Default permission patterns by role:
 const DEFAULT_PERMISSIONS = {
-  owner: {
-    table: { read: true, create: true, update: true, delete: true },
-    fields: {}, // Full access to all fields
-  },
   admin: {
     table: { read: true, create: true, update: true, delete: true },
     fields: {}, // Full access to all fields
@@ -275,13 +271,13 @@ const userId = c.get('userId')
 
 // Use in database queries
 const records = await db.query.records.findMany({
-  where: eq(records.owner_id, userId),
+  where: eq(records.userId, userId),
 })
 
 // Auto-inject on create
 const newRecord = await db.insert(records).values({
   ...recordData,
-  owner_id: userId,
+  userId: userId,
 })
 ```
 
@@ -309,7 +305,7 @@ app.get('/tables/:tableId/records', requireAuth, async (c) => {
 
   // Use userId in query filters
   const records = await db.query.records.findMany({
-    where: eq(records.owner_id, userId),
+    where: eq(records.userId, userId),
   })
 
   return c.json({ records })
@@ -406,7 +402,7 @@ The authorization service receives user context from Better Auth:
 interface User {
   id: string
   userId: string
-  role: 'owner' | 'admin' | 'member' | 'viewer'
+  role: 'admin' | 'member' | 'viewer'
 }
 
 // Check permissions using user context

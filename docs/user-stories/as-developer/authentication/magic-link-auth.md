@@ -16,8 +16,9 @@
 
 ```yaml
 auth:
-  magicLink:
-    expirationMinutes: 15
+  strategies:
+    - type: magicLink
+      expirationMinutes: 15
 ```
 
 ### Acceptance Criteria

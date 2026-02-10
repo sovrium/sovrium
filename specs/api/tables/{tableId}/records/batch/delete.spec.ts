@@ -37,7 +37,7 @@ test.describe('Batch delete records', () => {
       // GIVEN: Table 'users' with 3 records (ID=1, ID=2, ID=3)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -95,7 +95,7 @@ test.describe('Batch delete records', () => {
       // GIVEN: Table 'users' with record ID=1 only
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 2,
@@ -145,7 +145,7 @@ test.describe('Batch delete records', () => {
       // GIVEN: Table 'users' exists
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 3,
@@ -185,7 +185,7 @@ test.describe('Batch delete records', () => {
       // GIVEN: An unauthenticated user with auth enabled
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 4,
@@ -231,7 +231,7 @@ test.describe('Batch delete records', () => {
       // GIVEN: A member user without delete permission
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 5,
@@ -284,7 +284,7 @@ test.describe('Batch delete records', () => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 6,
@@ -331,7 +331,7 @@ test.describe('Batch delete records', () => {
       // GIVEN: An admin user with full delete permissions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 8,
@@ -389,7 +389,7 @@ test.describe('Batch delete records', () => {
       // GIVEN: An owner user with full delete permissions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 9,
@@ -445,7 +445,7 @@ test.describe('Batch delete records', () => {
       // GIVEN: Mix of active and soft-deleted records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 12,
@@ -497,7 +497,7 @@ test.describe('Batch delete records', () => {
       // GIVEN: An admin user and active records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 13,
@@ -556,7 +556,7 @@ test.describe('Batch delete records', () => {
       // Setup: Start server with users table and test records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

@@ -11,44 +11,42 @@ import { TablePermissionSchema } from './permission'
 
 describe('TablePermissionSchema', () => {
   describe('valid permissions (union)', () => {
-    test('should accept public permission', () => {
-      const permission = { type: 'public' as const }
-      const result = Schema.decodeUnknownSync(TablePermissionSchema)(permission)
-      expect(result).toEqual(permission)
+    test('should accept "all" permission', () => {
+      const result = Schema.decodeUnknownSync(TablePermissionSchema)('all')
+      expect(result).toBe('all')
     })
 
-    test('should accept authenticated permission', () => {
-      const permission = { type: 'authenticated' as const }
-      const result = Schema.decodeUnknownSync(TablePermissionSchema)(permission)
-      expect(result).toEqual(permission)
+    test('should accept "authenticated" permission', () => {
+      const result = Schema.decodeUnknownSync(TablePermissionSchema)('authenticated')
+      expect(result).toBe('authenticated')
     })
 
-    test('should accept roles permission', () => {
-      const permission = { type: 'roles' as const, roles: ['admin'] }
-      const result = Schema.decodeUnknownSync(TablePermissionSchema)(permission)
-      expect(result).toEqual(permission)
+    test('should accept roles array permission', () => {
+      const result = Schema.decodeUnknownSync(TablePermissionSchema)(['admin'])
+      expect(result).toEqual(['admin'])
     })
 
-    test('should accept owner permission', () => {
-      const permission = { type: 'owner' as const, field: 'owner_id' }
-      const result = Schema.decodeUnknownSync(TablePermissionSchema)(permission)
-      expect(result).toEqual(permission)
+    test('should accept multiple roles array', () => {
+      const result = Schema.decodeUnknownSync(TablePermissionSchema)(['admin', 'member'])
+      expect(result).toEqual(['admin', 'member'])
     })
   })
 
   describe('invalid permissions', () => {
-    test('should reject unknown type', () => {
-      const permission = { type: 'unknown' }
-      expect(() => Schema.decodeUnknownSync(TablePermissionSchema)(permission)).toThrow()
+    test('should reject unknown string', () => {
+      expect(() => Schema.decodeUnknownSync(TablePermissionSchema)('unknown')).toThrow()
     })
 
-    test('should reject missing type', () => {
-      const permission = { roles: ['admin'] }
-      expect(() => Schema.decodeUnknownSync(TablePermissionSchema)(permission)).toThrow()
+    test('should reject empty array', () => {
+      expect(() => Schema.decodeUnknownSync(TablePermissionSchema)([])).toThrow()
     })
 
     test('should reject null', () => {
       expect(() => Schema.decodeUnknownSync(TablePermissionSchema)(null)).toThrow()
+    })
+
+    test('should reject object', () => {
+      expect(() => Schema.decodeUnknownSync(TablePermissionSchema)({ type: 'public' })).toThrow()
     })
   })
 })

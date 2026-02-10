@@ -37,7 +37,7 @@ test.describe('Delete record', () => {
       // GIVEN: Table 'contacts' with record ID=1 and deleted_at field for soft delete
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -73,7 +73,7 @@ test.describe('Delete record', () => {
       // GIVEN: Table 'contacts' exists but record ID=9999 does not
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 2,
@@ -112,7 +112,7 @@ test.describe('Delete record', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -157,7 +157,7 @@ test.describe('Delete record', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -168,10 +168,7 @@ test.describe('Delete record', () => {
               { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
             permissions: {
-              delete: {
-                type: 'roles',
-                roles: ['admin', 'owner'],
-              },
+              delete: ['admin'],
             },
           },
         ],
@@ -212,10 +209,7 @@ test.describe('Delete record', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
-          admin: {
-            defaultRole: 'user',
-          },
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -264,7 +258,7 @@ test.describe('Delete record', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -309,7 +303,7 @@ test.describe('Delete record', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -359,7 +353,7 @@ test.describe('Delete record', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -400,7 +394,7 @@ test.describe('Delete record', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -449,7 +443,7 @@ test.describe('Delete record', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -488,7 +482,7 @@ test.describe('Delete record', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -531,7 +525,7 @@ test.describe('Delete record', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
         },
         tables: [
           {
@@ -622,7 +616,7 @@ test.describe('Delete record', () => {
       // GIVEN: Application with auth and activity logging configured
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 18,
@@ -679,7 +673,7 @@ test.describe('Delete record', () => {
       // GIVEN: Admin user with permanent delete permission
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 19,
@@ -735,7 +729,7 @@ test.describe('Delete record', () => {
       // GIVEN: Two users with different permissions
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 20,
@@ -788,7 +782,7 @@ test.describe('Delete record', () => {
       // GIVEN: Consolidated schema covering all @spec test scenarios
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

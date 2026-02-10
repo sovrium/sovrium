@@ -16,7 +16,8 @@
 
 ```yaml
 auth:
-  emailAndPassword: true
+  strategies:
+    - type: emailAndPassword
 # Note: Rate limiting is configured at the Better Auth server level,
 # not in the AppSchema. The auth config enables the endpoints that
 # are protected by rate limiting.

@@ -10,6 +10,7 @@ import { ForbiddenError } from '@/infrastructure/database/session-context'
 import { listRecords } from '@/infrastructure/database/table-queries'
 import {
   isAdminRole,
+  hasPermission,
   evaluateTablePermissions,
   evaluateFieldPermissions,
 } from './permissions/permissions'
@@ -36,13 +37,13 @@ export class TableNotFoundError extends Error {
 /* eslint-enable functional/no-expression-statements */
 
 // Constants
-const ALLOWED_ROLES_TO_LIST_TABLES: readonly string[] = ['owner', 'admin', 'member'] as const
+const ALLOWED_ROLES_TO_LIST_TABLES: readonly string[] = ['admin', 'member'] as const
 
 export function createListTablesProgram(
   userRole: string,
   app: App
 ): Effect.Effect<readonly unknown[], Error> {
-  // Global permission check: only owner/admin/member can list tables
+  // Global permission check: only admin/member can list tables
   // Viewer role is explicitly denied from listing tables
   if (
     !ALLOWED_ROLES_TO_LIST_TABLES.includes(
@@ -64,15 +65,12 @@ export function createListTablesProgram(
       return false
     }
 
-    // Check role-based permissions
-    if (readPermission.type === 'roles') {
-      const allowedRoles = readPermission.roles || []
-      return allowedRoles.includes(userRole)
-    }
+    // Check permission using simplified 3-format system
+    if (readPermission === 'all') return true
+    if (readPermission === 'authenticated') return true
+    if (Array.isArray(readPermission)) return readPermission.includes(userRole)
 
-    // For public, authenticated, owner, or custom permission types, allow access
-    // These would need additional implementation if required
-    return true
+    return false
   })
 
   // Map tables to API response format
@@ -100,28 +98,12 @@ export function createGetTableProgram(
       return yield* Effect.fail(new TableNotFoundError('TABLE_NOT_FOUND'))
     }
 
-    // Check table-level read permissions
-    const readPermission = table.permissions?.read
-
-    // If no read permission is configured, deny access by default (secure by default)
-    if (!readPermission) {
+    // Check table-level read permissions using simplified 3-format system
+    if (!hasPermission(table.permissions?.read, userRole)) {
       return yield* Effect.fail(
         new ForbiddenError('You do not have permission to access this table')
       )
     }
-
-    // Check role-based permissions
-    if (readPermission.type === 'roles') {
-      const allowedRoles = readPermission.roles || []
-      if (!allowedRoles.includes(userRole)) {
-        return yield* Effect.fail(
-          new ForbiddenError('You do not have permission to access this table')
-        )
-      }
-    }
-
-    // For other permission types (public, authenticated, owner, custom), allow access
-    // These would need additional implementation if required
 
     // Map table fields to API response format
     const fields = table.fields.map((field) => ({
@@ -255,15 +237,12 @@ export function listViewsProgram(
       return yield* Effect.fail(new TableNotFoundError('Table not found'))
     }
 
-    // Check table-level read permissions
+    // Check table-level read permissions using simplified 3-format system
     const readPermission = table.permissions?.read
-    if (readPermission && readPermission.type === 'roles') {
-      const allowedRoles = readPermission.roles || []
-      if (!allowedRoles.includes(userRole)) {
-        return yield* Effect.fail(
-          new ForbiddenError('You do not have permission to access this table')
-        )
-      }
+    if (Array.isArray(readPermission) && !readPermission.includes(userRole)) {
+      return yield* Effect.fail(
+        new ForbiddenError('You do not have permission to access this table')
+      )
     }
 
     // Get views from table (or empty array if no views)

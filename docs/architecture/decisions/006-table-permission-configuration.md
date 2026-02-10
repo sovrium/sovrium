@@ -11,7 +11,7 @@
 
 Sovrium implements fine-grained authorization for table APIs with:
 
-- Role-based access control (RBAC) with 4 default roles: owner, admin, member, viewer
+- Role-based access control (RBAC) with 3 default roles: admin, member, viewer
 - Table-level operation permissions (read, create, update, delete)
 - Field-level read/write permissions for sensitive data
 
@@ -45,7 +45,7 @@ Sovrium implements fine-grained authorization for table APIs with:
 ### Requirements
 
 1. **Per-Table Configuration**: Each table can have different permission rules
-2. **Role-Based**: Permissions defined per role (owner, admin, member, viewer)
+2. **Role-Based**: Permissions defined per role (admin, member, viewer)
 3. **Field-Level Granularity**: Ability to restrict individual fields by role
 4. **Runtime Changes**: Permission changes should apply immediately (no app restart)
 5. **Testable via API**: E2E tests must be able to configure permissions dynamically
@@ -63,7 +63,7 @@ Sovrium implements fine-grained authorization for table APIs with:
 CREATE TABLE table_permissions (
   id SERIAL PRIMARY KEY,
   table_id INTEGER NOT NULL REFERENCES tables(id) ON DELETE CASCADE,
-  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'member', 'viewer')),
+  role TEXT NOT NULL CHECK (role IN ('admin', 'member', 'viewer')),
   table_permissions JSONB NOT NULL, -- { "read": true, "create": false, ... }
   field_permissions JSONB,          -- { "salary": { "read": false, "write": false }, ... }
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
@@ -83,7 +83,7 @@ PUT    /api/admin/tables/:tableId/permissions/:role
 DELETE /api/admin/tables/:tableId/permissions/:role
 ```
 
-**Authentication**: Admin-only endpoints (requires `admin` or `owner` role)
+**Authentication**: Admin-only endpoints (requires `admin` role)
 
 ### Default Permissions
 
@@ -91,7 +91,6 @@ If no permissions configured for a table+role, use these defaults:
 
 | Role     | Table Permissions                                             | Field Permissions     |
 | -------- | ------------------------------------------------------------- | --------------------- |
-| `owner`  | `{ read: true, create: true, update: true, delete: true }`    | All fields accessible |
 | `admin`  | `{ read: true, create: true, update: true, delete: true }`    | All fields accessible |
 | `member` | `{ read: true, create: true, update: true, delete: false }`   | All fields accessible |
 | `viewer` | `{ read: true, create: false, update: false, delete: false }` | All fields accessible |
@@ -170,7 +169,7 @@ If no permissions configured for a table+role, use these defaults:
 **Security Risk**: Incorrectly configured permissions expose sensitive data
 
 - **Mitigation 1**: Default to most restrictive permissions (viewer-level)
-- **Mitigation 2**: Admin-only API (require `admin` or `owner` role)
+- **Mitigation 2**: Admin-only API (require `admin` role)
 - **Mitigation 3**: Comprehensive E2E tests for all permission scenarios (28 specs in `specs/api/paths/tables/`)
 
 ---
@@ -212,7 +211,7 @@ export const tablePermissions = pgTable('table_permissions', {
   tableId: integer('table_id')
     .notNull()
     .references(() => tables.id, { onDelete: 'cascade' }),
-  role: text('role').notNull().$type<'owner' | 'admin' | 'member' | 'viewer'>(),
+  role: text('role').notNull().$type<'admin' | 'member' | 'viewer'>(),
   tablePermissions: jsonb('table_permissions').notNull(),
   fieldPermissions: jsonb('field_permissions'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -247,7 +246,7 @@ export const FieldPermissionsSchema = Schema.Record({
 })
 
 export const PermissionConfigSchema = Schema.Struct({
-  role: Schema.Literal('owner', 'admin', 'member', 'viewer'),
+  role: Schema.Literal('admin', 'member', 'viewer'),
   tablePermissions: TablePermissionsSchema,
   fieldPermissions: Schema.optional(FieldPermissionsSchema),
 })
@@ -260,7 +259,7 @@ export const PermissionConfigSchema = Schema.Struct({
 app.post(
   '/api/admin/tables/:tableId/permissions',
   requireAuth,
-  requireRole(['admin', 'owner']),
+  requireRole(['admin']),
   async (c) => {
     const tableId = parseInt(c.req.param('tableId'))
     const config = await c.req.json()
@@ -326,7 +325,7 @@ export const getPermissions = (tableId: number, role: string) =>
 
 **Foreign Key**: `table_id REFERENCES tables(id) ON DELETE CASCADE` ensures orphaned permissions are cleaned up
 
-**CHECK Constraint**: `role IN ('owner', 'admin', 'member', 'viewer')` prevents invalid roles
+**CHECK Constraint**: `role IN ('admin', 'member', 'viewer')` prevents invalid roles
 
 **Verification**: PostgreSQL enforces these constraints at insert/update time
 
@@ -339,7 +338,7 @@ export const getPermissions = (tableId: number, role: string) =>
 **What's Enforced**:
 
 - ✅ Permission config structure matches schema (table + field permissions)
-- ✅ Role must be one of 4 valid values (owner, admin, member, viewer)
+- ✅ Role must be one of 3 valid values (admin, member, viewer)
 - ✅ Boolean values for permission flags (no strings or nulls accepted)
 
 **Verification**: Effect Schema validation at API boundary catches invalid configs
@@ -367,7 +366,7 @@ export const getPermissions = (tableId: number, role: string) =>
 1. **Default Permission Logic**: Ensure fallback permissions are sensible (viewer-level restrictive)
 2. **Cache Invalidation**: Verify cache invalidates on permission updates
 3. **Performance**: Monitor permission lookup latency (target < 10ms with cache)
-4. **Multi-Tenancy**: Verify owner isolation (users cannot set permissions for other orgs)
+4. **Multi-Tenancy**: Verify user isolation (users cannot set permissions for other users' data)
 
 ---
 

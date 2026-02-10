@@ -6,94 +6,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import {
-  validateOwnerPermissions,
-  validateFieldPermissions,
-  validateRecordPermissions,
-  validateTablePermissions,
-} from './table-permissions-validation'
-
-describe('validateOwnerPermissions', () => {
-  const fields = [
-    { name: 'user_id', type: 'user' },
-    { name: 'created_by', type: 'created-by' },
-    { name: 'title', type: 'single-line-text' },
-  ]
-  const fieldNames = new Set(['user_id', 'created_by', 'title'])
-
-  describe('When owner permission references non-existent field', () => {
-    test('Then returns error for read permission', () => {
-      const result = validateOwnerPermissions(
-        { read: { type: 'owner', field: 'missing_field' } },
-        fields,
-        fieldNames
-      )
-      expect(result).toEqual({
-        message: "Owner field 'missing_field' does not exist in table - field not found",
-        path: ['permissions', 'read'],
-      })
-    })
-
-    test('Then returns error for update permission', () => {
-      const result = validateOwnerPermissions(
-        { update: { type: 'owner', field: 'unknown' } },
-        fields,
-        fieldNames
-      )
-      expect(result?.path).toEqual(['permissions', 'update'])
-    })
-
-    test('Then returns error for delete permission', () => {
-      const result = validateOwnerPermissions(
-        { delete: { type: 'owner', field: 'nonexistent' } },
-        fields,
-        fieldNames
-      )
-      expect(result?.path).toEqual(['permissions', 'delete'])
-    })
-  })
-
-  describe('When owner permission references non-user field', () => {
-    test('Then returns error for text field', () => {
-      const result = validateOwnerPermissions(
-        { read: { type: 'owner', field: 'title' } },
-        fields,
-        fieldNames
-      )
-      expect(result?.message).toContain('must be a user type')
-      expect(result?.message).toContain("'single-line-text'")
-    })
-  })
-
-  describe('When owner permission is valid', () => {
-    test('Then allows user type field', () => {
-      const result = validateOwnerPermissions(
-        { read: { type: 'owner', field: 'user_id' } },
-        fields,
-        fieldNames
-      )
-      expect(result).toBeUndefined()
-    })
-
-    test('Then allows created-by type field', () => {
-      const result = validateOwnerPermissions(
-        { read: { type: 'owner', field: 'created_by' } },
-        fields,
-        fieldNames
-      )
-      expect(result).toBeUndefined()
-    })
-
-    test('Then allows non-owner permission types', () => {
-      const result = validateOwnerPermissions(
-        { read: { type: 'public' }, create: { type: 'authenticated' } },
-        fields,
-        fieldNames
-      )
-      expect(result).toBeUndefined()
-    })
-  })
-})
+import { validateFieldPermissions, validateTablePermissions } from './table-permissions-validation'
 
 describe('validateFieldPermissions', () => {
   const fieldNames = new Set(['name', 'email', 'status'])
@@ -132,71 +45,6 @@ describe('validateFieldPermissions', () => {
   })
 })
 
-describe('validateRecordPermissions', () => {
-  const fieldNames = new Set(['status', 'department', 'owner_id'])
-
-  describe('When condition has invalid syntax', () => {
-    test('Then returns error for double equals', () => {
-      const result = validateRecordPermissions(
-        [{ action: 'read', condition: "status == 'active'" }],
-        fieldNames
-      )
-      expect(result).toEqual({
-        message: 'Invalid condition syntax: use single = for equality, not ==',
-        path: ['permissions', 'records'],
-      })
-    })
-
-    test('Then returns error for consecutive operators', () => {
-      const result = validateRecordPermissions(
-        [{ action: 'read', condition: 'status = = active' }],
-        fieldNames
-      )
-      expect(result?.message).toContain('consecutive comparison operators')
-    })
-  })
-
-  describe('When condition references non-existent field', () => {
-    test('Then returns error for unknown field', () => {
-      const result = validateRecordPermissions(
-        [{ action: 'read', condition: "unknown_field = 'value'" }],
-        fieldNames
-      )
-      expect(result).toEqual({
-        message:
-          "Record permission references non-existent field 'unknown_field' - field does not exist in table",
-        path: ['permissions', 'records'],
-      })
-    })
-  })
-
-  describe('When condition is valid', () => {
-    test('Then allows existing field references', () => {
-      const result = validateRecordPermissions(
-        [{ action: 'read', condition: "status = 'active'" }],
-        fieldNames
-      )
-      expect(result).toBeUndefined()
-    })
-
-    test('Then allows {userId} variable', () => {
-      const result = validateRecordPermissions(
-        [{ action: 'read', condition: 'owner_id = {userId}' }],
-        fieldNames
-      )
-      expect(result).toBeUndefined()
-    })
-
-    test('Then allows {user.property} syntax', () => {
-      const result = validateRecordPermissions(
-        [{ action: 'read', condition: 'department = {user.department}' }],
-        fieldNames
-      )
-      expect(result).toBeUndefined()
-    })
-  })
-})
-
 describe('validateTablePermissions', () => {
   const fields = [
     { name: 'name', type: 'single-line-text' },
@@ -205,24 +53,8 @@ describe('validateTablePermissions', () => {
   const fieldNames = new Set(['name', 'user_id'])
 
   test('returns undefined for valid permissions', () => {
-    const result = validateTablePermissions(
-      {
-        read: { type: 'public' },
-        create: { type: 'authenticated' },
-      },
-      fields,
-      fieldNames
-    )
+    const result = validateTablePermissions({}, fields, fieldNames)
     expect(result).toBeUndefined()
-  })
-
-  test('validates owner permissions', () => {
-    const result = validateTablePermissions(
-      { read: { type: 'owner', field: 'missing' } },
-      fields,
-      fieldNames
-    )
-    expect(result?.message).toContain('does not exist')
   })
 
   test('validates field permissions', () => {
@@ -230,12 +62,8 @@ describe('validateTablePermissions', () => {
     expect(result?.message).toContain('does not exist in table')
   })
 
-  test('validates record permissions', () => {
-    const result = validateTablePermissions(
-      { records: [{ action: 'read', condition: "unknown = 'value'" }] },
-      fields,
-      fieldNames
-    )
-    expect(result?.message).toContain('non-existent field')
+  test('returns undefined when no field permissions', () => {
+    const result = validateTablePermissions({}, fields, fieldNames)
+    expect(result).toBeUndefined()
   })
 })

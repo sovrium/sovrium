@@ -78,14 +78,14 @@ if (READONLY_FIELDS.includes(field)) {
 
 ### 404 Not Found
 
-**When to use**: Resource doesn't exist OR belongs to different organization
+**When to use**: Resource doesn't exist OR user doesn't have access
 
 **CRITICAL**: Always return 404 for unauthorized access (never 403)
 
 ```typescript
-// owner isolation check
+// Data access check
 const record = await db.query.records.findFirst({
-  where: and(eq(records.id, recordId), eq(records.owner_id, user.userId)),
+  where: eq(records.id, recordId),
 })
 
 if (!record) {
@@ -95,9 +95,9 @@ if (!record) {
 
 **Why 404 instead of 403 for unauthorized?**
 
-- 403 reveals that the record exists but belongs to another organization
+- 403 reveals that the record exists but user lacks permission
 - 404 hides whether the record exists at all
-- Prevents organization enumeration attacks
+- Prevents enumeration attacks
 
 ## Error Response Format
 
@@ -271,7 +271,7 @@ app.post('/tables/:tableId/records', requireAuth, async (c) => {
 Follow this order to prevent information leakage:
 
 1. **Authentication** (401) - Check user is authenticated
-2. **Owner Isolation** (404) - Check record belongs to user's org
+2. **Data Access** (404) - Check record exists and user has access
 3. **Table-Level Permissions** (403) - Check user can perform operation
 4. **Field-Level Permissions** (403) - Check user can access specific fields
 
@@ -282,9 +282,9 @@ app.patch('/tables/:tableId/records/:recordId', requireAuth, async (c) => {
 
   // 1. Authentication (handled by requireAuth middleware)
 
-  // 2. owner isolation (404)
+  // 2. Data access (404)
   const record = await db.query.records.findFirst({
-    where: and(eq(records.id, recordId), eq(records.owner_id, user.userId)),
+    where: eq(records.id, recordId),
   })
 
   if (!record) {
@@ -342,7 +342,7 @@ app.post('/tables/:tableId/records/batch', requireAuth, async (c) => {
   const result = await db.transaction(async (tx) => {
     return await tx
       .insert(records)
-      .values(recordsToCreate.map((r) => ({ ...r, owner_id: user.userId })))
+      .values(recordsToCreate.map((r) => ({ ...r, user_id: user.userId })))
       .returning()
   })
 
@@ -415,23 +415,23 @@ app.post('/tables/:tableId/records/batch', requireAuth, async (c) => {
 }
 ```
 
-### Example Spec: 404 Not Found (Org Isolation)
+### Example Spec: 404 Not Found (Data Access)
 
 ```json
 {
-  "id": "API-TABLES-RECORDS-GET-ORG-ISOLATION-001",
-  "given": "A user attempts to access record from different organization",
-  "when": "User GETs record with mismatched owner_id",
+  "id": "API-TABLES-RECORDS-GET-DATA-ACCESS-001",
+  "given": "A user attempts to access record they don't have permission to",
+  "when": "User GETs record they cannot access",
   "then": "Returns 404 Not Found (not 403)",
   "validation": {
     "setup": {
       "authUser": {
         "id": 2,
-        "userId": "org_123",
+        "userId": "user_123",
         "role": "admin"
       },
       "fixtures": {
-        "records": [{ "id": 1, "owner_id": "org_999", "name": "Record from other org" }]
+        "records": [{ "id": 1, "name": "Record user cannot access" }]
       }
     },
     "assertions": [

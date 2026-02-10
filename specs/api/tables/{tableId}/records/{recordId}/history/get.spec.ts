@@ -31,7 +31,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       // GIVEN: Table with a record and multiple activities
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -83,7 +83,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       // GIVEN: Application with auth enabled but user not signed in
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -117,7 +117,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       // GIVEN: Application with authenticated user but no table ID 9999
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
       })
 
       await createAuthenticatedUser()
@@ -142,7 +142,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       // GIVEN: Table exists but record ID 99999 does not
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -178,7 +178,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       // GIVEN: Table with record but no activity logs
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -213,7 +213,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       // GIVEN: Record with activities from multiple users
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -258,7 +258,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       // GIVEN: Record with activities older and newer than 1 year
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -302,7 +302,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       // GIVEN: Record with many activities (30 activities)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -351,7 +351,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       // GIVEN: Record that was created, updated, and deleted
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -398,7 +398,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       // GIVEN: Application with auth configured but user not authenticated
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -431,7 +431,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       // Setup: Start server with activity logging
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

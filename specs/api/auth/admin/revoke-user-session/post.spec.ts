@@ -43,8 +43,7 @@ test.describe('Admin: Revoke user session', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -96,8 +95,7 @@ test.describe('Admin: Revoke user session', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -133,8 +131,7 @@ test.describe('Admin: Revoke user session', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -168,8 +165,7 @@ test.describe('Admin: Revoke user session', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -214,8 +210,7 @@ test.describe('Admin: Revoke user session', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -255,8 +250,7 @@ test.describe('Admin: Revoke user session', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -300,8 +294,7 @@ test.describe('Admin: Revoke user session', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -351,8 +344,7 @@ test.describe('Admin: Revoke user session', () => {
         {
           name: 'test-app',
           auth: {
-            emailAndPassword: true,
-            admin: true,
+            strategies: [{ type: 'emailAndPassword' }],
           },
         },
         {
@@ -406,8 +398,7 @@ test.describe('Admin: Revoke user session', () => {
           {
             name: 'test-app',
             auth: {
-              emailAndPassword: true,
-              admin: true,
+              strategies: [{ type: 'emailAndPassword' }],
             },
           },
           {

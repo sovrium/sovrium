@@ -38,7 +38,7 @@ test.describe('Batch Restore records', () => {
       // GIVEN: Table with multiple soft-deleted records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -91,7 +91,7 @@ test.describe('Batch Restore records', () => {
       // GIVEN: Table with some soft-deleted records (but one ID doesn't exist)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 2,
@@ -139,7 +139,7 @@ test.describe('Batch Restore records', () => {
       // GIVEN: Table with mix of deleted and active records
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 3,
@@ -184,7 +184,7 @@ test.describe('Batch Restore records', () => {
       // GIVEN: An unauthenticated user with auth enabled
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 4,
@@ -223,7 +223,7 @@ test.describe('Batch Restore records', () => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -275,7 +275,7 @@ test.describe('Batch Restore records', () => {
       // Setup: Start server with tasks table
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

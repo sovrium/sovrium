@@ -14,6 +14,7 @@ describe('substituteVariables', () => {
 
   test('substitutes $name variable', async () => {
     const authConfig: Auth = {
+      strategies: [{ type: 'emailAndPassword' as const }],
       emailTemplates: {
         resetPassword: {
           subject: 'Hello $name',
@@ -38,6 +39,7 @@ describe('substituteVariables', () => {
 
   test('substitutes $url variable', async () => {
     const authConfig: Auth = {
+      strategies: [{ type: 'emailAndPassword' as const }],
       emailTemplates: {
         resetPassword: {
           subject: 'Reset password',
@@ -57,6 +59,7 @@ describe('substituteVariables', () => {
 
   test('substitutes $email variable', async () => {
     const authConfig: Auth = {
+      strategies: [{ type: 'emailAndPassword' as const }],
       emailTemplates: {
         resetPassword: {
           subject: 'Email: $email',
@@ -76,6 +79,7 @@ describe('substituteVariables', () => {
 
   test('uses default value for missing $name', async () => {
     const authConfig: Auth = {
+      strategies: [{ type: 'emailAndPassword' as const }],
       emailTemplates: {
         resetPassword: {
           subject: 'Hello $name',
@@ -111,6 +115,7 @@ describe('createEmailHandlers', () => {
 
   test('creates handlers with custom templates when provided', () => {
     const authConfig: Auth = {
+      strategies: [{ type: 'emailAndPassword' as const }],
       emailTemplates: {
         resetPassword: {
           subject: 'Custom reset subject',
@@ -139,7 +144,7 @@ describe('createEmailHandlers', () => {
   })
 
   test('creates handlers without crashing when emailTemplates is undefined', () => {
-    const authConfig: Auth = {}
+    const authConfig: Auth = { strategies: [{ type: 'emailAndPassword' as const }] }
 
     expect(() => createEmailHandlers(authConfig)).not.toThrow()
   })
@@ -200,6 +205,7 @@ describe('passwordReset handler', () => {
 
   test('uses custom template when provided', async () => {
     const authConfig: Auth = {
+      strategies: [{ type: 'emailAndPassword' as const }],
       emailTemplates: {
         resetPassword: {
           subject: 'Custom reset: $name',
@@ -272,6 +278,7 @@ describe('verification handler', () => {
 
   test('uses custom template when provided', async () => {
     const authConfig: Auth = {
+      strategies: [{ type: 'emailAndPassword' as const }],
       emailTemplates: {
         verification: {
           subject: 'Verify your email, $name',
@@ -319,6 +326,7 @@ describe('magicLink handler', () => {
 
   test('uses custom template when provided', async () => {
     const authConfig: Auth = {
+      strategies: [{ type: 'emailAndPassword' as const }],
       emailTemplates: {
         magicLink: {
           subject: 'Sign in magic link for $name',

@@ -6,7 +6,6 @@
  */
 
 import { shouldCreateDatabaseColumn } from './field-utils'
-import { translatePermissionCondition } from './permission-condition-translator'
 import type { Table } from '@/domain/models/app/table'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
 
@@ -15,17 +14,17 @@ import type { TablePermission } from '@/domain/models/app/table/permissions'
  * Maps permission roles to PostgreSQL role names with _user suffix
  */
 const extractRoles = (permission: TablePermission): readonly string[] => {
-  if (permission.type === 'roles') {
+  if (Array.isArray(permission)) {
     // Map role names to PostgreSQL roles: 'admin' -> 'admin_user'
-    return permission.roles.map((role) => `${role}_user`)
+    return permission.map((role) => `${role}_user`)
   }
-  if (permission.type === 'authenticated') {
+  if (permission === 'authenticated') {
     // Authenticated permissions grant access to all authenticated users
     // This includes admin_user, member_user, and authenticated_user roles
     return ['authenticated_user', 'admin_user', 'member_user']
   }
-  if (permission.type === 'public') {
-    // Public permissions grant access to everyone including unauthenticated users
+  if (permission === 'all') {
+    // 'all' permissions grant access to everyone including unauthenticated users
     // PostgreSQL PUBLIC pseudo-role represents all users
     return ['PUBLIC', 'authenticated_user', 'admin_user', 'member_user']
   }
@@ -37,10 +36,9 @@ const extractRoles = (permission: TablePermission): readonly string[] => {
  * Higher number = more permissive
  */
 const getPermissionLevel = (permission: TablePermission): number => {
-  if (permission.type === 'public') return 3
-  if (permission.type === 'authenticated') return 2
-  if (permission.type === 'roles') return 1
-  if (permission.type === 'custom' || permission.type === 'owner') return 0
+  if (permission === 'all') return 3
+  if (permission === 'authenticated') return 2
+  if (Array.isArray(permission)) return 1
   return 0
 }
 
@@ -121,14 +119,14 @@ const getEffectiveTablePermission = (
   // Find most permissive field permission
   const mostPermissiveFieldPermission = getMostPermissivePermission(explicitFieldReadPermissions)
 
-  // If the most permissive field permission is 'roles' (least permissive), default to authenticated
+  // If the most permissive field permission is a role array (least permissive), default to authenticated
   // This ensures that when only specific roles can access certain fields, unrestricted fields
   // are at least accessible to all authenticated users
-  if (mostPermissiveFieldPermission && mostPermissiveFieldPermission.type !== 'roles') {
+  if (mostPermissiveFieldPermission && !Array.isArray(mostPermissiveFieldPermission)) {
     return mostPermissiveFieldPermission
   }
 
-  return { type: 'authenticated' } as const
+  return 'authenticated'
 }
 
 /**
@@ -162,86 +160,6 @@ $$`
 }
 
 /**
- * Generate field condition for custom/owner permissions
- */
-const generateFieldCondition = (permission: TablePermission): string => {
-  if (permission.type === 'custom') {
-    return translatePermissionCondition(permission.condition)
-  }
-  if (permission.type === 'owner') {
-    const ownerField = permission.field
-    return `${ownerField} = current_setting('app.user_id', true)::TEXT`
-  }
-  return ''
-}
-
-/**
- * Generate single field permission check for trigger
- */
-const generateFieldCheck = (fieldName: string, permission: TablePermission): string => {
-  const condition = generateFieldCondition(permission)
-  if (!condition) return ''
-
-  // Replace table column references with NEW.column for trigger context
-  const triggerCondition = condition.replace(/=\s*([a-z_]+)\b/g, '= NEW."$1"')
-
-  const conditionDesc =
-    permission.type === 'custom'
-      ? permission.condition
-      : `owner check on ${permission.type === 'owner' ? permission.field : 'unknown'}`
-
-  return `
-    -- Check if ${fieldName} is being updated
-    IF NEW."${fieldName}" IS DISTINCT FROM OLD."${fieldName}" THEN
-      -- Verify custom condition: ${conditionDesc}
-      IF NOT (${triggerCondition}) THEN
-        RAISE EXCEPTION 'permission denied for column ${fieldName}';
-      END IF;
-    END IF;`
-}
-
-/**
- * Generate UPDATE trigger for custom condition field permissions
- * Creates a trigger function that validates custom conditions before allowing column updates
- */
-const generateCustomConditionTriggers = (
-  tableName: string,
-  fieldPermissions: readonly { field: string; write?: TablePermission }[]
-): readonly string[] => {
-  // Find fields with custom condition write permissions
-  const customConditionFields = fieldPermissions.filter(
-    (fp) => fp.write?.type === 'custom' || fp.write?.type === 'owner'
-  )
-
-  if (customConditionFields.length === 0) {
-    return []
-  }
-
-  const triggerFunctionName = `${tableName}_field_permission_check`
-  const triggerName = `${tableName}_field_permission_trigger`
-
-  // Build condition checks for each field
-  const fieldChecks = customConditionFields.map((fp) => generateFieldCheck(fp.field, fp.write!))
-
-  const dropFunction = `DROP FUNCTION IF EXISTS ${triggerFunctionName}() CASCADE`
-
-  const createFunction = `CREATE OR REPLACE FUNCTION ${triggerFunctionName}()
-RETURNS TRIGGER AS $$
-BEGIN
-  ${fieldChecks.join('\n')}
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql`
-
-  const createTrigger = `CREATE TRIGGER ${triggerName}
-BEFORE UPDATE ON ${tableName}
-FOR EACH ROW
-EXECUTE FUNCTION ${triggerFunctionName}()`
-
-  return [dropFunction, createFunction, createTrigger]
-}
-
-/**
  * Generate write permission grants (UPDATE and INSERT) for fields
  */
 const generateWritePermissionGrants = (
@@ -254,8 +172,8 @@ const generateWritePermissionGrants = (
   // - Fields with specific write permissions: use their specific permission
   // - Fields without specific permissions: inherit from table-level create/update permissions
   // - If no table-level write permission, use authenticated as default (more restrictive than read)
-  const effectiveWritePermission =
-    tablePermissions?.create ?? tablePermissions?.update ?? ({ type: 'authenticated' } as const)
+  const effectiveWritePermission: TablePermission =
+    tablePermissions?.create ?? tablePermissions?.update ?? 'authenticated'
 
   const allFieldWritePermissions = databaseColumns.map((field) => {
     const fieldPermission = fieldPermissions.find((fp) => fp.field === field.name)
@@ -265,17 +183,12 @@ const generateWritePermissionGrants = (
     }
   })
 
-  // Filter out custom/owner permissions from GRANT statements (handled by triggers)
-  const roleBasedWritePermissions = allFieldWritePermissions.filter(
-    (fp) => fp.permission.type !== 'custom' && fp.permission.type !== 'owner'
-  )
-
-  // Build role-to-fields mapping for write (excluding custom/owner)
-  const roleFieldsWriteMap = buildRoleFieldsMap(roleBasedWritePermissions)
+  // Build role-to-fields mapping for write
+  const roleFieldsWriteMap = buildRoleFieldsMap(allFieldWritePermissions)
   const writeBaseRoles = extractRoles(effectiveWritePermission)
   const roleFieldsWriteWithBase = addBaseFieldsToRestrictedRoles(roleFieldsWriteMap, writeBaseRoles)
 
-  // Generate UPDATE grant statements for fields with role-based write permissions
+  // Generate UPDATE grant statements
   const columnUpdateGrantStatements = Array.from(roleFieldsWriteWithBase.entries()).map(
     ([role, fields]) => {
       const columnList = fields.map((f) => `"${f}"`).join(', ')
@@ -283,7 +196,7 @@ const generateWritePermissionGrants = (
     }
   )
 
-  // Generate INSERT grant for fields with write permissions (typically all fields for INSERT)
+  // Generate INSERT grant statements
   const columnInsertGrantStatements = Array.from(roleFieldsWriteWithBase.entries()).map(
     ([role, fields]) => {
       const columnList = fields.map((f) => `"${f}"`).join(', ')
@@ -291,20 +204,7 @@ const generateWritePermissionGrants = (
     }
   )
 
-  // For custom/owner fields, grant UPDATE to all authenticated roles (trigger will enforce)
-  const customConditionFields = allFieldWritePermissions.filter(
-    (fp) => fp.permission.type === 'custom' || fp.permission.type === 'owner'
-  )
-
-  const customFieldGrants =
-    customConditionFields.length > 0
-      ? (['authenticated_user', 'admin_user', 'member_user'] as const).map((role) => {
-          const columnList = customConditionFields.map((f) => `"${f.field}"`).join(', ')
-          return `GRANT UPDATE (${columnList}) ON ${tableName} TO ${role}`
-        })
-      : []
-
-  return [...columnUpdateGrantStatements, ...columnInsertGrantStatements, ...customFieldGrants]
+  return [...columnUpdateGrantStatements, ...columnInsertGrantStatements]
 }
 
 /**
@@ -325,24 +225,6 @@ const buildAllFieldPermissions = (
 }
 
 /**
- * Separate fields into role-based and custom-based permission categories
- */
-const separateFieldsByPermissionType = (
-  allFieldPermissions: readonly { field: string; permission: TablePermission }[]
-): {
-  readonly roleBasedFields: readonly { field: string; permission: TablePermission }[]
-  readonly customConditionReadFields: readonly { field: string; permission: TablePermission }[]
-} => {
-  const roleBasedFields = allFieldPermissions.filter(
-    (fp) => fp.permission.type !== 'custom' && fp.permission.type !== 'owner'
-  )
-  const customConditionReadFields = allFieldPermissions.filter(
-    (fp) => fp.permission.type === 'custom' || fp.permission.type === 'owner'
-  )
-  return { roleBasedFields, customConditionReadFields }
-}
-
-/**
  * Generate SELECT grant statements for role-based column permissions
  */
 const generateColumnSelectGrants = (
@@ -351,22 +233,6 @@ const generateColumnSelectGrants = (
 ): readonly string[] => {
   return Array.from(roleFieldsWithBase.entries()).map(([role, fields]) => {
     const columnList = fields.map((f) => `"${f}"`).join(', ')
-    return `GRANT SELECT (${columnList}) ON ${tableName} TO ${role}`
-  })
-}
-
-/**
- * Generate SELECT grants for custom condition fields
- */
-const generateCustomFieldSelectGrants = (
-  tableName: string,
-  customConditionReadFields: readonly { field: string; permission: TablePermission }[]
-): readonly string[] => {
-  if (customConditionReadFields.length === 0) {
-    return []
-  }
-  return (['authenticated_user', 'admin_user', 'member_user'] as const).map((role) => {
-    const columnList = customConditionReadFields.map((f) => `"${f.field}"`).join(', ')
     return `GRANT SELECT (${columnList}) ON ${tableName} TO ${role}`
   })
 }
@@ -381,8 +247,8 @@ const generateCustomFieldSelectGrants = (
  *
  * Example:
  * - Table 'users' has columns: id, name, email, salary
- * - Table permission: read = { type: 'authenticated' }
- * - Field permission: salary.read = { type: 'roles', roles: ['admin'] }
+ * - Table permission: read = 'authenticated'
+ * - Field permission: salary.read = ['admin']
  * - Result:
  *   - CREATE ROLE IF NOT EXISTS authenticated_user
  *   - CREATE ROLE IF NOT EXISTS admin_user
@@ -412,20 +278,13 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
     effectiveTablePermission
   )
 
-  const { roleBasedFields, customConditionReadFields } =
-    separateFieldsByPermissionType(allFieldPermissions)
-
-  const roleFieldsMap = buildRoleFieldsMap(roleBasedFields)
+  const roleFieldsMap = buildRoleFieldsMap(allFieldPermissions)
   const baseRoles = extractRoles(effectiveTablePermission)
   const roleFieldsWithBase = addBaseFieldsToRestrictedRoles(roleFieldsMap, baseRoles)
 
   const finalRoles = Array.from(roleFieldsWithBase.keys())
   const roleSetupStatements = generateRoleSetupStatements(finalRoles, tableName)
   const columnGrantStatements = generateColumnSelectGrants(tableName, roleFieldsWithBase)
-  const customFieldReadGrants = generateCustomFieldSelectGrants(
-    tableName,
-    customConditionReadFields
-  )
 
   const writeGrantStatements = generateWritePermissionGrants(
     tableName,
@@ -434,13 +293,5 @@ export const generateFieldPermissionGrants = (table: Table): readonly string[] =
     table.permissions
   )
 
-  const customConditionTriggers = generateCustomConditionTriggers(tableName, fieldPermissions)
-
-  return [
-    ...roleSetupStatements,
-    ...columnGrantStatements,
-    ...customFieldReadGrants,
-    ...writeGrantStatements,
-    ...customConditionTriggers,
-  ]
+  return [...roleSetupStatements, ...columnGrantStatements, ...writeGrantStatements]
 }

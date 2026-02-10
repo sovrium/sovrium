@@ -15,7 +15,7 @@ const mockAppWithAuth: App = {
   name: 'Test App',
   version: '1.0.0',
   auth: {
-    emailAndPassword: true,
+    strategies: [{ type: 'emailAndPassword' as const }],
   },
   pages: [],
 }

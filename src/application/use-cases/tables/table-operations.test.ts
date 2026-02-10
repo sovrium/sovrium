@@ -45,10 +45,10 @@ describe('table-operations', () => {
         ],
         primaryKey: { field: 'id', type: 'uuid' },
         permissions: {
-          read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
-          create: { type: 'roles', roles: ['owner', 'admin'] },
-          update: { type: 'roles', roles: ['owner', 'admin'] },
-          delete: { type: 'roles', roles: ['owner'] },
+          read: ['admin', 'member'],
+          create: ['admin'],
+          update: ['admin'],
+          delete: ['admin'],
         },
       },
       {
@@ -66,23 +66,13 @@ describe('table-operations', () => {
         ],
         primaryKey: { field: 'id', type: 'uuid' },
         permissions: {
-          read: { type: 'roles', roles: ['owner', 'admin'] },
+          read: ['admin'],
         },
       },
     ],
   }
 
   describe('createListTablesProgram', () => {
-    test('allows owner to list accessible tables', async () => {
-      const program = createListTablesProgram('owner', mockApp)
-      const result = await Effect.runPromise(program)
-
-      expect(Array.isArray(result)).toBe(true)
-      expect(result).toHaveLength(2)
-      expect(result[0]).toHaveProperty('id')
-      expect(result[0]).toHaveProperty('name')
-    })
-
     test('allows admin to list accessible tables', async () => {
       const program = createListTablesProgram('admin', mockApp)
       const result = await Effect.runPromise(program)
@@ -138,7 +128,7 @@ describe('table-operations', () => {
             fields: [],
             primaryKey: { field: 'id', type: 'uuid' },
             permissions: {
-              read: { type: 'roles', roles: ['owner'] },
+              read: ['admin'],
             },
           },
         ],
@@ -160,7 +150,7 @@ describe('table-operations', () => {
 
   describe('createGetTableProgram', () => {
     test('returns table details for authorized user', async () => {
-      const program = createGetTableProgram('1', mockApp, 'owner')
+      const program = createGetTableProgram('1', mockApp, 'admin')
       const result = await Effect.runPromise(program)
 
       expect(result.table).toBeDefined()
@@ -171,14 +161,14 @@ describe('table-operations', () => {
     })
 
     test('finds table by name', async () => {
-      const program = createGetTableProgram('users', mockApp, 'owner')
+      const program = createGetTableProgram('users', mockApp, 'admin')
       const result = await Effect.runPromise(program)
 
       expect(result.table.name).toBe('users')
     })
 
     test('throws TableNotFoundError when table does not exist', async () => {
-      const program = createGetTableProgram('non-existent', mockApp, 'owner')
+      const program = createGetTableProgram('non-existent', mockApp, 'admin')
       const exit = await Effect.runPromiseExit(program)
 
       expect(Exit.isFailure(exit)).toBe(true)
@@ -198,7 +188,7 @@ describe('table-operations', () => {
     })
 
     test('maps field properties correctly', async () => {
-      const program = createGetTableProgram('1', mockApp, 'owner')
+      const program = createGetTableProgram('1', mockApp, 'admin')
       const result = await Effect.runPromise(program)
 
       const emailField = result.table.fields.find((f) => f.name === 'email')
@@ -222,17 +212,6 @@ describe('table-operations', () => {
       expect(result.table.delete).toBe(true)
     })
 
-    test('returns role-based permissions for owner', async () => {
-      const program = createGetPermissionsProgram('1', mockApp, 'owner')
-      const result = await Effect.runPromise(program)
-
-      expect(result.table.read).toBe(true)
-      expect(result.table.create).toBe(true)
-      expect(result.table.update).toBe(true)
-      // eslint-disable-next-line drizzle/enforce-delete-with-where -- Checking permission boolean, not Drizzle operation
-      expect(result.table.delete).toBe(true)
-    })
-
     test('returns limited permissions for member', async () => {
       const program = createGetPermissionsProgram('1', mockApp, 'member')
       const result = await Effect.runPromise(program)
@@ -245,7 +224,7 @@ describe('table-operations', () => {
     })
 
     test('throws TableNotFoundError for non-existent table', async () => {
-      const program = createGetPermissionsProgram('999', mockApp, 'owner')
+      const program = createGetPermissionsProgram('999', mockApp, 'admin')
       const exit = await Effect.runPromiseExit(program)
 
       expect(Exit.isFailure(exit)).toBe(true)
@@ -259,7 +238,7 @@ describe('table-operations', () => {
     })
 
     test('returns field permissions object', async () => {
-      const program = createGetPermissionsProgram('1', mockApp, 'owner')
+      const program = createGetPermissionsProgram('1', mockApp, 'admin')
       const result = await Effect.runPromise(program)
 
       expect(result.fields).toBeDefined()

@@ -435,7 +435,7 @@ describe('TableSchema', () => {
 
   describe('Custom Roles Validation', () => {
     test('should accept permissions with custom roles', () => {
-      // GIVEN: A table with permissions referencing a custom role (beyond the default 4)
+      // GIVEN: A table with permissions referencing a custom role (beyond the default 3)
       const table = {
         id: 1,
         name: 'documents',
@@ -445,24 +445,24 @@ describe('TableSchema', () => {
         ],
         primaryKey: { type: 'composite' as const, fields: ['id'] },
         permissions: {
-          read: {
-            type: 'roles' as const,
-            roles: ['super_admin'], // Custom role (not in default owner/admin/member/viewer)
-          },
+          read: ['super_admin'] as string[], // Custom role (not in default admin/member/viewer)
         },
       }
 
       // WHEN: The table is validated against the schema
       const result = Schema.decodeUnknownSync(TableSchema)(table)
 
-      // THEN: The table should accept custom roles beyond the default 4
+      // THEN: The table should accept custom roles beyond the default 3
       expect(result.permissions?.read).toBeDefined()
-      expect((result.permissions?.read as any)?.roles).toContain('super_admin')
+      expect(Array.isArray(result.permissions?.read)).toBe(true)
+      if (Array.isArray(result.permissions?.read)) {
+        expect(result.permissions.read).toContain('super_admin')
+      }
     })
 
     test('should accept permissions with valid roles', () => {
       // GIVEN: A table with permissions using valid roles
-      const validRoles = ['owner', 'admin', 'member', 'viewer'] as const
+      const validRoles = ['admin', 'member', 'viewer'] as const
 
       validRoles.forEach((role) => {
         const table = {
@@ -474,10 +474,7 @@ describe('TableSchema', () => {
           ],
           primaryKey: { type: 'composite' as const, fields: ['id'] },
           permissions: {
-            read: {
-              type: 'roles' as const,
-              roles: [role],
-            },
+            read: [role] as string[],
           },
         }
 
@@ -486,7 +483,10 @@ describe('TableSchema', () => {
 
         // THEN: The table should be accepted for all valid roles
         expect(result.permissions?.read).toBeDefined()
-        expect((result.permissions?.read as any)?.roles).toContain(role)
+        expect(Array.isArray(result.permissions?.read)).toBe(true)
+        if (Array.isArray(result.permissions?.read)) {
+          expect(result.permissions.read).toContain(role)
+        }
       })
     })
 
@@ -504,7 +504,7 @@ describe('TableSchema', () => {
           fields: [
             {
               field: 'salary',
-              read: { type: 'roles' as const, roles: ['finance_admin'] }, // Custom role!
+              read: ['finance_admin'] as string[], // Custom role!
             },
           ],
         },
@@ -516,7 +516,10 @@ describe('TableSchema', () => {
       // THEN: The table should accept custom roles in field permissions
       expect(result.permissions?.fields).toBeDefined()
       expect(result.permissions?.fields?.[0]?.read).toBeDefined()
-      expect((result.permissions?.fields?.[0]?.read as any)?.roles).toContain('finance_admin')
+      expect(Array.isArray(result.permissions?.fields?.[0]?.read)).toBe(true)
+      if (Array.isArray(result.permissions?.fields?.[0]?.read)) {
+        expect(result.permissions.fields![0]!.read).toContain('finance_admin')
+      }
     })
   })
 

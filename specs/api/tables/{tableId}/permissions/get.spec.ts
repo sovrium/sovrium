@@ -33,7 +33,7 @@ test.describe('Check table permissions', () => {
       await startServerWithSchema(
         {
           name: 'test-app',
-          auth: { emailAndPassword: true, admin: true },
+          auth: { strategies: [{ type: 'emailAndPassword' }] },
           tables: [
             {
               id: 1,
@@ -49,15 +49,15 @@ test.describe('Check table permissions', () => {
               primaryKey: { type: 'composite', fields: ['id'] },
               permissions: {
                 // Even with role restrictions, admin should override
-                read: { type: 'roles', roles: ['admin', 'member'] },
-                create: { type: 'roles', roles: ['admin'] },
-                update: { type: 'roles', roles: ['admin'] },
-                delete: { type: 'roles', roles: ['admin'] },
+                read: ['admin', 'member'],
+                create: ['admin'],
+                update: ['admin'],
+                delete: ['admin'],
                 fields: [
                   {
                     field: 'salary',
-                    read: { type: 'roles', roles: ['admin'] },
-                    write: { type: 'roles', roles: ['admin'] },
+                    read: ['admin'],
+                    write: ['admin'],
                   },
                 ],
               },
@@ -104,7 +104,7 @@ test.describe('Check table permissions', () => {
       // Member: read + update only, salary field restricted
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -118,16 +118,16 @@ test.describe('Check table permissions', () => {
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               // Member can read and update, but not create or delete
-              read: { type: 'roles', roles: ['admin', 'member'] },
-              create: { type: 'roles', roles: ['admin'] },
-              update: { type: 'roles', roles: ['admin', 'member'] },
-              delete: { type: 'roles', roles: ['admin'] },
+              read: ['admin', 'member'],
+              create: ['admin'],
+              update: ['admin', 'member'],
+              delete: ['admin'],
               fields: [
                 {
                   field: 'salary',
                   // Salary field restricted to admin only
-                  read: { type: 'roles', roles: ['admin'] },
-                  write: { type: 'roles', roles: ['admin'] },
+                  read: ['admin'],
+                  write: ['admin'],
                 },
               ],
             },
@@ -161,7 +161,7 @@ test.describe('Check table permissions', () => {
       // GIVEN: An unauthenticated user and a table exists with permissions configured
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -170,10 +170,10 @@ test.describe('Check table permissions', () => {
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               // Requires authentication to access
-              read: { type: 'authenticated' },
-              create: { type: 'authenticated' },
-              update: { type: 'authenticated' },
-              delete: { type: 'roles', roles: ['admin'] },
+              read: 'authenticated',
+              create: 'authenticated',
+              update: 'authenticated',
+              delete: ['admin'],
             },
           },
         ],
@@ -201,7 +201,7 @@ test.describe('Check table permissions', () => {
       // GIVEN: An authenticated user checking a non-existent table
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -209,10 +209,10 @@ test.describe('Check table permissions', () => {
             fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              read: { type: 'authenticated' },
-              create: { type: 'authenticated' },
-              update: { type: 'authenticated' },
-              delete: { type: 'roles', roles: ['admin'] },
+              read: 'authenticated',
+              create: 'authenticated',
+              update: 'authenticated',
+              delete: ['admin'],
             },
           },
         ],
@@ -245,7 +245,7 @@ test.describe('Check table permissions', () => {
       // Authenticated user with restricted access to salary field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -259,28 +259,28 @@ test.describe('Check table permissions', () => {
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               // Table-level: authenticated users can read but not write
-              read: { type: 'authenticated' },
-              create: { type: 'roles', roles: ['admin'] },
-              update: { type: 'roles', roles: ['admin'] },
-              delete: { type: 'roles', roles: ['admin'] },
+              read: 'authenticated',
+              create: ['admin'],
+              update: ['admin'],
+              delete: ['admin'],
               fields: [
                 {
                   // Salary field: admin-only for both read and write
                   field: 'salary',
-                  read: { type: 'roles', roles: ['admin'] },
-                  write: { type: 'roles', roles: ['admin'] },
+                  read: ['admin'],
+                  write: ['admin'],
                 },
                 {
                   // Email field: readable by all authenticated, writable by admin only
                   field: 'email',
-                  read: { type: 'authenticated' },
-                  write: { type: 'roles', roles: ['admin'] },
+                  read: 'authenticated',
+                  write: ['admin'],
                 },
                 {
                   // Name field: readable by all authenticated, writable by admin only
                   field: 'name',
-                  read: { type: 'authenticated' },
-                  write: { type: 'roles', roles: ['admin'] },
+                  read: 'authenticated',
+                  write: ['admin'],
                 },
               ],
             },
@@ -314,7 +314,7 @@ test.describe('Check table permissions', () => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -326,10 +326,10 @@ test.describe('Check table permissions', () => {
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
               // Viewer role can only read, not create/update/delete
-              read: { type: 'roles', roles: ['admin', 'member', 'viewer'] },
-              create: { type: 'roles', roles: ['admin', 'member'] },
-              update: { type: 'roles', roles: ['admin', 'member'] },
-              delete: { type: 'roles', roles: ['admin'] },
+              read: ['admin', 'member', 'viewer'],
+              create: ['admin', 'member'],
+              update: ['admin', 'member'],
+              delete: ['admin'],
             },
           },
         ],
@@ -381,7 +381,7 @@ test.describe('Check table permissions', () => {
         await startServerWithSchema(
           {
             name: 'test-app',
-            auth: { emailAndPassword: true, admin: true },
+            auth: { strategies: [{ type: 'emailAndPassword' }] },
             tables: [
               {
                 id: 1,
@@ -397,28 +397,28 @@ test.describe('Check table permissions', () => {
                 primaryKey: { type: 'composite', fields: ['id'] },
                 permissions: {
                   // Table-level: viewer can read, member can read/update, admin has full access
-                  read: { type: 'roles', roles: ['admin', 'member', 'viewer'] },
-                  create: { type: 'roles', roles: ['admin', 'member'] },
-                  update: { type: 'roles', roles: ['admin', 'member'] },
-                  delete: { type: 'roles', roles: ['admin'] },
+                  read: ['admin', 'member', 'viewer'],
+                  create: ['admin', 'member'],
+                  update: ['admin', 'member'],
+                  delete: ['admin'],
                   fields: [
                     {
                       // Salary field: admin-only for both read and write
                       field: 'salary',
-                      read: { type: 'roles', roles: ['admin'] },
-                      write: { type: 'roles', roles: ['admin'] },
+                      read: ['admin'],
+                      write: ['admin'],
                     },
                     {
                       // Email field: readable by all authenticated, writable by admin only
                       field: 'email',
-                      read: { type: 'authenticated' },
-                      write: { type: 'roles', roles: ['admin'] },
+                      read: 'authenticated',
+                      write: ['admin'],
                     },
                     {
                       // Name field: readable by all authenticated, writable by admin only
                       field: 'name',
-                      read: { type: 'authenticated' },
-                      write: { type: 'roles', roles: ['admin'] },
+                      read: 'authenticated',
+                      write: ['admin'],
                     },
                   ],
                 },

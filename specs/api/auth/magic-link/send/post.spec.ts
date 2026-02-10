@@ -32,7 +32,7 @@ test.describe('Send Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          magicLink: true,
+          strategies: [{ type: 'magicLink' }],
           emailTemplates: {
             magicLink: {
               subject: 'Sign in to TestApp with magic link',
@@ -85,7 +85,7 @@ test.describe('Send Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          magicLink: true,
+          strategies: [{ type: 'magicLink' }],
         },
       })
 
@@ -120,7 +120,7 @@ test.describe('Send Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          magicLink: true,
+          strategies: [{ type: 'magicLink' }],
         },
       })
 
@@ -147,7 +147,7 @@ test.describe('Send Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          magicLink: true,
+          strategies: [{ type: 'magicLink' }],
         },
       })
 
@@ -175,7 +175,7 @@ test.describe('Send Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          emailAndPassword: true,
+          strategies: [{ type: 'emailAndPassword' }],
           // No magic-link method
         },
       })
@@ -205,8 +205,7 @@ test.describe('Send Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          magicLink: true,
-          emailAndPassword: true,
+          strategies: [{ type: 'magicLink' }, { type: 'emailAndPassword' }],
           emailTemplates: {
             magicLink: {
               subject: 'Sign in to TestApp with magic link',

@@ -34,7 +34,7 @@ test.describe('Update comment', () => {
       // GIVEN: User's own comment on a record
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -90,7 +90,7 @@ test.describe('Update comment', () => {
       // GIVEN: Comment with original @mention
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 2,
@@ -140,7 +140,7 @@ test.describe('Update comment', () => {
       // GIVEN: User's own comment
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 3,
@@ -185,7 +185,7 @@ test.describe('Update comment', () => {
       // GIVEN: User's own comment
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 4,
@@ -231,7 +231,7 @@ test.describe('Update comment', () => {
       // GIVEN: Comment on a record in authenticated app
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 5,
@@ -270,7 +270,7 @@ test.describe('Update comment', () => {
       // GIVEN: Comment authored by different user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 6,
@@ -317,7 +317,7 @@ test.describe('Update comment', () => {
       // GIVEN: Table with record but comment does not exist
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 7,
@@ -358,7 +358,7 @@ test.describe('Update comment', () => {
       // GIVEN: Comment on record owned by different user
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 8,
@@ -410,7 +410,7 @@ test.describe('Update comment', () => {
       // GIVEN: User's own soft-deleted comment
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 9,
@@ -456,7 +456,7 @@ test.describe('Update comment', () => {
       // GIVEN: User updating their own comment
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 10,
@@ -518,7 +518,7 @@ test.describe('Update comment', () => {
       // Setup: Start server with tasks table
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,

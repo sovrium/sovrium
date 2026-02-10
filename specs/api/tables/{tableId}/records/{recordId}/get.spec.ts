@@ -35,7 +35,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Table 'users' with record ID=1
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -80,7 +80,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Table 'users' exists but record ID=9999 does not
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 2,
@@ -113,7 +113,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: An unauthenticated user with auth enabled
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 3,
@@ -145,7 +145,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: User without read permission
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 4,
@@ -190,7 +190,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Admin user with full field access
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 6,
@@ -239,7 +239,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Member user without salary field read permission
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 7,
@@ -250,11 +250,11 @@ test.describe('Get record by ID', () => {
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
             permissions: {
-              read: { type: 'authenticated' },
+              read: 'authenticated',
               fields: [
                 {
                   field: 'salary',
-                  read: { type: 'roles', roles: ['owner', 'admin'] },
+                  read: ['admin'],
                 },
               ],
             },
@@ -291,7 +291,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Viewer with limited field access
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 8,
@@ -303,19 +303,19 @@ test.describe('Get record by ID', () => {
               { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
             ],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member', 'viewer'] },
+              read: ['admin', 'member', 'viewer'],
               fields: [
                 {
                   field: 'email',
-                  read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+                  read: ['admin', 'member'],
                 },
                 {
                   field: 'phone',
-                  read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+                  read: ['admin', 'member'],
                 },
                 {
                   field: 'salary',
-                  read: { type: 'roles', roles: ['owner', 'admin'] },
+                  read: ['admin'],
                 },
               ],
             },
@@ -360,7 +360,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Table with readonly system fields
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 10,
@@ -407,7 +407,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Table with a soft-deleted record
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 11,
@@ -446,7 +446,7 @@ test.describe('Get record by ID', () => {
       // GIVEN: Table with a soft-deleted record
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 12,
@@ -498,7 +498,7 @@ test.describe('Get record by ID', () => {
       // Setup: Create comprehensive schema for all test scenarios
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true, admin: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -520,11 +520,11 @@ test.describe('Get record by ID', () => {
               { id: 4, name: 'phone', type: 'phone-number' },
             ],
             permissions: {
-              read: { type: 'authenticated' },
+              read: 'authenticated',
               fields: [
                 {
                   field: 'salary',
-                  read: { type: 'roles', roles: ['owner', 'admin'] },
+                  read: ['admin'],
                 },
               ],
             },
@@ -545,7 +545,7 @@ test.describe('Get record by ID', () => {
             name: 'confidential',
             fields: [{ id: 1, name: 'data', type: 'long-text' }],
             permissions: {
-              read: { type: 'roles', roles: ['admin'] },
+              read: ['admin'],
             },
           },
         ],

@@ -31,14 +31,14 @@ test.describe('List all tables', () => {
       // GIVEN: A running server with tables configured
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
             name: 'users',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              read: ['admin', 'member'],
             },
           },
           {
@@ -46,7 +46,7 @@ test.describe('List all tables', () => {
             name: 'posts',
             fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              read: ['admin', 'member'],
             },
           },
         ],
@@ -83,7 +83,7 @@ test.describe('List all tables', () => {
       // GIVEN: A running server with no tables configured (tables: undefined)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         // tables field omitted (undefined) - no tables configured
       })
 
@@ -110,7 +110,7 @@ test.describe('List all tables', () => {
       // GIVEN: A running server with tables configured
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -144,7 +144,7 @@ test.describe('List all tables', () => {
       // GIVEN: A user with restricted permissions (cannot list tables)
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
@@ -188,14 +188,14 @@ test.describe('List all tables', () => {
       // GIVEN: Multiple tables with different permission levels
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
             name: 'public_projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              read: ['admin', 'member'],
             },
           },
           {
@@ -203,7 +203,7 @@ test.describe('List all tables', () => {
             name: 'confidential_data',
             fields: [{ id: 1, name: 'secret', type: 'long-text' }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin'] }, // Only owner/admin can read
+              read: ['admin'], // Only owner/admin can read
             },
           },
           {
@@ -211,7 +211,7 @@ test.describe('List all tables', () => {
             name: 'team_tasks',
             fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              read: ['admin', 'member'],
             },
           },
         ],
@@ -256,14 +256,14 @@ test.describe('List all tables', () => {
       // Setup: Start server with tables and auth
       await startServerWithSchema({
         name: 'test-app',
-        auth: { emailAndPassword: true },
+        auth: { strategies: [{ type: 'emailAndPassword' }] },
         tables: [
           {
             id: 1,
             name: 'projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              read: ['admin', 'member'],
             },
           },
           {
@@ -271,7 +271,7 @@ test.describe('List all tables', () => {
             name: 'tasks',
             fields: [{ id: 1, name: 'title', type: 'single-line-text' }],
             permissions: {
-              read: { type: 'roles', roles: ['owner', 'admin', 'member'] },
+              read: ['admin', 'member'],
             },
           },
         ],

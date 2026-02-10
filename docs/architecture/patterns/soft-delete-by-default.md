@@ -267,7 +267,7 @@ Restoring a parent record can optionally restore children:
    }
    ```
 
-3. **Permanent Delete API** (admin/owner only)
+3. **Permanent Delete API** (admin only)
 
    ```typescript
    DELETE /api/tables/{id}/records/{id}?permanent=true
@@ -303,14 +303,14 @@ Restoring a parent record can optionally restore children:
 
 ### REST Endpoints
 
-| Method   | Endpoint                                                  | Description           | Permission         |
-| -------- | --------------------------------------------------------- | --------------------- | ------------------ |
-| `DELETE` | `/api/tables/{tableId}/records/{recordId}`                | Soft delete (default) | `delete`           |
-| `DELETE` | `/api/tables/{tableId}/records/{recordId}?permanent=true` | Hard delete           | `admin` or `owner` |
-| `POST`   | `/api/tables/{tableId}/records/{recordId}/restore`        | Restore from trash    | `update`           |
-| `GET`    | `/api/tables/{tableId}/trash`                             | List deleted records  | `read`             |
-| `POST`   | `/api/tables/{tableId}/records/batch/restore`             | Bulk restore          | `update`           |
-| `DELETE` | `/api/tables/{tableId}/records/batch?permanent=true`      | Bulk hard delete      | `admin` or `owner` |
+| Method   | Endpoint                                                  | Description           | Permission |
+| -------- | --------------------------------------------------------- | --------------------- | ---------- |
+| `DELETE` | `/api/tables/{tableId}/records/{recordId}`                | Soft delete (default) | `delete`   |
+| `DELETE` | `/api/tables/{tableId}/records/{recordId}?permanent=true` | Hard delete           | `admin`    |
+| `POST`   | `/api/tables/{tableId}/records/{recordId}/restore`        | Restore from trash    | `update`   |
+| `GET`    | `/api/tables/{tableId}/trash`                             | List deleted records  | `read`     |
+| `POST`   | `/api/tables/{tableId}/records/batch/restore`             | Bulk restore          | `update`   |
+| `DELETE` | `/api/tables/{tableId}/records/batch?permanent=true`      | Bulk hard delete      | `admin`    |
 
 ### Request/Response Examples
 
@@ -372,12 +372,12 @@ Response 200 OK:
 
 ### Separation of Concerns
 
-| Action               | Permission Check        | Default Roles                | Rationale                |
-| -------------------- | ----------------------- | ---------------------------- | ------------------------ |
-| **Soft delete**      | `delete` permission     | member, admin, owner         | Low risk (reversible)    |
-| **Restore**          | `update` permission     | member, admin, owner         | Reversible action        |
-| **View trash**       | `read` permission       | member, admin, owner, viewer | Audit transparency       |
-| **Permanent delete** | `admin` or `owner` role | admin, owner                 | High risk (irreversible) |
+| Action               | Permission Check    | Default Roles         | Rationale                |
+| -------------------- | ------------------- | --------------------- | ------------------------ |
+| **Soft delete**      | `delete` permission | member, admin         | Low risk (reversible)    |
+| **Restore**          | `update` permission | member, admin         | Reversible action        |
+| **View trash**       | `read` permission   | member, admin, viewer | Audit transparency       |
+| **Permanent delete** | `admin` role        | admin                 | High risk (irreversible) |
 
 ### Permission Configuration Example
 
@@ -388,7 +388,7 @@ Response 200 OK:
     organizationScoped: true,
     read: { type: 'roles', roles: ['member'] },
     delete: { type: 'roles', roles: ['member'] },  // Soft delete
-    // Permanent delete is implicitly admin/owner only (hardcoded)
+    // Permanent delete is implicitly admin only (hardcoded)
   }
 }
 ```
@@ -397,7 +397,6 @@ Response 200 OK:
 
 For GDPR "right to be forgotten" requests, permanent delete can be triggered by:
 
-- Organization owner
 - Admin with audit trail
 - API call with legal compliance flag
 
@@ -533,7 +532,7 @@ For GDPR "right to be forgotten" requests, permanent delete can be triggered by:
 
 ### Q: Can users opt-out of soft delete?
 
-**A**: Yes, via `permanent=true` query parameter. However, this requires elevated permissions (admin/owner).
+**A**: Yes, via `permanent=true` query parameter. However, this requires elevated permissions (admin).
 
 ### Q: What about GDPR compliance?
 

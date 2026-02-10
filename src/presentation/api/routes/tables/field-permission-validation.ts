@@ -69,8 +69,8 @@ export function shouldExcludeFieldByDefault(
     | { readonly fields: readonly { readonly name: string; readonly type: string }[] }
     | undefined
 ): boolean {
-  // Admin and owner roles have full access
-  if (userRole === 'admin' || userRole === 'owner') {
+  // Admin role has full access
+  if (userRole === 'admin') {
     return false
   }
 

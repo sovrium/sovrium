@@ -232,7 +232,6 @@ export type ServerFixtures = {
   createAuthenticatedUser: (data?: Partial<SignUpData>) => Promise<AuthResult>
   createAuthenticatedAdmin: (data?: Partial<SignUpData>) => Promise<AuthResult>
   createAuthenticatedViewer: (data?: Partial<SignUpData>) => Promise<AuthResult>
-  createAuthenticatedOwner: (data?: Partial<SignUpData>) => Promise<AuthResult>
   createAuthenticatedMember: (data?: Partial<SignUpData>) => Promise<AuthResult>
 
   // Email testing
