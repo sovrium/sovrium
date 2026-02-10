@@ -68,6 +68,42 @@ describe('NameSchema', () => {
       // Then: The name should be accepted
       expect(result).toBe(maxLengthName)
     })
+
+    test('should accept names with uppercase letters (user-friendly format)', () => {
+      // Given: Table names with uppercase letters (will be sanitized to lowercase)
+      const validNames = ['Person', 'Product', 'InvoiceItem']
+
+      // When: Each name is validated against the schema
+      // Then: All names should be accepted
+      validNames.forEach((name) => {
+        const result = Schema.decodeUnknownSync(NameSchema)(name)
+        expect(result).toBe(name)
+      })
+    })
+
+    test('should accept names with spaces (user-friendly format)', () => {
+      // Given: Table names with spaces (will be sanitized to underscores)
+      const validNames = ['person profile', 'invoice item', 'person name']
+
+      // When: Each name is validated against the schema
+      // Then: All names should be accepted
+      validNames.forEach((name) => {
+        const result = Schema.decodeUnknownSync(NameSchema)(name)
+        expect(result).toBe(name)
+      })
+    })
+
+    test('should accept names with hyphens (user-friendly format)', () => {
+      // Given: Table names with hyphens (will be sanitized to underscores)
+      const validNames = ['person-profile', 'invoice-item', 'shipping-address']
+
+      // When: Each name is validated against the schema
+      // Then: All names should be accepted
+      validNames.forEach((name) => {
+        const result = Schema.decodeUnknownSync(NameSchema)(name)
+        expect(result).toBe(name)
+      })
+    })
   })
 
   describe('invalid values', () => {
@@ -80,77 +116,29 @@ describe('NameSchema', () => {
       }).toThrow('This field is required')
     })
 
-    test('should reject names starting with uppercase letter', () => {
-      // Given: Table names starting with uppercase letters
-      const invalidNames = ['Person', 'Product', 'InvoiceItem']
+    test('should reject reserved SQL keywords', () => {
+      // Given: Table names that are reserved SQL keywords
+      const invalidNames = ['select', 'insert', 'delete', 'table', 'user']
 
       // When: Each name is validated against the schema
       // Then: All should throw validation errors
       invalidNames.forEach((name) => {
         expect(() => {
           Schema.decodeUnknownSync(NameSchema)(name)
-        }).toThrow()
+        }).toThrow(/reserved|keyword/i)
       })
     })
 
-    test('should reject names starting with number', () => {
-      // Given: Table names starting with numbers
-      const invalidNames = ['1person', '2product', '123invoice']
+    test('should reject names that sanitize to reserved keywords', () => {
+      // Given: Table names that sanitize to reserved keywords (with uppercase/spaces/special chars)
+      const invalidNames = ['SELECT', 'Insert', 'DELETE', 'User']
 
       // When: Each name is validated against the schema
       // Then: All should throw validation errors
       invalidNames.forEach((name) => {
         expect(() => {
           Schema.decodeUnknownSync(NameSchema)(name)
-        }).toThrow()
-      })
-    })
-
-    test('should reject names starting with underscore', () => {
-      // Given: A table name starting with underscore
-      // When: The name is validated against the schema
-      // Then: Validation should throw an error
-      expect(() => {
-        Schema.decodeUnknownSync(NameSchema)('_person')
-      }).toThrow()
-    })
-
-    test('should reject names with hyphens', () => {
-      // Given: Table names with hyphens (kebab-case)
-      const invalidNames = ['person-profile', 'invoice-item', 'shipping-address']
-
-      // When: Each name is validated against the schema
-      // Then: All should throw validation errors
-      invalidNames.forEach((name) => {
-        expect(() => {
-          Schema.decodeUnknownSync(NameSchema)(name)
-        }).toThrow()
-      })
-    })
-
-    test('should reject names with spaces', () => {
-      // Given: Table names containing spaces
-      const invalidNames = ['person profile', 'invoice item', 'person name']
-
-      // When: Each name is validated against the schema
-      // Then: All should throw validation errors
-      invalidNames.forEach((name) => {
-        expect(() => {
-          Schema.decodeUnknownSync(NameSchema)(name)
-        }).toThrow()
-      })
-    })
-
-    test('should reject names with special characters', () => {
-      // Given: Table names with special characters
-      const invalidNames = ['person@profile', 'invoice#item', 'person!name', 'product$price']
-
-      // When: Each name is validated against the schema
-      // Then: All should throw validation errors
-      invalidNames.forEach((name) => {
-        expect(() => {
-          Schema.decodeUnknownSync(NameSchema)(name)
-        }).toThrow()
+        }).toThrow(/reserved|keyword/i)
       })
     })
 
