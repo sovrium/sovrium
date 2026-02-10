@@ -485,7 +485,7 @@ test.describe('Field-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PERMISSIONS-008: should prevent field modification at API level based on write permissions',
     { tag: '@spec' },
     async ({
