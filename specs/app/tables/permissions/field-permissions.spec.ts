@@ -108,7 +108,7 @@ test.describe('Field-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PERMISSIONS-002: should reject email update by member when field has admin-only write permission',
     { tag: '@spec' },
     async ({
