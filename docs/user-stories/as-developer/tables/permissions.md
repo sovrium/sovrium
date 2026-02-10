@@ -206,14 +206,15 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                            | E2E Spec                                | Status |
-| ------ | ---------------------------------------------------- | --------------------------------------- | ------ |
-| AC-001 | Child table inherits parent table permissions        | `APP-TABLES-PERMISSION-INHERITANCE-001` | ⏳     |
-| AC-002 | Override permissions take precedence over inherited  | `APP-TABLES-PERMISSION-INHERITANCE-002` | ⏳     |
-| AC-003 | Circular inheritance is detected and rejected        | `APP-TABLES-PERMISSION-INHERITANCE-003` | ⏳     |
-| AC-004 | Inherited permissions update when parent changes     | `APP-TABLES-PERMISSION-INHERITANCE-004` | ⏳     |
-| AC-005 | Multiple levels of inheritance are supported         | `APP-TABLES-PERMISSION-INHERITANCE-005` | ⏳     |
-| AC-006 | Inheritance chain is validated at configuration time | `APP-TABLES-PERMISSION-INHERITANCE-006` | ⏳     |
+| ID     | Criterion                                                           | E2E Spec                                       | Status |
+| ------ | ------------------------------------------------------------------- | ---------------------------------------------- | ------ |
+| AC-001 | Child table inherits parent table permissions                       | `APP-TABLES-PERMISSION-INHERITANCE-001`        | ⏳     |
+| AC-002 | Override permissions take precedence over inherited                 | `APP-TABLES-PERMISSION-INHERITANCE-002`        | ⏳     |
+| AC-003 | Circular inheritance is detected and rejected                       | `APP-TABLES-PERMISSION-INHERITANCE-003`        | ⏳     |
+| AC-004 | Inherited permissions update when parent changes                    | `APP-TABLES-PERMISSION-INHERITANCE-004`        | ⏳     |
+| AC-005 | Multiple levels of inheritance are supported                        | `APP-TABLES-PERMISSION-INHERITANCE-005`        | ⏳     |
+| AC-006 | Inheritance chain is validated at configuration time                | `APP-TABLES-PERMISSION-INHERITANCE-006`        | ⏳     |
+| AC-007 | User can complete full permission-inheritance workflow (regression) | `APP-TABLES-PERMISSION-INHERITANCE-REGRESSION` | ⏳     |
 
 ### Implementation References
 
@@ -270,11 +271,12 @@ GET /api/tables/:tableId/permissions
 
 ## Regression Tests
 
-| Spec ID                                   | Workflow                                                 | Status |
-| ----------------------------------------- | -------------------------------------------------------- | ------ |
-| `APP-TABLES-PERMISSIONS-REGRESSION`       | Developer configures RBAC and permissions work correctly | `[x]`  |
-| `API-TABLES-PERMISSIONS-CHECK-REGRESSION` | User checks table permissions                            | `[x]`  |
-| `API-TABLES-PERMISSIONS-FIELD-REGRESSION` | Complete field permission enforcement workflow           | `[x]`  |
+| Spec ID                                        | Workflow                                                 | Status |
+| ---------------------------------------------- | -------------------------------------------------------- | ------ |
+| `APP-TABLES-PERMISSIONS-REGRESSION`            | Developer configures RBAC and permissions work correctly | `[x]`  |
+| `API-TABLES-PERMISSIONS-CHECK-REGRESSION`      | User checks table permissions                            | `[x]`  |
+| `API-TABLES-PERMISSIONS-FIELD-REGRESSION`      | Complete field permission enforcement workflow           | `[x]`  |
+| `APP-TABLES-PERMISSION-INHERITANCE-REGRESSION` | Permission inheritance workflow                          | `[ ]`  |
 
 ---
 
