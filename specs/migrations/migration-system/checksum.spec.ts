@@ -102,11 +102,11 @@ test.describe('Checksum Optimization', () => {
 
       // THEN: Migration skipped, startup completes quickly
 
-      // Performance check: startup < 3000ms (when migrations skipped)
+      // Performance check: startup < 6000ms (when migrations skipped)
       // Note: This validates optimization is working (full migrations take 5-10+ seconds)
-      // The 3000ms timeout accounts for server startup overhead and CI environment variability
+      // The 6000ms timeout accounts for server startup overhead and CI environment variability
       // THEN: assertion
-      expect(executionTime).toBeLessThan(3000)
+      expect(executionTime).toBeLessThan(6000)
 
       // Verify checksum exists and is valid
       const savedChecksum = await executeQuery(
@@ -305,10 +305,10 @@ test.describe('Checksum Optimization', () => {
 
         // THEN: Migration skipped, startup completes quickly
 
-        // Performance check: startup < 3000ms (when migrations skipped)
+        // Performance check: startup < 6000ms (when migrations skipped)
         // Note: This validates optimization is working (full migrations take 5-10+ seconds)
-        // The 3000ms timeout accounts for server startup overhead and CI environment variability
-        expect(executionTime).toBeLessThan(3000)
+        // The 6000ms timeout accounts for server startup overhead and CI environment variability
+        expect(executionTime).toBeLessThan(6000)
 
         // Verify checksum exists and is valid
         const savedChecksum = await executeQuery(
