@@ -185,7 +185,7 @@ test.describe('Table Name', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-NAME-004: should reject empty table name with validation error',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
