@@ -31,7 +31,7 @@ test.describe('Permission Inheritance', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per spec)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSION-INHERITANCE-001: should allow child table to inherit parent table permissions',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedViewer }) => {
