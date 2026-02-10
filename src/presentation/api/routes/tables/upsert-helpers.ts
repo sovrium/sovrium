@@ -11,6 +11,8 @@ import { validateFieldWritePermissions } from '@/presentation/api/utils/field-pe
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
+type TablePermissions = readonly Readonly<{ name: string; permissions?: unknown }>[]
+
 /**
  * Validate required fields for upsert records
  * Records come from schema in nested format: { fields: {...} }
@@ -108,6 +110,7 @@ export function checkFieldPermissions(config: {
  * This function determines if records will be created or updated, then checks appropriate permissions
  * Note: Field-level permissions should be checked separately before calling this function
  */
+
 export async function checkUpsertPermissionsWithUpdateCheck(config: {
   readonly app: App
   readonly tableName: string
@@ -126,7 +129,7 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
   const hasExistingRecords = await checkForExistingRecords(tableName, records, fieldsToMergeOn)
 
   // If records will be updated, check update permission
-  if (hasExistingRecords && !hasUpdatePermission(table, userRole, app.tables as any)) {
+  if (hasExistingRecords && !hasUpdatePermission(table, userRole, app.tables as TablePermissions)) {
     return {
       allowed: false,
       response: c.json(
@@ -141,7 +144,7 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
   }
 
   // Check table-level create permission (for new records)
-  if (!hasCreatePermission(table, userRole, app.tables as any)) {
+  if (!hasCreatePermission(table, userRole, app.tables as TablePermissions)) {
     return {
       allowed: false,
       response: c.json(

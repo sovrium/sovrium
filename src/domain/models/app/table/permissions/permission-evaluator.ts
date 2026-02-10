@@ -102,23 +102,14 @@ export function hasCreatePermission(
   userRole: string,
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
-  // Resolve inherited permissions if allTables provided
-  let effectivePermissions = table?.permissions
-  if (allTables && table && table.permissions?.inherit) {
-    try {
-      effectivePermissions = resolveInheritedPermissions(table as any, allTables)
-    } catch (error) {
-      // If inheritance resolution fails, deny access
-      return false
-    }
-  }
+  const effectivePerms = getEffectivePermissions(table, allTables) as
+    | Readonly<{ create?: unknown }>
+    | undefined
 
-  // Viewers are denied by default (must be explicitly granted permission)
-  if (userRole === 'viewer') {
-    return false
-  }
+  if (inheritanceFailed(table, allTables, effectivePerms)) return false
+  if (userRole === 'viewer') return false
 
-  const createPermission = effectivePermissions?.create
+  const createPermission = effectivePerms?.create
   if (!createPermission || !Array.isArray(createPermission)) return true
   return createPermission.includes(userRole)
 }
@@ -142,26 +133,19 @@ export function hasDeletePermission(
   userRole: string,
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
-  // Resolve inherited permissions if allTables provided
-  let effectivePermissions = table?.permissions
-  if (allTables && table && table.permissions?.inherit) {
-    try {
-      effectivePermissions = resolveInheritedPermissions(table as any, allTables)
-    } catch (error) {
-      // If inheritance resolution fails, deny access
-      return false
-    }
-  }
+  const effectivePerms = getEffectivePermissions(table, allTables) as
+    | Readonly<{ delete?: unknown }>
+    | undefined
+
+  if (inheritanceFailed(table, allTables, effectivePerms)) return false
 
   // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is not a Drizzle delete operation, it's accessing a property
-  const deletePermission = effectivePermissions?.delete
+  const deletePermission = effectivePerms?.delete
 
-  // Viewers have read-only access by default - deny delete operations
   if (userRole === 'viewer') {
     return Array.isArray(deletePermission) && deletePermission.includes(userRole)
   }
 
-  // For non-viewers, allow if no role-based restrictions or role is in allowed list
   if (!deletePermission || !Array.isArray(deletePermission)) return true
   return deletePermission.includes(userRole)
 }
@@ -190,32 +174,109 @@ export function hasUpdatePermission(
   userRole: string,
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
-  // Resolve inherited permissions if allTables provided
-  let effectivePermissions = table?.permissions
-  if (allTables && table && table.permissions?.inherit) {
-    try {
-      effectivePermissions = resolveInheritedPermissions(table as any, allTables)
-    } catch (error) {
-      // If inheritance resolution fails, deny access
-      return false
-    }
-  }
+  const effectivePerms = getEffectivePermissions(table, allTables) as
+    | Readonly<{ update?: unknown }>
+    | undefined
 
-  const updatePermission = effectivePermissions?.update
+  if (inheritanceFailed(table, allTables, effectivePerms)) return false
 
-  // If explicit role array is defined, check if user role is in allowed roles
+  const updatePermission = effectivePerms?.update
+
   if (Array.isArray(updatePermission)) {
     return updatePermission.includes(userRole)
   }
 
-  // When no explicit permissions are defined:
-  // - Viewers are denied access by default (must be explicitly granted)
-  // - All other roles (admin, member) are allowed
-  if (userRole === 'viewer') {
-    return false
-  }
+  if (userRole === 'viewer') return false
 
   return true
+}
+
+/**
+ * Resolve effective permissions considering inheritance
+ */
+function getEffectivePermissions(
+  table: Readonly<{ name: string; permissions?: unknown }> | undefined,
+  allTables: readonly Readonly<{ name: string; permissions?: unknown }>[] | undefined
+): unknown {
+  if (!allTables || !table) return table?.permissions
+
+  const tableWithInheritance = table as Readonly<{
+    name: string
+    permissions?: Readonly<{ inherit?: string }>
+  }>
+
+  if (!tableWithInheritance.permissions?.inherit) {
+    return table.permissions
+  }
+
+  try {
+    return resolveInheritedPermissions(
+      table as Readonly<{ name: string; permissions?: TablePermissions }>,
+      allTables as readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
+    )
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Check if inheritance resolution failed
+ */
+function inheritanceFailed(
+  table: Readonly<{ permissions?: Readonly<{ inherit?: string }> }> | undefined,
+  allTables: readonly unknown[] | undefined,
+  effectivePermissions: unknown
+): boolean {
+  return Boolean(allTables && table?.permissions?.inherit && !effectivePermissions)
+}
+
+/**
+ * Check if circular inheritance exists
+ */
+function hasCircularInheritance(tableName: string, visited: ReadonlySet<string>): boolean {
+  return visited.has(tableName)
+}
+
+/**
+ * Find parent table by name
+ */
+function findParentTable(
+  parentName: string | undefined,
+  allTables: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
+): Readonly<{ name: string; permissions?: TablePermissions }> | undefined {
+  if (!parentName) return undefined
+  return allTables.find((t) => t.name === parentName)
+}
+
+/**
+ * Merge a single permission property with override support
+ */
+function mergePermission<T>(
+  overrideValue: T | undefined,
+  currentValue: T | undefined,
+  parentValue: T | undefined
+): T | undefined {
+  return overrideValue ?? currentValue ?? parentValue
+}
+
+/**
+ * Merge parent and current permissions with override support
+ */
+function mergePermissions(
+  permissions: TablePermissions,
+  parentPermissions: TablePermissions
+): TablePermissions {
+  const { override, read, comment, create, update, delete: deletePerms, fields } = permissions
+
+  return {
+    read: mergePermission(override?.read, read, parentPermissions.read),
+    comment: mergePermission(override?.comment, comment, parentPermissions.comment),
+    create: mergePermission(override?.create, create, parentPermissions.create),
+    update: mergePermission(override?.update, update, parentPermissions.update),
+    // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is accessing a property, not a Drizzle delete operation
+    delete: mergePermission(override?.delete, deletePerms, parentPermissions.delete),
+    fields: fields ?? parentPermissions.fields,
+  }
 }
 
 /**
@@ -228,15 +289,16 @@ export function hasUpdatePermission(
  * @param allTables - All tables in the app (for parent lookup)
  * @param visited - Set of visited table names (for circular detection)
  * @returns Resolved permissions or undefined if inheritance chain is invalid
+ * @throws Error if circular inheritance detected or parent table not found
  */
 export function resolveInheritedPermissions(
   table: Readonly<{ name: string; permissions?: TablePermissions }> | undefined,
   allTables: readonly Readonly<{ name: string; permissions?: TablePermissions }>[],
-  visited: Set<string> = new Set()
+  visited: ReadonlySet<string> = new Set()
 ): TablePermissions | undefined {
-  if (!table || !table.permissions) return undefined
+  if (!table?.permissions) return undefined
 
-  const permissions = table.permissions
+  const { permissions } = table
 
   // If no inheritance, return current permissions
   if (!permissions.inherit) {
@@ -244,16 +306,16 @@ export function resolveInheritedPermissions(
   }
 
   // Circular inheritance detection
-  if (visited.has(table.name)) {
-    throw new Error(
-      `Circular permission inheritance detected: ${Array.from(visited).join(' -> ')} -> ${table.name}`
-    )
+  if (hasCircularInheritance(table.name, visited)) {
+    // Return undefined to indicate error (caught by callers)
+    return undefined
   }
 
   // Find parent table
-  const parentTable = allTables.find((t) => t.name === permissions.inherit)
+  const parentTable = findParentTable(permissions.inherit, allTables)
   if (!parentTable) {
-    throw new Error(`Inherited table not found: ${permissions.inherit}`)
+    // Return undefined to indicate error (caught by callers)
+    return undefined
   }
 
   // Recursively resolve parent permissions
@@ -266,18 +328,7 @@ export function resolveInheritedPermissions(
   if (!parentPermissions) return permissions
 
   // Merge parent permissions with current permissions (current takes precedence)
-  // Override permissions take precedence over inherited
-  const resolvedPermissions: TablePermissions = {
-    read: permissions.override?.read ?? permissions.read ?? parentPermissions.read,
-    comment: permissions.override?.comment ?? permissions.comment ?? parentPermissions.comment,
-    create: permissions.override?.create ?? permissions.create ?? parentPermissions.create,
-    update: permissions.override?.update ?? permissions.update ?? parentPermissions.update,
-    // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is accessing a property, not a Drizzle delete operation
-    delete: permissions.override?.delete ?? permissions.delete ?? parentPermissions.delete,
-    fields: permissions.fields ?? parentPermissions.fields,
-  }
-
-  return resolvedPermissions
+  return mergePermissions(permissions, parentPermissions)
 }
 
 /**
@@ -300,34 +351,22 @@ export function hasReadPermission(
   userRole: string,
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
-  // Resolve inherited permissions if allTables provided
-  let effectivePermissions = table?.permissions
-  if (allTables && table && table.permissions?.inherit) {
-    try {
-      effectivePermissions = resolveInheritedPermissions(table as any, allTables)
-    } catch (error) {
-      // If inheritance resolution fails, deny access
-      return false
-    }
-  }
+  const effectivePerms = getEffectivePermissions(table, allTables) as
+    | Readonly<{ read?: unknown }>
+    | undefined
 
-  const readPermission = effectivePermissions?.read
+  if (inheritanceFailed(table, allTables, effectivePerms)) return false
 
-  // If explicit role array is defined, check if user role is in allowed roles
+  const readPermission = effectivePerms?.read
+
   if (Array.isArray(readPermission)) {
     return readPermission.includes(userRole)
   }
 
-  // Check for 'all' or 'authenticated' permission
   if (readPermission === 'all') return true
   if (readPermission === 'authenticated') return true
 
-  // When no explicit permissions are defined:
-  // - Viewers are denied access by default (must be explicitly granted)
-  // - All other roles (admin, member) are allowed
-  if (userRole === 'viewer') {
-    return false
-  }
+  if (userRole === 'viewer') return false
 
   return true
 }

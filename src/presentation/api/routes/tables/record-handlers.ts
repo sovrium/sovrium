@@ -49,6 +49,8 @@ import { validateTimezoneParam } from './timezone-validation'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
+type TablePermissions = readonly Readonly<{ name: string; permissions?: unknown }>[]
+
 /** Session type derived from table context to respect layer boundaries */
 type SessionContext = ReturnType<typeof getTableContext>['session']
 
@@ -62,7 +64,7 @@ function checkReadPermission(
   c: Context,
   allTables?: App['tables']
 ) {
-  if (!hasReadPermission(table, userRole, allTables as any)) {
+  if (!hasReadPermission(table, userRole, allTables as TablePermissions)) {
     return c.json(
       {
         success: false,
@@ -194,7 +196,7 @@ function checkCreatePermission(
   c: Context,
   allTables?: App['tables']
 ) {
-  if (!hasCreatePermission(table, userRole, allTables as any)) {
+  if (!hasCreatePermission(table, userRole, allTables as TablePermissions)) {
     return c.json(
       {
         success: false,
@@ -248,7 +250,7 @@ export async function handleGetRecord(c: Context, app: App) {
   const includeDeleted = c.req.query('includeDeleted') === 'true'
 
   const table = app.tables?.find((t) => t.name === tableName)
-  if (!hasReadPermission(table, userRole, app.tables as any)) {
+  if (!hasReadPermission(table, userRole, app.tables as TablePermissions)) {
     return c.json(
       {
         success: false,
@@ -426,7 +428,7 @@ export async function handleDeleteRecord(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
-  if (!hasDeletePermission(table, userRole, app.tables as any)) {
+  if (!hasDeletePermission(table, userRole, app.tables as TablePermissions)) {
     return c.json(
       {
         success: false,
@@ -465,7 +467,7 @@ export async function handleRestoreRecord(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
-  if (!hasDeletePermission(table, userRole, app.tables as any)) {
+  if (!hasDeletePermission(table, userRole, app.tables as TablePermissions)) {
     return c.json(
       {
         success: false,
