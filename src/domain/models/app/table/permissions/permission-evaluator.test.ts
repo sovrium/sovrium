@@ -156,12 +156,12 @@ describe('permission-evaluator', () => {
     })
 
     test('should return true when role is in allowed roles', () => {
-      const table = { permissions: { create: ['admin', 'member'] } }
+      const table = { name: 'test_table', permissions: { create: ['admin', 'member'] } }
       expect(hasCreatePermission(table, 'member')).toBe(true)
     })
 
     test('should return false when role is not in allowed roles', () => {
-      const table = { permissions: { create: ['admin'] } }
+      const table = { name: 'test_table', permissions: { create: ['admin'] } }
       expect(hasCreatePermission(table, 'member')).toBe(false)
     })
 
@@ -176,12 +176,12 @@ describe('permission-evaluator', () => {
     })
 
     test('should return true when role is in allowed roles', () => {
-      const table = { permissions: { delete: ['admin', 'member'] } }
+      const table = { name: 'test_table', permissions: { delete: ['admin', 'member'] } }
       expect(hasDeletePermission(table, 'admin')).toBe(true)
     })
 
     test('should return false when role is not in allowed roles', () => {
-      const table = { permissions: { delete: ['admin'] } }
+      const table = { name: 'test_table', permissions: { delete: ['admin'] } }
       expect(hasDeletePermission(table, 'member')).toBe(false)
     })
 
@@ -196,12 +196,12 @@ describe('permission-evaluator', () => {
     })
 
     test('should return true when role is in allowed roles', () => {
-      const table = { permissions: { update: ['admin', 'member'] } }
+      const table = { name: 'test_table', permissions: { update: ['admin', 'member'] } }
       expect(hasUpdatePermission(table, 'member')).toBe(true)
     })
 
     test('should return false when role is not in allowed roles', () => {
-      const table = { permissions: { update: ['admin'] } }
+      const table = { name: 'test_table', permissions: { update: ['admin'] } }
       expect(hasUpdatePermission(table, 'member')).toBe(false)
     })
 
@@ -216,12 +216,12 @@ describe('permission-evaluator', () => {
     })
 
     test('should return true when role is in allowed roles', () => {
-      const table = { permissions: { read: ['admin', 'member'] } }
+      const table = { name: 'test_table', permissions: { read: ['admin', 'member'] } }
       expect(hasReadPermission(table, 'member')).toBe(true)
     })
 
     test('should return false when role is not in allowed roles', () => {
-      const table = { permissions: { read: ['admin'] } }
+      const table = { name: 'test_table', permissions: { read: ['admin'] } }
       expect(hasReadPermission(table, 'member')).toBe(false)
     })
 

@@ -29,7 +29,7 @@ export function checkTableUpdatePermissionWithRole(
 ): { allowed: true } | { allowed: false; response: Response } {
   const table = app.tables?.find((t) => t.name === tableName)
 
-  if (!hasUpdatePermission(table, userRole)) {
+  if (!hasUpdatePermission(table, userRole, app.tables as any)) {
     // Viewer-specific message for default permission denial
     const message =
       userRole === 'viewer'

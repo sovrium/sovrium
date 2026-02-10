@@ -126,7 +126,7 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
   const hasExistingRecords = await checkForExistingRecords(tableName, records, fieldsToMergeOn)
 
   // If records will be updated, check update permission
-  if (hasExistingRecords && !hasUpdatePermission(table, userRole)) {
+  if (hasExistingRecords && !hasUpdatePermission(table, userRole, app.tables as any)) {
     return {
       allowed: false,
       response: c.json(
@@ -141,7 +141,7 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
   }
 
   // Check table-level create permission (for new records)
-  if (!hasCreatePermission(table, userRole)) {
+  if (!hasCreatePermission(table, userRole, app.tables as any)) {
     return {
       allowed: false,
       response: c.json(

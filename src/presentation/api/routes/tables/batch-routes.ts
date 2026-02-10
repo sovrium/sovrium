@@ -191,7 +191,7 @@ async function handleBatchUpdate(c: Context, app: App) {
   // Authorization: Check table-level update permission
   const { hasUpdatePermission } =
     await import('@/application/use-cases/tables/permissions/permissions')
-  if (!hasUpdatePermission(table, userRole)) {
+  if (!hasUpdatePermission(table, userRole, app.tables as any)) {
     return c.json(
       {
         success: false,
