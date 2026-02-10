@@ -450,9 +450,11 @@ jobs:
             echo "🚀 Using Claude Opus 4.6 (attempt $ATTEMPT, \$15 budget) - escalated for hard spec"
           fi
 
-          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
-          echo "budget=$BUDGET" >> "$GITHUB_OUTPUT"
-          echo "attempt=$ATTEMPT" >> "$GITHUB_OUTPUT"
+          {
+            echo "model=$MODEL"
+            echo "budget=$BUDGET"
+            echo "attempt=$ATTEMPT"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Configure agent
         id: agent-config
