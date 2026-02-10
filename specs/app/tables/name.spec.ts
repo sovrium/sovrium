@@ -37,7 +37,7 @@ test.describe('Table Name', () => {
       // WHEN: validating input
       // THEN: value should meet schema requirements
 
-      // Valid table names (lowercase, underscores, starts with letter)
+      // Valid table names (user-friendly format - will be sanitized)
       await expect(
         startServerWithSchema({
           name: 'test-app',
@@ -51,62 +51,62 @@ test.describe('Table Name', () => {
         })
       ).resolves.not.toThrow()
 
-      // THEN: assertion
+      // THEN: assertion - mixed case allowed (sanitized to lowercase)
       await expect(
         startServerWithSchema({
           name: 'test-app',
           tables: [
             {
               id: 2,
-              name: 'products_123',
+              name: 'Products',
               fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
             },
           ],
         })
       ).resolves.not.toThrow()
 
-      // Invalid table names (uppercase, spaces, special characters, starts with number)
-      // THEN: assertion
+      // THEN: assertion - spaces allowed (sanitized to underscores)
       await expect(
         startServerWithSchema({
           name: 'test-app',
           tables: [
             {
               id: 3,
-              name: 'InvalidTable',
+              name: 'Customer Orders',
               fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
             },
           ],
         })
-      ).rejects.toThrow(/AppValidationError|ParseError/)
+      ).resolves.not.toThrow()
 
-      // THEN: assertion
+      // Invalid table names that sanitize to reserved keywords
+      // THEN: assertion - 'select' is a reserved keyword
       await expect(
         startServerWithSchema({
           name: 'test-app',
           tables: [
             {
               id: 4,
-              name: '123_table',
+              name: 'select',
               fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
             },
           ],
         })
-      ).rejects.toThrow(/AppValidationError|ParseError/)
+      ).rejects.toThrow(/reserved|keyword/i)
 
-      // THEN: assertion
+      // THEN: assertion - 'table' is a reserved keyword
       await expect(
         startServerWithSchema({
           name: 'test-app',
           tables: [
             {
               id: 5,
-              name: 'table with spaces',
+              name: 'table',
               fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
             },
           ],
         })
-      ).rejects.toThrow(/AppValidationError|ParseError/)
+      ).rejects.toThrow(/reserved|keyword/i)
     }
   )
 
@@ -178,9 +178,9 @@ test.describe('Table Name', () => {
         `SELECT table_name FROM information_schema.tables
          WHERE table_schema = 'public' AND table_name LIKE '%project%'`
       )
-      expect(tables.length).toBeGreaterThanOrEqual(1)
+      expect(tables.rows.length).toBeGreaterThanOrEqual(1)
       // Sanitized name should be lowercase, underscored
-      const tableName = tables[0].table_name
+      const tableName = tables.rows[0].table_name
       expect(tableName).toMatch(/^[a-z_]+$/)
     }
   )
@@ -244,7 +244,7 @@ test.describe('Table Name', () => {
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery }) => {
       await test.step('APP-TABLES-NAME-001: Meet schema requirements when validating input', async () => {
-        // Valid table names (lowercase, underscores, starts with letter)
+        // Valid table names (user-friendly format - will be sanitized)
         await expect(
           startServerWithSchema({
             name: 'test-app',
@@ -264,39 +264,39 @@ test.describe('Table Name', () => {
             tables: [
               {
                 id: 2,
-                name: 'products_123',
+                name: 'Products',
                 fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
               },
             ],
           })
         ).resolves.not.toThrow()
 
-        // Invalid table names
         await expect(
           startServerWithSchema({
             name: 'test-app',
             tables: [
               {
                 id: 3,
-                name: 'InvalidTable',
+                name: 'Customer Orders',
                 fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
               },
             ],
           })
-        ).rejects.toThrow(/AppValidationError|ParseError/)
+        ).resolves.not.toThrow()
 
+        // Invalid table names that sanitize to reserved keywords
         await expect(
           startServerWithSchema({
             name: 'test-app',
             tables: [
               {
                 id: 4,
-                name: '123_table',
+                name: 'select',
                 fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
               },
             ],
           })
-        ).rejects.toThrow(/AppValidationError|ParseError/)
+        ).rejects.toThrow(/reserved|keyword/i)
 
         await expect(
           startServerWithSchema({
@@ -304,12 +304,12 @@ test.describe('Table Name', () => {
             tables: [
               {
                 id: 5,
-                name: 'table with spaces',
+                name: 'table',
                 fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
               },
             ],
           })
-        ).rejects.toThrow(/AppValidationError|ParseError/)
+        ).rejects.toThrow(/reserved|keyword/i)
       })
 
       await test.step('APP-TABLES-NAME-002: Use name correctly when processing configuration', async () => {

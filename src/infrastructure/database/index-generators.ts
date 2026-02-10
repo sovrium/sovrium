@@ -6,82 +6,95 @@
  */
 
 import { isRelationshipField, isUserField } from './sql-generators'
+import { sanitizeTableName } from './field-utils'
 import type { Table } from '@/domain/models/app/table'
 import type { Fields } from '@/domain/models/app/table/fields'
 
 /**
  * Generate standard indexes for indexed fields
  */
-const generateStandardIndexes = (table: Table): readonly string[] =>
-  table.fields
+const generateStandardIndexes = (table: Table): readonly string[] => {
+  const sanitized = sanitizeTableName(table.name)
+  return table.fields
     .filter(
       (field): field is Fields[number] & { indexed: true } => 'indexed' in field && !!field.indexed
     )
     .map((field) => {
       // Status fields use special naming: idx_{table}_status instead of idx_{table}_{field_name}
       const indexSuffix = field.type === 'status' ? 'status' : field.name
-      const indexName = `idx_${table.name}_${indexSuffix}`
+      const indexName = `idx_${sanitized}_${indexSuffix}`
       const indexType =
         field.type === 'array' || field.type === 'json'
           ? 'USING gin'
           : field.type === 'geolocation'
             ? 'USING gist'
             : 'USING btree'
-      return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} ${indexType} (${field.name})`
+      return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} ${indexType} (${field.name})`
     })
+}
 
 /**
  * Generate unique indexes for autonumber fields
  */
-const generateAutonumberIndexes = (table: Table): readonly string[] =>
-  table.fields
+const generateAutonumberIndexes = (table: Table): readonly string[] => {
+  const sanitized = sanitizeTableName(table.name)
+  return table.fields
     .filter((field) => field.type === 'autonumber')
     .map((field) => {
-      const indexName = `idx_${table.name}_${field.name}_unique`
-      return `CREATE UNIQUE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} (${field.name})`
+      const indexName = `idx_${sanitized}_${field.name}_unique`
+      return `CREATE UNIQUE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} (${field.name})`
     })
+}
 
 /**
  * Generate exclusion constraints for geolocation fields with unique constraint
  * NOTE: POINT type doesn't support btree UNIQUE constraints or GiST UNIQUE indexes
  * PostgreSQL requires EXCLUDE USING gist for uniqueness on geometric types using ~= operator
  */
-const generateGeolocationConstraints = (table: Table): readonly string[] =>
-  table.fields
+const generateGeolocationConstraints = (table: Table): readonly string[] => {
+  const sanitized = sanitizeTableName(table.name)
+  return table.fields
     .filter(
       (field): field is Fields[number] & { type: 'geolocation'; unique: true } =>
         field.type === 'geolocation' && 'unique' in field && !!field.unique
     )
     .map((field) => {
       // Use PostgreSQL naming convention: {table}_{column}_key (matches constraint naming)
-      const constraintName = `${table.name}_${field.name}_key`
-      return `ALTER TABLE public.${table.name} ADD CONSTRAINT ${constraintName} EXCLUDE USING gist (${field.name} WITH ~=)`
+      const constraintName = `${sanitized}_${field.name}_key`
+      return `ALTER TABLE public.${sanitized} ADD CONSTRAINT ${constraintName} EXCLUDE USING gist (${field.name} WITH ~=)`
     })
+}
 
 /**
  * Generate full-text search GIN indexes for rich-text fields
  */
-const generateFullTextSearchIndexes = (table: Table): readonly string[] =>
-  table.fields
+const generateFullTextSearchIndexes = (table: Table): readonly string[] => {
+  const sanitized = sanitizeTableName(table.name)
+  return table.fields
     .filter(
       (field): field is Fields[number] & { type: 'rich-text'; fullTextSearch: true } =>
         field.type === 'rich-text' && 'fullTextSearch' in field && !!field.fullTextSearch
     )
     .map((field) => {
-      const indexName = `idx_${table.name}_${field.name}_fulltext`
-      return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} USING gin (to_tsvector('english'::regconfig, ${field.name}))`
+      const indexName = `idx_${sanitized}_${field.name}_fulltext`
+      return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} USING gin (to_tsvector('english'::regconfig, ${field.name}))`
     })
+}
 
 /**
  * Generate custom indexes from table.indexes configuration
  */
-const generateCustomIndexes = (table: Table): readonly string[] =>
-  table.indexes?.map((index) => {
-    const uniqueClause = index.unique ? 'UNIQUE ' : ''
-    const fields = index.fields.join(', ')
-    const whereClause = 'where' in index && index.where ? ` WHERE ${index.where}` : ''
-    return `CREATE ${uniqueClause}INDEX IF NOT EXISTS ${index.name} ON public.${table.name} (${fields})${whereClause}`
-  }) ?? []
+const generateCustomIndexes = (table: Table): readonly string[] => {
+  const sanitized = sanitizeTableName(table.name)
+  return (
+    table.indexes?.map((index) => {
+      const uniqueClause = index.unique ? 'UNIQUE ' : ''
+      const fields = index.fields.join(', ')
+      const whereClause = 'where' in index && index.where ? ` WHERE ${index.where}` : ''
+      return `CREATE ${uniqueClause}INDEX IF NOT EXISTS ${index.name} ON public.${sanitized} (${fields})${whereClause}`
+    }) ?? []
+  )
+}
 
 /**
  * Generate index for intrinsic deleted_at column (soft-delete optimization)
@@ -90,10 +103,9 @@ const generateCustomIndexes = (table: Table): readonly string[] =>
  * - WHERE deleted_at IS NOT NULL (deleted records)
  */
 const generateDeletedAtIndex = (table: Table): readonly string[] => {
-  const indexName = `idx_${table.name}_deleted_at`
-  return [
-    `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} USING btree (deleted_at)`,
-  ]
+  const sanitized = sanitizeTableName(table.name)
+  const indexName = `idx_${sanitized}_deleted_at`
+  return [`CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} USING btree (deleted_at)`]
 }
 
 /**
@@ -102,6 +114,7 @@ const generateDeletedAtIndex = (table: Table): readonly string[] => {
  * This improves query performance when filtering or joining on relationships
  */
 const generateForeignKeyIndexes = (table: Table): readonly string[] => {
+  const sanitized = sanitizeTableName(table.name)
   const relationshipIndexes = table.fields
     .filter(isRelationshipField)
     .filter((field) => {
@@ -113,13 +126,13 @@ const generateForeignKeyIndexes = (table: Table): readonly string[] => {
       )
     })
     .map((field) => {
-      const indexName = `idx_${table.name}_${field.name}_fk`
-      return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} USING btree (${field.name})`
+      const indexName = `idx_${sanitized}_${field.name}_fk`
+      return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} USING btree (${field.name})`
     })
 
   const userFieldIndexes = table.fields.filter(isUserField).map((field) => {
-    const indexName = `idx_${table.name}_${field.name}_fk`
-    return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${table.name} USING btree (${field.name})`
+    const indexName = `idx_${sanitized}_${field.name}_fk`
+    return `CREATE INDEX IF NOT EXISTS ${indexName} ON public.${sanitized} USING btree (${field.name})`
   })
 
   return [...relationshipIndexes, ...userFieldIndexes]

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { shouldCreateDatabaseColumn } from '../field-utils'
+import { shouldCreateDatabaseColumn, sanitizeTableName } from '../field-utils'
 import { shouldUseView, getBaseTableName } from '../lookup-view-generators'
 import { generateColumnDefinition, generateTableConstraints } from '../sql-generators'
 import {
@@ -31,8 +31,10 @@ export const generateCreateTableSQL = (
   tableUsesView?: ReadonlyMap<string, boolean>,
   skipForeignKeys?: boolean
 ): string => {
+  // Sanitize table name for PostgreSQL (lowercase, underscores)
+  const sanitized = sanitizeTableName(table.name)
   // Determine table name (add _base suffix if using VIEW for lookup fields)
-  const tableName = shouldUseView(table) ? getBaseTableName(table.name) : table.name
+  const tableName = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
 
   // Identify primary key fields
   const primaryKeyFields =
