@@ -995,6 +995,69 @@ ls src/domain/models/app/{property}.ts
 - Architectural boundary must be strictly enforced
 - If schema is missing, the handoff protocol was not followed correctly
 
+### Step 3b: Infrastructure Building (When Endpoints Are Missing)
+
+If Step 2 analysis identifies **"Production Code Missing"** with HTTP 404 errors (endpoint doesn't exist), build the complete infrastructure bottom-up. **DO NOT** stop at "minimal" — build ALL layers needed for the endpoint to function.
+
+#### Construction Order (Bottom-Up)
+
+1. **Database Query** → `src/infrastructure/database/table-queries/{feature}-queries.ts`
+   - Template: Look at existing `*-queries.ts` files in the same directory for patterns
+   - Use Drizzle ORM with `Effect.tryPromise` for error handling
+   - Export pure query functions that return Effect programs
+   - Include owner_id filtering for multi-tenant isolation
+
+2. **Effect Program** → `src/application/use-cases/tables/{feature}-programs.ts` (or extend existing programs.ts)
+   - Template: Look at existing `*-programs.ts` or `programs.ts` files for patterns
+   - Use `Effect.gen` to compose queries with business logic
+   - Define tagged errors for each failure case (e.g., `NotFoundError`, `PermissionError`)
+
+3. **Route Handler** → `src/presentation/api/routes/tables/{feature}-handlers.ts` (or extend existing handlers)
+   - Template: Look at existing `*-handlers.ts` or `record-handlers.ts` for patterns
+   - Parse request params/body, call Effect program, format response
+   - Use `Effect.runPromise` with `Effect.either` for error handling
+   - Return proper HTTP status codes (200, 201, 404, etc.)
+   - Use camelCase in JSON responses (NOT snake_case)
+
+4. **Route Registration** → Register in the appropriate route-setup file in `src/infrastructure/server/route-setup/`
+   - Add the new route handler to the existing route group
+   - Follow existing URL patterns from the spec file (spec paths are authoritative)
+
+#### How to Find Templates
+
+Use these commands to locate existing patterns:
+
+```bash
+# Find existing query files for patterns
+ls src/infrastructure/database/table-queries/
+
+# Find existing handler files for patterns
+ls src/presentation/api/routes/tables/
+
+# Find existing programs for patterns
+ls src/application/use-cases/tables/
+
+# Find route registration patterns
+grep -r "route\|app\." src/infrastructure/server/route-setup/ --include="*.ts" -l
+```
+
+#### Verification Checklist
+
+- [ ] Each layer compiles before moving to the next (`bun run typecheck`)
+- [ ] Route is registered and accessible (test no longer returns 404)
+- [ ] Response format matches what the test expects (field names, casing, structure)
+- [ ] `bun run license` run after creating new files
+- [ ] `bun run quality` passes
+
+#### Common Infrastructure Building Mistakes
+
+- Forgetting to register the route in route-setup (endpoint still returns 404)
+- Using snake_case in JSON responses (tests expect camelCase)
+- Missing owner_id filtering in database queries (breaks multi-tenant isolation)
+- Not running `bun run license` after creating new .ts files (copyright header missing)
+- Implementing only the handler without the database query layer (handler has no data source)
+- Not following the Effect.gen pattern in application layer programs
+
 ### Step 4: Implement Minimal but Correct Code (RED → GREEN)
 
 **PREREQUISITE**: Step 2 analysis and Step 3 schema verification MUST be complete. You should have:

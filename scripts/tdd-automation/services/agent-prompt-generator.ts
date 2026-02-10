@@ -91,17 +91,36 @@ function generateTestFixerPrompt(context: AgentPromptContext): string {
   lines.push(`- Branch: \`${branch}\``)
   lines.push('')
   lines.push('**Instructions for the agent:**')
-  lines.push('1. Analyze the test to understand what it expects')
-  lines.push('2. Implement minimal code to pass the test')
-  lines.push(`3. Run \`bun test:e2e -- ${context.specFile}\` to verify tests pass`)
-  lines.push(`4. Commit with message: "fix: implement ${context.specId}"`)
-  lines.push('5. Push to origin (MANDATORY for pipeline to continue)')
+  lines.push('1. Analyze the test to understand what endpoint/feature it expects')
+  lines.push('2. Check if the required route/endpoint exists in src/presentation/api/routes/')
+  lines.push('3. If the endpoint DOES exist: fix the response format or handler logic')
+  lines.push('4. If the endpoint DOES NOT exist: build the complete infrastructure bottom-up:')
+  lines.push(
+    '   a. Database query in src/infrastructure/database/table-queries/ (see existing *-queries.ts files)'
+  )
+  lines.push(
+    '   b. Effect program in src/application/use-cases/tables/ (see existing programs.ts files)'
+  )
+  lines.push(
+    '   c. Handler in src/presentation/api/routes/tables/ (see existing *-handlers.ts files)'
+  )
+  lines.push('   d. Register the route in the appropriate route-setup file')
+  lines.push(
+    '5. Use existing implementations as templates — grep for similar features to find patterns'
+  )
+  lines.push(`6. Run \`bun test:e2e -- ${context.specFile}\` to verify tests pass`)
+  lines.push('7. Run `bun run quality` to verify code quality')
+  lines.push(`8. Commit with message: "feat: implement ${context.specId}"`)
+  lines.push('9. Push to origin (MANDATORY for pipeline to continue)')
   lines.push('')
   lines.push('**Constraints:**')
   lines.push('- NEVER modify test logic or assertions')
   lines.push('- NEVER ask clarifying questions (autonomous mode)')
-  lines.push('- Maximum 3 iterations before reporting failure')
+  lines.push(
+    '- Build complete infrastructure when needed — do not stop at "minimal" if the endpoint is missing'
+  )
   lines.push('- Follow functional programming patterns (no push/mutation)')
+  lines.push('- Run `bun run license` after creating new .ts files')
 
   return lines.join('\n')
 }

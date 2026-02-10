@@ -28,14 +28,19 @@ describe('Agent Prompt Generator', () => {
       expect(result).toContain('- Spec: `UI-TABLES-001`')
       expect(result).toContain('- Test file: `specs/ui/tables/table-creation.spec.ts`')
       expect(result).toContain('- Branch: `tdd/ui-tables-001`')
-      expect(result).toContain('1. Analyze the test to understand what it expects')
-      expect(result).toContain('2. Implement minimal code to pass the test')
+      expect(result).toContain('1. Analyze the test to understand what endpoint/feature it expects')
       expect(result).toContain(
-        '3. Run `bun test:e2e -- specs/ui/tables/table-creation.spec.ts` to verify tests pass'
+        '2. Check if the required route/endpoint exists in src/presentation/api/routes/'
       )
-      expect(result).toContain('4. Commit with message: "fix: implement UI-TABLES-001"')
+      expect(result).toContain(
+        '4. If the endpoint DOES NOT exist: build the complete infrastructure bottom-up:'
+      )
+      expect(result).toContain(
+        '6. Run `bun test:e2e -- specs/ui/tables/table-creation.spec.ts` to verify tests pass'
+      )
+      expect(result).toContain('8. Commit with message: "feat: implement UI-TABLES-001"')
       expect(result).toContain('- NEVER modify test logic or assertions')
-      expect(result).toContain('- Maximum 3 iterations before reporting failure')
+      expect(result).toContain('- Build complete infrastructure when needed')
     })
 
     test('generates codebase-refactor-auditor prompt', async () => {

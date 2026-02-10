@@ -437,7 +437,7 @@ jobs:
             # Default: e2e-test-fixer
             ALLOWED_TOOLS="Bash,Read,Write,Edit,Glob,Grep,Task,TodoWrite,LSP,Skill"
             DISALLOWED_TOOLS="WebFetch,WebSearch,AskUserQuestion,NotebookEdit"
-            MAX_TURNS=50
+            MAX_TURNS=60
           fi
 
           # Build claude_args for the action
