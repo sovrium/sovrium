@@ -519,9 +519,8 @@ describe('executeSoftDelete', () => {
         },
       }
 
-      await executeSoftDelete(asTx(mockTx), 'users', '123')
-
       try {
+        await executeSoftDelete(asTx(mockTx), 'users', '123')
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect(error).toHaveProperty('message')
@@ -538,9 +537,8 @@ describe('executeSoftDelete', () => {
         },
       }
 
-      await executeSoftDelete(asTx(mockTx), 'users', '123')
-
       try {
+        await executeSoftDelete(asTx(mockTx), 'users', '123')
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect((error as Error).message).toContain('Failed to delete record')
@@ -603,9 +601,8 @@ describe('executeHardDelete', () => {
         },
       }
 
-      await executeHardDelete(asTx(mockTx), 'users', '123')
-
       try {
+        await executeHardDelete(asTx(mockTx), 'users', '123')
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect(error).toHaveProperty('message')
@@ -622,9 +619,8 @@ describe('executeHardDelete', () => {
         },
       }
 
-      await executeHardDelete(asTx(mockTx), 'users', '123')
-
       try {
+        await executeHardDelete(asTx(mockTx), 'users', '123')
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect((error as Error).message).toContain('Failed to delete record')
@@ -672,9 +668,8 @@ describe('checkDeletedAtColumn', () => {
         },
       }
 
-      await checkDeletedAtColumn(asTx(mockTx), 'users')
-
       try {
+        await checkDeletedAtColumn(asTx(mockTx), 'users')
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect(error).toHaveProperty('message')
@@ -691,9 +686,8 @@ describe('checkDeletedAtColumn', () => {
         },
       }
 
-      await checkDeletedAtColumn(asTx(mockTx), 'users')
-
       try {
+        await checkDeletedAtColumn(asTx(mockTx), 'users')
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         expect((error as Error).message).toContain('Failed to check columns')

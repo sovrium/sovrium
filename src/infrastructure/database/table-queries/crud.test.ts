@@ -76,10 +76,10 @@ mock.module('./create-record-helpers', () => ({
 }))
 
 mock.module('./delete-helpers', () => ({
-  checkDeletedAtColumn: () => Effect.succeed(true),
-  fetchRecordBeforeDeletion: () => Effect.succeed({ id: 'record-123', name: 'Alice' }),
-  executeSoftDelete: () => Effect.succeed(true),
-  executeHardDelete: () => Effect.succeed(true),
+  checkDeletedAtColumn: async () => true,
+  fetchRecordBeforeDeletion: async () => ({ id: 'record-123', name: 'Alice' }),
+  executeSoftDelete: async () => true,
+  executeHardDelete: async () => true,
   cascadeSoftDelete: async () => {},
 }))
 
@@ -453,10 +453,10 @@ describe('deleteRecord', () => {
 
   test('performs hard delete when no deleted_at column', async () => {
     mock.module('./delete-helpers', () => ({
-      checkDeletedAtColumn: () => Effect.succeed(false), // No soft delete support
-      fetchRecordBeforeDeletion: () => Effect.succeed({ id: 'record-123', name: 'Alice' }),
-      executeSoftDelete: () => Effect.succeed(true),
-      executeHardDelete: () => Effect.succeed(true),
+      checkDeletedAtColumn: async () => false, // No soft delete support
+      fetchRecordBeforeDeletion: async () => ({ id: 'record-123', name: 'Alice' }),
+      executeSoftDelete: async () => true,
+      executeHardDelete: async () => true,
       cascadeSoftDelete: async () => {},
     }))
 
@@ -479,10 +479,10 @@ describe('permanentlyDeleteRecord', () => {
 
   test('returns false when delete fails', async () => {
     mock.module('./delete-helpers', () => ({
-      checkDeletedAtColumn: () => Effect.succeed(true),
-      fetchRecordBeforeDeletion: () => Effect.succeed({ id: 'record-123', name: 'Alice' }),
-      executeSoftDelete: () => Effect.succeed(true),
-      executeHardDelete: () => Effect.succeed(false), // Delete fails
+      checkDeletedAtColumn: async () => true,
+      fetchRecordBeforeDeletion: async () => ({ id: 'record-123', name: 'Alice' }),
+      executeSoftDelete: async () => true,
+      executeHardDelete: async () => false, // Delete fails
       cascadeSoftDelete: async () => {},
     }))
 
