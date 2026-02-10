@@ -203,8 +203,8 @@ Content-Type: application/json
 | AC-001 | Returns 200 OK with array of restored records              | `API-TABLES-RECORDS-BATCH-RESTORE-001`        | ✅     |
 | AC-002 | Restores all specified records in single transaction       | `API-TABLES-RECORDS-BATCH-RESTORE-002`        | ⏳     |
 | AC-003 | Returns 400 when any record ID is invalid                  | `API-TABLES-RECORDS-BATCH-RESTORE-003`        | ⏳     |
-| AC-004 | Skips records that are not deleted                         | `API-TABLES-RECORDS-BATCH-RESTORE-004`        | ✅     |
-| AC-005 | Returns partial success response with error details        | `API-TABLES-RECORDS-BATCH-RESTORE-005`        | ⏳     |
+| AC-004 | Skips records that are not deleted                         |                                               | ⏳     |
+| AC-005 | Returns partial success response with error details        |                                               | ⏳     |
 | AC-006 | Returns 401 when not authenticated                         | `API-TABLES-RECORDS-BATCH-RESTORE-004`        | ✅     |
 | AC-007 | Returns 403 when user lacks restore permission             | `API-TABLES-RECORDS-BATCH-RESTORE-005`        | ⏳     |
 | AC-008 | Logs batch restore operation to activity history           | `API-TABLES-RECORDS-BATCH-RESTORE-009`        | ⏳     |

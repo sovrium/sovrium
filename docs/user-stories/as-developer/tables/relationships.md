@@ -109,9 +109,9 @@ tables:
 | ------ | -------------------------------------------------- | ----------------------------------------- | ------ |
 | AC-001 | Creates PostgreSQL INTEGER column with FOREIGN KEY | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-001` | ✅     |
 | AC-002 | Validates referenced record exists                 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-002` | ✅     |
-| AC-003 | Creates index on relationship column by default    | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-003` | ✅     |
-| AC-004 | Returns related record when expanded               | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-004` | ✅     |
-| AC-005 | Supports filtering by related record ID            | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-005` | ✅     |
+| AC-003 | Creates index on relationship column by default    |                                           | ⏳     |
+| AC-004 | Returns related record when expanded               |                                           | ⏳     |
+| AC-005 | Supports filtering by related record ID            |                                           | ⏳     |
 
 ### Implementation References
 
@@ -204,7 +204,7 @@ tables:
 | ID     | Criterion                                            | E2E Spec                                  | Status |
 | ------ | ---------------------------------------------------- | ----------------------------------------- | ------ |
 | AC-001 | Auto-creates junction table ({table1}\_{table2})     | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-009` | ✅     |
-| AC-002 | Junction table has composite primary key             | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-010` | ✅     |
+| AC-002 | Junction table has composite primary key             |                                           | ⏳     |
 | AC-003 | Supports linking multiple records                    | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-011` | ✅     |
 | AC-004 | Returns array of related records when expanded       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-012` | ✅     |
 | AC-005 | Creates reciprocal field on related table (optional) | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-013` | ✅     |
@@ -504,9 +504,9 @@ tables:
 | User Story                  | Title                      | Spec Count            | Status   |
 | --------------------------- | -------------------------- | --------------------- | -------- |
 | US-TABLES-RELATIONSHIPS-000 | Foreign Key Constraints    | 15                    | Complete |
-| US-TABLES-RELATIONSHIPS-001 | Many-to-One Relationships  | 5                     | Complete |
+| US-TABLES-RELATIONSHIPS-001 | Many-to-One Relationships  | 5                     | Partial  |
 | US-TABLES-RELATIONSHIPS-002 | One-to-One Relationships   | 3                     | Complete |
-| US-TABLES-RELATIONSHIPS-003 | Many-to-Many Relationships | 5                     | Complete |
+| US-TABLES-RELATIONSHIPS-003 | Many-to-Many Relationships | 5                     | Partial  |
 | US-TABLES-RELATIONSHIPS-004 | Self-Referencing           | 5                     | Complete |
 | US-TABLES-RELATIONSHIPS-005 | Cascade Behaviors          | 5                     | Complete |
 | US-TABLES-RELATIONSHIPS-006 | Lookup Fields              | 5                     | Complete |
