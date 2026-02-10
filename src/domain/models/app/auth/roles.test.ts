@@ -158,12 +158,9 @@ describe('RolesConfigSchema', () => {
   })
 
   describe('invalid configurations', () => {
-    // TODO(human): Write a test that verifies duplicate role names are rejected.
-    // The RolesConfigSchema has a Schema.filter that checks for duplicate names
-    // and returns a descriptive error message including the duplicated name(s).
-    // Hint: try decoding [{ name: 'editor' }, { name: 'editor' }]
     test('should reject duplicate role names', () => {
-      expect(true).toBe(true) // placeholder
+      const input = [{ name: 'editor' }, { name: 'editor' }]
+      expect(() => Schema.decodeUnknownSync(RolesConfigSchema)(input)).toThrow()
     })
 
     test('should reject role names conflicting with built-in roles', () => {
