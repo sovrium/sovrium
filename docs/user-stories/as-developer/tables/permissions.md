@@ -107,7 +107,7 @@ tables:
 | AC-006 | Admin role has full access to all tables by default      | `APP-TABLES-PERMISSIONS-006`        | ✅     |
 | AC-007 | Role hierarchy is respected (admin > editor > viewer)    | `APP-TABLES-PERMISSIONS-007`        | ✅     |
 | AC-008 | Returns 403 when user role lacks required permission     | `APP-TABLES-PERMISSIONS-008`        | ✅     |
-| AC-009 | Role changes take effect immediately without re-login    | `APP-TABLES-PERMISSIONS-009`        | ✅     |
+| AC-009 | Role changes take effect immediately without re-login    |                                     | ⏳     |
 | AC-010 | Role validation errors return descriptive messages       | `APP-TABLES-PERMISSIONS-010`        | ✅     |
 | AC-011 | User can complete full permissions workflow (regression) | `APP-TABLES-PERMISSIONS-REGRESSION` | ✅     |
 
@@ -230,21 +230,7 @@ auth:
 
 ### Configuration
 
-```yaml
-tables:
-  - name: projects
-    permissions:
-      read: all
-      create: ['admin']
-      update: ['admin']
-      delete: ['admin']
-
-  - name: tasks
-    permissions:
-      inherit: projects
-      override:
-        create: ['admin', 'member']
-```
+> **Note**: Permission inheritance (`inherit`, `override`) is not yet available in the AppSchema. The configuration format below represents the target design and will be implemented in a future release.
 
 ### Acceptance Criteria
 

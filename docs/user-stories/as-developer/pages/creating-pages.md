@@ -26,20 +26,26 @@ pages:
     name: home
     path: /
     sections:
-      - type: hero
-        title: Welcome to My App
+      - id: hero
+        type: hero
+        props:
+          title: Welcome to My App
   - id: 2
     name: about
     path: /about
     sections:
-      - type: content
-        body: About us content here
+      - id: about-content
+        type: content
+        props:
+          body: About us content here
   - id: 3
     name: contact
     path: /contact
     sections:
-      - type: form
-        formId: contact-form
+      - id: contact-form
+        type: contact
+        props:
+          formId: contact-form
 ```
 
 ### Acceptance Criteria
@@ -209,20 +215,26 @@ pages:
     name: home
     path: /
     sections:
-      - type: hero
-        title: Welcome
-        subtitle: Build amazing apps
-        cta:
-          text: Get Started
-          link: /signup
-      - type: features
-        items:
-          - title: Fast
-            icon: zap
-          - title: Secure
-            icon: shield
-      - type: testimonials
-        heading: What our users say
+      - id: hero
+        type: hero
+        props:
+          title: Welcome
+          subtitle: Build amazing apps
+          cta:
+            text: Get Started
+            link: /signup
+      - id: features
+        type: features
+        props:
+          items:
+            - title: Fast
+              icon: zap
+            - title: Secure
+              icon: shield
+      - id: testimonials
+        type: testimonials
+        props:
+          heading: What our users say
 ```
 
 ### Acceptance Criteria
@@ -263,12 +275,12 @@ pages:
   - id: 1
     name: home
     path: /
-    layout: main # Use shared layout
     scripts:
-      - src: /js/analytics.js
-        async: true
-      - src: /js/home-animations.js
-        defer: true
+      externalScripts:
+        - src: /js/analytics.js
+          async: true
+        - src: /js/home-animations.js
+          defer: true
     sections: []
 ```
 
@@ -300,17 +312,23 @@ pages:
 ### Configuration
 
 ```yaml
-layout:
-  navigation: true
-  header: true
-  footer: true
-  sidebar:
-    position: left
-    width: 280
-    collapsible: true
-  banner:
-    enabled: true
-    text: 'Welcome to our new site!'
+pages:
+  - id: 1
+    name: home
+    path: /
+    layout:
+      navigation:
+        sticky: true
+      footer:
+        enabled: true
+      sidebar:
+        position: left
+        width: 280
+        collapsible: true
+      banner:
+        enabled: true
+        text: 'Welcome to our new site!'
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -342,24 +360,29 @@ layout:
 ### Configuration
 
 ```yaml
-layout:
-  sidebar:
-    position: left # left | right
-    width: 280
-    collapsible: true
-    defaultCollapsed: false
-    sticky: true
-    items:
-      - type: link
-        label: Dashboard
-        href: /dashboard
-      - type: group
-        label: Settings
+pages:
+  - id: 1
+    name: dashboard
+    path: /dashboard
+    layout:
+      sidebar:
+        position: left # left | right
+        width: 280
+        collapsible: true
+        defaultCollapsed: false
+        sticky: true
         items:
           - type: link
-            label: Profile
-            href: /settings/profile
-      - type: separator
+            label: Dashboard
+            href: /dashboard
+          - type: group
+            label: Settings
+            children:
+              - type: link
+                label: Profile
+                href: /settings/profile
+          - type: divider
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -396,35 +419,41 @@ layout:
 ### Configuration
 
 ```yaml
-layout:
-  footer:
-    enabled: true
-    logo:
-      src: /logo.svg
-      alt: Company Logo
-    description: 'Building amazing products since 2020'
-    columns:
-      - heading: Company
-        links:
-          - label: About
-            href: /about
-          - label: Careers
-            href: /careers
-    social:
-      - platform: twitter
-        url: https://twitter.com/company
-      - platform: github
-        url: https://github.com/company
-    newsletter:
-      heading: Subscribe
-      placeholder: Enter your email
-      buttonText: Subscribe
-    copyright: '© 2025 Company. All rights reserved.'
-    legal:
-      - label: Privacy
-        href: /privacy
-      - label: Terms
-        href: /terms
+pages:
+  - id: 1
+    name: home
+    path: /
+    layout:
+      footer:
+        enabled: true
+        logo: /logo.svg
+        description: 'Building amazing products since 2020'
+        columns:
+          - title: Company
+            links:
+              - label: About
+                href: /about
+              - label: Careers
+                href: /careers
+        social:
+          title: Follow Us
+          links:
+            - platform: twitter
+              url: https://twitter.com/company
+            - platform: github
+              url: https://github.com/company
+        newsletter:
+          enabled: true
+          title: Subscribe
+          placeholder: Enter your email
+          buttonText: Subscribe
+        copyright: '© 2025 Company. All rights reserved.'
+        legal:
+          - label: Privacy
+            href: /privacy
+          - label: Terms
+            href: /terms
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -463,17 +492,22 @@ layout:
 ### Configuration
 
 ```yaml
-layout:
-  banner:
-    enabled: true
-    text: '🎉 New feature released!'
-    link:
-      href: /blog/new-feature
-      target: _self
-    background: 'linear-gradient(90deg, #4f46e5, #7c3aed)'
-    textColor: '#ffffff'
-    dismissible: true
-    sticky: true
+pages:
+  - id: 1
+    name: home
+    path: /
+    layout:
+      banner:
+        enabled: true
+        text: 'New feature released!'
+        link:
+          href: /blog/new-feature
+          label: Learn more
+        gradient: 'linear-gradient(90deg, #4f46e5, #7c3aed)'
+        textColor: '#ffffff'
+        dismissible: true
+        sticky: true
+    sections: []
 ```
 
 ### Acceptance Criteria

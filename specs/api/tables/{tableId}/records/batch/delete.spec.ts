@@ -16,7 +16,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Soft Delete Behavior:
  * - DELETE sets deleted_at timestamp for all records in batch
- * - DELETE with ?permanent=true removes records permanently (admin/owner only)
+ * - DELETE with ?permanent=true removes records permanently (admin only)
  * - Soft-deleted records are excluded from normal queries
  * - Already soft-deleted records are skipped in batch operations
  *
@@ -383,10 +383,10 @@ test.describe('Batch delete records', () => {
   )
 
   test.fixme(
-    'API-TABLES-RECORDS-BATCH-DELETE-008: should return 200 for owner',
+    'API-TABLES-RECORDS-BATCH-DELETE-008: should return 200 for authenticated user with delete permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: An owner user with full delete permissions
+      // GIVEN: An authenticated user with delete permissions
       await startServerWithSchema({
         name: 'test-app',
         auth: { strategies: [{ type: 'emailAndPassword' }] },
@@ -410,7 +410,7 @@ test.describe('Batch delete records', () => {
           (3, 'Project Gamma', 'active')
       `)
 
-      // WHEN: Owner batch deletes records
+      // WHEN: User batch deletes records
       const response = await request.delete('/api/tables/9/records/batch', {
         headers: {
           'Content-Type': 'application/json',

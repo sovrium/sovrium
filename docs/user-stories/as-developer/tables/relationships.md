@@ -325,13 +325,13 @@ tables:
       - id: 2
         name: customer_name
         type: lookup
-        sourceField: customer_id
-        lookupField: name # Field from customers table
+        relationshipField: customer_id
+        relatedField: name # Field from customers table
       - id: 3
         name: customer_email
         type: lookup
-        sourceField: customer_id
-        lookupField: email
+        relationshipField: customer_id
+        relatedField: email
 ```
 
 ### Acceptance Criteria
@@ -378,20 +378,20 @@ tables:
       - id: 2
         name: total_orders
         type: rollup
-        linkedField: orders.customer_id # Reverse relationship
-        aggregateField: id
+        relationshipField: orders
+        relatedField: id
         aggregation: count
       - id: 3
         name: total_spent
         type: rollup
-        linkedField: orders.customer_id
-        aggregateField: total
+        relationshipField: orders
+        relatedField: total
         aggregation: sum
       - id: 4
         name: average_order
         type: rollup
-        linkedField: orders.customer_id
-        aggregateField: total
+        relationshipField: orders
+        relatedField: total
         aggregation: avg
 ```
 
@@ -432,7 +432,7 @@ tables:
       - id: 2
         name: book_count
         type: count
-        linkedField: books.author_id # Count books linked to this author
+        relationshipField: books # Count books linked to this author
 ```
 
 ### Acceptance Criteria

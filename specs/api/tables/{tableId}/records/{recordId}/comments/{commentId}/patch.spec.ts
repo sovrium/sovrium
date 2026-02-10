@@ -370,7 +370,7 @@ test.describe('Update comment', () => {
           },
         ],
       })
-      // Create user_2 first (record/comment owner), then authenticate as different user
+      // Create user_2 first (record/comment author), then authenticate as different user
       const user2 = await createAuthenticatedUser({ name: 'User Two', email: 'user2@example.com' })
       await createAuthenticatedUser({ name: 'User One', email: 'user1@example.com' })
       await executeQuery(
@@ -389,11 +389,11 @@ test.describe('Update comment', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          content: 'Cross-owner update attempt',
+          content: 'Cross-user update attempt',
         },
       })
 
-      // THEN: Returns 404 Not Found (don't leak existence for cross-owner access)
+      // THEN: Returns 404 Not Found (don't leak existence for cross-user access)
       expect(response.status()).toBe(404)
 
       const data = await response.json()
@@ -570,7 +570,7 @@ test.describe('Update comment', () => {
           ('comment_1', '1', '1', $1, 'Original comment by Alice', NOW() - INTERVAL '1 hour', NOW() - INTERVAL '1 hour', NULL),
           ('comment_2', '1', '1', $2, 'Comment by Bob', NOW(), NOW(), NULL),
           ('comment_3', '1', '1', $1, 'Deleted comment', NOW(), NOW(), NOW()),
-          ('comment_4', '2', '1', $2, 'Cross-owner comment', NOW(), NOW(), NULL)`,
+          ('comment_4', '2', '1', $2, 'Cross-user comment', NOW(), NOW(), NULL)`,
         [user1.id, user2.user.id]
       )
 
@@ -669,8 +669,8 @@ test.describe('Update comment', () => {
         expect(data.code).toBe('NOT_FOUND')
       })
 
-      // --- Step 008: Return 404 for cross-owner access ---
-      await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-008: Return 404 for cross-owner access', async () => {
+      // --- Step 008: Return 404 for cross-user access ---
+      await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-008: Return 404 for cross-user access', async () => {
         const response = await request.patch('/api/tables/1/records/2/comments/comment_4', {
           headers: { 'Content-Type': 'application/json' },
           data: { content: 'Cross-owner update attempt' },

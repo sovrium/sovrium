@@ -71,13 +71,9 @@ tables:
   - id: 1
     name: users
     permissions:
-      roles:
-        admin:
-          delete: true
-          permanentDelete: true # Only admins can permanently delete
-        member:
-          delete: true
-          permanentDelete: false
+      delete: ['admin', 'member']
+      # Permanent delete is controlled via the ?permanent=true query parameter
+      # and requires admin role (enforced at the API level)
 ```
 
 ### Acceptance Criteria

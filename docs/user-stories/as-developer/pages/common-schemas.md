@@ -69,9 +69,11 @@ type Dimensions = { width: number; height: number }
 
 ```yaml
 pages:
-  - path: /dashboard
-    components:
-      - type: hero
+  - name: dashboard
+    path: /dashboard
+    sections:
+      - id: hero
+        type: hero
         props:
           title: 'Welcome to $appName'
           subtitle: 'Your dashboard'
@@ -115,24 +117,24 @@ pages:
 
 ```yaml
 pages:
-  - path: /home
-    components:
-      - type: navigation
+  - name: home
+    path: /home
+    sections:
+      - id: navigation
+        type: custom
         props:
           showSearch: false
-        responsive:
-          sm:
-            props:
+          responsive:
+            sm:
               showSearch: true
-          md:
-            className: 'nav-expanded'
-          lg:
-            children:
-              - type: searchBar
-                props:
+            md:
+              className: 'nav-expanded'
+            lg:
+              children:
+                - type: searchBar
                   expanded: true
-          xl:
-            hidden: false
+            xl:
+              hidden: false
 ```
 
 ### Acceptance Criteria
@@ -166,19 +168,22 @@ pages:
 ### Configuration
 
 ```yaml
-# Variables are referenced via $syntax in component props.
+# Variables are referenced via $syntax in section props.
 # The variable values are resolved at runtime from app context.
 name: 'My Application'
 
 # Using variables in pages
 pages:
-  - path: /about
-    components:
-      - type: heading
+  - name: about
+    path: /about
+    sections:
+      - id: heading
+        type: custom
         props:
           title: 'Welcome to $appName'
           subtitle: 'Contact us at $supportEmail'
-      - type: footer
+      - id: footer
+        type: custom
         props:
           copyright: 'Copyright $currentYear $appName'
           links:

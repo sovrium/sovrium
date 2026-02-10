@@ -623,7 +623,7 @@ test.describe('Get record by ID', () => {
       // See individual @spec tests for role-based field access coverage
 
       await test.step('API-TABLES-RECORDS-GET-006: Exclude salary field for member', async () => {
-        // Member cannot read salary field (restricted to owner/admin)
+        // Member cannot read salary field (restricted to admin)
         const response = await request.get('/api/tables/2/records/1', {})
 
         expect(response.status()).toBe(200)

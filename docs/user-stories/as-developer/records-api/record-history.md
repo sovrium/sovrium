@@ -53,15 +53,7 @@ GET /api/tables/1/records/123/history
 
 ### Configuration
 
-```yaml
-tables:
-  - id: 1
-    name: orders
-    history:
-      enabled: true
-      retentionDays: 90 # Keep history for 90 days
-      trackFields: all # Track all field changes
-```
+> **Note**: History tracking configuration is not yet available in the current schema. History is tracked automatically by the system for all tables. Retention policies and field tracking options will be configurable in a future schema version.
 
 ### Acceptance Criteria
 

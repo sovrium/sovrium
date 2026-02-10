@@ -45,17 +45,17 @@ tables:
         isDefault: true
       - id: 2
         name: Active Tasks
-        filter:
+        filters:
           field: status
           operator: in
           value: [todo, in_progress]
       - id: 3
         name: High Priority
-        filter:
+        filters:
           field: priority
           operator: gte
           value: 3
-        sort:
+        sorts:
           - field: priority
             direction: desc
 ```
@@ -140,9 +140,8 @@ tables:
     views:
       - id: 1
         name: Pending Orders
-        filter:
-          operator: and
-          conditions:
+        filters:
+          and:
             - field: status
               operator: eq
               value: pending
@@ -151,9 +150,8 @@ tables:
               value: '2024-01-01'
       - id: 2
         name: Large Orders
-        filter:
-          operator: or
-          conditions:
+        filters:
+          or:
             - field: total
               operator: gte
               value: 1000
@@ -195,12 +193,12 @@ tables:
     views:
       - id: 1
         name: By Price (Low to High)
-        sort:
+        sorts:
           - field: price
             direction: asc
       - id: 2
         name: Newest First
-        sort:
+        sorts:
           - field: created_at
             direction: desc
           - field: name
@@ -251,14 +249,10 @@ tables:
     views:
       - id: 1
         name: Public Directory
-        fields:
-          visible: [name, department] # Only show name and department
-          order: [name, department]
+        fields: [name, department] # Only show name and department
       - id: 2
         name: HR View
-        fields:
-          visible: [name, department, salary, hire_date]
-          order: [name, salary, department, hire_date]
+        fields: [name, salary, department, hire_date]
 ```
 
 ### Acceptance Criteria
@@ -294,13 +288,11 @@ tables:
         name: By Status
         groupBy:
           field: status
-          order: [todo, in_progress, done] # Custom group order
-          hideEmpty: true
       - id: 2
         name: By Assignee
         groupBy:
           field: assignee_id
-          sort: asc # Alphabetical by group value
+          direction: asc # Alphabetical by group value
 ```
 
 ### Acceptance Criteria

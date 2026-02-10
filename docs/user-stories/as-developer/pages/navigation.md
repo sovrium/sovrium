@@ -25,24 +25,27 @@ pages:
   - id: 1
     name: home
     path: /
-    navigation:
-      main:
-        items:
-          - label: Home
-            path: /
-            icon: home
-          - label: Features
-            path: /features
-            icon: zap
-          - label: Pricing
-            path: /pricing
-            icon: dollar-sign
-          - label: Contact
-            path: /contact
-            icon: mail
-      position: top # top | left | bottom
-      sticky: true
-      transparent: false
+    layout:
+      navigation:
+        logo: ./public/logo.svg
+        logoAlt: My App
+        links:
+          desktop:
+            - label: Home
+              href: /
+              icon: home
+            - label: Features
+              href: /features
+              icon: zap
+            - label: Pricing
+              href: /pricing
+              icon: dollar-sign
+            - label: Contact
+              href: /contact
+              icon: mail
+        sticky: true
+        transparent: false
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -81,19 +84,21 @@ pages:
     name: home
     path: /
     sections:
-      - type: cta
-        heading: Get Started Today
-        subheading: Join thousands of users building amazing apps
-        primaryButton:
-          text: Sign Up Free
-          link: /signup
-          variant: primary
-        secondaryButton:
-          text: Learn More
-          link: /features
-          variant: outline
-        background: gradient # solid | gradient | image
-        alignment: center # left | center | right
+      - id: cta
+        type: cta
+        props:
+          heading: Get Started Today
+          subheading: Join thousands of users building amazing apps
+          primaryButton:
+            text: Sign Up Free
+            link: /signup
+            variant: primary
+          secondaryButton:
+            text: Learn More
+            link: /features
+            variant: outline
+          background: gradient # solid | gradient | image
+          alignment: center # left | center | right
 ```
 
 ### Acceptance Criteria
@@ -129,24 +134,22 @@ pages:
   - id: 1
     name: home
     path: /
-    navigation:
-      links:
-        - id: 1
-          label: Documentation
-          path: /docs
-          target: _self # _self | _blank
-          rel: '' # noopener, noreferrer
-        - id: 2
-          label: GitHub
-          path: https://github.com/sovrium
-          target: _blank
-          rel: noopener noreferrer
-          external: true
-        - id: 3
-          label: API Reference
-          path: /api
-          badge: New
-          badgeColor: green
+    layout:
+      navigation:
+        logo: ./public/logo.svg
+        links:
+          desktop:
+            - label: Documentation
+              href: /docs
+            - label: GitHub
+              href: https://github.com/sovrium
+            - label: API Reference
+              href: /api
+        cta:
+          text: Sign Up
+          href: /signup
+          variant: primary
+    sections: []
 ```
 
 ### Acceptance Criteria

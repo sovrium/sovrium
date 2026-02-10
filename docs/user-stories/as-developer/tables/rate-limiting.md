@@ -21,21 +21,7 @@ Sovrium implements rate limiting to protect API endpoints from abuse and ensure 
 
 ### Configuration
 
-```yaml
-tables:
-  - id: 1
-    name: products
-    rateLimit:
-      read:
-        limit: 100 # requests per window
-        window: 60 # seconds
-      write:
-        limit: 50
-        window: 60
-      delete:
-        limit: 20
-        window: 60
-```
+> **Note**: Rate limiting configuration is not yet available in the AppSchema. The YAML format below represents the target design and will be implemented in a future release.
 
 ### Acceptance Criteria
 

@@ -40,15 +40,18 @@ pages:
   - id: 1
     name: home
     path: /
-    title: Home
+    meta:
+      title: Home
   - id: 2
     name: about
     path: /about
-    title: About Us
+    meta:
+      title: About Us
   - id: 3
     name: blog
     path: /blog/posts
-    title: Blog Posts
+    meta:
+      title: Blog Posts
 
 theme:
   colors:
@@ -167,22 +170,28 @@ dist/
 # app.yaml
 name: Multi-Language Site
 languages:
-  - code: en
-    name: English
-    default: true
-  - code: fr
-    name: Français
-  - code: es
-    name: Español
+  default: en
+  supported:
+    - locale: en
+      label: English
+    - locale: fr
+      label: Français
+    - locale: es
+      label: Español
+  translations:
+    en:
+      homepage.title: Welcome
+    fr:
+      homepage.title: Bienvenue
+    es:
+      homepage.title: Bienvenido
 
 pages:
   - id: 1
     name: home
     path: /
-    translations:
-      en: Welcome
-      fr: Bienvenue
-      es: Bienvenido
+    meta:
+      title: '$t:homepage.title'
 ```
 
 ### Generated Structure

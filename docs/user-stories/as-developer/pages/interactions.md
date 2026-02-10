@@ -21,17 +21,19 @@ Sovrium provides declarative component interactions for building interactive use
 
 ```yaml
 pages:
-  - name: Home
+  - name: home
     path: /
     sections:
-      - type: button
-        interactions:
-          click:
-            animation: pulse # pulse | ripple | bounce
-            navigate: /contact # Internal or external URL
-            scrollTo: '#pricing' # Anchor scroll
-            modal: 'signup-modal' # Open modal
-            submit: true # Submit parent form
+      - id: cta-button
+        type: custom
+        props:
+          interactions:
+            click:
+              animation: pulse # pulse | ripple | bounce
+              navigate: /contact # Internal or external URL
+              scrollTo: '#pricing' # Anchor scroll
+              modal: 'signup-modal' # Open modal
+              submit: true # Submit parent form
 ```
 
 ### Acceptance Criteria
@@ -68,18 +70,20 @@ pages:
 
 ```yaml
 pages:
-  - name: Home
+  - name: home
     path: /
     sections:
-      - type: button
-        interactions:
-          hover:
-            transform: scale(1.05) # CSS transform
-            opacity: 0.8 # Opacity change
-            backgroundColor: '#007bff' # Background color
-            color: '#ffffff' # Text color
-            shadow: '0 10px 25px rgba(0,0,0,0.1)' # Box shadow
-            duration: '200ms' # Transition duration
+      - id: hover-button
+        type: custom
+        props:
+          interactions:
+            hover:
+              transform: scale(1.05) # CSS transform
+              opacity: 0.8 # Opacity change
+              backgroundColor: '#007bff' # Background color
+              color: '#ffffff' # Text color
+              shadow: '0 10px 25px rgba(0,0,0,0.1)' # Box shadow
+              duration: '200ms' # Transition duration
 ```
 
 ### Acceptance Criteria
@@ -114,16 +118,18 @@ pages:
 
 ```yaml
 pages:
-  - name: Home
+  - name: home
     path: /
     sections:
-      - type: div
-        interactions:
-          entrance:
-            animation: fadeIn # fadeIn | fadeInUp | fadeInDown | zoomIn | slideIn
-            delay: '500ms' # Delay before animation starts
-            duration: '300ms' # Animation duration
-            stagger: '100ms' # Stagger delay for child elements
+      - id: animated-section
+        type: custom
+        props:
+          interactions:
+            entrance:
+              animation: fadeIn # fadeIn | fadeInUp | fadeInDown | zoomIn | slideIn
+              delay: '500ms' # Delay before animation starts
+              duration: '300ms' # Animation duration
+              stagger: '100ms' # Stagger delay for child elements
 ```
 
 ### Acceptance Criteria
@@ -156,18 +162,20 @@ pages:
 
 ```yaml
 pages:
-  - name: Home
+  - name: home
     path: /
     sections:
-      - type: div
-        interactions:
-          scroll:
-            animation: fadeInUp # fadeIn | fadeInUp | fadeInDown | zoomIn | slideIn
-            threshold: 0.2 # Percentage of element visible to trigger (0-1)
-            delay: '100ms' # Delay before animation starts
-            duration: '500ms' # Animation duration
-            once: true # Only animate once (vs every time element enters view)
-            offset: 100 # Offset in pixels from trigger point
+      - id: scroll-section
+        type: custom
+        props:
+          interactions:
+            scroll:
+              animation: fadeInUp # fadeIn | fadeInUp | fadeInDown | zoomIn | slideIn
+              threshold: 0.2 # Percentage of element visible to trigger (0-1)
+              delay: '100ms' # Delay before animation starts
+              duration: '500ms' # Animation duration
+              once: true # Only animate once (vs every time element enters view)
+              offset: 100 # Offset in pixels from trigger point
 ```
 
 ### Acceptance Criteria
@@ -202,20 +210,22 @@ pages:
 
 ```yaml
 pages:
-  - name: Home
+  - name: home
     path: /
     sections:
-      - type: button
-        interactions:
-          entrance:
-            animation: fadeIn
-          hover:
-            transform: scale(1.05)
-          click:
-            animation: pulse
-            navigate: /contact
-          scroll:
-            animation: fadeInUp
+      - id: interactive-button
+        type: custom
+        props:
+          interactions:
+            entrance:
+              animation: fadeIn
+            hover:
+              transform: scale(1.05)
+            click:
+              animation: pulse
+              navigate: /contact
+            scroll:
+              animation: fadeInUp
 ```
 
 ### Acceptance Criteria

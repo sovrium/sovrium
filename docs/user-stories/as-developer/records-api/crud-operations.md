@@ -40,7 +40,7 @@ POST /api/tables/1/records
 | AC-009 | Sets created_at and updated_at timestamps         | `API-TABLES-RECORDS-CREATE-009`        | ✅     |
 | AC-010 | Applies default values for optional fields        | `API-TABLES-RECORDS-CREATE-010`        | ✅     |
 | AC-011 | Validates email format for email fields           | `API-TABLES-RECORDS-CREATE-011`        | ✅     |
-| AC-012 | Validates URL format for URL fields               | `API-TABLES-RECORDS-CREATE-012`        | ✅     |
+| AC-012 | Validates URL format for URL fields               |                                        | ⏳     |
 | AC-013 | Validates number range for number fields          | `API-TABLES-RECORDS-CREATE-013`        | ✅     |
 | AC-014 | Returns created record with all fields            | `API-TABLES-RECORDS-CREATE-014`        | ✅     |
 | AC-015 | Supports creating record with relationship fields | `API-TABLES-RECORDS-CREATE-015`        | ✅     |

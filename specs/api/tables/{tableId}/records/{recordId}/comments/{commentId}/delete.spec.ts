@@ -243,7 +243,7 @@ test.describe('Delete comment', () => {
           },
         ],
       })
-      // Create Bob first (record/comment owner), then Alice (active session)
+      // Create Bob first (record/comment author), then Alice (active session)
       const bob = await createAuthenticatedUser({ name: 'Bob', email: 'bob@example.com' })
       await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
       await executeQuery(
@@ -261,7 +261,7 @@ test.describe('Delete comment', () => {
         headers: {},
       })
 
-      // THEN: Returns 404 Not Found (don't leak existence for cross-owner access)
+      // THEN: Returns 404 Not Found (don't leak existence for cross-user access)
       expect(response.status()).toBe(404)
 
       const data = await response.json()
@@ -492,15 +492,15 @@ test.describe('Delete comment', () => {
         expect(data.code).toBe('NOT_FOUND')
       })
 
-      // --- Step 006: Cross-owner access ---
-      await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-006: Return 404 for cross-owner comment delete', async () => {
+      // --- Step 006: Cross-user access ---
+      await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-006: Return 404 for cross-user comment delete', async () => {
         await executeQuery(
           `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-          VALUES ('comment_cross_owner', '1', '1', $1, 'Comment by different user')`,
+          VALUES ('comment_cross_user', '1', '1', $1, 'Comment by different user')`,
           [bob.user.id]
         )
         const response = await request.delete(
-          '/api/tables/1/records/1/comments/comment_cross_owner',
+          '/api/tables/1/records/1/comments/comment_cross_user',
           {}
         )
         expect(response.status()).toBe(404)

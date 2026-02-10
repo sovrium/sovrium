@@ -29,7 +29,6 @@ version: 1.0.0
 tables:
   - id: 1
     name: users
-    slug: users
     fields:
       - id: 1
         name: email
@@ -46,7 +45,8 @@ pages:
   - id: 1
     name: home
     path: /
-    title: Welcome
+    meta:
+      title: Welcome
 
 # Theme configuration (optional)
 theme:
@@ -99,14 +99,13 @@ sovrium start config.yml
     {
       "id": 1,
       "name": "users",
-      "slug": "users",
       "fields": [
         { "id": 1, "name": "email", "type": "email", "required": true, "unique": true },
         { "id": 2, "name": "name", "type": "text", "required": true }
       ]
     }
   ],
-  "pages": [{ "id": 1, "name": "home", "path": "/", "title": "Welcome" }]
+  "pages": [{ "id": 1, "name": "home", "path": "/", "meta": { "title": "Welcome" } }]
 }
 ```
 

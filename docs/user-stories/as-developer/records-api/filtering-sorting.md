@@ -25,17 +25,6 @@ Sovrium provides comprehensive query capabilities for records including filterin
 GET /api/tables/1/records?limit=10&offset=0
 ```
 
-### Configuration
-
-```yaml
-tables:
-  - id: 1
-    name: products
-    pagination:
-      defaultLimit: 20
-      maxLimit: 100
-```
-
 ### Acceptance Criteria
 
 | ID     | Criterion                                             | E2E Spec                      | Status |
@@ -131,11 +120,12 @@ tables:
     views:
       - id: 2
         name: Active Tasks
-        filter:
-          field: status
-          operator: in
-          value: [todo, in_progress]
-        sort:
+        filters:
+          and:
+            - field: status
+              operator: in
+              value: [todo, in_progress]
+        sorts:
           - field: priority
             direction: desc
 ```

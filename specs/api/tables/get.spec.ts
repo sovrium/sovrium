@@ -203,7 +203,7 @@ test.describe('List all tables', () => {
             name: 'confidential_data',
             fields: [{ id: 1, name: 'secret', type: 'long-text' }],
             permissions: {
-              read: ['admin'], // Only owner/admin can read
+              read: ['admin'], // Only admin can read
             },
           },
           {

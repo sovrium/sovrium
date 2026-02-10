@@ -16,7 +16,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Soft Delete Behavior:
  * - DELETE sets deleted_at timestamp (soft delete by default)
- * - DELETE with ?permanent=true removes record permanently (admin/owner only)
+ * - DELETE with ?permanent=true removes record permanently (admin only)
  * - Soft-deleted records are excluded from normal queries
  * - Soft-deleted records can be restored via POST /restore endpoint
  *
@@ -296,10 +296,10 @@ test.describe('Delete record', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-DELETE-007: should return 204 for owner with full access',
+    'API-TABLES-RECORDS-DELETE-007: should return 204 for authenticated user with delete permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: An owner user with full delete permissions
+      // GIVEN: An authenticated user with delete permissions
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -327,7 +327,7 @@ test.describe('Delete record', () => {
       expect(createResponse.status()).toBe(201)
       const createdRecord = await createResponse.json()
 
-      // WHEN: Owner deletes a record
+      // WHEN: User deletes a record
       const response = await request.delete(`/api/tables/8/records/${createdRecord.id}`, {})
 
       // THEN: Returns 204 No Content
@@ -503,13 +503,13 @@ test.describe('Delete record', () => {
       // WHEN: Member attempts to permanently delete
       const response = await request.delete('/api/tables/15/records/1?permanent=true', {})
 
-      // THEN: Returns 403 Forbidden (only admin/owner can hard delete)
+      // THEN: Returns 403 Forbidden (only admin can hard delete)
       expect(response.status()).toBe(403)
 
       const data = await response.json()
       expect(data.success).toBe(false)
       expect(data.code).toBe('FORBIDDEN')
-      expect(data.message).toBe('Only admins and owners can permanently delete records')
+      expect(data.message).toBe('Only admins can permanently delete records')
 
       // THEN: Record remains in database
       const result = await executeQuery(`SELECT COUNT(*) as count FROM data WHERE id=1`)

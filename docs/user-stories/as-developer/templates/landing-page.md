@@ -24,19 +24,25 @@ The Landing Page Template provides a pre-configured, ready-to-use marketing webs
 name: Sovrium Landing
 pages:
   - id: 1
+    name: home
     path: /
-    title: Sovrium
+    meta:
+      title: Sovrium
     sections:
       - id: navigation
-        type: navigation
+        type: custom
+        props:
+          component: navigation
       - id: hero
-        type: hero-section
+        type: hero
       - id: features
-        type: features-section
+        type: features
       - id: cta
-        type: cta-section
+        type: cta
       - id: footer
-        type: footer
+        type: custom
+        props:
+          component: footer
 languages:
   default: en-US
   supported:

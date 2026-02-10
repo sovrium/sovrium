@@ -35,7 +35,7 @@ test.describe('Admin Default User Role', () => {
       })
 
       // THEN: User has default role assigned
-      expect((user.user as { role?: string }).role).toBe('user')
+      expect((user.user as { role?: string }).role).toBe('member')
     }
   )
 
@@ -56,8 +56,8 @@ test.describe('Admin Default User Role', () => {
         name: 'User',
       })
 
-      // THEN: Falls back to user role
-      expect((user.user as { role?: string }).role).toBe('user')
+      // THEN: Falls back to member role
+      expect((user.user as { role?: string }).role).toBe('member')
     }
   )
 

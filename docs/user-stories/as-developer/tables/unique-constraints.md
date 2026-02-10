@@ -171,7 +171,7 @@ tables:
 
 ## Configuration Examples
 
-### Partial Unique Index (Conditional Uniqueness)
+### Basic Unique Constraint Example
 
 ```yaml
 tables:
@@ -186,13 +186,11 @@ tables:
         type: single-select
         options: [draft, published, archived]
     uniqueConstraints:
-      - name: unique_published_title
+      - name: unique_document_title
         fields: [title]
-        where:
-          status: published # Only published docs need unique titles
 ```
 
-### Case-Insensitive Unique
+### Single-Field Unique
 
 ```yaml
 tables:
@@ -203,8 +201,6 @@ tables:
         name: email
         type: email
         unique: true
-        uniqueOptions:
-          caseInsensitive: true # Uses LOWER() expression index
 ```
 
 ---

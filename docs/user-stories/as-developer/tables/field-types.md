@@ -205,8 +205,7 @@ tables:
         name: price
         type: decimal
         required: true
-        precision: 10
-        scale: 2
+        precision: 2
         min: 0
 ```
 
@@ -283,8 +282,7 @@ tables:
         type: currency
         required: true
         currency: USD
-        precision: 10
-        scale: 2
+        precision: 2
 ```
 
 ### Acceptance Criteria
@@ -477,9 +475,9 @@ tables:
         type: single-select
         required: true
         options:
-          - { value: low, label: Low, color: '#10B981' }
-          - { value: medium, label: Medium, color: '#F59E0B' }
-          - { value: high, label: High, color: '#EF4444' }
+          - low
+          - medium
+          - high
         default: medium
 ```
 
@@ -519,9 +517,9 @@ tables:
         name: tags
         type: multi-select
         options:
-          - { value: tech, label: Technology }
-          - { value: news, label: News }
-          - { value: tutorial, label: Tutorial }
+          - tech
+          - news
+          - tutorial
 ```
 
 ### Acceptance Criteria
@@ -602,11 +600,11 @@ tables:
         type: status
         required: true
         options:
-          - { value: pending, label: Pending, color: '#F59E0B' }
-          - { value: processing, label: Processing, color: '#3B82F6' }
-          - { value: shipped, label: Shipped, color: '#8B5CF6' }
-          - { value: delivered, label: Delivered, color: '#10B981' }
-          - { value: cancelled, label: Cancelled, color: '#EF4444' }
+          - pending
+          - processing
+          - shipped
+          - delivered
+          - cancelled
         default: pending
 ```
 
@@ -1057,7 +1055,7 @@ tables:
         name: invoice_number
         type: autonumber
         prefix: 'INV-'
-        startAt: 1000
+        startFrom: 1000
 ```
 
 ### Acceptance Criteria
@@ -1507,9 +1505,8 @@ tables:
         name: mark_shipped
         type: button
         label: 'Mark as Shipped'
-        action: updateStatus
-        actionParams:
-          status: shipped
+        action: automation
+        automation: update_order_status
 ```
 
 ### Acceptance Criteria
@@ -1589,9 +1586,7 @@ tables:
       - id: 1
         name: order_count
         type: count
-        sourceTable: orders
-        sourceField: customer_id
-        filter: { status: { not: 'cancelled' } }
+        relationshipField: orders
 ```
 
 ### Acceptance Criteria
@@ -1629,8 +1624,8 @@ tables:
       - id: 1
         name: customer_email
         type: lookup
-        sourceRelationship: customer
-        sourceField: email
+        relationshipField: customer
+        relatedField: email
 ```
 
 ### Acceptance Criteria
@@ -1672,10 +1667,9 @@ tables:
       - id: 1
         name: total_spent
         type: rollup
-        sourceRelationship: orders
-        sourceField: total
+        relationshipField: orders
+        relatedField: total
         aggregation: SUM
-        filter: { status: 'completed' }
 ```
 
 ### Acceptance Criteria
@@ -1719,8 +1713,8 @@ tables:
       - id: 1
         name: file
         type: single-attachment
-        allowedTypes: ['pdf', 'doc', 'docx']
-        maxSize: 10485760 # 10MB
+        allowedFileTypes: ['application/pdf', 'application/msword']
+        maxFileSize: 10485760 # 10MB
 ```
 
 ### Acceptance Criteria
@@ -1758,9 +1752,9 @@ tables:
       - id: 1
         name: images
         type: multiple-attachments
-        allowedTypes: ['jpg', 'png', 'gif', 'webp']
-        maxSize: 5242880 # 5MB per file
-        maxCount: 10
+        allowedFileTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+        maxFileSize: 5242880 # 5MB per file
+        maxFiles: 10
 ```
 
 ### Acceptance Criteria

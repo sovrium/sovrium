@@ -287,13 +287,7 @@ tables:
 
 ### Configuration
 
-```yaml
-tables:
-  - id: 1
-    name: archived_data
-    disabled: true
-    fields: [...]
-```
+> **Note**: The `disabled` property is not yet available in the AppSchema. The YAML format below represents the target design and will be implemented in a future release.
 
 ### Acceptance Criteria
 

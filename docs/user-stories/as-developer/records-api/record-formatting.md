@@ -21,6 +21,8 @@ Sovrium provides flexible record formatting options for API responses. Records c
 
 ### Configuration
 
+> **Note**: Currency formatting is determined by the field type configuration. The `currency` field type handles display formatting (symbol, decimal places, locale) at the API level based on field properties.
+
 ```yaml
 tables:
   - id: 1
@@ -29,9 +31,6 @@ tables:
       - id: 1
         name: price
         type: currency
-        display:
-          currency: USD
-          locale: en-US
 ```
 
 ### Acceptance Criteria
@@ -59,6 +58,8 @@ tables:
 
 ### Configuration
 
+> **Note**: Date and time formatting is determined by the `datetime` field type. Format and timezone handling are applied at the API level based on request locale and timezone parameters.
+
 ```yaml
 tables:
   - id: 1
@@ -67,9 +68,6 @@ tables:
       - id: 1
         name: start_date
         type: datetime
-        display:
-          format: 'YYYY-MM-DD HH:mm'
-          timezone: 'America/New_York'
 ```
 
 ### Acceptance Criteria
@@ -96,6 +94,8 @@ tables:
 
 ### Configuration
 
+> **Note**: Duration formatting is determined by the `duration` field type. Display format (hours, minutes, days, human-readable) is applied at the API level based on request parameters.
+
 ```yaml
 tables:
   - id: 1
@@ -104,8 +104,6 @@ tables:
       - id: 1
         name: time_spent
         type: duration
-        display:
-          format: 'hours' # or "minutes", "days", "human"
 ```
 
 ### Acceptance Criteria

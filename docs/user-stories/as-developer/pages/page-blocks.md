@@ -37,12 +37,15 @@ pages:
     name: home
     path: /
     sections:
-      - block: cta-banner
-        variables:
-          title: Get Started Today
-          description: Join thousands of users
-          buttonText: Sign Up
-          buttonLink: /signup
+      - id: cta
+        type: cta
+        props:
+          block: cta-banner
+          variables:
+            title: Get Started Today
+            description: Join thousands of users
+            buttonText: Sign Up
+            buttonLink: /signup
 ```
 
 ### Acceptance Criteria
@@ -90,12 +93,15 @@ pages:
     name: features
     path: /features
     sections:
-      - block: feature-card
-        variables:
-          icon: rocket
-          title: Fast Performance
-          description: Lightning fast builds
-          # link uses default value '#'
+      - id: feature
+        type: custom
+        props:
+          block: feature-card
+          variables:
+            icon: rocket
+            title: Fast Performance
+            description: Lightning fast builds
+            # link uses default value '#'
 ```
 
 ### Acceptance Criteria
@@ -150,7 +156,10 @@ pages:
     name: home
     path: /
     sections:
-      - block: lang-switcher
+      - id: lang
+        type: custom
+        props:
+          block: lang-switcher
 ```
 
 ### Acceptance Criteria
@@ -283,12 +292,18 @@ pages:
     name: home
     path: /
     sections:
-      - block: hero-section # Reference by name
-        variables:
-          title: Welcome Home
-      - block: 1 # Reference by ID
-        variables:
-          title: Welcome Again
+      - id: hero-1
+        type: custom
+        props:
+          block: hero-section # Reference by name
+          variables:
+            title: Welcome Home
+      - id: hero-2
+        type: custom
+        props:
+          block: 1 # Reference by ID
+          variables:
+            title: Welcome Again
 ```
 
 ### Acceptance Criteria

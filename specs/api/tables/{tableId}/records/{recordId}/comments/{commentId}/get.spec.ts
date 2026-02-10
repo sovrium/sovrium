@@ -143,10 +143,10 @@ test.describe('Get single comment by ID', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-COMMENTS-GET-004: should return 404 Not Found',
+    'API-TABLES-RECORDS-COMMENTS-GET-004: should return 200 OK for role-based access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: Comment owned by different user
+      // GIVEN: Comment created by different user
       await startServerWithSchema({
         name: 'test-app',
         auth: { strategies: [{ type: 'emailAndPassword' }] },
@@ -166,25 +166,25 @@ test.describe('Get single comment by ID', () => {
         INSERT INTO auth.user (id, name, email) VALUES ('user_2', 'Bob', 'bob@example.com')
       `)
       await executeQuery(`
-        INSERT INTO tasks (id, title, owner_id) VALUES (1, 'Task owned by user_2', 'user_2')
+        INSERT INTO tasks (id, title, owner_id) VALUES (1, 'Task created by user_2', 'user_2')
       `)
       await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
         VALUES ('comment_1', '1', '1', 'user_2', 'Comment by user_2')
       `)
 
-      // WHEN: user_1 attempts to fetch comment on record owned by user_2
+      // WHEN: user_1 attempts to fetch comment on record created by user_2
       const response = await request.get('/api/tables/4/records/1/comments/comment_1', {
         headers: {},
       })
 
-      // THEN: Returns 404 Not Found (don't leak existence for cross-owner access)
-      expect(response.status()).toBe(404)
+      // THEN: Returns 200 OK (role-based permissions allow viewing)
+      expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data.success).toBe(false)
-      expect(data.message).toBe('Resource not found')
-      expect(data.code).toBe('NOT_FOUND')
+      expect(data.comment.id).toBe('comment_1')
+      expect(data.comment.content).toBe('Comment by user_2')
+      expect(data.comment.userId).toBe('user_2')
     }
   )
 
@@ -389,7 +389,7 @@ test.describe('Get single comment by ID', () => {
         expect(data.code).toBe('NOT_FOUND')
       })
 
-      // --- Step 004: Cross-owner access skipped in regression test ---
+      // --- Step 004: Cross-user access skipped in regression test ---
       // This scenario requires owner_id field which complicates the test setup.
       // It's already covered by @spec test API-TABLES-RECORDS-COMMENTS-GET-004.
 

@@ -32,10 +32,7 @@ pages:
         - web development
         - low-code
         - application builder
-      canonical: https://myapp.com/
-      robots: index, follow
-      author: My Company
-      viewport: 'width=device-width, initial-scale=1'
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -81,11 +78,8 @@ pages:
         description: 'A powerful platform for building web applications'
         type: website # website | article | product | profile
         url: https://myapp.com/
-        image:
-          url: https://myapp.com/og-image.png
-          width: 1200
-          height: 630
-          alt: My App Preview
+        image: https://myapp.com/og-image.png
+        imageAlt: My App Preview
         siteName: My App
         locale: en_US
 ```
@@ -225,19 +219,21 @@ pages:
 ### Configuration
 
 ```yaml
-meta:
-  favicons:
-    icon: /favicon.ico
-    icon16: /favicon-16x16.png
-    icon32: /favicon-32x32.png
-    apple: /apple-touch-icon.png
-    manifest: /site.webmanifest
-    maskIcon:
-      href: /safari-pinned-tab.svg
-      color: '#5bbad5'
-    msApplication:
-      tileColor: '#2b5797'
-      tileImage: /mstile-144x144.png
+pages:
+  - id: 1
+    name: home
+    path: /
+    meta:
+      favicon: ./favicon.ico
+      favicons:
+        icon: /icon.svg
+        appleTouchIcon: /apple-touch-icon.png
+        sizes:
+          - size: '32x32'
+            href: /favicon-32x32.png
+          - size: '16x16'
+            href: /favicon-16x16.png
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -279,15 +275,16 @@ pages:
           crossorigin: anonymous
         - href: /images/hero.webp
           as: image
-      prefetch:
-        - href: /api/data
-          as: fetch
       dnsPrefetch:
-        - //cdn.example.com
-        - //api.example.com
-      preconnect:
-        - href: //cdn.example.com
-          crossorigin: true
+        - https://cdn.example.com
+        - https://api.example.com
+      customElements:
+        - type: link
+          attrs:
+            rel: preconnect
+            href: https://cdn.example.com
+            crossorigin: anonymous
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -319,20 +316,25 @@ pages:
 ### Configuration
 
 ```yaml
-meta:
-  analytics:
-    - provider: google
-      enabled: true
-      config:
-        trackingId: 'G-XXXXXXXXXX'
-        anonymizeIp: true
-    - provider: plausible
-      enabled: true
-      config:
-        domain: 'myapp.com'
-    - provider: mixpanel
-      config:
-        token: 'abc123'
+pages:
+  - id: 1
+    name: home
+    path: /
+    meta:
+      analytics:
+        - provider: google
+          enabled: true
+          config:
+            trackingId: 'G-XXXXXXXXXX'
+            anonymizeIp: true
+        - provider: plausible
+          enabled: true
+          config:
+            domain: 'myapp.com'
+        - provider: mixpanel
+          config:
+            token: 'abc123'
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -369,22 +371,27 @@ meta:
 ### Configuration
 
 ```yaml
-meta:
-  custom:
-    - type: meta
-      attributes:
-        name: 'theme-color'
-        content: '#3b82f6'
-    - type: link
-      attributes:
-        rel: 'preconnect'
-        href: 'https://api.example.com'
-    - type: script
-      attributes:
-        src: 'https://example.com/widget.js'
-        defer: true
-    - type: style
-      content: ':root { --primary: #3b82f6; }'
+pages:
+  - id: 1
+    name: home
+    path: /
+    meta:
+      customElements:
+        - type: meta
+          attrs:
+            name: 'theme-color'
+            content: '#3b82f6'
+        - type: link
+          attrs:
+            rel: 'preconnect'
+            href: 'https://api.example.com'
+        - type: script
+          attrs:
+            src: 'https://example.com/widget.js'
+            defer: 'true'
+        - type: style
+          content: ':root { --primary: #3b82f6; }'
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -417,13 +424,18 @@ meta:
 ### Configuration
 
 ```yaml
-meta:
-  dnsPrefetch:
-    - '//fonts.googleapis.com'
-    - '//fonts.gstatic.com'
-    - '//www.google-analytics.com'
-    - '//cdn.example.com'
-    - '//api.example.com'
+pages:
+  - id: 1
+    name: home
+    path: /
+    meta:
+      dnsPrefetch:
+        - '//fonts.googleapis.com'
+        - '//fonts.gstatic.com'
+        - '//www.google-analytics.com'
+        - '//cdn.example.com'
+        - '//api.example.com'
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -457,20 +469,25 @@ meta:
 ### Configuration
 
 ```yaml
-meta:
-  faviconSet:
-    - type: icon
-      href: /favicon.ico
-    - type: icon
-      href: /favicon-32x32.png
-      sizes: '32x32'
-      mimeType: image/png
-    - type: apple-touch-icon
-      href: /apple-touch-icon.png
-      sizes: '180x180'
-    - type: mask-icon
-      href: /safari-pinned-tab.svg
-      color: '#5bbad5'
+pages:
+  - id: 1
+    name: home
+    path: /
+    meta:
+      favicons:
+        - rel: icon
+          href: ./favicon.ico
+        - rel: icon
+          href: ./favicon-32x32.png
+          sizes: '32x32'
+          type: image/png
+        - rel: apple-touch-icon
+          href: ./apple-touch-icon.png
+          sizes: '180x180'
+        - rel: mask-icon
+          href: ./safari-pinned-tab.svg
+          color: '#5bbad5'
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -501,27 +518,32 @@ meta:
 ### Configuration
 
 ```yaml
-meta:
-  structuredData:
-    - type: Product
-      name: 'Premium Widget'
-      description: 'High-quality widget for all your needs'
-      image:
-        - 'https://example.com/widget.jpg'
-      brand:
-        type: Brand
-        name: 'WidgetCo'
-      sku: 'WIDGET-001'
-      gtin: '012345678901'
-      offers:
-        type: Offer
-        price: 29.99
-        priceCurrency: USD
-        availability: InStock
-      aggregateRating:
-        type: AggregateRating
-        ratingValue: 4.5
-        reviewCount: 89
+pages:
+  - id: 1
+    name: product
+    path: /product
+    meta:
+      structuredData:
+        - type: Product
+          name: 'Premium Widget'
+          description: 'High-quality widget for all your needs'
+          image:
+            - 'https://example.com/widget.jpg'
+          brand:
+            type: Brand
+            name: 'WidgetCo'
+          sku: 'WIDGET-001'
+          gtin: '012345678901'
+          offers:
+            type: Offer
+            price: 29.99
+            priceCurrency: USD
+            availability: InStock
+          aggregateRating:
+            type: AggregateRating
+            ratingValue: 4.5
+            reviewCount: 89
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -558,22 +580,27 @@ meta:
 ### Configuration
 
 ```yaml
-meta:
-  structuredData:
-    - type: BreadcrumbList
-      itemListElement:
-        - type: ListItem
-          position: 1
-          name: Home
-          item: https://example.com/
-        - type: ListItem
-          position: 2
-          name: Products
-          item: https://example.com/products
-        - type: ListItem
-          position: 3
-          name: Widgets
-          item: https://example.com/products/widgets
+pages:
+  - id: 1
+    name: widgets
+    path: /products/widgets
+    meta:
+      structuredData:
+        - type: BreadcrumbList
+          itemListElement:
+            - type: ListItem
+              position: 1
+              name: Home
+              item: https://example.com/
+            - type: ListItem
+              position: 2
+              name: Products
+              item: https://example.com/products
+            - type: ListItem
+              position: 3
+              name: Widgets
+              item: https://example.com/products/widgets
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -608,20 +635,25 @@ meta:
 ### Configuration
 
 ```yaml
-meta:
-  structuredData:
-    - type: FAQPage
-      mainEntity:
-        - type: Question
-          name: 'What is Sovrium?'
-          acceptedAnswer:
-            type: Answer
-            text: 'Sovrium is a configuration-driven application platform.'
-        - type: Question
-          name: 'How do I get started?'
-          acceptedAnswer:
-            type: Answer
-            text: 'Install via npm: npm install sovrium'
+pages:
+  - id: 1
+    name: faq
+    path: /faq
+    meta:
+      structuredData:
+        - type: FAQPage
+          mainEntity:
+            - type: Question
+              name: 'What is Sovrium?'
+              acceptedAnswer:
+                type: Answer
+                text: 'Sovrium is a configuration-driven application platform.'
+            - type: Question
+              name: 'How do I get started?'
+              acceptedAnswer:
+                type: Answer
+                text: 'Install via npm: npm install sovrium'
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -656,22 +688,27 @@ meta:
 ### Configuration
 
 ```yaml
-meta:
-  structuredData:
-    - type: Person
-      name: 'Jane Doe'
-      givenName: 'Jane'
-      familyName: 'Doe'
-      email: 'jane@example.com'
-      url: 'https://janedoe.com'
-      image: 'https://example.com/jane.jpg'
-      jobTitle: 'Software Engineer'
-      worksFor:
-        type: Organization
-        name: 'TechCorp'
-      sameAs:
-        - 'https://twitter.com/janedoe'
-        - 'https://linkedin.com/in/janedoe'
+pages:
+  - id: 1
+    name: about-jane
+    path: /about/jane
+    meta:
+      structuredData:
+        - type: Person
+          name: 'Jane Doe'
+          givenName: 'Jane'
+          familyName: 'Doe'
+          email: 'jane@example.com'
+          url: 'https://janedoe.com'
+          image: 'https://example.com/jane.jpg'
+          jobTitle: 'Software Engineer'
+          worksFor:
+            type: Organization
+            name: 'TechCorp'
+          sameAs:
+            - 'https://twitter.com/janedoe'
+            - 'https://linkedin.com/in/janedoe'
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -708,29 +745,34 @@ meta:
 ### Configuration
 
 ```yaml
-meta:
-  structuredData:
-    - type: Organization
-      '@context': 'https://schema.org'
-      name: 'TechCorp Inc.'
-      url: 'https://techcorp.com'
-      logo: 'https://techcorp.com/logo.png'
-      image:
-        - 'https://techcorp.com/office.jpg'
-      email: 'contact@techcorp.com'
-      telephone: '+1-555-123-4567'
-      address:
-        type: PostalAddress
-        streetAddress: '123 Tech Street'
-        addressLocality: 'San Francisco'
-        addressRegion: 'CA'
-        postalCode: '94102'
-        addressCountry: 'US'
-      sameAs:
-        - 'https://twitter.com/techcorp'
-        - 'https://linkedin.com/company/techcorp'
-      foundingDate: '2010-01-15'
-      numberOfEmployees: 500
+pages:
+  - id: 1
+    name: about
+    path: /about
+    meta:
+      structuredData:
+        - type: Organization
+          '@context': 'https://schema.org'
+          name: 'TechCorp Inc.'
+          url: 'https://techcorp.com'
+          logo: 'https://techcorp.com/logo.png'
+          image:
+            - 'https://techcorp.com/office.jpg'
+          email: 'contact@techcorp.com'
+          telephone: '+1-555-123-4567'
+          address:
+            type: PostalAddress
+            streetAddress: '123 Tech Street'
+            addressLocality: 'San Francisco'
+            addressRegion: 'CA'
+            postalCode: '94102'
+            addressCountry: 'US'
+          sameAs:
+            - 'https://twitter.com/techcorp'
+            - 'https://linkedin.com/company/techcorp'
+          foundingDate: '2010-01-15'
+          numberOfEmployees: 500
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -769,35 +811,40 @@ meta:
 ### Configuration
 
 ```yaml
-meta:
-  structuredData:
-    - type: LocalBusiness
-      name: 'Coffee House'
-      description: 'Artisanal coffee and pastries'
-      image:
-        - 'https://example.com/coffeehouse.jpg'
-      logo: 'https://example.com/logo.png'
-      telephone: '+1-555-COFFEE'
-      priceRange: '$$'
-      address:
-        type: PostalAddress
-        streetAddress: '456 Main Street'
-        addressLocality: 'Portland'
-        addressRegion: 'OR'
-        postalCode: '97201'
-        addressCountry: 'US'
-      geo:
-        type: GeoCoordinates
-        latitude: 45.5231
-        longitude: -122.6765
-      openingHoursSpecification:
-        - type: OpeningHoursSpecification
-          dayOfWeek:
-            - Monday
-            - Tuesday
-            - Wednesday
-          opens: '07:00'
-          closes: '18:00'
+pages:
+  - id: 1
+    name: business
+    path: /business
+    meta:
+      structuredData:
+        - type: LocalBusiness
+          name: 'Coffee House'
+          description: 'Artisanal coffee and pastries'
+          image:
+            - 'https://example.com/coffeehouse.jpg'
+          logo: 'https://example.com/logo.png'
+          telephone: '+1-555-COFFEE'
+          priceRange: '$$'
+          address:
+            type: PostalAddress
+            streetAddress: '456 Main Street'
+            addressLocality: 'Portland'
+            addressRegion: 'OR'
+            postalCode: '97201'
+            addressCountry: 'US'
+          geo:
+            type: GeoCoordinates
+            latitude: 45.5231
+            longitude: -122.6765
+          openingHoursSpecification:
+            - type: OpeningHoursSpecification
+              dayOfWeek:
+                - Monday
+                - Tuesday
+                - Wednesday
+              opens: '07:00'
+              closes: '18:00'
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -836,24 +883,29 @@ meta:
 ### Configuration
 
 ```yaml
-meta:
-  structuredData:
-    - type: Article # or NewsArticle, BlogPosting
-      headline: 'How to Build Modern Web Apps'
-      description: 'A comprehensive guide to building web applications'
-      image:
-        - 'https://example.com/article-image.jpg'
-      author:
-        type: Person
-        name: 'Jane Developer'
-        url: 'https://example.com/authors/jane'
-      publisher:
-        type: Organization
-        name: 'TechBlog'
-        logo: 'https://example.com/logo.png'
-      datePublished: '2025-01-15T10:00:00Z'
-      dateModified: '2025-01-20T14:30:00Z'
-      mainEntityOfPage: 'https://example.com/article'
+pages:
+  - id: 1
+    name: article
+    path: /article
+    meta:
+      structuredData:
+        - type: Article # or NewsArticle, BlogPosting
+          headline: 'How to Build Modern Web Apps'
+          description: 'A comprehensive guide to building web applications'
+          image:
+            - 'https://example.com/article-image.jpg'
+          author:
+            type: Person
+            name: 'Jane Developer'
+            url: 'https://example.com/authors/jane'
+          publisher:
+            type: Organization
+            name: 'TechBlog'
+            logo: 'https://example.com/logo.png'
+          datePublished: '2025-01-15T10:00:00Z'
+          dateModified: '2025-01-20T14:30:00Z'
+          mainEntityOfPage: 'https://example.com/article'
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -892,17 +944,22 @@ meta:
 ### Configuration
 
 ```yaml
-meta:
-  structuredData:
-    - type: Organization
-      name: 'My Company'
-      address:
-        type: PostalAddress
-        streetAddress: '123 Main Street, Suite 100'
-        addressLocality: 'San Francisco'
-        addressRegion: 'CA'
-        postalCode: '94102'
-        addressCountry: 'US'
+pages:
+  - id: 1
+    name: contact
+    path: /contact
+    meta:
+      structuredData:
+        - type: Organization
+          name: 'My Company'
+          address:
+            type: PostalAddress
+            streetAddress: '123 Main Street, Suite 100'
+            addressLocality: 'San Francisco'
+            addressRegion: 'CA'
+            postalCode: '94102'
+            addressCountry: 'US'
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -937,35 +994,40 @@ meta:
 ### Configuration
 
 ```yaml
-meta:
-  structuredData:
-    - type: EducationEvent
-      name: 'Web Development Bootcamp'
-      description: 'Intensive 12-week program'
-      startDate: '2025-03-01T09:00:00Z'
-      endDate: '2025-05-24T17:00:00Z'
-      eventAttendanceMode: MixedEventAttendanceMode
-      eventStatus: EventScheduled
-      location:
-        type: Place
-        name: 'Tech Campus'
-        address:
-          type: PostalAddress
-          streetAddress: '100 Tech Drive'
-          addressLocality: 'Seattle'
-          addressRegion: 'WA'
-          postalCode: '98101'
-          addressCountry: 'US'
-      organizer:
-        type: Organization
-        name: 'Code Academy'
-      offers:
-        type: Offer
-        price: 4999
-        priceCurrency: USD
-        availability: InStock
-        validFrom: '2025-01-01T00:00:00Z'
-      maximumAttendeeCapacity: 30
+pages:
+  - id: 1
+    name: bootcamp
+    path: /bootcamp
+    meta:
+      structuredData:
+        - type: EducationEvent
+          name: 'Web Development Bootcamp'
+          description: 'Intensive 12-week program'
+          startDate: '2025-03-01T09:00:00Z'
+          endDate: '2025-05-24T17:00:00Z'
+          eventAttendanceMode: MixedEventAttendanceMode
+          eventStatus: EventScheduled
+          location:
+            type: Place
+            name: 'Tech Campus'
+            address:
+              type: PostalAddress
+              streetAddress: '100 Tech Drive'
+              addressLocality: 'Seattle'
+              addressRegion: 'WA'
+              postalCode: '98101'
+              addressCountry: 'US'
+          organizer:
+            type: Organization
+            name: 'Code Academy'
+          offers:
+            type: Offer
+            price: 4999
+            priceCurrency: USD
+            availability: InStock
+            validFrom: '2025-01-01T00:00:00Z'
+          maximumAttendeeCapacity: 30
+    sections: []
 ```
 
 ### Acceptance Criteria

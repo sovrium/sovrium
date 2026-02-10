@@ -15,7 +15,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Comments Feature:
  * - Authentication required (no anonymous comments)
- * - Owner-scoped (user-level multi-tenancy)
+ * - User-scoped (user-level multi-tenancy)
  * - Validates content (not empty, max length)
  * - Supports @mentions stored as @[user_id]
  * - Auto-injects user_id from session
@@ -326,11 +326,11 @@ test.describe('Create comment on a record', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          content: 'Cross-owner comment attempt',
+          content: 'Cross-user comment attempt',
         },
       })
 
-      // THEN: Returns 404 Not Found (prevent owner enumeration)
+      // THEN: Returns 404 Not Found (prevent user enumeration)
       expect(response.status()).toBe(404)
 
       const data = await response.json()
@@ -629,11 +629,11 @@ test.describe('Create comment on a record', () => {
         expect(data.code).toBe('NOT_FOUND')
       })
 
-      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-007: Return 404 for cross-owner access', async () => {
+      await test.step('API-TABLES-RECORDS-COMMENTS-CREATE-007: Return 404 for cross-user access', async () => {
         // user1 attempts to comment on user2's record
         const response = await request.post('/api/tables/1/records/2/comments', {
           headers: { 'Content-Type': 'application/json' },
-          data: { content: 'Cross-owner comment attempt' },
+          data: { content: 'Cross-user comment attempt' },
         })
 
         expect(response.status()).toBe(404)

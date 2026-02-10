@@ -22,20 +22,17 @@ Sovrium provides comprehensive client-side script management through a modular s
 
 ```yaml
 pages:
-  - path: /dashboard
+  - name: dashboard
+    path: /dashboard
     scripts:
-      features:
-        darkMode: true
-        analytics:
-          enabled: true
-          config:
-            trackingId: 'UA-123456'
-      external:
+      externalScripts:
         - src: 'https://cdn.example.com/lib.js'
           async: true
-      inline:
-        - code: 'console.log("App initialized")'
-          position: 'body-end'
+      inlineScripts:
+        - id: init
+          trigger: load
+          code: 'console.log("App initialized")'
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -70,16 +67,17 @@ pages:
 
 ```yaml
 pages:
-  - path: /app
-    scripts:
-      features:
-        darkMode: true
-        betaFeatures: false
-        analytics:
-          enabled: true
-          config:
-            trackingId: 'GA-123456'
-            anonymizeIp: true
+  - name: app
+    path: /app
+    vars:
+      darkMode: true
+      betaFeatures: false
+      analytics:
+        enabled: true
+        config:
+          trackingId: 'GA-123456'
+          anonymizeIp: true
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -114,19 +112,17 @@ pages:
 
 ```yaml
 pages:
-  - path: /checkout
+  - name: checkout
+    path: /checkout
     scripts:
-      external:
+      externalScripts:
         - src: 'https://js.stripe.com/v3/'
           async: true
-          position: 'head'
         - src: 'https://cdn.example.com/analytics.js'
           defer: true
-          integrity: 'sha384-abc123...'
           crossorigin: 'anonymous'
         - src: '/js/local-script.js'
-          type: 'module'
-          position: 'body-end'
+    sections: []
 ```
 
 ### Acceptance Criteria
@@ -163,20 +159,25 @@ pages:
 
 ```yaml
 pages:
-  - path: /landing
+  - name: landing
+    path: /landing
     scripts:
-      inline:
-        - code: |
+      inlineScripts:
+        - id: gtag-init
+          trigger: load
+          code: |
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
             gtag('config', 'G-XXXXXXXXXX');
-          position: 'head'
-        - code: 'console.log("Page loaded")'
-          position: 'body-end'
+        - id: page-log
+          trigger: load
+          code: 'console.log("Page loaded")'
           async: true
-        - code: 'window.APP_CONFIG = { apiUrl: "/api" }'
-          position: 'body-start'
+        - id: app-config
+          trigger: load
+          code: 'window.APP_CONFIG = { apiUrl: "/api" }'
+    sections: []
 ```
 
 ### Acceptance Criteria
