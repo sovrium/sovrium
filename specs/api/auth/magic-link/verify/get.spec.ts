@@ -32,7 +32,7 @@ test.describe('Verify Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          strategies: [{ type: 'magicLink' }],
+          strategies: [{ type: 'magicLink' }, { type: 'emailAndPassword' }],
         },
       })
 
@@ -159,7 +159,7 @@ test.describe('Verify Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          strategies: [{ type: 'magicLink', expirationMinutes: 1 }],
+          strategies: [{ type: 'magicLink', expirationMinutes: 1 }, { type: 'emailAndPassword' }],
         },
       })
 

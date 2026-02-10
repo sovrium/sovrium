@@ -93,23 +93,23 @@ test.describe('Disabled Auth Endpoints', () => {
   )
 
   test(
-    'API-AUTH-DISABLED-004: should return 404 for admin endpoints when auth features do not include admin',
+    'API-AUTH-DISABLED-004: should return 401 for admin endpoints when user is not authenticated',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: Server with auth but without admin feature
+      // GIVEN: Server with auth configured
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
-          // No features - admin endpoints should be disabled
+          // Admin endpoints exist but require authentication
         },
       })
 
-      // WHEN: User attempts to access admin endpoint
+      // WHEN: Unauthenticated user attempts to access admin endpoint
       const response = await page.request.get('/api/auth/admin/list-users')
 
-      // THEN: Returns 404 Not Found (endpoint does not exist)
-      expect(response.status()).toBe(404)
+      // THEN: Returns 401 Unauthorized (endpoint exists but user not authorized)
+      expect(response.status()).toBe(401)
     }
   )
 

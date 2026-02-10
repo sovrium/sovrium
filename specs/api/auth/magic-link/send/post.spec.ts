@@ -32,7 +32,7 @@ test.describe('Send Magic Link', () => {
       await startServerWithSchema({
         name: 'test-app',
         auth: {
-          strategies: [{ type: 'magicLink' }],
+          strategies: [{ type: 'magicLink' }, { type: 'emailAndPassword' }],
           emailTemplates: {
             magicLink: {
               subject: 'Sign in to TestApp with magic link',

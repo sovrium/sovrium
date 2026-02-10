@@ -648,7 +648,6 @@ test.describe('List records in table', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
-          plugins: { admin: {} },
         },
         tables: [
           {
