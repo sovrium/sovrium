@@ -19,8 +19,6 @@ import { isAuthorizationError } from './utils'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
-type TablePermissions = readonly Readonly<{ name: string; permissions?: unknown }>[]
-
 /**
  * Create comment request validation
  */
@@ -180,7 +178,7 @@ export async function handleGetComment(c: Context, app: App) {
   }
 
   // Check read permission
-  if (!hasReadPermission(table, userRole, app.tables as TablePermissions)) {
+  if (!hasReadPermission(table, userRole, app.tables)) {
     return c.json(
       {
         success: false,

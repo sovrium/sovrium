@@ -42,8 +42,6 @@ import type {
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
-type TablePermissions = readonly Readonly<{ name: string; permissions?: unknown }>[]
-
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
 
 /**
@@ -193,7 +191,7 @@ async function handleBatchUpdate(c: Context, app: App) {
   // Authorization: Check table-level update permission
   const { hasUpdatePermission } =
     await import('@/application/use-cases/tables/permissions/permissions')
-  if (!hasUpdatePermission(table, userRole, app.tables as TablePermissions)) {
+  if (!hasUpdatePermission(table, userRole, app.tables)) {
     return c.json(
       {
         success: false,

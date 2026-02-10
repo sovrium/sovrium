@@ -16,8 +16,6 @@ import { isAuthorizationError, type Session } from './utils'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
-type TablePermissions = readonly Readonly<{ name: string; permissions?: unknown }>[]
-
 const SYSTEM_PROTECTED_FIELDS = new Set(['user_id'])
 
 /**
@@ -31,7 +29,7 @@ export function checkTableUpdatePermissionWithRole(
 ): { allowed: true } | { allowed: false; response: Response } {
   const table = app.tables?.find((t) => t.name === tableName)
 
-  if (!hasUpdatePermission(table, userRole, app.tables as TablePermissions)) {
+  if (!hasUpdatePermission(table, userRole, app.tables)) {
     // Viewer-specific message for default permission denial
     const message =
       userRole === 'viewer'
