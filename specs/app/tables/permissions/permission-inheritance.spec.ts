@@ -78,7 +78,7 @@ test.describe('Permission Inheritance', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSION-INHERITANCE-002: should let override permissions take precedence over inherited',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedViewer }) => {
