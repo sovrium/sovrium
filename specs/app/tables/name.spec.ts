@@ -153,7 +153,7 @@ test.describe('Table Name', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-NAME-003: should use table name for PostgreSQL table name (sanitized)',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
