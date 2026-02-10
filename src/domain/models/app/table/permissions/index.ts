@@ -114,3 +114,4 @@ export type TablePermissions = Schema.Schema.Type<typeof TablePermissionsSchema>
 // Re-export sub-schemas for external use
 export * from './permission'
 export * from './field-permission'
+export * from './permission-evaluator'

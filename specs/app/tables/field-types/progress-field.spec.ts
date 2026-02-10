@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/progress-field.ts
  * Domain: app
- * Spec Count: 2
+ * Spec Count: 5
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (2 tests) - Exhaustive acceptance criteria
@@ -93,6 +93,105 @@ test.describe('Progress Field', () => {
       await expect(executeQuery('INSERT INTO projects (completion) VALUES (101)')).rejects.toThrow(
         /violates check constraint/
       )
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-PROGRESS-003: should support NOT NULL constraint with default 0',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'completion', type: 'progress', required: true },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // THEN: Column is NOT NULL with default 0
+      const columns = await executeQuery(
+        `SELECT is_nullable, column_default FROM information_schema.columns
+         WHERE table_name = 'tasks' AND column_name = 'completion'`
+      )
+      expect(columns[0].is_nullable).toBe('NO')
+      expect(columns[0].column_default).toContain('0')
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-PROGRESS-004: should support DEFAULT value for progress field',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'completion',
+                type: 'progress',
+                defaultValue: 50,
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: Insert record without setting progress
+      await executeQuery(`INSERT INTO tasks DEFAULT VALUES`)
+
+      // THEN: Progress defaults to 50
+      const result = await executeQuery(`SELECT completion FROM tasks`)
+      expect(result[0].completion).toBe(50)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-PROGRESS-005: should return progress as percentage in API responses',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedMember }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'member',
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'completion', type: 'progress' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: { read: 'authenticated' },
+          },
+        ],
+      })
+      await executeQuery(`INSERT INTO tasks (title, completion) VALUES ('Task 1', 75)`)
+
+      // WHEN: Authenticated user queries records
+      await createAuthenticatedMember({ email: 'user@example.com' })
+      const response = await request.get('/api/tables/1/records')
+
+      // THEN: Progress returned as number 0-100
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data.records[0].fields.completion).toBe(75)
     }
   )
 

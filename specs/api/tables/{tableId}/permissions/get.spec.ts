@@ -33,7 +33,11 @@ test.describe('Check table permissions', () => {
       await startServerWithSchema(
         {
           name: 'test-app',
-          auth: { strategies: [{ type: 'emailAndPassword' }] },
+          auth: {
+            strategies: [{ type: 'emailAndPassword' }],
+            defaultRole: 'viewer',
+            roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
+          },
           tables: [
             {
               id: 1,
@@ -99,12 +103,16 @@ test.describe('Check table permissions', () => {
   test(
     'API-TABLES-PERMISSIONS-CHECK-002: should reflect role restrictions for member',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
       // GIVEN: An authenticated member user with limited permissions
       // Member: read + update only, salary field restricted
       await startServerWithSchema({
         name: 'test-app',
-        auth: { strategies: [{ type: 'emailAndPassword' }] },
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
+        },
         tables: [
           {
             id: 1,
@@ -135,7 +143,7 @@ test.describe('Check table permissions', () => {
         ],
       })
 
-      await createAuthenticatedUser()
+      await createAuthenticatedMember()
 
       // WHEN: Member user checks permissions for a table
       const response = await request.get('/api/tables/1/permissions')
@@ -161,7 +169,11 @@ test.describe('Check table permissions', () => {
       // GIVEN: An unauthenticated user and a table exists with permissions configured
       await startServerWithSchema({
         name: 'test-app',
-        auth: { strategies: [{ type: 'emailAndPassword' }] },
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
+        },
         tables: [
           {
             id: 1,
@@ -197,11 +209,15 @@ test.describe('Check table permissions', () => {
   test(
     'API-TABLES-PERMISSIONS-CHECK-004: should return 404 Not Found',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
       // GIVEN: An authenticated user checking a non-existent table
       await startServerWithSchema({
         name: 'test-app',
-        auth: { strategies: [{ type: 'emailAndPassword' }] },
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
+        },
         tables: [
           {
             id: 1,
@@ -218,7 +234,7 @@ test.describe('Check table permissions', () => {
         ],
       })
 
-      await createAuthenticatedUser()
+      await createAuthenticatedMember()
 
       // WHEN: User checks permissions for invalid table ID
       const response = await request.get('/api/tables/9999/permissions')
@@ -240,12 +256,16 @@ test.describe('Check table permissions', () => {
   test(
     'API-TABLES-PERMISSIONS-CHECK-005: should show sensitive fields as blocked',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
       // GIVEN: A table with field-level permission restrictions
       // Authenticated user with restricted access to salary field
       await startServerWithSchema({
         name: 'test-app',
-        auth: { strategies: [{ type: 'emailAndPassword' }] },
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
+        },
         tables: [
           {
             id: 1,
@@ -288,7 +308,7 @@ test.describe('Check table permissions', () => {
         ],
       })
 
-      await createAuthenticatedUser()
+      await createAuthenticatedMember()
 
       // WHEN: User checks permissions
       const response = await request.get('/api/tables/1/permissions')
@@ -314,7 +334,11 @@ test.describe('Check table permissions', () => {
       // GIVEN: A viewer user with read-only access
       await startServerWithSchema({
         name: 'test-app',
-        auth: { strategies: [{ type: 'emailAndPassword' }] },
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
+        },
         tables: [
           {
             id: 1,
@@ -381,7 +405,11 @@ test.describe('Check table permissions', () => {
         await startServerWithSchema(
           {
             name: 'test-app',
-            auth: { strategies: [{ type: 'emailAndPassword' }] },
+            auth: {
+              strategies: [{ type: 'emailAndPassword' }],
+              defaultRole: 'viewer',
+              roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
+            },
             tables: [
               {
                 id: 1,

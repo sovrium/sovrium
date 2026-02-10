@@ -38,12 +38,14 @@ test.describe('API Field Permission Enforcement', () => {
   test(
     'API-TABLES-PERMISSIONS-FIELD-001: should exclude salary field from API response when member lacks read permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember, executeQuery }) => {
       // GIVEN: Table with field-level permissions (salary restricted to admin)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -70,8 +72,8 @@ test.describe('API Field Permission Enforcement', () => {
         ],
       })
 
-      // Create member user (default role: member)
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      // Create member user (explicitly set to member role)
+      await createAuthenticatedMember({ email: 'member@example.com' })
 
       // Insert test data
       await executeQuery(`
@@ -104,6 +106,8 @@ test.describe('API Field Permission Enforcement', () => {
           name: 'test-app',
           auth: {
             strategies: [{ type: 'emailAndPassword' }],
+            defaultRole: 'viewer',
+            roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
           },
           tables: [
             {
@@ -165,12 +169,14 @@ test.describe('API Field Permission Enforcement', () => {
   test.fixme(
     'API-TABLES-PERMISSIONS-FIELD-003: should reject write operation when user lacks field write permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember, executeQuery }) => {
       // GIVEN: Table where salary field is admin-write only
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -198,7 +204,7 @@ test.describe('API Field Permission Enforcement', () => {
       })
 
       // Create member user
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
 
       // Insert test data
       await executeQuery(`
@@ -233,12 +239,14 @@ test.describe('API Field Permission Enforcement', () => {
   test.fixme(
     'API-TABLES-PERMISSIONS-FIELD-004: should allow partial update when user has write permission for some fields',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember, executeQuery }) => {
       // GIVEN: Table where member can update name but not salary
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -269,7 +277,7 @@ test.describe('API Field Permission Enforcement', () => {
         ],
       })
 
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
 
       await executeQuery(`
         INSERT INTO employees (id, name, salary)
@@ -299,12 +307,14 @@ test.describe('API Field Permission Enforcement', () => {
   test(
     'API-TABLES-PERMISSIONS-FIELD-005: should return 403 when filtering by restricted field',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
       // GIVEN: Table where salary field is admin-only
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -329,7 +339,7 @@ test.describe('API Field Permission Enforcement', () => {
         ],
       })
 
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
 
       // WHEN: Member tries to filter by salary field they can't read
       const response = await request.get('/api/tables/1/records', {
@@ -379,6 +389,8 @@ test.describe('API Field Permission Enforcement', () => {
             name: 'test-app',
             auth: {
               strategies: [{ type: 'emailAndPassword' }],
+              defaultRole: 'viewer',
+              roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
             },
             tables: [
               {
@@ -422,15 +434,20 @@ test.describe('API Field Permission Enforcement', () => {
       await test.step('Setup: Create member user', async () => {
         // Admin user is created via adminBootstrap in server configuration
 
-        // Create member user
+        // Create member user (signup creates viewer due to defaultRole: 'viewer')
         await signOut()
-        await page.request.post('/api/auth/sign-up/email', {
+        const signUpResponse = await page.request.post('/api/auth/sign-up/email', {
           data: {
             email: 'member@example.com',
             password: 'TestPassword123!',
             name: 'Member User',
           },
         })
+        const signUpData = await signUpResponse.json()
+        // Explicitly set role to member (defaultRole is viewer)
+        await executeQuery(
+          `UPDATE auth."user" SET role = 'member' WHERE id = '${signUpData.user.id}'`
+        )
       })
 
       await test.step('Setup: Insert test data', async () => {

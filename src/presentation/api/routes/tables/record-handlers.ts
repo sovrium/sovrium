@@ -21,6 +21,7 @@ import {
   permanentlyDeleteRecordProgram,
 } from '@/application/use-cases/tables/programs'
 import { createRecordRequestSchema, updateRecordRequestSchema } from '@/domain/models/api/request'
+import { TableLive } from '@/infrastructure/database/table-live-layers'
 import {
   listRecordsResponseSchema,
   getRecordResponseSchema,
@@ -109,21 +110,24 @@ export async function handleListRecords(c: Context, app: App) {
 
   return runEffect(
     c,
-    createListRecordsProgram({
-      session,
-      tableName,
-      app,
-      userRole,
-      filter: filter.value,
-      includeDeleted,
-      format,
-      timezone,
-      sort,
-      fields,
-      limit,
-      offset,
-      aggregate,
-    }),
+    Effect.provide(
+      createListRecordsProgram({
+        session,
+        tableName,
+        app,
+        userRole,
+        filter: filter.value,
+        includeDeleted,
+        format,
+        timezone,
+        sort,
+        fields,
+        limit,
+        offset,
+        aggregate,
+      }),
+      TableLive
+    ),
     listRecordsResponseSchema
   )
 }
@@ -162,16 +166,19 @@ export async function handleListTrash(c: Context, app: App) {
 
   return runEffect(
     c,
-    createListTrashProgram({
-      session,
-      tableName,
-      app,
-      userRole,
-      filter: filter.value,
-      sort,
-      limit,
-      offset,
-    }),
+    Effect.provide(
+      createListTrashProgram({
+        session,
+        tableName,
+        app,
+        userRole,
+        filter: filter.value,
+        sort,
+        limit,
+        offset,
+      }),
+      TableLive
+    ),
     listRecordsResponseSchema
   )
 }
@@ -223,7 +230,10 @@ export async function handleCreateRecord(c: Context, app: App) {
 
   return await runEffect(
     c,
-    createRecordProgram({ session, tableName, fields: validationResult.right, app, userRole }),
+    Effect.provide(
+      createRecordProgram({ session, tableName, fields: validationResult.right, app, userRole }),
+      TableLive
+    ),
     createRecordResponseSchema,
     201
   )

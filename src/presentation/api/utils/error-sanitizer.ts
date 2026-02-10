@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { logDebug, logError } from '@/infrastructure/logging/logger'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 
 /**
@@ -71,20 +72,18 @@ interface ErrorObject {
  * Log error details for debugging (server-side only)
  */
 function logErrorDetails(error: unknown, requestId: string | undefined): void {
-  console.error('[API Error]', { requestId, error })
-  console.error('[API Error - error type]', typeof error)
-  console.error(
-    '[API Error - error own keys]',
-    error && typeof error === 'object' ? Object.keys(error) : 'not an object'
+  logError(`[API Error] requestId=${requestId}`, error)
+  logDebug(`[API Error - error type] ${typeof error}`)
+  logDebug(
+    `[API Error - error own keys] ${error && typeof error === 'object' ? Object.keys(error).join(', ') : 'not an object'}`
   )
-  console.error(
-    '[API Error - error all keys]',
-    error && typeof error === 'object' ? Object.getOwnPropertyNames(error) : 'not an object'
+  logDebug(
+    `[API Error - error all keys] ${error && typeof error === 'object' ? Object.getOwnPropertyNames(error).join(', ') : 'not an object'}`
   )
   const errObj = error as ErrorObject
-  console.error('[API Error - error _tag]', errObj._tag)
-  console.error('[API Error - error message]', errObj.message)
-  console.error('[API Error - error details]', errObj.details)
+  logDebug(`[API Error - error _tag] ${errObj._tag}`)
+  logDebug(`[API Error - error message] ${errObj.message}`)
+  logDebug(`[API Error - error details] ${JSON.stringify(errObj.details)}`)
 }
 
 /**
@@ -99,15 +98,13 @@ function extractActualError(error: unknown): ErrorObject {
       const jsonRep = errorObj.toJSON()
       if (jsonRep?.cause?.failure) {
         const actualError = jsonRep.cause.failure
-        console.error('[API Error - extracted from toJSON cause.failure]', {
-          _tag: actualError._tag,
-          message: actualError.message,
-          details: actualError.details,
-        })
+        logDebug(
+          `[API Error - extracted from toJSON cause.failure] _tag=${actualError._tag} message=${actualError.message} details=${JSON.stringify(actualError.details)}`
+        )
         return actualError
       }
     } catch (e) {
-      console.error('[API Error - toJSON extraction failed]', e)
+      logDebug(`[API Error - toJSON extraction failed] ${e}`)
     }
   }
 

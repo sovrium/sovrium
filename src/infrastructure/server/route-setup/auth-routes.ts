@@ -8,6 +8,7 @@
 import { type Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
+import { logError } from '@/infrastructure/logging/logger'
 import {
   isRateLimitExceeded,
   recordRateLimitRequest,
@@ -53,8 +54,7 @@ const applyAuthCheckMiddleware = (
       await next()
     } catch (error) {
       // If session check fails, return 401 (assume unauthenticated)
-      // MIDDLEWARE LOGGING: Operational error monitoring (Hono middleware uses async/await, not Effect)
-      console.error('[Auth Middleware] Session check error:', error)
+      logError('[Auth Middleware] Session check error', error)
       return c.json(
         { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
         401

@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/get.json
  * Domain: api
- * Spec Count: 4
+ * Spec Count: 7
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (4 tests) - Exhaustive acceptance criteria
@@ -198,6 +198,126 @@ test.describe('Get table by ID', () => {
       expect(data.success).toBe(false)
       expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to access this table')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-GET-005: should include fields array with types in response',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, request, createAuthenticatedMember }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'member',
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'projects',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              { id: 3, name: 'active', type: 'boolean' },
+              { id: 4, name: 'priority', type: 'integer' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+      await createAuthenticatedMember({ email: 'member@example.com' })
+
+      // WHEN: GET /api/tables/1
+      const response = await request.get('/api/tables/1')
+
+      // THEN: Response includes fields array with type info
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(Array.isArray(data.fields)).toBe(true)
+      expect(data.fields.length).toBeGreaterThanOrEqual(3)
+
+      const titleField = data.fields.find((f: any) => f.name === 'title')
+      expect(titleField).toBeDefined()
+      expect(titleField.type).toBe('single-line-text')
+
+      const activeField = data.fields.find((f: any) => f.name === 'active')
+      expect(activeField).toBeDefined()
+      expect(activeField.type).toBe('boolean')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-GET-006: should include views array in response',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, request, createAuthenticatedMember }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'member',
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+      await createAuthenticatedMember({ email: 'member@example.com' })
+
+      // WHEN: GET /api/tables/1
+      const response = await request.get('/api/tables/1')
+
+      // THEN: Response includes views property
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data).toHaveProperty('views')
+      expect(Array.isArray(data.views)).toBe(true)
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-GET-007: should include permissions configuration in response',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, request, createAuthenticatedMember }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'member',
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'articles',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: {
+              read: ['member'],
+              create: ['admin'],
+            },
+          },
+        ],
+      })
+      await createAuthenticatedMember({ email: 'member@example.com' })
+
+      // WHEN: GET /api/tables/1
+      const response = await request.get('/api/tables/1')
+
+      // THEN: Response includes permissions
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data).toHaveProperty('permissions')
+      expect(data.permissions).toHaveProperty('read')
+      expect(data.permissions).toHaveProperty('create')
     }
   )
 

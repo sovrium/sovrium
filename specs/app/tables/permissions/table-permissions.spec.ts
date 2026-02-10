@@ -42,7 +42,7 @@ test.describe('Table-Level Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedViewer,
       signOut,
     }) => {
@@ -51,6 +51,8 @@ test.describe('Table-Level Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -72,7 +74,7 @@ test.describe('Table-Level Permissions', () => {
       await executeQuery(`INSERT INTO projects (title) VALUES ('Project Alpha'), ('Project Beta')`)
 
       // Create member user (default role) and verify access
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
 
       // WHEN: member requests records via API
       const memberResponse = await request.get('/api/tables/1/records')
@@ -98,12 +100,14 @@ test.describe('Table-Level Permissions', () => {
   test(
     'APP-TABLES-TABLE-PERMISSIONS-002: should allow authenticated users when table has public read permission',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: table with 'all' read permission (public access for authenticated users)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -128,7 +132,7 @@ test.describe('Table-Level Permissions', () => {
       )
 
       // Create authenticated member user
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
 
       // WHEN: authenticated member requests records via API
       const response = await request.get('/api/tables/1/records')
@@ -149,7 +153,7 @@ test.describe('Table-Level Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedViewer,
       signOut,
     }) => {
@@ -158,6 +162,8 @@ test.describe('Table-Level Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -177,7 +183,7 @@ test.describe('Table-Level Permissions', () => {
       await executeQuery(`INSERT INTO secrets (data) VALUES ('Secret Data')`)
 
       // Create member user (default role) — member is allowed by default
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
 
       // WHEN: member requests records via API
       const memberResponse = await request.get('/api/tables/1/records')
@@ -212,7 +218,7 @@ test.describe('Table-Level Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedViewer,
       signOut,
     }) => {
@@ -221,6 +227,8 @@ test.describe('Table-Level Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -266,7 +274,7 @@ test.describe('Table-Level Permissions', () => {
 
       await test.step('APP-TABLES-TABLE-PERMISSIONS-001: Role-based read — member allowed, viewer denied', async () => {
         // Member can read projects (read: ['member'])
-        await createAuthenticatedUser({ email: 'member@example.com' })
+        await createAuthenticatedMember({ email: 'member@example.com' })
         const memberResponse = await request.get('/api/tables/1/records')
         expect(memberResponse.status()).toBe(200)
         const memberData = await memberResponse.json()
@@ -281,7 +289,7 @@ test.describe('Table-Level Permissions', () => {
       })
 
       await test.step('APP-TABLES-TABLE-PERMISSIONS-002: Public read — authenticated member allowed', async () => {
-        await createAuthenticatedUser({ email: 'member2@example.com' })
+        await createAuthenticatedMember({ email: 'member2@example.com' })
         const response = await request.get('/api/tables/2/records')
         expect(response.status()).toBe(200)
         const data = await response.json()
@@ -291,7 +299,7 @@ test.describe('Table-Level Permissions', () => {
 
       await test.step('APP-TABLES-TABLE-PERMISSIONS-003: Default deny — member allowed, viewer denied', async () => {
         // Member allowed (default allow for non-viewers)
-        await createAuthenticatedUser({ email: 'member3@example.com' })
+        await createAuthenticatedMember({ email: 'member3@example.com' })
         const memberResponse = await request.get('/api/tables/3/records')
         expect(memberResponse.status()).toBe(200)
 

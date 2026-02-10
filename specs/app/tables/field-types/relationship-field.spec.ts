@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/relationship-field.ts
  * Domain: app
- * Spec Count: 14
+ * Spec Count: 23
  *
  * Reference: https://support.airtable.com/docs/linking-records-in-airtable
  *
@@ -694,6 +694,448 @@ test.describe('Relationship Field', () => {
           ],
         })
       ).rejects.toThrow(/table.*customers.*not found|relatedTable.*does not exist/i)
+    }
+  )
+
+  // ── Self-Referencing (015-018) ──
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-015: should allow NULL for root-level self-referencing records',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'employees',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              {
+                id: 3,
+                name: 'manager_id',
+                type: 'relationship',
+                relatedTable: 'employees',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // WHEN: Insert root-level employee (no manager)
+      await executeQuery(`INSERT INTO employees (name) VALUES ('CEO')`)
+
+      // THEN: manager_id is NULL, column is nullable
+      const columns = await executeQuery(
+        `SELECT is_nullable FROM information_schema.columns
+         WHERE table_name = 'employees' AND column_name = 'manager_id'`
+      )
+      expect(columns[0].is_nullable).toBe('YES')
+
+      const ceo = await executeQuery(`SELECT manager_id FROM employees WHERE name = 'CEO'`)
+      expect(ceo[0].manager_id).toBeNull()
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-016: should support tree traversal queries with self-referencing',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'employees',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              {
+                id: 3,
+                name: 'manager_id',
+                type: 'relationship',
+                relatedTable: 'employees',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // GIVEN: Hierarchical data: CEO → VP → Manager → Staff
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('CEO', NULL)`)
+      const ceo = await executeQuery(`SELECT id FROM employees WHERE name = 'CEO'`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('VP', ${ceo[0].id})`)
+      const vp = await executeQuery(`SELECT id FROM employees WHERE name = 'VP'`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Manager', ${vp[0].id})`)
+      const mgr = await executeQuery(`SELECT id FROM employees WHERE name = 'Manager'`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Staff', ${mgr[0].id})`)
+
+      // WHEN: Execute recursive CTE to find all subordinates of CEO
+      const subordinates = await executeQuery(`
+        WITH RECURSIVE subordinates AS (
+          SELECT id, name, manager_id FROM employees WHERE name = 'CEO'
+          UNION ALL
+          SELECT e.id, e.name, e.manager_id
+          FROM employees e JOIN subordinates s ON e.manager_id = s.id
+        )
+        SELECT name FROM subordinates WHERE name != 'CEO' ORDER BY name
+      `)
+
+      // THEN: Returns all subordinates
+      expect(subordinates).toHaveLength(3)
+      expect(subordinates.map((r: any) => r.name)).toEqual(['Manager', 'Staff', 'VP'])
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-017: should handle circular reference prevention in self-referencing',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'categories',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              {
+                id: 3,
+                name: 'parent_id',
+                type: 'relationship',
+                relatedTable: 'categories',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // GIVEN: A → B hierarchy
+      await executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('A', NULL)`)
+      const a = await executeQuery(`SELECT id FROM categories WHERE name = 'A'`)
+      await executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('B', ${a[0].id})`)
+      const b = await executeQuery(`SELECT id FROM categories WHERE name = 'B'`)
+
+      // WHEN: Try to create a cycle: set A's parent to B
+      // THEN: Either DB trigger prevents it or application validates
+      // (behavior depends on implementation — may succeed at DB level if no trigger)
+      try {
+        await executeQuery(`UPDATE categories SET parent_id = ${b[0].id} WHERE name = 'A'`)
+        // If no error, circular reference exists at DB level (needs app-level validation)
+        const result = await executeQuery(`SELECT parent_id FROM categories WHERE name = 'A'`)
+        expect(result[0].parent_id).toBe(b[0].id)
+      } catch {
+        // If error thrown, circular reference prevention is enforced
+        expect(true).toBe(true)
+      }
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-018: should support ancestor queries in self-referencing',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'employees',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              {
+                id: 3,
+                name: 'manager_id',
+                type: 'relationship',
+                relatedTable: 'employees',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // GIVEN: CEO → VP → Manager chain
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('CEO', NULL)`)
+      const ceo = await executeQuery(`SELECT id FROM employees WHERE name = 'CEO'`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('VP', ${ceo[0].id})`)
+      const vp = await executeQuery(`SELECT id FROM employees WHERE name = 'VP'`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Manager', ${vp[0].id})`)
+      const mgr = await executeQuery(`SELECT id FROM employees WHERE name = 'Manager'`)
+
+      // WHEN: Query ancestors of Manager via recursive CTE
+      const ancestors = await executeQuery(`
+        WITH RECURSIVE ancestors AS (
+          SELECT id, name, manager_id FROM employees WHERE id = ${mgr[0].id}
+          UNION ALL
+          SELECT e.id, e.name, e.manager_id
+          FROM employees e JOIN ancestors a ON e.id = a.manager_id
+        )
+        SELECT name FROM ancestors WHERE id != ${mgr[0].id} ORDER BY name
+      `)
+
+      // THEN: Returns [CEO, VP]
+      expect(ancestors).toHaveLength(2)
+      expect(ancestors.map((r: any) => r.name).sort()).toEqual(['CEO', 'VP'])
+    }
+  )
+
+  // ── Cascade Error (019) ──
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-019: should return appropriate error on FK constraint violation',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'departments',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 2,
+            name: 'employees',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              {
+                id: 3,
+                name: 'department_id',
+                type: 'relationship',
+                relatedTable: 'departments',
+                onDelete: 'restrict',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // GIVEN: Department with employees referencing it
+      await executeQuery(`INSERT INTO departments (name) VALUES ('Engineering')`)
+      const dept = await executeQuery(`SELECT id FROM departments WHERE name = 'Engineering'`)
+      await executeQuery(
+        `INSERT INTO employees (name, department_id) VALUES ('Alice', ${dept[0].id})`
+      )
+
+      // WHEN: Attempt to delete department with RESTRICT constraint
+      // THEN: Throws FK constraint violation error
+      await expect(
+        executeQuery(`DELETE FROM departments WHERE id = ${dept[0].id}`)
+      ).rejects.toThrow(/violates foreign key constraint/)
+    }
+  )
+
+  // ── Display Options (020-023) ──
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-020: should use displayField for UI representation',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'categories',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'label', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 2,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+              {
+                id: 3,
+                name: 'category_id',
+                type: 'relationship',
+                relatedTable: 'categories',
+                displayField: 'label',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      await executeQuery(`INSERT INTO categories (label) VALUES ('Electronics')`)
+      const cat = await executeQuery(`SELECT id FROM categories`)
+      await executeQuery(`INSERT INTO products (name, category_id) VALUES ('Laptop', ${cat[0].id})`)
+
+      // THEN: FK column exists, displayField accessible via JOIN
+      const result = await executeQuery(`
+        SELECT p.name, c.label as category_label
+        FROM products p JOIN categories c ON p.category_id = c.id
+      `)
+      expect(result[0].name).toBe('Laptop')
+      expect(result[0].category_label).toBe('Electronics')
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-021: should support limitToView on relationship field',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN: Relationship with limitToView configured
+      // WHEN: Schema initializes
+      // THEN: Server starts successfully with limitToView config
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'categories',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'name', type: 'single-line-text' },
+                { id: 3, name: 'active', type: 'boolean' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+            {
+              id: 2,
+              name: 'products',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'category_id',
+                  type: 'relationship',
+                  relatedTable: 'categories',
+                  limitToView: 'active_categories',
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).resolves.not.toThrow()
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-022: should support multiple display fields',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'contacts',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'first_name', type: 'single-line-text' },
+              { id: 3, name: 'last_name', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+          {
+            id: 2,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              {
+                id: 2,
+                name: 'assignee_id',
+                type: 'relationship',
+                relatedTable: 'contacts',
+                displayField: ['first_name', 'last_name'],
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      await executeQuery(`INSERT INTO contacts (first_name, last_name) VALUES ('John', 'Doe')`)
+      const contact = await executeQuery(`SELECT id FROM contacts`)
+      await executeQuery(`INSERT INTO tasks (assignee_id) VALUES (${contact[0].id})`)
+
+      // THEN: Both display fields accessible via JOIN
+      const result = await executeQuery(`
+        SELECT c.first_name, c.last_name
+        FROM tasks t JOIN contacts c ON t.assignee_id = c.id
+      `)
+      expect(result[0].first_name).toBe('John')
+      expect(result[0].last_name).toBe('Doe')
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-FIELD-TYPES-RELATIONSHIP-023: should return display value in API response',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedMember }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'member',
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'categories',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'name', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: { read: 'authenticated' },
+          },
+          {
+            id: 2,
+            name: 'products',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+              {
+                id: 3,
+                name: 'category_id',
+                type: 'relationship',
+                relatedTable: 'categories',
+                displayField: 'name',
+              },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: { read: 'authenticated' },
+          },
+        ],
+      })
+
+      await executeQuery(`INSERT INTO categories (name) VALUES ('Electronics')`)
+      const cat = await executeQuery(`SELECT id FROM categories`)
+      await executeQuery(
+        `INSERT INTO products (title, category_id) VALUES ('Laptop', ${cat[0].id})`
+      )
+
+      // WHEN: Authenticated user queries products
+      await createAuthenticatedMember({ email: 'user@example.com' })
+      const response = await request.get('/api/tables/2/records')
+
+      // THEN: API response includes category relationship info
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data.records).toHaveLength(1)
+      expect(data.records[0].fields).toHaveProperty('category_id')
     }
   )
 

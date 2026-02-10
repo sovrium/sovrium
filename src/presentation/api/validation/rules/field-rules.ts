@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { hasPermission } from '@/domain/models/app/table/permissions'
 import { ValidationError, PermissionError, ValidationContext } from '../../middleware/validation'
 
 /**
@@ -94,10 +95,9 @@ function hasWriteRoleRestriction(
   fieldPermission: { write?: 'all' | 'authenticated' | readonly string[] } | null | undefined,
   userRole: string
 ): boolean {
-  if (Array.isArray(fieldPermission?.write)) {
-    return !fieldPermission.write.includes(userRole)
-  }
-  return false
+  const writePermission = fieldPermission?.write
+  if (writePermission === undefined) return false
+  return !hasPermission(writePermission, userRole)
 }
 
 /**

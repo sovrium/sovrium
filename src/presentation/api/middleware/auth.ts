@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { logError, logWarning } from '@/infrastructure/logging/logger'
 // eslint-disable-next-line boundaries/element-types -- Type-only imports don't create runtime dependencies (architectural exception)
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { Context, Next } from 'hono'
@@ -105,8 +106,7 @@ function processSessionResult(
     c.set('session', sessionResult.session as Session)
   } else {
     // Session binding validation failed - log for security monitoring
-    // MIDDLEWARE LOGGING: Security monitoring for session hijacking attempts (Hono middleware uses async/await, not Effect)
-    console.warn(
+    logWarning(
       `[AUTH] Session binding validation failed: ${JSON.stringify({
         sessionId: sessionResult.session.id,
         expectedIP: sessionResult.session.ipAddress,
@@ -167,8 +167,7 @@ export function authMiddleware(auth: any) {
         processSessionResult(c, result)
       }
     } catch (error) {
-      // MIDDLEWARE LOGGING: Operational error monitoring (Hono middleware uses async/await, not Effect)
-      console.error('[AUTH] Session extraction failed', error)
+      logError('[AUTH] Session extraction failed', error)
     }
 
     // eslint-disable-next-line functional/no-expression-statements -- Required for middleware to continue to next handler

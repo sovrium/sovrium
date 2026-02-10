@@ -362,7 +362,7 @@ export default [
                 'Use case violation: Can import domain, application, and infrastructure (Phase 1). TODO: Refactor to use ports pattern for cleaner dependency inversion.',
             },
 
-            // Application ports - Can import domain only (interface definitions)
+            // Application ports - Can import domain + other ports (interface definitions)
             {
               from: ['application-port'],
               allow: [
@@ -375,9 +375,10 @@ export default [
                 'domain-factory',
                 'domain-model-api',
                 'domain-util',
+                'application-port', // Ports can reference other port interfaces
               ],
               message:
-                'Port violation: Can only import domain models and errors for interface definitions. Keep ports lightweight.',
+                'Port violation: Can only import domain models and other ports for interface definitions. Keep ports lightweight.',
             },
 
             // Application services - Can import domain + ports + use-cases + infrastructure (utilities)
@@ -571,7 +572,7 @@ export default [
                 'API route violation: Can import domain and application use cases. FORBIDDEN: Access infrastructure through use cases, not directly.',
             },
 
-            // API middleware - Can import domain, application errors/use-cases, other middleware
+            // API middleware - Can import domain, application errors/use-cases, other middleware, logging
             {
               from: ['presentation-api-middleware'],
               allow: [
@@ -580,11 +581,12 @@ export default [
                 'domain-util',
                 'application-error',
                 'application-use-case', // Middleware may enrich context via application services
+                'infrastructure-logging', // Cross-cutting concern: structured logging
                 'presentation-api-middleware',
                 'presentation-util',
               ],
               message:
-                'API middleware violation: Can import domain models/errors, application errors/use-cases, and other middleware.',
+                'API middleware violation: Can import domain models/errors, application errors/use-cases, logging, and other middleware.',
             },
 
             // React components - Can import domain, use cases, other components
@@ -629,7 +631,7 @@ export default [
                 'Presentation util violation: Can only import domain models and other utils. Keep utilities pure.',
             },
 
-            // API utils - Can import domain and other presentation utils only (NO infrastructure)
+            // API utils - Can import domain, other presentation utils, and logging
             {
               from: ['presentation-api-util'],
               allow: [
@@ -642,12 +644,13 @@ export default [
                 'domain-factory',
                 'domain-model-api',
                 'domain-util',
+                'infrastructure-logging', // Cross-cutting concern: structured logging
                 'presentation-api-util',
                 'presentation-api-middleware',
                 'presentation-util',
               ],
               message:
-                'API util violation: Cannot import from Infrastructure layer. Use Application layer use cases instead.',
+                'API util violation: Cannot import from Infrastructure layer (except logging). Use Application layer use cases instead.',
             },
           ],
         },

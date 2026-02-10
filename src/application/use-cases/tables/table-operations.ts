@@ -6,8 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import { ForbiddenError } from '@/infrastructure/database/session-context'
-import { listRecords } from '@/infrastructure/database/table-queries'
+import { TableRepository } from '@/application/ports/table-repository'
+import { ForbiddenError } from '@/domain/errors'
 import {
   isAdminRole,
   hasPermission,
@@ -15,10 +15,10 @@ import {
   evaluateFieldPermissions,
 } from './permissions/permissions'
 import { processRecords } from './utils/list-helpers'
+import type { SessionContextError } from '@/domain/errors'
 import type { GetTableResponse } from '@/domain/models/api/tables'
 import type { App } from '@/domain/models/app'
-import type { Session } from '@/infrastructure/auth/better-auth/schema'
-import type { SessionContextError } from '@/infrastructure/database/session-context'
+import type { UserSession } from '@/application/ports/user-session'
 
 /* eslint-disable functional/no-expression-statements -- Error subclass requires super() and this.name assignment */
 
@@ -334,9 +334,14 @@ export function getViewRecordsProgram(config: {
   readonly viewId: string
   readonly app: App
   readonly userRole: string
-  readonly session: Readonly<Session>
-}): Effect.Effect<unknown, TableNotFoundError | ForbiddenError | SessionContextError> {
+  readonly session: Readonly<UserSession>
+}): Effect.Effect<
+  unknown,
+  TableNotFoundError | ForbiddenError | SessionContextError,
+  TableRepository
+> {
   return Effect.gen(function* () {
+    const repo = yield* TableRepository
     const { tableId, viewId, app, userRole, session } = config
 
     // Find table by ID or name
@@ -364,7 +369,7 @@ export function getViewRecordsProgram(config: {
     const { filter, sort, fields } = buildViewQueryParams(view)
 
     // Query records with view filters and sorts
-    const records = yield* listRecords({
+    const records = yield* repo.listRecords({
       session,
       tableName: table.name,
       filter,

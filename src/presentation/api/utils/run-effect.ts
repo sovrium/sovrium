@@ -67,35 +67,6 @@ function handleErrorResponse(c: Context, error: unknown) {
  * )
  * ```
  */
-/**
- * Error object for debugging
- */
-interface DebugErrorObject {
-  readonly cause?: {
-    readonly failure?: unknown
-  }
-}
-
-/**
- * Log Either.Left error details for debugging
- */
-function logEitherLeftError(err: unknown): void {
-  const errorObj = err as DebugErrorObject
-  console.error('[run-effect] either.left JSON:', JSON.stringify(err, undefined, 2))
-  console.error('[run-effect] toString:', String(err))
-  console.error('[run-effect] keys:', err && typeof err === 'object' ? Object.keys(err) : 'N/A')
-  console.error(
-    '[run-effect] allKeys:',
-    err && typeof err === 'object' ? Object.getOwnPropertyNames(err) : 'N/A'
-  )
-  console.error('[run-effect] err.cause:', errorObj.cause)
-  console.error(
-    '[run-effect] err.cause keys:',
-    errorObj.cause ? Object.keys(errorObj.cause) : 'no cause'
-  )
-  console.error('[run-effect] err.cause.failure:', errorObj.cause?.failure)
-}
-
 export async function runEffect<T, S>(
   c: Context,
   program: Effect.Effect<T, Error>,
@@ -110,7 +81,6 @@ export async function runEffect<T, S>(
     const either = await Effect.runPromise(Effect.either(program))
 
     if (either._tag === 'Left') {
-      logEitherLeftError(either.left)
       return handleErrorResponse(c, either.left)
     }
 

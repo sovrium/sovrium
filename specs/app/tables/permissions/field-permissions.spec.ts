@@ -48,7 +48,7 @@ test.describe('Field-Level Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedAdmin,
       signOut,
     }) => {
@@ -57,6 +57,8 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -81,7 +83,7 @@ test.describe('Field-Level Permissions', () => {
       )
 
       // WHEN: member requests records via API
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
       const memberResponse = await request.get('/api/tables/1/records')
 
       // THEN: member gets 200 but salary field is excluded
@@ -113,7 +115,7 @@ test.describe('Field-Level Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedAdmin,
       signOut,
     }) => {
@@ -122,6 +124,8 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -146,7 +150,7 @@ test.describe('Field-Level Permissions', () => {
       )
 
       // WHEN: member attempts to update email via API
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
       const memberResponse = await request.patch('/api/tables/1/records/1', {
         data: { fields: { email: 'hacked@example.com' } },
       })
@@ -173,7 +177,7 @@ test.describe('Field-Level Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedAdmin,
       signOut,
     }) => {
@@ -182,6 +186,8 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -211,7 +217,7 @@ test.describe('Field-Level Permissions', () => {
       )
 
       // WHEN: member (authenticated) requests records via API
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
       const memberResponse = await request.get('/api/tables/1/records')
 
       // THEN: member sees name, email (authenticated), department (all) but NOT salary (admin)
@@ -244,7 +250,7 @@ test.describe('Field-Level Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedAdmin,
       signOut,
     }) => {
@@ -253,6 +259,8 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -274,7 +282,7 @@ test.describe('Field-Level Permissions', () => {
       await executeQuery(`INSERT INTO tickets (title, status) VALUES ('Bug #123', 'open')`)
 
       // WHEN: member requests records via API
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
       const memberResponse = await request.get('/api/tables/1/records')
 
       // THEN: member sees status field (read: 'all' includes all authenticated users)
@@ -306,7 +314,7 @@ test.describe('Field-Level Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedViewer,
       signOut,
     }) => {
@@ -315,6 +323,8 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -336,7 +346,7 @@ test.describe('Field-Level Permissions', () => {
       await executeQuery(`INSERT INTO tasks (title, notes) VALUES ('Task 1', 'Initial notes')`)
 
       // WHEN: member updates notes via API
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
       const memberResponse = await request.patch('/api/tables/1/records/1', {
         data: { fields: { notes: 'Updated by member' } },
       })
@@ -359,12 +369,14 @@ test.describe('Field-Level Permissions', () => {
   test(
     'APP-TABLES-FIELD-PERMISSIONS-006: should include all fields when no field-level permissions are specified',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: table with empty fields permission array (no field-level restrictions)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -388,7 +400,7 @@ test.describe('Field-Level Permissions', () => {
       await executeQuery(`INSERT INTO posts (title, content) VALUES ('Post 1', 'Content 1')`)
 
       // WHEN: member requests records via API
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
       const response = await request.get('/api/tables/1/records')
 
       // THEN: all fields are included (no field-level restrictions)
@@ -409,7 +421,7 @@ test.describe('Field-Level Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedAdmin,
       signOut,
     }) => {
@@ -418,6 +430,8 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -446,7 +460,7 @@ test.describe('Field-Level Permissions', () => {
       )
 
       // WHEN: member requests records via API
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
       const memberResponse = await request.get('/api/tables/1/records')
 
       // THEN: member sees name but NOT salary or ssn (filtered by application layer)
@@ -478,7 +492,7 @@ test.describe('Field-Level Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedAdmin,
       signOut,
     }) => {
@@ -487,6 +501,8 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -511,7 +527,7 @@ test.describe('Field-Level Permissions', () => {
       )
 
       // WHEN: member attempts to update verified field via API
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
       const memberResponse = await request.patch('/api/tables/1/records/1', {
         data: { fields: { verified: true } },
       })
@@ -548,7 +564,7 @@ test.describe('Field-Level Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedAdmin,
       signOut,
     }) => {
@@ -557,6 +573,8 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -581,7 +599,7 @@ test.describe('Field-Level Permissions', () => {
       )
 
       // WHEN: member requests records via API
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
       const memberResponse = await request.get('/api/tables/1/records')
 
       // THEN: member sees title but NOT secret_content (admin-only field)
@@ -617,7 +635,7 @@ test.describe('Field-Level Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedAdmin,
       signOut,
     }) => {
@@ -626,6 +644,8 @@ test.describe('Field-Level Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -741,7 +761,7 @@ test.describe('Field-Level Permissions', () => {
 
       await test.step('APP-TABLES-FIELD-PERMISSIONS-001: Admin-only field excluded for member', async () => {
         // Member excluded from salary
-        await createAuthenticatedUser({ email: 'member@example.com' })
+        await createAuthenticatedMember({ email: 'member@example.com' })
         const memberResponse = await request.get('/api/tables/1/records')
         expect(memberResponse.status()).toBe(200)
         const memberData = await memberResponse.json()
@@ -760,7 +780,7 @@ test.describe('Field-Level Permissions', () => {
 
       await test.step('APP-TABLES-FIELD-PERMISSIONS-003: Multiple field permissions — filtered per role', async () => {
         // Member sees name, email, department but NOT salary
-        await createAuthenticatedUser({ email: 'member2@example.com' })
+        await createAuthenticatedMember({ email: 'member2@example.com' })
         const memberResponse = await request.get('/api/tables/2/records')
         expect(memberResponse.status()).toBe(200)
         const memberData = await memberResponse.json()
@@ -780,7 +800,7 @@ test.describe('Field-Level Permissions', () => {
       })
 
       await test.step('APP-TABLES-FIELD-PERMISSIONS-004: Public read field — visible to member', async () => {
-        await createAuthenticatedUser({ email: 'member3@example.com' })
+        await createAuthenticatedMember({ email: 'member3@example.com' })
         const response = await request.get('/api/tables/3/records')
         expect(response.status()).toBe(200)
         const data = await response.json()
@@ -789,7 +809,7 @@ test.describe('Field-Level Permissions', () => {
       })
 
       await test.step('APP-TABLES-FIELD-PERMISSIONS-006: No restrictions — all fields visible', async () => {
-        await createAuthenticatedUser({ email: 'member4@example.com' })
+        await createAuthenticatedMember({ email: 'member4@example.com' })
         const response = await request.get('/api/tables/4/records')
         expect(response.status()).toBe(200)
         const data = await response.json()
@@ -801,7 +821,7 @@ test.describe('Field-Level Permissions', () => {
 
       await test.step('APP-TABLES-FIELD-PERMISSIONS-007: Dual-layer — member sees base fields, admin sees all', async () => {
         // Member sees name only
-        await createAuthenticatedUser({ email: 'member5@example.com' })
+        await createAuthenticatedMember({ email: 'member5@example.com' })
         const memberResponse = await request.get('/api/tables/5/records')
         expect(memberResponse.status()).toBe(200)
         const memberData = await memberResponse.json()
@@ -822,7 +842,7 @@ test.describe('Field-Level Permissions', () => {
 
       await test.step('APP-TABLES-FIELD-PERMISSIONS-009: Complementary — admin-only field excluded for member', async () => {
         // Member excluded from secret_content
-        await createAuthenticatedUser({ email: 'member6@example.com' })
+        await createAuthenticatedMember({ email: 'member6@example.com' })
         const memberResponse = await request.get('/api/tables/6/records')
         expect(memberResponse.status()).toBe(200)
         const memberData = await memberResponse.json()

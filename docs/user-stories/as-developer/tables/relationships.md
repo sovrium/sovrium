@@ -245,10 +245,10 @@ tables:
 | ID     | Criterion                                          | E2E Spec                                  | Status |
 | ------ | -------------------------------------------------- | ----------------------------------------- | ------ |
 | AC-001 | Creates self-referential foreign key               | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-014` | ✅     |
-| AC-002 | Allows NULL for root-level records                 |                                           | ❓     |
-| AC-003 | Supports tree traversal queries                    |                                           | ❓     |
-| AC-004 | Prevents circular references (optional validation) |                                           | ❓     |
-| AC-005 | Returns ancestors/descendants when requested       |                                           | ❓     |
+| AC-002 | Allows NULL for root-level records                 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-015` | ⏳     |
+| AC-003 | Supports tree traversal queries                    | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-016` | ⏳     |
+| AC-004 | Prevents circular references (optional validation) | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-017` | ⏳     |
+| AC-005 | Returns ancestors/descendants when requested       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-018` | ⏳     |
 
 ### Implementation References
 
@@ -290,13 +290,13 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                         | E2E Spec | Status |
-| ------ | ------------------------------------------------- | -------- | ------ |
-| AC-001 | onDelete: cascade deletes child records           |          | ❓     |
-| AC-002 | onDelete: set-null sets foreign key to NULL       |          | ❓     |
-| AC-003 | onDelete: restrict prevents parent deletion       |          | ❓     |
-| AC-004 | onUpdate: cascade updates foreign keys            |          | ❓     |
-| AC-005 | Returns appropriate error on constraint violation |          | ❓     |
+| ID     | Criterion                                         | E2E Spec                                  | Status |
+| ------ | ------------------------------------------------- | ----------------------------------------- | ------ |
+| AC-001 | onDelete: cascade deletes child records           | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-003` | ✅     |
+| AC-002 | onDelete: set-null sets foreign key to NULL       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-004` | ✅     |
+| AC-003 | onDelete: restrict prevents parent deletion       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-005` | ✅     |
+| AC-004 | onUpdate: cascade updates foreign keys            | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-010` | ✅     |
+| AC-005 | Returns appropriate error on constraint violation | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-019` | ⏳     |
 
 ### Implementation References
 
@@ -475,14 +475,16 @@ tables:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                       | E2E Spec | Status |
-| ------ | ----------------------------------------------- | -------- | ------ |
-| AC-001 | Uses displayField for UI representation         |          | ❓     |
-| AC-002 | Filters available options based on limitToView  |          | ❓     |
-| AC-003 | Supports multiple display fields (concatenated) |          | ❓     |
-| AC-004 | Returns display value in API response           |          | ❓     |
+| ID     | Criterion                                       | E2E Spec                                  | Status |
+| ------ | ----------------------------------------------- | ----------------------------------------- | ------ |
+| AC-001 | Uses displayField for UI representation         | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-020` | ⏳     |
+| AC-002 | Filters available options based on limitToView  | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-021` | ⏳     |
+| AC-003 | Supports multiple display fields (concatenated) | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-022` | ⏳     |
+| AC-004 | Returns display value in API response           | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-023` | ⏳     |
 
 ### Implementation References
+
+- **E2E Spec**: `specs/app/tables/field-types/relationship-field.spec.ts`
 
 ---
 

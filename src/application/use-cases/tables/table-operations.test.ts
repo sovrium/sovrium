@@ -7,7 +7,7 @@
 
 import { test, expect, describe } from 'bun:test'
 import { Effect, Exit, Cause } from 'effect'
-import { ForbiddenError } from '@/infrastructure/database/session-context'
+import { ForbiddenError } from '@/domain/errors'
 import {
   createListTablesProgram,
   createGetTableProgram,

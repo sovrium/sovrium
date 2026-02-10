@@ -6,32 +6,23 @@
  */
 
 import { Effect } from 'effect'
-import {
-  batchCreateRecords,
-  batchRestoreRecords,
-  batchUpdateRecords,
-  batchDeleteRecords,
-  upsertRecords,
-  type BatchValidationError,
-} from '@/infrastructure/database/table-queries'
+import { BatchRepository, type BatchValidationError } from '@/application/ports/batch-repository'
 import { transformRecords, type TransformedRecord } from './utils/record-transformer'
+import type { UserSession } from '@/application/ports/user-session'
+import type { ForbiddenError, SessionContextError, ValidationError } from '@/domain/errors'
 import type { BatchRestoreRecordsResponse } from '@/domain/models/api/tables'
 import type { App } from '@/domain/models/app'
-import type { Session } from '@/infrastructure/auth/better-auth/schema'
-import type {
-  ForbiddenError,
-  SessionContextError,
-  ValidationError,
-} from '@/infrastructure/database/session-context'
 
 export function batchCreateProgram(
-  session: Readonly<Session>,
+  session: Readonly<UserSession>,
   tableName: string,
   recordsData: readonly Record<string, unknown>[]
 ) {
   return Effect.gen(function* () {
+    const batch = yield* BatchRepository
+
     // Create records in the database
-    const createdRecords = yield* batchCreateRecords(session, tableName, recordsData)
+    const createdRecords = yield* batch.batchCreate(session, tableName, recordsData)
 
     // Transform records to API format
     const transformed = transformRecords(createdRecords)
@@ -44,16 +35,18 @@ export function batchCreateProgram(
 }
 
 export function batchUpdateProgram(
-  session: Readonly<Session>,
+  session: Readonly<UserSession>,
   tableName: string,
   recordsData: readonly { readonly id: string; readonly fields?: Record<string, unknown> }[],
   returnRecords: boolean = false
 ): Effect.Effect<
   { readonly updated: number; readonly records?: readonly TransformedRecord[] },
-  SessionContextError | ValidationError
+  SessionContextError | ValidationError,
+  BatchRepository
 > {
   return Effect.gen(function* () {
-    const updatedRecords = yield* batchUpdateRecords(session, tableName, recordsData)
+    const batch = yield* BatchRepository
+    const updatedRecords = yield* batch.batchUpdate(session, tableName, recordsData)
 
     // Transform records to API format (nested fields structure)
     const transformed = transformRecords(updatedRecords)
@@ -74,13 +67,14 @@ export function batchUpdateProgram(
 }
 
 export function batchDeleteProgram(
-  session: Readonly<Session>,
+  session: Readonly<UserSession>,
   tableName: string,
   ids: readonly string[],
   permanent = false
-): Effect.Effect<{ deleted: number }, SessionContextError> {
+): Effect.Effect<{ deleted: number }, SessionContextError, BatchRepository> {
   return Effect.gen(function* () {
-    const deletedCount = yield* batchDeleteRecords(session, tableName, ids, permanent)
+    const batch = yield* BatchRepository
+    const deletedCount = yield* batch.batchDelete(session, tableName, ids, permanent)
     return {
       deleted: deletedCount,
     }
@@ -88,12 +82,17 @@ export function batchDeleteProgram(
 }
 
 export function batchRestoreProgram(
-  session: Readonly<Session>,
+  session: Readonly<UserSession>,
   tableName: string,
   ids: readonly string[]
-): Effect.Effect<BatchRestoreRecordsResponse, SessionContextError | ForbiddenError> {
+): Effect.Effect<
+  BatchRestoreRecordsResponse,
+  SessionContextError | ForbiddenError,
+  BatchRepository
+> {
   return Effect.gen(function* () {
-    const restored = yield* batchRestoreRecords(session, tableName, ids)
+    const batch = yield* BatchRepository
+    const restored = yield* batch.batchRestore(session, tableName, ids)
     return {
       success: true as const,
       restored,
@@ -102,7 +101,7 @@ export function batchRestoreProgram(
 }
 
 export function upsertProgram(
-  session: Readonly<Session>,
+  session: Readonly<UserSession>,
   tableName: string,
   params: {
     readonly recordsData: readonly Record<string, unknown>[]
@@ -116,10 +115,12 @@ export function upsertProgram(
     readonly created: number
     readonly updated: number
   },
-  SessionContextError | ValidationError | BatchValidationError
+  SessionContextError | ValidationError | BatchValidationError,
+  BatchRepository
 > {
   return Effect.gen(function* () {
-    const result = yield* upsertRecords(
+    const batch = yield* BatchRepository
+    const result = yield* batch.upsert(
       session,
       tableName,
       params.recordsData,

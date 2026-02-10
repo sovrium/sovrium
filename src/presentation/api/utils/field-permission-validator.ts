@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { hasPermission } from '@/domain/models/app/table/permissions'
 import type { App } from '@/domain/models/app'
-import type { TablePermission } from '@/domain/models/app/table/permissions'
 
 /**
  * Check if user has permission to write to specific fields
@@ -38,7 +38,7 @@ export function validateFieldWritePermissions(
       // Check explicit field permissions first
       const fieldPermission = table.permissions?.fields?.find((fp) => fp.field === fieldName)
       if (fieldPermission?.write) {
-        if (!hasWritePermission(fieldPermission.write, userRole)) {
+        if (!hasPermission(fieldPermission.write, userRole)) {
           return fieldName
         }
         return undefined
@@ -59,20 +59,4 @@ export function validateFieldWritePermissions(
     .filter((field): field is string => field !== undefined)
 
   return forbiddenFields
-}
-
-/**
- * Check if user's role has write permission
- */
-function hasWritePermission(permission: TablePermission, userRole: string): boolean {
-  if (permission === 'all') {
-    return true
-  }
-  if (permission === 'authenticated') {
-    return true // User is authenticated (has session)
-  }
-  if (Array.isArray(permission)) {
-    return permission.includes(userRole)
-  }
-  return false
 }

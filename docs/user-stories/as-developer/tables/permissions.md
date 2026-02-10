@@ -49,18 +49,18 @@ Each operation accepts one of 3 formats:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                          | E2E Spec                           | Status |
-| ------ | ------------------------------------------------------------------ | ---------------------------------- | ------ |
-| AC-001 | `all` permission allows unauthenticated access                     | `APP-TABLES-TABLE-PERMISSIONS-001` | ✅     |
-| AC-002 | `authenticated` permission requires login for the operation        | `APP-TABLES-TABLE-PERMISSIONS-002` | ✅     |
-| AC-003 | Role array permission restricts to listed roles                    | `APP-TABLES-TABLE-PERMISSIONS-003` | ✅     |
-| AC-004 | Returns 401 for unauthenticated access to non-`all` operations     |                                    | ⏳     |
-| AC-005 | Returns 403 for unauthorized role attempting restricted ops        |                                    | ⏳     |
-| AC-006 | User can complete full table-permissions workflow (regression)     | `APP-TABLES-TABLE-PERMISSIONS-REGRESSION`  | ✅     |
-| AC-007 | `comment` permission controls who can add comments to records      |                                    | ⏳     |
-| AC-008 | All 5 operations (read, comment, create, update, delete) supported |                                    | ⏳     |
-| AC-009 | Unknown role names in permissions trigger validation warning       |                                    | ⏳     |
-| AC-010 | Omitted operations default to deny                                 |                                    | ⏳     |
+| ID     | Criterion                                                          | E2E Spec                                  | Status |
+| ------ | ------------------------------------------------------------------ | ----------------------------------------- | ------ |
+| AC-001 | `all` permission allows unauthenticated access                     | `APP-TABLES-TABLE-PERMISSIONS-001`        | ✅     |
+| AC-002 | `authenticated` permission requires login for the operation        | `APP-TABLES-TABLE-PERMISSIONS-002`        | ✅     |
+| AC-003 | Role array permission restricts to listed roles                    | `APP-TABLES-TABLE-PERMISSIONS-003`        | ✅     |
+| AC-004 | Returns 401 for unauthenticated access to non-`all` operations     |                                           | ⏳     |
+| AC-005 | Returns 403 for unauthorized role attempting restricted ops        |                                           | ⏳     |
+| AC-006 | User can complete full table-permissions workflow (regression)     | `APP-TABLES-TABLE-PERMISSIONS-REGRESSION` | ✅     |
+| AC-007 | `comment` permission controls who can add comments to records      |                                           | ⏳     |
+| AC-008 | All 5 operations (read, comment, create, update, delete) supported |                                           | ⏳     |
+| AC-009 | Unknown role names in permissions trigger validation warning       |                                           | ⏳     |
+| AC-010 | Omitted operations default to deny                                 |                                           | ⏳     |
 
 ### Implementation References
 
@@ -191,13 +191,15 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                       | E2E Spec | Status |
-| ------ | --------------------------------------------------------------- | -------- | ------ |
-| AC-001 | Session context variables are set at connection start           |          | ❓     |
-| AC-002 | Session organization ID is available for multi-tenant isolation |          | ❓     |
-| AC-003 | Session user role is available for RBAC evaluation              |          | ❓     |
+| ID     | Criterion                                                       | E2E Spec                         | Status |
+| ------ | --------------------------------------------------------------- | -------------------------------- | ------ |
+| AC-001 | Session context variables are set at connection start           | `APP-TABLES-SESSION-CONTEXT-001` | ⏳     |
+| AC-002 | Session organization ID is available for multi-tenant isolation | `APP-TABLES-SESSION-CONTEXT-002` | ⏳     |
+| AC-003 | Session user role is available for RBAC evaluation              | `APP-TABLES-SESSION-CONTEXT-003` | ⏳     |
 
 ### Implementation References
+
+- **E2E Spec**: `specs/app/tables/permissions/session-context.spec.ts`
 
 ---
 
@@ -234,16 +236,18 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                            | E2E Spec | Status |
-| ------ | ---------------------------------------------------- | -------- | ------ |
-| AC-001 | Child table inherits parent table permissions        |          | ❓     |
-| AC-002 | Override permissions take precedence over inherited  |          | ❓     |
-| AC-003 | Circular inheritance is detected and rejected        |          | ❓     |
-| AC-004 | Inherited permissions update when parent changes     |          | ❓     |
-| AC-005 | Multiple levels of inheritance are supported         |          | ❓     |
-| AC-006 | Inheritance chain is validated at configuration time |          | ❓     |
+| ID     | Criterion                                            | E2E Spec                                | Status |
+| ------ | ---------------------------------------------------- | --------------------------------------- | ------ |
+| AC-001 | Child table inherits parent table permissions        | `APP-TABLES-PERMISSION-INHERITANCE-001` | ⏳     |
+| AC-002 | Override permissions take precedence over inherited  | `APP-TABLES-PERMISSION-INHERITANCE-002` | ⏳     |
+| AC-003 | Circular inheritance is detected and rejected        | `APP-TABLES-PERMISSION-INHERITANCE-003` | ⏳     |
+| AC-004 | Inherited permissions update when parent changes     | `APP-TABLES-PERMISSION-INHERITANCE-004` | ⏳     |
+| AC-005 | Multiple levels of inheritance are supported         | `APP-TABLES-PERMISSION-INHERITANCE-005` | ⏳     |
+| AC-006 | Inheritance chain is validated at configuration time | `APP-TABLES-PERMISSION-INHERITANCE-006` | ⏳     |
 
 ### Implementation References
+
+- **E2E Spec**: `specs/app/tables/permissions/permission-inheritance.spec.ts`
 
 ---
 

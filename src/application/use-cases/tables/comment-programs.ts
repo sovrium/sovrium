@@ -6,24 +6,15 @@
  */
 
 import { Effect } from 'effect'
-import { SessionContextError } from '@/infrastructure/database'
-import {
-  createComment,
-  getCommentWithUser,
-  checkRecordExists,
-  deleteComment,
-  getCommentForAuth,
-  getUserById,
-  listComments,
-  getCommentsCount,
-} from '@/infrastructure/database/table-queries/comment-queries'
-import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import { CommentRepository } from '@/application/ports/comment-repository'
+import { SessionContextError } from '@/domain/errors'
+import type { UserSession } from '@/application/ports/user-session'
 
 /**
  * Create comment on a record
  */
 interface CreateCommentConfig {
-  readonly session: Readonly<Session>
+  readonly session: Readonly<UserSession>
   readonly tableId: string
   readonly recordId: string
   readonly tableName: string
@@ -84,22 +75,24 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
         | undefined
     }
   },
-  SessionContextError
+  SessionContextError,
+  CommentRepository
 > {
   return Effect.gen(function* () {
+    const comments = yield* CommentRepository
     const { session, tableId, recordId, tableName, content } = config
 
     // Check if record exists
-    const hasAccess = yield* checkRecordExists({ session, tableName, recordId })
+    const hasAccess = yield* comments.checkRecordExists({ session, tableName, recordId })
     if (!hasAccess) {
       return yield* Effect.fail(new SessionContextError('Record not found'))
     }
 
     // Create comment
-    const comment = yield* createComment({ session, tableId, recordId, content })
+    const comment = yield* comments.create({ session, tableId, recordId, content })
 
     // Fetch comment with user metadata
-    const commentWithUser = yield* getCommentWithUser({ session, commentId: comment.id })
+    const commentWithUser = yield* comments.getWithUser({ session, commentId: comment.id })
 
     // Format response
     return formatCommentResponse(commentWithUser ?? comment)
@@ -110,7 +103,7 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
  * Delete comment configuration
  */
 interface DeleteCommentConfig {
-  readonly session: Readonly<Session>
+  readonly session: Readonly<UserSession>
   readonly commentId: string
   readonly tableName: string
 }
@@ -125,19 +118,20 @@ interface DeleteCommentConfig {
  */
 export function deleteCommentProgram(
   config: DeleteCommentConfig
-): Effect.Effect<void, SessionContextError> {
+): Effect.Effect<void, SessionContextError, CommentRepository> {
   return Effect.gen(function* () {
+    const comments = yield* CommentRepository
     const { session, commentId, tableName } = config
 
     // Get comment for authorization check
-    const comment = yield* getCommentForAuth({ session, commentId })
+    const comment = yield* comments.getForAuth({ session, commentId })
 
     if (!comment) {
       return yield* Effect.fail(new SessionContextError('Comment not found'))
     }
 
     // Check record exists (user must have access to the record)
-    const hasRecordAccess = yield* checkRecordExists({
+    const hasRecordAccess = yield* comments.checkRecordExists({
       session,
       tableName,
       recordId: comment.recordId,
@@ -148,7 +142,7 @@ export function deleteCommentProgram(
     }
 
     // Get current user to check role
-    const currentUser = yield* getUserById({ session, userId: session.userId })
+    const currentUser = yield* comments.getUserById({ session, userId: session.userId })
 
     if (!currentUser) {
       return yield* Effect.fail(new SessionContextError('User not found'))
@@ -165,7 +159,7 @@ export function deleteCommentProgram(
     }
 
     // Delete comment (soft delete)
-    yield* deleteComment({ session, commentId })
+    yield* comments.remove({ session, commentId })
   })
 }
 
@@ -173,7 +167,7 @@ export function deleteCommentProgram(
  * Get comment by ID configuration
  */
 interface GetCommentConfig {
-  readonly session: Readonly<Session>
+  readonly session: Readonly<UserSession>
   readonly commentId: string
   readonly tableName: string
 }
@@ -201,20 +195,22 @@ export function getCommentProgram(config: GetCommentConfig): Effect.Effect<
         | undefined
     }
   },
-  SessionContextError
+  SessionContextError,
+  CommentRepository
 > {
   return Effect.gen(function* () {
+    const comments = yield* CommentRepository
     const { session, commentId, tableName } = config
 
     // Get comment with user metadata
-    const comment = yield* getCommentWithUser({ session, commentId })
+    const comment = yield* comments.getWithUser({ session, commentId })
 
     if (!comment) {
       return yield* Effect.fail(new SessionContextError('Comment not found'))
     }
 
     // Check record exists
-    const recordExists = yield* checkRecordExists({
+    const recordExists = yield* comments.checkRecordExists({
       session,
       tableName,
       recordId: comment.recordId,
@@ -233,7 +229,7 @@ export function getCommentProgram(config: GetCommentConfig): Effect.Effect<
  * List comments configuration
  */
 interface ListCommentsConfig {
-  readonly session: Readonly<Session>
+  readonly session: Readonly<UserSession>
   readonly recordId: string
   readonly tableName: string
   readonly limit?: number
@@ -241,9 +237,6 @@ interface ListCommentsConfig {
   readonly sortOrder?: 'asc' | 'desc'
 }
 
-/**
- * List comments program
- */
 /**
  * Format list of comments
  */
@@ -327,18 +320,22 @@ function calculatePagination(params: {
  * Verify user has access to record
  */
 function verifyRecordAccess(params: {
-  readonly session: Readonly<Session>
+  readonly session: Readonly<UserSession>
   readonly tableName: string
   readonly recordId: string
-}): Effect.Effect<void, SessionContextError> {
+}): Effect.Effect<void, SessionContextError, CommentRepository> {
   return Effect.gen(function* () {
-    const hasAccess = yield* checkRecordExists(params)
+    const comments = yield* CommentRepository
+    const hasAccess = yield* comments.checkRecordExists(params)
     if (!hasAccess) {
       return yield* Effect.fail(new SessionContextError('Record not found'))
     }
   })
 }
 
+/**
+ * List comments program
+ */
 export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
   {
     readonly comments: readonly {
@@ -365,16 +362,18 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
       readonly hasMore: boolean
     }
   },
-  SessionContextError
+  SessionContextError,
+  CommentRepository
 > {
   return Effect.gen(function* () {
+    const comments = yield* CommentRepository
     const { session, recordId, tableName, limit, offset, sortOrder } = config
 
     // Check record exists
     yield* verifyRecordAccess({ session, tableName, recordId })
 
     // List comments
-    const comments = yield* listComments({ session, recordId, limit, offset, sortOrder })
+    const commentsList = yield* comments.list({ session, recordId, limit, offset, sortOrder })
 
     // Get total count and pagination if requested
     const pagination =
@@ -382,13 +381,13 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
         ? calculatePagination({
             limit,
             offset,
-            total: yield* getCommentsCount({ session, recordId }),
+            total: yield* comments.getCount({ session, recordId }),
           })
         : undefined
 
     // Format response
     return {
-      comments: formatCommentsList(comments),
+      comments: formatCommentsList(commentsList),
       ...(pagination && { pagination }),
     }
   })

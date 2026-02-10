@@ -28,6 +28,7 @@ import {
 } from '@/infrastructure/css/theme-generators'
 import { generateBaseLayer } from '@/infrastructure/css/theme-layer-generators'
 import { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
+import { logDebug, logError } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
 import type { Theme } from '@/domain/models/app/theme'
 
@@ -136,13 +137,13 @@ const compileCSSInternal = (theme?: Theme): Effect.Effect<CompiledCSS, CSSCompil
       },
       catch: (error) => {
         // Enhanced error logging for CI debugging
-        console.error('CSS Compilation Error Details:')
-        console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error)
-        console.error('Error message:', error instanceof Error ? error.message : String(error))
+        logError('CSS Compilation Error Details', error)
+        logDebug(`Error type: ${error instanceof Error ? error.constructor.name : typeof error}`)
+        logDebug(`Error message: ${error instanceof Error ? error.message : String(error)}`)
         if (error instanceof Error && error.stack) {
-          console.error('Error stack:', error.stack)
+          logDebug(`Error stack: ${error.stack}`)
         }
-        console.error('Source CSS preview (first 500 chars):', sourceCSS.slice(0, 500))
+        logDebug(`Source CSS preview (first 500 chars): ${sourceCSS.slice(0, 500)}`)
 
         return new CSSCompilationError(error)
       },

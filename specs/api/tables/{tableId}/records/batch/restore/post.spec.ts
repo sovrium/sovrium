@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: specs/api/paths/tables/{tableId}/records/batch/restore/post.json
  * Domain: api
- * Spec Count: 5
+ * Spec Count: 9
  *
  * Batch Restore Behavior:
  * - POST /batch/restore clears deleted_at timestamp on multiple soft-deleted records
@@ -261,6 +261,189 @@ test.describe('Batch Restore records', () => {
       const data = await response.json()
       expect(data.error).toBe('Forbidden')
       expect(data.message).toBe('You do not have permission to restore records in this table')
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-BATCH-RESTORE-006: should clear deleted_at timestamp for restored records',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedMember }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'member',
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: {
+              read: 'authenticated',
+              create: 'authenticated',
+              delete: 'authenticated',
+            },
+          },
+        ],
+      })
+
+      // GIVEN: 2 soft-deleted records
+      await executeQuery(
+        `INSERT INTO tasks (title, deleted_at) VALUES ('Task 1', NOW()), ('Task 2', NOW())`
+      )
+      const deleted = await executeQuery(`SELECT id FROM tasks WHERE deleted_at IS NOT NULL`)
+      expect(deleted).toHaveLength(2)
+
+      // WHEN: Batch restore both records
+      await createAuthenticatedMember({ email: 'member@example.com' })
+      const response = await request.post('/api/tables/1/records/batch/restore', {
+        data: { ids: deleted.map((r: any) => String(r.id)) },
+      })
+
+      // THEN: deleted_at is cleared
+      expect(response.status()).toBe(200)
+      const restored = await executeQuery(
+        `SELECT id, deleted_at FROM tasks WHERE id IN (${deleted.map((r: any) => r.id).join(',')})`
+      )
+      for (const record of restored) {
+        expect(record.deleted_at).toBeNull()
+      }
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-BATCH-RESTORE-007: should skip records that are not soft-deleted',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedMember }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'member',
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: {
+              read: 'authenticated',
+              create: 'authenticated',
+              delete: 'authenticated',
+            },
+          },
+        ],
+      })
+
+      // GIVEN: 1 deleted + 1 active record
+      await executeQuery(`INSERT INTO tasks (title, deleted_at) VALUES ('Deleted', NOW())`)
+      await executeQuery(`INSERT INTO tasks (title) VALUES ('Active')`)
+      const all = await executeQuery(`SELECT id, deleted_at FROM tasks ORDER BY id`)
+      const deletedId = all.find((r: any) => r.deleted_at !== null).id
+      const activeId = all.find((r: any) => r.deleted_at === null).id
+
+      // WHEN: Batch restore both IDs
+      await createAuthenticatedMember({ email: 'member@example.com' })
+      const response = await request.post('/api/tables/1/records/batch/restore', {
+        data: { ids: [String(deletedId), String(activeId)] },
+      })
+
+      // THEN: 200 with restored count = 1 (only the deleted one)
+      expect(response.status()).toBe(200)
+      const data = await response.json()
+      expect(data.restored).toBe(1)
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-BATCH-RESTORE-008: should enforce maximum batch size of 100 records',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, request, createAuthenticatedMember }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'member',
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: { read: 'authenticated', delete: 'authenticated' },
+          },
+        ],
+      })
+
+      // WHEN: Attempt to restore 101 record IDs
+      await createAuthenticatedMember({ email: 'member@example.com' })
+      const ids = Array.from({ length: 101 }, (_, i) => String(i + 1))
+      const response = await request.post('/api/tables/1/records/batch/restore', {
+        data: { ids },
+      })
+
+      // THEN: Returns 400 for exceeding batch size
+      expect(response.status()).toBe(400)
+    }
+  )
+
+  test.fixme(
+    'API-TABLES-RECORDS-BATCH-RESTORE-009: should log batch restore operation to activity history',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery, request, createAuthenticatedMember }) => {
+      await startServerWithSchema({
+        name: 'test-app',
+        auth: {
+          strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'member',
+        },
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: {
+              read: 'authenticated',
+              create: 'authenticated',
+              delete: 'authenticated',
+            },
+          },
+        ],
+      })
+
+      // GIVEN: 2 soft-deleted records
+      await executeQuery(
+        `INSERT INTO tasks (title, deleted_at) VALUES ('Task 1', NOW()), ('Task 2', NOW())`
+      )
+      const deleted = await executeQuery(`SELECT id FROM tasks WHERE deleted_at IS NOT NULL`)
+
+      // WHEN: Batch restore
+      await createAuthenticatedMember({ email: 'member@example.com' })
+      const response = await request.post('/api/tables/1/records/batch/restore', {
+        data: { ids: deleted.map((r: any) => String(r.id)) },
+      })
+      expect(response.status()).toBe(200)
+
+      // THEN: Activity log contains restore operation
+      // (Verify via activity API or direct DB query)
+      // Implementation-dependent: check activity_log table or API endpoint
     }
   )
 

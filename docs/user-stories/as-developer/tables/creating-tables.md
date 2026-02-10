@@ -62,9 +62,9 @@ tables:
 | ------ | -------------------------------------------------------- | ---------------------------- | ------ |
 | AC-001 | Table name is stored and returned in API responses       | `APP-TABLES-NAME-001`        | ✅     |
 | AC-002 | Table name can include spaces and special characters     | `APP-TABLES-NAME-002`        | ✅     |
-| AC-003 | Table name is used for PostgreSQL table name (sanitized) |                              | ❓     |
-| AC-004 | Empty table name returns validation error                |                              | ❓     |
-| AC-005 | Duplicate table names return validation error            |                              | ❓     |
+| AC-003 | Table name is used for PostgreSQL table name (sanitized) | `APP-TABLES-NAME-003`        | ⏳     |
+| AC-004 | Empty table name returns validation error                | `APP-TABLES-NAME-004`        | ⏳     |
+| AC-005 | Duplicate table names return validation error            | `APP-TABLES-NAME-005`        | ⏳     |
 | AC-006 | User can complete full table name workflow (regression)  | `APP-TABLES-NAME-REGRESSION` | ✅     |
 
 ### Implementation References
@@ -267,9 +267,9 @@ tables:
 | AC-002 | Returns 404 Not Found for non-existent table       | `API-TABLES-GET-002`        | ✅     |
 | AC-003 | Returns 401 when not authenticated                 | `API-TABLES-GET-003`        | ✅     |
 | AC-004 | Returns 403 when user lacks read permission        | `API-TABLES-GET-004`        | ✅     |
-| AC-005 | Response includes fields array with types          |                             | ❓     |
-| AC-006 | Response includes views array                      |                             | ❓     |
-| AC-007 | Response includes permissions configuration        |                             | ❓     |
+| AC-005 | Response includes fields array with types          | `API-TABLES-GET-005`        | ⏳     |
+| AC-006 | Response includes views array                      | `API-TABLES-GET-006`        | ⏳     |
+| AC-007 | Response includes permissions configuration        | `API-TABLES-GET-007`        | ⏳     |
 | AC-008 | User retrieves specific table details (regression) | `API-TABLES-GET-REGRESSION` | ✅     |
 
 ### Implementation References

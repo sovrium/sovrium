@@ -6,18 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import { SessionContextError } from '@/infrastructure/database/session-context'
-import {
-  listRecords,
-  listTrash,
-  getRecord,
-  createRecord,
-  updateRecord,
-  deleteRecord,
-  permanentlyDeleteRecord,
-  restoreRecord,
-  computeAggregations,
-} from '@/infrastructure/database/table-queries'
+import { TableRepository } from '@/application/ports/table-repository'
+import { SessionContextError } from '@/domain/errors'
 import { filterReadableFields } from './utils/field-read-filter'
 import { processRecords, applyPagination } from './utils/list-helpers'
 import { transformRecord } from './utils/record-transformer'
@@ -28,7 +18,7 @@ import type {
   RestoreRecordResponse,
 } from '@/domain/models/api/tables'
 import type { App } from '@/domain/models/app'
-import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { UserSession } from '@/application/ports/user-session'
 
 // Re-export from table-operations
 export {
@@ -51,7 +41,7 @@ export {
 } from './batch-operations'
 
 interface ListRecordsConfig {
-  readonly session: Readonly<Session>
+  readonly session: Readonly<UserSession>
   readonly tableName: string
   readonly app: App
   readonly userRole: string
@@ -80,8 +70,9 @@ interface ListRecordsConfig {
 
 export function createListRecordsProgram(
   config: ListRecordsConfig
-): Effect.Effect<ListRecordsResponse, SessionContextError> {
+): Effect.Effect<ListRecordsResponse, SessionContextError, TableRepository> {
   return Effect.gen(function* () {
+    const repo = yield* TableRepository
     const {
       session,
       tableName,
@@ -98,7 +89,7 @@ export function createListRecordsProgram(
       aggregate,
     } = config
 
-    const records = yield* listRecords({ session, tableName, filter, includeDeleted, sort })
+    const records = yield* repo.listRecords({ session, tableName, filter, includeDeleted, sort })
 
     const processedRecords = processRecords({
       records,
@@ -119,7 +110,7 @@ export function createListRecordsProgram(
     )
 
     const aggregations = aggregate
-      ? yield* computeAggregations({ session, tableName, filter, includeDeleted, aggregate })
+      ? yield* repo.computeAggregations({ session, tableName, filter, includeDeleted, aggregate })
       : undefined
 
     return {
@@ -131,7 +122,7 @@ export function createListRecordsProgram(
 }
 
 interface ListTrashConfig {
-  readonly session: Readonly<Session>
+  readonly session: Readonly<UserSession>
   readonly tableName: string
   readonly app: App
   readonly userRole: string
@@ -149,12 +140,13 @@ interface ListTrashConfig {
 
 export function createListTrashProgram(
   config: ListTrashConfig
-): Effect.Effect<ListRecordsResponse, SessionContextError> {
+): Effect.Effect<ListRecordsResponse, SessionContextError, TableRepository> {
   return Effect.gen(function* () {
+    const repo = yield* TableRepository
     const { session, tableName, app, userRole, filter, sort, limit, offset } = config
 
     // Query soft-deleted records with session context (RLS policies apply automatically)
-    const records = yield* listTrash({ session, tableName, filter, sort })
+    const records = yield* repo.listTrash({ session, tableName, filter, sort })
 
     // Process records (field-level filtering, transformations)
     const processedRecords = processRecords({
@@ -190,7 +182,7 @@ export function createListTrashProgram(
 }
 
 interface GetRecordConfig {
-  readonly session: Readonly<Session>
+  readonly session: Readonly<UserSession>
   readonly tableName: string
   readonly recordId: string
   readonly app: App
@@ -200,12 +192,13 @@ interface GetRecordConfig {
 
 export function createGetRecordProgram(
   config: GetRecordConfig
-): Effect.Effect<GetRecordResponse, SessionContextError> {
+): Effect.Effect<GetRecordResponse, SessionContextError, TableRepository> {
   return Effect.gen(function* () {
+    const repo = yield* TableRepository
     const { session, tableName, recordId, app, userRole, includeDeleted } = config
     const { userId } = session
 
-    const record = yield* getRecord(session, tableName, recordId, includeDeleted)
+    const record = yield* repo.getRecord(session, tableName, recordId, includeDeleted)
     if (!record) return yield* Effect.fail(new SessionContextError('Record not found'))
 
     const filteredRecord = filterReadableFields({ app, tableName, userRole, userId, record })
@@ -225,7 +218,7 @@ export function createGetRecordProgram(
 }
 
 interface CreateRecordConfig {
-  readonly session: Readonly<Session>
+  readonly session: Readonly<UserSession>
   readonly tableName: string
   readonly fields: Readonly<Record<string, unknown>>
   readonly app?: App
@@ -235,8 +228,10 @@ interface CreateRecordConfig {
 export function createRecordProgram(config: CreateRecordConfig) {
   const { session, tableName, fields, app, userRole } = config
   return Effect.gen(function* () {
+    const repo = yield* TableRepository
+
     // Create record with session context
-    const record = yield* createRecord(session, tableName, fields)
+    const record = yield* repo.createRecord(session, tableName, fields)
 
     const transformed = transformRecord(record)
 
@@ -271,7 +266,7 @@ export function createRecordProgram(config: CreateRecordConfig) {
 }
 
 export function updateRecordProgram(
-  session: Readonly<Session>,
+  session: Readonly<UserSession>,
   tableName: string,
   recordId: string,
   params: {
@@ -281,8 +276,10 @@ export function updateRecordProgram(
   }
 ) {
   return Effect.gen(function* () {
+    const repo = yield* TableRepository
+
     // Update record with session context (RLS policies enforce access control)
-    const record = yield* updateRecord(session, tableName, recordId, {
+    const record = yield* repo.updateRecord(session, tableName, recordId, {
       fields: params.fields,
       app: params.app,
     })
@@ -326,13 +323,15 @@ export function updateRecordProgram(
 }
 
 export function restoreRecordProgram(
-  session: Readonly<Session>,
+  session: Readonly<UserSession>,
   tableName: string,
   recordId: string
-): Effect.Effect<RestoreRecordResponse, SessionContextError> {
+): Effect.Effect<RestoreRecordResponse, SessionContextError, TableRepository> {
   return Effect.gen(function* () {
+    const repo = yield* TableRepository
+
     // Restore soft-deleted record with session context
-    const record = yield* restoreRecord(session, tableName, recordId)
+    const record = yield* repo.restoreRecord(session, tableName, recordId)
 
     // Handle special error marker for non-deleted records
     if (record && '_error' in record && record._error === 'not_deleted') {
@@ -355,11 +354,14 @@ export function restoreRecordProgram(
  * Used for internal checks like record existence verification
  */
 export function rawGetRecordProgram(
-  session: Readonly<Session>,
+  session: Readonly<UserSession>,
   tableName: string,
   recordId: string
-): Effect.Effect<Record<string, unknown> | null, SessionContextError> {
-  return getRecord(session, tableName, recordId)
+): Effect.Effect<Record<string, unknown> | null, SessionContextError, TableRepository> {
+  return Effect.gen(function* () {
+    const repo = yield* TableRepository
+    return yield* repo.getRecord(session, tableName, recordId)
+  })
 }
 
 /**
@@ -367,12 +369,15 @@ export function rawGetRecordProgram(
  * Wraps Infrastructure deleteRecord for proper layer architecture
  */
 export function deleteRecordProgram(
-  session: Readonly<Session>,
+  session: Readonly<UserSession>,
   tableName: string,
   recordId: string,
   app?: App
-): Effect.Effect<boolean, SessionContextError> {
-  return deleteRecord(session, tableName, recordId, app)
+): Effect.Effect<boolean, SessionContextError, TableRepository> {
+  return Effect.gen(function* () {
+    const repo = yield* TableRepository
+    return yield* repo.deleteRecord(session, tableName, recordId, app)
+  })
 }
 
 /**
@@ -380,9 +385,12 @@ export function deleteRecordProgram(
  * Wraps Infrastructure permanentlyDeleteRecord for proper layer architecture
  */
 export function permanentlyDeleteRecordProgram(
-  session: Readonly<Session>,
+  session: Readonly<UserSession>,
   tableName: string,
   recordId: string
-): Effect.Effect<boolean, SessionContextError> {
-  return permanentlyDeleteRecord(session, tableName, recordId)
+): Effect.Effect<boolean, SessionContextError, TableRepository> {
+  return Effect.gen(function* () {
+    const repo = yield* TableRepository
+    return yield* repo.permanentlyDeleteRecord(session, tableName, recordId)
+  })
 }

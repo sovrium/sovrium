@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/index.ts
  * Domain: app
- * Spec Count: 2
+ * Spec Count: 5
  *
  * Test Organization:
  * 1. @spec tests - One per spec in schema (2 tests) - Exhaustive acceptance criteria
@@ -150,6 +150,88 @@ test.describe('Table Name', () => {
       )
       // THEN: assertion
       expect(tableInfo.rows[0]).toMatchObject({ table_name: 'customers' })
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-NAME-003: should use table name for PostgreSQL table name (sanitized)',
+    { tag: '@spec' },
+    async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: Table name with mixed case and spaces
+      await startServerWithSchema({
+        name: 'test-app',
+        tables: [
+          {
+            id: 1,
+            name: 'My Projects',
+            fields: [
+              { id: 1, name: 'id', type: 'integer', required: true },
+              { id: 2, name: 'title', type: 'single-line-text' },
+            ],
+            primaryKey: { type: 'composite', fields: ['id'] },
+          },
+        ],
+      })
+
+      // THEN: PostgreSQL table exists with sanitized name
+      const tables = await executeQuery(
+        `SELECT table_name FROM information_schema.tables
+         WHERE table_schema = 'public' AND table_name LIKE '%project%'`
+      )
+      expect(tables.length).toBeGreaterThanOrEqual(1)
+      // Sanitized name should be lowercase, underscored
+      const tableName = tables[0].table_name
+      expect(tableName).toMatch(/^[a-z_]+$/)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-NAME-004: should reject empty table name with validation error',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN/WHEN: Empty table name
+      // THEN: Rejects with validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: '',
+              fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).rejects.toThrow(/AppValidationError|ParseError|empty|required/i)
+    }
+  )
+
+  test.fixme(
+    'APP-TABLES-NAME-005: should reject duplicate table names with validation error',
+    { tag: '@spec' },
+    async ({ startServerWithSchema }) => {
+      // GIVEN/WHEN: Two tables with same name
+      // THEN: Rejects with validation error
+      await expect(
+        startServerWithSchema({
+          name: 'test-app',
+          tables: [
+            {
+              id: 1,
+              name: 'duplicated',
+              fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+            {
+              id: 2,
+              name: 'duplicated',
+              fields: [{ id: 1, name: 'id', type: 'integer', required: true }],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+      ).rejects.toThrow(/duplicate|already exists|unique/i)
     }
   )
 

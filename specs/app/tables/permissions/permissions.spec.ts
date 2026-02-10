@@ -44,7 +44,7 @@ test.describe('Table Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedViewer,
       signOut,
     }) => {
@@ -53,6 +53,8 @@ test.describe('Table Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -73,7 +75,7 @@ test.describe('Table Permissions', () => {
       await executeQuery(`INSERT INTO admin_data (secret) VALUES ('Secret 1'), ('Secret 2')`)
 
       // WHEN: member requests records via API (member not in ['admin'] list)
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
       const memberResponse = await request.get('/api/tables/1/records')
 
       // THEN: member gets 403 Forbidden (not in read: ['admin'] list)
@@ -92,12 +94,14 @@ test.describe('Table Permissions', () => {
   test(
     'APP-TABLES-PERMISSIONS-002: should filter sensitive fields based on field-level permissions',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
       // GIVEN: table with field-level permission restricting salary_info to admin
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -127,7 +131,7 @@ test.describe('Table Permissions', () => {
       )
 
       // WHEN: member requests records via API
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
       const response = await request.get('/api/tables/1/records')
 
       // THEN: member gets 200 but salary_info is filtered out
@@ -148,7 +152,7 @@ test.describe('Table Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedAdmin,
       signOut,
     }) => {
@@ -157,6 +161,8 @@ test.describe('Table Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -187,7 +193,7 @@ test.describe('Table Permissions', () => {
       )
 
       // WHEN: member requests records via API
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
       const memberResponse = await request.get('/api/tables/1/records')
 
       // THEN: member gets 200 with title and content, but NOT salary_info
@@ -219,7 +225,7 @@ test.describe('Table Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedViewer,
       signOut,
     }) => {
@@ -228,6 +234,8 @@ test.describe('Table Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -248,7 +256,7 @@ test.describe('Table Permissions', () => {
       await executeQuery(`INSERT INTO restricted (data) VALUES ('Top Secret')`)
 
       // WHEN: member requests records via API
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
       const memberResponse = await request.get('/api/tables/1/records')
 
       // THEN: member gets 403 (not in ['admin'] list)
@@ -271,7 +279,7 @@ test.describe('Table Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedAdmin,
       createAuthenticatedViewer,
       signOut,
@@ -281,6 +289,8 @@ test.describe('Table Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -323,7 +333,7 @@ test.describe('Table Permissions', () => {
 
       // WHEN: member requests records via API
       await signOut()
-      await createAuthenticatedUser({ email: 'member@example.com' })
+      await createAuthenticatedMember({ email: 'member@example.com' })
       const memberResponse = await request.get('/api/tables/1/records')
 
       // THEN: member gets 200 with title and summary, but NOT confidential
@@ -510,7 +520,7 @@ test.describe('Table Permissions', () => {
       request,
       startServerWithSchema,
       executeQuery,
-      createAuthenticatedUser,
+      createAuthenticatedMember,
       createAuthenticatedAdmin,
       createAuthenticatedViewer,
       signOut,
@@ -521,6 +531,8 @@ test.describe('Table Permissions', () => {
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
+          defaultRole: 'viewer',
+          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
         },
         tables: [
           {
@@ -631,7 +643,7 @@ test.describe('Table Permissions', () => {
 
       await test.step('APP-TABLES-PERMISSIONS-001: Admin-only table — member and viewer denied', async () => {
         // Member denied
-        await createAuthenticatedUser({ email: 'member@example.com' })
+        await createAuthenticatedMember({ email: 'member@example.com' })
         const memberResponse = await request.get('/api/tables/1/records')
         expect(memberResponse.status()).toBe(403)
 
@@ -644,7 +656,7 @@ test.describe('Table Permissions', () => {
       })
 
       await test.step('APP-TABLES-PERMISSIONS-002: Field-level filtering — member sees name but not salary_info', async () => {
-        await createAuthenticatedUser({ email: 'member2@example.com' })
+        await createAuthenticatedMember({ email: 'member2@example.com' })
         const response = await request.get('/api/tables/2/records')
         expect(response.status()).toBe(200)
         const data = await response.json()
@@ -655,7 +667,7 @@ test.describe('Table Permissions', () => {
 
       await test.step('APP-TABLES-PERMISSIONS-003: Hierarchical permissions — admin sees all fields, member filtered', async () => {
         // Member sees title but not salary_info
-        await createAuthenticatedUser({ email: 'member3@example.com' })
+        await createAuthenticatedMember({ email: 'member3@example.com' })
         const memberResponse = await request.get('/api/tables/3/records')
         expect(memberResponse.status()).toBe(200)
         const memberData = await memberResponse.json()
@@ -673,7 +685,7 @@ test.describe('Table Permissions', () => {
       })
 
       await test.step('APP-TABLES-PERMISSIONS-004: Admin-only restriction — member and viewer both denied', async () => {
-        await createAuthenticatedUser({ email: 'member4@example.com' })
+        await createAuthenticatedMember({ email: 'member4@example.com' })
         expect((await request.get('/api/tables/4/records')).status()).toBe(403)
 
         await signOut()
@@ -692,7 +704,7 @@ test.describe('Table Permissions', () => {
 
         // Member sees title, not confidential
         await signOut()
-        await createAuthenticatedUser({ email: 'member5@example.com' })
+        await createAuthenticatedMember({ email: 'member5@example.com' })
         const memberResponse = await request.get('/api/tables/5/records')
         expect(memberResponse.status()).toBe(200)
         const memberData = await memberResponse.json()
