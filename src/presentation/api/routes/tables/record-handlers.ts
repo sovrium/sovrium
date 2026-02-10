@@ -59,9 +59,10 @@ type SessionContext = ReturnType<typeof getTableContext>['session']
 function checkReadPermission(
   table: Parameters<typeof hasReadPermission>[0],
   userRole: string,
-  c: Context
+  c: Context,
+  allTables?: App['tables']
 ) {
-  if (!hasReadPermission(table, userRole)) {
+  if (!hasReadPermission(table, userRole, allTables)) {
     return c.json(
       {
         success: false,
@@ -79,7 +80,7 @@ export async function handleListRecords(c: Context, app: App) {
   const table = app.tables?.find((t) => t.name === tableName)
 
   // Check table-level read permission
-  const permissionError = checkReadPermission(table, userRole, c)
+  const permissionError = checkReadPermission(table, userRole, c, app.tables)
   if (permissionError) return permissionError
 
   const filter = parseFilter(c, app, tableName, userRole)
@@ -138,7 +139,7 @@ export async function handleListTrash(c: Context, app: App) {
   const table = app.tables?.find((t) => t.name === tableName)
 
   // Check table-level read permission
-  const permissionError = checkReadPermission(table, userRole, c)
+  const permissionError = checkReadPermission(table, userRole, c, app.tables)
   if (permissionError) return permissionError
 
   // Parse filter parameter
@@ -190,9 +191,10 @@ export async function handleListTrash(c: Context, app: App) {
 function checkCreatePermission(
   table: Parameters<typeof hasCreatePermission>[0],
   userRole: string,
-  c: Context
+  c: Context,
+  allTables?: App['tables']
 ) {
-  if (!hasCreatePermission(table, userRole)) {
+  if (!hasCreatePermission(table, userRole, allTables)) {
     return c.json(
       {
         success: false,
@@ -215,7 +217,7 @@ export async function handleCreateRecord(c: Context, app: App) {
   const table = app.tables?.find((t) => t.name === tableName)
 
   // Check table-level create permission
-  const permissionError = checkCreatePermission(table, userRole, c)
+  const permissionError = checkCreatePermission(table, userRole, c, app.tables)
   if (permissionError) return permissionError
 
   // Validate fields using Effect-based validation
@@ -246,7 +248,7 @@ export async function handleGetRecord(c: Context, app: App) {
   const includeDeleted = c.req.query('includeDeleted') === 'true'
 
   const table = app.tables?.find((t) => t.name === tableName)
-  if (!hasReadPermission(table, userRole)) {
+  if (!hasReadPermission(table, userRole, app.tables)) {
     return c.json(
       {
         success: false,
@@ -424,7 +426,7 @@ export async function handleDeleteRecord(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
-  if (!hasDeletePermission(table, userRole)) {
+  if (!hasDeletePermission(table, userRole, app.tables)) {
     return c.json(
       {
         success: false,
@@ -463,7 +465,7 @@ export async function handleRestoreRecord(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
 
   const table = app.tables?.find((t) => t.name === tableName)
-  if (!hasDeletePermission(table, userRole)) {
+  if (!hasDeletePermission(table, userRole, app.tables)) {
     return c.json(
       {
         success: false,

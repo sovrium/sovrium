@@ -178,7 +178,7 @@ export async function handleGetComment(c: Context, app: App) {
   }
 
   // Check read permission
-  if (!hasReadPermission(table, userRole)) {
+  if (!hasReadPermission(table, userRole, app.tables)) {
     return c.json(
       {
         success: false,
