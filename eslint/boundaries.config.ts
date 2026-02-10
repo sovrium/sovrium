@@ -564,12 +564,13 @@ export default [
                 'application-use-case-automation',
                 'application-use-case',
                 'application-error',
+                'infrastructure-database', // Composition root: routes provide Live layers to Effect programs
                 'presentation-api-middleware',
                 'presentation-api-util',
                 'presentation-util',
               ],
               message:
-                'API route violation: Can import domain and application use cases. FORBIDDEN: Access infrastructure through use cases, not directly.',
+                'API route violation: Can import domain, application use cases, and infrastructure layers (composition root). FORBIDDEN: Direct infrastructure query imports.',
             },
 
             // API middleware - Can import domain, application errors/use-cases, other middleware, logging

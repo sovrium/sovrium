@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { hasUpdatePermission } from '@/application/use-cases/tables/permissions/permissions'
 import { updateRecordProgram, rawGetRecordProgram } from '@/application/use-cases/tables/programs'
 import { transformRecord } from '@/application/use-cases/tables/utils/record-transformer'
+import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { handleGetRecordError, handleInternalError } from './error-handlers'
 import { isAuthorizationError, type Session } from './utils'
@@ -105,7 +106,9 @@ export async function handleNoAllowedFields(config: {
 
   // If only system-protected fields were filtered, return unchanged record
   try {
-    const record = await Effect.runPromise(rawGetRecordProgram(session, tableName, recordId))
+    const record = await Effect.runPromise(
+      Effect.provide(rawGetRecordProgram(session, tableName, recordId), TableLive)
+    )
 
     if (!record) {
       return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
@@ -132,7 +135,10 @@ export async function executeUpdate(config: {
   const { session, tableName, recordId, allowedData, app, userRole, c } = config
   try {
     const updateResult = await Effect.runPromise(
-      updateRecordProgram(session, tableName, recordId, { fields: allowedData, app, userRole })
+      Effect.provide(
+        updateRecordProgram(session, tableName, recordId, { fields: allowedData, app, userRole }),
+        TableLive
+      )
     )
 
     // Check if update affected any rows (RLS may have blocked it)
@@ -165,7 +171,9 @@ async function handleUpdateError(config: {
 
   // Try to read the record to differentiate between "not found" and "forbidden"
   try {
-    const readResult = await Effect.runPromise(rawGetRecordProgram(session, tableName, recordId))
+    const readResult = await Effect.runPromise(
+      Effect.provide(rawGetRecordProgram(session, tableName, recordId), TableLive)
+    )
 
     // If we can read the record but couldn't update it, return 403 Forbidden
     if (readResult !== null) {

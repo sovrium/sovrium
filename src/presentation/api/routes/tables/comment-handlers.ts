@@ -13,6 +13,7 @@ import {
   listCommentsProgram,
 } from '@/application/use-cases/tables/comment-programs'
 import { hasReadPermission } from '@/application/use-cases/tables/permissions/permissions'
+import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { isAuthorizationError } from './utils'
 import type { App } from '@/domain/models/app'
@@ -97,7 +98,7 @@ export async function handleCreateComment(c: Context, app: App) {
     content: validated.content,
   })
 
-  const result = await Effect.runPromise(program.pipe(Effect.either))
+  const result = await Effect.runPromise(program.pipe(Effect.provide(TableLive), Effect.either))
 
   if (result._tag === 'Left') {
     return handleCommentError(c, result.left)
@@ -151,7 +152,7 @@ export async function handleDeleteComment(c: Context, app: App) {
     tableName: table.name,
   })
 
-  const result = await Effect.runPromise(program.pipe(Effect.either))
+  const result = await Effect.runPromise(program.pipe(Effect.provide(TableLive), Effect.either))
 
   if (result._tag === 'Left') {
     return handleDeleteCommentError(c, result.left)
@@ -195,7 +196,7 @@ export async function handleGetComment(c: Context, app: App) {
     tableName: table.name,
   })
 
-  const result = await Effect.runPromise(program.pipe(Effect.either))
+  const result = await Effect.runPromise(program.pipe(Effect.provide(TableLive), Effect.either))
 
   if (result._tag === 'Left') {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
@@ -253,7 +254,7 @@ export async function handleListComments(c: Context, app: App) {
     sortOrder,
   })
 
-  const result = await Effect.runPromise(program.pipe(Effect.either))
+  const result = await Effect.runPromise(program.pipe(Effect.provide(TableLive), Effect.either))
 
   if (result._tag === 'Left') {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)

@@ -15,10 +15,10 @@ import {
   evaluateFieldPermissions,
 } from './permissions/permissions'
 import { processRecords } from './utils/list-helpers'
+import type { UserSession } from '@/application/ports/user-session'
 import type { SessionContextError } from '@/domain/errors'
 import type { GetTableResponse } from '@/domain/models/api/tables'
 import type { App } from '@/domain/models/app'
-import type { UserSession } from '@/application/ports/user-session'
 
 /* eslint-disable functional/no-expression-statements -- Error subclass requires super() and this.name assignment */
 

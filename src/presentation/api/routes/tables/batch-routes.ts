@@ -28,6 +28,7 @@ import {
   batchDeleteRecordsResponseSchema,
   upsertRecordsResponseSchema,
 } from '@/domain/models/api/tables'
+import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
@@ -114,7 +115,7 @@ async function handleBatchRestore(c: Context, _app: App) {
 
   try {
     const response = await Effect.runPromise(
-      batchRestoreProgram(session, tableName, result.data.ids)
+      Effect.provide(batchRestoreProgram(session, tableName, result.data.ids), TableLive)
     )
     return c.json(response, 200)
   } catch (error) {
@@ -165,7 +166,7 @@ async function handleBatchCreate(c: Context, app: App) {
 
   return runEffect(
     c,
-    batchCreateProgram(session, tableName, flatRecordsData),
+    Effect.provide(batchCreateProgram(session, tableName, flatRecordsData), TableLive),
     batchCreateRecordsResponseSchema,
     201
   )
@@ -233,7 +234,7 @@ async function handleBatchUpdate(c: Context, app: App) {
     )
   )
 
-  return runEffect(c, filteredProgram, batchUpdateRecordsResponseSchema)
+  return runEffect(c, Effect.provide(filteredProgram, TableLive), batchUpdateRecordsResponseSchema)
 }
 
 /**
@@ -251,7 +252,7 @@ async function handleBatchDelete(c: Context, _app: App) {
 
   return runEffect(
     c,
-    batchDeleteProgram(session, tableName, result.data.ids, permanent),
+    Effect.provide(batchDeleteProgram(session, tableName, result.data.ids, permanent), TableLive),
     batchDeleteRecordsResponseSchema
   )
 }
@@ -306,7 +307,7 @@ async function handleUpsert(c: Context, app: App) {
     userId: session.userId,
   })
 
-  return runEffect(c, filteredProgram, upsertRecordsResponseSchema)
+  return runEffect(c, Effect.provide(filteredProgram, TableLive), upsertRecordsResponseSchema)
 }
 
 export function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {

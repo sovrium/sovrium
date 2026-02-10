@@ -173,36 +173,6 @@ tables:
 
 ---
 
-## US-TABLES-PERMISSIONS-004: Session Context Integration
-
-**As a** developer,
-**I want to** use Better Auth session data for permission evaluation,
-**so that** permissions are based on the current authenticated user's identity and roles.
-
-### Configuration
-
-```yaml
-auth:
-  strategies:
-    - type: emailAndPassword
-# Note: Session context variables (user_id, user_role, user_email) are
-# automatically set by Better Auth at the server level.
-```
-
-### Acceptance Criteria
-
-| ID     | Criterion                                                       | E2E Spec                         | Status |
-| ------ | --------------------------------------------------------------- | -------------------------------- | ------ |
-| AC-001 | Session context variables are set at connection start           | `APP-TABLES-SESSION-CONTEXT-001` | ⏳     |
-| AC-002 | Session organization ID is available for multi-tenant isolation | `APP-TABLES-SESSION-CONTEXT-002` | ⏳     |
-| AC-003 | Session user role is available for RBAC evaluation              | `APP-TABLES-SESSION-CONTEXT-003` | ⏳     |
-
-### Implementation References
-
-- **E2E Spec**: `specs/app/tables/permissions/session-context.spec.ts`
-
----
-
 ## US-TABLES-PERMISSIONS-005: API Field Permission Enforcement
 
 **As a** developer,
@@ -315,8 +285,7 @@ GET /api/tables/:tableId/permissions
 | US-TABLES-PERMISSIONS-001 | Table-Level Access Control   | 10                    | Partial  |
 | US-TABLES-PERMISSIONS-002 | Role-Based Access Control    | 11                    | Complete |
 | US-TABLES-PERMISSIONS-003 | Field-Level Permissions      | 10                    | Complete |
-| US-TABLES-PERMISSIONS-004 | Session Context Integration  | 3                     | Pending  |
 | US-TABLES-PERMISSIONS-005 | API Field Permission Enforce | 6                     | Complete |
 | US-TABLES-PERMISSIONS-006 | Permission Inheritance       | 6                     | Pending  |
 | US-TABLES-PERMISSIONS-007 | Check User Permissions       | 7                     | Complete |
-| **Total**                 |                              | **53 + 3 regression** |          |
+| **Total**                 |                              | **50 + 3 regression** |          |

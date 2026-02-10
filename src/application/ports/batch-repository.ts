@@ -17,7 +17,7 @@ import type { Effect } from 'effect'
  * (Data.TaggedError). Defined here so application layer doesn't need
  * to import from infrastructure.
  */
-export interface BatchValidationError {
+export interface BatchValidationError extends Error {
   readonly _tag: 'BatchValidationError'
   readonly message: string
   readonly details?: readonly string[]

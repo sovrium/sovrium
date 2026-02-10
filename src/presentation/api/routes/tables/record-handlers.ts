@@ -21,12 +21,12 @@ import {
   permanentlyDeleteRecordProgram,
 } from '@/application/use-cases/tables/programs'
 import { createRecordRequestSchema, updateRecordRequestSchema } from '@/domain/models/api/request'
-import { TableLive } from '@/infrastructure/database/table-live-layers'
 import {
   listRecordsResponseSchema,
   getRecordResponseSchema,
   createRecordResponseSchema,
 } from '@/domain/models/api/tables'
+import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import {
@@ -260,7 +260,10 @@ export async function handleGetRecord(c: Context, app: App) {
   try {
     return await runEffect(
       c,
-      createGetRecordProgram({ session, tableName, app, userRole, recordId, includeDeleted }),
+      Effect.provide(
+        createGetRecordProgram({ session, tableName, app, userRole, recordId, includeDeleted }),
+        TableLive
+      ),
       getRecordResponseSchema
     )
   } catch (error) {
@@ -377,7 +380,7 @@ async function executePermanentDelete(
   c: Context
 ) {
   const deleteResult = await Effect.runPromise(
-    permanentlyDeleteRecordProgram(session, tableName, recordId)
+    Effect.provide(permanentlyDeleteRecordProgram(session, tableName, recordId), TableLive)
   )
 
   if (!deleteResult) {
@@ -405,7 +408,7 @@ async function executeSoftDelete({
   readonly c: Context
 }) {
   const deleteResult = await Effect.runPromise(
-    deleteRecordProgram(session, tableName, recordId, app)
+    Effect.provide(deleteRecordProgram(session, tableName, recordId, app), TableLive)
   )
 
   if (!deleteResult) {
@@ -475,7 +478,7 @@ export async function handleRestoreRecord(c: Context, app: App) {
 
   try {
     const restoreResult = await Effect.runPromise(
-      restoreRecordProgram(session, tableName, recordId)
+      Effect.provide(restoreRecordProgram(session, tableName, recordId), TableLive)
     )
 
     if (!restoreResult.success) {
