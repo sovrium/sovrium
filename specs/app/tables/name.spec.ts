@@ -207,7 +207,7 @@ test.describe('Table Name', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-NAME-005: should reject duplicate table names with validation error',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
