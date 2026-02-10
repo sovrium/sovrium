@@ -673,7 +673,7 @@ test.describe('Update comment', () => {
       await test.step('API-TABLES-RECORDS-COMMENTS-UPDATE-008: Return 404 for cross-user access', async () => {
         const response = await request.patch('/api/tables/1/records/2/comments/comment_4', {
           headers: { 'Content-Type': 'application/json' },
-          data: { content: 'Cross-owner update attempt' },
+          data: { content: 'Cross-user update attempt' },
         })
 
         expect(response.status()).toBe(404)

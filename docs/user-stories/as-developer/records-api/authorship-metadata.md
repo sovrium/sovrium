@@ -15,12 +15,14 @@ Sovrium automatically tracks record authorship using three system field types: `
 
 **Auth-conditional behavior**: When authentication is enabled, authorship fields are populated from the session user ID. When authentication is disabled (no auth strategy configured), authorship fields are `NULL`.
 
+**API response structure**: Authorship fields (`created_by`, `updated_by`, `deleted_by`) are **system metadata** — they appear at the record root level alongside `created_at`, `updated_at`, and `deleted_at`, NOT inside the `fields` object. The `fields` object contains only user-defined field values.
+
 ---
 
 ## US-API-AUTHORSHIP-001: Created By on Record Creation
 
 **As a** developer,
-**I want** the `created_by` field to be automatically set to the current user's ID when a record is created,
+**I want to** have the `created_by` field automatically set to the current user's ID when a record is created,
 **so that** I can track who created each record without manual input.
 
 ### API Request
@@ -40,21 +42,21 @@ POST /api/tables/1/records
 {
   "id": 1,
   "fields": {
-    "title": "New Task",
-    "created_by": "user-uuid-123"
+    "title": "New Task"
   },
+  "created_by": "user-uuid-123",
   "created_at": "2025-01-15T10:30:00Z"
 }
 ```
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                        | E2E Spec                                 | Status |
-| ------ | ---------------------------------------------------------------- | ---------------------------------------- | ------ |
-| AC-001 | created_by is auto-set to current user ID on record creation     | `API-TABLES-RECORDS-AUTHORSHIP-001`      | ⏳     |
-| AC-002 | created_by is included in the API response after creation        | `API-TABLES-RECORDS-AUTHORSHIP-002`      | ⏳     |
-| AC-003 | created_by is stored in the database with correct user ID        | `API-TABLES-RECORDS-AUTHORSHIP-003`      | ⏳     |
-| AC-004 | created_by is NULL when no authentication is configured          | `API-TABLES-RECORDS-AUTHORSHIP-004`      | ⏳     |
+| ID     | Criterion                                                    | E2E Spec                            | Status |
+| ------ | ------------------------------------------------------------ | ----------------------------------- | ------ |
+| AC-001 | created_by is auto-set to current user ID on record creation | `API-TABLES-RECORDS-AUTHORSHIP-001` | ⏳     |
+| AC-002 | created_by is included in the API response after creation    | `API-TABLES-RECORDS-AUTHORSHIP-002` | ⏳     |
+| AC-003 | created_by is stored in the database with correct user ID    | `API-TABLES-RECORDS-AUTHORSHIP-003` | ⏳     |
+| AC-004 | created_by is NULL when no authentication is configured      | `API-TABLES-RECORDS-AUTHORSHIP-004` | ⏳     |
 
 ### Implementation References
 
@@ -66,7 +68,7 @@ POST /api/tables/1/records
 ## US-API-AUTHORSHIP-002: Updated By on Record Update
 
 **As a** developer,
-**I want** the `updated_by` field to be automatically set to the current user's ID when a record is updated,
+**I want to** have the `updated_by` field automatically set to the current user's ID when a record is updated,
 **so that** I can track who last modified each record.
 
 ### API Request
@@ -86,22 +88,22 @@ PATCH /api/tables/1/records/1
 {
   "id": 1,
   "fields": {
-    "title": "Updated Task Title",
-    "created_by": "user-uuid-123",
-    "updated_by": "user-uuid-456"
+    "title": "Updated Task Title"
   },
+  "created_by": "user-uuid-123",
+  "updated_by": "user-uuid-456",
   "updated_at": "2025-01-15T11:00:00Z"
 }
 ```
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                          | E2E Spec                                 | Status |
-| ------ | ------------------------------------------------------------------ | ---------------------------------------- | ------ |
-| AC-001 | updated_by is auto-set to current user ID on record update         | `API-TABLES-RECORDS-AUTHORSHIP-005`      | ⏳     |
-| AC-002 | updated_by reflects the updating user, not the original creator    | `API-TABLES-RECORDS-AUTHORSHIP-006`      | ⏳     |
-| AC-003 | updated_by is set to same value as created_by on initial creation  | `API-TABLES-RECORDS-AUTHORSHIP-007`      | ⏳     |
-| AC-004 | updated_by is included in the API response after update            | `API-TABLES-RECORDS-AUTHORSHIP-008`      | ⏳     |
+| ID     | Criterion                                                         | E2E Spec                            | Status |
+| ------ | ----------------------------------------------------------------- | ----------------------------------- | ------ |
+| AC-001 | updated_by is auto-set to current user ID on record update        | `API-TABLES-RECORDS-AUTHORSHIP-005` | ⏳     |
+| AC-002 | updated_by reflects the updating user, not the original creator   | `API-TABLES-RECORDS-AUTHORSHIP-006` | ⏳     |
+| AC-003 | updated_by is set to same value as created_by on initial creation | `API-TABLES-RECORDS-AUTHORSHIP-007` | ⏳     |
+| AC-004 | updated_by is included in the API response after update           | `API-TABLES-RECORDS-AUTHORSHIP-008` | ⏳     |
 
 ### Implementation References
 
@@ -113,7 +115,7 @@ PATCH /api/tables/1/records/1
 ## US-API-AUTHORSHIP-003: Deleted By on Soft Delete
 
 **As a** developer,
-**I want** the `deleted_by` field to be automatically set to the current user's ID when a record is soft-deleted,
+**I want to** have the `deleted_by` field automatically set to the current user's ID when a record is soft-deleted,
 **so that** I can track who deleted each record for audit purposes.
 
 ### API Request
@@ -131,12 +133,12 @@ SELECT deleted_by, deleted_at FROM tasks WHERE id = 1;
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                        | E2E Spec                                 | Status |
-| ------ | ---------------------------------------------------------------- | ---------------------------------------- | ------ |
-| AC-001 | deleted_by is auto-set to current user ID on soft delete         | `API-TABLES-RECORDS-AUTHORSHIP-009`      | ⏳     |
-| AC-002 | deleted_by is NULL for active (non-deleted) records              | `API-TABLES-RECORDS-AUTHORSHIP-010`      | ⏳     |
-| AC-003 | deleted_by is cleared (set to NULL) when record is restored      | `API-TABLES-RECORDS-AUTHORSHIP-011`      | ⏳     |
-| AC-004 | deleted_by is included in trash listing response                 | `API-TABLES-RECORDS-AUTHORSHIP-012`      | ⏳     |
+| ID     | Criterion                                                   | E2E Spec                            | Status |
+| ------ | ----------------------------------------------------------- | ----------------------------------- | ------ |
+| AC-001 | deleted_by is auto-set to current user ID on soft delete    | `API-TABLES-RECORDS-AUTHORSHIP-009` | ⏳     |
+| AC-002 | deleted_by is NULL for active (non-deleted) records         | `API-TABLES-RECORDS-AUTHORSHIP-010` | ⏳     |
+| AC-003 | deleted_by is cleared (set to NULL) when record is restored | `API-TABLES-RECORDS-AUTHORSHIP-011` | ⏳     |
+| AC-004 | deleted_by is included in trash listing response            | `API-TABLES-RECORDS-AUTHORSHIP-012` | ⏳     |
 
 ### Implementation References
 
@@ -148,7 +150,7 @@ SELECT deleted_by, deleted_at FROM tasks WHERE id = 1;
 ## US-API-AUTHORSHIP-004: Read-Only Enforcement
 
 **As a** developer,
-**I want** authorship fields to be read-only via the API,
+**I want to** ensure authorship fields are read-only via the API,
 **so that** users cannot forge or tamper with audit trail data.
 
 ### API Request (Attempt to Override)
@@ -169,11 +171,11 @@ The API silently ignores the `created_by` value provided by the user and sets it
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                             | E2E Spec                                 | Status |
-| ------ | --------------------------------------------------------------------- | ---------------------------------------- | ------ |
-| AC-001 | API ignores user-provided created_by value on create                  | `API-TABLES-RECORDS-AUTHORSHIP-013`      | ⏳     |
-| AC-002 | API ignores user-provided updated_by value on update                  | `API-TABLES-RECORDS-AUTHORSHIP-014`      | ⏳     |
-| AC-003 | API ignores user-provided deleted_by value on delete                  | `API-TABLES-RECORDS-AUTHORSHIP-015`      | ⏳     |
+| ID     | Criterion                                            | E2E Spec                            | Status |
+| ------ | ---------------------------------------------------- | ----------------------------------- | ------ |
+| AC-001 | API ignores user-provided created_by value on create | `API-TABLES-RECORDS-AUTHORSHIP-013` | ⏳     |
+| AC-002 | API ignores user-provided updated_by value on update | `API-TABLES-RECORDS-AUTHORSHIP-014` | ⏳     |
+| AC-003 | API ignores user-provided deleted_by value on delete | `API-TABLES-RECORDS-AUTHORSHIP-015` | ⏳     |
 
 ### Implementation References
 
@@ -184,7 +186,7 @@ The API silently ignores the `created_by` value provided by the user and sets it
 ## US-API-AUTHORSHIP-005: Multi-User Scenarios
 
 **As a** developer,
-**I want** authorship fields to correctly reflect different users across operations,
+**I want to** have authorship fields correctly reflect different users across operations,
 **so that** the audit trail accurately represents who performed each action.
 
 ### Scenario
@@ -195,10 +197,10 @@ The API silently ignores the `created_by` value provided by the user and sets it
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                                      | E2E Spec                                 | Status |
-| ------ | ------------------------------------------------------------------------------ | ---------------------------------------- | ------ |
-| AC-001 | Different users are tracked across create, update, delete operations           | `API-TABLES-RECORDS-AUTHORSHIP-016`      | ⏳     |
-| AC-002 | created_by remains unchanged after update by different user                    | `API-TABLES-RECORDS-AUTHORSHIP-017`      | ⏳     |
+| ID     | Criterion                                                            | E2E Spec                            | Status |
+| ------ | -------------------------------------------------------------------- | ----------------------------------- | ------ |
+| AC-001 | Different users are tracked across create, update, delete operations | `API-TABLES-RECORDS-AUTHORSHIP-016` | ⏳     |
+| AC-002 | created_by remains unchanged after update by different user          | `API-TABLES-RECORDS-AUTHORSHIP-017` | ⏳     |
 
 ### Implementation References
 
@@ -209,16 +211,16 @@ The API silently ignores the `created_by` value provided by the user and sets it
 ## US-API-AUTHORSHIP-006: Batch Operations
 
 **As a** developer,
-**I want** authorship fields to be correctly set during batch create, update, and delete operations,
+**I want to** have authorship fields correctly set during batch create, update, and delete operations,
 **so that** bulk data modifications maintain accurate audit trails.
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                                  | E2E Spec                                 | Status |
-| ------ | -------------------------------------------------------------------------- | ---------------------------------------- | ------ |
-| AC-001 | Batch create sets created_by on all records to the current user            | `API-TABLES-RECORDS-AUTHORSHIP-018`      | ⏳     |
-| AC-002 | Batch update sets updated_by on all records to the current user            | `API-TABLES-RECORDS-AUTHORSHIP-019`      | ⏳     |
-| AC-003 | Batch delete sets deleted_by on all records to the current user            | `API-TABLES-RECORDS-AUTHORSHIP-020`      | ⏳     |
+| ID     | Criterion                                                       | E2E Spec                            | Status |
+| ------ | --------------------------------------------------------------- | ----------------------------------- | ------ |
+| AC-001 | Batch create sets created_by on all records to the current user | `API-TABLES-RECORDS-AUTHORSHIP-018` | ⏳     |
+| AC-002 | Batch update sets updated_by on all records to the current user | `API-TABLES-RECORDS-AUTHORSHIP-019` | ⏳     |
+| AC-003 | Batch delete sets deleted_by on all records to the current user | `API-TABLES-RECORDS-AUTHORSHIP-020` | ⏳     |
 
 ### Implementation References
 
@@ -230,16 +232,16 @@ The API silently ignores the `created_by` value provided by the user and sets it
 ## US-API-AUTHORSHIP-007: API Response Inclusion
 
 **As a** developer,
-**I want** authorship fields to be included in API responses for all record operations,
+**I want to** have authorship fields included in API responses for all record operations,
 **so that** the client application can display authorship information.
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                                       | E2E Spec                                 | Status |
-| ------ | ------------------------------------------------------------------------------- | ---------------------------------------- | ------ |
-| AC-001 | created_by is included in GET single record response                            | `API-TABLES-RECORDS-AUTHORSHIP-021`      | ⏳     |
-| AC-002 | updated_by is included in GET single record response                            | `API-TABLES-RECORDS-AUTHORSHIP-022`      | ⏳     |
-| AC-003 | Authorship fields are included in list records response for each record         | `API-TABLES-RECORDS-AUTHORSHIP-023`      | ⏳     |
+| ID     | Criterion                                                               | E2E Spec                            | Status |
+| ------ | ----------------------------------------------------------------------- | ----------------------------------- | ------ |
+| AC-001 | created_by is included in GET single record response                    | `API-TABLES-RECORDS-AUTHORSHIP-021` | ⏳     |
+| AC-002 | updated_by is included in GET single record response                    | `API-TABLES-RECORDS-AUTHORSHIP-022` | ⏳     |
+| AC-003 | Authorship fields are included in list records response for each record | `API-TABLES-RECORDS-AUTHORSHIP-023` | ⏳     |
 
 ### Implementation References
 
@@ -249,21 +251,21 @@ The API silently ignores the `created_by` value provided by the user and sets it
 
 ## Regression Tests
 
-| Spec ID                                        | Workflow                                                  | Status |
-| ---------------------------------------------- | --------------------------------------------------------- | ------ |
-| `API-TABLES-RECORDS-AUTHORSHIP-REGRESSION`     | Full authorship metadata lifecycle across CRUD operations | `[x]`  |
+| Spec ID                                    | Workflow                                                  | Status |
+| ------------------------------------------ | --------------------------------------------------------- | ------ |
+| `API-TABLES-RECORDS-AUTHORSHIP-REGRESSION` | Full authorship metadata lifecycle across CRUD operations | `[x]`  |
 
 ---
 
 ## Coverage Summary
 
-| User Story             | Title                           | Spec Count | Status   |
-| ---------------------- | ------------------------------- | ---------- | -------- |
-| US-API-AUTHORSHIP-001  | Created By on Record Creation   | 4          | Complete |
-| US-API-AUTHORSHIP-002  | Updated By on Record Update     | 4          | Complete |
-| US-API-AUTHORSHIP-003  | Deleted By on Soft Delete       | 4          | Complete |
-| US-API-AUTHORSHIP-004  | Read-Only Enforcement           | 3          | Complete |
-| US-API-AUTHORSHIP-005  | Multi-User Scenarios            | 2          | Complete |
-| US-API-AUTHORSHIP-006  | Batch Operations                | 3          | Complete |
-| US-API-AUTHORSHIP-007  | API Response Inclusion          | 3          | Complete |
-| **Total**              |                                 | **23 + 1 regression** |  |
+| User Story            | Title                         | Spec Count            | Status   |
+| --------------------- | ----------------------------- | --------------------- | -------- |
+| US-API-AUTHORSHIP-001 | Created By on Record Creation | 4                     | Complete |
+| US-API-AUTHORSHIP-002 | Updated By on Record Update   | 4                     | Complete |
+| US-API-AUTHORSHIP-003 | Deleted By on Soft Delete     | 4                     | Complete |
+| US-API-AUTHORSHIP-004 | Read-Only Enforcement         | 3                     | Complete |
+| US-API-AUTHORSHIP-005 | Multi-User Scenarios          | 2                     | Complete |
+| US-API-AUTHORSHIP-006 | Batch Operations              | 3                     | Complete |
+| US-API-AUTHORSHIP-007 | API Response Inclusion        | 3                     | Complete |
+| **Total**             |                               | **23 + 1 regression** |          |
