@@ -2577,7 +2577,7 @@ async function calculateTDDAutomationStats(totalFixme: number): Promise<TDDAutom
     // 2. TDD pipeline commits: [TDD] Implement <SPEC-ID> | Attempt X/N (#PR)
     // 3. TDD activation commits: test(tdd): activate <SPEC-ID>
     const { stdout } = await execAsync(
-      'git log --oneline --since="90 days ago" --extended-regexp' +
+      'git log --oneline --since="30 days ago" --extended-regexp' +
         ' --grep="^(fix|test|feat|refactor|chore)(\\([^)]*\\))?:.*[A-Z]+-[A-Z0-9-]+-([0-9]{3}|REGRESSION)"' +
         ' --grep="^\\[TDD\\].*[A-Z]+-[A-Z0-9-]+-([0-9]{3}|REGRESSION)"' +
         ' --grep="^test\\(tdd\\):.*[A-Z]+-[A-Z0-9-]+-([0-9]{3}|REGRESSION)"' +
@@ -2625,9 +2625,7 @@ async function calculateTDDAutomationStats(totalFixme: number): Promise<TDDAutom
 
     // Calculate average fixes per day based on active days only (days with at least 1 fix)
     const activeDaysLast30d = new Set(
-      commits
-        .filter((c) => new Date(c.date) >= thirtyDaysAgo)
-        .map((c) => c.date.split('T')[0])
+      commits.filter((c) => new Date(c.date) >= thirtyDaysAgo).map((c) => c.date.split('T')[0])
     ).size
     const avgFixesPerDay = activeDaysLast30d > 0 ? fixedLast30d / activeDaysLast30d : 0
 
@@ -2649,12 +2647,13 @@ async function calculateTDDAutomationStats(totalFixme: number): Promise<TDDAutom
       source: c.source,
     }))
 
-    // Count by source
-    const fixedByPipeline = commits.filter((c) => c.source === 'tdd-pipeline').length
-    const fixedManually = commits.filter((c) => c.source === 'manual').length
+    // Count by source (within 30-day window)
+    const commitsLast30d = commits.filter((c) => new Date(c.date) >= thirtyDaysAgo)
+    const fixedByPipeline = commitsLast30d.filter((c) => c.source === 'tdd-pipeline').length
+    const fixedManually = commitsLast30d.filter((c) => c.source === 'manual').length
 
     return {
-      totalFixed: commits.length,
+      totalFixed: fixedLast30d,
       fixedByPipeline,
       fixedManually,
       fixedLast24h,
@@ -2759,9 +2758,9 @@ async function verifyProgressFromGitHub(
       }
     }
 
-    // 3. Fetch commits with spec IDs (last 90 days) - all conventional commit types
+    // 3. Fetch commits with spec IDs (last 30 days) - all conventional commit types
     const { stdout: commitOutput } = await execAsync(
-      'git log --oneline --since="90 days ago" --extended-regexp --grep="[A-Z]+-[A-Z0-9-]+-[0-9]{3}" --format="%H|%aI|%s"',
+      'git log --oneline --since="30 days ago" --extended-regexp --grep="[A-Z]+-[A-Z0-9-]+-[0-9]{3}" --format="%H|%aI|%s"',
       { cwd: process.cwd(), maxBuffer: 10 * 1024 * 1024 }
     )
 
@@ -3189,7 +3188,7 @@ function generateMarkdown(state: SpecState): string {
 
     lines.push('| Metric | Value |')
     lines.push('|--------|-------|')
-    lines.push(`| Tests Fixed (90 days) | ${state.tddAutomation.totalFixed} |`)
+    lines.push(`| Tests Fixed (30 days) | ${state.tddAutomation.totalFixed} |`)
     lines.push(`| 🤖 Fixed by TDD Pipeline | ${state.tddAutomation.fixedByPipeline} |`)
     lines.push(`| 👤 Fixed Manually | ${state.tddAutomation.fixedManually} |`)
     lines.push(`| Fixed Last 24h | ${state.tddAutomation.fixedLast24h} |`)
@@ -3745,7 +3744,7 @@ async function main() {
   // ── Step 3: TDD Pipeline ──
   if (tddAutomation.totalFixed > 0 || totalFixme > 0) {
     console.log(
-      `🔄 TDD Pipeline (${totalFixme} remaining, ${tddAutomation.totalFixed} fixed in 90d)`
+      `🔄 TDD Pipeline (${totalFixme} remaining, ${tddAutomation.totalFixed} fixed in 30d)`
     )
   } else {
     console.log('✅ TDD Pipeline (no remaining fixme)')
@@ -3861,7 +3860,7 @@ async function main() {
       console.log('')
       console.log('  TDD Pipeline')
       console.log(
-        `  Fixed (90d)         ${tddAutomation.totalFixed} (pipeline: ${tddAutomation.fixedByPipeline}, manual: ${tddAutomation.fixedManually})`
+        `  Fixed (30d)         ${tddAutomation.totalFixed} (pipeline: ${tddAutomation.fixedByPipeline}, manual: ${tddAutomation.fixedManually})`
       )
       console.log(`  Last 24h            ${tddAutomation.fixedLast24h}`)
       console.log(`  Last 7d             ${tddAutomation.fixedLast7d}`)
