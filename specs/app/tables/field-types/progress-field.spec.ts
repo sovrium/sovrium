@@ -125,7 +125,7 @@ test.describe('Progress Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-PROGRESS-004: should support DEFAULT value for progress field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
