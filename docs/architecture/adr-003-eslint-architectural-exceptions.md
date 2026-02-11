@@ -347,7 +347,7 @@ Review this ADR annually (every January) to:
 - [Global Codebase Refactor Audit Plan](../../.claude/plans/velvet-booping-minsky.md) - Phase 3.3 refactoring strategy
 - [Layer-Based Architecture](./layer-based-architecture.md) - Layer separation enforcement
 - [Effect.ts Integration](../infrastructure/framework/effect.md) - Effect composition patterns
-- [Console Logging Policy](../development/console-logging-policy.md) - Related architectural decision
+- [ADR 008: Console Logging Policy](./decisions/008-console-logging-policy.md) - Related architectural decision
 
 ## Related Decisions
 

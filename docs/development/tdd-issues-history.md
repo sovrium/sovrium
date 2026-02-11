@@ -134,7 +134,7 @@ CLAUDE_ARGS: "--verbose"
 
 **Files Modified**:
 - `.github/workflows/claude-code.yml` — Removed `--mode execute` from CLAUDE_ARGS (line 486), updated comments
-- `docs/development/tdd-sdk-version-management.md` — Added Lesson 7: GA v1.0 breaking changes (removed flags)
+- `docs/development/tdd-sdk-version-management.md` — (removed; lessons captured in this issue entry)
 - `docs/development/tdd-automation-pipeline.md` — Updated version pin note from SDK 0.2.9 to v1.0.47
 
 **Lessons Learned**:
