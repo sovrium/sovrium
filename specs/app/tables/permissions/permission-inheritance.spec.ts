@@ -258,7 +258,7 @@ test.describe('Permission Inheritance', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSION-INHERITANCE-006: should validate inheritance chain at configuration time',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
