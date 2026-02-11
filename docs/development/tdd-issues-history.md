@@ -83,6 +83,61 @@ Use these tags in error symptoms or root cause to improve searchability:
 
 <!-- New entries go here, newest first -->
 
+### ISSUE-2026-02-11-spec-progress-unstaged-user-stories
+
+| Field                    | Value                                                                                                                                                                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Date**                 | 2026-02-11                                                                                                                                                                                                                        |
+| **Severity**             | medium                                                                                                                                                                                                                            |
+| **Affected Workflow(s)** | `test.yml`                                                                                                                                                                                                                        |
+| **Error Symptoms**       | `[YAML]` `[INFRA]` — "Update Spec Progress" job fails with exit code 128. `git pull --rebase` refuses to run due to unstaged changes in `docs/user-stories/`. `git rebase --abort` then fails because no rebase was ever started. |
+
+**Error Message / Log Excerpt**:
+
+```
+📝 Committing spec progress updates...
+[main 35f81076] chore: update spec progress [skip ci]
+ 1 file changed, 58 insertions(+), 58 deletions(-)
+🔄 Pulling latest changes from main...
+error: cannot pull with rebase: You have unstaged changes.
+error: Please commit or stash them.
+⚠️ Rebase conflict detected - aborting push
+fatal: no rebase in progress
+##[error]Process completed with exit code 128.
+```
+
+**Root Cause Analysis**:
+
+The `bun run progress --no-error --update-stories` command modifies three types of files:
+
+1. `SPEC-PROGRESS.md` — spec progress tracking
+2. `README.md` — badge updates
+3. `docs/user-stories/**/*.md` — acceptance criteria tables updated with test status columns
+
+However, the commit step only checked and staged the first two files (`git diff --quiet SPEC-PROGRESS.md README.md` and `git add SPEC-PROGRESS.md README.md`). The user story files were left as unstaged changes in the working tree.
+
+When `git pull --rebase origin main` ran, git refused to start the rebase because of the unstaged changes in `docs/user-stories/`. The error handler then called `git rebase --abort`, which failed with exit code 128 because no rebase was ever in progress (git rejected the operation before starting it).
+
+**Solution Applied**:
+
+Three minimal changes to the "Commit spec progress updates" step in `test.yml`:
+
+1. Added `docs/user-stories/` to the `git diff --quiet` check so changes to user story files are detected
+2. Added `docs/user-stories/` to the `git add` command so user story changes are committed
+3. Guarded `git rebase --abort` with `2>/dev/null || true` to handle the case where git refuses to start the rebase (no rebase in progress to abort)
+
+**Files Modified**:
+
+- `.github/workflows/test.yml` — Updated git diff check, git add, and rebase abort error handling in the "Commit spec progress updates" step
+
+**Lessons Learned**:
+
+- **When adding new flags that produce file changes, update the commit step to track ALL output files.** The `--update-stories` flag was added to `bun run progress` but the commit step was not updated to include user story files. Any command that modifies files in CI must have its git add step updated to match.
+- **`git pull --rebase` fails before starting the rebase when there are unstaged changes.** This means `git rebase --abort` will fail with "no rebase in progress". Always guard `git rebase --abort` with `|| true` when it's in an error recovery path.
+- **Test the full git workflow locally when adding new file outputs.** The three-step sequence (diff check, add, commit, pull, push) must account for every file that could be modified by the preceding step.
+
+---
+
 ### ISSUE-2026-02-11-duplicate-claude-comment-race
 
 | Field                    | Value                                                                                                                                                                                                                                                                                      |
