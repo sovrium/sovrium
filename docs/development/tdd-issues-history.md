@@ -11,6 +11,7 @@
 ## How to Use This File
 
 **Before fixing a new issue**: Search this file for keywords from the error message, affected workflow file, or symptom description. Look for:
+
 - Identical errors (same root cause, reuse the solution)
 - Similar patterns (related root cause, adapt the solution)
 - Recurring themes (systemic issue, consider a deeper architectural fix)
@@ -26,12 +27,12 @@ Copy this template when adding a new entry:
 ```markdown
 ### ISSUE-YYYY-MM-DD-<short-slug>
 
-| Field | Value |
-|-------|-------|
-| **Date** | YYYY-MM-DD |
-| **Severity** | critical / high / medium / low |
+| Field                    | Value                                     |
+| ------------------------ | ----------------------------------------- |
+| **Date**                 | YYYY-MM-DD                                |
+| **Severity**             | critical / high / medium / low            |
 | **Affected Workflow(s)** | e.g., `claude-code.yml`, `pr-creator.yml` |
-| **Error Symptoms** | Brief description of what was observed |
+| **Error Symptoms**       | Brief description of what was observed    |
 
 **Error Message / Log Excerpt**:
 \`\`\`
@@ -45,10 +46,12 @@ Explanation of why the error occurred.
 What was changed to fix the issue.
 
 **Files Modified**:
+
 - `path/to/file1`
 - `path/to/file2`
 
 **Lessons Learned**:
+
 - Key takeaway 1
 - Key takeaway 2
 
@@ -61,18 +64,18 @@ What was changed to fix the issue.
 
 Use these tags in error symptoms or root cause to improve searchability:
 
-| Tag | Meaning |
-|-----|---------|
-| `[SDK]` | Claude Code Action SDK issue |
-| `[VERSION-PIN]` | Version pinning related |
-| `[YAML]` | Workflow YAML syntax or logic |
-| `[COST]` | Cost protection or budget issue |
-| `[STATE]` | Label/PR state management issue |
-| `[RETRY]` | Retry logic or attempt counting |
-| `[MODEL]` | Model escalation or compatibility |
-| `[MERGE]` | Merge conflict or auto-merge issue |
-| `[SCRIPT]` | TypeScript script bug |
-| `[INFRA]` | GitHub Actions infrastructure issue |
+| Tag             | Meaning                             |
+| --------------- | ----------------------------------- |
+| `[SDK]`         | Claude Code Action SDK issue        |
+| `[VERSION-PIN]` | Version pinning related             |
+| `[YAML]`        | Workflow YAML syntax or logic       |
+| `[COST]`        | Cost protection or budget issue     |
+| `[STATE]`       | Label/PR state management issue     |
+| `[RETRY]`       | Retry logic or attempt counting     |
+| `[MODEL]`       | Model escalation or compatibility   |
+| `[MERGE]`       | Merge conflict or auto-merge issue  |
+| `[SCRIPT]`      | TypeScript script bug               |
+| `[INFRA]`       | GitHub Actions infrastructure issue |
 
 ---
 
@@ -82,14 +85,15 @@ Use these tags in error symptoms or root cause to improve searchability:
 
 ### ISSUE-2026-02-11-ajv-mode-execute-crash
 
-| Field | Value |
-|-------|-------|
-| **Date** | 2026-02-11 |
-| **Severity** | critical |
-| **Affected Workflow(s)** | `claude-code.yml` |
-| **Error Symptoms** | `[SDK]` `[VERSION-PIN]` `[YAML]` — TDD automation completely halted. Claude Code Action crashes with cryptic AJV validation error on every run. Multiple version pin attempts failed to resolve the issue. |
+| Field                    | Value                                                                                                                                                                                                      |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Date**                 | 2026-02-11                                                                                                                                                                                                 |
+| **Severity**             | critical                                                                                                                                                                                                   |
+| **Affected Workflow(s)** | `claude-code.yml`                                                                                                                                                                                          |
+| **Error Symptoms**       | `[SDK]` `[VERSION-PIN]` `[YAML]` — TDD automation completely halted. Claude Code Action crashes with cryptic AJV validation error on every run. Multiple version pin attempts failed to resolve the issue. |
 
 **Error Message / Log Excerpt**:
+
 ```
 SDK execution error: 14 | depsCount: ${Q},
    |                         ^
@@ -123,21 +127,25 @@ The key insight was that **pinning the version could never fix this** because th
 Removed `--mode execute` from the `CLAUDE_ARGS` environment variable in `claude-code.yml`. The mode is now auto-detected by the action: it uses execute mode because `direct_prompt` is provided.
 
 Before:
+
 ```yaml
-CLAUDE_ARGS: "--mode execute --verbose"
+CLAUDE_ARGS: '--mode execute --verbose'
 ```
 
 After:
+
 ```yaml
-CLAUDE_ARGS: "--verbose"
+CLAUDE_ARGS: '--verbose'
 ```
 
 **Files Modified**:
+
 - `.github/workflows/claude-code.yml` — Removed `--mode execute` from CLAUDE_ARGS (line 486), updated comments
 - `docs/development/tdd-sdk-version-management.md` — (removed; lessons captured in this issue entry)
 - `docs/development/tdd-automation-pipeline.md` — Updated version pin note from SDK 0.2.9 to v1.0.47
 
 **Lessons Learned**:
+
 - **Always compare workflow config against official documentation when SDK validation errors occur.** AJV schema errors mean "your input doesn't match the expected schema" — the fix is often in the input, not the validator.
 - **Timing coincidences are dangerous.** The crash appeared right after v1.0.48 was pushed, creating a false correlation. The real cause (invalid `--mode` flag) was pre-existing but only enforced by stricter validation.
 - **Version pinning is not a universal fix.** When the root cause is in your configuration, no amount of version pinning will help. Pin versions to avoid SDK bugs, not to avoid fixing your own config.
@@ -145,9 +153,11 @@ CLAUDE_ARGS: "--verbose"
 - **Minified AJV errors are near-impossible to read.** The error `depsCount: ${Q}` gives no indication that the issue is an unknown `--mode` field. When you see AJV errors, systematically compare your full config against the schema rather than trying to decode the minified output.
 
 **Affected Runs**:
+
 - Failing: [Run 21902037318](https://github.com/sovrium/sovrium/actions/runs/21902037318/job/63232643320)
 - Failing: [Run 21900752893](https://github.com/sovrium/sovrium/actions/runs/21900752893/job/63228205575)
 
 **Related Issues**:
+
 - [anthropics/claude-code-action#892](https://github.com/anthropics/claude-code-action/issues/892) — AJV validation crash reports
 - [anthropics/claude-code-action#852](https://github.com/anthropics/claude-code-action/issues/852) — SDK stability tracking
