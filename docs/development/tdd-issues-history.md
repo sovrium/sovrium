@@ -83,6 +83,46 @@ Use these tags in error symptoms or root cause to improve searchability:
 
 <!-- New entries go here, newest first -->
 
+### ISSUE-2026-02-11-dedup-author-mismatch
+
+| Field                    | Value                                                                                                                                                                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Date**                 | 2026-02-11                                                                                                                                                                                                                        |
+| **Severity**             | medium                                                                                                                                                                                                                            |
+| **Affected Workflow(s)** | `test.yml`                                                                                                                                                                                                                        |
+| **Error Symptoms**       | `[STATE]` `[RETRY]` -- Comment deduplication check in Step 3 of the atomic check-and-post block never found existing `@claude` comments because it filtered by `.user.login == "github-actions[bot]"`, but comments are posted via `GH_PAT_WORKFLOW` (author is PAT owner, not `github-actions[bot]`). The check was effectively a no-op. |
+
+**Error Message / Log Excerpt**:
+
+```
+# The jq filter that never matched:
+[.[] | select(.user.login == "github-actions[bot]" and (.body | contains("@claude")) and (.body | contains("Attempt: 3/5")))] | length
+# Always returned 0 because comments were posted by "thomas-jeanneau", not "github-actions[bot]"
+```
+
+**Root Cause Analysis**:
+
+The `@claude` comments are posted using `GH_PAT_WORKFLOW`, a personal access token belonging to the repository owner. GitHub attributes comments posted via PAT to the PAT owner's account, not to `github-actions[bot]`. The deduplication jq filter included `.user.login == "github-actions[bot]"` as an author check, which never matched the actual comment author. This was originally identified as a secondary finding in ISSUE-2026-02-11-branch-sync-claude-cascade but not fixed at that time.
+
+**Solution Applied**:
+
+Removed the `.user.login == "github-actions[bot]"` author filter from the jq query. The remaining content filters (`@claude` + exact `Attempt: N/M` string) are sufficiently unique -- no legitimate comment would contain both strings unless it was an actual TDD trigger comment. Added inline comments explaining why the author filter is omitted.
+
+**Files Modified**:
+
+- `.github/workflows/test.yml` -- Removed author filter from Step 3 deduplication jq query
+- `docs/development/tdd-issues-history.md` -- Added this entry; updated secondary finding in ISSUE-2026-02-11-branch-sync-claude-cascade to reference this fix
+
+**Lessons Learned**:
+
+- **Always verify which token posts comments and what author that produces.** `GITHUB_TOKEN` posts as `github-actions[bot]`, but personal access tokens (`GH_PAT_WORKFLOW`) post as the PAT owner. Filtering by author is fragile when the posting token may change.
+- **Content-based deduplication is more robust than author-based.** When the content itself is sufficiently unique (specific trigger keyword + exact attempt string), adding an author filter creates unnecessary coupling to the authentication mechanism.
+- **"Secondary findings" documented for future fix should be tracked as actionable items.** This bug was identified on 2026-02-11 in a previous entry but only documented as a note. Creating a separate tracking item would have prevented it from being forgotten.
+
+**Related Issues**: ISSUE-2026-02-11-branch-sync-claude-cascade (secondary finding), ISSUE-2026-02-11-duplicate-claude-comment-race (original dedup implementation)
+
+---
+
 ### ISSUE-2026-02-11-branch-sync-claude-cascade
 
 | Field                    | Value                                                                                                                                                                                                                                                                                                    |
@@ -115,7 +155,7 @@ PR #7233 timeline:
 
 This wastes one attempt slot AND the cost of a new Claude Code run ($10-15).
 
-**Secondary Finding (Not Fixed)**: The comment deduplication check in test.yml Step 3 filters by `.user.login == "github-actions[bot]"`, but when comments are posted using `GH_PAT_WORKFLOW` (a personal access token), the author is the PAT owner, not `github-actions[bot]`. This means the deduplication check never finds existing comments. However, this was not the cause of this specific issue (the attempt number was already incremented, so dedup would find nothing regardless of author). Documented as a known issue for future fix.
+**Secondary Finding (Fixed in ISSUE-2026-02-11-dedup-author-mismatch)**: The comment deduplication check in test.yml Step 3 filtered by `.user.login == "github-actions[bot]"`, but comments are posted using `GH_PAT_WORKFLOW` (a personal access token), so the actual author is the PAT owner, not `github-actions[bot]`. This meant the deduplication check never found existing comments. Fixed by removing the author filter -- the content match (`@claude` + exact `Attempt: N/M` string) is sufficiently unique.
 
 **Solution Applied**:
 
