@@ -699,10 +699,11 @@ test.describe('Relationship Field', () => {
 
   // ── Self-Referencing (015-018) ──
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-015: should allow NULL for root-level self-referencing records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with self-referencing relationship field
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -717,6 +718,7 @@ test.describe('Relationship Field', () => {
                 name: 'manager_id',
                 type: 'relationship',
                 relatedTable: 'employees',
+                relationType: 'many-to-one',
               },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
@@ -732,10 +734,10 @@ test.describe('Relationship Field', () => {
         `SELECT is_nullable FROM information_schema.columns
          WHERE table_name = 'employees' AND column_name = 'manager_id'`
       )
-      expect(columns[0].is_nullable).toBe('YES')
+      expect(columns.is_nullable).toBe('YES')
 
       const ceo = await executeQuery(`SELECT manager_id FROM employees WHERE name = 'CEO'`)
-      expect(ceo[0].manager_id).toBeNull()
+      expect(ceo.manager_id).toBeNull()
     }
   )
 
