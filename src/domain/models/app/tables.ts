@@ -556,7 +556,7 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
       .find((table) => !tableNames.has(table.permissions!.inherit!))
 
     if (invalidInheritance) {
-      return `Table "${invalidInheritance.name}" inherits from non-existent table "${invalidInheritance.permissions!.inherit}"`
+      return `Table "${invalidInheritance.name}" inherits from table "${invalidInheritance.permissions!.inherit}" which does not exist`
     }
     return true
   }),
