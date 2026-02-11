@@ -80,7 +80,13 @@ jobs:
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
             # Checkout the TDD branch
-            git fetch origin "$BRANCH"
+            # Guard: branch may have been deleted while PR is still open
+            # (e.g., regression branches cleaned up, force-pushes).
+            # Skip gracefully instead of crashing the entire workflow.
+            if ! git fetch origin "$BRANCH" 2>/dev/null; then
+              echo "⚠️ Branch '$BRANCH' no longer exists on remote — skipping PR #$PR_NUMBER"
+              continue
+            fi
             git checkout "$BRANCH"
 
             # Check if branch is behind main
