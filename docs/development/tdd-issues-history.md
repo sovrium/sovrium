@@ -83,6 +83,95 @@ Use these tags in error symptoms or root cause to improve searchability:
 
 <!-- New entries go here, newest first -->
 
+### ISSUE-2026-02-11-spurious-claude-code-triggers
+
+| Field                    | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Date**                 | 2026-02-11                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **Severity**             | high                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| **Affected Workflow(s)** | `test.yml`, `branch-sync.yml`, `staleness-check.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| **Error Symptoms**       | `[INFRA]` `[STATE]` -- Spurious Claude Code workflow runs triggered by non-@claude comments (e.g., "Credits Available" bot comments, claude[bot] progress updates) appear as `in_progress` in `gh run list`, causing the Claude Code running check to incorrectly detect active Claude Code work and skip posting new `@claude` comments. This can stall the TDD pipeline on a PR indefinitely. |
+
+**Error Message / Log Excerpt**:
+
+```
+# PR #7236 timeline:
+# Run 21918528176 triggered by a non-@claude comment (e.g., "Credits Available")
+# The validate job filters it (body doesn't start with @claude), but while validating,
+# the run shows as in_progress in gh run list:
+
+$ gh run list --workflow="Claude Code" --status=in_progress \
+    --json databaseId,displayTitle \
+    --jq '[.[] | select(.displayTitle | startswith("[TDD]"))]'
+[{"databaseId":21918528176,"displayTitle":"[TDD] Implement APP-TABLES-FIELD-TYPES-RELATIONSHIP-015"}]
+
+# test.yml Step 2 sees 1 running Claude Code run and skips posting @claude.
+# But this run is spurious -- it will be skipped by the validate job.
+# Meanwhile, the REAL @claude trigger never gets posted.
+```
+
+**Root Cause Analysis**:
+
+`claude-code.yml` triggers on ALL `issue_comment:created` events. The `validate` job's `if:` condition filters non-@claude comments, but this filtering happens AFTER GitHub creates the workflow run. During the lifecycle of a spurious run:
+
+1. GitHub creates the run (status: `queued` or `pending`)
+2. Run transitions to `in_progress` as the validate job starts executing
+3. Validate job evaluates `if:` condition -- fails, marks job as skipped
+4. Run completes (conclusion: `skipped`)
+
+During phase 2-3 (which can last seconds to tens of seconds), the spurious run appears as `in_progress` in `gh run list` with a `[TDD]` display title (inherited from the PR title). The Claude Code running check in `test.yml` (Step 2), `branch-sync.yml` (guard), and `staleness-check.ts` all counted these spurious runs as legitimate active Claude Code work.
+
+Additionally, GitHub Actions concurrency groups (`cancel-in-progress: false`) allow max 1 running + 1 pending per group. Concurrency-queued runs show as `pending` status (not `queued`), which `--status=queued` does not catch. However, the primary race window is the `in_progress` validation phase, not the concurrency queue.
+
+**Solution Applied**:
+
+For each `in_progress` Claude Code run matching the `[TDD]` title filter, verify it has an active "Execute Claude Code" job via `gh run view <id> --json jobs`. Spurious runs only have the "Validate Trigger" job running (or completed with skip) -- they never reach the "Execute Claude Code" job. Real runs that have passed validation will have the execute job in `in_progress` state.
+
+Applied consistently across three locations:
+
+**1. `test.yml` Step 2** (Claude Code running check):
+
+```bash
+# Get in-progress TDD Claude Code run IDs
+IN_PROGRESS_RUN_IDS=$(gh run list --workflow="Claude Code" --status=in_progress \
+  --json databaseId,displayTitle --limit 20 \
+  --jq '[.[] | select(.displayTitle | startswith("[TDD]"))] | .[].databaseId')
+
+# Verify each has an active Execute Claude Code job
+ACTIVE_EXECUTE_COUNT=0
+for RUN_ID in $IN_PROGRESS_RUN_IDS; do
+  EXECUTE_STATUS=$(gh run view "$RUN_ID" --json jobs \
+    --jq '[.jobs[] | select(.name == "Execute Claude Code" and .status == "in_progress")] | length')
+  if [ "$EXECUTE_STATUS" -gt 0 ]; then
+    ACTIVE_EXECUTE_COUNT=$((ACTIVE_EXECUTE_COUNT + 1))
+  fi
+done
+```
+
+**2. `branch-sync.yml`** (Claude Code guard): Same per-run verification pattern.
+
+**3. `staleness-check.ts`** (TypeScript staleness program): Added `hasActiveExecuteJob()` Effect function that calls `gh run view` per run, and `filterRunsWithActiveExecuteJob()` that filters in-progress runs to only those with an active execute job. Fails-open (if `gh run view` errors, assumes not active).
+
+**Files Modified**:
+
+- `.github/workflows/test.yml` -- Replaced simple in-progress count with execute job verification loop in Step 2
+- `.github/workflows/branch-sync.yml` -- Replaced simple in-progress count with execute job verification loop in Claude Code guard
+- `scripts/tdd-automation/programs/staleness-check.ts` -- Added `WorkflowJob` interface, `hasActiveExecuteJob()`, `filterRunsWithActiveExecuteJob()` functions; integrated into main staleness check
+- `docs/development/tdd-automation-pipeline.md` -- Updated Race Condition Protections layers 4 and 8 with spurious trigger filtering documentation
+- `docs/development/tdd-issues-history.md` -- This entry
+
+**Lessons Learned**:
+
+- **`issue_comment`-triggered workflows create spurious runs for ALL comments on the PR**, not just @claude commands. Any bot comment, user comment, or automated comment triggers a workflow run that briefly appears as `in_progress` during validation. When checking for active Claude Code runs, you must distinguish between runs that are genuinely executing Claude Code and runs that are merely being validated.
+- **The `[TDD]` display title filter is necessary but not sufficient.** Spurious runs inherit the PR title (which includes `[TDD]`), so title filtering alone cannot distinguish real from spurious runs. The execute job status is the definitive signal.
+- **`gh run view <id> --json jobs` is the authoritative way to check what a workflow run is actually doing.** While `gh run list` provides aggregate status, only `gh run view` reveals per-job status. For concurrency-sensitive checks, always verify at the job level.
+- **Fail-open is correct for automation guards.** If the `gh run view` call fails (network error, API rate limit), it is better to assume the run is NOT active (fail-open) than to block the pipeline indefinitely (fail-closed). The staleness check and branch-sync guard both use this pattern.
+- **This fix adds N additional API calls per check** (one `gh run view` per in-progress TDD run). In practice N is 0-2 given serial processing, so the overhead is negligible. But if the pipeline ever supports parallel TDD PRs, this should be revisited.
+
+**Related Issues**: PR #7236, ISSUE-2026-02-11-gh-run-list-dual-status (prior fix for the dual-status bug that also affected Claude Code running checks), ISSUE-2026-02-11-duplicate-claude-comment-race (original atomic step implementation)
+
+---
+
 ### ISSUE-2026-02-11-premature-attempt-increment
 
 | Field                    | Value                                                                                                                                                                                                                                                                    |

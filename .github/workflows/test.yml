@@ -1215,15 +1215,46 @@ jobs:
           # The second flag silently overrides the first. We must make two
           # separate calls and combine the results.
           # See: ISSUE-2026-02-11-gh-run-list-dual-status
+          #
+          # SPURIOUS TRIGGER FILTERING: claude-code.yml triggers on ALL
+          # issue_comment:created events. Non-@claude comments create spurious
+          # runs that enter the concurrency queue. These are filtered out by the
+          # validate job, but while in_progress (being validated) they appear as
+          # legitimate runs. To avoid counting them, we verify each in_progress
+          # run has an "Execute Claude Code" job that is actually running.
+          # See: ISSUE-2026-02-11-spurious-claude-code-triggers
           echo "🔍 Checking for running/queued Claude Code workflows (TDD)..."
 
-          IN_PROGRESS_WORKFLOWS=$(gh run list \
+          # Get in-progress TDD Claude Code run IDs (not just count)
+          IN_PROGRESS_RUN_IDS=$(gh run list \
             --workflow="Claude Code" \
             --status=in_progress \
             --json databaseId,displayTitle \
             --limit 20 \
-            --jq '[.[] | select(.displayTitle | startswith("[TDD]"))] | length')
+            --jq '[.[] | select(.displayTitle | startswith("[TDD]"))] | .[].databaseId')
 
+          # For each in-progress run, verify it has an active "Execute Claude Code" job.
+          # Spurious runs (triggered by non-@claude comments) either:
+          # - Have no jobs yet (pending in concurrency queue)
+          # - Have only "Validate Trigger" running/completed (being filtered out)
+          # - Have "Execute Claude Code" skipped (validate returned is-valid=false)
+          # Only runs with "Execute Claude Code" in_progress are truly executing.
+          ACTIVE_EXECUTE_COUNT=0
+          for RUN_ID in $IN_PROGRESS_RUN_IDS; do
+            EXECUTE_STATUS=$(gh run view "$RUN_ID" \
+              --json jobs \
+              --jq '[.jobs[] | select(.name == "Execute Claude Code" and .status == "in_progress")] | length' 2>/dev/null || echo "0")
+            if [ "$EXECUTE_STATUS" -gt 0 ]; then
+              ACTIVE_EXECUTE_COUNT=$((ACTIVE_EXECUTE_COUNT + 1))
+              echo "   Run $RUN_ID: Execute Claude Code is in_progress ✓"
+            else
+              echo "   Run $RUN_ID: No active execute job (spurious or validating) — skipped"
+            fi
+          done
+
+          # Queued runs are waiting in GitHub's queue (not concurrency queue).
+          # These have not started any jobs yet and are rare for claude-code.yml.
+          # We still count them as a conservative measure.
           QUEUED_WORKFLOWS=$(gh run list \
             --workflow="Claude Code" \
             --status=queued \
@@ -1231,15 +1262,15 @@ jobs:
             --limit 20 \
             --jq '[.[] | select(.displayTitle | startswith("[TDD]"))] | length')
 
-          RUNNING_WORKFLOWS=$((IN_PROGRESS_WORKFLOWS + QUEUED_WORKFLOWS))
+          RUNNING_WORKFLOWS=$((ACTIVE_EXECUTE_COUNT + QUEUED_WORKFLOWS))
 
-          echo "   In-progress TDD Claude Code workflows: $IN_PROGRESS_WORKFLOWS"
+          echo "   In-progress with active execute job: $ACTIVE_EXECUTE_COUNT"
           echo "   Queued TDD Claude Code workflows: $QUEUED_WORKFLOWS"
           echo "   Total running/queued: $RUNNING_WORKFLOWS"
 
           if [ "$RUNNING_WORKFLOWS" -gt 0 ]; then
             echo "⏭️ Skipping: Claude Code workflow already running/queued for TDD automation"
-            echo "   In-progress: $IN_PROGRESS_WORKFLOWS | Queued: $QUEUED_WORKFLOWS"
+            echo "   Active execute: $ACTIVE_EXECUTE_COUNT | Queued: $QUEUED_WORKFLOWS"
             echo "   Monitor workflow will add manual-intervention label if stalled >30min"
             exit 0
           fi
