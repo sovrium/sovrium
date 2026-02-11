@@ -16,6 +16,11 @@ import {
 } from './comment-repository'
 import type { UserSession } from './user-session'
 
+// Typed stub for optional port methods — avoids Effect diagnostic
+// "effectSucceedWithVoid" false positive on `none()`
+// when the return type is `T | undefined` (not `void`).
+const none = <T>(): Effect.Effect<T | undefined> => Effect.void as Effect.Effect<T | undefined>
+
 describe('CommentRepository', () => {
   const mockSession: UserSession = {
     id: 'session-123',
@@ -50,10 +55,10 @@ describe('CommentRepository', () => {
 
     const MockCommentRepositoryLive = Layer.succeed(CommentRepository, {
       create: () => Effect.succeed(mockComment),
-      getWithUser: () => Effect.succeed(undefined),
+      getWithUser: () => none(),
       checkRecordExists: () => Effect.succeed(false),
-      getForAuth: () => Effect.succeed(undefined),
-      getUserById: () => Effect.succeed(undefined),
+      getForAuth: () => none(),
+      getUserById: () => none(),
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
@@ -97,8 +102,8 @@ describe('CommentRepository', () => {
       create: () => Effect.succeed({} as any),
       getWithUser: () => Effect.succeed(mockCommentWithUser),
       checkRecordExists: () => Effect.succeed(false),
-      getForAuth: () => Effect.succeed(undefined),
-      getUserById: () => Effect.succeed(undefined),
+      getForAuth: () => none(),
+      getUserById: () => none(),
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
@@ -121,10 +126,10 @@ describe('CommentRepository', () => {
   test('should check record exists successfully', async () => {
     const MockCommentRepositoryLive = Layer.succeed(CommentRepository, {
       create: () => Effect.succeed({} as any),
-      getWithUser: () => Effect.succeed(undefined),
+      getWithUser: () => none(),
       checkRecordExists: (_config) => Effect.succeed(true),
-      getForAuth: () => Effect.succeed(undefined),
-      getUserById: () => Effect.succeed(undefined),
+      getForAuth: () => none(),
+      getUserById: () => none(),
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
@@ -154,10 +159,10 @@ describe('CommentRepository', () => {
 
     const MockCommentRepositoryLive = Layer.succeed(CommentRepository, {
       create: () => Effect.succeed({} as any),
-      getWithUser: () => Effect.succeed(undefined),
+      getWithUser: () => none(),
       checkRecordExists: () => Effect.succeed(false),
       getForAuth: () => Effect.succeed(mockCommentForAuth),
-      getUserById: () => Effect.succeed(undefined),
+      getUserById: () => none(),
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
@@ -185,9 +190,9 @@ describe('CommentRepository', () => {
 
     const MockCommentRepositoryLive = Layer.succeed(CommentRepository, {
       create: () => Effect.succeed({} as any),
-      getWithUser: () => Effect.succeed(undefined),
+      getWithUser: () => none(),
       checkRecordExists: () => Effect.succeed(false),
-      getForAuth: () => Effect.succeed(undefined),
+      getForAuth: () => none(),
       getUserById: () => Effect.succeed(mockUser),
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
@@ -211,10 +216,10 @@ describe('CommentRepository', () => {
   test('should remove comment successfully', async () => {
     const MockCommentRepositoryLive = Layer.succeed(CommentRepository, {
       create: () => Effect.succeed({} as any),
-      getWithUser: () => Effect.succeed(undefined),
+      getWithUser: () => none(),
       checkRecordExists: () => Effect.succeed(false),
-      getForAuth: () => Effect.succeed(undefined),
-      getUserById: () => Effect.succeed(undefined),
+      getForAuth: () => none(),
+      getUserById: () => none(),
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
@@ -269,10 +274,10 @@ describe('CommentRepository', () => {
 
     const MockCommentRepositoryLive = Layer.succeed(CommentRepository, {
       create: () => Effect.succeed({} as any),
-      getWithUser: () => Effect.succeed(undefined),
+      getWithUser: () => none(),
       checkRecordExists: () => Effect.succeed(false),
-      getForAuth: () => Effect.succeed(undefined),
-      getUserById: () => Effect.succeed(undefined),
+      getForAuth: () => none(),
+      getUserById: () => none(),
       remove: () => Effect.void,
       list: () => Effect.succeed(mockComments),
       getCount: () => Effect.succeed(0),
@@ -299,10 +304,10 @@ describe('CommentRepository', () => {
   test('should get comment count successfully', async () => {
     const MockCommentRepositoryLive = Layer.succeed(CommentRepository, {
       create: () => Effect.succeed({} as any),
-      getWithUser: () => Effect.succeed(undefined),
+      getWithUser: () => none(),
       checkRecordExists: () => Effect.succeed(false),
-      getForAuth: () => Effect.succeed(undefined),
-      getUserById: () => Effect.succeed(undefined),
+      getForAuth: () => none(),
+      getUserById: () => none(),
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(42),
