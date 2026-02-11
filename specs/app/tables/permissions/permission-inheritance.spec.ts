@@ -123,7 +123,7 @@ test.describe('Permission Inheritance', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSION-INHERITANCE-003: should detect and reject circular inheritance',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
