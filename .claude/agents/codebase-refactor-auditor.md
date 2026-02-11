@@ -61,7 +61,8 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
   - NO Edit/Write: Recommendations only, awaiting human approval
 
   PHASE 0 & PHASE 5 (Test Validation):
-  - Bash: bun test:e2e:regression for safety baseline (@regression only - @spec tests are too slow)
+  - Bash: bun run quality --include-effect for safety baseline (includes smart E2E detection)
+  - Bash: bun test:e2e:regression for safety baseline (LOCAL MODE ONLY - skipped in CI where test.yml handles it)
   - Note: Unit tests, eslint, typecheck run automatically via hooks after Edit/Write
 
   Cross-Phase Tools:
@@ -76,7 +77,7 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
 
 1. **Phase 0: Safety Check** → Two-step process:
    - **Step 0.1**: Remove ALL eslint-disable comments (file-level AND inline, including multi-rule bypasses like `// eslint-disable-next-line max-lines-per-function, max-statements, complexity`) to expose actual violations
-   - **Step 0.2**: Run `bun run quality --include-effect` and `bun test:e2e:regression` to establish baseline (NEVER run @spec tests - too slow)
+   - **Step 0.2**: Run `bun run quality --include-effect` to establish baseline (in CI/pipeline mode, `bun test:e2e:regression` is skipped — delegated to test.yml which runs the full regression suite across 8 shards post-push; in local mode, also run `bun test:e2e:regression`)
 2. **Phase 1.1: Recent Changes** → Analyze last 10 git commits with major changes (>100 lines OR >5 files in `src/`)
    - Immediately refactor issues found in recent commits (including files with bypasses removed)
 3. **Phase 1.2: Older Code** → Scan remaining `src/` files for issues
@@ -84,7 +85,7 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
 4. **Phase 2: Categorize** → Group findings by severity (Critical, High, Medium, Low)
 5. **Phase 3: Strategy** → Present options with trade-offs, seek user confirmation
 6. **Phase 4: Implement** → Apply approved refactoring changes
-7. **Phase 5: Validate** → Run `bun run quality --include-effect` and `bun test:e2e:regression` to confirm no regressions (NEVER run @spec tests - too slow)
+7. **Phase 5: Validate** → Run `bun run quality --include-effect` to confirm no regressions (in local mode, also run `bun test:e2e:regression`; in CI/pipeline mode, regression testing is delegated to test.yml post-push)
 
 **⚠️ CRITICAL Requirements**:
 - `bun run quality` MUST pass - any failure blocks further work
@@ -213,7 +214,7 @@ When invoked in pipeline mode, finalization is also workflow-managed:
 - ❌ **DO NOT** run `bun run license` (handled by `finalize-auditor` job)
 - ❌ **DO NOT** push to remote (handled by `finalize-auditor` job)
 - ✅ **DO** commit changes locally with conventional commit message
-- ✅ **DO** run `bun run quality` to validate before committing
+- ✅ **DO** run `bun run quality` to validate before committing (regression testing delegated to test.yml post-push)
 
 ### Quick Exit for Test-Only Changes (Pipeline Mode)
 
@@ -297,14 +298,20 @@ Continue with full audit workflow when:
 
 When operating in pipeline mode:
 
-**⚠️ TEST COMMAND RESTRICTIONS (ALL MODES - CRITICAL)**:
-Running broad E2E test suites wastes resources, causes timeouts, and inflates costs. Only targeted commands are allowed. These restrictions apply to ALL modes (CI, pipeline, AND local/interactive):
+**⚠️ TEST COMMAND RESTRICTIONS (CRITICAL)**:
+Running broad E2E test suites wastes resources, causes timeouts, and inflates costs. Only targeted commands are allowed.
 
-- ✅ **ALLOWED**: `bun test:e2e:regression` (optimized regression suite)
+**ALL MODES (CI, pipeline, AND local/interactive)**:
 - ✅ **ALLOWED**: `bun run quality` / `bun run quality --include-effect` (includes smart E2E detection)
 - ❌ **FORBIDDEN**: `bun test:e2e` (full suite - runs ALL tests including slow @spec tests)
 - ❌ **FORBIDDEN**: `bun test:e2e:spec` (runs ALL @spec tests - extremely slow, causes timeouts)
 - ❌ **FORBIDDEN**: `bun test:e2e --grep @spec` (equivalent to above - NEVER run all @spec tests)
+
+**LOCAL/INTERACTIVE MODE ONLY**:
+- ✅ **ALLOWED**: `bun test:e2e:regression` (optimized regression suite)
+
+**CI/PIPELINE MODE** (regression delegated to test.yml):
+- ❌ **NOT ALLOWED**: `bun test:e2e:regression` (skipped - test.yml runs the full regression suite across 8 shards post-push, providing more comprehensive coverage; running it here is redundant and wastes 5-15 minutes)
 
 1. **Automated Refactoring Strategy**:
    - **Phase 1.1 (Recent Changes)**: Apply immediately without human approval
@@ -417,7 +424,7 @@ Running broad E2E test suites wastes resources, causes timeouts, and inflates co
 The agent respects pipeline configuration:
 - **Automatic Phase 1.1**: Always applied for recent commits
 - **Report-only Phase 1.2**: Never blocks on approvals
-- **Test validation**: Must maintain baseline throughout
+- **Test validation**: Must maintain baseline throughout (`bun run quality` in all modes; `bun test:e2e:regression` local only — CI delegates to test.yml)
 - **Time limits**: Complete within workflow timeout
 - **Cost limits**: $100/day, $500/week with 80% warnings
 - **Max refactoring attempts**: 2 fix attempts per issue (from "Maximum 2 fix attempts per issue" requirement)
@@ -609,7 +616,8 @@ Sovrium uses Playwright test tags to categorize E2E tests by criticality:
 ### Test Execution Strategy
 ```bash
 # Establish baseline (Phase 0) - For codebase audits, INCLUDE Effect diagnostics
-bun run quality --include-effect  # Runs ESLint, TypeScript, Effect diagnostics, unit tests, @regression E2E
+bun run quality --include-effect  # Runs ESLint, TypeScript, Effect diagnostics, unit tests, smart E2E detection
+bun test:e2e:regression           # LOCAL MODE ONLY - skipped in CI (delegated to test.yml post-push)
 # FORBIDDEN: bun test:e2e, bun test:e2e:spec, bun test:e2e --grep @spec (all modes)
 
 # Clean baseline after config changes (ESLint, Prettier, TypeScript config updates)
@@ -617,8 +625,11 @@ bun run quality --include-effect --no-cache  # Disables ESLint, Prettier, and Ty
 
 # Validate after refactoring (Phase 5)
 bun run quality --include-effect  # Re-validate all quality checks including Effect diagnostics
+bun test:e2e:regression           # LOCAL MODE ONLY - skipped in CI (delegated to test.yml post-push)
 # FORBIDDEN: bun test:e2e, bun test:e2e:spec, bun test:e2e --grep @spec (all modes)
 ```
+
+**CI/Pipeline Regression Delegation**: In CI/pipeline mode, `bun test:e2e:regression` is intentionally skipped in Phase 0 and Phase 5. The test.yml workflow runs the full regression suite across 8 shards post-push, providing more comprehensive regression coverage than the in-agent run. This saves 5-15 minutes per Claude Code run.
 
 **Available Quality Flags**:
 | Flag | Effect | Recommended For |
@@ -660,11 +671,12 @@ Use this template to document test baseline state:
   - ✅ Coverage Check (0.5s)
   - ✅ Smart E2E Detection (13.9s) - X affected @regression specs
 
-### Critical E2E Tests (@regression)
+### Critical E2E Tests (@regression) — LOCAL MODE ONLY
 - ✅ 5/5 passing
 - ⏱️ Execution time: 2.3s
 - Command: `bun test:e2e:regression` (or via quality script)
 - Tests: [list test names]
+- **CI/Pipeline mode**: This section is skipped — regression testing is delegated to test.yml post-push
 
 ### Baseline Status
 - ✅ Clean baseline established - safe to proceed with refactoring
@@ -684,7 +696,9 @@ Use this template to document test baseline state:
    - Document which files had bypasses removed
    - **Expected outcome**: ESLint will now detect actual violations (including multiple violations from multi-rule inline bypasses)
 2. **Step 0.2: Run quality checks**: `bun run quality --include-effect`
-   - Validates: ESLint, TypeScript, Effect diagnostics, unit tests, @regression E2E tests
+   - Validates: ESLint, TypeScript, Effect diagnostics, unit tests, smart E2E detection
+   - **Local mode**: Also run `bun test:e2e:regression` for full regression baseline
+   - **CI/Pipeline mode**: Skip `bun test:e2e:regression` (delegated to test.yml which runs the full regression suite across 8 shards post-push)
    - **Note**: Use `--include-effect` for codebase audits to catch Effect-specific issues
    - **If ESLint violations detected**: This is EXPECTED after Step 0.1 - these files need refactoring
 3. **NEVER run @spec tests** - they are too slow (several minutes) and risk timeout. Use @regression tests from quality script instead.
@@ -694,10 +708,12 @@ Use this template to document test baseline state:
 
 **Phase 5 (Post-Refactoring)**:
 1. Run quality checks: `bun run quality --include-effect`
-   - Re-validates: ESLint, TypeScript, Effect diagnostics, unit tests, @regression E2E tests
-2. **NEVER run @spec tests** - they are too slow (several minutes) and risk timeout. The @regression tests from quality script are sufficient.
-3. Compare results against Phase 0 baseline
-4. **All baseline passing tests MUST still pass**
+   - Re-validates: ESLint, TypeScript, Effect diagnostics, unit tests, smart E2E detection
+2. **Local mode**: Also run `bun test:e2e:regression` for full regression validation
+3. **CI/Pipeline mode**: Skip `bun test:e2e:regression` (delegated to test.yml post-push)
+4. **NEVER run @spec tests** - they are too slow (several minutes) and risk timeout.
+5. Compare results against Phase 0 baseline
+6. **All baseline passing tests MUST still pass**
 
 **Rollback Protocol (Max 2 Fix Attempts)**:
 - If ANY test fails → immediately report failure
@@ -717,7 +733,7 @@ Use this template to document test baseline state:
 | Step | Name | Description |
 |------|------|-------------|
 | **Quick Exit** | Test-Only Check | Pipeline mode: If no `src/` changes, run `bun run quality` and exit |
-| **Phase 0** | Safety Baseline | **Step 0.1**: Remove ALL eslint-disable bypasses (file-level AND inline, including multi-rule) to expose violations<br>**Step 0.2**: Establish GREEN E2E baseline (MANDATORY) |
+| **Phase 0** | Safety Baseline | **Step 0.1**: Remove ALL eslint-disable bypasses (file-level AND inline, including multi-rule) to expose violations<br>**Step 0.2**: Establish quality baseline via `bun run quality --include-effect` (MANDATORY) + `bun test:e2e:regression` (local only) |
 | **Phase 1** | Discovery | Two-phase: 1.1 (recent changes + exposed violations) → immediate, 1.2 (older code) → recommendations |
 | **Phase 2** | Categorization | Classify by severity (Critical/High/Medium/Low) |
 | **Phase 3** | Strategy | Plan immediate vs. recommendation-only actions |
@@ -1211,7 +1227,7 @@ When reporting layer violations, use this format:
 | **Layer Architecture** | `bun run lint` passes | STOP - fix layer violations first |
 | **Quality Gate** | `bun run quality --include-effect` passes | STOP - fix before continuing |
 | **Two-Phase Approach** | Recent commits (Phase 1.1) vs older code (Phase 1.2) | STOP - identify phases before work |
-| **Test Commands** | NEVER run `bun test:e2e`, `bun test:e2e:spec`, or `--grep @spec` (any mode) | Use `bun test:e2e:regression` or `bun run quality` only |
+| **Test Commands** | NEVER run `bun test:e2e`, `bun test:e2e:spec`, or `--grep @spec` (any mode) | Use `bun run quality` (all modes) + `bun test:e2e:regression` (local only; CI delegates to test.yml) |
 
 **Layer Architecture Quick Reference**:
 - Domain: Pure, imports NOTHING from other layers (EXCEPTION: `domain/models/api/` for cross-layer API contracts)
@@ -1293,13 +1309,13 @@ Before finalizing recommendations:
    - **Language/Runtime** (@docs/infrastructure/language/, runtime/): TypeScript strict mode, Bun APIs
    - **Code Quality** (@docs/infrastructure/quality/): ESLint, Prettier compliance
    - **Testing** (@docs/infrastructure/testing/): Bun Test, Playwright patterns
-7. **E2E Baseline Validation**: Run and pass all @regression tests (NEVER run @spec tests - too slow for audit validation)
+7. **E2E Baseline Validation**: Run and pass all @regression tests in local mode (NEVER run @spec tests - too slow for audit validation). In CI/pipeline mode, regression is delegated to test.yml post-push.
 8. **Cross-Reference**: Verify each suggestion against multiple @docs files for consistency
 9. **Impact Analysis**: Consider ripple effects across layers and modules (within src/)
 10. **Test Verification**: Ensure proposed changes won't break existing unit tests unnecessarily
 11. **Standards Check**: Confirm all code examples follow Prettier/ESLint rules
 12. **Completeness**: Verify you've covered all files in src/, not just obvious candidates
-13. **Post-Refactoring Validation**: Re-run `bun run quality --include-effect` and E2E tests, confirm baseline maintained
+13. **Post-Refactoring Validation**: Re-run `bun run quality --include-effect` (+ `bun test:e2e:regression` in local mode only), confirm baseline maintained
 
 ## Output Format
 
@@ -1351,11 +1367,12 @@ Adapt this template as needed to best communicate findings for specific contexts
   - ✅ Unit Tests (X.Xs)
   - ✅ E2E Regression Tests (@regression) (X.Xs)
 
-### Critical E2E Tests (@regression)
+### Critical E2E Tests (@regression) — LOCAL MODE ONLY
 - ✅ X/X passing
 - ⏱️ Execution time: X.Xs
 - Command: `bun test:e2e:regression` (or via quality script)
 - Tests: [list test names]
+- **CI/Pipeline mode**: This section is skipped — regression testing is delegated to test.yml post-push
 
 ### Baseline Status
 - ⚠️ ESLint violations detected after bypass removal - these files need refactoring (expected)
@@ -1650,11 +1667,12 @@ Recommendations are prioritized by benefit-to-effort ratio:
 - ✅ X/X passing (no regressions)
 - **Automated via hooks**: Unit tests ran automatically after Edit/Write operations
 
-### E2E Regression Tests (@regression)
+### E2E Regression Tests (@regression) — LOCAL MODE ONLY
 - ✅ X/X passing (baseline maintained)
 - ⏱️ Execution time: X.Xs vs X.Xs baseline
 - Command: `bun test:e2e:regression` (or via quality script)
 - **Note**: @spec tests are NOT run (too slow - several minutes, risk of timeout)
+- **CI/Pipeline mode**: This section is skipped — regression testing delegated to test.yml post-push
 
 ### Validation Status
 - ✅ All tests passing - immediate refactorings safe
@@ -1813,7 +1831,7 @@ Track these quantifiable metrics in audit reports to demonstrate impact:
 **Handoff Protocol FROM e2e-test-fixer**:
 1. e2e-test-fixer fixes 3+ tests OR completes feature's critical/regression tests
 2. e2e-test-fixer verifies all fixed tests are GREEN and committed
-3. e2e-test-fixer runs baseline validation: `bun test:e2e:regression` (NEVER @spec - too slow)
+3. e2e-test-fixer runs baseline validation: `bun test:e2e:regression` (local mode only; in CI, delegated to test.yml)
 4. e2e-test-fixer documents duplication/optimization opportunities in code comments or commit messages
 5. e2e-test-fixer notifies: "GREEN phase complete for {property}. Tests GREEN: X tests, @regression baseline passing. Recommend codebase-refactor-auditor for optimization."
 6. **YOU (codebase-refactor-auditor)**: Begin Phase 0 baseline validation
