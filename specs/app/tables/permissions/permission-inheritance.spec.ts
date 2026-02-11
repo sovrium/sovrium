@@ -203,7 +203,7 @@ test.describe('Permission Inheritance', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSION-INHERITANCE-005: should support multiple levels of inheritance',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedViewer }) => {
