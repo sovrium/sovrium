@@ -286,7 +286,7 @@ test.describe('Permission Inheritance', () => {
   // @regression test - OPTIMIZED integration confidence check
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSION-INHERITANCE-REGRESSION: permission inheritance workflow',
     { tag: '@regression' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedViewer }) => {
