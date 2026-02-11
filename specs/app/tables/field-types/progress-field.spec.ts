@@ -158,7 +158,7 @@ test.describe('Progress Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-PROGRESS-005: should return progress as percentage in API responses',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedMember }) => {
