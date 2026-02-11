@@ -515,13 +515,13 @@ jobs:
           git checkout --detach HEAD
           echo "✅ HEAD detached - claude-code-action can now fetch the PR branch"
 
-      # Pinned to SHA 01e756b (SDK 0.2.25) to avoid AJV validation crash in SDK 0.2.27-0.2.39
+      # Pinned to SHA 75f52e5 (SDK 0.2.9, Claude Code 2.1.9) to avoid AJV validation crash in SDK 0.2.22+
       # See: https://github.com/anthropics/claude-code-action/issues/892
       # TODO: Unpin to @v1 when SDK fix ships beyond 0.2.39
       - name: Run Claude Code Action
         id: claude-code
         continue-on-error: true
-        uses: anthropics/claude-code-action@01e756b34ef7a1447e9508f674143b07d20c2631
+        uses: anthropics/claude-code-action@75f52e56b2a277d60f7b9b382d6564c28fc6420f
         timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 90 }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -530,14 +530,14 @@ jobs:
           track_progress: true
           use_sticky_comment: true
 
-      # Pinned to SHA 01e756b (SDK 0.2.25) to avoid AJV validation crash in SDK 0.2.27-0.2.39
+      # Pinned to SHA 75f52e5 (SDK 0.2.9, Claude Code 2.1.9) to avoid AJV validation crash in SDK 0.2.22+
       # See: https://github.com/anthropics/claude-code-action/issues/892
       # TODO: Unpin to @v1 when SDK fix ships beyond 0.2.39
       - name: Retry Claude Code on SDK Crash
         id: claude-code-retry
         if: steps.claude-code.outcome == 'failure' && steps.claude-code.outputs.execution_file == ''
         continue-on-error: true
-        uses: anthropics/claude-code-action@01e756b34ef7a1447e9508f674143b07d20c2631
+        uses: anthropics/claude-code-action@75f52e56b2a277d60f7b9b382d6564c28fc6420f
         timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 90 }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
