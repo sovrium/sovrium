@@ -514,10 +514,13 @@ jobs:
           git checkout --detach HEAD
           echo "✅ HEAD detached - claude-code-action can now fetch the PR branch"
 
+      # Pinned to SHA 01e756b (SDK 0.2.25) to avoid AJV validation crash in SDK 0.2.27-0.2.39
+      # See: https://github.com/anthropics/claude-code-action/issues/892
+      # TODO: Unpin to @v1 when SDK fix ships beyond 0.2.39
       - name: Run Claude Code Action
         id: claude-code
         continue-on-error: true
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@01e756b34ef7a1447e9508f674143b07d20c2631
         timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 90 }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -526,11 +529,14 @@ jobs:
           track_progress: true
           use_sticky_comment: true
 
+      # Pinned to SHA 01e756b (SDK 0.2.25) to avoid AJV validation crash in SDK 0.2.27-0.2.39
+      # See: https://github.com/anthropics/claude-code-action/issues/892
+      # TODO: Unpin to @v1 when SDK fix ships beyond 0.2.39
       - name: Retry Claude Code on SDK Crash
         id: claude-code-retry
         if: steps.claude-code.outcome == 'failure' && steps.claude-code.outputs.execution_file == ''
         continue-on-error: true
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@01e756b34ef7a1447e9508f674143b07d20c2631
         timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 90 }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -551,12 +557,15 @@ jobs:
           if [ -n "$RETRY_OUTCOME" ] && [ "$RETRY_OUTCOME" != "skipped" ]; then
             # Retry actually ran - use retry outputs
             EXECUTION_FILE="${{ steps.claude-code-retry.outputs.execution_file }}"
-            CONCLUSION="${{ steps.claude-code-retry.conclusion }}"
+            # CRITICAL: Use 'outcome' not 'conclusion' for continue-on-error steps
+            # 'conclusion' is always 'success' when continue-on-error: true
+            # 'outcome' reflects the actual result (success/failure/cancelled)
+            CONCLUSION="${{ steps.claude-code-retry.outcome }}"
             echo "📊 Using retry attempt result (original attempt had SDK crash)"
           else
             # Retry didn't run - use original outputs
             EXECUTION_FILE="${{ steps.claude-code.outputs.execution_file }}"
-            CONCLUSION="${{ steps.claude-code.conclusion }}"
+            CONCLUSION="${{ steps.claude-code.outcome }}"
             echo "📊 Using original attempt result"
           fi
 

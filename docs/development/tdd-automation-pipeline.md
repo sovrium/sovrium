@@ -113,6 +113,8 @@ Note: Max attempts default is 5 (configurable per spec)
 
 **Uses:** `anthropics/claude-code-action@v1` ([Repository](https://github.com/anthropics/claude-code-action))
 
+> **Note**: The workflow is currently pinned to SHA `01e756b34ef7a1447e9508f674143b07d20c2631` (SDK 0.2.25) to avoid an AJV validation crash in SDK versions 0.2.27-0.2.39 ([GitHub issue #892](https://github.com/anthropics/claude-code-action/issues/892)). This will be unpinned to `@v1` once Anthropic fixes the SDK beyond 0.2.39.
+
 **Required Secret:** `CLAUDE_CODE_OAUTH_TOKEN` must be configured in repository Settings → Secrets and variables → Actions. See `.github/workflows/claude-code.yml` for usage.
 
 **Action Inputs:**
