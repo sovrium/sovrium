@@ -479,7 +479,9 @@ jobs:
           fi
 
           # Build claude_args for the action
-          CLAUDE_ARGS="--max-turns $MAX_TURNS --allowedTools \"$ALLOWED_TOOLS\" --disallowedTools \"$DISALLOWED_TOOLS\""
+          # CRITICAL: --mode execute overrides .claude/settings.json defaultMode
+          # Without this, plan mode causes 0-turn no-op executions (see PR #7211 incident)
+          CLAUDE_ARGS="--mode execute --max-turns $MAX_TURNS --allowedTools \"$ALLOWED_TOOLS\" --disallowedTools \"$DISALLOWED_TOOLS\""
           echo "claude-args=$CLAUDE_ARGS" >> "$GITHUB_OUTPUT"
 
           # Generate prompt using TypeScript (replaces 85+ lines of bash template logic)
@@ -669,8 +671,62 @@ jobs:
             echo "⚠️ No execution file found - metrics unavailable"
           fi
 
+      - name: Detect Zero-Turn Execution (No-Op)
+        id: zero-turn-check
+        if: always() && steps.parse-result.outputs.result-subtype == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
+          PR_NUMBER: ${{ needs.validate.outputs.pr-number }}
+          NUM_TURNS: ${{ steps.extract-metrics.outputs.num-turns }}
+          TOTAL_COST: ${{ steps.extract-metrics.outputs.total-cost }}
+          SPEC_ID: ${{ needs.validate.outputs.spec-id }}
+        run: |
+          # Detect zero-turn executions where Claude Code exits without doing work
+          # Common cause: .claude/settings.json defaultMode=plan overriding --mode execute
+          # This step acts as a safety net to catch future misconfigurations
+
+          if [ "$NUM_TURNS" = "0" ] && [ "$TOTAL_COST" = "0.00" ]; then
+            echo "is-zero-turn=true" >> "$GITHUB_OUTPUT"
+            echo "⚠️ Zero-turn execution detected (0 turns, \$0.00 cost)"
+            echo "Claude Code started but exited without performing any work."
+
+            # Post diagnostic comment
+            {
+              echo "## ⚠️ Zero-Turn Execution Detected"
+              echo ""
+              echo "**Spec ID**: \`$SPEC_ID\`"
+              echo ""
+              echo "Claude Code reported success but completed **0 turns** with **\$0.00 cost**."
+              echo "This means the agent started but exited without performing any work."
+              echo ""
+              echo "**Common Causes**:"
+              echo "- \`.claude/settings.json\` has \`defaultMode: plan\` (overrides \`--mode execute\`)"
+              echo "- Prompt parsing failure (agent didn't understand the task)"
+              echo "- Tool permission restrictions preventing the agent from working"
+              echo ""
+              echo "**Diagnostic Info**:"
+              echo "- Configured mode: \`--mode execute\`"
+              echo "- Turns: $NUM_TURNS"
+              echo "- Cost: \$$TOTAL_COST"
+              echo ""
+              echo "**Next Steps**:"
+              echo "1. Check \`.claude/settings.json\` for \`defaultMode\` override"
+              echo "2. Review Claude Code action logs for early exit reasons"
+              echo "3. Post \`@claude e2e-test-fixer\` to retry"
+            } > /tmp/zero_turn.md
+
+            # Post comment and add label
+            gh pr comment "$PR_NUMBER" --repo "${{ github.repository }}" --body-file /tmp/zero_turn.md
+            gh pr edit "$PR_NUMBER" --repo "${{ github.repository }}" --add-label "tdd-automation:manual-intervention"
+
+            echo "📝 Zero-turn diagnostic comment posted, manual-intervention label added"
+          else
+            echo "is-zero-turn=false" >> "$GITHUB_OUTPUT"
+            echo "✅ Execution had $NUM_TURNS turn(s) - not a zero-turn no-op"
+          fi
+
       - name: Post Success Comment with Metrics
-        if: steps.parse-result.outputs.result-subtype == 'success'
+        if: steps.parse-result.outputs.result-subtype == 'success' && steps.zero-turn-check.outputs.is-zero-turn != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ needs.validate.outputs.pr-number }}
@@ -766,7 +822,7 @@ jobs:
           fi
 
       - name: Handle Claude Code Error
-        if: steps.parse-result.outputs.result-subtype != 'success' || steps.check-commits.outputs.has-commits == 'false'
+        if: (steps.parse-result.outputs.result-subtype != 'success' || steps.check-commits.outputs.has-commits == 'false') && steps.zero-turn-check.outputs.is-zero-turn != 'true'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ needs.validate.outputs.pr-number }}
