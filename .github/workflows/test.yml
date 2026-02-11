@@ -1133,38 +1133,27 @@ jobs:
           ATTEMPT=$(echo "$PR_TITLE" | grep -oP 'Attempt\s+\K\d+' || echo "1")
           MAX_ATTEMPTS=$(echo "$PR_TITLE" | grep -oP 'Attempt\s+\d+/\K\d+' || echo "5")
 
+          # Compute next attempt (arithmetic only, no API call)
+          # The actual PR title update happens later, only when Claude Code is triggered
+          NEW_ATTEMPT=$((ATTEMPT + 1))
+
+          if [ "$NEW_ATTEMPT" -gt "$MAX_ATTEMPTS" ]; then
+            EXCEEDED="true"
+            # Keep current attempt (don't increment past max)
+            NEW_ATTEMPT="$ATTEMPT"
+          else
+            EXCEEDED="false"
+          fi
+
           {
             echo "spec-id=$SPEC_ID"
             echo "attempt=$ATTEMPT"
             echo "max-attempts=$MAX_ATTEMPTS"
+            echo "new-attempt=$NEW_ATTEMPT"
+            echo "exceeded=$EXCEEDED"
           } >> "$GITHUB_OUTPUT"
 
-          echo "📋 Parsed: Spec=$SPEC_ID, Attempt=$ATTEMPT/$MAX_ATTEMPTS"
-
-      - name: Increment attempt counter
-        id: increment
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          CURRENT_ATTEMPT="${{ steps.parse.outputs.attempt }}"
-          MAX_ATTEMPTS="${{ steps.parse.outputs.max-attempts }}"
-          NEW_ATTEMPT=$((CURRENT_ATTEMPT + 1))
-
-          echo "Incrementing attempt: $CURRENT_ATTEMPT -> $NEW_ATTEMPT (max: $MAX_ATTEMPTS)"
-
-          if [ "$NEW_ATTEMPT" -gt "$MAX_ATTEMPTS" ]; then
-            echo "exceeded=true" >> "$GITHUB_OUTPUT"
-            echo "new-attempt=$CURRENT_ATTEMPT" >> "$GITHUB_OUTPUT"
-          else
-            echo "exceeded=false" >> "$GITHUB_OUTPUT"
-            echo "new-attempt=$NEW_ATTEMPT" >> "$GITHUB_OUTPUT"
-
-            # Update PR title
-            RESULT=$(bun run scripts/tdd-automation/core/update-pr-title.ts "$PR_NUMBER" 2>&1) || true
-            echo "$RESULT"
-          fi
+          echo "📋 Parsed: Spec=$SPEC_ID, Attempt=$ATTEMPT/$MAX_ATTEMPTS, Next=$NEW_ATTEMPT, Exceeded=$EXCEEDED"
 
       # ==============================================================================
       # ATOMIC CHECK-AND-TRIGGER (Single Step)
@@ -1180,7 +1169,7 @@ jobs:
       # Comment generation: scripts/tdd-automation/workflows/test/generate-failure-comment.ts
       # ==============================================================================
       - name: Check conditions and trigger Claude Code
-        if: steps.increment.outputs.exceeded == 'false'
+        if: steps.parse.outputs.exceeded == 'false'
         timeout-minutes: 5
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
@@ -1191,7 +1180,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           TARGET_SPEC: ${{ needs.e2e-results.outputs.target_spec || 'specs/' }}
           SPEC_ID: ${{ steps.parse.outputs.spec-id }}
-          NEW_ATTEMPT: ${{ steps.increment.outputs.new-attempt }}
+          NEW_ATTEMPT: ${{ steps.parse.outputs.new-attempt }}
           MAX_ATTEMPTS: ${{ steps.parse.outputs.max-attempts }}
           FAILURE_TYPE: ${{ steps.detect-failure.outputs.failure-type }}
         run: |
@@ -1210,34 +1199,8 @@ jobs:
 
           if [ "$SHOULD_TRIGGER" = "false" ]; then
             echo "⏭️ Skipping: staleness check says no (reason: $SKIP_REASON)"
-
-            # Post skip notification
-            if [ "$SKIP_REASON" = "pending_tests" ]; then
-              REASON_TEXT="Another test run is in progress or queued"
-              NEXT_ACTION="The last test.yml run will trigger Claude Code with the most recent failure"
-            else
-              REASON_TEXT="A Claude Code run handling a newer failure is already active"
-              NEXT_ACTION="Automation will resume after the active run completes"
-            fi
-
-            {
-              echo "## ⏭️ TDD Automation Paused"
-              echo ""
-              echo "**Reason**: $REASON_TEXT"
-              echo ""
-              echo "**Current Status:**"
-              echo "- Pending test runs: $PENDING_TESTS"
-              echo "- Active Claude Code runs: $ACTIVE_CLAUDE"
-              echo ""
-              echo "**Next Action**: $NEXT_ACTION"
-              echo ""
-              echo "If this doesn't resolve automatically within 30 minutes, the timeout-based fallback will add the \`tdd-automation:manual-intervention\` label."
-              echo ""
-              echo "---"
-              echo "_🤖 TDD Automation Race Condition Handler_"
-            } > /tmp/skipped_trigger.md
-
-            timeout 60 gh pr comment "$PR_NUMBER" --body-file /tmp/skipped_trigger.md || echo "::warning::Failed to post skip notification"
+            echo "   Pending tests: $PENDING_TESTS | Active Claude: $ACTIVE_CLAUDE"
+            echo "   Monitor workflow will add manual-intervention label if stalled >30min"
             exit 0
           fi
 
@@ -1276,27 +1239,8 @@ jobs:
 
           if [ "$RUNNING_WORKFLOWS" -gt 0 ]; then
             echo "⏭️ Skipping: Claude Code workflow already running/queued for TDD automation"
-
-            {
-              echo "## ⏭️ TDD Automation: Trigger Skipped"
-              echo ""
-              echo "**Reason**: A Claude Code workflow is already running on this branch."
-              echo ""
-              echo "**What this means**:"
-              echo "- Another test run triggered Claude Code before this one could"
-              echo "- The running Claude Code workflow will handle the most recent failure"
-              echo "- No duplicate workflows will be created"
-              echo ""
-              echo "**Next Steps**:"
-              echo "- Wait for the active Claude Code run to complete"
-              echo "- Tests will run automatically after Claude Code pushes changes"
-              echo "- If the issue persists after 30 minutes, the timeout-based fallback will add the \`tdd-automation:manual-intervention\` label"
-              echo ""
-              echo "---"
-              echo "_🤖 TDD Automation Race Condition Prevention_"
-            } > /tmp/skipped_claude_code_trigger.md
-
-            timeout 60 gh pr comment "$PR_NUMBER" --body-file /tmp/skipped_claude_code_trigger.md || echo "::warning::Failed to post skip notification"
+            echo "   In-progress: $IN_PROGRESS_WORKFLOWS | Queued: $QUEUED_WORKFLOWS"
+            echo "   Monitor workflow will add manual-intervention label if stalled >30min"
             exit 0
           fi
 
@@ -1321,10 +1265,17 @@ jobs:
             exit 0
           fi
 
-          # ── Step 4: Generate and post @claude comment ────────────────────
+          # ── Step 4: Increment attempt counter and post @claude comment ──
+          # The PR title update happens HERE (not earlier) so that skipped
+          # triggers do not waste attempts from the 5-attempt budget.
           echo "🤖 Triggering Claude Code (Attempt $NEW_ATTEMPT/$MAX_ATTEMPTS)"
           echo "   Failure type: $FAILURE_TYPE"
           echo "   Target spec: $TARGET_SPEC"
+
+          # Update PR title with new attempt count
+          echo "📝 Updating PR title to Attempt $NEW_ATTEMPT/$MAX_ATTEMPTS..."
+          RESULT=$(bun run scripts/tdd-automation/core/update-pr-title.ts "$PR_NUMBER" 2>&1) || true
+          echo "$RESULT"
 
           # Generate failure comment using TypeScript
           # Format matches spec: docs/development/tdd-automation-pipeline.md#system-prompt-templates
@@ -1348,7 +1299,7 @@ jobs:
           done
 
       - name: Move to manual intervention
-        if: steps.increment.outputs.exceeded == 'true'
+        if: steps.parse.outputs.exceeded == 'true'
         timeout-minutes: 5
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
