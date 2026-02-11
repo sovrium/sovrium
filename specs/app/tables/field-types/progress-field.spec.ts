@@ -125,7 +125,7 @@ test.describe('Progress Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-PROGRESS-004: should support DEFAULT value for progress field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -154,7 +154,7 @@ test.describe('Progress Field', () => {
 
       // THEN: Progress defaults to 50
       const result = await executeQuery(`SELECT completion FROM tasks`)
-      expect(result[0].completion).toBe(50)
+      expect(result.completion).toBe(50)
     }
   )
 
