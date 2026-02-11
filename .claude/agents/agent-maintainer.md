@@ -23,7 +23,7 @@ description: |-
   assistant: "I'll use the agent-maintainer agent to analyze and improve your greeting-responder agent's system prompt for clarity and effectiveness."
   <uses Task tool with subagent_type="agent-maintainer">
   </example>
-model: sonnet
+model: opus
 # Model Rationale: Requires complex reasoning for architectural decisions, taxonomy classification,
 # and evaluating trade-offs between Skills/Agents/Commands. Haiku lacks necessary nuance.
 color: pink

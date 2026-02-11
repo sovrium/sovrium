@@ -445,10 +445,10 @@ jobs:
             BUDGET="10.00"
             echo "🧠 Using Claude Sonnet 4.5 (attempt $ATTEMPT/3, \$10 budget)"
           else
-            # Use Opus 4.5 (not 4.6) — pinned action v2.1.25 predates Opus 4.6 (Feb 5)
-            MODEL="claude-opus-4-5"
+            # Opus 4.6 supported by pinned action v1.0.47 (SDK 0.2.38 >= 0.2.32 minimum)
+            MODEL="claude-opus-4-6"
             BUDGET="15.00"
-            echo "🚀 Using Claude Opus 4.5 (attempt $ATTEMPT, \$15 budget) - escalated for hard spec"
+            echo "🚀 Using Claude Opus 4.6 (attempt $ATTEMPT, \$15 budget) - escalated for hard spec"
           fi
 
           {
@@ -515,13 +515,14 @@ jobs:
           git checkout --detach HEAD
           echo "✅ HEAD detached - claude-code-action can now fetch the PR branch"
 
-      # Pinned to SHA 75f52e5 (SDK 0.2.9, Claude Code 2.1.9) to avoid AJV validation crash in SDK 0.2.22+
+      # Pinned to v1.0.47 (SDK 0.2.38) — last known working version before AJV crash in SDK 0.2.39+
+      # SDK 0.2.9 (our previous pin) crashes with "exit code 1" — too old for current runtime
       # See: https://github.com/anthropics/claude-code-action/issues/892
       # TODO: Unpin to @v1 when SDK fix ships beyond 0.2.39
       - name: Run Claude Code Action
         id: claude-code
         continue-on-error: true
-        uses: anthropics/claude-code-action@75f52e56b2a277d60f7b9b382d6564c28fc6420f
+        uses: anthropics/claude-code-action@b433f16b30d54063fd3bab6b12f46f3da00e41b6
         timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 90 }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -530,14 +531,14 @@ jobs:
           track_progress: true
           use_sticky_comment: true
 
-      # Pinned to SHA 75f52e5 (SDK 0.2.9, Claude Code 2.1.9) to avoid AJV validation crash in SDK 0.2.22+
+      # Pinned to v1.0.47 (SDK 0.2.38) — same pin as primary step above
       # See: https://github.com/anthropics/claude-code-action/issues/892
       # TODO: Unpin to @v1 when SDK fix ships beyond 0.2.39
       - name: Retry Claude Code on SDK Crash
         id: claude-code-retry
         if: steps.claude-code.outcome == 'failure' && steps.claude-code.outputs.execution_file == ''
         continue-on-error: true
-        uses: anthropics/claude-code-action@75f52e56b2a277d60f7b9b382d6564c28fc6420f
+        uses: anthropics/claude-code-action@b433f16b30d54063fd3bab6b12f46f3da00e41b6
         timeout-minutes: ${{ fromJSON(needs.validate.outputs.timeout) || 90 }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
