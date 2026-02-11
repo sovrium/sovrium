@@ -505,6 +505,15 @@ jobs:
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Detach HEAD before Claude Code
+        run: |
+          # CRITICAL: Detach HEAD so claude-code-action can fetch the PR branch
+          # Without this, git refuses: "fatal: refusing to fetch into branch checked out at..."
+          # The action handles its own checkout internally via git fetch pull/N/head:branch
+          # See: https://github.com/sovrium/sovrium/actions/runs/21898811482/job/63221500705
+          git checkout --detach HEAD
+          echo "✅ HEAD detached - claude-code-action can now fetch the PR branch"
+
       - name: Run Claude Code Action
         id: claude-code
         continue-on-error: true
