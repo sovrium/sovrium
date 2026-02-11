@@ -120,8 +120,8 @@ test.describe('Progress Field', () => {
         `SELECT is_nullable, column_default FROM information_schema.columns
          WHERE table_name = 'tasks' AND column_name = 'completion'`
       )
-      expect(columns[0].is_nullable).toBe('NO')
-      expect(columns[0].column_default).toContain('0')
+      expect(columns.is_nullable).toBe('NO')
+      expect(columns.column_default).toContain('0')
     }
   )
 
