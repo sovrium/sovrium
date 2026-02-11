@@ -821,17 +821,17 @@ test.describe('Relationship Field', () => {
       // GIVEN: A → B hierarchy
       await executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('A', NULL)`)
       const a = await executeQuery(`SELECT id FROM categories WHERE name = 'A'`)
-      await executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('B', ${a[0].id})`)
+      await executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('B', ${a.id})`)
       const b = await executeQuery(`SELECT id FROM categories WHERE name = 'B'`)
 
       // WHEN: Try to create a cycle: set A's parent to B
       // THEN: Either DB trigger prevents it or application validates
       // (behavior depends on implementation — may succeed at DB level if no trigger)
       try {
-        await executeQuery(`UPDATE categories SET parent_id = ${b[0].id} WHERE name = 'A'`)
+        await executeQuery(`UPDATE categories SET parent_id = ${b.id} WHERE name = 'A'`)
         // If no error, circular reference exists at DB level (needs app-level validation)
         const result = await executeQuery(`SELECT parent_id FROM categories WHERE name = 'A'`)
-        expect(result[0].parent_id).toBe(b[0].id)
+        expect(result.parent_id).toBe(b.id)
       } catch {
         // If error thrown, circular reference prevention is enforced
         expect(true).toBe(true)
