@@ -96,7 +96,7 @@ test.describe('Progress Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-PROGRESS-003: should support NOT NULL constraint with default 0',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
