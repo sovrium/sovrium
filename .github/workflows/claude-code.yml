@@ -445,9 +445,10 @@ jobs:
             BUDGET="10.00"
             echo "🧠 Using Claude Sonnet 4.5 (attempt $ATTEMPT/3, \$10 budget)"
           else
-            MODEL="claude-opus-4-6"
+            # Use Opus 4.5 (not 4.6) — pinned action v2.1.25 predates Opus 4.6 (Feb 5)
+            MODEL="claude-opus-4-5"
             BUDGET="15.00"
-            echo "🚀 Using Claude Opus 4.6 (attempt $ATTEMPT, \$15 budget) - escalated for hard spec"
+            echo "🚀 Using Claude Opus 4.5 (attempt $ATTEMPT, \$15 budget) - escalated for hard spec"
           fi
 
           {
