@@ -759,6 +759,7 @@ test.describe('Relationship Field', () => {
                 name: 'manager_id',
                 type: 'relationship',
                 relatedTable: 'employees',
+                relationType: 'many-to-one',
               },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
@@ -769,11 +770,11 @@ test.describe('Relationship Field', () => {
       // GIVEN: Hierarchical data: CEO → VP → Manager → Staff
       await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('CEO', NULL)`)
       const ceo = await executeQuery(`SELECT id FROM employees WHERE name = 'CEO'`)
-      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('VP', ${ceo[0].id})`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('VP', ${ceo.id})`)
       const vp = await executeQuery(`SELECT id FROM employees WHERE name = 'VP'`)
-      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Manager', ${vp[0].id})`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Manager', ${vp.id})`)
       const mgr = await executeQuery(`SELECT id FROM employees WHERE name = 'Manager'`)
-      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Staff', ${mgr[0].id})`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Staff', ${mgr.id})`)
 
       // WHEN: Execute recursive CTE to find all subordinates of CEO
       const subordinates = await executeQuery(`
@@ -787,8 +788,8 @@ test.describe('Relationship Field', () => {
       `)
 
       // THEN: Returns all subordinates
-      expect(subordinates).toHaveLength(3)
-      expect(subordinates.map((r: any) => r.name)).toEqual(['Manager', 'Staff', 'VP'])
+      expect(subordinates.rows).toHaveLength(3)
+      expect(subordinates.rows.map((r: any) => r.name)).toEqual(['Manager', 'Staff', 'VP'])
     }
   )
 
