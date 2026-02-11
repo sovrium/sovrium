@@ -980,7 +980,9 @@ jobs:
 
       - name: Analyze spec progress
         if: steps.check-update.outputs.should-update == 'true'
-        run: bun run progress
+        # --no-error: Content quality warnings must not fail CI — this step
+        # generates SPEC-PROGRESS.md and is informational, not a gate.
+        run: bun run progress --no-error --update-stories
 
       - name: Commit spec progress updates
         if: steps.check-update.outputs.should-update == 'true'

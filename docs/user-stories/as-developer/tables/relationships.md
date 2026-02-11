@@ -109,9 +109,9 @@ tables:
 | ------ | -------------------------------------------------- | ----------------------------------------- | ------ |
 | AC-001 | Creates PostgreSQL INTEGER column with FOREIGN KEY | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-001` | ✅     |
 | AC-002 | Validates referenced record exists                 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-002` | ✅     |
-| AC-003 | Creates index on relationship column by default    |                                           | ⏳     |
-| AC-004 | Returns related record when expanded               |                                           | ⏳     |
-| AC-005 | Supports filtering by related record ID            |                                           | ⏳     |
+| AC-003 | Creates index on relationship column by default    |                                           |        |
+| AC-004 | Returns related record when expanded               |                                           |        |
+| AC-005 | Supports filtering by related record ID            |                                           |        |
 
 ### Implementation References
 
@@ -204,7 +204,7 @@ tables:
 | ID     | Criterion                                            | E2E Spec                                  | Status |
 | ------ | ---------------------------------------------------- | ----------------------------------------- | ------ |
 | AC-001 | Auto-creates junction table ({table1}\_{table2})     | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-009` | ✅     |
-| AC-002 | Junction table has composite primary key             |                                           | ⏳     |
+| AC-002 | Junction table has composite primary key             |                                           |        |
 | AC-003 | Supports linking multiple records                    | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-011` | ✅     |
 | AC-004 | Returns array of related records when expanded       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-012` | ✅     |
 | AC-005 | Creates reciprocal field on related table (optional) | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-013` | ✅     |

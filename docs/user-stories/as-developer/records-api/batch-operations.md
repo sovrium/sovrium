@@ -126,8 +126,8 @@ DELETE /api/tables/1/records/batch
 | AC-008 | Supports permanent=true for hard delete                                                 | `API-TABLES-RECORDS-BATCH-DELETE-008`        | ⏳     |
 | AC-009 | Permanent delete requires admin role                                                    | `API-TABLES-RECORDS-BATCH-DELETE-009`        | ⏳     |
 | AC-010 | Maximum batch size is 100 records                                                       | `API-TABLES-RECORDS-BATCH-DELETE-010`        | ⏳     |
-| AC-011 | Batch delete skips already soft-deleted records and returns count of newly deleted only |                                              | ⏳     |
-| AC-012 | Admin permanent delete with permanent=true hard deletes records                         |                                              | ⏳     |
+| AC-011 | Batch delete skips already soft-deleted records and returns count of newly deleted only |                                              |        |
+| AC-012 | Admin permanent delete with permanent=true hard deletes records                         |                                              |        |
 | AC-013 | User batch soft-deletes records (regression)                                            | `API-TABLES-RECORDS-BATCH-DELETE-REGRESSION` | ✅     |
 
 ### Implementation References

@@ -27,14 +27,14 @@ auth:
 
 | ID     | Criterion                                                                               | E2E Spec | Status |
 | ------ | --------------------------------------------------------------------------------------- | -------- | ------ |
-| AC-001 | `strategies` accepts an array of strategy objects with `type` field                     |          | ⏳     |
-| AC-002 | Supported strategy types: `emailAndPassword`, `magicLink`, `oauth`                      |          | ⏳     |
-| AC-003 | Each strategy type has its own configuration options (e.g., `minPasswordLength`)        |          | ⏳     |
-| AC-004 | Schema validates at least one strategy is defined                                       |          | ⏳     |
-| AC-005 | Duplicate strategy types trigger validation error                                       |          | ⏳     |
-| AC-006 | Unknown strategy types trigger validation error                                         |          | ⏳     |
-| AC-007 | Strategy-specific options are validated per type (e.g., `providers` required for oauth) |          | ⏳     |
-| AC-008 | `emailAndPassword` defaults: `minPasswordLength: 8`, `autoSignIn: true`                 |          | ⏳     |
+| AC-001 | `strategies` accepts an array of strategy objects with `type` field                     |          |        |
+| AC-002 | Supported strategy types: `emailAndPassword`, `magicLink`, `oauth`                      |          |        |
+| AC-003 | Each strategy type has its own configuration options (e.g., `minPasswordLength`)        |          |        |
+| AC-004 | Schema validates at least one strategy is defined                                       |          |        |
+| AC-005 | Duplicate strategy types trigger validation error                                       |          |        |
+| AC-006 | Unknown strategy types trigger validation error                                         |          |        |
+| AC-007 | Strategy-specific options are validated per type (e.g., `providers` required for oauth) |          |        |
+| AC-008 | `emailAndPassword` defaults: `minPasswordLength: 8`, `autoSignIn: true`                 |          |        |
 
 ### Strategy Types
 

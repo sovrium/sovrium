@@ -88,6 +88,7 @@ bun run quality --include-effect   # Include Effect diagnostics (slow, skipped b
 bun run quality --no-cache         # Disable all caching (ESLint, Prettier, TypeScript incremental)
 # Tier 2: Content quality + reporting (specs, user stories, SPEC-PROGRESS.md)
 bun run progress                   # Analyze specs + user stories, generate SPEC-PROGRESS.md
+bun run progress --no-error        # Always exit 0 even with warnings/errors (used in CI)
 bun run progress --skip-stories    # Skip user story validation
 bun run progress --strict          # Fail on any content quality issues
 # Both tiers combined
@@ -156,6 +157,7 @@ git push origin main               # Triggers release ONLY with "release:" type
 
 | Flag | Effect |
 |------|--------|
+| `--no-error` | Always exit 0, even with warnings/errors (used in CI) |
 | `--skip-stories` | Skip user story validation |
 | `--strict` | Fail on any content quality issues |
 

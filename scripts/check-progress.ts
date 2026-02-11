@@ -3414,6 +3414,7 @@ async function main() {
   const shouldFix = args.includes('--fix')
   const shouldUpdateStories = args.includes('--update-stories')
   const strictMode = args.includes('--strict')
+  const noError = args.includes('--no-error')
   const skipStories = args.includes('--skip-stories')
 
   console.log('Analyzing spec files...')
@@ -3991,18 +3992,21 @@ async function main() {
     console.log(sep)
   }
 
-  // Final status — fail on any errors or warnings
+  // Final status — fail on any errors or warnings (unless --no-error)
   console.log('')
   if (hasFailed) {
     console.log(`❌ Content quality failed: ${totalErrors} error(s), ${totalWarnings} warning(s)`)
-    process.exit(1)
+    if (!noError) {
+      process.exit(1)
+    }
+    console.log('   (--no-error: continuing without exit code 1)')
   } else {
     console.log('✅ All content quality checks passed!')
   }
 
   // Strict mode: also fail on suggestions and orphaned spec IDs
   // Used by `bun run check:all` to enforce zero-issue content quality
-  if (strictMode) {
+  if (strictMode && !noError) {
     const totalStrictIssues = totalIssues + suggestionsWithDuplicates + orphanedCount
     if (totalStrictIssues > 0) {
       process.exit(1)

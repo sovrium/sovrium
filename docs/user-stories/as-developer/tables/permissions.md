@@ -54,13 +54,13 @@ Each operation accepts one of 3 formats:
 | AC-001 | `all` permission allows unauthenticated access                     | `APP-TABLES-TABLE-PERMISSIONS-001`        | ✅     |
 | AC-002 | `authenticated` permission requires login for the operation        | `APP-TABLES-TABLE-PERMISSIONS-002`        | ✅     |
 | AC-003 | Role array permission restricts to listed roles                    | `APP-TABLES-TABLE-PERMISSIONS-003`        | ✅     |
-| AC-004 | Returns 401 for unauthenticated access to non-`all` operations     |                                           | ⏳     |
-| AC-005 | Returns 403 for unauthorized role attempting restricted ops        |                                           | ⏳     |
+| AC-004 | Returns 401 for unauthenticated access to non-`all` operations     |                                           |        |
+| AC-005 | Returns 403 for unauthorized role attempting restricted ops        |                                           |        |
 | AC-006 | User can complete full table-permissions workflow (regression)     | `APP-TABLES-TABLE-PERMISSIONS-REGRESSION` | ✅     |
-| AC-007 | `comment` permission controls who can add comments to records      |                                           | ⏳     |
-| AC-008 | All 5 operations (read, comment, create, update, delete) supported |                                           | ⏳     |
-| AC-009 | Unknown role names in permissions trigger validation warning       |                                           | ⏳     |
-| AC-010 | Omitted operations default to deny                                 |                                           | ⏳     |
+| AC-007 | `comment` permission controls who can add comments to records      |                                           |        |
+| AC-008 | All 5 operations (read, comment, create, update, delete) supported |                                           |        |
+| AC-009 | Unknown role names in permissions trigger validation warning       |                                           |        |
+| AC-010 | Omitted operations default to deny                                 |                                           |        |
 
 ### Implementation References
 
@@ -107,7 +107,7 @@ tables:
 | AC-006 | Admin role has full access to all tables by default      | `APP-TABLES-PERMISSIONS-006`        | ✅     |
 | AC-007 | Role hierarchy is respected (admin > editor > viewer)    | `APP-TABLES-PERMISSIONS-007`        | ✅     |
 | AC-008 | Returns 403 when user role lacks required permission     | `APP-TABLES-PERMISSIONS-008`        | ✅     |
-| AC-009 | Role changes take effect immediately without re-login    |                                     | ⏳     |
+| AC-009 | Role changes take effect immediately without re-login    |                                     |        |
 | AC-010 | Role validation errors return descriptive messages       | `APP-TABLES-PERMISSIONS-010`        | ✅     |
 | AC-011 | User can complete full permissions workflow (regression) | `APP-TABLES-PERMISSIONS-REGRESSION` | ✅     |
 
@@ -157,10 +157,10 @@ tables:
 | ID     | Criterion                                                      | E2E Spec                                  | Status |
 | ------ | -------------------------------------------------------------- | ----------------------------------------- | ------ |
 | AC-001 | Fields with read restriction are omitted from API response     | `APP-TABLES-FIELD-PERMISSIONS-001`        | ✅     |
-| AC-002 | Fields with write restriction reject update attempts           | `APP-TABLES-FIELD-PERMISSIONS-002`        | ✅     |
+| AC-002 | Fields with write restriction reject update attempts           | `APP-TABLES-FIELD-PERMISSIONS-002`        | ⏳     |
 | AC-003 | Field permissions override table-level permissions             | `APP-TABLES-FIELD-PERMISSIONS-003`        | ✅     |
 | AC-004 | Returns 403 when attempting to write read-only field           | `APP-TABLES-FIELD-PERMISSIONS-004`        | ✅     |
-| AC-005 | Hidden fields are not included in list/detail responses        | `APP-TABLES-FIELD-PERMISSIONS-005`        | ✅     |
+| AC-005 | Hidden fields are not included in list/detail responses        | `APP-TABLES-FIELD-PERMISSIONS-005`        | ⏳     |
 | AC-006 | Field permission `all` grants access to all roles              | `APP-TABLES-FIELD-PERMISSIONS-006`        | ✅     |
 | AC-007 | Field permissions use same 3-format system as table-level      | `APP-TABLES-FIELD-PERMISSIONS-007`        | ✅     |
 | AC-008 | Computed fields respect source field permissions               | `APP-TABLES-FIELD-PERMISSIONS-008`        | ⏳     |
