@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { sanitizeTableName } from './field-utils'
 import type { Table } from '@/domain/models/app/table'
 
 /**
@@ -24,10 +25,11 @@ export const generateCreatedAtTriggers = (table: Table): readonly string[] => {
 
   if (fieldNames.length === 0) return []
 
-  const setFunctionName = `set_${table.name}_created_at`
-  const setTriggerName = `a_trigger_${table.name}_set_created_at` // Prefix with 'a_' to ensure it runs before formula triggers
-  const preventFunctionName = `prevent_${table.name}_created_at_update`
-  const preventTriggerName = `a_trigger_${table.name}_created_at_immutable` // Prefix with 'a_' to ensure it runs before formula triggers
+  const sanitized = sanitizeTableName(table.name)
+  const setFunctionName = `set_${sanitized}_created_at`
+  const setTriggerName = `a_trigger_${sanitized}_set_created_at` // Prefix with 'a_' to ensure it runs before formula triggers
+  const preventFunctionName = `prevent_${sanitized}_created_at_update`
+  const preventTriggerName = `a_trigger_${sanitized}_created_at_immutable` // Prefix with 'a_' to ensure it runs before formula triggers
 
   return [
     // Create trigger function to set created_at on INSERT
@@ -39,9 +41,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql`,
     // Create INSERT trigger
-    `DROP TRIGGER IF EXISTS ${setTriggerName} ON ${table.name}`,
+    `DROP TRIGGER IF EXISTS ${setTriggerName} ON ${sanitized}`,
     `CREATE TRIGGER ${setTriggerName}
-BEFORE INSERT ON ${table.name}
+BEFORE INSERT ON ${sanitized}
 FOR EACH ROW
 EXECUTE FUNCTION ${setFunctionName}()`,
     // Create trigger function to prevent updates
@@ -53,9 +55,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql`,
     // Create UPDATE trigger
-    `DROP TRIGGER IF EXISTS ${preventTriggerName} ON ${table.name}`,
+    `DROP TRIGGER IF EXISTS ${preventTriggerName} ON ${sanitized}`,
     `CREATE TRIGGER ${preventTriggerName}
-BEFORE UPDATE ON ${table.name}
+BEFORE UPDATE ON ${sanitized}
 FOR EACH ROW
 EXECUTE FUNCTION ${preventFunctionName}()`,
   ]
@@ -69,9 +71,10 @@ export const generateAutonumberTriggers = (table: Table): readonly string[] => {
 
   if (autonumberFields.length === 0) return []
 
+  const sanitized = sanitizeTableName(table.name)
   const fieldNames = autonumberFields.map((f) => f.name)
-  const triggerFunctionName = `prevent_${table.name}_autonumber_update`
-  const triggerName = `trigger_${table.name}_autonumber_immutable`
+  const triggerFunctionName = `prevent_${sanitized}_autonumber_update`
+  const triggerName = `trigger_${sanitized}_autonumber_immutable`
 
   return [
     // Create trigger function
@@ -83,9 +86,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql`,
     // Create trigger
-    `DROP TRIGGER IF EXISTS ${triggerName} ON ${table.name}`,
+    `DROP TRIGGER IF EXISTS ${triggerName} ON ${sanitized}`,
     `CREATE TRIGGER ${triggerName}
-BEFORE UPDATE ON ${table.name}
+BEFORE UPDATE ON ${sanitized}
 FOR EACH ROW
 EXECUTE FUNCTION ${triggerFunctionName}()`,
   ]
@@ -99,11 +102,13 @@ export const generateUpdatedByTriggers = (table: Table): readonly string[] => {
 
   if (updatedByFields.length === 0) return []
 
+  const sanitized = sanitizeTableName(table.name)
+
   return [
     // Create trigger
-    `DROP TRIGGER IF EXISTS set_updated_by ON ${table.name}`,
+    `DROP TRIGGER IF EXISTS set_updated_by ON ${sanitized}`,
     `CREATE TRIGGER set_updated_by
-BEFORE UPDATE ON ${table.name}
+BEFORE UPDATE ON ${sanitized}
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_by()`,
   ]
@@ -126,8 +131,9 @@ export const generateUpdatedAtTriggers = (table: Table): readonly string[] => {
 
   if (fieldNames.length === 0) return []
 
-  const triggerFunctionName = `update_${table.name}_updated_at`
-  const triggerName = `a_trigger_${table.name}_updated_at` // Prefix with 'a_' to ensure it runs before formula triggers
+  const sanitized = sanitizeTableName(table.name)
+  const triggerFunctionName = `update_${sanitized}_updated_at`
+  const triggerName = `a_trigger_${sanitized}_updated_at` // Prefix with 'a_' to ensure it runs before formula triggers
 
   return [
     // Create trigger function (handles both INSERT and UPDATE)
@@ -139,9 +145,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql`,
     // Create trigger for both INSERT and UPDATE
-    `DROP TRIGGER IF EXISTS ${triggerName} ON ${table.name}`,
+    `DROP TRIGGER IF EXISTS ${triggerName} ON ${sanitized}`,
     `CREATE TRIGGER ${triggerName}
-BEFORE INSERT OR UPDATE ON ${table.name}
+BEFORE INSERT OR UPDATE ON ${sanitized}
 FOR EACH ROW
 EXECUTE FUNCTION ${triggerFunctionName}()`,
   ]

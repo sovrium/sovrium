@@ -108,7 +108,7 @@ test.describe('Field-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PERMISSIONS-002: should reject email update by member when field has admin-only write permission',
     { tag: '@spec' },
     async ({
@@ -307,7 +307,7 @@ test.describe('Field-Level Permissions', () => {
   // NOTE: Test 005 was rewritten — owner isolation concept was removed.
   // Original tested owner-only write via SET LOCAL app.user_id.
   // Rewritten to test role-based field write restriction (member vs viewer).
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PERMISSIONS-005: should restrict notes field write to member role via API',
     { tag: '@spec' },
     async ({
@@ -485,7 +485,7 @@ test.describe('Field-Level Permissions', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-PERMISSIONS-008: should prevent field modification at API level based on write permissions',
     { tag: '@spec' },
     async ({

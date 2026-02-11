@@ -17,7 +17,7 @@ import {
   ensureUpdatedByTriggerFunction,
   type BetterAuthUsersTableRequired,
 } from './auth-validation'
-import { isManyToManyRelationship } from './field-utils'
+import { sanitizeTableName, isManyToManyRelationship } from './field-utils'
 import {
   getPreviousSchema,
   logRollbackOperation,
@@ -117,9 +117,10 @@ const createMigrateTables = (
       config
     /* eslint-disable functional/no-loop-statements */
     for (const table of sortedTables) {
+      const sanitized = sanitizeTableName(table.name)
       const physicalTableName = lookupViewModule.shouldUseView(table)
-        ? lookupViewModule.getBaseTableName(table.name)
-        : table.name
+        ? lookupViewModule.getBaseTableName(sanitized)
+        : sanitized
       const exists = yield* tableExists(tx, physicalTableName)
       logInfo(`[Creating/migrating table] ${table.name} (exists: ${exists})`)
       yield* createOrMigrateTableEffect({
@@ -419,17 +420,20 @@ const checkShouldSkipMigration = (
           return true
         }
 
+        // Sanitize table name for PostgreSQL check
+        const sanitizedTableName = sanitizeTableName(firstTableName)
+
         const tableCheck = (await quickDb.unsafe(`
           SELECT EXISTS (
             SELECT FROM information_schema.tables
             WHERE table_schema = 'public'
-            AND table_name = '${firstTableName}'
+            AND table_name = '${sanitizedTableName}'
           )
         `)) as readonly { exists: boolean }[]
 
         if (!tableCheck[0]?.exists) {
           logInfo(
-            `[checkShouldSkipMigration] Checksum matches but table '${firstTableName}' does not exist - running full migration (template DB detected)`
+            `[checkShouldSkipMigration] Checksum matches but table '${sanitizedTableName}' does not exist - running full migration (template DB detected)`
           )
           return false
         }

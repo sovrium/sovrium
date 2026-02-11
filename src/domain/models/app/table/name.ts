@@ -22,14 +22,14 @@ export const NameSchema = createDatabaseIdentifierSchema('table').pipe(
   Schema.annotations({
     title: 'Name',
     description:
-      'Internal identifier name used for database tables, columns, and programmatic references. Must follow database naming conventions: start with a letter, contain only lowercase letters, numbers, and underscores, maximum 63 characters (PostgreSQL limit). This name is used in SQL queries, API endpoints, and code generation. Choose descriptive names that clearly indicate the purpose (e.g., "email_address" not "ea").',
+      'User-friendly name for the table. Can contain spaces, mixed case, and special characters. Will be automatically sanitized for database use (lowercase with underscores). Maximum 63 characters. Choose descriptive names that clearly indicate the purpose.',
     examples: [
-      'person',
-      'product',
-      'invoice_item',
-      'customer_email',
-      'shipping_address',
-      'created_at',
+      'Person',
+      'Product',
+      'Invoice Item',
+      'Customer Email',
+      'Shipping Address',
+      'My Projects',
     ],
   })
 )

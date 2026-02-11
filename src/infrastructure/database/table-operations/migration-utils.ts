@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { sanitizeTableName } from '../field-utils'
 import { shouldUseView, getBaseTableName } from '../lookup-view-generators'
 import { executeSQL, SQLExecutionError, type TransactionLike } from '../sql-execution'
 import { generateCreateTableSQL } from './create-table-sql'
@@ -121,7 +122,8 @@ export const recreateTableWithDataEffect = (
   tableUsesView?: ReadonlyMap<string, boolean>
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const physicalTableName = shouldUseView(table) ? getBaseTableName(table.name) : table.name
+    const sanitized = sanitizeTableName(table.name)
+    const physicalTableName = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
     const tempTableName = `${physicalTableName}_migration_temp`
 
     // Create temporary table with new schema

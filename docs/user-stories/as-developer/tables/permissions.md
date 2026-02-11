@@ -157,13 +157,13 @@ tables:
 | ID     | Criterion                                                      | E2E Spec                                  | Status |
 | ------ | -------------------------------------------------------------- | ----------------------------------------- | ------ |
 | AC-001 | Fields with read restriction are omitted from API response     | `APP-TABLES-FIELD-PERMISSIONS-001`        | ✅     |
-| AC-002 | Fields with write restriction reject update attempts           | `APP-TABLES-FIELD-PERMISSIONS-002`        | ⏳     |
+| AC-002 | Fields with write restriction reject update attempts           | `APP-TABLES-FIELD-PERMISSIONS-002`        | ✅     |
 | AC-003 | Field permissions override table-level permissions             | `APP-TABLES-FIELD-PERMISSIONS-003`        | ✅     |
 | AC-004 | Returns 403 when attempting to write read-only field           | `APP-TABLES-FIELD-PERMISSIONS-004`        | ✅     |
-| AC-005 | Hidden fields are not included in list/detail responses        | `APP-TABLES-FIELD-PERMISSIONS-005`        | ⏳     |
+| AC-005 | Hidden fields are not included in list/detail responses        | `APP-TABLES-FIELD-PERMISSIONS-005`        | ✅     |
 | AC-006 | Field permission `all` grants access to all roles              | `APP-TABLES-FIELD-PERMISSIONS-006`        | ✅     |
 | AC-007 | Field permissions use same 3-format system as table-level      | `APP-TABLES-FIELD-PERMISSIONS-007`        | ✅     |
-| AC-008 | Computed fields respect source field permissions               | `APP-TABLES-FIELD-PERMISSIONS-008`        | ⏳     |
+| AC-008 | Computed fields respect source field permissions               | `APP-TABLES-FIELD-PERMISSIONS-008`        | ✅     |
 | AC-009 | Relationship fields respect related table permissions          | `APP-TABLES-FIELD-PERMISSIONS-009`        | ✅     |
 | AC-010 | User can complete full field-permissions workflow (regression) | `APP-TABLES-FIELD-PERMISSIONS-REGRESSION` | ✅     |
 
@@ -208,8 +208,8 @@ tables:
 
 | ID     | Criterion                                                           | E2E Spec                                       | Status |
 | ------ | ------------------------------------------------------------------- | ---------------------------------------------- | ------ |
-| AC-001 | Child table inherits parent table permissions                       | `APP-TABLES-PERMISSION-INHERITANCE-001`        | ⏳     |
-| AC-002 | Override permissions take precedence over inherited                 | `APP-TABLES-PERMISSION-INHERITANCE-002`        | ⏳     |
+| AC-001 | Child table inherits parent table permissions                       | `APP-TABLES-PERMISSION-INHERITANCE-001`        | ✅     |
+| AC-002 | Override permissions take precedence over inherited                 | `APP-TABLES-PERMISSION-INHERITANCE-002`        | ✅     |
 | AC-003 | Circular inheritance is detected and rejected                       | `APP-TABLES-PERMISSION-INHERITANCE-003`        | ⏳     |
 | AC-004 | Inherited permissions update when parent changes                    | `APP-TABLES-PERMISSION-INHERITANCE-004`        | ⏳     |
 | AC-005 | Multiple levels of inheritance are supported                        | `APP-TABLES-PERMISSION-INHERITANCE-005`        | ⏳     |

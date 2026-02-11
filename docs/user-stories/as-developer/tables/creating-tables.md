@@ -62,9 +62,9 @@ tables:
 | ------ | -------------------------------------------------------- | ---------------------------- | ------ |
 | AC-001 | Table name is stored and returned in API responses       | `APP-TABLES-NAME-001`        | ✅     |
 | AC-002 | Table name can include spaces and special characters     | `APP-TABLES-NAME-002`        | ✅     |
-| AC-003 | Table name is used for PostgreSQL table name (sanitized) | `APP-TABLES-NAME-003`        | ⏳     |
-| AC-004 | Empty table name returns validation error                | `APP-TABLES-NAME-004`        | ⏳     |
-| AC-005 | Duplicate table names return validation error            | `APP-TABLES-NAME-005`        | ⏳     |
+| AC-003 | Table name is used for PostgreSQL table name (sanitized) | `APP-TABLES-NAME-003`        | ✅     |
+| AC-004 | Empty table name returns validation error                | `APP-TABLES-NAME-004`        | ✅     |
+| AC-005 | Duplicate table names return validation error            | `APP-TABLES-NAME-005`        | ✅     |
 | AC-006 | User can complete full table name workflow (regression)  | `APP-TABLES-NAME-REGRESSION` | ✅     |
 
 ### Implementation References
