@@ -741,7 +741,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-016: should support tree traversal queries with self-referencing',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
