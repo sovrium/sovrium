@@ -22,6 +22,7 @@ export const fieldTypeToPostgresMap: Record<string, string> = {
   'phone-number': 'VARCHAR(255)',
   'rich-text': 'TEXT',
   checkbox: 'BOOLEAN',
+  boolean: 'BOOLEAN', // Alias for checkbox (used in tests)
   date: 'DATE',
   datetime: 'TIMESTAMPTZ',
   time: 'TIME',
