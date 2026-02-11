@@ -26,6 +26,7 @@ import type { TDDPullRequest } from '../core/types'
 export interface WorkflowRun {
   readonly id: string
   readonly name: string
+  readonly displayTitle: string
   readonly conclusion: 'success' | 'failure' | 'cancelled' | 'skipped' | null
   readonly createdAt: Date
   readonly updatedAt: Date
@@ -211,6 +212,7 @@ export const GitHubApiLive = Layer.succeed(GitHubApi, {
           workflow_runs: Array<{
             id: number
             name: string
+            display_title: string
             conclusion: string | null
             created_at: string
             updated_at: string
@@ -221,6 +223,7 @@ export const GitHubApiLive = Layer.succeed(GitHubApi, {
         return data.workflow_runs.map((run) => ({
           id: String(run.id),
           name: run.name,
+          displayTitle: run.display_title,
           conclusion: run.conclusion as WorkflowRun['conclusion'],
           createdAt: new Date(run.created_at),
           updatedAt: new Date(run.updated_at),
@@ -480,6 +483,7 @@ export const GitHubApiLiveWithRetry = Layer.succeed(GitHubApi, {
             workflow_runs: Array<{
               id: number
               name: string
+              display_title: string
               conclusion: string | null
               created_at: string
               updated_at: string
@@ -490,6 +494,7 @@ export const GitHubApiLiveWithRetry = Layer.succeed(GitHubApi, {
           return data.workflow_runs.map((run) => ({
             id: String(run.id),
             name: run.name,
+            displayTitle: run.display_title,
             conclusion: run.conclusion as WorkflowRun['conclusion'],
             createdAt: new Date(run.created_at),
             updatedAt: new Date(run.updated_at),

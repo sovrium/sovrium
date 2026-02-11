@@ -85,56 +85,67 @@ Use these tags in error symptoms or root cause to improve searchability:
 
 ### ISSUE-2026-02-11-duplicate-claude-comment-race
 
-| Field                    | Value                                                                                                                                                                       |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Date**                 | 2026-02-11                                                                                                                                                                  |
-| **Severity**             | high                                                                                                                                                                        |
-| **Affected Workflow(s)** | `test.yml`                                                                                                                                                                  |
-| **Error Symptoms**       | `[STATE]` `[RETRY]` — Two concurrent `test.yml` runs both post `@claude` comments on the same TDD PR, causing duplicate Claude Code workflow triggers for the same attempt. |
+| Field                    | Value                                                                                                                                                                                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Date**                 | 2026-02-11                                                                                                                                                                                                                                                                                 |
+| **Severity**             | high                                                                                                                                                                                                                                                                                       |
+| **Affected Workflow(s)** | `test.yml`, `staleness-check.ts`                                                                                                                                                                                                                                                           |
+| **Error Symptoms**       | `[STATE]` `[RETRY]` `[INFRA]` — Two concurrent `test.yml` runs both post `@claude` comments on the same TDD PR, causing duplicate Claude Code workflow triggers for the same attempt. Additionally, the "Claude Code running check" in Step 2 **never worked** due to a branch filter bug. |
 
 **Error Message / Log Excerpt**:
 
 ```
 PR #7225: Two @claude e2e-test-fixer comments posted within seconds of each other,
 both for the same attempt number. Both triggered separate claude-code.yml runs.
+
+# Step 2 (Claude Code running check) always returned 0:
+gh run list --workflow="Claude Code" --branch="tdd/implement-SPEC-001" --status=in_progress
+# Returns 0 because claude-code.yml (triggered by issue_comment) reports head_branch="main"
 ```
 
-**Root Cause Analysis**:
+**Root Cause Analysis (Two-Phase Discovery)**:
 
-The `tdd-handle-failure` job in `test.yml` had 3 sequential steps with a timing gap between them:
+**Phase 1 — Race condition between sequential steps**: The `tdd-handle-failure` job in `test.yml` had 3 sequential steps with a timing gap between them:
 
 1. `check-last-run` (staleness check) - ~10 seconds
 2. `check-claude-code` (Claude Code workflow running check) - ~5 seconds
 3. `Trigger Claude Code on failure` (posts the `@claude` comment)
 
-Between step 1 and step 3, another concurrent `test.yml` run (triggered by the same push or a rapid succession of pushes) could also pass the same checks and post its own `@claude` comment. The `concurrency` config in `test.yml` uses `cancel-in-progress: true` for PRs, but this only cancels when a **new** run starts -- if two runs start nearly simultaneously (e.g., from the same `synchronize` event), both can proceed through the check steps before either posts.
+Between step 1 and step 3, another concurrent `test.yml` run could pass the same checks and post its own `@claude` comment.
 
-The `claude-code.yml` concurrency group (`claude-code-{PR#}`) prevents parallel execution, but it does not prevent duplicate comments from being posted. The second comment would queue a second Claude Code run that starts after the first completes, wasting credits and creating confusing state.
+**Phase 2 — Branch filter bug (the deeper issue)**: The "Claude Code running check" in Step 2 used `gh run list --workflow="Claude Code" --branch="$BRANCH" --status=in_progress` to detect running Claude Code workflows. This check **never returned results** because `claude-code.yml` is triggered by `issue_comment` events, and GitHub Actions always reports `head_branch: "main"` for `issue_comment`-triggered workflows, regardless of the PR's actual branch. So filtering by the TDD branch name (e.g., `tdd/implement-SPEC-001`) always returned 0.
 
-**Solution Applied**:
+The same bug affected `staleness-check.ts` (`scripts/tdd-automation/programs/staleness-check.ts`), which queries Claude Code runs using the branch parameter from the environment. All Claude Code run queries returned empty results, making the staleness check's `activeClaude` count always 0.
 
-Merged the 3 separate steps into a **single atomic step** with 4 internal phases:
+**Solution Applied (Two Phases)**:
 
-1. **Staleness check** (via existing TypeScript program)
-2. **Claude Code workflow running check** (via `gh run list`)
-3. **Attempt-specific comment deduplication** (new): queries PR comments to check if a `@claude` comment with the same `Attempt: N/M` string already exists for this attempt number
-4. **Comment posting** (if all checks pass)
+**Phase 1 fix — Atomic step**: Merged the 3 separate steps into a single atomic step with 4 internal phases:
 
-By combining all checks and the post into one step, the race window is reduced from minutes (time between separate steps) to milliseconds (time between the deduplication query and the `gh pr comment` call).
+1. Staleness check (via TypeScript program)
+2. Claude Code workflow running check (via `gh run list`)
+3. Attempt-specific comment deduplication (queries PR comments for existing `Attempt: N/M`)
+4. Comment posting (if all checks pass)
 
-The skip notification logic was also merged into the same step, eliminating the orphaned notification steps.
+**Phase 2 fix — Branch filter removal + [TDD] title filter**:
+
+1. In `test.yml` Step 2, replaced `gh run list --branch="$BRANCH"` with a global query filtered by `[TDD]` in `displayTitle` via jq. Also added `--status=queued` to catch runs waiting in the concurrency queue.
+2. In `staleness-check.ts`, removed the branch parameter from `claude-code.yml` queries and added `display_title` filtering for `[TDD]` prefix instead. Also added `queued` status checks.
+3. This is safe because serial processing guarantees only one active TDD PR at a time, making a global `[TDD]` check equivalent to a per-PR branch check.
 
 **Files Modified**:
 
-- `.github/workflows/test.yml` — Merged 5 steps (check-last-run, 2 skip notifications, check-claude-code, trigger comment) into single "Check conditions and trigger Claude Code" step
-- `docs/development/tdd-automation-pipeline.md` — Added 7th race condition protection layer documenting the atomic check-and-post pattern
+- `.github/workflows/test.yml` — Phase 1: Merged 5 steps into atomic step. Phase 2: Replaced branch-filtered `gh run list` with global `[TDD]` title-filtered query
+- `scripts/tdd-automation/programs/staleness-check.ts` — Phase 2: Removed branch filter for `claude-code.yml` queries, added `display_title` filtering and `queued` status
+- `scripts/tdd-automation/services/github-api.ts` — Phase 2: Added `displayTitle` field to `WorkflowRun` interface
+- `docs/development/tdd-automation-pipeline.md` — Updated race condition protection layer 4 and staleness filter documentation
 
 **Lessons Learned**:
 
-- **Sequential workflow steps with timing gaps create race windows.** When two concurrent runs execute the same job, each step acts as a separate "gate" — but the gates are not atomic with the final action. Merging check + action into a single step minimizes the race window.
-- **Attempt-specific deduplication is safer than generic `@claude` matching.** Using generic matching (e.g., "any `@claude` comment exists") would block legitimate retries for different attempt numbers. The deduplication must match the specific `Attempt: N/M` string.
-- **The `claude-code.yml` concurrency group is still the safety net.** Even if a duplicate comment slips through, the concurrency group ensures only one Claude Code workflow runs at a time per PR. The deduplication prevents wasteful queuing, not parallel execution.
-- **GitHub Actions `cancel-in-progress` does not prevent near-simultaneous runs.** Two runs triggered within the same second can both start executing before the cancellation mechanism detects the duplicate.
+- **`issue_comment`-triggered workflows always report `head_branch: "main"`.** This is a GitHub Actions platform behavior, not a bug. Any check that filters by the PR's branch name will fail for workflows triggered by `issue_comment` events. Always verify your branch filter assumptions by checking the actual workflow trigger type.
+- **Sequential workflow steps with timing gaps create race windows.** Merging check + action into a single step minimizes the race window from minutes to milliseconds.
+- **Attempt-specific deduplication is safer than generic matching.** The deduplication must match the specific `Attempt: N/M` string to allow legitimate retries.
+- **Serial processing guarantees simplify global checks.** When the pipeline enforces 1 active TDD PR at a time, global queries filtered by `[TDD]` title are equivalent to per-PR branch queries, and more reliable.
+- **A check that always returns 0 is worse than no check.** The branch-filtered Claude Code query gave false confidence that no runs were active, effectively bypassing the protection entirely.
 
 **Related Issues**: PR #7225
 

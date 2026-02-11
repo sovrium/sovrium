@@ -38,6 +38,7 @@ const GitHubApiMock = (workflowRuns: readonly { id: string; logs: string }[] = [
         workflowRuns.map((run) => ({
           id: run.id,
           name: 'claude-code.yml',
+          displayTitle: '[TDD] Test run',
           conclusion: 'success' as const,
           createdAt: new Date(),
           updatedAt: new Date(),

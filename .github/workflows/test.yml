@@ -1242,19 +1242,24 @@ jobs:
           fi
 
           # ── Step 2: Claude Code workflow running check ───────────────────
-          echo "🔍 Checking for running Claude Code workflows on branch: $BRANCH"
+          # NOTE: claude-code.yml is triggered by issue_comment events, which
+          # always report head_branch="main" regardless of the PR's branch.
+          # Therefore we query globally (no --branch) and filter by [TDD] in
+          # the display title. This is safe because serial processing guarantees
+          # only 1 active TDD PR at a time.
+          echo "🔍 Checking for running/queued Claude Code workflows (TDD)..."
 
           RUNNING_WORKFLOWS=$(gh run list \
             --workflow="Claude Code" \
-            --branch="$BRANCH" \
-            --status=in_progress \
-            --json databaseId,status,workflowName,createdAt \
-            --limit 10 | jq '. | length')
+            --status=in_progress --status=queued \
+            --json databaseId,displayTitle \
+            --limit 20 \
+            --jq '[.[] | select(.displayTitle | startswith("[TDD]"))] | length')
 
-          echo "   Running Claude Code workflows: $RUNNING_WORKFLOWS"
+          echo "   Running/queued TDD Claude Code workflows: $RUNNING_WORKFLOWS"
 
           if [ "$RUNNING_WORKFLOWS" -gt 0 ]; then
-            echo "⏭️ Skipping: Claude Code workflow already running on this branch"
+            echo "⏭️ Skipping: Claude Code workflow already running/queued for TDD automation"
 
             {
               echo "## ⏭️ TDD Automation: Trigger Skipped"

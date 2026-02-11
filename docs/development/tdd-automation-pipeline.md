@@ -1198,7 +1198,7 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 
   3. **Staleness Filter (Phantom Run Protection)**: When checking for active test.yml or claude-code.yml runs, only count runs as "active" if their `updated_at` timestamp is within the last 30 minutes. This prevents GitHub Actions infrastructure phantom runs (stuck in `in_progress` status indefinitely) from blocking the pipeline. Phantom runs older than 30 minutes are ignored, allowing new runs to trigger Claude Code correctly.
 
-  4. **Claude Code Workflow Check**: Before posting the `@claude` comment that triggers Claude Code, `test.yml` uses the GitHub API to check if a Claude Code workflow is already running on the same branch (`gh run list --workflow="Claude Code" --branch=<branch> --status=in_progress`). If a running Claude Code workflow is detected, the comment posting is skipped and a notification is posted explaining why. This prevents duplicate Claude Code workflows from running simultaneously on the same PR.
+  4. **Claude Code Workflow Check (Global with [TDD] Title Filter)**: Before posting the `@claude` comment that triggers Claude Code, `test.yml` checks if any Claude Code workflow is already running for TDD automation. The check uses `gh run list --workflow="Claude Code" --status=in_progress --status=queued` (no branch filter) and filters results by `[TDD]` in the display title via jq. **Why no branch filter**: The `claude-code.yml` workflow is triggered by `issue_comment` events, which always report `head_branch: "main"` regardless of the PR's actual branch. Branch-based filtering would always return 0 results, defeating the check. **Why this is safe**: Serial processing guarantees only one active TDD PR at a time, so a global check for `[TDD]`-titled Claude Code runs is equivalent to a per-PR check. If a running or queued Claude Code workflow is detected, the comment posting is skipped and a notification is posted explaining why.
 
   5. **Timeout-Based Fallback**: A scheduled workflow (hourly) checks TDD PRs that have been in failed state for >30 minutes without Claude Code activity. Automatically adds `tdd-automation:manual-intervention` label and posts an explanatory comment if automation has stalled.
 
@@ -2501,19 +2501,23 @@ IN_PROGRESS_TEST_RUNS=$(gh api \
   '.workflow_runs | map(select(.id != ($current_id | tonumber) and .updated_at > $threshold)) | length')
 
 # Same staleness filter for Claude Code runs
+# NOTE: claude-code.yml is triggered by issue_comment events, which always
+# report head_branch="main" regardless of the PR's actual branch. Therefore
+# we query WITHOUT branch filter and filter by [TDD] display_title instead.
+# This is safe because serial processing guarantees only 1 active TDD PR.
 ACTIVE_CLAUDE_RUNS=$(gh api \
   -H "Accept: application/vnd.github+json" \
   -H "X-GitHub-Api-Version: 2022-11-28" \
-  "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=queued&branch=$BRANCH" \
+  "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=queued" \
   --jq --arg threshold "$STALENESS_THRESHOLD" \
-  '.workflow_runs | map(select(.updated_at > $threshold))')
+  '.workflow_runs | map(select(.updated_at > $threshold and (.display_title | startswith("[TDD]"))))')
 
 IN_PROGRESS_CLAUDE=$(gh api \
   -H "Accept: application/vnd.github+json" \
   -H "X-GitHub-Api-Version: 2022-11-28" \
-  "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=in_progress&branch=$BRANCH" \
+  "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=in_progress" \
   --jq --arg threshold "$STALENESS_THRESHOLD" \
-  '.workflow_runs | map(select(.updated_at > $threshold))')
+  '.workflow_runs | map(select(.updated_at > $threshold and (.display_title | startswith("[TDD]"))))')
 ```
 
 #### Why 30 Minutes?

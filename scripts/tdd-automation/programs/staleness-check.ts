@@ -34,7 +34,7 @@ export const DEFAULT_STALENESS_THRESHOLD = Duration.minutes(30)
 export interface StalenessCheckConfig {
   /** Current workflow run ID to exclude from counts */
   readonly currentRunId: string
-  /** Branch to check for runs */
+  /** Branch to check for test.yml runs */
   readonly branch: string
   /** When the current run started */
   readonly currentRunStartedAt: Date
@@ -92,8 +92,16 @@ function filterNewerRuns(runs: readonly WorkflowRun[], afterTime: Date): readonl
 }
 
 /**
+ * Filter runs by [TDD] display title prefix
+ * Used for claude-code.yml runs which always report head_branch="main"
+ */
+function filterTddRuns(runs: readonly WorkflowRun[]): readonly WorkflowRun[] {
+  return runs.filter((run) => run.displayTitle.startsWith('[TDD]'))
+}
+
+/**
  * Query workflow runs by status and branch using gh api
- * The existing getWorkflowRuns doesn't filter by branch, so we use gh api directly
+ * Used for test.yml which correctly reports the PR's branch
  */
 const queryWorkflowRunsByStatusAndBranch = (params: {
   readonly workflow: string
@@ -114,6 +122,7 @@ const queryWorkflowRunsByStatusAndBranch = (params: {
         workflow_runs: Array<{
           id: number
           name: string
+          display_title: string
           conclusion: string | null
           created_at: string
           updated_at: string
@@ -124,6 +133,60 @@ const queryWorkflowRunsByStatusAndBranch = (params: {
       return data.workflow_runs.map((run) => ({
         id: String(run.id),
         name: run.name,
+        displayTitle: run.display_title,
+        conclusion: run.conclusion as WorkflowRun['conclusion'],
+        createdAt: new Date(run.created_at),
+        updatedAt: new Date(run.updated_at),
+        htmlUrl: run.html_url,
+      }))
+    },
+    catch: (error) =>
+      new GitHubApiError({
+        operation: `queryWorkflowRuns:${params.workflow}:${params.status}`,
+        cause: error,
+      }),
+  })
+
+/**
+ * Query workflow runs by status only (no branch filter)
+ *
+ * Used for claude-code.yml which is triggered by issue_comment events.
+ * These events always report head_branch="main" regardless of the PR's
+ * actual branch, so branch-based filtering would always return 0 results.
+ *
+ * Results are filtered by [TDD] display_title prefix instead, which is
+ * safe because serial processing guarantees only 1 active TDD PR at a time.
+ */
+const queryWorkflowRunsByStatus = (params: {
+  readonly workflow: string
+  readonly status: 'queued' | 'in_progress'
+  readonly repository: string
+}) =>
+  Effect.tryPromise({
+    try: async () => {
+      const endpoint = `/repos/${params.repository}/actions/workflows/${params.workflow}/runs?status=${params.status}`
+
+      const result = await Bun.$`gh api \
+        -H "Accept: application/vnd.github+json" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
+        "${endpoint}"`.quiet()
+
+      const data = JSON.parse(result.stdout.toString()) as {
+        workflow_runs: Array<{
+          id: number
+          name: string
+          display_title: string
+          conclusion: string | null
+          created_at: string
+          updated_at: string
+          html_url: string
+        }>
+      }
+
+      return data.workflow_runs.map((run) => ({
+        id: String(run.id),
+        name: run.name,
+        displayTitle: run.display_title,
         conclusion: run.conclusion as WorkflowRun['conclusion'],
         createdAt: new Date(run.created_at),
         updatedAt: new Date(run.updated_at),
@@ -151,7 +214,8 @@ export const checkStaleness = (config: StalenessCheckConfig) =>
   Effect.gen(function* () {
     const threshold = config.stalenessThreshold ?? DEFAULT_STALENESS_THRESHOLD
 
-    // Query test.yml runs (queued and in_progress)
+    // Query test.yml runs (queued and in_progress) - filtered by branch
+    // test.yml is triggered by pull_request events which correctly report the PR's branch
     const [queuedTests, inProgressTests] = yield* Effect.all([
       queryWorkflowRunsByStatusAndBranch({
         workflow: 'test.yml',
@@ -167,18 +231,18 @@ export const checkStaleness = (config: StalenessCheckConfig) =>
       }),
     ])
 
-    // Query claude-code.yml runs (queued and in_progress)
+    // Query claude-code.yml runs (queued and in_progress) - NO branch filter
+    // claude-code.yml is triggered by issue_comment events which always report
+    // head_branch="main". We filter by [TDD] display_title prefix instead.
     const [queuedClaude, inProgressClaude] = yield* Effect.all([
-      queryWorkflowRunsByStatusAndBranch({
+      queryWorkflowRunsByStatus({
         workflow: 'claude-code.yml',
         status: 'queued',
-        branch: config.branch,
         repository: config.repository,
       }),
-      queryWorkflowRunsByStatusAndBranch({
+      queryWorkflowRunsByStatus({
         workflow: 'claude-code.yml',
         status: 'in_progress',
-        branch: config.branch,
         repository: config.repository,
       }),
     ])
@@ -196,9 +260,9 @@ export const checkStaleness = (config: StalenessCheckConfig) =>
       (runs) => filterNonStaleRuns(runs, threshold)
     )
 
-    // Filter stale runs from claude-code.yml
-    const nonStaleQueuedClaude = filterNonStaleRuns(queuedClaude, threshold)
-    const nonStaleInProgressClaude = filterNonStaleRuns(inProgressClaude, threshold)
+    // Filter Claude Code runs: remove stale, then filter by [TDD] title
+    const nonStaleQueuedClaude = filterTddRuns(filterNonStaleRuns(queuedClaude, threshold))
+    const nonStaleInProgressClaude = filterTddRuns(filterNonStaleRuns(inProgressClaude, threshold))
 
     // Combine Claude Code runs and filter for newer ones
     const allClaudeRuns = [...nonStaleQueuedClaude, ...nonStaleInProgressClaude]
