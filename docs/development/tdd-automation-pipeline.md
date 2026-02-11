@@ -182,7 +182,7 @@ Both agents use **model escalation** to balance cost and success rate. The agent
 - ✅ Removes eslint-disable comments and fixes violations
 - ✅ Refactors recent commits (Phase 1.1) immediately
 - ✅ Generates recommendations for older code (Phase 1.2)
-- ✅ Validates with regression tests before committing
+- ✅ Validates with targeted spec test (`bun test:e2e -- <spec-file>`) and quality checks before committing (full regression suite delegated to `test.yml` post-push)
 - ❌ Does not implement Phase 1.2 recommendations without approval
 - ❌ Never creates new schemas (e2e-test-fixer's responsibility)
 

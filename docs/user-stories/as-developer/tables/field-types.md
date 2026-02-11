@@ -802,9 +802,9 @@ tables:
 | ------ | ----------------------------------------------------- | -------------------------------------------- | ------ |
 | AC-001 | Creates PostgreSQL INTEGER column                     | `APP-TABLES-FIELD-TYPES-PROGRESS-001`        | ✅     |
 | AC-002 | Enforces CHECK constraint for 0-100 range             | `APP-TABLES-FIELD-TYPES-PROGRESS-002`        | ✅     |
-| AC-003 | Supports NOT NULL constraint (default 0)              | `APP-TABLES-FIELD-TYPES-PROGRESS-003`        | ⏳     |
-| AC-004 | Supports DEFAULT value                                | `APP-TABLES-FIELD-TYPES-PROGRESS-004`        | ⏳     |
-| AC-005 | Returns as percentage in API responses                | `APP-TABLES-FIELD-TYPES-PROGRESS-005`        | ⏳     |
+| AC-003 | Supports NOT NULL constraint (default 0)              | `APP-TABLES-FIELD-TYPES-PROGRESS-003`        | ✅     |
+| AC-004 | Supports DEFAULT value                                | `APP-TABLES-FIELD-TYPES-PROGRESS-004`        | ✅     |
+| AC-005 | Returns as percentage in API responses                | `APP-TABLES-FIELD-TYPES-PROGRESS-005`        | ✅     |
 | AC-006 | User can complete full progress workflow (regression) | `APP-TABLES-FIELD-TYPES-PROGRESS-REGRESSION` | ✅     |
 
 ### Implementation References

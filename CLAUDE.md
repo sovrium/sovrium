@@ -70,11 +70,12 @@ bun run export:openapi             # Export OpenAPI schema from runtime API rout
 bun test:unit                      # Unit tests (PATTERN FILTER: .test.ts .test.tsx only)
 
 # E2E Testing & Snapshots (Playwright)
-bun test:e2e                       # Run all E2E tests
-bun test:e2e:spec                  # Run @spec tests only (exhaustive)
-bun test:e2e:regression            # Run @regression tests only (optimized)
+bun test:e2e                       # Run all E2E tests (⚠️ AGENTS: FORBIDDEN - use targeted commands below)
+bun test:e2e:spec                  # Run @spec tests only (⚠️ AGENTS: FORBIDDEN - too slow for agent execution)
+bun test:e2e:regression            # Run @regression tests only (optimized) ← agents use this
 bun test:e2e:update-snapshots      # Update ALL snapshots (ARIA + visual)
 bun test:e2e:update-snapshots:spec # Update @spec test snapshots only
+# Agent-allowed E2E commands: bun test:e2e -- <specific-file>, bun test:e2e:regression, bun run quality
 
 # Two-Tier Quality Pipeline
 # Tier 1: Code quality (format, lint, types, tests, coverage, e2e)
@@ -118,8 +119,8 @@ bun run typecheck           # TypeScript type checking
 bun run clean               # Knip (detect unused code/dependencies)
 bun run clean:fix           # Knip (auto-fix unused exports)
 bun test:unit               # Unit tests (Bun Test - src/ and scripts/)
-bun test:e2e                # E2E tests (Playwright - all)
-bun test:e2e:spec           # E2E spec tests (@spec tag) - for development
+bun test:e2e                # E2E tests (Playwright - all) (⚠️ AGENTS: FORBIDDEN)
+bun test:e2e:spec           # E2E spec tests (@spec tag) - for development (⚠️ AGENTS: FORBIDDEN)
 bun test:e2e:regression     # E2E regression tests (@regression tag) - for CI/pre-merge
 bun test:e2e:ui             # E2E tests with Playwright UI
 bun test:all                # All tests (unit + E2E regression)
