@@ -122,8 +122,7 @@ interface WorkflowJob {
 const hasActiveExecuteJob = (runId: string, repository: string) =>
   Effect.tryPromise({
     try: async () => {
-      const result =
-        await Bun.$`gh run view ${runId} --repo ${repository} --json jobs`.quiet()
+      const result = await Bun.$`gh run view ${runId} --repo ${repository} --json jobs`.quiet()
       const data = JSON.parse(result.stdout.toString()) as {
         jobs: readonly WorkflowJob[]
       }
@@ -139,10 +138,7 @@ const hasActiveExecuteJob = (runId: string, repository: string) =>
  * Filter in-progress Claude Code runs to only those with an active execute job.
  * Removes spurious runs triggered by non-@claude comments.
  */
-const filterRunsWithActiveExecuteJob = (
-  runs: readonly WorkflowRun[],
-  repository: string
-) =>
+const filterRunsWithActiveExecuteJob = (runs: readonly WorkflowRun[], repository: string) =>
   Effect.gen(function* () {
     if (runs.length === 0) return runs
 
