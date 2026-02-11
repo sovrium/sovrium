@@ -769,11 +769,11 @@ test.describe('Relationship Field', () => {
       // GIVEN: Hierarchical data: CEO → VP → Manager → Staff
       await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('CEO', NULL)`)
       const ceo = await executeQuery(`SELECT id FROM employees WHERE name = 'CEO'`)
-      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('VP', ${ceo[0].id})`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('VP', ${ceo.id})`)
       const vp = await executeQuery(`SELECT id FROM employees WHERE name = 'VP'`)
-      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Manager', ${vp[0].id})`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Manager', ${vp.id})`)
       const mgr = await executeQuery(`SELECT id FROM employees WHERE name = 'Manager'`)
-      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Staff', ${mgr[0].id})`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Staff', ${mgr.id})`)
 
       // WHEN: Execute recursive CTE to find all subordinates of CEO
       const subordinates = await executeQuery(`
@@ -787,8 +787,8 @@ test.describe('Relationship Field', () => {
       `)
 
       // THEN: Returns all subordinates
-      expect(subordinates).toHaveLength(3)
-      expect(subordinates.map((r: any) => r.name)).toEqual(['Manager', 'Staff', 'VP'])
+      expect(subordinates.rows).toHaveLength(3)
+      expect(subordinates.rows.map((r: any) => r.name)).toEqual(['Manager', 'Staff', 'VP'])
     }
   )
 
@@ -820,17 +820,17 @@ test.describe('Relationship Field', () => {
       // GIVEN: A → B hierarchy
       await executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('A', NULL)`)
       const a = await executeQuery(`SELECT id FROM categories WHERE name = 'A'`)
-      await executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('B', ${a[0].id})`)
+      await executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('B', ${a.id})`)
       const b = await executeQuery(`SELECT id FROM categories WHERE name = 'B'`)
 
       // WHEN: Try to create a cycle: set A's parent to B
       // THEN: Either DB trigger prevents it or application validates
       // (behavior depends on implementation — may succeed at DB level if no trigger)
       try {
-        await executeQuery(`UPDATE categories SET parent_id = ${b[0].id} WHERE name = 'A'`)
+        await executeQuery(`UPDATE categories SET parent_id = ${b.id} WHERE name = 'A'`)
         // If no error, circular reference exists at DB level (needs app-level validation)
         const result = await executeQuery(`SELECT parent_id FROM categories WHERE name = 'A'`)
-        expect(result[0].parent_id).toBe(b[0].id)
+        expect(result.parent_id).toBe(b.id)
       } catch {
         // If error thrown, circular reference prevention is enforced
         expect(true).toBe(true)
@@ -866,25 +866,25 @@ test.describe('Relationship Field', () => {
       // GIVEN: CEO → VP → Manager chain
       await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('CEO', NULL)`)
       const ceo = await executeQuery(`SELECT id FROM employees WHERE name = 'CEO'`)
-      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('VP', ${ceo[0].id})`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('VP', ${ceo.id})`)
       const vp = await executeQuery(`SELECT id FROM employees WHERE name = 'VP'`)
-      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Manager', ${vp[0].id})`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Manager', ${vp.id})`)
       const mgr = await executeQuery(`SELECT id FROM employees WHERE name = 'Manager'`)
 
       // WHEN: Query ancestors of Manager via recursive CTE
       const ancestors = await executeQuery(`
         WITH RECURSIVE ancestors AS (
-          SELECT id, name, manager_id FROM employees WHERE id = ${mgr[0].id}
+          SELECT id, name, manager_id FROM employees WHERE id = ${mgr.id}
           UNION ALL
           SELECT e.id, e.name, e.manager_id
           FROM employees e JOIN ancestors a ON e.id = a.manager_id
         )
-        SELECT name FROM ancestors WHERE id != ${mgr[0].id} ORDER BY name
+        SELECT name FROM ancestors WHERE id != ${mgr.id} ORDER BY name
       `)
 
       // THEN: Returns [CEO, VP]
-      expect(ancestors).toHaveLength(2)
-      expect(ancestors.map((r: any) => r.name).sort()).toEqual(['CEO', 'VP'])
+      expect(ancestors.rows).toHaveLength(2)
+      expect(ancestors.rows.map((r: any) => r.name).sort()).toEqual(['CEO', 'VP'])
     }
   )
 
@@ -928,15 +928,13 @@ test.describe('Relationship Field', () => {
       // GIVEN: Department with employees referencing it
       await executeQuery(`INSERT INTO departments (name) VALUES ('Engineering')`)
       const dept = await executeQuery(`SELECT id FROM departments WHERE name = 'Engineering'`)
-      await executeQuery(
-        `INSERT INTO employees (name, department_id) VALUES ('Alice', ${dept[0].id})`
-      )
+      await executeQuery(`INSERT INTO employees (name, department_id) VALUES ('Alice', ${dept.id})`)
 
       // WHEN: Attempt to delete department with RESTRICT constraint
       // THEN: Throws FK constraint violation error
-      await expect(
-        executeQuery(`DELETE FROM departments WHERE id = ${dept[0].id}`)
-      ).rejects.toThrow(/violates foreign key constraint/)
+      await expect(executeQuery(`DELETE FROM departments WHERE id = ${dept.id}`)).rejects.toThrow(
+        /violates foreign key constraint/
+      )
     }
   )
 
@@ -979,15 +977,15 @@ test.describe('Relationship Field', () => {
 
       await executeQuery(`INSERT INTO categories (label) VALUES ('Electronics')`)
       const cat = await executeQuery(`SELECT id FROM categories`)
-      await executeQuery(`INSERT INTO products (name, category_id) VALUES ('Laptop', ${cat[0].id})`)
+      await executeQuery(`INSERT INTO products (name, category_id) VALUES ('Laptop', ${cat.id})`)
 
       // THEN: FK column exists, displayField accessible via JOIN
       const result = await executeQuery(`
         SELECT p.name, c.label as category_label
         FROM products p JOIN categories c ON p.category_id = c.id
       `)
-      expect(result[0].name).toBe('Laptop')
-      expect(result[0].category_label).toBe('Electronics')
+      expect(result.name).toBe('Laptop')
+      expect(result.category_label).toBe('Electronics')
     }
   )
 
@@ -1077,8 +1075,8 @@ test.describe('Relationship Field', () => {
         SELECT c.first_name, c.last_name
         FROM tasks t JOIN contacts c ON t.assignee_id = c.id
       `)
-      expect(result[0].first_name).toBe('John')
-      expect(result[0].last_name).toBe('Doe')
+      expect(result.first_name).toBe('John')
+      expect(result.last_name).toBe('Doe')
     }
   )
 

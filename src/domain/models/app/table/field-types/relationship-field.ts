@@ -18,11 +18,14 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
           description: 'Name of the related table',
         })
       ),
-      relationType: Schema.String.pipe(
-        Schema.nonEmptyString({ message: () => 'relationType is required' }),
-        Schema.annotations({
-          description: 'Type of relationship',
-        })
+      relationType: Schema.optionalWith(
+        Schema.String.pipe(
+          Schema.nonEmptyString({ message: () => 'relationType is required' }),
+          Schema.annotations({
+            description: 'Type of relationship (default: many-to-one)',
+          })
+        ),
+        { default: () => 'many-to-one' }
       ),
       foreignKey: Schema.optional(
         Schema.String.pipe(
