@@ -18,11 +18,13 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
           description: 'Name of the related table',
         })
       ),
-      relationType: Schema.String.pipe(
-        Schema.nonEmptyString({ message: () => 'relationType is required' }),
-        Schema.annotations({
-          description: 'Type of relationship',
-        })
+      relationType: Schema.optional(
+        Schema.String.pipe(
+          Schema.nonEmptyString({ message: () => 'relationType cannot be empty' }),
+          Schema.annotations({
+            description: 'Type of relationship',
+          })
+        )
       ),
       foreignKey: Schema.optional(
         Schema.String.pipe(

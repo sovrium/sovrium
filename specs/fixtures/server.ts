@@ -7,6 +7,8 @@
 
 import { spawn } from 'node:child_process'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
+import { Schema } from 'effect'
+import { AppSchema } from '@/domain/models/app'
 import { DatabaseTemplateManager, generateTestDatabaseName } from './database'
 import { MailpitHelper } from './email'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
@@ -304,11 +306,33 @@ export async function startCliServer(
   const mailpit = new MailpitHelper()
   const smtpEnv = mailpit.getSmtpEnv('noreply@sovrium.com', { fromName: 'Sovrium' })
 
+  // Decode the app schema to validate it
+  const decoded = Schema.decodeSync(AppSchema)(appSchema as typeof AppSchema.Type)
+
+  // Apply default values for relationship fields that don't have relationType
+  // This is necessary because Schema.optional({ default: ... }) doesn't actually
+  // add the property to the decoded object - it only provides the default when accessed
+  const appWithDefaults = {
+    ...decoded,
+    tables: decoded.tables?.map((table) => ({
+      ...table,
+      fields: table.fields.map((field) => {
+        if (field.type === 'relationship' && !('relationType' in field)) {
+          return { ...field, relationType: 'many-to-one' }
+        }
+        return field
+      }),
+    })),
+  }
+
+  // Encode the schema with defaults applied
+  const encoded = Schema.encodeSync(AppSchema)(appWithDefaults)
+
   // Start the server with CLI command using port 0 (Bun auto-selects available port)
   const serverProcess = spawn('bun', ['run', 'src/cli.ts'], {
     env: {
       ...process.env,
-      APP_SCHEMA: JSON.stringify(appSchema),
+      APP_SCHEMA: JSON.stringify(encoded),
       PORT: '0', // Let Bun select an available port
       ...(databaseUrl && { DATABASE_URL: databaseUrl }),
       ...smtpEnv, // Configure SMTP to use Mailpit

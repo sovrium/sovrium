@@ -732,10 +732,10 @@ test.describe('Relationship Field', () => {
         `SELECT is_nullable FROM information_schema.columns
          WHERE table_name = 'employees' AND column_name = 'manager_id'`
       )
-      expect(columns[0].is_nullable).toBe('YES')
+      expect(columns.is_nullable).toBe('YES')
 
       const ceo = await executeQuery(`SELECT manager_id FROM employees WHERE name = 'CEO'`)
-      expect(ceo[0].manager_id).toBeNull()
+      expect(ceo.manager_id).toBeNull()
     }
   )
 
