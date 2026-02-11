@@ -107,6 +107,34 @@ const detectCircularRelationships = (
 }
 
 /**
+ * Detect circular permission inheritance between tables.
+ * A circular permission inheritance exists when Table A inherits from Table B,
+ * and Table B inherits from Table A (directly or through a chain of other tables).
+ *
+ * @param tables - Array of tables to validate
+ * @returns Array of table names involved in circular permission inheritance, or empty array if none found
+ */
+const detectCircularPermissionInheritance = (
+  tables: ReadonlyArray<{
+    readonly name: string
+    readonly permissions?: {
+      readonly inherit?: string
+    }
+  }>
+): ReadonlyArray<string> => {
+  // Build dependency graph: table name -> parent table it inherits permissions from
+  const dependencyGraph: ReadonlyMap<string, ReadonlyArray<string>> = new Map(
+    tables.map((table) => {
+      const inheritFrom = table.permissions?.inherit
+      return [table.name, inheritFrom ? [inheritFrom] : []] as const
+    })
+  )
+
+  // Use shared cycle detection utility
+  return detectCycles(dependencyGraph)
+}
+
+/**
  * Validate that a relationship field reference is valid.
  *
  * This helper validates that:
@@ -510,6 +538,25 @@ export const TablesSchema = Schema.Array(TableSchema).pipe(
     const circularTables = detectCircularRelationships(tables)
     if (circularTables.length > 0) {
       return `Circular relationship dependency detected: ${circularTables.join(' -> ')} - cannot resolve table creation order`
+    }
+    return true
+  }),
+  Schema.filter((tables) => {
+    const circularPermissions = detectCircularPermissionInheritance(tables)
+    if (circularPermissions.length > 0) {
+      return `Circular permission inheritance detected: ${circularPermissions.join(' -> ')} - inheritance cycle not allowed`
+    }
+    return true
+  }),
+  Schema.filter((tables) => {
+    // Validate that inherited tables exist
+    const tableNames = new Set(tables.map((table) => table.name))
+    const invalidInheritance = tables
+      .filter((table) => table.permissions?.inherit !== undefined)
+      .find((table) => !tableNames.has(table.permissions!.inherit!))
+
+    if (invalidInheritance) {
+      return `Table "${invalidInheritance.name}" inherits from non-existent table "${invalidInheritance.permissions!.inherit}"`
     }
     return true
   }),
