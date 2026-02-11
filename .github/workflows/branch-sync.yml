@@ -93,6 +93,25 @@ jobs:
 
             echo "📊 Branch is $BEHIND_COUNT commit(s) behind main"
 
+            # Guard: Skip sync if Claude Code is actively working on a TDD PR.
+            # Pushing to a TDD branch triggers test.yml (pull_request: synchronize),
+            # which can cancel the running Claude Code workflow and waste an attempt.
+            # The next sync cycle (15-min cron or next push to main) will pick this up.
+            # Uses global [TDD] title filter (no branch filter) because claude-code.yml
+            # is triggered by issue_comment which always reports head_branch="main".
+            CLAUDE_RUNNING=$(gh run list \
+              --workflow="Claude Code" \
+              --status=in_progress --status=queued \
+              --json databaseId,displayTitle \
+              --limit 20 \
+              --jq '[.[] | select(.displayTitle | startswith("[TDD]"))] | length')
+
+            if [ "$CLAUDE_RUNNING" -gt 0 ]; then
+              echo "⏭️ Skipping sync for PR #$PR_NUMBER: Claude Code is actively working on a TDD PR ($CLAUDE_RUNNING run(s) in progress/queued)"
+              echo "   The branch will be synced on the next cycle after Claude Code completes"
+              continue
+            fi
+
             # Attempt merge (not rebase - matches pipeline strategy)
             echo "🔄 Merging main into $BRANCH..."
 

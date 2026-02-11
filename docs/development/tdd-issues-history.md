@@ -83,6 +83,64 @@ Use these tags in error symptoms or root cause to improve searchability:
 
 <!-- New entries go here, newest first -->
 
+### ISSUE-2026-02-11-branch-sync-claude-cascade
+
+| Field                    | Value                                                                                                                                                                                                                                                                                                    |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Date**                 | 2026-02-11                                                                                                                                                                                                                                                                                               |
+| **Severity**             | high                                                                                                                                                                                                                                                                                                     |
+| **Affected Workflow(s)** | `branch-sync.yml`, `test.yml`, `claude-code.yml`                                                                                                                                                                                                                                                         |
+| **Error Symptoms**       | `[INFRA]` `[STATE]` `[RETRY]` -- `branch-sync.yml` pushes to a TDD branch while Claude Code is actively implementing, triggering a `test.yml` run that cancels the Claude Code workflow and posts a duplicate `@claude` comment with an incremented attempt counter, wasting an attempt and API credits. |
+
+**Error Message / Log Excerpt**:
+
+```
+PR #7233 timeline:
+15:06:59 — test.yml TDD Handle Failure posts @claude comment (Attempt 3/5) → Claude Code starts
+15:47:11 — branch-sync.yml fires (push to main triggers it)
+15:47:26 — branch-sync merges main into tdd/app-tables-field-types-relationship-015, pushes
+15:47:29 — Push triggers test.yml (pull_request: synchronize). Previous Claude Code cancelled.
+15:50:42 — Duplicate @claude comment posted (Attempt 4/5) — wasted attempt + API credits
+```
+
+**Root Cause Analysis**:
+
+`branch-sync.yml` pushes merge commits to TDD branches unconditionally. When Claude Code is actively implementing on that branch, the push creates a cascade:
+
+1. Push to TDD branch triggers `test.yml` (via `pull_request: synchronize` event)
+2. The `test.yml` concurrency group or the new test run cancels/supersedes the running Claude Code workflow
+3. Tests fail (Claude hadn't finished implementing yet) -- `tdd-handle-failure` runs
+4. The Claude Code running check finds no active runs (the previous was cancelled by the cascade)
+5. A new `@claude` comment is posted with an incremented attempt counter (3/5 becomes 4/5)
+
+This wastes one attempt slot AND the cost of a new Claude Code run ($10-15).
+
+**Secondary Finding (Not Fixed)**: The comment deduplication check in test.yml Step 3 filters by `.user.login == "github-actions[bot]"`, but when comments are posted using `GH_PAT_WORKFLOW` (a personal access token), the author is the PAT owner, not `github-actions[bot]`. This means the deduplication check never finds existing comments. However, this was not the cause of this specific issue (the attempt number was already incremented, so dedup would find nothing regardless of author). Documented as a known issue for future fix.
+
+**Solution Applied**:
+
+Added a Claude Code guard in `branch-sync.yml` that checks for active/queued Claude Code TDD runs before pushing merge commits to TDD branches. The guard:
+
+1. Runs after the `BEHIND_COUNT` check (branch is behind main) and before the merge attempt
+2. Uses `gh run list --workflow="Claude Code" --status=in_progress --status=queued` with jq filter for `[TDD]` in `displayTitle` (same pattern as test.yml layer 4)
+3. If active runs are detected, skips the sync with a log message and `continue`
+4. The branch will be synced on the next cycle (15-minute cron or next push to main)
+
+**Files Modified**:
+
+- `.github/workflows/branch-sync.yml` -- Added Claude Code guard check before merge step
+- `docs/development/tdd-automation-pipeline.md` -- Updated Branch Sync Workflow section with guard documentation; added layer 8 to Race Condition Protections
+
+**Lessons Learned**:
+
+- **Any workflow that pushes to TDD branches must check for active Claude Code runs first.** Pushing to a TDD branch triggers `test.yml`, which can cancel running Claude Code and trigger duplicate runs. This is the same class of problem as ISSUE-2026-02-11-duplicate-claude-comment-race but via a different vector (branch-sync instead of concurrent test runs).
+- **The `[TDD]` title-filtered global query pattern is now used in 3 places**: test.yml (layer 4), staleness-check.ts, and branch-sync.yml (layer 8). If the pattern needs to change, all 3 must be updated.
+- **Deferring sync to the next cycle is safe.** Branch-sync runs every 15 minutes (cron) plus on every push to main. Skipping one cycle when Claude Code is active has no negative impact -- the branch will be synced after Claude Code completes and pushes its changes.
+
+**Related Issues**: PR #7233
+
+---
+
 ### ISSUE-2026-02-11-spec-progress-unstaged-user-stories
 
 | Field                    | Value                                                                                                                                                                                                                             |
