@@ -83,6 +83,63 @@ Use these tags in error symptoms or root cause to improve searchability:
 
 <!-- New entries go here, newest first -->
 
+### ISSUE-2026-02-11-duplicate-claude-comment-race
+
+| Field                    | Value                                                                                                                                                                       |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Date**                 | 2026-02-11                                                                                                                                                                  |
+| **Severity**             | high                                                                                                                                                                        |
+| **Affected Workflow(s)** | `test.yml`                                                                                                                                                                  |
+| **Error Symptoms**       | `[STATE]` `[RETRY]` — Two concurrent `test.yml` runs both post `@claude` comments on the same TDD PR, causing duplicate Claude Code workflow triggers for the same attempt. |
+
+**Error Message / Log Excerpt**:
+
+```
+PR #7225: Two @claude e2e-test-fixer comments posted within seconds of each other,
+both for the same attempt number. Both triggered separate claude-code.yml runs.
+```
+
+**Root Cause Analysis**:
+
+The `tdd-handle-failure` job in `test.yml` had 3 sequential steps with a timing gap between them:
+
+1. `check-last-run` (staleness check) - ~10 seconds
+2. `check-claude-code` (Claude Code workflow running check) - ~5 seconds
+3. `Trigger Claude Code on failure` (posts the `@claude` comment)
+
+Between step 1 and step 3, another concurrent `test.yml` run (triggered by the same push or a rapid succession of pushes) could also pass the same checks and post its own `@claude` comment. The `concurrency` config in `test.yml` uses `cancel-in-progress: true` for PRs, but this only cancels when a **new** run starts -- if two runs start nearly simultaneously (e.g., from the same `synchronize` event), both can proceed through the check steps before either posts.
+
+The `claude-code.yml` concurrency group (`claude-code-{PR#}`) prevents parallel execution, but it does not prevent duplicate comments from being posted. The second comment would queue a second Claude Code run that starts after the first completes, wasting credits and creating confusing state.
+
+**Solution Applied**:
+
+Merged the 3 separate steps into a **single atomic step** with 4 internal phases:
+
+1. **Staleness check** (via existing TypeScript program)
+2. **Claude Code workflow running check** (via `gh run list`)
+3. **Attempt-specific comment deduplication** (new): queries PR comments to check if a `@claude` comment with the same `Attempt: N/M` string already exists for this attempt number
+4. **Comment posting** (if all checks pass)
+
+By combining all checks and the post into one step, the race window is reduced from minutes (time between separate steps) to milliseconds (time between the deduplication query and the `gh pr comment` call).
+
+The skip notification logic was also merged into the same step, eliminating the orphaned notification steps.
+
+**Files Modified**:
+
+- `.github/workflows/test.yml` — Merged 5 steps (check-last-run, 2 skip notifications, check-claude-code, trigger comment) into single "Check conditions and trigger Claude Code" step
+- `docs/development/tdd-automation-pipeline.md` — Added 7th race condition protection layer documenting the atomic check-and-post pattern
+
+**Lessons Learned**:
+
+- **Sequential workflow steps with timing gaps create race windows.** When two concurrent runs execute the same job, each step acts as a separate "gate" — but the gates are not atomic with the final action. Merging check + action into a single step minimizes the race window.
+- **Attempt-specific deduplication is safer than generic `@claude` matching.** Using generic matching (e.g., "any `@claude` comment exists") would block legitimate retries for different attempt numbers. The deduplication must match the specific `Attempt: N/M` string.
+- **The `claude-code.yml` concurrency group is still the safety net.** Even if a duplicate comment slips through, the concurrency group ensures only one Claude Code workflow runs at a time per PR. The deduplication prevents wasteful queuing, not parallel execution.
+- **GitHub Actions `cancel-in-progress` does not prevent near-simultaneous runs.** Two runs triggered within the same second can both start executing before the cancellation mechanism detects the duplicate.
+
+**Related Issues**: PR #7225
+
+---
+
 ### ISSUE-2026-02-11-ajv-mode-execute-crash
 
 | Field                    | Value                                                                                                                                                                                                      |
