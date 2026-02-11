@@ -44,20 +44,22 @@ export const needsAutomaticIdColumn = (
 
 /**
  * Generate created_at column definition if not explicitly defined
- * Note: No DEFAULT clause - value will be set by trigger to avoid volatility issues with formulas
+ * Note: Includes DEFAULT CURRENT_TIMESTAMP to support INSERT ... DEFAULT VALUES
+ * Triggers also set the value to ensure consistency
  */
 export const generateCreatedAtColumn = (table: Table): readonly string[] => {
   const hasCreatedAtField = table.fields.some((field) => field.name === 'created_at')
-  return !hasCreatedAtField ? ['created_at TIMESTAMPTZ NOT NULL'] : []
+  return !hasCreatedAtField ? ['created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP'] : []
 }
 
 /**
  * Generate updated_at column definition if not explicitly defined
- * Note: No DEFAULT clause - value will be set by trigger to avoid volatility issues with formulas
+ * Note: Includes DEFAULT CURRENT_TIMESTAMP to support INSERT ... DEFAULT VALUES
+ * Triggers update the value on INSERT and UPDATE to ensure currency
  */
 export const generateUpdatedAtColumn = (table: Table): readonly string[] => {
   const hasUpdatedAtField = table.fields.some((field) => field.name === 'updated_at')
-  return !hasUpdatedAtField ? ['updated_at TIMESTAMPTZ NOT NULL'] : []
+  return !hasUpdatedAtField ? ['updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP'] : []
 }
 
 /**

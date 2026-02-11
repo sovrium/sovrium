@@ -154,7 +154,7 @@ test.describe('Progress Field', () => {
 
       // THEN: Progress defaults to 50
       const result = await executeQuery(`SELECT completion FROM tasks`)
-      expect(result[0].completion).toBe(50)
+      expect(result.completion).toBe(50)
     }
   )
 
