@@ -99,15 +99,29 @@ jobs:
             # The next sync cycle (15-min cron or next push to main) will pick this up.
             # Uses global [TDD] title filter (no branch filter) because claude-code.yml
             # is triggered by issue_comment which always reports head_branch="main".
-            CLAUDE_RUNNING=$(gh run list \
+            #
+            # IMPORTANT: gh run list does NOT support multiple --status flags.
+            # The second flag silently overrides the first. We must make two
+            # separate calls and combine the results.
+            # See: ISSUE-2026-02-11-gh-run-list-dual-status
+            CLAUDE_IN_PROGRESS=$(gh run list \
               --workflow="Claude Code" \
-              --status=in_progress --status=queued \
+              --status=in_progress \
               --json databaseId,displayTitle \
               --limit 20 \
               --jq '[.[] | select(.displayTitle | startswith("[TDD]"))] | length')
 
+            CLAUDE_QUEUED=$(gh run list \
+              --workflow="Claude Code" \
+              --status=queued \
+              --json databaseId,displayTitle \
+              --limit 20 \
+              --jq '[.[] | select(.displayTitle | startswith("[TDD]"))] | length')
+
+            CLAUDE_RUNNING=$((CLAUDE_IN_PROGRESS + CLAUDE_QUEUED))
+
             if [ "$CLAUDE_RUNNING" -gt 0 ]; then
-              echo "⏭️ Skipping sync for PR #$PR_NUMBER: Claude Code is actively working on a TDD PR ($CLAUDE_RUNNING run(s) in progress/queued)"
+              echo "⏭️ Skipping sync for PR #$PR_NUMBER: Claude Code is actively working on a TDD PR ($CLAUDE_RUNNING run(s): $CLAUDE_IN_PROGRESS in-progress, $CLAUDE_QUEUED queued)"
               echo "   The branch will be synced on the next cycle after Claude Code completes"
               continue
             fi

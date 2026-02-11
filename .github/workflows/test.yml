@@ -1247,16 +1247,32 @@ jobs:
           # Therefore we query globally (no --branch) and filter by [TDD] in
           # the display title. This is safe because serial processing guarantees
           # only 1 active TDD PR at a time.
+          #
+          # IMPORTANT: gh run list does NOT support multiple --status flags.
+          # The second flag silently overrides the first. We must make two
+          # separate calls and combine the results.
+          # See: ISSUE-2026-02-11-gh-run-list-dual-status
           echo "🔍 Checking for running/queued Claude Code workflows (TDD)..."
 
-          RUNNING_WORKFLOWS=$(gh run list \
+          IN_PROGRESS_WORKFLOWS=$(gh run list \
             --workflow="Claude Code" \
-            --status=in_progress --status=queued \
+            --status=in_progress \
             --json databaseId,displayTitle \
             --limit 20 \
             --jq '[.[] | select(.displayTitle | startswith("[TDD]"))] | length')
 
-          echo "   Running/queued TDD Claude Code workflows: $RUNNING_WORKFLOWS"
+          QUEUED_WORKFLOWS=$(gh run list \
+            --workflow="Claude Code" \
+            --status=queued \
+            --json databaseId,displayTitle \
+            --limit 20 \
+            --jq '[.[] | select(.displayTitle | startswith("[TDD]"))] | length')
+
+          RUNNING_WORKFLOWS=$((IN_PROGRESS_WORKFLOWS + QUEUED_WORKFLOWS))
+
+          echo "   In-progress TDD Claude Code workflows: $IN_PROGRESS_WORKFLOWS"
+          echo "   Queued TDD Claude Code workflows: $QUEUED_WORKFLOWS"
+          echo "   Total running/queued: $RUNNING_WORKFLOWS"
 
           if [ "$RUNNING_WORKFLOWS" -gt 0 ]; then
             echo "⏭️ Skipping: Claude Code workflow already running/queued for TDD automation"

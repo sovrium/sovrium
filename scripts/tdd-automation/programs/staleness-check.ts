@@ -260,9 +260,21 @@ export const checkStaleness = (config: StalenessCheckConfig) =>
       (runs) => filterNonStaleRuns(runs, threshold)
     )
 
-    // Filter Claude Code runs: remove stale, then filter by [TDD] title
+    // Filter Claude Code runs by [TDD] title, with status-specific staleness handling.
+    //
+    // IMPORTANT: in_progress Claude Code runs bypass the staleness filter because:
+    // 1. Claude Code runs are legitimately long-running (20-90 minutes)
+    // 2. GitHub's updated_at does NOT continuously update for active runs --
+    //    it only reflects the last state transition (e.g., job start)
+    // 3. A run with updated_at > 30 min ago but status=in_progress is still
+    //    actively running, not a phantom run
+    //
+    // Queued runs still use the staleness filter because they should not
+    // remain queued for extended periods.
+    //
+    // See: ISSUE-2026-02-11-gh-run-list-dual-status (Bug 2)
     const nonStaleQueuedClaude = filterTddRuns(filterNonStaleRuns(queuedClaude, threshold))
-    const nonStaleInProgressClaude = filterTddRuns(filterNonStaleRuns(inProgressClaude, threshold))
+    const nonStaleInProgressClaude = filterTddRuns(inProgressClaude)
 
     // Combine Claude Code runs and filter for newer ones
     const allClaudeRuns = [...nonStaleQueuedClaude, ...nonStaleInProgressClaude]
