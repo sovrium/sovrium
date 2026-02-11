@@ -107,7 +107,7 @@
 ## Development Workflows
 
 - `@docs/development/tdd-automation-pipeline.md` - **TDD Automation Pipeline (V3)** - PR-based state management with serial processing, cost protection, and auto-merge (automated test fixing via GitHub Actions + Claude Code)
-- `@docs/development/copyright-headers.md` - Copyright header automation and management
+- `@docs/development/tdd-issues-history.md` - TDD pipeline issue history (agent institutional memory)
 - `@.claude/SKILLS.md` - Skills reference (autonomous utilities for validation, translation, and code quality)
 
 ---
