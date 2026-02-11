@@ -201,7 +201,7 @@ test.describe('Get table by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-GET-005: should include fields array with types in response',
     { tag: '@spec' },
     async ({ startServerWithSchema, request, createAuthenticatedMember }) => {
