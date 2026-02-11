@@ -83,6 +83,107 @@ Use these tags in error symptoms or root cause to improve searchability:
 
 <!-- New entries go here, newest first -->
 
+### ISSUE-2026-02-11-premature-attempt-increment
+
+| Field                    | Value                                                                                                                                                                                                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Date**                 | 2026-02-11                                                                                                                                                                                                                                                               |
+| **Severity**             | medium                                                                                                                                                                                                                                                                   |
+| **Affected Workflow(s)** | `test.yml`                                                                                                                                                                                                                                                               |
+| **Error Symptoms**       | `[RETRY]` `[STATE]` The "Increment attempt counter" step ran BEFORE the trigger pre-checks (staleness, Claude Code running, dedup). If any pre-check caused a skip, the attempt counter was already incremented for nothing, wasting attempts from the 5-attempt budget. |
+
+**Error Message / Log Excerpt**:
+
+```
+# Scenario: Attempt 2/5, staleness check says "skip"
+Incrementing attempt: 2 -> 3 (max: 5)
+✅ Updated PR #7234 title: [TDD] Implement ... | Attempt 3/5
+⏭️ Skipping: staleness check says no (reason: pending_tests)
+# Result: Attempt 3/5 consumed for nothing. Claude Code never ran.
+```
+
+**Root Cause Analysis**:
+
+The "Increment attempt counter" was a separate workflow step that executed unconditionally (before the "Check conditions and trigger Claude Code" step). It both computed the new attempt number AND called `update-pr-title.ts` to update the GitHub PR title via the API. The downstream "Check conditions and trigger" step had an `if: steps.increment.outputs.exceeded == 'false'` guard, but by that point the title was already updated. Three scenarios wasted attempts:
+
+1. Staleness check says skip (newer failure exists) -- attempt incremented but Claude Code not triggered
+2. Claude Code already running/queued -- attempt incremented but Claude Code not triggered
+3. Dedup check finds existing comment -- attempt incremented but Claude Code not triggered
+
+**Solution Applied**:
+
+Merged the attempt computation into the "Parse PR title" step (pure arithmetic, no API call) and moved the `update-pr-title.ts` call into the atomic "Check conditions and trigger" step, immediately before posting the @claude comment. The new flow:
+
+1. **Parse step**: Reads PR title, computes NEW_ATTEMPT = ATTEMPT + 1, checks exceeded (outputs only, no API call)
+2. **Trigger step** (if not exceeded): Staleness check -> Claude Code running check -> dedup check -> **update PR title** -> post @claude comment
+3. **Manual intervention step** (if exceeded): Adds label, disables auto-merge
+
+The PR title is now updated ONLY when all pre-checks pass and Claude Code is actually being triggered.
+
+**Files Modified**:
+
+- `.github/workflows/test.yml` -- removed separate "Increment attempt counter" step, expanded "Parse PR title" step with attempt computation, moved `update-pr-title.ts` call into atomic trigger step
+- `docs/development/tdd-automation-pipeline.md` -- updated Attempt Counting section, updated workflow flow diagram
+
+**Lessons Learned**:
+
+- Side effects (API calls that mutate state) should be deferred until the decision to proceed is final. Separate "compute" from "commit" -- compute the new value early for decision-making, but only commit (update PR title) when all guards pass
+- The atomic check-and-trigger pattern (from PR #7225) is the right place for ALL state mutations that should only happen when triggering, not just the comment posting
+
+**Related Issues**: PR #7234, ISSUE-2026-02-11-verbose-skip-comments
+
+---
+
+### ISSUE-2026-02-11-verbose-skip-comments
+
+| Field                    | Value                                                                                                                                                                                                                                                                      |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Date**                 | 2026-02-11                                                                                                                                                                                                                                                                 |
+| **Severity**             | low                                                                                                                                                                                                                                                                        |
+| **Affected Workflow(s)** | `test.yml`                                                                                                                                                                                                                                                                 |
+| **Error Symptoms**       | `[YAML]` Verbose PR comments posted when TDD automation skips triggering Claude Code (staleness check or Claude Code already running). These comments added noise to PR conversations without providing actionable information, since the pipeline recovers automatically. |
+
+**Error Message / Log Excerpt**:
+
+```markdown
+## ⏭️ TDD Automation Paused
+
+**Reason**: Another test run is in progress or queued
+**Current Status:**
+
+- Pending test runs: 2
+- Active Claude Code runs: 0
+  ...
+```
+
+**Root Cause Analysis**:
+
+Two locations in `test.yml` posted multi-line PR comments when the atomic check-and-trigger step decided to skip posting the `@claude` comment. These skip events are transient operational states that resolve automatically (the Monitor Workflow detects genuine stalls after 30 minutes). The comments were originally added for visibility during the race condition fix development (PR #7225) but are not useful in steady-state operation.
+
+Additionally, the Quick Reference section in `tdd-automation-pipeline.md` showed the PR title format as `[TDD] Implement <spec-id>` without the `| Attempt X/Y` suffix, which was inconsistent with the actual title format used by the pipeline. This led to confusion about whether the title was being "incorrectly" changed when in fact the attempt increment is expected behavior.
+
+**Solution Applied**:
+
+1. Replaced two verbose PR comment blocks in `test.yml` with concise workflow log messages (3-4 lines each instead of 15+ lines with a `gh pr comment` call)
+2. Updated the Quick Reference PR Title Format in `tdd-automation-pipeline.md` to show the full format including `| Attempt X/Y`
+3. Updated documentation layers 2 and 4 in Race Condition Protections to reflect that skip events are logged, not commented
+4. Fixed incorrect documentation that said Claude Code workflow updates the PR title (it is `test.yml` that updates it before triggering)
+
+**Files Modified**:
+
+- `.github/workflows/test.yml` -- removed two verbose PR comment blocks (staleness skip at former lines 1211-1241, Claude Code running skip at former lines 1277-1300), replaced with workflow log messages
+- `docs/development/tdd-automation-pipeline.md` -- updated Quick Reference PR Title Format, updated Race Condition Protections layers 2 and 4, fixed Claude Code execution flow step 7 description
+
+**Lessons Learned**:
+
+- PR comments should be reserved for actionable information (errors requiring human attention). Transient operational states that self-resolve should use workflow logs only
+- Documentation Quick Reference sections must exactly match the actual implementation format to avoid confusion about expected vs unexpected behavior
+- When investigating "unexpected" behavior, first verify if the behavior is actually documented and intentional elsewhere in the spec before proposing changes
+
+**Related Issues**: PR #7234, PR #7225
+
+---
+
 ### ISSUE-2026-02-11-gh-run-list-dual-status
 
 | Field                    | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |

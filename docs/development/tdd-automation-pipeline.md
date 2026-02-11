@@ -58,10 +58,13 @@ Examples: API-TABLES-CREATE-001, API-TABLES-REGRESSION
 ### PR Title Format
 
 ```
-[TDD] Implement <spec-id>
-Example: [TDD] Implement API-TABLES-CREATE-001
+[TDD] Implement <spec-id> | Attempt X/Y
+Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 1/5
 
-Note: Max attempts default is 5 (configurable per spec)
+- Created with Attempt 1/Y by PR Creator
+- Incremented to Attempt X+1/Y by test.yml on each test failure
+- Read by claude-code.yml for model escalation (Sonnet attempts 1-3, Opus attempts 4-5)
+- Max attempts default is 5 (configurable per spec)
 ```
 
 ### Workflows Summary
@@ -898,9 +901,9 @@ Shows how the 3 workflows communicate via GitHub events:
 │  │               │                                                    │           │        │
 │  └───────┬───────┘                                                    │           │        │
 │          │                                                            │           │        │
-│          │ On failure:                                                │           │        │
-│          │ - Updates PR title (Attempt X+1/Y)                         │           │        │
-│          │ - Posts @claude comment                                    │           │        │
+│          │ On failure (if trigger checks pass):                        │           │        │
+│          │ - Updates PR title (Attempt X+1/Y) + posts @claude comment│           │        │
+│          │   (atomically, only when actually triggering Claude Code)  │           │        │
 │          │                                                            │           │        │
 │          │ On success:                                                │           │        │
 │          │ - Auto-merge triggers                                      │           │        │
@@ -1148,14 +1151,16 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 **Attempt Counting:**
 
 - Read from PR title: `Attempt X/Y`
-- Increment ONLY on **test failure** (E2E assertions fail)
+- Increment ONLY when Claude Code is **actually triggered** (all pre-checks pass AND @claude comment is posted)
+- The PR title update (`update-pr-title.ts`) and the @claude comment posting happen atomically in the same workflow step -- if any pre-check skips the trigger, no attempt is consumed
 - Do NOT count toward attempts:
+  - **Skipped triggers**: Staleness check or Claude Code already running (transient states that resolve automatically)
   - **Sync requests**: Branch needs update from main
   - **Quality-only failures**: Lint/typecheck fail but tests pass (uses refactor-auditor agent)
   - **Infrastructure errors**: Network timeouts, GitHub API errors, CI runner issues
   - **Merge conflicts**: Require manual resolution (do NOT trigger @claude automatically)
 
-**Rationale**: Attempts track "implementation tries", not "pipeline runs". Quality fixes are refinement, not core implementation. Conflicts pause automation until human resolves.
+**Rationale**: Attempts track "implementation tries", not "pipeline runs". Skipped triggers, quality fixes, and infrastructure retries should never consume attempts from the 5-attempt budget.
 
 **@claude Comment Format:** See `.github/workflows/test.yml` for comment generation logic and template format.
 
@@ -1177,15 +1182,15 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 
 **Execution Flow:**
 
-| Step               | Action                                             |
-| ------------------ | -------------------------------------------------- |
-| 1. Validate        | Check commenter, label, credits                    |
-| 2. Checkout        | Checkout PR branch                                 |
-| 3. Sync            | `git fetch && git merge origin/main`               |
-| 4. Detect conflict | If conflict → add label, post comment, **exit**    |
-| 5. Execute action  | Run `anthropics/claude-code-action@v1`             |
-| 6. Final sync      | Merge any new commits from main after execution    |
-| 7. Handle result   | Push changes if any, update PR title attempt count |
+| Step               | Action                                                                                  |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| 1. Validate        | Check commenter, label, credits                                                         |
+| 2. Checkout        | Checkout PR branch                                                                      |
+| 3. Sync            | `git fetch && git merge origin/main`                                                    |
+| 4. Detect conflict | If conflict → add label, post comment, **exit**                                         |
+| 5. Execute action  | Run `anthropics/claude-code-action@v1`                                                  |
+| 6. Final sync      | Merge any new commits from main after execution                                         |
+| 7. Handle result   | Push changes if any (title attempt count already updated by test.yml before triggering) |
 
 **Notes:**
 
@@ -1194,11 +1199,11 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
   **Race Condition Protections (8 layers)**:
   1. **Smarter Timestamp-Based Check**: `test.yml` compares timestamps of active Claude Code runs. Only skips triggering if an active Claude Code run started AFTER the current test failure. This prevents skipping when the active run is handling an old failure.
 
-  2. **Skipped Trigger Notification**: When automation decides not to trigger Claude Code due to active runs, a PR comment is posted explaining why (with current status: pending test runs count, active Claude Code count, next action). This prevents silent failures and provides visibility.
+  2. **Skipped Trigger Logging**: When automation decides not to trigger Claude Code (due to staleness or active Claude Code runs), the decision is logged in the workflow output with the reason, pending test count, and active Claude Code count. No PR comment is posted -- these skip events are transient operational states that resolve automatically, and posting comments adds noise to the PR conversation. The Monitor Workflow (layer 5) handles the case where automation genuinely stalls by adding the `manual-intervention` label after 30 minutes.
 
   3. **Staleness Filter (Phantom Run Protection)**: When checking for active test.yml or claude-code.yml runs, only count runs as "active" if their `updated_at` timestamp is within the staleness threshold. For **test.yml runs**, the threshold is 30 minutes. For **claude-code.yml `in_progress` runs**, the staleness filter is bypassed because Claude Code runs are legitimately long-running (20-90 minutes) and GitHub's `updated_at` field does not continuously update for active runs -- it only reflects the last state transition. Filtering these by `updated_at` incorrectly removes actively running Claude Code jobs. For claude-code.yml `queued` runs, the 30-minute threshold still applies (queued runs should not stay queued that long). This prevents GitHub Actions infrastructure phantom runs from blocking the pipeline while preserving detection of legitimately long-running Claude Code jobs.
 
-  4. **Claude Code Workflow Check (Global with [TDD] Title Filter)**: Before posting the `@claude` comment that triggers Claude Code, `test.yml` checks if any Claude Code workflow is already running for TDD automation. The check uses two separate `gh run list` calls -- one for `--status=in_progress` and one for `--status=queued` -- then combines the results. **IMPORTANT**: `gh run list` does NOT support multiple `--status` flags; the second flag silently overrides the first. This was the root cause of PR #7233 duplicate comment cascade (Bug 1). The results are filtered by `[TDD]` in the display title via jq. **Why no branch filter**: The `claude-code.yml` workflow is triggered by `issue_comment` events, which always report `head_branch: "main"` regardless of the PR's actual branch. Branch-based filtering would always return 0 results, defeating the check. **Why this is safe**: Serial processing guarantees only one active TDD PR at a time, so a global check for `[TDD]`-titled Claude Code runs is equivalent to a per-PR check. If a running or queued Claude Code workflow is detected, the comment posting is skipped and a notification is posted explaining why.
+  4. **Claude Code Workflow Check (Global with [TDD] Title Filter)**: Before posting the `@claude` comment that triggers Claude Code, `test.yml` checks if any Claude Code workflow is already running for TDD automation. The check uses two separate `gh run list` calls -- one for `--status=in_progress` and one for `--status=queued` -- then combines the results. **IMPORTANT**: `gh run list` does NOT support multiple `--status` flags; the second flag silently overrides the first. This was the root cause of PR #7233 duplicate comment cascade (Bug 1). The results are filtered by `[TDD]` in the display title via jq. **Why no branch filter**: The `claude-code.yml` workflow is triggered by `issue_comment` events, which always report `head_branch: "main"` regardless of the PR's actual branch. Branch-based filtering would always return 0 results, defeating the check. **Why this is safe**: Serial processing guarantees only one active TDD PR at a time, so a global check for `[TDD]`-titled Claude Code runs is equivalent to a per-PR check. If a running or queued Claude Code workflow is detected, the comment posting is skipped and the reason is logged in the workflow output (no PR comment posted -- see layer 2 rationale).
 
   5. **Timeout-Based Fallback**: A scheduled workflow (hourly) checks TDD PRs that have been in failed state for >30 minutes without Claude Code activity. Automatically adds `tdd-automation:manual-intervention` label and posts an explanatory comment if automation has stalled.
 
@@ -1294,7 +1299,7 @@ Now, conflicts immediately pause automation and wait for human resolution.
 - **Prevents silent failures**: Detects when race condition logic incorrectly skips triggering Claude Code
 - **30-minute threshold**: Balances false positives (Claude Code can take 20-90 min) with timely intervention
 - **Hourly frequency**: Reduces API load while providing reasonable detection latency
-- **Complements Fix #2**: Works together with skipped trigger notifications for complete visibility
+- **Complements layer 2 logging**: Works together with skip-reason workflow logs for complete visibility. Skipped triggers are logged but not commented on PRs; the Monitor Workflow catches genuine stalls
 
 **Timeout Notification Comment:**
 
