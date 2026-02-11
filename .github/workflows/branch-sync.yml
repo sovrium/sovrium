@@ -104,12 +104,28 @@ jobs:
             # The second flag silently overrides the first. We must make two
             # separate calls and combine the results.
             # See: ISSUE-2026-02-11-gh-run-list-dual-status
-            CLAUDE_IN_PROGRESS=$(gh run list \
+            #
+            # SPURIOUS TRIGGER FILTERING: Verify each in_progress run has an
+            # active "Execute Claude Code" job. Non-@claude comments trigger
+            # spurious runs that show as in_progress during validation but
+            # never reach the execute job.
+            # See: ISSUE-2026-02-11-spurious-claude-code-triggers
+            IN_PROGRESS_RUN_IDS=$(gh run list \
               --workflow="Claude Code" \
               --status=in_progress \
               --json databaseId,displayTitle \
               --limit 20 \
-              --jq '[.[] | select(.displayTitle | startswith("[TDD]"))] | length')
+              --jq '[.[] | select(.displayTitle | startswith("[TDD]"))] | .[].databaseId')
+
+            CLAUDE_IN_PROGRESS=0
+            for RUN_ID in $IN_PROGRESS_RUN_IDS; do
+              EXECUTE_STATUS=$(gh run view "$RUN_ID" \
+                --json jobs \
+                --jq '[.jobs[] | select(.name == "Execute Claude Code" and .status == "in_progress")] | length' 2>/dev/null || echo "0")
+              if [ "$EXECUTE_STATUS" -gt 0 ]; then
+                CLAUDE_IN_PROGRESS=$((CLAUDE_IN_PROGRESS + 1))
+              fi
+            done
 
             CLAUDE_QUEUED=$(gh run list \
               --workflow="Claude Code" \

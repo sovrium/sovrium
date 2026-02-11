@@ -100,6 +100,65 @@ function filterTddRuns(runs: readonly WorkflowRun[]): readonly WorkflowRun[] {
 }
 
 /**
+ * Workflow job metadata from GitHub API
+ */
+interface WorkflowJob {
+  readonly name: string
+  readonly status: string
+  readonly conclusion: string | null
+}
+
+/**
+ * Check if a Claude Code workflow run has an active "Execute Claude Code" job.
+ *
+ * claude-code.yml triggers on ALL issue_comment:created events. Non-@claude
+ * comments create spurious runs that enter the concurrency queue. These runs
+ * are filtered out by the validate job, but while in_progress (being validated)
+ * they appear as legitimate runs in gh run list. Checking for an active
+ * execute job distinguishes real runs from spurious ones.
+ *
+ * See: ISSUE-2026-02-11-spurious-claude-code-triggers
+ */
+const hasActiveExecuteJob = (runId: string, repository: string) =>
+  Effect.tryPromise({
+    try: async () => {
+      const result =
+        await Bun.$`gh run view ${runId} --repo ${repository} --json jobs`.quiet()
+      const data = JSON.parse(result.stdout.toString()) as {
+        jobs: readonly WorkflowJob[]
+      }
+
+      return data.jobs.some(
+        (job) => job.name === 'Execute Claude Code' && job.status === 'in_progress'
+      )
+    },
+    catch: () => false as boolean, // Fail-open: if we can't check, assume not active
+  }).pipe(Effect.catchAll(() => Effect.succeed(false)))
+
+/**
+ * Filter in-progress Claude Code runs to only those with an active execute job.
+ * Removes spurious runs triggered by non-@claude comments.
+ */
+const filterRunsWithActiveExecuteJob = (
+  runs: readonly WorkflowRun[],
+  repository: string
+) =>
+  Effect.gen(function* () {
+    if (runs.length === 0) return runs
+
+    const results = yield* Effect.all(
+      runs.map((run) =>
+        Effect.map(hasActiveExecuteJob(run.id, repository), (isActive) => ({
+          run,
+          isActive,
+        }))
+      )
+    )
+
+    return results.filter((r) => r.isActive).map((r) => r.run)
+  })
+
+/**
  * Query workflow runs by status and branch using gh api
  * Used for test.yml which correctly reports the PR's branch
  */
@@ -272,9 +331,19 @@ export const checkStaleness = (config: StalenessCheckConfig) =>
     // Queued runs still use the staleness filter because they should not
     // remain queued for extended periods.
     //
+    // SPURIOUS TRIGGER FILTERING: in_progress runs are further filtered to
+    // only include those with an active "Execute Claude Code" job. Non-@claude
+    // comments trigger spurious runs that show as in_progress during validation
+    // but never reach the execute job.
+    //
     // See: ISSUE-2026-02-11-gh-run-list-dual-status (Bug 2)
+    // See: ISSUE-2026-02-11-spurious-claude-code-triggers
     const nonStaleQueuedClaude = filterTddRuns(filterNonStaleRuns(queuedClaude, threshold))
-    const nonStaleInProgressClaude = filterTddRuns(inProgressClaude)
+    const tddInProgressClaude = filterTddRuns(inProgressClaude)
+    const nonStaleInProgressClaude = yield* filterRunsWithActiveExecuteJob(
+      tddInProgressClaude,
+      config.repository
+    )
 
     // Combine Claude Code runs and filter for newer ones
     const allClaudeRuns = [...nonStaleQueuedClaude, ...nonStaleInProgressClaude]
