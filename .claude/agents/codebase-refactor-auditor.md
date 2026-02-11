@@ -297,6 +297,15 @@ Continue with full audit workflow when:
 
 When operating in pipeline mode:
 
+**⚠️ TEST COMMAND RESTRICTIONS (ALL MODES - CRITICAL)**:
+Running broad E2E test suites wastes resources, causes timeouts, and inflates costs. Only targeted commands are allowed. These restrictions apply to ALL modes (CI, pipeline, AND local/interactive):
+
+- ✅ **ALLOWED**: `bun test:e2e:regression` (optimized regression suite)
+- ✅ **ALLOWED**: `bun run quality` / `bun run quality --include-effect` (includes smart E2E detection)
+- ❌ **FORBIDDEN**: `bun test:e2e` (full suite - runs ALL tests including slow @spec tests)
+- ❌ **FORBIDDEN**: `bun test:e2e:spec` (runs ALL @spec tests - extremely slow, causes timeouts)
+- ❌ **FORBIDDEN**: `bun test:e2e --grep @spec` (equivalent to above - NEVER run all @spec tests)
+
 1. **Automated Refactoring Strategy**:
    - **Phase 1.1 (Recent Changes)**: Apply immediately without human approval
      - Includes commits from e2e-test-fixer session
@@ -580,10 +589,10 @@ Sovrium uses Playwright test tags to categorize E2E tests by criticality:
 
 - **@spec**: Exhaustive core functionality tests that MUST work
   - Examples: Server starts, home page renders, version badge displays
-  - Run with: `bun test:e2e --grep @spec` (command reference only)
+  - **FORBIDDEN for this agent**: `bun test:e2e:spec` and `bun test:e2e --grep @spec` are NEVER allowed (any mode)
   - **TOO SLOW for routine validation** - takes several minutes, risk of timeout
   - **NEVER use for baseline checks in this agent** - use @regression instead
-  - **Use case**: Full test suite verification before major releases (not for refactoring audits)
+  - **Use case**: Human-driven full test suite verification before major releases (not for agent execution)
   - **THIS AGENT NEVER RUNS @spec TESTS** - only @regression tests are used
 
 - **@regression**: Previously broken features that must stay fixed
@@ -601,14 +610,14 @@ Sovrium uses Playwright test tags to categorize E2E tests by criticality:
 ```bash
 # Establish baseline (Phase 0) - For codebase audits, INCLUDE Effect diagnostics
 bun run quality --include-effect  # Runs ESLint, TypeScript, Effect diagnostics, unit tests, @regression E2E
-# NEVER run: bun test:e2e --grep @spec (too slow - use @regression instead)
+# FORBIDDEN: bun test:e2e, bun test:e2e:spec, bun test:e2e --grep @spec (all modes)
 
 # Clean baseline after config changes (ESLint, Prettier, TypeScript config updates)
 bun run quality --include-effect --no-cache  # Disables ESLint, Prettier, and TypeScript caching
 
 # Validate after refactoring (Phase 5)
 bun run quality --include-effect  # Re-validate all quality checks including Effect diagnostics
-# NEVER run: bun test:e2e --grep @spec (too slow - use @regression instead)
+# FORBIDDEN: bun test:e2e, bun test:e2e:spec, bun test:e2e --grep @spec (all modes)
 ```
 
 **Available Quality Flags**:
@@ -1202,6 +1211,7 @@ When reporting layer violations, use this format:
 | **Layer Architecture** | `bun run lint` passes | STOP - fix layer violations first |
 | **Quality Gate** | `bun run quality --include-effect` passes | STOP - fix before continuing |
 | **Two-Phase Approach** | Recent commits (Phase 1.1) vs older code (Phase 1.2) | STOP - identify phases before work |
+| **Test Commands** | NEVER run `bun test:e2e`, `bun test:e2e:spec`, or `--grep @spec` (any mode) | Use `bun test:e2e:regression` or `bun run quality` only |
 
 **Layer Architecture Quick Reference**:
 - Domain: Pure, imports NOTHING from other layers (EXCEPTION: `domain/models/api/` for cross-layer API contracts)
@@ -1283,7 +1293,7 @@ Before finalizing recommendations:
    - **Language/Runtime** (@docs/infrastructure/language/, runtime/): TypeScript strict mode, Bun APIs
    - **Code Quality** (@docs/infrastructure/quality/): ESLint, Prettier compliance
    - **Testing** (@docs/infrastructure/testing/): Bun Test, Playwright patterns
-7. **E2E Baseline Validation**: Run and pass all @spec and @regression tests
+7. **E2E Baseline Validation**: Run and pass all @regression tests (NEVER run @spec tests - too slow for audit validation)
 8. **Cross-Reference**: Verify each suggestion against multiple @docs files for consistency
 9. **Impact Analysis**: Consider ripple effects across layers and modules (within src/)
 10. **Test Verification**: Ensure proposed changes won't break existing unit tests unnecessarily

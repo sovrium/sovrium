@@ -83,13 +83,100 @@ Use these tags in error symptoms or root cause to improve searchability:
 
 <!-- New entries go here, newest first -->
 
+### ISSUE-2026-02-11-gh-run-list-dual-status
+
+| Field                    | Value                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Date**                 | 2026-02-11                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Severity**             | critical                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **Affected Workflow(s)** | `test.yml`, `branch-sync.yml`, `staleness-check.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| **Error Symptoms**       | `[INFRA]` `[SCRIPT]` `[STATE]` -- Duplicate `@claude` comments posted on PR #7233 despite 3 prior fixes applied the same day. All 8 layers of race condition protection failed simultaneously. Two interacting bugs: (1) `gh run list --status=in_progress --status=queued` silently ignores the first `--status` flag, returning only queued runs; (2) staleness threshold (30 min) incorrectly classifies legitimately running Claude Code jobs as "phantom" because GitHub's `updated_at` field does not continuously update for `in_progress` workflow runs. |
+
+**Error Message / Log Excerpt**:
+
+```
+# Bug 1: gh run list with dual --status flags
+# EXPECTED: Return in_progress AND queued runs
+# ACTUAL: Second --status silently overrides first, returns ONLY queued runs
+
+$ gh run list --workflow="Claude Code" --status=in_progress --status=queued \
+    --json databaseId,displayTitle --jq '.'
+[]   # WRONG - Claude Code run 21910478164 was actively in_progress!
+
+$ gh run list --workflow="Claude Code" --status=in_progress \
+    --json databaseId,displayTitle --jq '.'
+[{"databaseId":21910478164,"displayTitle":"[TDD] Implement APP-TABLES-PERMISSION-INHERITANCE-003"}]
+# CORRECT - run was in_progress the whole time
+
+# Bug 2: Staleness threshold filters out legitimate runs
+# Run 21910478164 had updatedAt: 2026-02-11T15:08:32Z
+# Check ran at 15:50:40 (42 min elapsed > 30 min threshold)
+# GitHub's updatedAt does NOT continuously update for running jobs
+```
+
+**Root Cause Analysis**:
+
+Three interacting bugs caused all race condition protections to fail:
+
+**Bug 1 (PRIMARY -- `gh run list` dual status)**: The `gh` CLI does NOT support multiple `--status` flags. When `--status=in_progress --status=queued` is passed, the second flag silently overrides the first, making the command equivalent to `--status=queued`. This caused the Claude Code guard in both `test.yml` (Step 2) and `branch-sync.yml` to report 0 running workflows when Claude Code was actively running. Proven via live testing against PR #7233.
+
+**Bug 2 (SECONDARY -- staleness threshold)**: The `staleness-check.ts` program applies a 30-minute staleness filter to ALL Claude Code runs, including `in_progress` ones. However, GitHub Actions' `updated_at` timestamp only updates on state transitions (e.g., job start), NOT continuously during execution. A Claude Code run that started 42 minutes ago but is still actively `in_progress` gets filtered out as "stale/phantom". This caused the TypeScript staleness checker to report 0 active Claude Code runs.
+
+**Bug 3 (already fixed in prior commit `47ae6f96`)**: The author filter in the `@claude` comment deduplication check used `github-actions[bot]` but comments are posted via PAT. This was the first fix applied but Bugs 1 and 2 still allowed duplicates.
+
+The three bugs combined meant: the shell-based guard (Bug 1), the TypeScript staleness checker (Bug 2), and the deduplication check (Bug 3) ALL failed to detect the running Claude Code job, allowing a duplicate `@claude` comment.
+
+**Solution Applied**:
+
+**Fix for Bug 1**: Split single `gh run list` calls into two separate calls (one per status) and combine results with arithmetic addition. Applied to both `test.yml` (Step 2) and `branch-sync.yml` (Claude Code guard).
+
+```bash
+# Before (broken):
+RUNNING_WORKFLOWS=$(gh run list --status=in_progress --status=queued ...)
+
+# After (correct):
+IN_PROGRESS=$(gh run list --status=in_progress ...)
+QUEUED=$(gh run list --status=queued ...)
+RUNNING=$((IN_PROGRESS + QUEUED))
+```
+
+**Fix for Bug 2**: Skip staleness filter for `in_progress` Claude Code runs in `staleness-check.ts`. Only `queued` Claude Code runs still use the staleness filter (they should not remain queued for extended periods). `in_progress` runs are legitimately long-running (20-90 minutes) and GitHub's `updated_at` is unreliable for them.
+
+```typescript
+// Before (broken):
+const nonStaleInProgressClaude = filterTddRuns(filterNonStaleRuns(inProgressClaude, threshold))
+
+// After (correct):
+const nonStaleInProgressClaude = filterTddRuns(inProgressClaude)
+```
+
+**Files Modified**:
+
+- `docs/development/tdd-automation-pipeline.md` -- Updated Layer 3 (staleness filter), Layer 4 (Claude Code check), Layer 8 (branch sync guard), and Claude Code Guard Details section
+- `.github/workflows/test.yml` -- Split dual-status `gh run list` into two calls in Step 2
+- `.github/workflows/branch-sync.yml` -- Split dual-status `gh run list` into two calls in Claude Code guard
+- `scripts/tdd-automation/programs/staleness-check.ts` -- Bypass staleness filter for `in_progress` Claude Code runs
+- `docs/development/tdd-issues-history.md` -- This entry
+
+**Lessons Learned**:
+
+- `gh run list` does NOT support multiple `--status` flags. The second flag silently overrides the first with no warning. Always use separate calls per status and combine results. This is an undocumented `gh` CLI limitation.
+- GitHub Actions' `updated_at` field is NOT a reliable "last activity" timestamp for running jobs. It only reflects state transitions (queued to in_progress, job boundaries), not continuous activity. Do not use time-based staleness filters on `in_progress` runs.
+- When multiple layers of protection share the same underlying assumption (e.g., that `gh run list` with two `--status` flags works), a single root cause can defeat all layers simultaneously. Defense-in-depth requires each layer to use INDEPENDENT detection mechanisms.
+- Always test CLI commands with actual data before trusting them in automation. The dual-status bug was trivially verifiable with a single command.
+- This issue pattern (multiple bugs interacting to bypass all safeguards) is the most dangerous type -- each bug alone might be caught by another layer, but together they create a perfect storm. Comprehensive investigation (not just patching the most recent symptom) is essential.
+
+**Related Issues**: PR #7233 (TDD PR where duplicates occurred), ISSUE-2026-02-11-dedup-author-mismatch (Bug 3, fixed earlier same day), ISSUE-2026-02-11-branch-sync-claude-cascade (original branch-sync guard addition)
+
+---
+
 ### ISSUE-2026-02-11-dedup-author-mismatch
 
-| Field                    | Value                                                                                                                                                                                                                             |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Date**                 | 2026-02-11                                                                                                                                                                                                                        |
-| **Severity**             | medium                                                                                                                                                                                                                            |
-| **Affected Workflow(s)** | `test.yml`                                                                                                                                                                                                                        |
+| Field                    | Value                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Date**                 | 2026-02-11                                                                                                                                                                                                                                                                                                                                |
+| **Severity**             | medium                                                                                                                                                                                                                                                                                                                                    |
+| **Affected Workflow(s)** | `test.yml`                                                                                                                                                                                                                                                                                                                                |
 | **Error Symptoms**       | `[STATE]` `[RETRY]` -- Comment deduplication check in Step 3 of the atomic check-and-post block never found existing `@claude` comments because it filtered by `.user.login == "github-actions[bot]"`, but comments are posted via `GH_PAT_WORKFLOW` (author is PAT owner, not `github-actions[bot]`). The check was effectively a no-op. |
 
 **Error Message / Log Excerpt**:

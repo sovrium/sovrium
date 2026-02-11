@@ -80,7 +80,7 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
 <!-- Tool Access Rationale:
   - Read: Test files (specs/**/*.spec.ts) and source code (src/)
   - Edit/Write: Modify source files during TDD cycle
-  - Bash: Execute tests, quality checks (bun test:e2e, bun run quality)
+  - Bash: Execute tests, quality checks (bun test:e2e -- <file>, bun test:e2e:regression, bun run quality)
   - Glob/Grep: Pattern search for existing implementations
   - Task: Spawn sub-agents for complex codebase exploration
   - TodoWrite: Track multi-step implementation progress
@@ -199,6 +199,18 @@ The agent automatically detects pipeline mode when:
 ### Pipeline-Specific Behavior
 
 When operating in pipeline mode:
+
+**⚠️ TEST COMMAND RESTRICTIONS (ALL MODES - CRITICAL)**:
+Running broad E2E test suites wastes resources, causes timeouts, and inflates costs. Only targeted commands are allowed. These restrictions apply to ALL modes (CI, pipeline, AND local/interactive):
+
+- ✅ **ALLOWED**: `bun test:e2e -- <specific-test-file>` (targeted single file)
+- ✅ **ALLOWED**: `bun test:e2e:regression` (optimized regression suite)
+- ✅ **ALLOWED**: `bun run quality` (includes smart E2E detection for affected @regression specs)
+- ❌ **FORBIDDEN**: `bun test:e2e` (full suite - runs ALL tests including slow @spec tests)
+- ❌ **FORBIDDEN**: `bun test:e2e:spec` (runs ALL @spec tests - extremely slow, causes timeouts)
+- ❌ **FORBIDDEN**: `bun test:e2e --grep @spec` (equivalent to above - NEVER run all @spec tests)
+
+**WHY**: @spec tests are exhaustive and designed for human-driven development validation, not agent execution. Running them wastes 5-10+ minutes per run, risks timeouts, and burns through cost budgets. The `bun run quality` script already includes smart E2E detection that runs only affected @regression specs.
 
 **⚠️ GIT WORKFLOW (Pipeline Mode - CRITICAL)**:
 In the TDD automation pipeline, you MUST complete the full git workflow. The `finalize-fixer` job handles post-processing but REQUIRES you to push first:
@@ -453,6 +465,7 @@ Handoff notification (posted as issue comment):
 - ❌ **FORBIDDEN**: NEVER modify test configuration files (playwright.config.ts, etc.)
 - ❌ **FORBIDDEN**: NEVER write demonstration, showcase, or debug code in `src/` directory
 - ❌ **FORBIDDEN**: NEVER implement fixes without first reviewing 2-3 working spec tests for patterns
+- ❌ **FORBIDDEN (ALL MODES)**: NEVER run `bun test:e2e` (full suite), `bun test:e2e:spec`, or `bun test:e2e --grep @spec` - use `bun test:e2e -- <file>` or `bun test:e2e:regression` only
 
 **CRITICAL - SPEC FILE ENDPOINT PATHS ARE SACRED**:
 - ❌ **FORBIDDEN**: NEVER modify API endpoint paths in spec files (e.g., `/api/auth/organization/set-active`)
@@ -1211,7 +1224,7 @@ WRONG ACTION: Change API to return both `userId` AND `user.id` (breaks consisten
 - **⚠️ CRITICAL**: Your changes may break tests in OTHER files (e.g., changing `created_at` type affects `fields.spec.ts`)
 - If ANY regression test fails → **STOP** → Fix the failing test → Re-run until ALL pass
 - **🚫 DO NOT proceed to commit or PR creation if ANY regression test fails**
-- **NEVER run all E2E tests** - Full suite is reserved for CI/CD only
+- **NEVER run `bun test:e2e` (full suite) or `bun test:e2e:spec`** - Use only `bun test:e2e -- <file>` (targeted) or `bun test:e2e:regression` (regression suite). This applies to BOTH local and CI/Pipeline modes.
 
 **Common Regression Failures** (learn from history):
 - Changing field types (e.g., TIMESTAMP → TIMESTAMPTZ) may break other tests that assert on column types
