@@ -154,6 +154,27 @@ When encountering a new SDK bug:
 3. Add the issue to the monitoring list above
 4. Follow the Version Pinning Verification Process (Lesson 4)
 
+## Lesson 7: GA v1.0 Breaking Changes — Removed Parameters
+
+When upgrading from beta to GA v1.0, several action inputs were removed or moved:
+
+| Old Beta Input        | New v1.0 Input                        |
+| --------------------- | ------------------------------------- |
+| `mode`                | _(Removed — auto-detected)_           |
+| `direct_prompt`       | `prompt`                              |
+| `custom_instructions` | `claude_args: --append-system-prompt` |
+| `max_turns`           | `claude_args: --max-turns`            |
+| `model`               | `claude_args: --model`                |
+| `allowed_tools`       | `claude_args: --allowedTools`         |
+| `disallowed_tools`    | `claude_args: --disallowedTools`      |
+| `claude_env`          | `settings` JSON format                |
+
+**Critical: Do NOT pass `--mode execute` via `claude_args`**. The GA action auto-detects mode. Passing it as a CLI argument may cause AJV validation crashes because `mode` is no longer in the SDK's configuration schema.
+
+**Real example**: After pinning to v1.0.47 (SDK 0.2.38), the workflow still crashed with AJV errors. Removing `--mode execute` from `claude_args` was the fix — the SDK's AJV validator rejected the unknown `mode` field.
+
+**Reference**: https://code.claude.com/docs/en/github-actions (Breaking Changes Reference section)
+
 ## Lesson 6: Cost of Ignoring Version Stability
 
 When SDK crashes occur:

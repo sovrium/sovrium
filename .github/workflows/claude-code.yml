@@ -480,9 +480,10 @@ jobs:
           fi
 
           # Build claude_args for the action
-          # CRITICAL: --mode execute overrides .claude/settings.json defaultMode
-          # Without this, plan mode causes 0-turn no-op executions (see PR #7211 incident)
-          CLAUDE_ARGS="--mode execute --max-turns $MAX_TURNS --allowedTools \"$ALLOWED_TOOLS\" --disallowedTools \"$DISALLOWED_TOOLS\""
+          # NOTE: --mode was REMOVED in GA v1.0 (auto-detected by the action)
+          # Previously used --mode execute to prevent plan-mode no-ops (PR #7211)
+          # GA v1.0 handles mode detection internally — do NOT pass --mode
+          CLAUDE_ARGS="--max-turns $MAX_TURNS --allowedTools \"$ALLOWED_TOOLS\" --disallowedTools \"$DISALLOWED_TOOLS\""
           echo "claude-args=$CLAUDE_ARGS" >> "$GITHUB_OUTPUT"
 
           # Generate prompt using TypeScript (replaces 85+ lines of bash template logic)
