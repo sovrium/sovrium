@@ -699,7 +699,7 @@ test.describe('Relationship Field', () => {
 
   // ── Self-Referencing (015-018) ──
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-015: should allow NULL for root-level self-referencing records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
