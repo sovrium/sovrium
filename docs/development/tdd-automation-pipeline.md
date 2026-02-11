@@ -1191,7 +1191,7 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 
 - **Parallel execution prevention**: Handled by `test.yml` workflow. Only the **last** test.yml execution on a PR will post `@claude` comment. If multiple test runs are queued/running (e.g., from main branch updates), earlier runs skip triggering Claude Code - only the final run with the latest failure triggers execution.
 
-  **Race Condition Protections (6 layers)**:
+  **Race Condition Protections (7 layers)**:
   1. **Smarter Timestamp-Based Check**: `test.yml` compares timestamps of active Claude Code runs. Only skips triggering if an active Claude Code run started AFTER the current test failure. This prevents skipping when the active run is handling an old failure.
 
   2. **Skipped Trigger Notification**: When automation decides not to trigger Claude Code due to active runs, a PR comment is posted explaining why (with current status: pending test runs count, active Claude Code count, next action). This prevents silent failures and provides visibility.
@@ -1203,6 +1203,8 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
   5. **Timeout-Based Fallback**: A scheduled workflow (hourly) checks TDD PRs that have been in failed state for >30 minutes without Claude Code activity. Automatically adds `tdd-automation:manual-intervention` label and posts an explanatory comment if automation has stalled.
 
   6. **Concurrency Control (claude-code.yml)**: GitHub Actions concurrency group `claude-code-{PR#}` ensures only one Claude Code workflow runs per PR at a time. Uses `cancel-in-progress: false` to complete current run before starting next (avoids wasting API credits). Different PRs can run in parallel. Added after PR #7083 incident where two `@claude` comments triggered parallel runs.
+
+  7. **Atomic Check-and-Post with Attempt-Specific Deduplication (PR #7225 fix)**: The staleness check, Claude Code running check, and `@claude` comment posting are combined into a **single workflow step**. Previously these were 3 separate steps with a timing gap of several minutes between the check and the post, allowing two concurrent `test.yml` runs to both pass checks and post duplicate `@claude` comments. The merged step also adds **attempt-specific comment deduplication**: before posting, it queries existing PR comments to check if a comment for the same attempt number (`Attempt N/M`) already exists. If a matching comment is found, the post is skipped. This reduces the race window from minutes to milliseconds while still allowing legitimate retries for different attempt numbers.
 
 - **Step 3 (Initial sync)**: Branch syncing is handled automatically by this workflow via merge strategy. The test workflow (`.github/workflows/test.yml`) does NOT check if the branch is behind main - syncing happens when Claude Code is triggered via `@claude` comment.
 

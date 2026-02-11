@@ -1167,106 +1167,83 @@ jobs:
           fi
 
       # ==============================================================================
-      # STALENESS CHECK (TypeScript Implementation)
+      # ATOMIC CHECK-AND-TRIGGER (Single Step)
       # ==============================================================================
-      # Prevents phantom runs from blocking TDD automation by ignoring runs
-      # not updated in 30+ minutes. See PR #7059 for background.
+      # Combines staleness check, Claude Code running check, attempt-specific
+      # comment deduplication, and @claude comment posting into ONE step.
       #
-      # Logic moved to: scripts/tdd-automation/programs/staleness-check.ts
-      # CLI entry: scripts/tdd-automation/workflows/test/check-staleness.ts
+      # This prevents the race condition where two concurrent test.yml runs
+      # both pass separate check steps and post duplicate @claude comments.
+      # See PR #7225 for background.
+      #
+      # Staleness logic: scripts/tdd-automation/programs/staleness-check.ts
+      # Comment generation: scripts/tdd-automation/workflows/test/generate-failure-comment.ts
       # ==============================================================================
-      - name: Check if this is the last test run
-        id: check-last-run
+      - name: Check conditions and trigger Claude Code
         if: steps.increment.outputs.exceeded == 'false'
+        timeout-minutes: 5
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           CURRENT_RUN_ID: ${{ github.run_id }}
           CURRENT_RUN_STARTED_AT: ${{ github.event.repository.updated_at }}
           BRANCH: ${{ github.event.pull_request.head.ref }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
-          # Run TypeScript staleness check program
-          RESULT=$(bun run scripts/tdd-automation/workflows/test/check-staleness.ts 2>&1 | tail -1)
-
-          # Parse JSON output and set GitHub outputs
-          {
-            echo "pending-tests=$(echo "$RESULT" | jq -r '.pendingTests')"
-            echo "active-claude=$(echo "$RESULT" | jq -r '.activeClaude')"
-            echo "should-trigger=$(echo "$RESULT" | jq -r '.shouldTrigger')"
-          } >> "$GITHUB_OUTPUT"
-
-          # Set skip-reason only if not triggering
-          SKIP_REASON=$(echo "$RESULT" | jq -r '.skipReason // empty')
-          if [ -n "$SKIP_REASON" ]; then
-            echo "skip-reason=$SKIP_REASON" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Post skipped trigger notification (Fix #2)
-        if: steps.increment.outputs.exceeded == 'false' && steps.check-last-run.outputs.should-trigger == 'false'
-        timeout-minutes: 3
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          SKIP_REASON: ${{ steps.check-last-run.outputs.skip-reason }}
-          PENDING_TESTS: ${{ steps.check-last-run.outputs.pending-tests }}
-          ACTIVE_CLAUDE: ${{ steps.check-last-run.outputs.active-claude }}
+          TARGET_SPEC: ${{ needs.e2e-results.outputs.target_spec || 'specs/' }}
+          SPEC_ID: ${{ steps.parse.outputs.spec-id }}
+          NEW_ATTEMPT: ${{ steps.increment.outputs.new-attempt }}
+          MAX_ATTEMPTS: ${{ steps.parse.outputs.max-attempts }}
+          FAILURE_TYPE: ${{ steps.detect-failure.outputs.failure-type }}
         run: |
-          echo "📝 Posting skipped trigger notification..."
+          # ── Step 1: Staleness check ──────────────────────────────────────
+          echo "🔍 Running staleness check..."
+          STALENESS_RESULT=$(bun run scripts/tdd-automation/workflows/test/check-staleness.ts 2>&1 | tail -1)
 
-          # Generate notification message based on skip reason
-          if [ "$SKIP_REASON" = "pending_tests" ]; then
-            REASON_TEXT="Another test run is in progress or queued"
-            NEXT_ACTION="The last test.yml run will trigger Claude Code with the most recent failure"
-          else
-            REASON_TEXT="A Claude Code run handling a newer failure is already active"
-            NEXT_ACTION="Automation will resume after the active run completes"
+          SHOULD_TRIGGER=$(echo "$STALENESS_RESULT" | jq -r '.shouldTrigger')
+          PENDING_TESTS=$(echo "$STALENESS_RESULT" | jq -r '.pendingTests')
+          ACTIVE_CLAUDE=$(echo "$STALENESS_RESULT" | jq -r '.activeClaude')
+          SKIP_REASON=$(echo "$STALENESS_RESULT" | jq -r '.skipReason // empty')
+
+          echo "   Should trigger: $SHOULD_TRIGGER"
+          echo "   Pending tests: $PENDING_TESTS"
+          echo "   Active Claude: $ACTIVE_CLAUDE"
+
+          if [ "$SHOULD_TRIGGER" = "false" ]; then
+            echo "⏭️ Skipping: staleness check says no (reason: $SKIP_REASON)"
+
+            # Post skip notification
+            if [ "$SKIP_REASON" = "pending_tests" ]; then
+              REASON_TEXT="Another test run is in progress or queued"
+              NEXT_ACTION="The last test.yml run will trigger Claude Code with the most recent failure"
+            else
+              REASON_TEXT="A Claude Code run handling a newer failure is already active"
+              NEXT_ACTION="Automation will resume after the active run completes"
+            fi
+
+            {
+              echo "## ⏭️ TDD Automation Paused"
+              echo ""
+              echo "**Reason**: $REASON_TEXT"
+              echo ""
+              echo "**Current Status:**"
+              echo "- Pending test runs: $PENDING_TESTS"
+              echo "- Active Claude Code runs: $ACTIVE_CLAUDE"
+              echo ""
+              echo "**Next Action**: $NEXT_ACTION"
+              echo ""
+              echo "If this doesn't resolve automatically within 30 minutes, the timeout-based fallback will add the \`tdd-automation:manual-intervention\` label."
+              echo ""
+              echo "---"
+              echo "_🤖 TDD Automation Race Condition Handler_"
+            } > /tmp/skipped_trigger.md
+
+            timeout 60 gh pr comment "$PR_NUMBER" --body-file /tmp/skipped_trigger.md || echo "::warning::Failed to post skip notification"
+            exit 0
           fi
 
-          # Create notification comment
-          {
-            echo "## ⏭️ TDD Automation Paused"
-            echo ""
-            echo "**Reason**: $REASON_TEXT"
-            echo ""
-            echo "**Current Status:**"
-            echo "- Pending test runs: $PENDING_TESTS"
-            echo "- Active Claude Code runs: $ACTIVE_CLAUDE"
-            echo ""
-            echo "**Next Action**: $NEXT_ACTION"
-            echo ""
-            echo "If this doesn't resolve automatically within 30 minutes, the timeout-based fallback will add the \`tdd-automation:manual-intervention\` label."
-            echo ""
-            echo "---"
-            echo "_🤖 TDD Automation Race Condition Handler_"
-          } > /tmp/skipped_trigger.md
-
-          # Post comment with retry logic
-          for attempt in {1..3}; do
-            echo "📝 Posting notification (attempt $attempt/3)..."
-            if timeout 60 gh pr comment "$PR_NUMBER" --body-file /tmp/skipped_trigger.md; then
-              echo "✅ Notification posted successfully"
-              break
-            fi
-
-            if [ "$attempt" -lt 3 ]; then
-              echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
-              sleep 10
-            else
-              echo "::error::Failed to post notification after 3 attempts"
-            fi
-          done
-
-      - name: Check for running Claude Code workflows
-        id: check-claude-code
-        if: steps.increment.outputs.exceeded == 'false' && steps.check-last-run.outputs.should-trigger == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
-          BRANCH: ${{ github.event.pull_request.head.ref }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-        run: |
+          # ── Step 2: Claude Code workflow running check ───────────────────
           echo "🔍 Checking for running Claude Code workflows on branch: $BRANCH"
 
-          # Get running Claude Code workflows for this branch
           RUNNING_WORKFLOWS=$(gh run list \
             --workflow="Claude Code" \
             --branch="$BRANCH" \
@@ -1277,88 +1254,55 @@ jobs:
           echo "   Running Claude Code workflows: $RUNNING_WORKFLOWS"
 
           if [ "$RUNNING_WORKFLOWS" -gt 0 ]; then
-            echo "should-trigger=false" >> "$GITHUB_OUTPUT"
-            echo "skip-reason=claude_code_running" >> "$GITHUB_OUTPUT"
-            echo "⏭️ Skipping trigger - Claude Code workflow already running on this branch"
-          else
-            echo "should-trigger=true" >> "$GITHUB_OUTPUT"
-            echo "✅ No running Claude Code workflows - safe to trigger"
+            echo "⏭️ Skipping: Claude Code workflow already running on this branch"
+
+            {
+              echo "## ⏭️ TDD Automation: Trigger Skipped"
+              echo ""
+              echo "**Reason**: A Claude Code workflow is already running on this branch."
+              echo ""
+              echo "**What this means**:"
+              echo "- Another test run triggered Claude Code before this one could"
+              echo "- The running Claude Code workflow will handle the most recent failure"
+              echo "- No duplicate workflows will be created"
+              echo ""
+              echo "**Next Steps**:"
+              echo "- Wait for the active Claude Code run to complete"
+              echo "- Tests will run automatically after Claude Code pushes changes"
+              echo "- If the issue persists after 30 minutes, the timeout-based fallback will add the \`tdd-automation:manual-intervention\` label"
+              echo ""
+              echo "---"
+              echo "_🤖 TDD Automation Race Condition Prevention_"
+            } > /tmp/skipped_claude_code_trigger.md
+
+            timeout 60 gh pr comment "$PR_NUMBER" --body-file /tmp/skipped_claude_code_trigger.md || echo "::warning::Failed to post skip notification"
+            exit 0
           fi
 
-      - name: Post skipped trigger notification (Claude Code already running)
-        if: steps.increment.outputs.exceeded == 'false' && steps.check-last-run.outputs.should-trigger == 'true' && steps.check-claude-code.outputs.should-trigger == 'false'
-        timeout-minutes: 3
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          echo "📝 Posting notification about skipped trigger..."
+          # ── Step 3: Attempt-specific comment deduplication ───────────────
+          # Check if a @claude comment for this exact attempt already exists.
+          # This catches the narrow race where two concurrent runs both pass
+          # the checks above within milliseconds of each other.
+          echo "🔍 Checking for duplicate @claude comment (Attempt $NEW_ATTEMPT/$MAX_ATTEMPTS)..."
 
-          # Create notification comment
-          {
-            echo "## ⏭️ TDD Automation: Trigger Skipped"
-            echo ""
-            echo "**Reason**: A Claude Code workflow is already running on this branch."
-            echo ""
-            echo "**What this means**:"
-            echo "- Another test run triggered Claude Code before this one could"
-            echo "- The running Claude Code workflow will handle the most recent failure"
-            echo "- No duplicate workflows will be created"
-            echo ""
-            echo "**Next Steps**:"
-            echo "- Wait for the active Claude Code run to complete"
-            echo "- Tests will run automatically after Claude Code pushes changes"
-            echo "- If the issue persists after 30 minutes, the timeout-based fallback will add the \`tdd-automation:manual-intervention\` label"
-            echo ""
-            echo "---"
-            echo "_🤖 TDD Automation Race Condition Prevention_"
-          } > /tmp/skipped_claude_code_trigger.md
+          EXISTING_COMMENT=$(gh api \
+            "/repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            --paginate \
+            --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"@claude\")) and (.body | contains(\"Attempt: $NEW_ATTEMPT/$MAX_ATTEMPTS\")))] | length")
 
-          # Post comment with retry logic
-          for attempt in {1..3}; do
-            echo "📝 Posting notification (attempt $attempt/3)..."
-            if timeout 60 gh pr comment "$PR_NUMBER" --body-file /tmp/skipped_claude_code_trigger.md; then
-              echo "✅ Notification posted successfully"
-              break
-            fi
+          echo "   Existing @claude comments for Attempt $NEW_ATTEMPT/$MAX_ATTEMPTS: $EXISTING_COMMENT"
 
-            if [ "$attempt" -lt 3 ]; then
-              echo "::warning::Comment posting failed (attempt $attempt/3), retrying in 10s..."
-              sleep 10
-            else
-              echo "::error::Failed to post notification after 3 attempts"
-            fi
-          done
+          if [ "$EXISTING_COMMENT" -gt 0 ]; then
+            echo "⏭️ Skipping: @claude comment for Attempt $NEW_ATTEMPT/$MAX_ATTEMPTS already exists (duplicate run)"
+            exit 0
+          fi
 
-      - name: Trigger Claude Code on failure
-        if: steps.increment.outputs.exceeded == 'false' && steps.check-last-run.outputs.should-trigger == 'true' && steps.check-claude-code.outputs.should-trigger == 'true'
-        timeout-minutes: 5
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          TARGET_SPEC: ${{ needs.e2e-results.outputs.target_spec || 'specs/' }}
-          SPEC_ID: ${{ steps.parse.outputs.spec-id }}
-          NEW_ATTEMPT: ${{ steps.increment.outputs.new-attempt }}
-          MAX_ATTEMPTS: ${{ steps.parse.outputs.max-attempts }}
-          BRANCH: ${{ github.event.pull_request.head.ref }}
-          FAILURE_TYPE: ${{ steps.detect-failure.outputs.failure-type }}
-        run: |
+          # ── Step 4: Generate and post @claude comment ────────────────────
           echo "🤖 Triggering Claude Code (Attempt $NEW_ATTEMPT/$MAX_ATTEMPTS)"
           echo "   Failure type: $FAILURE_TYPE"
           echo "   Target spec: $TARGET_SPEC"
 
-          # Select agent based on failure type (per spec)
-          # - quality_only: Use codebase-refactor-auditor (lint/format/type issues, not test failures)
-          # - target_only: Use e2e-test-fixer (actual test failures)
-          if [ "$FAILURE_TYPE" = "quality_only" ]; then
-            AGENT="codebase-refactor-auditor"
-          else
-            AGENT="e2e-test-fixer"
-          fi
-
-          echo "   Selected agent: $AGENT"
-
-          # Generate failure comment using TypeScript (replaces 38 lines of bash template logic)
+          # Generate failure comment using TypeScript
           # Format matches spec: docs/development/tdd-automation-pipeline.md#system-prompt-templates
           bun run scripts/tdd-automation/workflows/test/generate-failure-comment.ts > /tmp/claude_comment.txt
 
