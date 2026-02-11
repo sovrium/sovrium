@@ -249,7 +249,7 @@ test.describe('Get table by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-GET-006: should include views array in response',
     { tag: '@spec' },
     async ({ startServerWithSchema, request, createAuthenticatedMember }) => {
