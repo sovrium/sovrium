@@ -992,22 +992,22 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Check if any spec-related files changed (SPEC-PROGRESS.md or README.md badges)
-          if git diff --quiet SPEC-PROGRESS.md README.md; then
+          # Check if any spec-related files changed (SPEC-PROGRESS.md, README.md badges, or user story files)
+          if git diff --quiet SPEC-PROGRESS.md README.md docs/user-stories/; then
             echo "✅ No changes to spec progress files"
           else
             echo "📝 Committing spec progress updates..."
-            # Add both files modified by check-progress.ts
-            git add SPEC-PROGRESS.md README.md
+            # Add all files modified by check-progress.ts (--update-stories also modifies user story files)
+            git add SPEC-PROGRESS.md README.md docs/user-stories/
             git commit -m "chore: update spec progress [skip ci]"
 
             # Pull latest changes with rebase to avoid race conditions
             echo "🔄 Pulling latest changes from main..."
             if ! git pull --rebase origin main; then
-              echo "⚠️ Rebase conflict detected - aborting push"
-              echo "   This is expected when multiple workflows update spec progress simultaneously"
+              echo "⚠️ Rebase failed - aborting push"
+              echo "   This can happen due to rebase conflicts or unstaged changes"
               echo "   The next successful test run will update the spec progress"
-              git rebase --abort
+              git rebase --abort 2>/dev/null || true
               exit 0
             fi
 
