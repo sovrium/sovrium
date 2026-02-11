@@ -100,6 +100,7 @@ test.describe('Progress Field', () => {
     'APP-TABLES-FIELD-TYPES-PROGRESS-003: should support NOT NULL constraint with default 0',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with required progress field
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -115,6 +116,7 @@ test.describe('Progress Field', () => {
         ],
       })
 
+      // WHEN: checking column constraints
       // THEN: Column is NOT NULL with default 0
       const columns = await executeQuery(
         `SELECT is_nullable, column_default FROM information_schema.columns
@@ -129,6 +131,7 @@ test.describe('Progress Field', () => {
     'APP-TABLES-FIELD-TYPES-PROGRESS-004: should support DEFAULT value for progress field',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: table with progress field defaulting to 50
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -162,6 +165,7 @@ test.describe('Progress Field', () => {
     'APP-TABLES-FIELD-TYPES-PROGRESS-005: should return progress as percentage in API responses',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedMember }) => {
+      // GIVEN: table with progress field and a record at 75%
       await startServerWithSchema({
         name: 'test-app',
         auth: {
