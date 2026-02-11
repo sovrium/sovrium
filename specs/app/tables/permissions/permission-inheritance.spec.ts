@@ -155,7 +155,7 @@ test.describe('Permission Inheritance', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-PERMISSION-INHERITANCE-004: should update inherited permissions when parent changes',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedViewer }) => {
