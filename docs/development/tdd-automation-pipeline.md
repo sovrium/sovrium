@@ -1191,7 +1191,7 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 
 - **Parallel execution prevention**: Handled by `test.yml` workflow. Only the **last** test.yml execution on a PR will post `@claude` comment. If multiple test runs are queued/running (e.g., from main branch updates), earlier runs skip triggering Claude Code - only the final run with the latest failure triggers execution.
 
-  **Race Condition Protections (7 layers)**:
+  **Race Condition Protections (8 layers)**:
   1. **Smarter Timestamp-Based Check**: `test.yml` compares timestamps of active Claude Code runs. Only skips triggering if an active Claude Code run started AFTER the current test failure. This prevents skipping when the active run is handling an old failure.
 
   2. **Skipped Trigger Notification**: When automation decides not to trigger Claude Code due to active runs, a PR comment is posted explaining why (with current status: pending test runs count, active Claude Code count, next action). This prevents silent failures and provides visibility.
@@ -1205,6 +1205,8 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
   6. **Concurrency Control (claude-code.yml)**: GitHub Actions concurrency group `claude-code-{PR#}` ensures only one Claude Code workflow runs per PR at a time. Uses `cancel-in-progress: false` to complete current run before starting next (avoids wasting API credits). Different PRs can run in parallel. Added after PR #7083 incident where two `@claude` comments triggered parallel runs.
 
   7. **Atomic Check-and-Post with Attempt-Specific Deduplication (PR #7225 fix)**: The staleness check, Claude Code running check, and `@claude` comment posting are combined into a **single workflow step**. Previously these were 3 separate steps with a timing gap of several minutes between the check and the post, allowing two concurrent `test.yml` runs to both pass checks and post duplicate `@claude` comments. The merged step also adds **attempt-specific comment deduplication**: before posting, it queries existing PR comments to check if a comment for the same attempt number (`Attempt N/M`) already exists. If a matching comment is found, the post is skipped. This reduces the race window from minutes to milliseconds while still allowing legitimate retries for different attempt numbers.
+
+  8. **Branch Sync Claude Code Guard (PR #7233 fix)**: The `branch-sync.yml` workflow checks for active/queued Claude Code runs before pushing merge commits to TDD branches. When Claude Code is actively implementing on a TDD branch, a push would trigger `test.yml` (via `pull_request: synchronize`), which can cancel the running Claude Code workflow and trigger a duplicate run with an incremented attempt counter. The guard uses the same `[TDD]` title-filtered global query as layer 4 (`gh run list --workflow="Claude Code" --status=in_progress --status=queued` filtered by `[TDD]` in `displayTitle`). If active runs are detected, the sync is deferred to the next cycle (15-minute cron or next push to main).
 
 - **Step 3 (Initial sync)**: Branch syncing is handled automatically by this workflow via merge strategy. The test workflow (`.github/workflows/test.yml`) does NOT check if the branch is behind main - syncing happens when Claude Code is triggered via `@claude` comment.
 
@@ -1351,11 +1353,18 @@ All errors now follow this single path instead of complex categorization and mul
 
 1. **Find Active TDD PRs**: Query for open PRs with `tdd-automation` label (excluding `manual-intervention`)
 2. **Check Sync Status**: For each PR, check if branch is behind main
-3. **Attempt Merge**: Merge main into TDD branch using `git merge origin/main --no-edit`
-4. **Handle Results**:
+3. **Claude Code Guard**: Before syncing, check if Claude Code is actively running or queued for TDD automation. If so, skip the sync for that branch (the next sync cycle will pick it up after Claude Code completes). This prevents a cascade where pushing to the TDD branch triggers `test.yml`, which cancels the running Claude Code workflow, wastes an attempt, and triggers a new Claude Code run.
+4. **Attempt Merge**: Merge main into TDD branch using `git merge origin/main --no-edit`
+5. **Handle Results**:
    - **Success**: Push merged branch, post success comment
    - **Conflict**: Add `manual-intervention` label, post conflict resolution instructions
    - **Push Failure**: Add `manual-intervention` label, post error comment
+
+**Claude Code Guard Details**:
+
+The guard uses the same detection pattern as `test.yml`'s atomic check (layer 4 in Race Condition Protections): `gh run list --workflow="Claude Code" --status=in_progress --status=queued` filtered by `[TDD]` in `displayTitle` via jq. No branch filter is used because `claude-code.yml` is triggered by `issue_comment` events which always report `head_branch: "main"`. This is safe because serial processing guarantees only one active TDD PR at a time.
+
+**Why this guard is necessary**: When `branch-sync.yml` pushes a merge commit to a TDD branch, it triggers `test.yml` (via `pull_request: synchronize` event). If Claude Code is mid-implementation, the tests will fail (incomplete code). The `test.yml` TDD Handle Failure handler sees no running Claude Code (the push may have cancelled it via concurrency) and posts a new `@claude` comment, incrementing the attempt counter. This wastes both an attempt (e.g., 3/5 becomes 4/5) and the cost of a new Claude Code run.
 
 **Key Features**:
 
@@ -1363,21 +1372,24 @@ All errors now follow this single path instead of complex categorization and mul
 - Detects and reports conflicting files
 - Posts detailed comments with resolution steps
 - Prevents stale branches from blocking TDD automation
+- Skips sync when Claude Code is actively working (prevents cascade cancellations)
 
 **Error Handling**:
 
 - Conflicts → `manual-intervention` label + conflict comment
 - Push failures → `manual-intervention` label + error comment
 - Aborts merge cleanly on conflict detection
+- Claude Code active → Skip sync silently (logged, next cycle picks up)
 
 **Example Scenarios**:
 
-| Scenario                   | Action                    | Label Added?              | Comment Posted?    |
-| -------------------------- | ------------------------- | ------------------------- | ------------------ |
-| Branch up to date          | Skip (no action)          | No                        | No                 |
-| Branch behind, no conflict | Merge + push              | No                        | Yes (success)      |
-| Branch behind, conflict    | Abort merge, detect files | Yes (manual-intervention) | Yes (instructions) |
-| Merge success, push fail   | N/A (permissions issue)   | Yes (manual-intervention) | Yes (error)        |
+| Scenario                     | Action                        | Label Added?              | Comment Posted?    |
+| ---------------------------- | ----------------------------- | ------------------------- | ------------------ |
+| Branch up to date            | Skip (no action)              | No                        | No                 |
+| Claude Code actively running | Skip (deferred to next cycle) | No                        | No                 |
+| Branch behind, no conflict   | Merge + push                  | No                        | Yes (success)      |
+| Branch behind, conflict      | Abort merge, detect files     | Yes (manual-intervention) | Yes (instructions) |
+| Merge success, push fail     | N/A (permissions issue)       | Yes (manual-intervention) | Yes (error)        |
 
 ---
 
