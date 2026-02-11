@@ -914,6 +914,21 @@ describe('sql-generators', () => {
       )
     })
 
+    test('generates progress field with NOT NULL and DEFAULT 0 when required is true', () => {
+      // Given
+      const field = {
+        name: 'completion',
+        type: 'progress',
+        required: true,
+      }
+
+      // When
+      const result = generateColumnDefinition(field as any, false)
+
+      // Then
+      expect(result).toBe('completion INTEGER NOT NULL DEFAULT 0')
+    })
+
     test('generates CHECK constraint for single-select enum', () => {
       // Given
 

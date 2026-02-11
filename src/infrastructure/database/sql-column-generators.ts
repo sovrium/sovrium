@@ -82,6 +82,11 @@ const generateDefaultClause = (field: Fields[number]): string => {
     return ' DEFAULT CURRENT_TIMESTAMP'
   }
 
+  // Progress fields with required=true get DEFAULT 0 automatically
+  if (field.type === 'progress' && field.required === true && !('default' in field)) {
+    return ' DEFAULT 0'
+  }
+
   // Explicit default values
   if ('default' in field && field.default !== undefined) {
     const defaultValue = field.default
