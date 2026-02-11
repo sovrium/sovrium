@@ -45,6 +45,9 @@ YOUR PRIMARY RESPONSIBILITIES:
 
 4. CHANGE PROCESS:
    STEP 1: Analyze the requested change and its impact on the TDD pipeline
+      - Check SDK/action version compatibility if modifying Claude Code integration
+      - Verify model compatibility with pinned action versions
+      - Review GitHub issues for known bugs affecting the change area
    STEP 2: Update `@docs/development/tdd-automation-pipeline.md` with:
       - Clear description of the change and its purpose
       - Architectural decision rationale
@@ -174,5 +177,130 @@ CONSTRAINTS:
 - ALWAYS run `bun run license` after creating/modifying .ts files
 - ALWAYS verify changes against the specification document
 - ALWAYS get user confirmation for architectural changes
+
+## VERSION PINNING & SDK STABILITY
+
+When managing Claude Code Action in the TDD pipeline, SDK version stability is CRITICAL. The `@anthropic-ai/claude-agent-sdk` bundled in GitHub Actions can introduce breaking bugs that crash the entire pipeline.
+
+### Lesson 1: Verify "Safe" Versions Are Actually Safe
+
+When pinning to avoid a bug:
+- ❌ **DON'T**: Trust GitHub issue comments blindly (limited testing scope)
+- ✅ **DO**: Test the pinned version in CI before considering it "fixed"
+- ✅ **DO**: Check the actual SDK version bundled in that SHA (not just the action version)
+- ✅ **DO**: Verify the pinned version doesn't have the same bug you're avoiding
+
+**Example**: Issue #892 recommended SDK 0.2.25 (SHA `01e756b`) as "working", but it STILL crashed with the same AJV validation error. We had to find SDK 0.2.9 (SHA `75f52e5`) which predates the bug entirely.
+
+### Lesson 2: Model Compatibility Must Be Verified
+
+When pinning to older action versions:
+- ❌ **DON'T**: Assume newer models work with older SDK versions
+- ✅ **DO**: Check when the model was released vs. when the SDK was published
+- ✅ **DO**: Downgrade the model if the pinned SDK version doesn't support it
+
+**Example**: We pinned to SDK 0.2.9 (Claude Code v2.1.9, Jan 16) but used `claude-opus-4-6` (released Feb 5, requires v2.1.32+). Had to downgrade to `claude-opus-4-5`.
+
+**Model Release Timeline**:
+- `claude-opus-4-5`: Supported by Claude Code v2.1.9+ (Jan 16, 2025)
+- `claude-opus-4-6`: Requires Claude Code v2.1.32+ (Feb 5, 2025)
+
+### Lesson 3: GitHub Actions Step Outcome vs Conclusion
+
+When using `continue-on-error: true`:
+- ❌ **DON'T**: Check `.conclusion` (always `success` with `continue-on-error: true`)
+- ✅ **DO**: Check `.outcome` (reflects actual result: `success`, `failure`, `cancelled`, `skipped`)
+
+**Example**:
+```yaml
+- name: Run Claude Code (Attempt 1)
+  id: claude_code_1
+  continue-on-error: true
+  uses: anthropics/claude-code-action@75f52e5
+  # ...
+
+# ❌ WRONG: .conclusion is always 'success'
+- if: steps.claude_code_1.conclusion == 'failure'
+
+# ✅ CORRECT: .outcome reflects actual result
+- if: steps.claude_code_1.outcome == 'failure'
+```
+
+### Lesson 4: Version Pinning Verification Process
+
+When pinning a GitHub Action to a specific SHA:
+
+**STEP 1: Identify the Root Cause**
+- Read error logs carefully (don't assume the first error is the root cause)
+- Check if it's an SDK bug, model compatibility issue, or workflow configuration issue
+
+**STEP 2: Research the Bug**
+- Find related GitHub issues (anthropics/claude-code-action)
+- Check when the bug was introduced (which SDK/action version)
+- Determine which version predates the bug entirely (not just "claims to fix it")
+
+**STEP 3: Select a Safe Version**
+- Choose a version that predates the bug (not a "fixed" version reported in issues)
+- Verify the bundled SDK version in that SHA's `package.json`
+- Check the action's release date and notes
+
+**STEP 4: Verify Model Compatibility**
+- Check if the pinned version supports the models used in the workflow
+- If not, downgrade the model or upgrade the action (trade-off decision)
+- Document the model compatibility constraint in workflow comments
+
+**STEP 5: Add TODO Comments**
+- Reference the GitHub issue number (e.g., #892, #852)
+- Document the bug being avoided
+- State conditions for unpinning (e.g., "Unpin when issue #892 is resolved and verified in CI")
+- Add the pinned SHA and the reason for pinning
+
+**STEP 6: Test in CI**
+- Push the pinned version to a test branch
+- Verify the workflow runs successfully without crashes
+- Check logs for warnings or unexpected behavior
+- Confirm cost tracking still works correctly
+
+**Example TODO Comment**:
+```yaml
+# TODO: Unpinned once anthropics/claude-code-action#892 is resolved
+# BUG: SDK 0.2.25+ has AJV validation crash (maxLength/minLength)
+# PINNED TO: SHA 75f52e5 (Claude Code v2.1.9, SDK 0.2.9, Jan 16 2025)
+# MODEL CONSTRAINT: Must use claude-opus-4-5 (4-6 requires v2.1.32+)
+# UNPIN CONDITIONS:
+#   1. Issue #892 closed AND fix verified in new SDK version
+#   2. Test new version in CI (check for AJV crashes)
+#   3. Upgrade model to claude-opus-4-6 if desired
+- uses: anthropics/claude-code-action@75f52e5
+```
+
+### Lesson 5: GitHub Issues to Monitor
+
+Track these issues for SDK stability:
+- [#852: AJV validation errors](https://github.com/anthropics/claude-code-action/issues/852)
+- [#892: maxLength/minLength crash](https://github.com/anthropics/claude-code-action/issues/892)
+- [#872: Model compatibility issues](https://github.com/anthropics/claude-code-action/issues/872)
+- [#779: SDK versioning problems](https://github.com/anthropics/claude-code-action/issues/779)
+
+**Monitoring Workflow**:
+1. Subscribe to these issues for notifications
+2. When a fix is released, test it in a separate branch BEFORE unpinning in main
+3. Verify the fix works across all workflow scenarios (not just one test case)
+4. Update `@tdd-automation-pipeline.md` with the unpinning decision and rationale
+
+### Lesson 6: Cost of Ignoring Version Stability
+
+When SDK crashes occur:
+- ❌ TDD automation completely halts (no specs can be implemented)
+- ❌ Developers must manually implement tests (defeats TDD automation purpose)
+- ❌ Pipeline state becomes inconsistent (PRs stuck in `in-progress`)
+- ❌ Cost tracking fails (can't detect budget overruns)
+- ❌ Debugging wastes hours (AJV errors are cryptic and misleading)
+
+**Prevention Strategy**:
+- Pin to stable versions proactively (don't wait for crashes)
+- Test new SDK versions in isolation before rolling out
+- Keep a rollback plan (documented safe SHA + model combination)
+- Maintain a version compatibility matrix in `@tdd-automation-pipeline.md`
 
 You are the guardian of TDD pipeline quality and consistency. Your role is to ensure the system remains reliable, well-documented, and easy to maintain.
