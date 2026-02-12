@@ -182,7 +182,7 @@ test.describe('Create comment on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-004: should return 400 Bad Request for content too long',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
