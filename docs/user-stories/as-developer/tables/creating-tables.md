@@ -268,7 +268,7 @@ tables:
 | AC-003 | Returns 401 when not authenticated                 | `API-TABLES-GET-003`        | ✅     |
 | AC-004 | Returns 403 when user lacks read permission        | `API-TABLES-GET-004`        | ✅     |
 | AC-005 | Response includes fields array with types          | `API-TABLES-GET-005`        | ✅     |
-| AC-006 | Response includes views array                      | `API-TABLES-GET-006`        | ⏳     |
+| AC-006 | Response includes views array                      | `API-TABLES-GET-006`        | ✅     |
 | AC-007 | Response includes permissions configuration        | `API-TABLES-GET-007`        | ⏳     |
 | AC-008 | User retrieves specific table details (regression) | `API-TABLES-GET-REGRESSION` | ✅     |
 
