@@ -287,7 +287,7 @@ test.describe('Get table by ID', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-GET-007: should include permissions configuration in response',
     { tag: '@spec' },
     async ({ startServerWithSchema, request, createAuthenticatedMember }) => {
