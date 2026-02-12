@@ -1177,7 +1177,7 @@ test.describe('Record Authorship Metadata', () => {
   // @regression test - ONE optimized integration test
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-REGRESSION: full authorship metadata lifecycle across CRUD operations',
     { tag: '@regression' },
     async ({
