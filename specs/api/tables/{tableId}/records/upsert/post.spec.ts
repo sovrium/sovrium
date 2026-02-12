@@ -513,7 +513,7 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-UPSERT-010: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedAdmin }) => {
