@@ -266,7 +266,7 @@ DELETE /api/tables/1/records/123/comments/1
 
 | ID     | Criterion                                      | E2E Spec                                        | Status |
 | ------ | ---------------------------------------------- | ----------------------------------------------- | ------ |
-| AC-001 | Returns 200 OK with deleted comment            | `API-TABLES-RECORDS-COMMENTS-DELETE-001`        | ⏳     |
+| AC-001 | Returns 200 OK with deleted comment            | `API-TABLES-RECORDS-COMMENTS-DELETE-001`        | ✅     |
 | AC-002 | Soft deletes comment (sets deleted_at)         | `API-TABLES-RECORDS-COMMENTS-DELETE-002`        | ⏳     |
 | AC-003 | Returns 404 Not Found for non-existent comment | `API-TABLES-RECORDS-COMMENTS-DELETE-003`        | ⏳     |
 | AC-004 | Returns 404 for already deleted comment        | `API-TABLES-RECORDS-COMMENTS-DELETE-004`        | ⏳     |
