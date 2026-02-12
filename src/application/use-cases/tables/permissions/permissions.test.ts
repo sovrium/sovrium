@@ -54,7 +54,7 @@ describe('permissions (re-export smoke tests)', () => {
   })
 
   test('hasDeletePermission is re-exported and functional', () => {
-    expect(hasDeletePermission(undefined, 'member')).toBe(true)
+    expect(hasDeletePermission(undefined, 'member')).toBe(false)
   })
 
   test('hasUpdatePermission is re-exported and functional', () => {

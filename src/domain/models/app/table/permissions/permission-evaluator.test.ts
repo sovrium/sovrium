@@ -171,8 +171,8 @@ describe('permission-evaluator', () => {
   })
 
   describe('hasDeletePermission', () => {
-    test('should return true when no delete permission defined for non-viewer', () => {
-      expect(hasDeletePermission(undefined, 'member')).toBe(true)
+    test('should return false when no delete permission defined for member (requires explicit grant)', () => {
+      expect(hasDeletePermission(undefined, 'member')).toBe(false)
     })
 
     test('should return true when role is in allowed roles', () => {
