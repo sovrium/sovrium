@@ -186,7 +186,7 @@ tables:
 | AC-001 | GET /records excludes fields user lacks read permission for  | `API-TABLES-PERMISSIONS-FIELD-001`        | ✅     |
 | AC-002 | GET /records/:id excludes restricted fields                  | `API-TABLES-PERMISSIONS-FIELD-002`        | ✅     |
 | AC-003 | POST /records ignores fields user lacks write permission for | `API-TABLES-PERMISSIONS-FIELD-003`        | ✅     |
-| AC-004 | PATCH /records/:id rejects updates to restricted fields      | `API-TABLES-PERMISSIONS-FIELD-004`        | ⏳     |
+| AC-004 | PATCH /records/:id rejects updates to restricted fields      | `API-TABLES-PERMISSIONS-FIELD-004`        | ✅     |
 | AC-005 | Batch operations respect field permissions per record        | `API-TABLES-PERMISSIONS-FIELD-005`        | ✅     |
 | AC-006 | Complete field permission enforcement workflow (regression)  | `API-TABLES-PERMISSIONS-FIELD-REGRESSION` | ✅     |
 
