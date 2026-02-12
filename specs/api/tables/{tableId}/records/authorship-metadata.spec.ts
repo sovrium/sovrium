@@ -38,7 +38,7 @@ test.describe('Record Authorship Metadata', () => {
   // US-API-AUTHORSHIP-001: Created By on Record Creation
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-001: should auto-set created_by to current user ID on record creation',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
