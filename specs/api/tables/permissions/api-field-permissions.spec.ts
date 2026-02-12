@@ -290,7 +290,7 @@ test.describe('API Field Permission Enforcement', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          name: 'John Smith', // This should work
+          fields: { name: 'John Smith' }, // This should work
         },
       })
 
