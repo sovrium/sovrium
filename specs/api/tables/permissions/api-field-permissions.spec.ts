@@ -166,7 +166,7 @@ test.describe('API Field Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-FIELD-003: should reject write operation when user lacks field write permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember, executeQuery }) => {
@@ -218,7 +218,7 @@ test.describe('API Field Permission Enforcement', () => {
           'Content-Type': 'application/json',
         },
         data: {
-          salary: 100_000, // Attempting to give themselves a raise!
+          fields: { salary: 100_000 }, // Attempting to give themselves a raise!
         },
       })
 
