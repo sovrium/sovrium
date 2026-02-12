@@ -7,7 +7,12 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { db, SessionContextError, UniqueConstraintViolationError } from '@/infrastructure/database'
+import {
+  db,
+  SessionContextError,
+  UniqueConstraintViolationError,
+  type DrizzleTransaction,
+} from '@/infrastructure/database'
 import { logActivity } from './activity-log-helpers'
 import { buildInsertClauses, isUniqueConstraintViolation } from './create-record-helpers'
 import {
@@ -26,6 +31,40 @@ import {
 import { validateTableName } from './validation'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+
+/**
+ * Inject authorship metadata fields (created_by, updated_by) into record fields
+ *
+ * @param fields - Original record fields
+ * @param userId - User ID from session
+ * @param tx - Database transaction
+ * @param tableName - Table name
+ * @returns Fields with authorship metadata injected
+ */
+async function injectAuthorshipFields(
+  fields: Readonly<Record<string, unknown>>,
+  userId: string,
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string
+): Promise<Record<string, unknown>> {
+  // Query table schema to check for authorship columns
+  const schemaQuery = await tx.execute(
+    sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name IN ('created_by', 'updated_by')`
+  )
+  const columnNames = new Set(
+    (schemaQuery as unknown as readonly { column_name: string }[]).map((row) => row.column_name)
+  )
+
+  const hasCreatedBy = columnNames.has('created_by')
+  const hasUpdatedBy = columnNames.has('updated_by')
+
+  // Build new fields object with authorship metadata (immutable approach)
+  return {
+    ...fields,
+    ...(hasCreatedBy ? { created_by: userId } : {}),
+    ...(hasUpdatedBy ? { updated_by: userId } : {}),
+  }
+}
 
 /**
  * Create a new record
@@ -52,8 +91,16 @@ export function createRecord(
             throw new SessionContextError('Cannot create record with no fields', undefined)
           }
 
+          // Inject authorship metadata (created_by, updated_by) from session
+          const fieldsWithAuthorship = await injectAuthorshipFields(
+            fields,
+            session.userId,
+            tx,
+            tableName
+          )
+
           // Build INSERT query
-          const { columnsClause, valuesClause } = buildInsertClauses(fields)
+          const { columnsClause, valuesClause } = buildInsertClauses(fieldsWithAuthorship)
 
           // Execute INSERT directly (avoid Effect.runPromise which wraps errors in FiberFailure)
           const insertResult = (await tx.execute(
