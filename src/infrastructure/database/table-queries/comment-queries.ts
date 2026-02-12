@@ -233,6 +233,7 @@ function buildRecordCheckQuery(params: {
 
 /**
  * Check if a record exists in the given table (with owner_id isolation)
+ * Admin users bypass owner_id filtering
  */
 export function checkRecordExists(config: {
   readonly session: Readonly<Session>
@@ -254,13 +255,17 @@ export function checkRecordExists(config: {
     const hasDeletedAt = columns.some((row) => row.column_name === 'deleted_at')
     const hasOwnerId = columns.some((row) => row.column_name === 'owner_id')
 
-    // Check if record exists (with owner_id check for multi-tenancy isolation)
+    // Check if user is admin (admins bypass owner_id filtering)
+    const currentUser = yield* getUserById({ session, userId: session.userId })
+    const isAdmin = currentUser?.role === 'admin'
+
+    // Check if record exists (with owner_id check for multi-tenancy isolation, unless admin)
     const query = buildRecordCheckQuery({
       tableName,
       recordId,
       userId: session.userId,
       hasDeletedAt,
-      hasOwnerId,
+      hasOwnerId: hasOwnerId && !isAdmin, // Bypass owner_id check for admins
     })
     const result = yield* Effect.tryPromise({
       try: () => db.execute(query),

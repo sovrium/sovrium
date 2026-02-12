@@ -407,6 +407,7 @@ test.describe('Delete comment', () => {
       executeQuery,
       createAuthenticatedUser,
       createAuthenticatedAdmin,
+      signIn,
     }) => {
       // Setup: Start server with tasks table
       await startServerWithSchema({
@@ -416,7 +417,10 @@ test.describe('Delete comment', () => {
           {
             id: 1,
             name: 'tasks',
-            fields: [{ id: 1, name: 'title', type: 'single-line-text', required: true }],
+            fields: [
+              { id: 1, name: 'title', type: 'single-line-text', required: true },
+              { id: 2, name: 'owner_id', type: 'single-line-text' },
+            ],
           },
         ],
       })
@@ -435,9 +439,10 @@ test.describe('Delete comment', () => {
       })
 
       // --- Setup: Insert test data ---
-      await executeQuery(`
-        INSERT INTO tasks (id, title) VALUES (1, 'Task One'), (2, 'Task Two')
-      `)
+      await executeQuery(
+        `INSERT INTO tasks (id, title, owner_id) VALUES (1, 'Task One', $1), (2, 'Task Two', $1)`,
+        [alice.id]
+      )
       await executeQuery(
         `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
         VALUES
@@ -483,7 +488,8 @@ test.describe('Delete comment', () => {
       })
 
       // --- Re-authenticate as Alice for remaining steps ---
-      await createAuthenticatedUser({ name: 'Alice', email: 'alice@example.com' })
+      // (createAuthenticatedUser overwrites cookies, so we need to sign in again)
+      await signIn({ email: 'alice@example.com', password: 'TestPassword123!' })
 
       // --- Step 005: Delete non-existent comment ---
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-005: Return 404 for non-existent comment', async () => {
@@ -497,13 +503,18 @@ test.describe('Delete comment', () => {
 
       // --- Step 006: Cross-user access ---
       await test.step('API-TABLES-RECORDS-COMMENTS-DELETE-006: Return 404 for cross-user comment delete', async () => {
+        // Insert a record owned by Bob for cross-user testing
+        await executeQuery(
+          `INSERT INTO tasks (id, title, owner_id) VALUES (3, 'Task owned by Bob', $1)`,
+          [bob.user.id]
+        )
         await executeQuery(
           `INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
-          VALUES ('comment_cross_user', '1', '1', $1, 'Comment by different user')`,
+          VALUES ('comment_cross_user', '3', '1', $1, 'Comment by different user')`,
           [bob.user.id]
         )
         const response = await request.delete(
-          '/api/tables/1/records/1/comments/comment_cross_user',
+          '/api/tables/1/records/3/comments/comment_cross_user',
           {}
         )
         expect(response.status()).toBe(404)
