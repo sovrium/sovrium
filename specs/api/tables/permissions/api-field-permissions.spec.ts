@@ -236,7 +236,7 @@ test.describe('API Field Permission Enforcement', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-PERMISSIONS-FIELD-004: should allow partial update when user has write permission for some fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember, executeQuery }) => {
