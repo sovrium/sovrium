@@ -119,6 +119,10 @@ export function createGetTableProgram(
     // Convert primaryKey object to string (field name) for API response
     const primaryKeyField = table.primaryKey?.field || undefined
 
+    // Get views from table (or empty array if no views)
+    const views = table.views ?? []
+    const mappedViews = views.map(mapViewToResponse)
+
     return {
       table: {
         id: String(table.id),
@@ -126,6 +130,7 @@ export function createGetTableProgram(
         description: undefined, // Domain model doesn't have table description
         fields,
         primaryKey: primaryKeyField,
+        views: mappedViews,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },

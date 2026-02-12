@@ -70,6 +70,7 @@ export const tableSchema = z
     description: z.string().optional().describe('Table description'),
     fields: z.array(baseFieldSchema).describe('Table fields'),
     primaryKey: z.string().optional().describe('Primary key field'),
+    views: z.array(z.unknown()).describe('Table views'),
   })
   .extend(timestampSchema.shape)
 
