@@ -171,7 +171,7 @@ Content-Type: application/json
 | AC-007 | Returns 401 when not authenticated                    | `API-TABLES-RECORDS-COMMENTS-CREATE-007`        | ✅     |
 | AC-008 | Returns 403 when user lacks comment create permission | `API-TABLES-RECORDS-COMMENTS-CREATE-008`        | ✅     |
 | AC-009 | Triggers notification for @mentioned users            | `API-TABLES-RECORDS-COMMENTS-CREATE-009`        | ✅     |
-| AC-010 | Logs comment creation to activity history             | `API-TABLES-RECORDS-COMMENTS-CREATE-010`        | ⏳     |
+| AC-010 | Logs comment creation to activity history             | `API-TABLES-RECORDS-COMMENTS-CREATE-010`        | ✅     |
 | AC-011 | User creates comment with @mentions (regression)      | `API-TABLES-RECORDS-COMMENTS-CREATE-REGRESSION` | ⏳     |
 
 ### Implementation References
