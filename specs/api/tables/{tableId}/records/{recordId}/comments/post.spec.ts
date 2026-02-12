@@ -340,11 +340,11 @@ test.describe('Create comment on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-008: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: User without read permission for the record
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
+      // GIVEN: Viewer user without read permission for the record
       await startServerWithSchema({
         name: 'test-app',
         auth: { strategies: [{ type: 'emailAndPassword' }] },
@@ -353,10 +353,13 @@ test.describe('Create comment on a record', () => {
             id: 8,
             name: 'confidential_tasks',
             fields: [{ id: 1, name: 'title', type: 'single-line-text', required: true }],
+            permissions: {
+              read: ['admin', 'member'],
+            },
           },
         ],
       })
-      await createAuthenticatedUser()
+      await createAuthenticatedViewer()
       await executeQuery(`
         INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
       `)
