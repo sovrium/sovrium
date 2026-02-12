@@ -224,7 +224,7 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-005: should return 403 for member without delete permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
