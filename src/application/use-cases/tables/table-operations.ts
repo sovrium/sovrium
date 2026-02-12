@@ -123,6 +123,17 @@ export function createGetTableProgram(
     const views = table.views ?? []
     const mappedViews = views.map(mapViewToResponse)
 
+    // Map permissions to API format
+    const permissions = table.permissions
+      ? {
+          read: table.permissions.read,
+          create: table.permissions.create,
+          update: table.permissions.update,
+          // eslint-disable-next-line drizzle/enforce-delete-with-where -- False positive: accessing property, not calling Drizzle delete method
+          delete: table.permissions.delete,
+        }
+      : undefined
+
     return {
       table: {
         id: String(table.id),
@@ -131,6 +142,7 @@ export function createGetTableProgram(
         fields,
         primaryKey: primaryKeyField,
         views: mappedViews,
+        permissions,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
