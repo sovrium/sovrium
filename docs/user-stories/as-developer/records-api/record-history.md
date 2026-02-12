@@ -165,7 +165,7 @@ Content-Type: application/json
 | AC-001 | Returns 201 Created with new comment                  | `API-TABLES-RECORDS-COMMENTS-CREATE-001`        | ✅     |
 | AC-002 | Auto-injects current user as author                   | `API-TABLES-RECORDS-COMMENTS-CREATE-002`        | ✅     |
 | AC-003 | Parses @mentions from content and stores metadata     | `API-TABLES-RECORDS-COMMENTS-CREATE-003`        | ✅     |
-| AC-004 | Returns 400 when content is empty                     | `API-TABLES-RECORDS-COMMENTS-CREATE-004`        | ⏳     |
+| AC-004 | Returns 400 when content is empty                     | `API-TABLES-RECORDS-COMMENTS-CREATE-004`        | ✅     |
 | AC-005 | Returns 400 when content exceeds max length           | `API-TABLES-RECORDS-COMMENTS-CREATE-005`        | ✅     |
 | AC-006 | Returns 404 Not Found for non-existent record         | `API-TABLES-RECORDS-COMMENTS-CREATE-006`        | ⏳     |
 | AC-007 | Returns 401 when not authenticated                    | `API-TABLES-RECORDS-COMMENTS-CREATE-007`        | ⏳     |
