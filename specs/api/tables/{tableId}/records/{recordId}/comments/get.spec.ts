@@ -326,7 +326,7 @@ test.describe('List comments on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-LIST-008: should support sorting by createdAt',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
