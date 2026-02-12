@@ -39,7 +39,7 @@ export interface FormattedFieldValue {
  * User-defined fields are nested under the `fields` property.
  */
 export interface TransformedRecord {
-  readonly id: string
+  readonly id: string | number
   readonly fields: Record<string, RecordFieldValue | FormattedFieldValue>
   readonly createdAt: string
   readonly updatedAt: string
