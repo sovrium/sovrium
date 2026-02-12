@@ -267,10 +267,10 @@ DELETE /api/tables/1/records/123/comments/1
 | ID     | Criterion                                      | E2E Spec                                        | Status |
 | ------ | ---------------------------------------------- | ----------------------------------------------- | ------ |
 | AC-001 | Returns 200 OK with deleted comment            | `API-TABLES-RECORDS-COMMENTS-DELETE-001`        | ✅     |
-| AC-002 | Soft deletes comment (sets deleted_at)         | `API-TABLES-RECORDS-COMMENTS-DELETE-002`        | ⏳     |
-| AC-003 | Returns 404 Not Found for non-existent comment | `API-TABLES-RECORDS-COMMENTS-DELETE-003`        | ⏳     |
-| AC-004 | Returns 404 for already deleted comment        | `API-TABLES-RECORDS-COMMENTS-DELETE-004`        | ⏳     |
-| AC-005 | Returns 401 when not authenticated             | `API-TABLES-RECORDS-COMMENTS-DELETE-005`        | ⏳     |
+| AC-002 | Soft deletes comment (sets deleted_at)         | `API-TABLES-RECORDS-COMMENTS-DELETE-002`        | ✅     |
+| AC-003 | Returns 404 Not Found for non-existent comment | `API-TABLES-RECORDS-COMMENTS-DELETE-003`        | ✅     |
+| AC-004 | Returns 404 for already deleted comment        | `API-TABLES-RECORDS-COMMENTS-DELETE-004`        | ✅     |
+| AC-005 | Returns 401 when not authenticated             | `API-TABLES-RECORDS-COMMENTS-DELETE-005`        | ✅     |
 | AC-006 | Returns 403 when user is not comment author    | `API-TABLES-RECORDS-COMMENTS-DELETE-006`        | ⏳     |
 | AC-007 | Admin can delete any comment                   | `API-TABLES-RECORDS-COMMENTS-DELETE-007`        | ⏳     |
 | AC-008 | Logs comment deletion to activity history      | `API-TABLES-RECORDS-COMMENTS-DELETE-008`        | ⏳     |
