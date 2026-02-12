@@ -977,9 +977,9 @@ test.describe('Upsert records (create or update)', () => {
         expect(data.code).toBe('FORBIDDEN')
       })
 
-      await test.step('API-TABLES-RECORDS-UPSERT-010: should return 400 for readonly fields', async () => {
+      await test.step('API-TABLES-RECORDS-UPSERT-010: should return 403 for readonly fields', async () => {
         // tasks table (id: 4) has created_at as readonly (created-at type)
-        // Readonly field validation returns 400 VALIDATION_ERROR (not 403 FORBIDDEN)
+        // Readonly field validation returns 403 FORBIDDEN
         const response = await request.post('/api/tables/4/records/upsert', {
           headers: { 'Content-Type': 'application/json' },
           data: {
@@ -988,11 +988,11 @@ test.describe('Upsert records (create or update)', () => {
           },
         })
 
-        expect(response.status()).toBe(400)
+        expect(response.status()).toBe(403)
 
         const data = await response.json()
         expect(data.success).toBe(false)
-        expect(data.code).toBe('VALIDATION_ERROR')
+        expect(data.code).toBe('FORBIDDEN')
       })
 
       await test.step('API-TABLES-RECORDS-UPSERT-011: should filter protected fields from response for member', async () => {
