@@ -289,6 +289,10 @@ test.describe('List comments on a record', () => {
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Popular Task')
       `)
+      await executeQuery(`
+        INSERT INTO auth.user (id, name, email, email_verified) VALUES
+          ('user_1', 'Test User', 'user1@example.com', true)
+      `)
       // Insert 15 comments
       const values = Array.from({ length: 15 }, (_, i) => {
         const commentId = i + 1
