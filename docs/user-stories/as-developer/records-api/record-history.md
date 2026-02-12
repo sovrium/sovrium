@@ -167,7 +167,7 @@ Content-Type: application/json
 | AC-003 | Parses @mentions from content and stores metadata     | `API-TABLES-RECORDS-COMMENTS-CREATE-003`        | ✅     |
 | AC-004 | Returns 400 when content is empty                     | `API-TABLES-RECORDS-COMMENTS-CREATE-004`        | ✅     |
 | AC-005 | Returns 400 when content exceeds max length           | `API-TABLES-RECORDS-COMMENTS-CREATE-005`        | ✅     |
-| AC-006 | Returns 404 Not Found for non-existent record         | `API-TABLES-RECORDS-COMMENTS-CREATE-006`        | ⏳     |
+| AC-006 | Returns 404 Not Found for non-existent record         | `API-TABLES-RECORDS-COMMENTS-CREATE-006`        | ✅     |
 | AC-007 | Returns 401 when not authenticated                    | `API-TABLES-RECORDS-COMMENTS-CREATE-007`        | ⏳     |
 | AC-008 | Returns 403 when user lacks comment create permission | `API-TABLES-RECORDS-COMMENTS-CREATE-008`        | ⏳     |
 | AC-009 | Triggers notification for @mentioned users            | `API-TABLES-RECORDS-COMMENTS-CREATE-009`        | ⏳     |
