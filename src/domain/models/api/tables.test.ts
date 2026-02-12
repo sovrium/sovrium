@@ -114,6 +114,7 @@ describe('tableSchema', () => {
       id: 'tbl_1',
       name: 'Users',
       fields: [{ id: 'f1', name: 'Name', type: 'text' }],
+      views: [],
       ...validTimestamps,
     }
     const result = tableSchema.parse(input)
@@ -128,6 +129,7 @@ describe('tableSchema', () => {
       description: 'User table',
       fields: [],
       primaryKey: 'id',
+      views: [],
       ...validTimestamps,
     }
     const result = tableSchema.parse(input)
@@ -207,6 +209,7 @@ describe('getTableResponseSchema', () => {
         id: 'tbl_1',
         name: 'Users',
         fields: [],
+        views: [],
         ...validTimestamps,
       },
     }
