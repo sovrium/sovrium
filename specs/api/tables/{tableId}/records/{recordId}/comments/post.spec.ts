@@ -491,7 +491,7 @@ test.describe('Create comment on a record', () => {
   // Generated from 10 @spec tests - covers: creation, mentions, validation, auth, permissions, auto-injection
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-REGRESSION: user can complete full create comment workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
