@@ -240,12 +240,27 @@ async function handleBatchUpdate(c: Context, app: App) {
 /**
  * Handle batch delete endpoint
  */
-async function handleBatchDelete(c: Context, _app: App) {
+async function handleBatchDelete(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName } = getTableContext(c)
+  const { session, tableName, userRole } = getTableContext(c)
 
   const result = await validateRequest(c, batchDeleteRecordsRequestSchema)
   if (!result.success) return result.response
+
+  // Authorization: Check table-level delete permission
+  const table = app.tables?.find((t) => t.name === tableName)
+  const { hasDeletePermission } =
+    await import('@/application/use-cases/tables/permissions/permissions')
+  if (!hasDeletePermission(table, userRole, app.tables)) {
+    return c.json(
+      {
+        success: false,
+        message: 'You do not have permission to delete records in this table',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
 
   // Check for permanent delete query parameter
   const permanent = c.req.query('permanent') === 'true'

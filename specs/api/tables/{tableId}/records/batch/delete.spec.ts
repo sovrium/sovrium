@@ -33,7 +33,7 @@ test.describe('Batch delete records', () => {
   test(
     'API-TABLES-RECORDS-BATCH-DELETE-001: should return 200 with soft deleted count',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: Table 'users' with 3 records (ID=1, ID=2, ID=3)
       await startServerWithSchema({
         name: 'test-app',
@@ -50,7 +50,7 @@ test.describe('Batch delete records', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      await createAuthenticatedAdmin()
       await executeQuery(`
         INSERT INTO users (id, email, name) VALUES
           (1, 'user1@example.com', 'User One'),
@@ -91,7 +91,7 @@ test.describe('Batch delete records', () => {
   test(
     'API-TABLES-RECORDS-BATCH-DELETE-002: should return 404 and rollback transaction',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // GIVEN: Table 'users' with record ID=1 only
       await startServerWithSchema({
         name: 'test-app',
@@ -108,7 +108,7 @@ test.describe('Batch delete records', () => {
           },
         ],
       })
-      await createAuthenticatedUser()
+      await createAuthenticatedAdmin()
       await executeQuery(`
         INSERT INTO users (id, email, name) VALUES (1, 'john@example.com', 'John')
       `)
@@ -265,7 +265,6 @@ test.describe('Batch delete records', () => {
 
       const data = await response.json()
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
       expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to delete records in this table')
 
@@ -552,7 +551,7 @@ test.describe('Batch delete records', () => {
   test(
     'API-TABLES-RECORDS-BATCH-DELETE-REGRESSION: user can complete full batch soft delete workflow',
     { tag: '@regression' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
       // Setup: Start server with users table and test records
       await startServerWithSchema({
         name: 'test-app',
@@ -594,8 +593,8 @@ test.describe('Batch delete records', () => {
         expect(data.message).toBeDefined()
       })
 
-      // --- Authenticate as user for all subsequent test steps ---
-      await createAuthenticatedUser()
+      // --- Authenticate as admin for all subsequent test steps ---
+      await createAuthenticatedAdmin()
 
       await test.step('API-TABLES-RECORDS-BATCH-DELETE-001: Batch deletes IDs [1, 2] and returns 200 with deleted=2', async () => {
         const response = await request.delete('/api/tables/1/records/batch', {

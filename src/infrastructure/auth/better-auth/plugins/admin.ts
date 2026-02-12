@@ -51,6 +51,7 @@ export const buildAdminPlugin = (authConfig?: Auth) => {
       defaultRole: config.defaultRole,
       adminRoles: ['admin'],
       impersonationSessionDuration: config.impersonation ? 60 * 60 : undefined,
+      firstUserAdmin: config.firstUserAdmin,
     }),
   ]
 }

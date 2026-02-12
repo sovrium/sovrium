@@ -117,6 +117,10 @@ export function hasCreatePermission(
 /**
  * Check if user has delete permission for the table
  *
+ * Permission logic:
+ * - Viewers and Members: denied by default (must be explicitly granted)
+ * - Admins: allowed by default (unless explicitly restricted)
+ *
  * Supports permission inheritance via the `inherit` field.
  */
 export function hasDeletePermission(
@@ -142,10 +146,12 @@ export function hasDeletePermission(
   // eslint-disable-next-line drizzle/enforce-delete-with-where -- This is not a Drizzle delete operation, it's accessing a property
   const deletePermission = effectivePerms?.delete
 
-  if (userRole === 'viewer') {
+  // Special handling for restrictive roles: viewers and members must be explicitly granted permission
+  if (userRole === 'viewer' || userRole === 'member') {
     return Array.isArray(deletePermission) && deletePermission.includes(userRole)
   }
 
+  // Admins and users with no explicit role: allowed by default unless explicitly restricted
   if (!deletePermission || !Array.isArray(deletePermission)) return true
   return deletePermission.includes(userRole)
 }
