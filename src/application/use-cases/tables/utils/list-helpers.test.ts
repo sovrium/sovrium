@@ -81,12 +81,12 @@ describe('applyPagination', () => {
 
     const result = applyPagination(records, 150)
 
-    expect(result.paginatedRecords).toHaveLength(100) // Default limit
+    expect(result.paginatedRecords).toHaveLength(10) // Default limit
     expect(result.pagination.page).toBe(1)
-    expect(result.pagination.limit).toBe(100)
+    expect(result.pagination.limit).toBe(10)
     expect(result.pagination.offset).toBe(0)
     expect(result.pagination.total).toBe(150)
-    expect(result.pagination.totalPages).toBe(2)
+    expect(result.pagination.totalPages).toBe(15)
     expect(result.pagination.hasNextPage).toBe(true)
     expect(result.pagination.hasPreviousPage).toBe(false)
   })
