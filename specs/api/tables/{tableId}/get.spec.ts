@@ -268,6 +268,9 @@ test.describe('Get table by ID', () => {
               { id: 2, name: 'title', type: 'single-line-text' },
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
+            permissions: {
+              read: ['admin', 'member'],
+            },
           },
         ],
       })
