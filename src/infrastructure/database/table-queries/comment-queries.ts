@@ -220,13 +220,15 @@ function buildRecordCheckQuery(params: {
 }) {
   const { tableName, recordId, userId, hasDeletedAt, hasOwnerId } = params
   if (hasDeletedAt && hasOwnerId) {
-    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL AND owner_id = ${userId}`
+    // Allow access to records with NULL owner_id (shared records) OR owned records
+    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL AND (owner_id = ${userId} OR owner_id IS NULL)`
   }
   if (hasDeletedAt) {
     return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
   }
   if (hasOwnerId) {
-    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND owner_id = ${userId}`
+    // Allow access to records with NULL owner_id (shared records) OR owned records
+    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND (owner_id = ${userId} OR owner_id IS NULL)`
   }
   return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId}`
 }
@@ -484,5 +486,75 @@ export function getCommentsCount(config: {
     })
 
     return result[0]?.count ?? 0
+  })
+}
+
+/**
+ * Execute comment update in database
+ */
+function executeCommentUpdate(commentId: string, content: string) {
+  const now = new Date()
+  return Effect.tryPromise({
+    try: async () => {
+      const updated = await db
+        .update(recordComments)
+        .set({ content, updatedAt: now })
+        .where(and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt)))
+        .returning()
+
+      if (updated.length === 0 || !updated[0]) {
+        // eslint-disable-next-line functional/no-throw-statements -- Required inside Effect.tryPromise for error propagation
+        throw new SessionContextError('Comment not found')
+      }
+
+      return updated[0]
+    },
+    catch: (error) =>
+      error instanceof SessionContextError
+        ? error
+        : new SessionContextError('Failed to update comment', error),
+  })
+}
+
+/**
+ * Update a comment
+ */
+export function updateComment(config: {
+  readonly session: Readonly<Session>
+  readonly commentId: string
+  readonly content: string
+}): Effect.Effect<
+  {
+    readonly id: string
+    readonly tableId: string
+    readonly recordId: string
+    readonly userId: string
+    readonly content: string
+    readonly createdAt: Date
+    readonly updatedAt: Date
+    readonly user:
+      | {
+          readonly id: string
+          readonly name: string
+          readonly email: string
+          readonly image: string | undefined
+        }
+      | undefined
+  },
+  SessionContextError
+> {
+  const { commentId, content, session } = config
+  return Effect.gen(function* () {
+    // Update comment
+    yield* executeCommentUpdate(commentId, content)
+
+    // Fetch comment with user metadata
+    const commentWithUser = yield* getCommentWithUser({ session, commentId })
+
+    if (!commentWithUser) {
+      return yield* Effect.fail(new SessionContextError('Comment not found after update'))
+    }
+
+    return commentWithUser
   })
 }

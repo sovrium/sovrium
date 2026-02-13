@@ -16,6 +16,7 @@ import {
   deleteComment,
   listComments,
   getCommentsCount,
+  updateComment,
 } from '@/infrastructure/database/table-queries/comment-queries'
 
 /**
@@ -32,4 +33,5 @@ export const CommentRepositoryLive = Layer.succeed(CommentRepository, {
   remove: deleteComment,
   list: listComments,
   getCount: getCommentsCount,
+  update: updateComment,
 })
