@@ -12,6 +12,7 @@ import { db } from '@/infrastructure/database'
 import {
   activityLogs,
   type ActivityLog,
+  type ActivityLogChanges,
 } from '@/infrastructure/database/drizzle/schema/activity-log'
 
 /**
@@ -79,7 +80,7 @@ function mapRowToActivityLog(
     sessionId: string | null
     action: 'create' | 'update' | 'delete' | 'restore'
     tableName: string
-    tableId: string
+    tableId: string | null
     recordId: string
     changes: ActivityLogChanges | null
     ipAddress: string | null

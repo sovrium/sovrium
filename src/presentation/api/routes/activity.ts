@@ -18,7 +18,7 @@ import {
 } from '@/application/use-cases/list-activity-logs'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { sanitizeError, getStatusCode } from '@/presentation/api/utils/error-sanitizer'
-import type { Hono } from 'hono'
+import type { Hono, Context } from 'hono'
 
 /**
  * Activity log API response type
@@ -86,6 +86,41 @@ function mapDetailsToApiResponse(log: ActivityLogDetailsOutput): ActivityLogDeta
 }
 
 /**
+ * Handle authentication check for activity routes
+ *
+ * @returns JSON response with 401 status if not authenticated, undefined if authenticated
+ */
+function checkAuthentication(c: Context) {
+  const session = getSessionContext(c)
+
+  if (!session) {
+    return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
+  }
+
+  return undefined
+}
+
+/**
+ * Handle Effect program error response
+ *
+ * Sanitizes error and returns appropriate JSON response with status code
+ */
+function handleEffectError(c: Context, error: unknown) {
+  const requestId = crypto.randomUUID()
+  const sanitized = sanitizeError(error, requestId)
+  const statusCode = getStatusCode(sanitized.code)
+
+  return c.json(
+    {
+      success: false,
+      message: sanitized.message ?? sanitized.error,
+      code: sanitized.code,
+    },
+    statusCode
+  )
+}
+
+/**
  * Chain activity routes onto a Hono app
  *
  * Provides:
@@ -98,14 +133,8 @@ function mapDetailsToApiResponse(log: ActivityLogDetailsOutput): ActivityLogDeta
 export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
   return honoApp
     .get('/api/activity/:activityId', async (c) => {
-      const session = getSessionContext(c)
-
-      if (!session) {
-        return c.json(
-          { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
-          401
-        )
-      }
+      const authError = checkAuthentication(c)
+      if (authError) return authError
 
       const activityId = c.req.param('activityId')
 
@@ -116,35 +145,16 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
       const result = await Effect.runPromise(program)
 
       if (result._tag === 'Left') {
-        const error = result.left
-        const requestId = crypto.randomUUID()
-
-        // Sanitize error to prevent information disclosure
-        const sanitized = sanitizeError(error, requestId)
-        const statusCode = getStatusCode(sanitized.code)
-
-        return c.json(
-          {
-            success: false,
-            message: sanitized.message ?? sanitized.error,
-            code: sanitized.code,
-          },
-          statusCode
-        )
+        return handleEffectError(c, result.left)
       }
 
-      const details = result.right
-      return c.json(mapDetailsToApiResponse(details), 200)
+      return c.json(mapDetailsToApiResponse(result.right), 200)
     })
     .get('/api/activity', async (c) => {
-      const session = getSessionContext(c)
+      const authError = checkAuthentication(c)
+      if (authError) return authError
 
-      if (!session) {
-        return c.json(
-          { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
-          401
-        )
-      }
+      const session = getSessionContext(c)!
 
       const program = ListActivityLogs({
         userId: session.userId,
@@ -153,24 +163,9 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
       const result = await Effect.runPromise(program)
 
       if (result._tag === 'Left') {
-        const error = result.left
-        const requestId = crypto.randomUUID()
-
-        // Sanitize error to prevent information disclosure
-        const sanitized = sanitizeError(error, requestId)
-        const statusCode = getStatusCode(sanitized.code)
-
-        return c.json(
-          {
-            success: false,
-            message: sanitized.message ?? sanitized.error,
-            code: sanitized.code,
-          },
-          statusCode
-        )
+        return handleEffectError(c, result.left)
       }
 
-      const logs = result.right
-      return c.json(logs.map(mapToApiResponse), 200)
+      return c.json(result.right.map(mapToApiResponse), 200)
     }) as T
 }

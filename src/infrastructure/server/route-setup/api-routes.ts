@@ -22,6 +22,8 @@ import {
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
+type AuthInstance = ReturnType<typeof createAuthInstance>
+
 /**
  * Error when health response validation fails
  */
@@ -141,6 +143,40 @@ const applyActivityRateLimitMiddleware = (honoApp: Hono): Hono => {
 }
 
 /**
+ * Apply authentication middleware to protected routes
+ *
+ * Applies authMiddleware and requireAuth to /api/tables and /api/activity routes.
+ * Only applies if auth is configured in app schema.
+ *
+ * @param honoApp - Hono instance to apply middleware to
+ * @param authConfigured - Whether auth is configured in app schema
+ * @param auth - Better Auth instance
+ * @returns Hono app with auth middleware applied
+ */
+function applyAuthMiddleware<T extends Hono>(
+  // eslint-disable-next-line functional/prefer-immutable-types -- Hono types are mutable by library design
+  honoApp: T,
+  authConfigured: boolean,
+  // eslint-disable-next-line functional/prefer-immutable-types -- Auth instance types are mutable by library design
+  auth: AuthInstance
+  // eslint-disable-next-line functional/prefer-immutable-types -- Hono types are mutable by library design
+): T {
+  if (!authConfigured) {
+    return honoApp
+  }
+
+  return honoApp
+    .use('/api/tables', authMiddleware(auth))
+    .use('/api/tables', requireAuth())
+    .use('/api/tables/*', authMiddleware(auth))
+    .use('/api/tables/*', requireAuth())
+    .use('/api/activity', authMiddleware(auth))
+    .use('/api/activity', requireAuth())
+    .use('/api/activity/*', authMiddleware(auth))
+    .use('/api/activity/*', requireAuth()) as unknown as T
+}
+
+/**
  * Create API routes using method chaining pattern
  *
  * Located in Infrastructure layer because this is route composition/wiring
@@ -225,19 +261,7 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   const honoWithActivityRateLimit = applyActivityRateLimitMiddleware(honoWithTablesRateLimit)
 
   // Apply auth middleware to protected routes
-  // This extracts session from Better Auth and attaches to context
-  // Only enforce authentication if auth is configured in app schema
-  const honoWithAuth = app.auth
-    ? honoWithActivityRateLimit
-        .use('/api/tables', authMiddleware(auth))
-        .use('/api/tables', requireAuth())
-        .use('/api/tables/*', authMiddleware(auth))
-        .use('/api/tables/*', requireAuth())
-        .use('/api/activity', authMiddleware(auth))
-        .use('/api/activity', requireAuth())
-        .use('/api/activity/*', authMiddleware(auth))
-        .use('/api/activity/*', requireAuth())
-    : honoWithActivityRateLimit
+  const honoWithAuth = applyAuthMiddleware(honoWithActivityRateLimit, !!app.auth, auth)
 
   // Chain table routes (always register, returns empty array if no tables configured)
   // Routes now have access to session via c.var.session
