@@ -173,13 +173,77 @@ async function handleBatchCreate(c: Context, app: App) {
 }
 
 /**
+ * Strip forbidden fields from records based on write permissions
+ */
+function stripForbiddenFields(
+  records: readonly { readonly id: number; readonly fields: Record<string, unknown> }[],
+  params: { readonly app: App; readonly tableName: string; readonly userRole: string }
+): readonly { readonly id: number; readonly fields: Record<string, unknown> }[] {
+  return records.map((record) => {
+    const forbiddenFields = validateFieldWritePermissions(
+      params.app,
+      params.tableName,
+      params.userRole,
+      record.fields
+    )
+
+    const allowedFields = Object.keys(record.fields).reduce<Record<string, unknown>>(
+      (acc, fieldName) => {
+        if (forbiddenFields.includes(fieldName)) {
+          return acc
+        }
+        return { ...acc, [fieldName]: record.fields[fieldName] }
+      },
+      {}
+    )
+
+    return {
+      id: record.id,
+      fields: allowedFields,
+    }
+  })
+}
+
+/**
+ * Check if all records have no allowed fields and return 403 response if so
+ */
+function checkAllFieldsForbidden(
+  recordsData: readonly { readonly fields: Record<string, unknown> }[],
+  originalRecords: readonly { readonly fields: Record<string, unknown> }[],
+  params: {
+    readonly app: App
+    readonly tableName: string
+    readonly userRole: string
+    readonly c: Context
+  }
+): Response | undefined {
+  const hasAnyAllowedFields = recordsData.some((record) => Object.keys(record.fields).length > 0)
+
+  if (!hasAnyAllowedFields) {
+    const allForbiddenFields = originalRecords.flatMap((record) =>
+      validateFieldWritePermissions(params.app, params.tableName, params.userRole, record.fields)
+    )
+    const uniqueForbiddenFields = [...new Set(allForbiddenFields)]
+    const firstForbiddenField = uniqueForbiddenFields[0]
+    return params.c.json(
+      {
+        success: false,
+        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
+
+  return undefined
+}
+
+/**
  * Handle batch update endpoint
  */
 async function handleBatchUpdate(c: Context, app: App) {
-  // Session, tableName, and userRole are guaranteed by middleware chain
   const { session, tableName, userRole } = getTableContext(c)
 
-  // Authorization check BEFORE validation (viewer role cannot update)
   const viewerCheck = checkViewerPermission(userRole, c)
   if (viewerCheck) return viewerCheck
 
@@ -188,7 +252,6 @@ async function handleBatchUpdate(c: Context, app: App) {
 
   const table = app.tables?.find((t) => t.name === tableName)
 
-  // Authorization: Check table-level update permission
   const { hasUpdatePermission } =
     await import('@/application/use-cases/tables/permissions/permissions')
   if (!hasUpdatePermission(table, userRole, app.tables)) {
@@ -202,55 +265,21 @@ async function handleBatchUpdate(c: Context, app: App) {
     )
   }
 
-  // Validate readonly fields BEFORE permission checks
   const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
   if (readonlyValidation) return readonlyValidation
 
-  // Authorization: Check field-level write permissions and strip forbidden fields
-  const recordsData = result.data.records.map((record) => {
-    const forbiddenFields = validateFieldWritePermissions(app, tableName, userRole, record.fields)
+  const recordsData = stripForbiddenFields(result.data.records, { app, tableName, userRole })
 
-    // If ALL fields are forbidden, this will result in empty fields object
-    const allowedFields = Object.keys(record.fields).reduce<Record<string, unknown>>(
-      (acc, fieldName) => {
-        if (forbiddenFields.includes(fieldName)) {
-          return acc // Skip forbidden field
-        }
-        return { ...acc, [fieldName]: record.fields[fieldName] }
-      },
-      {}
-    )
-
-    return {
-      id: record.id,
-      fields: allowedFields,
-    }
+  const forbiddenCheck = checkAllFieldsForbidden(recordsData, result.data.records, {
+    app,
+    tableName,
+    userRole,
+    c,
   })
+  if (forbiddenCheck) return forbiddenCheck
 
-  // Check if any record has at least one allowed field
-  const hasAnyAllowedFields = recordsData.some((record) => Object.keys(record.fields).length > 0)
-
-  // If ALL records have NO allowed fields (all fields forbidden), return 403
-  if (!hasAnyAllowedFields) {
-    const allForbiddenFields = result.data.records.flatMap((record) =>
-      validateFieldWritePermissions(app, tableName, userRole, record.fields)
-    )
-    const uniqueForbiddenFields = [...new Set(allForbiddenFields)]
-    const firstForbiddenField = uniqueForbiddenFields[0]
-    return c.json(
-      {
-        success: false,
-        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
-        code: 'FORBIDDEN',
-      },
-      403
-    )
-  }
-
-  // Execute batch update with returnRecords parameter
   const program = batchUpdateProgram(session, tableName, recordsData, result.data.returnRecords)
 
-  // Apply field-level read filtering to response (if records returned)
   const filteredProgram = program.pipe(
     Effect.map((response) =>
       applyBatchUpdateReadFiltering(response, { app, tableName, userRole, userId: session.userId })
