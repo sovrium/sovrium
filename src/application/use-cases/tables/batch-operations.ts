@@ -16,8 +16,13 @@ import type { App } from '@/domain/models/app'
 export function batchCreateProgram(
   session: Readonly<UserSession>,
   tableName: string,
-  recordsData: readonly Record<string, unknown>[]
-) {
+  recordsData: readonly Record<string, unknown>[],
+  returnRecords: boolean = false
+): Effect.Effect<
+  { readonly created: number; readonly records?: readonly TransformedRecord[] },
+  SessionContextError | ValidationError,
+  BatchRepository
+> {
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
 
@@ -27,10 +32,18 @@ export function batchCreateProgram(
     // Transform records to API format
     const transformed = transformRecords(createdRecords)
 
-    return {
-      records: transformed,
-      count: transformed.length,
-    }
+    // Use functional pattern to build response object
+    const response: { readonly created: number; readonly records?: readonly TransformedRecord[] } =
+      returnRecords
+        ? {
+            created: transformed.length,
+            records: transformed as TransformedRecord[],
+          }
+        : {
+            created: transformed.length,
+          }
+
+    return response
   })
 }
 

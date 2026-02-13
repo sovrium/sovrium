@@ -184,7 +184,9 @@ export function sanitizeError(error: unknown, requestId?: string): SanitizedErro
   // Handle known safe error types
   if (errorTag) {
     const sanitized = mapTaggedError(errorTag, actualError)
-    if (sanitized) return sanitized
+    if (sanitized) {
+      return sanitized
+    }
   }
 
   // Check for not-found patterns (includes access denied to avoid leaking existence)

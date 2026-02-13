@@ -189,7 +189,7 @@ export function validateReadonlyFields(
     return c.json(
       {
         success: false,
-        message: 'Cannot set readonly field: id',
+        message: "Cannot write to readonly field 'id'",
         code: 'VALIDATION_ERROR',
       },
       400

@@ -52,7 +52,7 @@ export class BatchRepository extends Context.Tag('BatchRepository')<
       session: Readonly<UserSession>,
       tableName: string,
       recordsData: readonly Record<string, unknown>[]
-    ) => Effect.Effect<readonly Record<string, unknown>[], SessionContextError>
+    ) => Effect.Effect<readonly Record<string, unknown>[], SessionContextError | ValidationError>
 
     readonly batchUpdate: (
       session: Readonly<UserSession>,

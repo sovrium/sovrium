@@ -31,6 +31,17 @@ export const validationErrorResponseSchema = z.object({
 })
 
 /**
+ * Validation detail object schema
+ *
+ * Used for structured validation error details.
+ */
+export const validationDetailSchema = z.object({
+  record: z.number().describe('Record index in batch (0-based)'),
+  field: z.string().describe('Field name that failed validation'),
+  error: z.string().describe('Error message for this field'),
+})
+
+/**
  * Generic error response schema
  *
  * Used for non-validation errors (401, 403, 404, 500, etc).
@@ -51,7 +62,10 @@ export const errorResponseSchema = z.object({
       'SERVICE_UNAVAILABLE',
     ])
     .describe('Machine-readable error code'),
-  details: z.array(z.string()).optional().describe('Optional error details'),
+  details: z
+    .union([z.array(z.string()), z.array(validationDetailSchema)])
+    .optional()
+    .describe('Optional error details (string array or structured validation details)'),
 })
 
 /**
@@ -83,6 +97,7 @@ export const apiErrorSchema = z.union([
  * TypeScript types inferred from schemas
  */
 export type FieldError = z.infer<typeof fieldErrorSchema>
+export type ValidationDetail = z.infer<typeof validationDetailSchema>
 export type ValidationErrorResponse = z.infer<typeof validationErrorResponseSchema>
 export type ErrorResponse = z.infer<typeof errorResponseSchema>
 export type BetterAuthError = z.infer<typeof betterAuthErrorSchema>

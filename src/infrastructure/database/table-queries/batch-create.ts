@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { db, SessionContextError } from '@/infrastructure/database'
+import { db, SessionContextError, ValidationError } from '@/infrastructure/database'
 import { logActivity } from './activity-log-helpers'
 import { createSingleRecord } from './batch-helpers'
 import { validateTableName } from './validation'
@@ -27,7 +27,7 @@ export function batchCreateRecords(
   session: Readonly<Session>,
   tableName: string,
   recordsData: readonly Record<string, unknown>[]
-): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+): Effect.Effect<readonly Record<string, unknown>[], SessionContextError | ValidationError> {
   return Effect.gen(function* () {
     const createdRecords = yield* Effect.tryPromise({
       try: () =>
@@ -39,22 +39,40 @@ export function batchCreateRecords(
             throw new SessionContextError('Cannot create batch with no records', undefined)
           }
 
-          // Process records sequentially, collecting results
-          const records = await recordsData.reduce(
-            async (accPromise, fields) => {
-              const acc = await accPromise
-              const record = await createSingleRecord(tx, tableName, fields)
-              return record ? [...acc, record as Record<string, unknown>] : acc
-            },
-            Promise.resolve([] as readonly Record<string, unknown>[])
-          )
+          // Process records sequentially, collecting results using immutable array operations
+          // eslint-disable-next-line functional/no-let,functional/no-loop-statements -- Required for sequential processing in transaction
+          let records: readonly Record<string, unknown>[] = []
+          for (const fields of recordsData) {
+            const record = await createSingleRecord(tx, tableName, fields)
+            if (record) {
+              records = [...records, record as Record<string, unknown>]
+            }
+          }
 
           return records
         }),
-      catch: (error) =>
-        error instanceof SessionContextError
-          ? error
-          : new SessionContextError(`Failed to create batch records in ${tableName}`, error),
+      catch: (error) => {
+        // Check error type by _tag property (more reliable than instanceof after serialization)
+        const errorObj = error as { _tag?: string; message?: string; details?: readonly unknown[] }
+
+        // Let ValidationError propagate unchanged for proper error handling
+        if (errorObj._tag === 'ValidationError') {
+          return error as ValidationError
+        }
+        // Let ValidationError instances propagate unchanged
+        if (error instanceof ValidationError) {
+          return error
+        }
+        // Let SessionContextError propagate unchanged
+        if (errorObj._tag === 'SessionContextError') {
+          return error as SessionContextError
+        }
+        if (error instanceof SessionContextError) {
+          return error
+        }
+        // Wrap other errors in SessionContextError
+        return new SessionContextError(`Failed to create batch records in ${tableName}`, error)
+      },
     })
 
     // Log activity for each created record

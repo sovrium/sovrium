@@ -64,13 +64,43 @@ export async function createSingleRecord(
   } catch (error) {
     // PostgreSQL error codes: https://www.postgresql.org/docs/current/errcodes-appendix.html
     // 23502 = not_null_violation
-    const pgError = error as { code?: string; message?: string }
-    if (pgError.code === '23502' || pgError.message?.includes('null value in column')) {
+    // 23505 = unique_violation
+
+    // Extract the underlying PostgreSQL error from DrizzleQueryError wrapper
+    const cause = (error as any)?.cause
+    const pgError = cause ?? error
+    const errorCode = pgError.errno ?? pgError.code
+    const errorMessage = pgError.message ?? (error as Error)?.message ?? ''
+
+    // Handle NOT NULL constraint violations
+    if (errorCode === '23502' || errorMessage.includes('null value in column')) {
+      // Extract field name from error message or detail
+      let fieldName = 'unknown'
+      const columnMatch = errorMessage.match(/column "([^"]+)"/)
+      if (columnMatch) {
+        fieldName = columnMatch[1]
+      }
       // eslint-disable-next-line functional/no-throw-statements -- Required for error propagation
-      throw new ValidationError('Validation failed: Required field is missing', [
-        { record: 0, field: 'unknown', error: 'Required field is missing' },
+      throw new ValidationError(`Validation failed: Field '${fieldName}' is required`, [
+        { record: 0, field: fieldName, error: `Field '${fieldName}' is required` },
       ])
     }
+
+    // Handle unique constraint violations
+    if (errorCode === '23505' || errorMessage.includes('duplicate key value')) {
+      // Extract field name from error message
+      let fieldName = 'unknown'
+      const columnMatch = errorMessage.match(/column "([^"]+)"/)
+      if (columnMatch) {
+        fieldName = columnMatch[1]
+      }
+      // eslint-disable-next-line functional/no-throw-statements -- Required for error propagation
+      throw new ValidationError(`Validation failed: Duplicate value for field '${fieldName}'`, [
+        { record: 0, field: fieldName, error: `Value must be unique` },
+      ])
+    }
+
+    // Re-throw other errors
     // eslint-disable-next-line functional/no-throw-statements -- Required for error propagation
     throw error
   }

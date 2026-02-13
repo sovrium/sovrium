@@ -64,7 +64,13 @@ export async function validateRequest<T>(
       )
 
       if (hasMaxArrayError) {
-        return { success: false, response: c.json({ error: 'PayloadTooLarge' }, 413) }
+        const errorResponse = validationErrorResponseSchema.parse({
+          success: false,
+          message: 'Payload too large',
+          code: 'VALIDATION_ERROR',
+          errors: formatZodErrors(error),
+        })
+        return { success: false, response: c.json(errorResponse, 413) }
       }
 
       const errorResponse = validationErrorResponseSchema.parse({

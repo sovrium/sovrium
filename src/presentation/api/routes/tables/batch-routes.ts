@@ -62,17 +62,17 @@ function checkViewerPermission(userRole: string, c: Context): Response | undefin
 }
 
 /**
- * Apply read-level filtering to batch update response records
+ * Apply read-level filtering to batch response records (works for create, update, etc.)
  */
-function applyBatchUpdateReadFiltering(
-  response: { readonly updated: number; readonly records?: readonly TransformedRecord[] },
+function applyBatchReadFiltering<T extends { readonly records?: readonly TransformedRecord[] }>(
+  response: T,
   params: {
     readonly app: App
     readonly tableName: string
     readonly userRole: string
     readonly userId: string
   }
-): { readonly updated: number; readonly records?: readonly TransformedRecord[] } {
+): T {
   if (!response.records) return response
 
   const filteredRecords: readonly TransformedRecord[] = response.records.map((record) => ({
@@ -87,9 +87,9 @@ function applyBatchUpdateReadFiltering(
   }))
 
   return {
-    updated: response.updated,
+    ...response,
     records: filteredRecords,
-  }
+  } as T
 }
 
 /**
@@ -137,12 +137,17 @@ async function handleBatchCreate(c: Context, app: App) {
   if (!hasCreatePermission(table, userRole)) {
     return c.json(
       {
-        error: 'Forbidden',
+        success: false,
         message: 'You do not have permission to create records in this table',
+        code: 'FORBIDDEN',
       },
       403
     )
   }
+
+  // Validate readonly fields BEFORE permission checks
+  const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
+  if (readonlyValidation) return readonlyValidation
 
   // Extract fields from nested format (schema transforms to { fields: {...} })
   const allForbiddenFields = result.data.records
@@ -151,10 +156,11 @@ async function handleBatchCreate(c: Context, app: App) {
 
   if (allForbiddenFields.length > 0) {
     const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+    const fieldName = uniqueForbiddenFields[0]
     return c.json(
       {
         success: false,
-        message: `You do not have permission to modify field(s): ${uniqueForbiddenFields.join(', ')}`,
+        message: `Cannot write to field '${fieldName}': insufficient permissions`,
         code: 'FORBIDDEN',
       },
       403
@@ -164,9 +170,19 @@ async function handleBatchCreate(c: Context, app: App) {
   // Extract flat field objects from nested format for database layer
   const flatRecordsData = result.data.records.map((record) => record.fields)
 
+  // Execute batch create with returnRecords parameter
+  const program = batchCreateProgram(session, tableName, flatRecordsData, result.data.returnRecords)
+
+  // Apply field-level read filtering to response (if records returned)
+  const filteredProgram = program.pipe(
+    Effect.map((response) =>
+      applyBatchReadFiltering(response, { app, tableName, userRole, userId: session.userId })
+    )
+  )
+
   return runEffect(
     c,
-    Effect.provide(batchCreateProgram(session, tableName, flatRecordsData), TableLive),
+    Effect.provide(filteredProgram, TableLive),
     batchCreateRecordsResponseSchema,
     201
   )
@@ -230,7 +246,7 @@ async function handleBatchUpdate(c: Context, app: App) {
   // Apply field-level read filtering to response (if records returned)
   const filteredProgram = program.pipe(
     Effect.map((response) =>
-      applyBatchUpdateReadFiltering(response, { app, tableName, userRole, userId: session.userId })
+      applyBatchReadFiltering(response, { app, tableName, userRole, userId: session.userId })
     )
   )
 
