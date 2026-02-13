@@ -5,12 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { desc } from 'drizzle-orm'
+import { desc, eq, and, gte, sql } from 'drizzle-orm'
 import { Context, Data, Effect, Layer } from 'effect'
+import { users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
 import {
   activityLogs,
   type ActivityLog,
+  type ActivityAction,
 } from '@/infrastructure/database/drizzle/schema/activity-log'
 
 /**
@@ -19,6 +21,38 @@ import {
 export class ActivityLogDatabaseError extends Data.TaggedError('ActivityLogDatabaseError')<{
   readonly cause: unknown
 }> {}
+
+/**
+ * Activity log with user metadata
+ */
+export interface ActivityLogWithUser extends ActivityLog {
+  readonly user: {
+    readonly id: string
+    readonly email: string
+    readonly name: string
+  } | null
+}
+
+/**
+ * Filters for listing activity logs
+ */
+export interface ActivityLogFilters {
+  readonly tableName?: string
+  readonly action?: ActivityAction
+  readonly userId?: string
+  readonly startDate?: Date
+  readonly endDate?: Date
+  readonly page?: number
+  readonly pageSize?: number
+}
+
+/**
+ * Paginated result for activity logs
+ */
+export interface PaginatedActivityLogs {
+  readonly activities: readonly ActivityLogWithUser[]
+  readonly total: number
+}
 
 /**
  * Activity Log Service
@@ -33,6 +67,9 @@ export class ActivityLogService extends Context.Tag('ActivityLogService')<
   ActivityLogService,
   {
     readonly listAll: () => Effect.Effect<readonly ActivityLog[], ActivityLogDatabaseError>
+    readonly list: (
+      filters: ActivityLogFilters
+    ) => Effect.Effect<PaginatedActivityLogs, ActivityLogDatabaseError>
     readonly create: (log: {
       readonly userId: string
       readonly action: 'create' | 'update' | 'delete' | 'restore'
@@ -62,6 +99,81 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
   listAll: () =>
     Effect.tryPromise({
       try: () => db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt)),
+      catch: (error) => new ActivityLogDatabaseError({ cause: error }),
+    }),
+
+  /**
+   * List activity logs with filtering and pagination
+   */
+  // eslint-disable-next-line max-lines-per-function -- Complex database query with filtering, pagination, and joins
+  list: (filters) =>
+    Effect.tryPromise({
+      // eslint-disable-next-line max-lines-per-function, complexity -- Builds dynamic WHERE clause and executes paginated query with LEFT JOIN
+      try: async () => {
+        // Build WHERE conditions using immutable patterns
+        // Calculate 1-year retention policy cutoff using functional pattern
+        const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
+
+        const conditions = [
+          // 1-year retention policy: exclude activities older than 1 year
+          gte(activityLogs.createdAt, oneYearAgo),
+          ...(filters.tableName ? [eq(activityLogs.tableName, filters.tableName)] : []),
+          ...(filters.action ? [eq(activityLogs.action, filters.action)] : []),
+          ...(filters.userId ? [eq(activityLogs.userId, filters.userId)] : []),
+          ...(filters.startDate ? [gte(activityLogs.createdAt, filters.startDate)] : []),
+          ...(filters.endDate
+            ? [sql`${activityLogs.createdAt} <= ${filters.endDate.toISOString()}::timestamptz`]
+            : []),
+        ]
+
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined
+
+        // Get total count
+        const countResult = await db
+          .select({ count: sql<number>`count(*)` })
+          .from(activityLogs)
+          .where(whereClause)
+
+        const total = Number(countResult[0]?.count ?? 0)
+
+        // Calculate pagination
+        const page = filters.page ?? 1
+        const pageSize = filters.pageSize ?? 50
+        const offset = (page - 1) * pageSize
+
+        // Query with join to users table for user metadata
+        const activities = await db
+          .select({
+            id: activityLogs.id,
+            createdAt: activityLogs.createdAt,
+            userId: activityLogs.userId,
+            action: activityLogs.action,
+            tableName: activityLogs.tableName,
+            tableId: activityLogs.tableId,
+            recordId: activityLogs.recordId,
+            changes: activityLogs.changes,
+            sessionId: activityLogs.sessionId,
+            ipAddress: activityLogs.ipAddress,
+            userAgent: activityLogs.userAgent,
+            // User metadata (nullable for system activities)
+            user: {
+              id: users.id,
+              email: users.email,
+              name: users.name,
+            },
+          })
+          .from(activityLogs)
+          .leftJoin(users, eq(activityLogs.userId, users.id))
+          .where(whereClause)
+          .orderBy(desc(activityLogs.createdAt))
+          .limit(pageSize)
+          .offset(offset)
+
+        return {
+          activities,
+          total,
+        }
+      },
       catch: (error) => new ActivityLogDatabaseError({ cause: error }),
     }),
 

@@ -6,43 +6,11 @@
  */
 
 import { Effect } from 'effect'
-import {
-  type ActivityLogOutput,
-  ListActivityLogs,
-  ListActivityLogsLayer,
-} from '@/application/use-cases/list-activity-logs'
+import { ListActivityLogs, ListActivityLogsLayer } from '@/application/use-cases/list-activity-logs'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { sanitizeError, getStatusCode } from '@/presentation/api/utils/error-sanitizer'
+import type { ActivityAction } from '@/infrastructure/database/drizzle/schema/activity-log'
 import type { Hono } from 'hono'
-
-/**
- * Activity log API response type
- *
- * Maps application ActivityLogOutput to API JSON response format.
- * Uses snake_case for table_name to match API conventions.
- */
-interface ActivityLogResponse {
-  readonly id: string
-  readonly createdAt: string
-  readonly userId: string | undefined
-  readonly action: 'create' | 'update' | 'delete' | 'restore'
-  readonly table_name: string
-  readonly recordId: string
-}
-
-/**
- * Map ActivityLogOutput to API response format
- */
-function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
-  return {
-    id: log.id,
-    createdAt: log.createdAt,
-    userId: log.userId,
-    action: log.action,
-    table_name: log.tableName,
-    recordId: log.recordId,
-  }
-}
 
 /**
  * Chain activity routes onto a Hono app
@@ -53,7 +21,9 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
  * @param honoApp - Hono instance to chain routes onto
  * @returns Hono app with activity routes chained
  */
+// eslint-disable-next-line max-lines-per-function -- Complete route handler with auth, validation, Effect program execution, and error handling
 export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
+  // eslint-disable-next-line max-lines-per-function, max-statements -- Comprehensive route handler orchestrating auth check, query parsing, Effect program, and error responses
   return honoApp.get('/api/activity', async (c) => {
     const session = getSessionContext(c)
 
@@ -64,8 +34,27 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
       )
     }
 
+    // Parse query parameters
+    const tableName = c.req.query('tableName')
+    const action = c.req.query('action') as ActivityAction | undefined
+    const filterUserId = c.req.query('userId')
+    const startDate = c.req.query('startDate')
+    const endDate = c.req.query('endDate')
+    const pageParam = c.req.query('page')
+    const pageSizeParam = c.req.query('pageSize')
+
+    const page = pageParam ? Number(pageParam) : undefined
+    const pageSize = pageSizeParam ? Number(pageSizeParam) : undefined
+
     const program = ListActivityLogs({
       userId: session.userId,
+      tableName,
+      action,
+      filterUserId,
+      startDate,
+      endDate,
+      page,
+      pageSize,
     }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
 
     const result = await Effect.runPromise(program)
@@ -73,6 +62,18 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
     if (result._tag === 'Left') {
       const error = result.left
       const requestId = crypto.randomUUID()
+
+      // Handle ValidationError with 400 status
+      if (error._tag === 'ValidationError') {
+        return c.json(
+          {
+            success: false,
+            message: error.message,
+            code: 'VALIDATION_ERROR',
+          },
+          400
+        )
+      }
 
       // Sanitize error to prevent information disclosure
       const sanitized = sanitizeError(error, requestId)
@@ -88,7 +89,7 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
       )
     }
 
-    const logs = result.right
-    return c.json(logs.map(mapToApiResponse), 200)
+    const response = result.right
+    return c.json(response, 200)
   }) as T
 }
