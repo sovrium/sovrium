@@ -206,23 +206,46 @@ async function handleBatchUpdate(c: Context, app: App) {
   const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
   if (readonlyValidation) return readonlyValidation
 
-  // Authorization: Check field-level write permissions
-  const fieldPermissionCheck = await import('./upsert-helpers').then((m) =>
-    m.checkFieldPermissions({
-      app,
-      tableName,
-      userRole,
-      records: result.data.records,
-      c,
-    })
-  )
-  if (!fieldPermissionCheck.allowed) return fieldPermissionCheck.response
+  // Authorization: Check field-level write permissions and strip forbidden fields
+  const recordsData = result.data.records.map((record) => {
+    const forbiddenFields = validateFieldWritePermissions(app, tableName, userRole, record.fields)
 
-  // Keep records in { id, fields } format for database layer
-  const recordsData = result.data.records.map((record) => ({
-    id: record.id,
-    fields: record.fields,
-  }))
+    // If ALL fields are forbidden, this will result in empty fields object
+    const allowedFields = Object.keys(record.fields).reduce<Record<string, unknown>>(
+      (acc, fieldName) => {
+        if (forbiddenFields.includes(fieldName)) {
+          return acc // Skip forbidden field
+        }
+        return { ...acc, [fieldName]: record.fields[fieldName] }
+      },
+      {}
+    )
+
+    return {
+      id: record.id,
+      fields: allowedFields,
+    }
+  })
+
+  // Check if any record has at least one allowed field
+  const hasAnyAllowedFields = recordsData.some((record) => Object.keys(record.fields).length > 0)
+
+  // If ALL records have NO allowed fields (all fields forbidden), return 403
+  if (!hasAnyAllowedFields) {
+    const allForbiddenFields = result.data.records.flatMap((record) =>
+      validateFieldWritePermissions(app, tableName, userRole, record.fields)
+    )
+    const uniqueForbiddenFields = [...new Set(allForbiddenFields)]
+    const firstForbiddenField = uniqueForbiddenFields[0]
+    return c.json(
+      {
+        success: false,
+        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
 
   // Execute batch update with returnRecords parameter
   const program = batchUpdateProgram(session, tableName, recordsData, result.data.returnRecords)
