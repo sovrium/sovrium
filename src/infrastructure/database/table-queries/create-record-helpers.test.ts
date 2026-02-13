@@ -5,10 +5,26 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { describe, test, expect } from 'bun:test'
+import { describe, test, expect, beforeAll, mock } from 'bun:test'
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { buildInsertClauses, executeInsert } from './create-record-helpers'
+
+// Use absolute path for dynamic imports to avoid mock.module pollution
+// from other test files (crud.test.ts mocks './create-record-helpers' globally,
+// which contaminates relative-path imports in the same test process)
+const HELPERS_PATH = `${import.meta.dir}/create-record-helpers`
+
+let buildInsertClauses: any
+let executeInsert: any
+
+beforeAll(async () => {
+  // Clear any module mocks set by other test files
+  mock.restore()
+  // Use absolute path to bypass mocked relative path resolution
+  const mod = await import(HELPERS_PATH)
+  buildInsertClauses = mod.buildInsertClauses
+  executeInsert = mod.executeInsert
+})
 
 describe('buildInsertClauses', () => {
   test('builds columns and values for fields', () => {
