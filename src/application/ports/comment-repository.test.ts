@@ -62,6 +62,7 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
+      update: () => Effect.succeed({} as any),
     })
 
     const program = Effect.gen(function* () {
@@ -107,6 +108,7 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
+      update: () => Effect.succeed({} as any),
     })
 
     const program = Effect.gen(function* () {
@@ -133,6 +135,7 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
+      update: () => Effect.succeed({} as any),
     })
 
     const program = Effect.gen(function* () {
@@ -166,6 +169,7 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
+      update: () => Effect.succeed({} as any),
     })
 
     const program = Effect.gen(function* () {
@@ -197,6 +201,7 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
+      update: () => Effect.succeed({} as any),
     })
 
     const program = Effect.gen(function* () {
@@ -223,6 +228,7 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
+      update: () => Effect.succeed({} as any),
     })
 
     const program = Effect.gen(function* () {
@@ -281,6 +287,7 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed(mockComments),
       getCount: () => Effect.succeed(0),
+      update: () => Effect.succeed({} as any),
     })
 
     const program = Effect.gen(function* () {
@@ -311,6 +318,7 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(42),
+      update: () => Effect.succeed({} as any),
     })
 
     const program = Effect.gen(function* () {

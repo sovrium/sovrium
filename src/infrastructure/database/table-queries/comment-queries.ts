@@ -486,3 +486,71 @@ export function getCommentsCount(config: {
     return result[0]?.count ?? 0
   })
 }
+
+/**
+ * Update a comment
+ */
+export function updateComment(config: {
+  readonly session: Readonly<Session>
+  readonly commentId: string
+  readonly content: string
+}): Effect.Effect<
+  {
+    readonly id: string
+    readonly tableId: string
+    readonly recordId: string
+    readonly userId: string
+    readonly content: string
+    readonly createdAt: Date
+    readonly updatedAt: Date
+    readonly user:
+      | {
+          readonly id: string
+          readonly name: string
+          readonly email: string
+          readonly image: string | undefined
+        }
+      | undefined
+  },
+  SessionContextError
+> {
+  const { commentId, content } = config
+  return Effect.gen(function* () {
+    const now = new Date()
+
+    const result = yield* Effect.tryPromise<
+      Array<{
+        readonly id: string
+        readonly recordId: string
+        readonly tableId: string
+        readonly userId: string
+        readonly content: string
+        readonly createdAt: Date
+        readonly updatedAt: Date
+        readonly deletedAt: Date | null
+      }>,
+      SessionContextError
+    >({
+      try: () =>
+        db
+          .update(recordComments)
+          .set({ content, updatedAt: now })
+          .where(and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt)))
+          .returning(),
+      catch: (error) => new SessionContextError('Failed to update comment', error),
+    })
+
+    if (result.length === 0 || !result[0]) {
+      return yield* Effect.fail(new SessionContextError('Comment not found'))
+    }
+
+    // Fetch updated comment with user metadata
+    const updatedComment = yield* getCommentWithUser({ session: config.session, commentId })
+
+    if (!updatedComment) {
+      return yield* Effect.fail(new SessionContextError('Failed to fetch updated comment'))
+    }
+
+    return updatedComment
+  })
+}

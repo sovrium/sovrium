@@ -392,3 +392,83 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
     }
   })
 }
+
+/**
+ * Update comment configuration
+ */
+interface UpdateCommentConfig {
+  readonly session: Readonly<UserSession>
+  readonly commentId: string
+  readonly tableName: string
+  readonly content: string
+}
+
+/**
+ * Update comment program
+ *
+ * Authorization:
+ * - Only the comment author can update their comment
+ * - Admins cannot update other users' comments (respect authorship)
+ * - Returns 404 for non-existent comments, already deleted comments, or unauthorized access
+ */
+export function updateCommentProgram(config: UpdateCommentConfig): Effect.Effect<
+  {
+    readonly comment: {
+      readonly id: string
+      readonly tableId: string
+      readonly recordId: string
+      readonly userId: string
+      readonly content: string
+      readonly createdAt: string
+      readonly updatedAt: string
+      readonly user?:
+        | {
+            readonly id: string
+            readonly name: string
+            readonly email: string
+            readonly image: string | undefined
+          }
+        | undefined
+    }
+  },
+  SessionContextError,
+  CommentRepository
+> {
+  return Effect.gen(function* () {
+    const comments = yield* CommentRepository
+    const { session, commentId, tableName, content } = config
+
+    // Get comment for authorization check
+    const comment = yield* comments.getForAuth({ session, commentId })
+
+    if (!comment) {
+      return yield* Effect.fail(new SessionContextError('Comment not found'))
+    }
+
+    // Check record exists (user must have access to the record)
+    const hasRecordAccess = yield* comments.checkRecordExists({
+      session,
+      tableName,
+      recordId: comment.recordId,
+    })
+
+    if (!hasRecordAccess) {
+      return yield* Effect.fail(new SessionContextError('Comment not found'))
+    }
+
+    // Check authorization: only the comment author can update
+    const isAuthor = comment.userId === session.userId
+
+    if (!isAuthor) {
+      // User has record access but is not the comment author
+      // Return 403 Forbidden to explicitly deny the operation
+      return yield* Effect.fail(new SessionContextError('Forbidden'))
+    }
+
+    // Update comment
+    const updatedComment = yield* comments.update({ session, commentId, content })
+
+    // Format response
+    return formatCommentResponse(updatedComment)
+  })
+}
