@@ -24,7 +24,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-001: should return 200 with activity details',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -72,7 +72,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-002: should return 401 when user is not authenticated',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -95,7 +95,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-003: should return 404 when activity does not exist',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
@@ -120,7 +120,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-004: should include user metadata in activity details',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -163,7 +163,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-005: should return activity with null changes for delete action',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -205,7 +205,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-006: should return 400 when activityId is invalid format',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
@@ -230,7 +230,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-007: should return 401 Unauthorized when auth is not configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {

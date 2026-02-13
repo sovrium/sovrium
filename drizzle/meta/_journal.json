@@ -8,6 +8,20 @@
       "when": 1770228852708,
       "tag": "0000_bouncy_the_initiative",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771005017652,
+      "tag": "0001_silly_blade",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771005072936,
+      "tag": "0002_parched_taskmaster",
+      "breakpoints": true
     }
   ]
 }

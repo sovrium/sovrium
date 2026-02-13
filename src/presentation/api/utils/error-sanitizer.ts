@@ -17,6 +17,7 @@ export type ErrorCode =
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
   | 'NOT_FOUND'
+  | 'BAD_REQUEST'
   | 'VALIDATION_ERROR'
   | 'CONFLICT'
   | 'RATE_LIMITED'
@@ -129,6 +130,12 @@ function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedEr
         message: actualError.message ?? 'Invalid input data',
         details: actualError.details,
       }
+    case 'InvalidActivityIdError':
+      return {
+        error: 'Bad Request',
+        code: 'BAD_REQUEST',
+        message: actualError.message ?? 'Invalid activity ID format',
+      }
     case 'UniqueConstraintViolationError':
       return {
         error: 'Conflict',
@@ -137,6 +144,7 @@ function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedEr
       }
     case 'NotFoundError':
     case 'TableNotFoundError':
+    case 'ActivityLogNotFoundError':
       return {
         error: 'Not Found',
         code: 'NOT_FOUND',
@@ -220,6 +228,8 @@ export function getStatusCode(code: ErrorCode): ContentfulStatusCode {
       return 403
     case 'NOT_FOUND':
       return 404
+    case 'BAD_REQUEST':
+      return 400
     case 'VALIDATION_ERROR':
       return 400
     case 'CONFLICT':
