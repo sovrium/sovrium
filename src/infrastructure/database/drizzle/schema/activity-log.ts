@@ -53,7 +53,9 @@ export const activityLogs = systemSchema.table(
   'activity_logs',
   {
     // Primary key - UUID for distributed systems compatibility
-    id: text('id').primaryKey(),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
 
     // Event metadata
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -69,7 +71,7 @@ export const activityLogs = systemSchema.table(
 
     // Table identification
     tableName: text('table_name').notNull(),
-    tableId: text('table_id').notNull(),
+    tableId: text('table_id').notNull().default('1'),
 
     // Record identification within the table
     recordId: text('record_id').notNull(),

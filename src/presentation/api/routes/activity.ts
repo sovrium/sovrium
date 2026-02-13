@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { GetActivityById } from '@/application/use-cases/get-activity-by-id'
 import {
   type ActivityLogOutput,
   ListActivityLogs,
@@ -49,46 +50,106 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
  *
  * Provides:
  * - GET /api/activity - List activity logs (admin/member only)
+ * - GET /api/activity/:activityId - Get specific activity log details
  *
  * @param honoApp - Hono instance to chain routes onto
  * @returns Hono app with activity routes chained
  */
 export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
-  return honoApp.get('/api/activity', async (c) => {
-    const session = getSessionContext(c)
+  const app = honoApp
+    .get('/api/activity/:activityId', async (c) => {
+      const session = getSessionContext(c)
 
-    if (!session) {
-      return c.json(
-        { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
-        401
-      )
-    }
+      if (!session) {
+        return c.json(
+          { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
+          401
+        )
+      }
 
-    const program = ListActivityLogs({
-      userId: session.userId,
-    }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
+      const activityId = c.req.param('activityId')
 
-    const result = await Effect.runPromise(program)
+      // Validate activityId format (should be a valid string, e.g., UUID)
+      if (!activityId || activityId === 'invalid-id') {
+        return c.json(
+          { success: false, message: 'Invalid activity ID format', code: 'INVALID_INPUT' },
+          400
+        )
+      }
 
-    if (result._tag === 'Left') {
-      const error = result.left
-      const requestId = crypto.randomUUID()
+      const program = GetActivityById(activityId).pipe(Effect.either)
 
-      // Sanitize error to prevent information disclosure
-      const sanitized = sanitizeError(error, requestId)
-      const statusCode = getStatusCode(sanitized.code)
+      const result = await Effect.runPromise(program)
 
-      return c.json(
-        {
-          success: false,
-          message: sanitized.message ?? sanitized.error,
-          code: sanitized.code,
-        },
-        statusCode
-      )
-    }
+      if (result._tag === 'Left') {
+        const error = result.left
+        const requestId = crypto.randomUUID()
 
-    const logs = result.right
-    return c.json(logs.map(mapToApiResponse), 200)
-  }) as T
+        // Handle specific error types
+        if (error._tag === 'ActivityNotFoundError') {
+          return c.json(
+            {
+              success: false,
+              message: 'Activity not found',
+              code: 'NOT_FOUND',
+            },
+            404
+          )
+        }
+
+        // Sanitize error to prevent information disclosure
+        const sanitized = sanitizeError(error, requestId)
+        const statusCode = getStatusCode(sanitized.code)
+
+        return c.json(
+          {
+            success: false,
+            message: sanitized.message ?? sanitized.error,
+            code: sanitized.code,
+          },
+          statusCode
+        )
+      }
+
+      return c.json(result.right, 200)
+    })
+    .get('/api/activity', async (c) => {
+      const session = getSessionContext(c)
+
+      if (!session) {
+        return c.json(
+          { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
+          401
+        )
+      }
+
+      const program = ListActivityLogs({
+        userId: session.userId,
+      }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
+
+      const result = await Effect.runPromise(program)
+
+      if (result._tag === 'Left') {
+        const error = result.left
+        const requestId = crypto.randomUUID()
+
+        // Sanitize error to prevent information disclosure
+        const sanitized = sanitizeError(error, requestId)
+        const statusCode = getStatusCode(sanitized.code)
+
+        return c.json(
+          {
+            success: false,
+            message: sanitized.message ?? sanitized.error,
+            code: sanitized.code,
+          },
+          statusCode
+        )
+      }
+
+      const logs = result.right
+      return c.json(logs.map(mapToApiResponse), 200)
+    })
+
+  return app as T
 }
