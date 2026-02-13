@@ -34,6 +34,51 @@ export async function runEffectInTx<A, E>(effect: Effect.Effect<A, E, never>): P
 }
 
 /**
+ * Extract PostgreSQL error information
+ */
+interface PostgresError {
+  readonly code: string
+  readonly message: string
+}
+
+function extractPostgresError(error: unknown): PostgresError {
+  const errorObj = error as { cause?: unknown }
+  const pgError = errorObj.cause ?? error
+  const errorCode =
+    (pgError as { errno?: string; code?: string }).errno ??
+    (pgError as { errno?: string; code?: string }).code ??
+    ''
+  const errorMessage = (pgError as { message?: string }).message ?? (error as Error)?.message ?? ''
+  return { code: errorCode, message: errorMessage }
+}
+
+/**
+ * Extract field name from PostgreSQL error message
+ */
+function extractFieldName(errorMessage: string): string {
+  const columnMatch = errorMessage.match(/column "([^"]+)"/)
+  return columnMatch?.[1] ?? 'unknown'
+}
+
+/**
+ * Create NOT NULL validation error
+ */
+function createNotNullError(fieldName: string): Readonly<ValidationError> {
+  return new ValidationError(`Validation failed: Field '${fieldName}' is required`, [
+    { record: 0, field: fieldName, error: `Field '${fieldName}' is required` },
+  ])
+}
+
+/**
+ * Create unique constraint validation error
+ */
+function createUniqueError(fieldName: string): Readonly<ValidationError> {
+  return new ValidationError(`Validation failed: Duplicate value for field '${fieldName}'`, [
+    { record: 0, field: fieldName, error: `Value must be unique` },
+  ])
+}
+
+/**
  * Helper to create a single record within a transaction
  */
 export async function createSingleRecord(
@@ -67,37 +112,20 @@ export async function createSingleRecord(
     // 23505 = unique_violation
 
     // Extract the underlying PostgreSQL error from DrizzleQueryError wrapper
-    const cause = (error as any)?.cause
-    const pgError = cause ?? error
-    const errorCode = pgError.errno ?? pgError.code
-    const errorMessage = pgError.message ?? (error as Error)?.message ?? ''
+    const { code: errorCode, message: errorMessage } = extractPostgresError(error)
 
     // Handle NOT NULL constraint violations
     if (errorCode === '23502' || errorMessage.includes('null value in column')) {
-      // Extract field name from error message or detail
-      let fieldName = 'unknown'
-      const columnMatch = errorMessage.match(/column "([^"]+)"/)
-      if (columnMatch) {
-        fieldName = columnMatch[1]
-      }
+      const fieldName = extractFieldName(errorMessage)
       // eslint-disable-next-line functional/no-throw-statements -- Required for error propagation
-      throw new ValidationError(`Validation failed: Field '${fieldName}' is required`, [
-        { record: 0, field: fieldName, error: `Field '${fieldName}' is required` },
-      ])
+      throw createNotNullError(fieldName)
     }
 
     // Handle unique constraint violations
     if (errorCode === '23505' || errorMessage.includes('duplicate key value')) {
-      // Extract field name from error message
-      let fieldName = 'unknown'
-      const columnMatch = errorMessage.match(/column "([^"]+)"/)
-      if (columnMatch) {
-        fieldName = columnMatch[1]
-      }
+      const fieldName = extractFieldName(errorMessage)
       // eslint-disable-next-line functional/no-throw-statements -- Required for error propagation
-      throw new ValidationError(`Validation failed: Duplicate value for field '${fieldName}'`, [
-        { record: 0, field: fieldName, error: `Value must be unique` },
-      ])
+      throw createUniqueError(fieldName)
     }
 
     // Re-throw other errors

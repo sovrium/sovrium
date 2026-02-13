@@ -13,6 +13,34 @@ import { validateTableName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
+ * Handle batch transaction errors
+ */
+function handleBatchError(
+  error: unknown
+): Readonly<SessionContextError> | Readonly<ValidationError> {
+  // Check error type by _tag property (more reliable than instanceof after serialization)
+  const errorObj = error as { _tag?: string; message?: string; details?: readonly unknown[] }
+
+  // Let ValidationError propagate unchanged for proper error handling
+  if (errorObj._tag === 'ValidationError') {
+    return error as ValidationError
+  }
+  // Let ValidationError instances propagate unchanged
+  if (error instanceof ValidationError) {
+    return error
+  }
+  // Let SessionContextError propagate unchanged
+  if (errorObj._tag === 'SessionContextError') {
+    return error as SessionContextError
+  }
+  if (error instanceof SessionContextError) {
+    return error
+  }
+  // Wrap other errors in SessionContextError
+  return new SessionContextError(`Failed to create batch records`, error)
+}
+
+/**
  * Batch create records
  *
  * Creates multiple records in a single transaction.
@@ -39,40 +67,17 @@ export function batchCreateRecords(
             throw new SessionContextError('Cannot create batch with no records', undefined)
           }
 
-          // Process records sequentially, collecting results using immutable array operations
-          // eslint-disable-next-line functional/no-let,functional/no-loop-statements -- Required for sequential processing in transaction
-          let records: readonly Record<string, unknown>[] = []
-          for (const fields of recordsData) {
-            const record = await createSingleRecord(tx, tableName, fields)
-            if (record) {
-              records = [...records, record as Record<string, unknown>]
-            }
-          }
-
-          return records
+          // Process records sequentially using reduce (functional approach without let/loop)
+          return recordsData.reduce(
+            async (accPromise, fields) => {
+              const acc = await accPromise
+              const record = await createSingleRecord(tx, tableName, fields)
+              return record ? [...acc, record as Record<string, unknown>] : acc
+            },
+            Promise.resolve([] as readonly Record<string, unknown>[])
+          )
         }),
-      catch: (error) => {
-        // Check error type by _tag property (more reliable than instanceof after serialization)
-        const errorObj = error as { _tag?: string; message?: string; details?: readonly unknown[] }
-
-        // Let ValidationError propagate unchanged for proper error handling
-        if (errorObj._tag === 'ValidationError') {
-          return error as ValidationError
-        }
-        // Let ValidationError instances propagate unchanged
-        if (error instanceof ValidationError) {
-          return error
-        }
-        // Let SessionContextError propagate unchanged
-        if (errorObj._tag === 'SessionContextError') {
-          return error as SessionContextError
-        }
-        if (error instanceof SessionContextError) {
-          return error
-        }
-        // Wrap other errors in SessionContextError
-        return new SessionContextError(`Failed to create batch records in ${tableName}`, error)
-      },
+      catch: handleBatchError,
     })
 
     // Log activity for each created record
