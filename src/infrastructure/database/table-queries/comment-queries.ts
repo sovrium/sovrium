@@ -5,12 +5,20 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql, eq, and, isNull, desc, asc } from 'drizzle-orm'
+import { sql, eq, and, isNull } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { users } from '@/infrastructure/auth/better-auth/schema'
 import { SessionContextError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import { recordComments } from '@/infrastructure/database/drizzle/schema/record-comments'
+import {
+  transformCommentRow,
+  executeCommentQuery,
+  executeListCommentsQuery,
+  buildRecordCheckQuery,
+  executeCommentUpdate,
+  type CommentQueryRow,
+} from './comment-query-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -71,96 +79,6 @@ export function createComment(config: {
 }
 
 /**
- * Transform comment query result to domain model
- */
-function transformCommentRow(row: {
-  readonly id: string
-  readonly tableId: string
-  readonly recordId: string
-  readonly userId: string
-  readonly content: string
-  readonly createdAt: Date
-  readonly updatedAt: Date
-  readonly userName: string | undefined
-  readonly userEmail: string | undefined
-  readonly userImage: string | undefined
-}): {
-  readonly id: string
-  readonly tableId: string
-  readonly recordId: string
-  readonly userId: string
-  readonly content: string
-  readonly createdAt: Date
-  readonly updatedAt: Date
-  readonly user:
-    | {
-        readonly id: string
-        readonly name: string
-        readonly email: string
-        readonly image: string | undefined
-      }
-    | undefined
-} {
-  return {
-    id: row.id,
-    tableId: row.tableId,
-    recordId: row.recordId,
-    userId: row.userId,
-    content: row.content,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    user:
-      row.userName && row.userEmail
-        ? { id: row.userId, name: row.userName, email: row.userEmail, image: row.userImage }
-        : undefined,
-  }
-}
-
-/**
- * Comment query result type
- */
-type CommentQueryRow = {
-  readonly id: string
-  readonly tableId: string
-  readonly recordId: string
-  readonly userId: string
-  readonly content: string
-  readonly createdAt: Date
-  readonly updatedAt: Date
-  readonly userName: string | null
-  readonly userEmail: string | null
-  readonly userImage: string | null
-}
-
-/**
- * Comment select fields with user join
- */
-const commentSelectFields = {
-  id: recordComments.id,
-  tableId: recordComments.tableId,
-  recordId: recordComments.recordId,
-  userId: recordComments.userId,
-  content: recordComments.content,
-  createdAt: recordComments.createdAt,
-  updatedAt: recordComments.updatedAt,
-  userName: users.name,
-  userEmail: users.email,
-  userImage: users.image,
-}
-
-/**
- * Execute comment query with user join
- */
-function executeCommentQuery(commentId: string) {
-  return db
-    .select(commentSelectFields)
-    .from(recordComments)
-    .leftJoin(users, eq(recordComments.userId, users.id))
-    .where(and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt)))
-    .limit(1)
-}
-
-/**
  * Get comment with user metadata
  */
 export function getCommentWithUser(config: {
@@ -206,31 +124,6 @@ export function getCommentWithUser(config: {
       userImage: row.userImage ?? undefined,
     })
   })
-}
-
-/**
- * Build SQL query to check record existence with optional deleted_at filter and owner_id check
- */
-function buildRecordCheckQuery(params: {
-  readonly tableName: string
-  readonly recordId: string
-  readonly userId: string
-  readonly hasDeletedAt: boolean
-  readonly hasOwnerId: boolean
-}) {
-  const { tableName, recordId, userId, hasDeletedAt, hasOwnerId } = params
-  if (hasDeletedAt && hasOwnerId) {
-    // Allow access to records with NULL owner_id (shared records) OR owned records
-    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL AND (owner_id = ${userId} OR owner_id IS NULL)`
-  }
-  if (hasDeletedAt) {
-    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
-  }
-  if (hasOwnerId) {
-    // Allow access to records with NULL owner_id (shared records) OR owned records
-    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND (owner_id = ${userId} OR owner_id IS NULL)`
-  }
-  return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId}`
 }
 
 /**
@@ -382,45 +275,6 @@ export function getCommentForAuth(config: {
 }
 
 /**
- * Build base comments query with user join
- */
-function buildCommentsQuery(recordId: string) {
-  return db
-    .select(commentSelectFields)
-    .from(recordComments)
-    .leftJoin(users, eq(recordComments.userId, users.id))
-    .where(and(eq(recordComments.recordId, recordId), isNull(recordComments.deletedAt)))
-}
-
-/**
- * Execute list comments query with sorting and pagination
- */
-function executeListCommentsQuery(
-  recordId: string,
-  options?: {
-    readonly limit?: number
-    readonly offset?: number
-    readonly sortOrder?: 'asc' | 'desc'
-  }
-) {
-  const query = buildCommentsQuery(recordId)
-
-  // Apply sorting (default: DESC for newest first)
-  const sortedQuery =
-    options?.sortOrder === 'asc'
-      ? query.orderBy(asc(recordComments.createdAt), asc(recordComments.id))
-      : query.orderBy(desc(recordComments.createdAt), desc(recordComments.id))
-
-  // Apply pagination
-  if (options?.limit !== undefined) {
-    const paginatedQuery = sortedQuery.limit(options.limit)
-    return options.offset !== undefined ? paginatedQuery.offset(options.offset) : paginatedQuery
-  }
-
-  return sortedQuery
-}
-
-/**
  * List all comments for a record
  */
 export function listComments(config: {
@@ -490,33 +344,6 @@ export function getCommentsCount(config: {
 }
 
 /**
- * Execute comment update in database
- */
-function executeCommentUpdate(commentId: string, content: string) {
-  const now = new Date()
-  return Effect.tryPromise({
-    try: async () => {
-      const updated = await db
-        .update(recordComments)
-        .set({ content, updatedAt: now })
-        .where(and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt)))
-        .returning()
-
-      if (updated.length === 0 || !updated[0]) {
-        // eslint-disable-next-line functional/no-throw-statements -- Required inside Effect.tryPromise for error propagation
-        throw new SessionContextError('Comment not found')
-      }
-
-      return updated[0]
-    },
-    catch: (error) =>
-      error instanceof SessionContextError
-        ? error
-        : new SessionContextError('Failed to update comment', error),
-  })
-}
-
-/**
  * Update a comment
  */
 export function updateComment(config: {
@@ -546,7 +373,20 @@ export function updateComment(config: {
   const { commentId, content, session } = config
   return Effect.gen(function* () {
     // Update comment
-    yield* executeCommentUpdate(commentId, content)
+    yield* Effect.tryPromise({
+      try: async () => {
+        const result = await executeCommentUpdate(commentId, content)
+        if (result.length === 0 || !result[0]) {
+          // eslint-disable-next-line functional/no-throw-statements -- Required inside Effect.tryPromise for error propagation
+          throw new SessionContextError('Comment not found')
+        }
+        return result[0]
+      },
+      catch: (error) =>
+        error instanceof SessionContextError
+          ? error
+          : new SessionContextError('Failed to update comment', error),
+    })
 
     // Fetch comment with user metadata
     const commentWithUser = yield* getCommentWithUser({ session, commentId })
