@@ -176,9 +176,9 @@ async function handleBatchCreate(c: Context, app: App) {
  * Strip forbidden fields from records based on write permissions
  */
 function stripForbiddenFields(
-  records: readonly { readonly id: number; readonly fields: Record<string, unknown> }[],
+  records: readonly { readonly id: string; readonly fields: Record<string, unknown> }[],
   params: { readonly app: App; readonly tableName: string; readonly userRole: string }
-): readonly { readonly id: number; readonly fields: Record<string, unknown> }[] {
+): readonly { readonly id: string; readonly fields: Record<string, unknown> }[] {
   return records.map((record) => {
     const forbiddenFields = validateFieldWritePermissions(
       params.app,
