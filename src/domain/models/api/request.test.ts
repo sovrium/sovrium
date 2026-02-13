@@ -163,14 +163,14 @@ describe('batchCreateRecordsRequestSchema', () => {
       )
     })
 
-    test('rejects more than 100 records', () => {
+    test('rejects more than 1000 records', () => {
       const input = {
-        records: Array.from({ length: 101 }, (_, i) => ({
+        records: Array.from({ length: 1001 }, (_, i) => ({
           fields: { index: i },
         })),
       }
       expect(() => batchCreateRecordsRequestSchema.parse(input)).toThrow(
-        'Maximum 100 records per batch'
+        'Maximum 1000 records per batch'
       )
     })
 
