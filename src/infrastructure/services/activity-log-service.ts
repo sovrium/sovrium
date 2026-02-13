@@ -88,6 +88,80 @@ export class ActivityLogService extends Context.Tag('ActivityLogService')<
 >() {}
 
 /**
+ * Build WHERE clause conditions for activity log filtering
+ */
+function buildWhereConditions(filters: ActivityLogFilters) {
+  // Calculate 1-year retention policy cutoff using functional pattern
+  const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
+
+  return [
+    // 1-year retention policy: exclude activities older than 1 year
+    gte(activityLogs.createdAt, oneYearAgo),
+    ...(filters.tableName ? [eq(activityLogs.tableName, filters.tableName)] : []),
+    ...(filters.action ? [eq(activityLogs.action, filters.action)] : []),
+    ...(filters.userId ? [eq(activityLogs.userId, filters.userId)] : []),
+    ...(filters.startDate ? [gte(activityLogs.createdAt, filters.startDate)] : []),
+    ...(filters.endDate
+      ? [sql`${activityLogs.createdAt} <= ${filters.endDate.toISOString()}::timestamptz`]
+      : []),
+  ]
+}
+
+/**
+ * Get total count of activity logs matching filters
+ */
+async function getTotalCount(
+  // eslint-disable-next-line functional/prefer-immutable-types -- Drizzle ORM's and() returns mutable type, Readonly wrapper causes TypeScript errors
+  whereClause: ReturnType<typeof and> | undefined
+): Promise<number> {
+  const countResult = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(activityLogs)
+    .where(whereClause)
+
+  return Number(countResult[0]?.count ?? 0)
+}
+
+/**
+ * Query activity logs with pagination and user metadata
+ */
+async function queryActivitiesWithUsers(
+  // eslint-disable-next-line functional/prefer-immutable-types -- Drizzle ORM's and() returns mutable type, Readonly wrapper causes TypeScript errors
+  whereClause: ReturnType<typeof and> | undefined,
+  page: number,
+  pageSize: number
+): Promise<readonly ActivityLogWithUser[]> {
+  const offset = (page - 1) * pageSize
+
+  return db
+    .select({
+      id: activityLogs.id,
+      createdAt: activityLogs.createdAt,
+      userId: activityLogs.userId,
+      action: activityLogs.action,
+      tableName: activityLogs.tableName,
+      tableId: activityLogs.tableId,
+      recordId: activityLogs.recordId,
+      changes: activityLogs.changes,
+      sessionId: activityLogs.sessionId,
+      ipAddress: activityLogs.ipAddress,
+      userAgent: activityLogs.userAgent,
+      // User metadata (nullable for system activities)
+      user: {
+        id: users.id,
+        email: users.email,
+        name: users.name,
+      },
+    })
+    .from(activityLogs)
+    .leftJoin(users, eq(activityLogs.userId, users.id))
+    .where(whereClause)
+    .orderBy(desc(activityLogs.createdAt))
+    .limit(pageSize)
+    .offset(offset)
+}
+
+/**
  * Activity Log Service Implementation
  *
  * Uses Drizzle ORM query builder for type-safe, SQL-injection-proof queries.
@@ -105,69 +179,22 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
   /**
    * List activity logs with filtering and pagination
    */
-  // eslint-disable-next-line max-lines-per-function -- Complex database query with filtering, pagination, and joins
   list: (filters) =>
     Effect.tryPromise({
-      // eslint-disable-next-line max-lines-per-function, complexity -- Builds dynamic WHERE clause and executes paginated query with LEFT JOIN
       try: async () => {
-        // Build WHERE conditions using immutable patterns
-        // Calculate 1-year retention policy cutoff using functional pattern
-        const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000)
-
-        const conditions = [
-          // 1-year retention policy: exclude activities older than 1 year
-          gte(activityLogs.createdAt, oneYearAgo),
-          ...(filters.tableName ? [eq(activityLogs.tableName, filters.tableName)] : []),
-          ...(filters.action ? [eq(activityLogs.action, filters.action)] : []),
-          ...(filters.userId ? [eq(activityLogs.userId, filters.userId)] : []),
-          ...(filters.startDate ? [gte(activityLogs.createdAt, filters.startDate)] : []),
-          ...(filters.endDate
-            ? [sql`${activityLogs.createdAt} <= ${filters.endDate.toISOString()}::timestamptz`]
-            : []),
-        ]
-
+        // Build WHERE conditions
+        const conditions = buildWhereConditions(filters)
         const whereClause = conditions.length > 0 ? and(...conditions) : undefined
 
         // Get total count
-        const countResult = await db
-          .select({ count: sql<number>`count(*)` })
-          .from(activityLogs)
-          .where(whereClause)
-
-        const total = Number(countResult[0]?.count ?? 0)
+        const total = await getTotalCount(whereClause)
 
         // Calculate pagination
         const page = filters.page ?? 1
         const pageSize = filters.pageSize ?? 50
-        const offset = (page - 1) * pageSize
 
         // Query with join to users table for user metadata
-        const activities = await db
-          .select({
-            id: activityLogs.id,
-            createdAt: activityLogs.createdAt,
-            userId: activityLogs.userId,
-            action: activityLogs.action,
-            tableName: activityLogs.tableName,
-            tableId: activityLogs.tableId,
-            recordId: activityLogs.recordId,
-            changes: activityLogs.changes,
-            sessionId: activityLogs.sessionId,
-            ipAddress: activityLogs.ipAddress,
-            userAgent: activityLogs.userAgent,
-            // User metadata (nullable for system activities)
-            user: {
-              id: users.id,
-              email: users.email,
-              name: users.name,
-            },
-          })
-          .from(activityLogs)
-          .leftJoin(users, eq(activityLogs.userId, users.id))
-          .where(whereClause)
-          .orderBy(desc(activityLogs.createdAt))
-          .limit(pageSize)
-          .offset(offset)
+        const activities = await queryActivitiesWithUsers(whereClause, page, pageSize)
 
         return {
           activities,

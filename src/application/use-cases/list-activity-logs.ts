@@ -101,6 +101,85 @@ function mapActivityLog(log: Readonly<ActivityLogWithUser>): ActivityLogOutput {
 }
 
 /**
+ * Validate pagination parameters
+ */
+function validatePagination(
+  page: number,
+  pageSize: number
+): Effect.Effect<void, ValidationError, never> {
+  if (page < 1) {
+    return Effect.fail(
+      new ValidationError({
+        message: 'Page must be greater than or equal to 1',
+      })
+    )
+  }
+
+  if (pageSize < 1 || pageSize > 100) {
+    return Effect.fail(
+      new ValidationError({
+        message: 'Page size must be between 1 and 100',
+      })
+    )
+  }
+
+  return Effect.void
+}
+
+/**
+ * Validate action filter
+ */
+function validateAction(action?: ActivityAction): Effect.Effect<void, ValidationError, never> {
+  if (action && !VALID_ACTIONS.includes(action)) {
+    return Effect.fail(
+      new ValidationError({
+        message: `Invalid action. Must be one of: ${VALID_ACTIONS.join(', ')}`,
+      })
+    )
+  }
+
+  return Effect.void
+}
+
+/**
+ * Check user permissions for accessing activity logs
+ */
+function checkUserPermissions(
+  role: string | null | undefined,
+  userId: string,
+  filterUserId: string | undefined
+): Effect.Effect<void, ForbiddenError, never> {
+  // If user has no role, deny access
+  if (!role) {
+    return Effect.fail(
+      new ForbiddenError({
+        message: 'You do not have permission to access activity logs',
+      })
+    )
+  }
+
+  // Domain rule: Viewers cannot access activity logs
+  if (role === 'viewer') {
+    return Effect.fail(
+      new ForbiddenError({
+        message: 'You do not have permission to access activity logs',
+      })
+    )
+  }
+
+  // Permission check: Non-admin users can only filter by their own userId
+  if (filterUserId && filterUserId !== userId && role !== 'admin') {
+    return Effect.fail(
+      new ForbiddenError({
+        message: 'You can only view your own activity logs',
+      })
+    )
+  }
+
+  return Effect.void
+}
+
+/**
  * List Activity Logs Use Case
  *
  * Application layer use case that:
@@ -115,7 +194,6 @@ function mapActivityLog(log: Readonly<ActivityLogWithUser>): ActivityLogOutput {
  * - Infrastructure Layer: ActivityLogService, UserRoleService
  * - Domain Layer: Business rules (viewer restriction, permission checks)
  */
-// eslint-disable-next-line max-lines-per-function -- Comprehensive business logic with validation, permission checks, and data transformation
 export const ListActivityLogs = (
   input: ListActivityLogsInput
 ): Effect.Effect<
@@ -123,7 +201,6 @@ export const ListActivityLogs = (
   ForbiddenError | ValidationError | ActivityLogDatabaseError | UserRoleDatabaseError,
   ActivityLogService | UserRoleService
 > =>
-  // eslint-disable-next-line max-lines-per-function, max-statements, complexity -- Orchestrates multiple validation steps, permission checks, and data mapping
   Effect.gen(function* () {
     const userRoleService = yield* UserRoleService
     const activityLogService = yield* ActivityLogService
@@ -131,49 +208,14 @@ export const ListActivityLogs = (
     // Validate pagination parameters
     const page = input.page ?? 1
     const pageSize = input.pageSize ?? 50
-
-    if (page < 1) {
-      return yield* new ValidationError({
-        message: 'Page must be greater than or equal to 1',
-      })
-    }
-
-    if (pageSize < 1 || pageSize > 100) {
-      return yield* new ValidationError({
-        message: 'Page size must be between 1 and 100',
-      })
-    }
+    yield* validatePagination(page, pageSize)
 
     // Validate action filter
-    if (input.action && !VALID_ACTIONS.includes(input.action)) {
-      return yield* new ValidationError({
-        message: `Invalid action. Must be one of: ${VALID_ACTIONS.join(', ')}`,
-      })
-    }
+    yield* validateAction(input.action)
 
-    // Get user role to enforce permissions
+    // Get user role and check permissions
     const role = yield* userRoleService.getUserRole(input.userId)
-
-    // If user has no role, deny access
-    if (!role) {
-      return yield* new ForbiddenError({
-        message: 'You do not have permission to access activity logs',
-      })
-    }
-
-    // Domain rule: Viewers cannot access activity logs
-    if (role === 'viewer') {
-      return yield* new ForbiddenError({
-        message: 'You do not have permission to access activity logs',
-      })
-    }
-
-    // Permission check: Non-admin users can only filter by their own userId
-    if (input.filterUserId && input.filterUserId !== input.userId && role !== 'admin') {
-      return yield* new ForbiddenError({
-        message: 'You can only view your own activity logs',
-      })
-    }
+    yield* checkUserPermissions(role, input.userId, input.filterUserId)
 
     // Parse date filters
     const startDate = input.startDate ? new Date(input.startDate) : undefined

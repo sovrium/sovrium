@@ -10,7 +10,65 @@ import { ListActivityLogs, ListActivityLogsLayer } from '@/application/use-cases
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { sanitizeError, getStatusCode } from '@/presentation/api/utils/error-sanitizer'
 import type { ActivityAction } from '@/infrastructure/database/drizzle/schema/activity-log'
-import type { Hono } from 'hono'
+import type { Context, Hono } from 'hono'
+
+/**
+ * Parse query parameters for activity list endpoint
+ */
+function parseActivityQueryParams(c: Context) {
+  const tableName = c.req.query('tableName')
+  const action = c.req.query('action') as ActivityAction | undefined
+  const filterUserId = c.req.query('userId')
+  const startDate = c.req.query('startDate')
+  const endDate = c.req.query('endDate')
+  const pageParam = c.req.query('page')
+  const pageSizeParam = c.req.query('pageSize')
+
+  const page = pageParam ? Number(pageParam) : undefined
+  const pageSize = pageSizeParam ? Number(pageSizeParam) : undefined
+
+  return {
+    tableName,
+    action,
+    filterUserId,
+    startDate,
+    endDate,
+    page,
+    pageSize,
+  }
+}
+
+/**
+ * Handle error response for activity list endpoint
+ */
+function handleErrorResponse(c: Context, error: { _tag: string; message?: string }) {
+  const requestId = crypto.randomUUID()
+
+  // Handle ValidationError with 400 status
+  if (error._tag === 'ValidationError') {
+    return c.json(
+      {
+        success: false,
+        message: error.message ?? 'Validation error',
+        code: 'VALIDATION_ERROR',
+      },
+      400
+    )
+  }
+
+  // Sanitize error to prevent information disclosure
+  const sanitized = sanitizeError(error, requestId)
+  const statusCode = getStatusCode(sanitized.code)
+
+  return c.json(
+    {
+      success: false,
+      message: sanitized.message ?? sanitized.error,
+      code: sanitized.code,
+    },
+    statusCode
+  )
+}
 
 /**
  * Chain activity routes onto a Hono app
@@ -21,9 +79,7 @@ import type { Hono } from 'hono'
  * @param honoApp - Hono instance to chain routes onto
  * @returns Hono app with activity routes chained
  */
-// eslint-disable-next-line max-lines-per-function -- Complete route handler with auth, validation, Effect program execution, and error handling
 export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
-  // eslint-disable-next-line max-lines-per-function, max-statements -- Comprehensive route handler orchestrating auth check, query parsing, Effect program, and error responses
   return honoApp.get('/api/activity', async (c) => {
     const session = getSessionContext(c)
 
@@ -35,58 +91,17 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
     }
 
     // Parse query parameters
-    const tableName = c.req.query('tableName')
-    const action = c.req.query('action') as ActivityAction | undefined
-    const filterUserId = c.req.query('userId')
-    const startDate = c.req.query('startDate')
-    const endDate = c.req.query('endDate')
-    const pageParam = c.req.query('page')
-    const pageSizeParam = c.req.query('pageSize')
-
-    const page = pageParam ? Number(pageParam) : undefined
-    const pageSize = pageSizeParam ? Number(pageSizeParam) : undefined
+    const params = parseActivityQueryParams(c)
 
     const program = ListActivityLogs({
       userId: session.userId,
-      tableName,
-      action,
-      filterUserId,
-      startDate,
-      endDate,
-      page,
-      pageSize,
+      ...params,
     }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
 
     const result = await Effect.runPromise(program)
 
     if (result._tag === 'Left') {
-      const error = result.left
-      const requestId = crypto.randomUUID()
-
-      // Handle ValidationError with 400 status
-      if (error._tag === 'ValidationError') {
-        return c.json(
-          {
-            success: false,
-            message: error.message,
-            code: 'VALIDATION_ERROR',
-          },
-          400
-        )
-      }
-
-      // Sanitize error to prevent information disclosure
-      const sanitized = sanitizeError(error, requestId)
-      const statusCode = getStatusCode(sanitized.code)
-
-      return c.json(
-        {
-          success: false,
-          message: sanitized.message ?? sanitized.error,
-          code: sanitized.code,
-        },
-        statusCode
-      )
+      return handleErrorResponse(c, result.left)
     }
 
     const response = result.right
