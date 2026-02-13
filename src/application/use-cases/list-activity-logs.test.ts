@@ -58,6 +58,11 @@ const mockLogs = [
 
 const MockActivityLogServiceLive = Layer.succeed(ActivityLogService, {
   listAll: () => Effect.succeed(mockLogs),
+  list: () =>
+    Effect.succeed({
+      activities: mockLogs.map((log) => ({ ...log, user: null })),
+      total: mockLogs.length,
+    }),
   create: () =>
     Effect.succeed({
       id: 'log-1',
@@ -113,6 +118,11 @@ const MockUserRoleServiceNoRole = Layer.succeed(UserRoleService, {
  */
 const MockActivityLogServiceEmpty = Layer.succeed(ActivityLogService, {
   listAll: () => Effect.succeed([]),
+  list: () =>
+    Effect.succeed({
+      activities: [],
+      total: 0,
+    }),
   create: () =>
     Effect.succeed({
       id: 'log-1',
@@ -174,12 +184,12 @@ describe('ListActivityLogs', () => {
     )
     const result = await Effect.runPromise(program)
 
-    expect(Array.isArray(result)).toBe(true)
-    expect(result.length).toBe(2)
-    expect(result[0]!.id).toBe('log-1')
-    expect(result[0]!.action).toBe('create')
-    expect(result[1]!.id).toBe('log-2')
-    expect(result[1]!.action).toBe('update')
+    expect(Array.isArray(result.activities)).toBe(true)
+    expect(result.activities.length).toBe(2)
+    expect(result.activities[0]!.id).toBe('log-1')
+    expect(result.activities[0]!.action).toBe('create')
+    expect(result.activities[1]!.id).toBe('log-2')
+    expect(result.activities[1]!.action).toBe('update')
   })
 
   /**
@@ -197,8 +207,8 @@ describe('ListActivityLogs', () => {
     )
     const result = await Effect.runPromise(program)
 
-    expect(Array.isArray(result)).toBe(true)
-    expect(result.length).toBe(2)
+    expect(Array.isArray(result.activities)).toBe(true)
+    expect(result.activities.length).toBe(2)
   })
 
   /**
@@ -262,8 +272,8 @@ describe('ListActivityLogs', () => {
     )
     const result = await Effect.runPromise(program)
 
-    expect(Array.isArray(result)).toBe(true)
-    expect(result.length).toBe(0)
+    expect(Array.isArray(result.activities)).toBe(true)
+    expect(result.activities.length).toBe(0)
   })
 
   /**
@@ -281,7 +291,7 @@ describe('ListActivityLogs', () => {
     )
     const result = await Effect.runPromise(program)
 
-    const log = result[0]!
+    const log = result.activities[0]!
     expect(log).toHaveProperty('id')
     expect(log).toHaveProperty('createdAt')
     expect(log).toHaveProperty('userId')
@@ -310,7 +320,7 @@ describe('ListActivityLogs', () => {
     )
     const result = await Effect.runPromise(program)
 
-    const log = result[0]!
+    const log = result.activities[0]!
     expect(log.createdAt).toBe('2025-01-01T00:00:00.000Z')
   })
 
