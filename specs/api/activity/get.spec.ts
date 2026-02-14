@@ -775,7 +775,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ACTIVITY-LIST-REGRESSION: user can retrieve and filter activity logs',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
