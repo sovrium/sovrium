@@ -120,7 +120,7 @@ DELETE /api/tables/1/records/batch
 | AC-002 | Returns 404 Not Found for non-existent table                                            | `API-TABLES-RECORDS-BATCH-DELETE-002`        | ✅     |
 | AC-003 | Returns 400 when ids array is empty                                                     | `API-TABLES-RECORDS-BATCH-DELETE-003`        | ✅     |
 | AC-004 | Returns 401 when not authenticated                                                      | `API-TABLES-RECORDS-BATCH-DELETE-004`        | ✅     |
-| AC-005 | Returns 403 when user lacks delete permission                                           | `API-TABLES-RECORDS-BATCH-DELETE-005`        | ⏳     |
+| AC-005 | Returns 403 when user lacks delete permission                                           | `API-TABLES-RECORDS-BATCH-DELETE-005`        | ✅     |
 | AC-006 | Soft deletes records by default                                                         | `API-TABLES-RECORDS-BATCH-DELETE-006`        | ⏳     |
 | AC-007 | Skips non-existent record IDs                                                           | `API-TABLES-RECORDS-BATCH-DELETE-007`        | ⏳     |
 | AC-008 | Supports permanent=true for hard delete                                                 | `API-TABLES-RECORDS-BATCH-DELETE-008`        | ⏳     |
