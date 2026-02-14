@@ -114,7 +114,7 @@ function validateAction(action: string | undefined): Effect.Effect<void, Validat
  * Check user role permissions for activity logs
  */
 function checkRolePermissions(
-  role: string | null,
+  role: string | null | undefined,
   userId: string,
   filterUserId: string | undefined
 ): Effect.Effect<void, ForbiddenError> {
