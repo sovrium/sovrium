@@ -124,7 +124,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-003: should store created_by with correct user ID in database',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
