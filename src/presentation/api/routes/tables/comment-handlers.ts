@@ -68,7 +68,7 @@ function handleCommentError(c: Context, error: unknown) {
  * Handle create comment on a record
  */
 export async function handleCreateComment(c: Context, app: App) {
-  const { session } = getTableContext(c)
+  const { session, userRole } = getTableContext(c)
   const tableId = c.req.param('tableId')
   const recordId = c.req.param('recordId')
 
@@ -76,6 +76,18 @@ export async function handleCreateComment(c: Context, app: App) {
   const table = app.tables?.find((t) => String(t.id) === String(tableId))
   if (!table) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  // Check read permission (must be able to read the record to comment on it)
+  if (!hasReadPermission(table, userRole, app.tables)) {
+    return c.json(
+      {
+        success: false,
+        message: 'You do not have permission to perform this action',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
   }
 
   // Parse and validate request body

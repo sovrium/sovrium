@@ -252,7 +252,7 @@ GET /api/tables/1/trash
 | AC-002 | Includes deleted_at timestamp and deleted_by user  | `API-TABLES-TRASH-002`        | ✅     |
 | AC-003 | Supports pagination with limit and offset          | `API-TABLES-TRASH-003`        | ✅     |
 | AC-004 | Returns 403 when user lacks trash view permission  | `API-TABLES-TRASH-004`        | ✅     |
-| AC-005 | User can complete full trash workflow (regression) | `API-TABLES-TRASH-REGRESSION` | ⏳     |
+| AC-005 | User can complete full trash workflow (regression) | `API-TABLES-TRASH-REGRESSION` | ✅     |
 
 ### Implementation References
 
