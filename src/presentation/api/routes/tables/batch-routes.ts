@@ -309,12 +309,38 @@ async function handleBatchUpdate(c: Context, app: App) {
 /**
  * Handle batch delete endpoint
  */
-async function handleBatchDelete(c: Context, _app: App) {
+async function handleBatchDelete(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
-  const { session, tableName } = getTableContext(c)
+  const { session, tableName, userRole } = getTableContext(c)
+
+  // Authorization check BEFORE validation (viewer role cannot delete)
+  const viewerCheck = checkViewerPermission(userRole, c)
+  if (viewerCheck) return viewerCheck
+
+  // Check payload size before validation
+  const body = await c.req.json()
+  if (body.ids && body.ids.length > 1000) {
+    return c.json({ error: 'PayloadTooLarge' }, 413)
+  }
 
   const result = await validateRequest(c, batchDeleteRecordsRequestSchema)
   if (!result.success) return result.response
+
+  const table = app.tables?.find((t) => t.name === tableName)
+
+  // Authorization: Check table-level delete permission
+  const { hasDeletePermission } =
+    await import('@/application/use-cases/tables/permissions/permissions')
+  if (!hasDeletePermission(table, userRole, app.tables)) {
+    return c.json(
+      {
+        success: false,
+        message: 'You do not have permission to delete records in this table',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
 
   // Check for permanent delete query parameter
   const permanent = c.req.query('permanent') === 'true'
