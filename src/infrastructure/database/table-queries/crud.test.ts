@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { describe, test, expect, mock } from 'bun:test'
+import { describe, test, expect, mock, afterAll } from 'bun:test'
 import { Effect } from 'effect'
 import {
   listRecords,
@@ -563,4 +563,8 @@ describe('restoreRecord', () => {
 
     expect(result).toHaveProperty('_error', 'not_deleted')
   })
+})
+
+afterAll(() => {
+  mock.restore()
 })

@@ -30,7 +30,7 @@ test.describe('Create comment on a record', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-001: should return 201 Created with comment data',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -88,7 +88,7 @@ test.describe('Create comment on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-002: should support @mentions in content',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -142,7 +142,7 @@ test.describe('Create comment on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-003: should return 400 Bad Request for empty content',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -182,7 +182,7 @@ test.describe('Create comment on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-004: should return 400 Bad Request for content too long',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -258,7 +258,7 @@ test.describe('Create comment on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-006: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -296,7 +296,7 @@ test.describe('Create comment on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-007: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -340,11 +340,11 @@ test.describe('Create comment on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-008: should return 403 Forbidden',
     { tag: '@spec' },
-    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
-      // GIVEN: User without read permission for the record
+    async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
+      // GIVEN: Viewer user without read permission for the record
       await startServerWithSchema({
         name: 'test-app',
         auth: { strategies: [{ type: 'emailAndPassword' }] },
@@ -353,10 +353,13 @@ test.describe('Create comment on a record', () => {
             id: 8,
             name: 'confidential_tasks',
             fields: [{ id: 1, name: 'title', type: 'single-line-text', required: true }],
+            permissions: {
+              read: ['admin', 'member'],
+            },
           },
         ],
       })
-      await createAuthenticatedUser()
+      await createAuthenticatedViewer()
       await executeQuery(`
         INSERT INTO confidential_tasks (id, title) VALUES (1, 'Secret Task')
       `)
@@ -381,7 +384,7 @@ test.describe('Create comment on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-009: should auto-inject user_id from session',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -429,7 +432,7 @@ test.describe('Create comment on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-010: should include user metadata in response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -488,7 +491,7 @@ test.describe('Create comment on a record', () => {
   // Generated from 10 @spec tests - covers: creation, mentions, validation, auth, permissions, auto-injection
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-CREATE-REGRESSION: user can complete full create comment workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
