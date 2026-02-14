@@ -59,10 +59,13 @@ async function injectAuthorshipFields(
   const hasUpdatedBy = columnNames.has('updated_by')
 
   // Build new fields object with authorship metadata (immutable approach)
+  // When userId is 'guest' (no auth configured), set authorship fields to NULL
+  // eslint-disable-next-line unicorn/no-null -- NULL is intentional for database columns when no auth configured
+  const authorUserId = userId === 'guest' ? null : userId
   return {
     ...fields,
-    ...(hasCreatedBy ? { created_by: userId } : {}),
-    ...(hasUpdatedBy ? { updated_by: userId } : {}),
+    ...(hasCreatedBy ? { created_by: authorUserId } : {}),
+    ...(hasUpdatedBy ? { updated_by: authorUserId } : {}),
   }
 }
 

@@ -53,14 +53,15 @@ export const shouldUseSerial = (field: Fields[number], isPrimaryKey: boolean): b
 
 /**
  * Check if field should be NOT NULL
- * Auto-managed fields (created-at, updated-at, created-by, updated-by) and required fields are NOT NULL
+ * Auto-managed timestamp fields (created-at, updated-at) and required fields are NOT NULL
+ * Note: created-by and updated-by are NULLABLE when auth is not configured
  * Note: deleted-by is nullable because it's only set during soft-delete
  * Exported for use in schema-migration-helpers for nullability change detection
  */
 export const isFieldNotNull = (field: Fields[number], isPrimaryKey: boolean): boolean => {
-  // Auto-managed fields are always NOT NULL (created-at, updated-at, created-by, updated-by)
-  // deleted-by is excluded because it's only populated during soft-delete
-  if (isAutoTimestampField(field) || isAutoPopulatedUserField(field)) return true
+  // Auto-managed timestamp fields are always NOT NULL (created-at, updated-at)
+  // User fields (created-by, updated-by, deleted-by) are NULLABLE (NULL when no auth configured)
+  if (isAutoTimestampField(field)) return true
   // Primary key fields are always NOT NULL
   if (isPrimaryKey) return true
   // Check required property
