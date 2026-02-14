@@ -5,10 +5,22 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { describe, test, expect } from 'bun:test'
+import { describe, test, expect, beforeEach, mock } from 'bun:test'
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { buildInsertClauses, executeInsert } from './create-record-helpers'
+
+// Clear all mocks before each test to prevent pollution from crud.test.ts
+// which has module-level mocks that can persist across test files
+beforeEach(() => {
+  mock.restore()
+})
+
+// Helper to create fresh SQL clauses for each test
+const createClauses = () => ({
+  columnsClause: sql.raw('name, email'),
+  valuesClause: sql.raw("'John', 'john@example.com'"),
+})
 
 describe('buildInsertClauses', () => {
   test('builds columns and values for fields', () => {
@@ -44,10 +56,8 @@ describe('buildInsertClauses', () => {
 })
 
 describe('executeInsert', () => {
-  const columnsClause = sql.raw('name, email')
-  const valuesClause = sql.raw("'John', 'john@example.com'")
-
   test('returns created record on success', async () => {
+    const { columnsClause, valuesClause } = createClauses()
     const mockTx = {
       execute: async () => [
         {
@@ -68,6 +78,7 @@ describe('executeInsert', () => {
   })
 
   test('returns empty object when no result', async () => {
+    const { columnsClause, valuesClause } = createClauses()
     const mockTx = {
       execute: async () => [],
     }
@@ -79,6 +90,7 @@ describe('executeInsert', () => {
   })
 
   test('throws UniqueConstraintViolationError on unique constraint violation (code 23505)', async () => {
+    const { columnsClause, valuesClause } = createClauses()
     const mockTx = {
       execute: async () => {
         const error: any = new Error('Unique violation')
@@ -100,6 +112,7 @@ describe('executeInsert', () => {
   })
 
   test('throws UniqueConstraintViolationError when error has constraint property', async () => {
+    const { columnsClause, valuesClause } = createClauses()
     const mockTx = {
       execute: async () => {
         const error: any = new Error('Constraint violation')
@@ -121,6 +134,7 @@ describe('executeInsert', () => {
   })
 
   test('throws UniqueConstraintViolationError when error message mentions unique constraint', async () => {
+    const { columnsClause, valuesClause } = createClauses()
     const mockTx = {
       execute: async () => {
         const error: any = new Error('Database error')
@@ -142,6 +156,7 @@ describe('executeInsert', () => {
   })
 
   test('throws SessionContextError on other database errors', async () => {
+    const { columnsClause, valuesClause } = createClauses()
     const mockTx = {
       execute: async () => {
         throw new Error('Connection timeout')
@@ -161,6 +176,7 @@ describe('executeInsert', () => {
   })
 
   test('includes table name in SessionContextError message', async () => {
+    const { columnsClause, valuesClause } = createClauses()
     const mockTx = {
       execute: async () => {
         throw new Error('Generic database error')

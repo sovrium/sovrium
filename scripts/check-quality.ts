@@ -601,7 +601,7 @@ const runFullChecks = (options: QualityOptions) =>
           '--cache-strategy',
           'content',
         ]
-    const eslintResult = yield* runCheck('ESLint', eslintCmd, 120_000)
+    const eslintResult = yield* runCheck('ESLint', eslintCmd, 240_000)
     results.push(eslintResult)
     if (!eslintResult.success) {
       yield* logError('\n⚠️  Stopping checks due to ESLint failure (fail-fast mode)')

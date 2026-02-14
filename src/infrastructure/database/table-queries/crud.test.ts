@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { describe, test, expect, mock, afterAll } from 'bun:test'
+import { describe, test, expect, mock, afterEach, afterAll } from 'bun:test'
 import { Effect } from 'effect'
 import {
   listRecords,
@@ -63,17 +63,19 @@ const defaultMockTx = createMockTx(async () => [])
 mock.module('@/infrastructure/database', () => createMockDb(defaultMockTx))
 
 // Mock helper modules
-mock.module('./create-record-helpers', () => ({
-  checkTableColumns: () => Effect.succeed({ hasOwnerId: false }),
-  sanitizeFields: (fields: any) => fields,
-  buildInsertClauses: () => ({
-    columnsClause: { queryChunks: ['name', 'email'] },
-    valuesClause: { queryChunks: ['Alice', 'alice@example.com'] },
-  }),
-  executeInsert: () =>
-    Effect.succeed({ id: 'record-123', name: 'Alice', email: 'alice@example.com' }),
-  isUniqueConstraintViolation: () => false,
-}))
+// COMMENTED OUT: This module-level mock pollutes create-record-helpers.test.ts
+// The crud tests should mock this individually if needed
+// mock.module('./create-record-helpers', () => ({
+//   checkTableColumns: () => Effect.succeed({ hasOwnerId: false }),
+//   sanitizeFields: (fields: any) => fields,
+//   buildInsertClauses: () => ({
+//     columnsClause: { queryChunks: ['name', 'email'] },
+//     valuesClause: { queryChunks: ['Alice', 'alice@example.com'] },
+//   }),
+//   executeInsert: () =>
+//     Effect.succeed({ id: 'record-123', name: 'Alice', email: 'alice@example.com' }),
+//   isUniqueConstraintViolation: () => false,
+// }))
 
 mock.module('./delete-helpers', () => ({
   checkDeletedAtColumn: async () => true,
@@ -563,6 +565,11 @@ describe('restoreRecord', () => {
 
     expect(result).toHaveProperty('_error', 'not_deleted')
   })
+})
+
+// Clean up mocks after each test to prevent pollution
+afterEach(() => {
+  mock.restore()
 })
 
 afterAll(() => {
