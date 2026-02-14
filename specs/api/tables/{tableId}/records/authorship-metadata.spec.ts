@@ -1209,9 +1209,10 @@ test.describe('Record Authorship Metadata', () => {
       })
 
       await test.step('API-TABLES-RECORDS-AUTHORSHIP-001: Auto-set created_by on create', async () => {
-        const { user: alice } = await createAuthenticatedUser({
+        await signUp({ email: 'alice@example.com', password: 'SecurePass123!', name: 'Alice' })
+        const { user: alice } = await signIn({
           email: 'alice@example.com',
-          name: 'Alice',
+          password: 'SecurePass123!',
         })
 
         const response = await request.post('/api/tables/100/records', {

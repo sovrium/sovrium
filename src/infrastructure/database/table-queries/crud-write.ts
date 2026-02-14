@@ -39,13 +39,15 @@ import type { Session } from '@/infrastructure/auth/better-auth/schema'
  * @param userId - User ID from session
  * @param tx - Database transaction
  * @param tableName - Table name
+ * @param operation - Operation type: 'create' injects both created_by and updated_by, 'update' injects only updated_by
  * @returns Fields with authorship metadata injected
  */
 async function injectAuthorshipFields(
   fields: Readonly<Record<string, unknown>>,
   userId: string,
   tx: Readonly<DrizzleTransaction>,
-  tableName: string
+  tableName: string,
+  operation: 'create' | 'update' = 'create'
 ): Promise<Record<string, unknown>> {
   // Query table schema to check for authorship columns
   const schemaQuery = await tx.execute(
@@ -59,9 +61,11 @@ async function injectAuthorshipFields(
   const hasUpdatedBy = columnNames.has('updated_by')
 
   // Build new fields object with authorship metadata (immutable approach)
+  // For 'create': inject both created_by and updated_by
+  // For 'update': inject only updated_by (created_by must remain unchanged)
   return {
     ...fields,
-    ...(hasCreatedBy ? { created_by: userId } : {}),
+    ...(operation === 'create' && hasCreatedBy ? { created_by: userId } : {}),
     ...(hasUpdatedBy ? { updated_by: userId } : {}),
   }
 }
@@ -180,7 +184,16 @@ export function updateRecord(
         db.transaction(async (tx) => {
           validateTableName(tableName)
 
-          const entries = await validateFieldsNotEmpty(fields)
+          // Inject updated_by authorship metadata from session
+          const fieldsWithAuthorship = await injectAuthorshipFields(
+            fields,
+            session.userId,
+            tx,
+            tableName,
+            'update'
+          )
+
+          const entries = await validateFieldsNotEmpty(fieldsWithAuthorship)
           const before = await fetchRecordBeforeUpdateCRUD(tx, tableName, recordId)
           const setClause = buildUpdateSetClauseCRUD(entries)
           const updated = await executeRecordUpdateCRUD(tx, tableName, recordId, setClause)
@@ -253,8 +266,8 @@ export function deleteRecord(
           const recordBeforeData = await fetchRecordBeforeDeletion(tx, tableName, recordId)
 
           if (hasSoftDelete) {
-            // Execute soft delete
-            const success = await executeSoftDelete(tx, tableName, recordId)
+            // Execute soft delete with authorship metadata
+            const success = await executeSoftDelete(tx, tableName, recordId, session.userId)
 
             if (!success) {
               return { success: false, recordBeforeData: undefined }
@@ -389,10 +402,22 @@ export function restoreRecord(
             return { _error: 'not_deleted' } as Record<string, unknown>
           }
 
-          // Restore record by clearing deleted_at
-          const result = (await tx.execute(
-            sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId} RETURNING *`
-          )) as unknown as readonly Record<string, unknown>[]
+          // Restore record by clearing deleted_at and deleted_by
+          // Check if table has deleted_by column
+          const columnCheck = (await tx.execute(
+            sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_by'`
+          )) as readonly Record<string, unknown>[]
+          const hasDeletedBy = columnCheck.length > 0
+
+          // Restore with conditional deleted_by clearing
+          const result = hasDeletedBy
+            ? ((await tx.execute(
+                sql`UPDATE ${tableIdent} SET deleted_at = NULL, deleted_by = NULL WHERE id = ${recordId} RETURNING *`
+              )) as unknown as readonly Record<string, unknown>[])
+            : ((await tx.execute(
+                sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId} RETURNING *`
+              )) as unknown as readonly Record<string, unknown>[])
+
           return result[0] ?? {}
         }),
       catch: (error) =>

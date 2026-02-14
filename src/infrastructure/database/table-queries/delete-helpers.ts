@@ -101,13 +101,28 @@ export async function fetchRecordBeforeDeletion(
 export async function executeSoftDelete(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
-  recordId: string
+  recordId: string,
+  userId?: string | null
 ): Promise<boolean> {
   try {
     const tableIdent = sql.identifier(tableName)
-    const result = (await tx.execute(
-      sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
+
+    // Check if table has deleted_by column
+    const columnCheck = (await tx.execute(
+      sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_by'`
     )) as readonly Record<string, unknown>[]
+    const hasDeletedBy = columnCheck.length > 0
+
+    // Build UPDATE query with conditional deleted_by field
+    const result =
+      hasDeletedBy && userId
+        ? ((await tx.execute(
+            sql`UPDATE ${tableIdent} SET deleted_at = NOW(), deleted_by = ${userId} WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
+          )) as readonly Record<string, unknown>[])
+        : ((await tx.execute(
+            sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
+          )) as readonly Record<string, unknown>[])
+
     return result.length > 0
   } catch (error) {
     // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling

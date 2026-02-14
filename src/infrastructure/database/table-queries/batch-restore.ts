@@ -103,13 +103,26 @@ function executeRestoreQuery(
 ): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
   return Effect.tryPromise({
     try: async () => {
+      // Check if table has deleted_by column
+      const columnCheck = (await tx.execute(
+        sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_by'`
+      )) as readonly Record<string, unknown>[]
+      const hasDeletedBy = columnCheck.length > 0
+
       const idParams = sql.join(
         recordIds.map((id) => sql`${id}`),
         sql.raw(', ')
       )
-      const result = (await tx.execute(
-        sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id IN (${idParams}) RETURNING *`
-      )) as readonly Record<string, unknown>[]
+
+      // Clear both deleted_at and deleted_by if the column exists
+      const result = hasDeletedBy
+        ? ((await tx.execute(
+            sql`UPDATE ${tableIdent} SET deleted_at = NULL, deleted_by = NULL WHERE id IN (${idParams}) RETURNING *`
+          )) as readonly Record<string, unknown>[])
+        : ((await tx.execute(
+            sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id IN (${idParams}) RETURNING *`
+          )) as readonly Record<string, unknown>[])
+
       return result
     },
     catch: (error) => new SessionContextError(`Failed to restore records in ${tableName}`, error),

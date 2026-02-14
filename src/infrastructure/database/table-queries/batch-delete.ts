@@ -110,6 +110,7 @@ function executeDeleteQuery(
     readonly recordIds: readonly string[]
     readonly hasSoftDelete: boolean
     readonly permanent: boolean
+    readonly userId?: string | null
   }
 ): Effect.Effect<number, SessionContextError> {
   return Effect.tryPromise({
@@ -120,12 +121,24 @@ function executeDeleteQuery(
         sql.raw(', ')
       )
 
+      // Check if table has deleted_by column (for soft delete with authorship)
+      const hasDeletedByColumn = params.hasSoftDelete
+        ? await (async () => {
+            const columnCheck = (await tx.execute(
+              sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${params.tableName} AND column_name = 'deleted_by'`
+            )) as readonly Record<string, unknown>[]
+            return columnCheck.length > 0
+          })()
+        : false
+
       // Determine query type: permanent delete, soft delete, or hard delete (no soft delete support)
       const query = params.permanent
         ? sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
-        : params.hasSoftDelete
-          ? sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
-          : sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
+        : params.hasSoftDelete && hasDeletedByColumn && params.userId
+          ? sql`UPDATE ${tableIdent} SET deleted_at = NOW(), deleted_by = ${params.userId} WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
+          : params.hasSoftDelete
+            ? sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
+            : sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
 
       const result = (await tx.execute(query)) as readonly Record<string, unknown>[]
       return result.length
@@ -193,6 +206,7 @@ export function batchDeleteRecords(
               recordIds,
               hasSoftDelete,
               permanent,
+              userId: session.userId,
             })
           )
 

@@ -215,6 +215,9 @@ export function createGetRecordProgram(
       fields: transformed.fields,
       createdAt: transformed.createdAt,
       updatedAt: transformed.updatedAt,
+      ...(transformed.createdBy !== undefined ? { createdBy: transformed.createdBy } : {}),
+      ...(transformed.updatedBy !== undefined ? { updatedBy: transformed.updatedBy } : {}),
+      ...(transformed.deletedBy !== undefined ? { deletedBy: transformed.deletedBy } : {}),
     }
   })
 }
@@ -263,6 +266,9 @@ export function createRecordProgram(config: CreateRecordConfig) {
       fields: filteredFields,
       createdAt: transformed.createdAt,
       updatedAt: transformed.updatedAt,
+      ...(transformed.createdBy !== undefined ? { createdBy: transformed.createdBy } : {}),
+      ...(transformed.updatedBy !== undefined ? { updatedBy: transformed.updatedBy } : {}),
+      ...(transformed.deletedBy !== undefined ? { deletedBy: transformed.deletedBy } : {}),
     }
   })
 }
@@ -320,6 +326,9 @@ export function updateRecordProgram(
       fields: filteredFields,
       createdAt: transformed.createdAt,
       updatedAt: transformed.updatedAt,
+      ...(transformed.createdBy !== undefined ? { createdBy: transformed.createdBy } : {}),
+      ...(transformed.updatedBy !== undefined ? { updatedBy: transformed.updatedBy } : {}),
+      ...(transformed.deletedBy !== undefined ? { deletedBy: transformed.deletedBy } : {}),
     }
   })
 }

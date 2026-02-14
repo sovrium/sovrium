@@ -35,7 +35,7 @@ export interface FormattedFieldValue {
 /**
  * Transformed record structure for API responses (Airtable-style)
  *
- * System fields (id, createdAt, updatedAt) are at root level.
+ * System fields (id, createdAt, updatedAt, createdBy, updatedBy, deletedBy) are at root level.
  * User-defined fields are nested under the `fields` property.
  */
 export interface TransformedRecord {
@@ -43,6 +43,9 @@ export interface TransformedRecord {
   readonly fields: Record<string, RecordFieldValue | FormattedFieldValue>
   readonly createdAt: string
   readonly updatedAt: string
+  readonly createdBy?: string | null
+  readonly updatedBy?: string | null
+  readonly deletedBy?: string | null
 }
 
 /**
@@ -208,7 +211,9 @@ const isTableField = (
 }
 
 /**
- * Build fields object including created_at/updated_at if they're defined as table fields
+ * Build fields object including created_at/updated_at if they're defined as table fields.
+ * Excludes authorship metadata fields (created_by, updated_by, deleted_by) as they are
+ * always returned at root level, never in the fields object.
  */
 const buildFieldsObject = (
   userFields: Readonly<Record<string, unknown>>,
@@ -222,8 +227,11 @@ const buildFieldsObject = (
   const hasCreatedAtField = isTableField('created_at', options?.app, options?.tableName)
   const hasUpdatedAtField = isTableField('updated_at', options?.app, options?.tableName)
 
+  // Filter out authorship metadata fields - they should never be in the fields object
+  const { created_by, updated_by, deleted_by, ...filteredUserFields } = userFields
+
   return {
-    ...userFields,
+    ...filteredUserFields,
     ...(hasCreatedAtField && createdAt !== undefined ? { created_at: createdAt } : {}),
     ...(hasUpdatedAtField && updatedAt !== undefined ? { updated_at: updatedAt } : {}),
   }
@@ -253,8 +261,16 @@ export const transformRecord = (
     readonly timezone?: string
   }
 ): TransformedRecord => {
-  // Extract system fields
-  const { id, created_at: createdAt, updated_at: updatedAt, ...userFields } = record
+  // Extract system fields (including authorship metadata)
+  const {
+    id,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    created_by: createdBy,
+    updated_by: updatedBy,
+    deleted_by: deletedBy,
+    ...userFields
+  } = record
 
   // Build user fields, potentially including created_at/updated_at if they're table fields
   const fieldsToTransform = buildFieldsObject(userFields, createdAt, updatedAt, options)
@@ -275,6 +291,9 @@ export const transformRecord = (
     fields: transformedFields,
     createdAt: createdAt ? toISOString(createdAt) : new Date().toISOString(),
     updatedAt: updatedAt ? toISOString(updatedAt) : new Date().toISOString(),
+    ...('created_by' in record ? { createdBy: createdBy as string | null } : {}),
+    ...('updated_by' in record ? { updatedBy: updatedBy as string | null } : {}),
+    ...('deleted_by' in record ? { deletedBy: deletedBy as string | null } : {}),
   }
 }
 
