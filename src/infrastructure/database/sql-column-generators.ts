@@ -39,8 +39,12 @@ const generateSerialColumn = (fieldName: string, isPrimaryKey: boolean = false):
 /**
  * Generate NOT NULL constraint
  */
-const generateNotNullConstraint = (field: Fields[number], isPrimaryKey: boolean): string => {
-  return isFieldNotNull(field, isPrimaryKey) ? ' NOT NULL' : ''
+const generateNotNullConstraint = (
+  field: Fields[number],
+  isPrimaryKey: boolean,
+  hasAuthConfig: boolean = true
+): string => {
+  return isFieldNotNull(field, isPrimaryKey, hasAuthConfig) ? ' NOT NULL' : ''
 }
 
 /**
@@ -150,7 +154,8 @@ const generateFormulaColumn = (
 export const generateColumnDefinition = (
   field: Fields[number],
   isPrimaryKey: boolean,
-  allFields?: readonly Fields[number][]
+  allFields?: readonly Fields[number][],
+  hasAuthConfig: boolean = true
 ): string => {
   // SERIAL columns for auto-increment fields
   if (shouldUseSerial(field, isPrimaryKey)) {
@@ -163,7 +168,7 @@ export const generateColumnDefinition = (
   }
 
   const columnType = mapFieldTypeToPostgres(field)
-  const notNull = generateNotNullConstraint(field, isPrimaryKey)
+  const notNull = generateNotNullConstraint(field, isPrimaryKey, hasAuthConfig)
   const defaultValue = generateDefaultClause(field)
   return `${field.name} ${columnType}${notNull}${defaultValue}`
 }
