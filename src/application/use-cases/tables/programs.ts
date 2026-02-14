@@ -159,10 +159,12 @@ export function createListTrashProgram(
 
     // Preserve numeric IDs (transformRecord converts all IDs to strings, but we need to preserve numeric types)
     const recordsWithPreservedIds = processedRecords.map((record) => {
-      // Ensure id is always a string for TransformedRecord type
+      // Try to parse ID as number if it's a numeric string, otherwise keep as-is
+      const originalId = records.find((r) => String(r.id) === String(record.id))?.id
+      const id = typeof originalId === 'number' ? originalId : record.id
       return {
         ...record,
-        id: String(record.id),
+        id,
       }
     })
 

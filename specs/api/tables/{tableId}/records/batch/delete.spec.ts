@@ -138,7 +138,7 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-003: should return 413 Payload Too Large',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {

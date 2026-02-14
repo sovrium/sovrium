@@ -70,6 +70,24 @@ export const tableSchema = z
     description: z.string().optional().describe('Table description'),
     fields: z.array(baseFieldSchema).describe('Table fields'),
     primaryKey: z.string().optional().describe('Primary key field'),
+    views: z.array(z.unknown()).describe('Table views'),
+    permissions: z
+      .object({
+        read: z
+          .union([z.array(z.string()).readonly(), z.literal('all'), z.literal('authenticated')])
+          .optional(),
+        create: z
+          .union([z.array(z.string()).readonly(), z.literal('all'), z.literal('authenticated')])
+          .optional(),
+        update: z
+          .union([z.array(z.string()).readonly(), z.literal('all'), z.literal('authenticated')])
+          .optional(),
+        delete: z
+          .union([z.array(z.string()).readonly(), z.literal('all'), z.literal('authenticated')])
+          .optional(),
+      })
+      .optional()
+      .describe('Table permissions'),
   })
   .extend(timestampSchema.shape)
 

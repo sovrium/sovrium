@@ -119,6 +119,21 @@ export function createGetTableProgram(
     // Convert primaryKey object to string (field name) for API response
     const primaryKeyField = table.primaryKey?.field || undefined
 
+    // Get views from table (or empty array if no views)
+    const views = table.views ?? []
+    const mappedViews = views.map(mapViewToResponse)
+
+    // Map permissions to API format
+    const permissions = table.permissions
+      ? {
+          read: table.permissions.read,
+          create: table.permissions.create,
+          update: table.permissions.update,
+          // eslint-disable-next-line drizzle/enforce-delete-with-where -- False positive: accessing property, not calling Drizzle delete method
+          delete: table.permissions.delete,
+        }
+      : undefined
+
     return {
       table: {
         id: String(table.id),
@@ -126,6 +141,8 @@ export function createGetTableProgram(
         description: undefined, // Domain model doesn't have table description
         fields,
         primaryKey: primaryKeyField,
+        views: mappedViews,
+        permissions,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       },
