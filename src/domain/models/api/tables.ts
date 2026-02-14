@@ -123,6 +123,7 @@ export const recordSchema = z
       .describe('User-defined field values (may include display formatting)'),
     createdBy: z.string().optional().describe('User who created the record'),
     updatedBy: z.string().optional().describe('User who last updated the record'),
+    deletedBy: z.string().optional().describe('User who deleted the record'),
   })
   .extend(timestampSchema.shape)
 
@@ -200,6 +201,9 @@ export const getRecordResponseSchema = z
     fields: z
       .record(z.string(), formattedFieldValueSchema)
       .describe('User-defined field values (may include display formatting)'),
+    createdBy: z.string().optional().describe('User who created the record'),
+    updatedBy: z.string().optional().describe('User who last updated the record'),
+    deletedBy: z.string().optional().describe('User who deleted the record'),
   })
   .extend(timestampSchema.shape)
 
@@ -215,6 +219,7 @@ export const createRecordResponseSchema = z
     fields: z.record(z.string(), fieldValueSchema).describe('User-defined field values'),
     createdBy: z.string().optional().describe('User who created the record'),
     updatedBy: z.string().optional().describe('User who last updated the record'),
+    deletedBy: z.string().optional().describe('User who deleted the record'),
   })
   .extend(timestampSchema.shape)
 

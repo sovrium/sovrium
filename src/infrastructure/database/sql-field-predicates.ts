@@ -16,12 +16,15 @@ export const isUserReferenceField = (field: Fields[number]): boolean =>
   field.type === 'created-by' || field.type === 'updated-by' || field.type === 'deleted-by'
 
 /**
- * Check if field is an auto-populated user reference field (created-by, updated-by)
- * These fields are always NOT NULL because they're auto-populated on create/update
- * Note: deleted-by is NOT included because it's only set during soft-delete (nullable)
+ * Check if field is an auto-populated user reference field (created-by)
+ * Only created-by is NOT NULL enforced at database level.
+ * updated-by and deleted-by are nullable because:
+ * - Records may be inserted without updated_by (e.g., tests, migrations, initial creation)
+ * - deleted-by is only set during soft-delete operations
+ * The API layer handles setting these values, but database shouldn't enforce NOT NULL
  */
 export const isAutoPopulatedUserField = (field: Fields[number]): boolean =>
-  field.type === 'created-by' || field.type === 'updated-by'
+  field.type === 'created-by'
 
 /**
  * Check if field is a user field (type: 'user')

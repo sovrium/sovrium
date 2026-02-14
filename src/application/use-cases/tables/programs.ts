@@ -215,6 +215,10 @@ export function createGetRecordProgram(
       fields: transformed.fields,
       createdAt: transformed.createdAt,
       updatedAt: transformed.updatedAt,
+      // Include authorship metadata if present
+      ...(transformed.createdBy ? { createdBy: transformed.createdBy } : {}),
+      ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
+      ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
     }
   })
 }
@@ -323,6 +327,10 @@ export function updateRecordProgram(
       fields: filteredFields,
       createdAt: transformed.createdAt,
       updatedAt: transformed.updatedAt,
+      // Include authorship metadata if present
+      ...(transformed.createdBy ? { createdBy: transformed.createdBy } : {}),
+      ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
+      ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
     }
   })
 }

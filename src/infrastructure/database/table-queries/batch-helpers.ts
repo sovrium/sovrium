@@ -34,15 +34,52 @@ export async function runEffectInTx<A, E>(effect: Effect.Effect<A, E, never>): P
 }
 
 /**
+ * Inject authorship metadata fields (created_by, updated_by) into record fields
+ */
+async function injectAuthorshipFields(
+  fields: Readonly<Record<string, unknown>>,
+  userId: string,
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string
+): Promise<Record<string, unknown>> {
+  // Query table schema to check for authorship columns
+  const schemaQuery = await tx.execute(
+    sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name IN ('created_by', 'updated_by')`
+  )
+  const columnNames = new Set(
+    (schemaQuery as unknown as readonly { column_name: string }[]).map((row) => row.column_name)
+  )
+
+  const hasCreatedBy = columnNames.has('created_by')
+  const hasUpdatedBy = columnNames.has('updated_by')
+
+  // Build new fields object with authorship metadata (immutable approach)
+  // When userId is 'guest' (no auth configured), set authorship fields to NULL
+  // eslint-disable-next-line unicorn/no-null -- NULL is intentional for database columns when no auth configured
+  const authorUserId = userId === 'guest' ? null : userId
+  return {
+    ...fields,
+    ...(hasCreatedBy ? { created_by: authorUserId } : {}),
+    ...(hasUpdatedBy ? { updated_by: authorUserId } : {}),
+  }
+}
+
+/**
  * Helper to create a single record within a transaction
  */
 export async function createSingleRecord(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
-  fields: Readonly<Record<string, unknown>>
+  fields: Readonly<Record<string, unknown>>,
+  userId?: string
 ): Promise<Readonly<Record<string, unknown>> | undefined> {
-  // Build entries from user fields
-  const entries = Object.entries(fields)
+  // Inject authorship metadata if userId provided
+  const fieldsWithAuthorship = userId
+    ? await injectAuthorshipFields(fields, userId, tx, tableName)
+    : fields
+
+  // Build entries from fields
+  const entries = Object.entries(fieldsWithAuthorship)
   if (entries.length === 0) return undefined
 
   // Build column identifiers and values

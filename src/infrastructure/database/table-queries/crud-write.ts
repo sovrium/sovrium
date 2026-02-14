@@ -299,8 +299,8 @@ export function deleteRecord(
           const recordBeforeData = await fetchRecordBeforeDeletion(tx, tableName, recordId)
 
           if (hasSoftDelete) {
-            // Execute soft delete
-            const success = await executeSoftDelete(tx, tableName, recordId)
+            // Execute soft delete with deleted_by authorship
+            const success = await executeSoftDelete(tx, tableName, recordId, session.userId)
 
             if (!success) {
               return { success: false, recordBeforeData: undefined }
@@ -435,10 +435,26 @@ export function restoreRecord(
             return { _error: 'not_deleted' } as Record<string, unknown>
           }
 
-          // Restore record by clearing deleted_at
-          const result = (await tx.execute(
-            sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId} RETURNING *`
-          )) as unknown as readonly Record<string, unknown>[]
+          // Restore record by clearing deleted_at and deleted_by
+          // Check if deleted_by column exists
+          const schemaQuery = await tx.execute(
+            sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_by'`
+          )
+          const columnNames = new Set(
+            (schemaQuery as unknown as readonly { column_name: string }[]).map(
+              (row) => row.column_name
+            )
+          )
+          const hasDeletedBy = columnNames.has('deleted_by')
+
+          const result = hasDeletedBy
+            ? ((await tx.execute(
+                sql`UPDATE ${tableIdent} SET deleted_at = NULL, deleted_by = NULL WHERE id = ${recordId} RETURNING *`
+              )) as unknown as readonly Record<string, unknown>[])
+            : ((await tx.execute(
+                sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId} RETURNING *`
+              )) as unknown as readonly Record<string, unknown>[])
+
           return result[0] ?? {}
         }),
       catch: (error) =>

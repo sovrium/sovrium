@@ -324,7 +324,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-007: should set updated_by to same value as created_by on initial creation',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -366,7 +366,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-008: should include updated_by in API response after update',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -410,7 +410,7 @@ test.describe('Record Authorship Metadata', () => {
   // US-API-AUTHORSHIP-003: Deleted By on Soft Delete
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-009: should auto-set deleted_by to current user ID on soft delete',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -451,7 +451,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-010: should have deleted_by as NULL for active records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -491,7 +491,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-011: should clear deleted_by when record is restored',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -540,7 +540,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-012: should include deleted_by in trash listing response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -580,7 +580,7 @@ test.describe('Record Authorship Metadata', () => {
       const data = await response.json()
       expect(data.records).toHaveLength(1)
       expect(data.records[0].deletedBy).toBeDefined()
-      expect(data.records[0].deletedBy.id).toBe(user.id)
+      expect(data.records[0].deletedBy).toBe(user.id)
     }
   )
 
@@ -588,7 +588,7 @@ test.describe('Record Authorship Metadata', () => {
   // US-API-AUTHORSHIP-004: Read-Only Enforcement
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-013: should ignore user-provided created_by value on create',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -636,7 +636,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-014: should ignore user-provided updated_by value on update',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -684,7 +684,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-015: should ignore user-provided deleted_by value on delete',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -729,7 +729,7 @@ test.describe('Record Authorship Metadata', () => {
   // US-API-AUTHORSHIP-005: Multi-User Scenarios
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-016: should track different users across create, update, and delete',
     { tag: '@spec' },
     async ({
@@ -806,7 +806,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-017: should keep created_by unchanged after update by different user',
     { tag: '@spec' },
     async ({
@@ -874,7 +874,7 @@ test.describe('Record Authorship Metadata', () => {
   // US-API-AUTHORSHIP-006: Batch Operations
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-018: should set created_by on all records during batch create',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -924,7 +924,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-019: should set updated_by on all records during batch update',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -977,7 +977,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-020: should set deleted_by on all records during batch delete',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -1009,7 +1009,7 @@ test.describe('Record Authorship Metadata', () => {
       `)
 
       // WHEN: User batch deletes multiple records
-      const response = await request.post('/api/tables/20/records/batch/delete', {
+      const response = await request.delete('/api/tables/20/records/batch', {
         headers: { 'Content-Type': 'application/json' },
         data: {
           ids: [1, 2, 3],
@@ -1032,7 +1032,7 @@ test.describe('Record Authorship Metadata', () => {
   // US-API-AUTHORSHIP-007: API Response Inclusion
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-021: should include created_by in GET single record response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -1075,7 +1075,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-022: should include updated_by in GET single record response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -1122,7 +1122,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-023: should include authorship fields in list records response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -1177,7 +1177,7 @@ test.describe('Record Authorship Metadata', () => {
   // @regression test - ONE optimized integration test
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-REGRESSION: full authorship metadata lifecycle across CRUD operations',
     { tag: '@regression' },
     async ({
@@ -1298,7 +1298,7 @@ test.describe('Record Authorship Metadata', () => {
 
       await test.step('API-TABLES-RECORDS-AUTHORSHIP-013: Read-only enforcement on create', async () => {
         // Sign back in as Alice
-        await signIn({ email: 'alice@example.com', password: 'SecurePass123!' })
+        await signIn({ email: 'alice@example.com', password: 'TestPassword123!' })
 
         const response = await request.post('/api/tables/100/records', {
           headers: { 'Content-Type': 'application/json' },

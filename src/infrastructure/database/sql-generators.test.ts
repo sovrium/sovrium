@@ -625,7 +625,7 @@ describe('sql-generators', () => {
       expect(result).toBe('created_by TEXT')
     })
 
-    test('generates definition for updated-by as NOT NULL when auth configured (default)', () => {
+    test('generates definition for updated-by as nullable (API-managed field)', () => {
       // Given
 
       const field = {
@@ -633,14 +633,14 @@ describe('sql-generators', () => {
         type: 'updated-by',
       }
 
-      // When — default hasAuthConfig is true
+      // When — updated-by is always nullable (API-managed, not database-enforced)
       const result = generateColumnDefinition(field as any, false)
 
       // Then
-      expect(result).toBe('updated_by TEXT NOT NULL')
+      expect(result).toBe('updated_by TEXT')
     })
 
-    test('generates definition for updated-by as nullable when auth NOT configured', () => {
+    test('generates definition for updated-by as nullable even when auth configured', () => {
       // Given
 
       const field = {
@@ -648,8 +648,8 @@ describe('sql-generators', () => {
         type: 'updated-by',
       }
 
-      // When — hasAuthConfig explicitly false
-      const result = generateColumnDefinition(field as any, false, undefined, false)
+      // When — updated-by remains nullable regardless of auth configuration
+      const result = generateColumnDefinition(field as any, false, undefined, true)
 
       // Then
       expect(result).toBe('updated_by TEXT')

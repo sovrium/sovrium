@@ -49,6 +49,40 @@ function fetchRecordBeforeUpdate(
 }
 
 /**
+ * Inject updated_by field into record fields for updates
+ */
+function injectUpdatedByField(
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string,
+  userId: string,
+  fields: Readonly<Record<string, unknown>>
+): Effect.Effect<Record<string, unknown>, never> {
+  return Effect.tryPromise({
+    try: async () => {
+      // Query table schema to check for updated_by column
+      const schemaQuery = await tx.execute(
+        sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'updated_by'`
+      )
+      const columnNames = new Set(
+        (schemaQuery as unknown as readonly { column_name: string }[]).map((row) => row.column_name)
+      )
+
+      const hasUpdatedBy = columnNames.has('updated_by')
+
+      // Build new fields object with updated_by metadata (immutable approach)
+      // When userId is 'guest' (no auth configured), set updated_by to NULL
+      // eslint-disable-next-line unicorn/no-null -- NULL is intentional for database columns when no auth configured
+      const authorUserId = userId === 'guest' ? null : userId
+      return {
+        ...fields,
+        ...(hasUpdatedBy ? { updated_by: authorUserId } : {}),
+      }
+    },
+    catch: () => fields, // Fallback to original fields on error
+  }).pipe(Effect.orElseSucceed(() => fields))
+}
+
+/**
  * Build UPDATE SET clause with validated column names
  */
 function buildUpdateSetClause(
@@ -116,7 +150,16 @@ function updateSingleRecordInBatch(
     if (entries.length === 0) return undefined
 
     const recordBefore = yield* fetchRecordBeforeUpdate(tx, tableName, update.id)
-    const setClause = buildUpdateSetClause(fieldsToUpdate)
+
+    // Inject updated_by field for authorship metadata
+    const fieldsWithAuthorship = yield* injectUpdatedByField(
+      tx,
+      tableName,
+      session.userId,
+      fieldsToUpdate
+    )
+
+    const setClause = buildUpdateSetClause(fieldsWithAuthorship)
     const updatedRecord = yield* executeRecordUpdate(tx, tableName, update.id, setClause)
 
     if (updatedRecord) {

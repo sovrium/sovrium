@@ -101,6 +101,19 @@ function checkSoftDeleteSupport(
 }
 
 /**
+ * Check if table has deleted_by column for authorship metadata
+ */
+async function checkDeletedByColumn(
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string
+): Promise<boolean> {
+  const columnCheck = (await tx.execute(
+    sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_by'`
+  )) as readonly Record<string, unknown>[]
+  return columnCheck.length > 0
+}
+
+/**
  * Execute delete query (soft or hard delete based on parameters)
  */
 function executeDeleteQuery(
@@ -110,6 +123,7 @@ function executeDeleteQuery(
     readonly recordIds: readonly string[]
     readonly hasSoftDelete: boolean
     readonly permanent: boolean
+    readonly userId: string
   }
 ): Effect.Effect<number, SessionContextError> {
   return Effect.tryPromise({
@@ -121,14 +135,31 @@ function executeDeleteQuery(
       )
 
       // Determine query type: permanent delete, soft delete, or hard delete (no soft delete support)
-      const query = params.permanent
-        ? sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
-        : params.hasSoftDelete
-          ? sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
-          : sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
+      if (params.permanent) {
+        // Hard delete
+        const query = sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
+        const result = (await tx.execute(query)) as readonly Record<string, unknown>[]
+        return result.length
+      } else if (params.hasSoftDelete) {
+        // Soft delete - check if table has deleted_by column for authorship metadata
+        const hasDeletedBy = await checkDeletedByColumn(tx, params.tableName)
 
-      const result = (await tx.execute(query)) as readonly Record<string, unknown>[]
-      return result.length
+        // Build UPDATE SET clause with deleted_at and optionally deleted_by
+        // eslint-disable-next-line unicorn/no-null -- NULL is intentional for guest user
+        const deletedByValue = params.userId === 'guest' ? null : params.userId
+        const setClause = hasDeletedBy
+          ? sql`deleted_at = NOW(), deleted_by = ${deletedByValue}`
+          : sql`deleted_at = NOW()`
+
+        const query = sql`UPDATE ${tableIdent} SET ${setClause} WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
+        const result = (await tx.execute(query)) as readonly Record<string, unknown>[]
+        return result.length
+      } else {
+        // Hard delete (no soft delete support)
+        const query = sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
+        const result = (await tx.execute(query)) as readonly Record<string, unknown>[]
+        return result.length
+      }
     },
     catch: (error) =>
       new SessionContextError(`Failed to delete records in ${params.tableName}`, error),
@@ -193,6 +224,7 @@ export function batchDeleteRecords(
               recordIds,
               hasSoftDelete,
               permanent,
+              userId: session.userId,
             })
           )
 

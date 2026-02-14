@@ -45,6 +45,10 @@ export function applyFieldSelection(
       fields: selectedFields,
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
+      // Include authorship metadata if present
+      ...(record.createdBy ? { createdBy: record.createdBy } : {}),
+      ...(record.updatedBy ? { updatedBy: record.updatedBy } : {}),
+      ...(record.deletedBy ? { deletedBy: record.deletedBy } : {}),
     }
   })
 }

@@ -97,17 +97,44 @@ export async function fetchRecordBeforeDeletion(
 /**
  * Execute soft delete operation
  * Promise-based for transaction use
+ *
+ * @param tx - Database transaction
+ * @param tableName - Table name
+ * @param recordId - Record ID
+ * @param userId - User ID from session (optional, defaults to NULL if not authenticated)
+ * @returns Promise resolving to success boolean
  */
 export async function executeSoftDelete(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
-  recordId: string
+  recordId: string,
+  userId?: string
 ): Promise<boolean> {
   try {
     const tableIdent = sql.identifier(tableName)
-    const result = (await tx.execute(
-      sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
-    )) as readonly Record<string, unknown>[]
+
+    // Check if deleted_by column exists
+    const schemaQuery = await tx.execute(
+      sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_by'`
+    )
+    const columnNames = new Set(
+      (schemaQuery as unknown as readonly { column_name: string }[]).map((row) => row.column_name)
+    )
+    const hasDeletedBy = columnNames.has('deleted_by')
+
+    // Build UPDATE query with deleted_by if column exists
+    // When userId is 'guest' or undefined, set deleted_by to NULL
+    // eslint-disable-next-line unicorn/no-null -- NULL is intentional for database columns when no auth configured
+    const deletedByValue = userId && userId !== 'guest' ? userId : null
+
+    const result = hasDeletedBy
+      ? ((await tx.execute(
+          sql`UPDATE ${tableIdent} SET deleted_at = NOW(), deleted_by = ${deletedByValue} WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
+        )) as readonly Record<string, unknown>[])
+      : ((await tx.execute(
+          sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
+        )) as readonly Record<string, unknown>[])
+
     return result.length > 0
   } catch (error) {
     // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling

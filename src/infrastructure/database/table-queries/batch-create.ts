@@ -43,7 +43,7 @@ export function batchCreateRecords(
           const records = await recordsData.reduce(
             async (accPromise, fields) => {
               const acc = await accPromise
-              const record = await createSingleRecord(tx, tableName, fields)
+              const record = await createSingleRecord(tx, tableName, fields, session.userId)
               return record ? [...acc, record as Record<string, unknown>] : acc
             },
             Promise.resolve([] as readonly Record<string, unknown>[])
