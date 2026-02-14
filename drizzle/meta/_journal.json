@@ -8,6 +8,20 @@
       "when": 1770228852708,
       "tag": "0000_bouncy_the_initiative",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771037238083,
+      "tag": "0001_lazy_domino",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771037284622,
+      "tag": "0002_abnormal_earthquake",
+      "breakpoints": true
     }
   ]
 }

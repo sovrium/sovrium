@@ -17,7 +17,6 @@ import {
   UserRoleServiceLive,
   type UserRoleDatabaseError,
 } from '@/infrastructure/services/user-role-service'
-import type { ActivityLog } from '@/infrastructure/database/drizzle/schema/activity-log'
 
 /**
  * Forbidden error when user lacks permission to access activity logs
@@ -27,10 +26,23 @@ export class ForbiddenError extends Data.TaggedError('ForbiddenError')<{
 }> {}
 
 /**
+ * Validation error for invalid query parameters
+ */
+export class ValidationError extends Data.TaggedError('ValidationError')<{
+  readonly message: string
+}> {}
+
+/**
  * Input for ListActivityLogs use case
  */
 export interface ListActivityLogsInput {
   readonly userId: string
+  readonly page?: number
+  readonly pageSize?: number
+  readonly tableName?: string
+  readonly action?: 'create' | 'update' | 'delete' | 'restore'
+  readonly filterUserId?: string
+  readonly startDate?: string
 }
 
 /**
@@ -45,19 +57,26 @@ export interface ActivityLogOutput {
   readonly action: 'create' | 'update' | 'delete' | 'restore'
   readonly tableName: string
   readonly recordId: string
+  readonly changes: unknown
+  readonly user:
+    | {
+        readonly id: string
+        readonly name: string
+        readonly email: string
+      }
+    | undefined
 }
 
 /**
- * Map infrastructure ActivityLog to application output
+ * Paginated activity logs response
  */
-function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
-  return {
-    id: log.id,
-    createdAt: log.createdAt.toISOString(),
-    userId: log.userId ?? undefined,
-    action: log.action,
-    tableName: log.tableName,
-    recordId: log.recordId,
+export interface PaginatedActivityLogsOutput {
+  readonly activities: readonly ActivityLogOutput[]
+  readonly pagination: {
+    readonly page: number
+    readonly pageSize: number
+    readonly total: number
+    readonly totalPages: number
   }
 }
 
@@ -65,25 +84,45 @@ function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
  * List Activity Logs Use Case
  *
  * Application layer use case that:
- * 1. Checks user role (viewers are forbidden)
- * 2. Lists activity logs
- * 3. Maps to presentation-friendly format
+ * 1. Validates query parameters
+ * 2. Checks user role (viewers are forbidden)
+ * 3. Enforces userId filter permissions (non-admin can only filter by own userId)
+ * 4. Lists activity logs with filters
+ * 5. Maps to presentation-friendly format with pagination
  *
  * Follows layer-based architecture:
  * - Application Layer: This file (orchestration + business logic)
  * - Infrastructure Layer: ActivityLogService, UserRoleService
- * - Domain Layer: Business rules (viewer restriction)
+ * - Domain Layer: Business rules (viewer restriction, userId filter permissions)
  */
 export const ListActivityLogs = (
   input: ListActivityLogsInput
 ): Effect.Effect<
-  readonly ActivityLogOutput[],
-  ForbiddenError | ActivityLogDatabaseError | UserRoleDatabaseError,
+  PaginatedActivityLogsOutput,
+  ForbiddenError | ValidationError | ActivityLogDatabaseError | UserRoleDatabaseError,
   ActivityLogService | UserRoleService
 > =>
   Effect.gen(function* () {
     const userRoleService = yield* UserRoleService
     const activityLogService = yield* ActivityLogService
+
+    // Validate query parameters
+    const page = input.page ?? 1
+    const pageSize = input.pageSize ?? 50
+
+    if (page < 1) {
+      return yield* new ValidationError({ message: 'Page must be at least 1' })
+    }
+
+    if (pageSize > 100) {
+      return yield* new ValidationError({ message: 'Page size cannot exceed 100' })
+    }
+
+    if (input.action && !['create', 'update', 'delete', 'restore'].includes(input.action)) {
+      return yield* new ValidationError({
+        message: 'Action must be one of: create, update, delete, restore',
+      })
+    }
 
     // Get user role to enforce permissions
     const role = yield* userRoleService.getUserRole(input.userId)
@@ -102,11 +141,46 @@ export const ListActivityLogs = (
       })
     }
 
-    // List all activity logs
-    const logs = yield* activityLogService.listAll()
+    // Domain rule: Non-admin users can only filter by their own userId
+    if (input.filterUserId && input.filterUserId !== input.userId && role !== 'admin') {
+      return yield* new ForbiddenError({
+        message: 'You can only view your own activity logs',
+      })
+    }
+
+    // List activity logs with filters
+    const result = yield* activityLogService.listWithFilters({
+      page,
+      pageSize,
+      tableName: input.tableName,
+      action: input.action,
+      userId: input.filterUserId,
+      startDate: input.startDate,
+    })
 
     // Map to presentation-friendly format
-    return logs.map(mapActivityLog)
+    const activities = result.logs.map((log) => ({
+      id: log.id,
+      createdAt: log.createdAt.toISOString(),
+      userId: log.userId ?? undefined,
+      action: log.action,
+      tableName: log.tableName,
+      recordId: log.recordId,
+      changes: log.changes,
+      user: log.user,
+    }))
+
+    const totalPages = Math.ceil(result.total / pageSize)
+
+    return {
+      activities,
+      pagination: {
+        page,
+        pageSize,
+        total: result.total,
+        totalPages,
+      },
+    }
   })
 
 /**

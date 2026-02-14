@@ -19,15 +19,21 @@ import type { Hono } from 'hono'
  * Activity log API response type
  *
  * Maps application ActivityLogOutput to API JSON response format.
- * Uses snake_case for table_name to match API conventions.
+ * Uses camelCase for all fields per API conventions.
  */
 interface ActivityLogResponse {
   readonly id: string
   readonly createdAt: string
   readonly userId: string | undefined
   readonly action: 'create' | 'update' | 'delete' | 'restore'
-  readonly table_name: string
+  readonly tableName: string
   readonly recordId: string
+  readonly changes: unknown
+  readonly user: {
+    readonly id: string
+    readonly name: string
+    readonly email: string
+  } | null
 }
 
 /**
@@ -39,8 +45,10 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
     createdAt: log.createdAt,
     userId: log.userId,
     action: log.action,
-    table_name: log.tableName,
+    tableName: log.tableName,
     recordId: log.recordId,
+    changes: log.changes,
+    user: log.user,
   }
 }
 
@@ -49,6 +57,14 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
  *
  * Provides:
  * - GET /api/activity - List activity logs (admin/member only)
+ *
+ * Query parameters:
+ * - page: number (default: 1, min: 1)
+ * - pageSize: number (default: 50, max: 100)
+ * - tableName: string (optional)
+ * - action: 'create'|'update'|'delete'|'restore' (optional)
+ * - userId: string (optional, non-admin can only filter by own userId)
+ * - startDate: ISO 8601 string (optional)
  *
  * @param honoApp - Hono instance to chain routes onto
  * @returns Hono app with activity routes chained
@@ -64,8 +80,25 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
       )
     }
 
+    // Parse query parameters
+    const pageStr = c.req.query('page')
+    const pageSizeStr = c.req.query('pageSize')
+    const tableName = c.req.query('tableName')
+    const action = c.req.query('action') as 'create' | 'update' | 'delete' | 'restore' | undefined
+    const filterUserId = c.req.query('userId')
+    const startDate = c.req.query('startDate')
+
+    const page = pageStr ? Number.parseInt(pageStr, 10) : undefined
+    const pageSize = pageSizeStr ? Number.parseInt(pageSizeStr, 10) : undefined
+
     const program = ListActivityLogs({
       userId: session.userId,
+      page,
+      pageSize,
+      tableName,
+      action,
+      filterUserId,
+      startDate,
     }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
 
     const result = await Effect.runPromise(program)
@@ -88,7 +121,13 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
       )
     }
 
-    const logs = result.right
-    return c.json(logs.map(mapToApiResponse), 200)
+    const response = result.right
+    return c.json(
+      {
+        activities: response.activities.map(mapToApiResponse),
+        pagination: response.pagination,
+      },
+      200
+    )
   }) as T
 }
