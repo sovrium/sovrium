@@ -213,6 +213,8 @@ export const createRecordResponseSchema = z
   .object({
     id: z.string().describe('Record identifier'),
     fields: z.record(z.string(), fieldValueSchema).describe('User-defined field values'),
+    createdBy: z.string().optional().describe('User who created the record'),
+    updatedBy: z.string().optional().describe('User who last updated the record'),
   })
   .extend(timestampSchema.shape)
 
