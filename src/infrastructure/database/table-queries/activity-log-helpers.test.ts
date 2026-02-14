@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { describe, test, expect, mock } from 'bun:test'
+import { describe, test, expect, mock, afterAll } from 'bun:test'
 import { Effect } from 'effect'
 import { logActivity } from './activity-log-helpers'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
@@ -503,4 +503,8 @@ describe('logActivity', () => {
       expect(capturedValues).toHaveProperty('changes')
     })
   })
+})
+
+afterAll(() => {
+  mock.restore()
 })
