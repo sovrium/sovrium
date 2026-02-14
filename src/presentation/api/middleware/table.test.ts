@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { describe, test, expect, mock } from 'bun:test'
+import { describe, test, expect, mock, afterAll } from 'bun:test'
 import { validateTable, enrichUserRole } from './table'
 import type { App } from '@/domain/models/app'
 import type { Context, Next } from 'hono'
@@ -203,4 +203,8 @@ describe('enrichUserRole middleware', () => {
       expect(c.getJsonResponses()).toHaveLength(0)
     })
   })
+})
+
+afterAll(() => {
+  mock.restore()
 })
