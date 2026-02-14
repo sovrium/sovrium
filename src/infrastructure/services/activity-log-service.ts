@@ -77,6 +77,57 @@ export class ActivityLogService extends Context.Tag('ActivityLogService')<
 >() {}
 
 /**
+ * Calculate retention cutoff date (1 year ago)
+ */
+function getRetentionCutoff(): Readonly<Date> {
+  const date = new Date()
+  /* eslint-disable-next-line functional/no-expression-statements -- Date mutation is necessary for retention calculation */
+  date.setFullYear(date.getFullYear() - 1)
+  return date
+}
+
+/**
+ * Map database log result to ActivityLogWithUser format
+ */
+function mapLogWithUser(log: {
+  readonly id: string
+  readonly createdAt: Date
+  readonly userId: string | null
+  readonly sessionId: string | null
+  readonly action: 'create' | 'update' | 'delete' | 'restore'
+  readonly tableName: string
+  readonly tableId: string
+  readonly recordId: string
+  readonly changes: { readonly before?: Record<string, unknown>; readonly after?: Record<string, unknown> } | null
+  readonly ipAddress: string | null
+  readonly userAgent: string | null
+  readonly userName: string | null
+  readonly userEmail: string | null
+}): Readonly<ActivityLogWithUser> {
+  return {
+    id: log.id,
+    createdAt: log.createdAt,
+    userId: log.userId ?? '',
+    sessionId: log.sessionId,
+    action: log.action,
+    tableName: log.tableName,
+    tableId: log.tableId,
+    recordId: log.recordId,
+    changes: log.changes,
+    ipAddress: log.ipAddress,
+    userAgent: log.userAgent,
+    user: log.userId
+      ? {
+          id: log.userId,
+          name: log.userName ?? 'Unknown User',
+          email: log.userEmail ?? '',
+        }
+      : /* eslint-disable-next-line unicorn/no-null -- ActivityLogWithUser interface requires null for missing user */
+        null,
+  }
+}
+
+/**
  * Activity Log Service Implementation
  *
  * Uses Drizzle ORM query builder for type-safe, SQL-injection-proof queries.
@@ -120,30 +171,19 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
 
   /**
    * Get record history with pagination and user metadata
-   *
-   * Returns activity logs for a specific record with:
-   * - 1 year retention policy (activities older than 365 days excluded)
-   * - Chronological order (oldest to newest)
-   * - User metadata joined from users table
-   * - Pagination support
    */
-  getRecordHistory: (params) =>
-    Effect.tryPromise({
+  getRecordHistory: (params) => {
+    const { tableName, recordId, limit = 50, offset = 0 } = params
+    const retentionCutoff = getRetentionCutoff()
+
+    const whereClause = and(
+      eq(activityLogs.tableName, tableName),
+      eq(activityLogs.recordId, String(recordId)),
+      gte(activityLogs.createdAt, retentionCutoff)
+    )
+
+    return Effect.tryPromise({
       try: async () => {
-        const { tableName, recordId, limit = 50, offset = 0 } = params
-
-        // Calculate retention cutoff (1 year ago)
-        const oneYearAgo = new Date()
-        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1)
-
-        // Build where clause: match table + record + retention policy
-        const whereClause = and(
-          eq(activityLogs.tableName, tableName),
-          eq(activityLogs.recordId, String(recordId)),
-          gte(activityLogs.createdAt, oneYearAgo)
-        )
-
-        // Get total count for pagination
         const countResult = await db
           .select({ count: sql<number>`count(*)::int` })
           .from(activityLogs)
@@ -151,7 +191,6 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
 
         const total = countResult[0]?.count ?? 0
 
-        // Get paginated logs with user metadata
         const logs = await db
           .select({
             id: activityLogs.id,
@@ -171,38 +210,15 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
           .from(activityLogs)
           .leftJoin(users, eq(activityLogs.userId, users.id))
           .where(whereClause)
-          .orderBy(activityLogs.createdAt) // Oldest to newest (chronological)
+          .orderBy(activityLogs.createdAt)
           .limit(limit)
           .offset(offset)
 
-        // Map to ActivityLogWithUser format
-        const logsWithUser: ActivityLogWithUser[] = logs.map((log) => ({
-          id: log.id,
-          createdAt: log.createdAt,
-          userId: log.userId,
-          sessionId: log.sessionId,
-          action: log.action,
-          tableName: log.tableName,
-          tableId: log.tableId,
-          recordId: log.recordId,
-          changes: log.changes,
-          ipAddress: log.ipAddress,
-          userAgent: log.userAgent,
-          user: log.userId
-            ? {
-                id: log.userId,
-                name: log.userName ?? 'Unknown User',
-                email: log.userEmail ?? '',
-              }
-            : /* eslint-disable-next-line unicorn/no-null -- ActivityLogWithUser interface requires null for missing user */
-              null,
-        }))
+        const logsWithUser: readonly ActivityLogWithUser[] = logs.map(mapLogWithUser)
 
-        return {
-          logs: logsWithUser,
-          total,
-        }
+        return { logs: logsWithUser, total }
       },
       catch: (error) => new ActivityLogDatabaseError({ cause: error }),
-    }),
+    })
+  },
 })

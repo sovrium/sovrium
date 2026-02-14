@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable no-restricted-syntax -- Use case organization into subdirectories is optional, keeping flat structure for now */
+
 import { Data, Effect, Layer } from 'effect'
 import { TableRepository } from '@/application/ports/table-repository'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
@@ -14,6 +16,7 @@ import {
   type ActivityLogDatabaseError,
   type ActivityLogWithUser,
 } from '@/infrastructure/services/activity-log-service'
+import type { SessionContextError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -83,6 +86,64 @@ function mapToHistoryItem(log: Readonly<ActivityLogWithUser>): ActivityHistoryIt
 }
 
 /**
+ * Validate that table exists in app schema
+ */
+function validateTable(
+  app: App,
+  tableId: number
+): Effect.Effect<{ name: string }, TableNotFoundError> {
+  const table = app.tables?.find((t) => t.id === tableId)
+  if (!table) {
+    return Effect.fail(
+      new TableNotFoundError({
+        message: `Table with ID ${tableId} not found`,
+      })
+    )
+  }
+  return Effect.succeed({ name: table.name })
+}
+
+/**
+ * Check if record exists when no activity logs are found
+ */
+function checkRecordExistence(
+  tableName: string,
+  recordId: string,
+  userId: string
+): Effect.Effect<void, RecordNotFoundError | SessionContextError, TableRepository> {
+  /* eslint-disable unicorn/no-null -- UserSession interface requires null for nullable fields */
+  const session = {
+    id: '',
+    userId,
+    token: '',
+    expiresAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ipAddress: null,
+    userAgent: null,
+    impersonatedBy: null,
+  }
+  /* eslint-enable unicorn/no-null */
+
+  return Effect.gen(function* () {
+    const tableRepository = yield* TableRepository
+
+    const record = yield* tableRepository.getRecord(
+      session,
+      tableName,
+      recordId,
+      true // includeDeleted: check both active and deleted records
+    )
+
+    if (!record) {
+      return yield* new RecordNotFoundError({
+        message: `Record with ID ${recordId} not found`,
+      })
+    }
+  })
+}
+
+/**
  * Get Record History Use Case
  *
  * Application layer use case that:
@@ -105,22 +166,16 @@ export const GetRecordHistory = (
   input: GetRecordHistoryInput
 ): Effect.Effect<
   ActivityHistoryOutput,
-  TableNotFoundError | RecordNotFoundError | ActivityLogDatabaseError,
+  TableNotFoundError | RecordNotFoundError | ActivityLogDatabaseError | SessionContextError,
   ActivityLogService | TableRepository
 > =>
   Effect.gen(function* () {
     const activityLogService = yield* ActivityLogService
-    const tableRepository = yield* TableRepository
 
-    // Validate table exists in app schema
-    const table = input.app.tables?.find((t) => t.id === input.tableId)
-    if (!table) {
-      return yield* new TableNotFoundError({
-        message: `Table with ID ${input.tableId} not found`,
-      })
-    }
+    // Validate table exists
+    const table = yield* validateTable(input.app, input.tableId)
 
-    // Fetch activity logs for the record
+    // Fetch activity logs
     const result = yield* activityLogService.getRecordHistory({
       tableName: table.name,
       recordId: input.recordId,
@@ -128,37 +183,9 @@ export const GetRecordHistory = (
       offset: input.offset,
     })
 
-    // If no activity logs exist, check if record exists in table
-    // - If record exists → 200 with empty history (record has no activity yet)
-    // - If record doesn't exist → 404 (record was never created)
+    // If no activity, verify record exists
     if (result.total === 0) {
-      // Create minimal session for record existence check
-      /* eslint-disable unicorn/no-null -- UserSession interface requires null for nullable fields */
-      const session = {
-        id: '',
-        userId: input.userId,
-        token: '',
-        expiresAt: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        ipAddress: null,
-        userAgent: null,
-        impersonatedBy: null,
-      }
-      /* eslint-enable unicorn/no-null */
-
-      const record = yield* tableRepository.getRecord(
-        session,
-        table.name,
-        input.recordId,
-        true // includeDeleted: check both active and deleted records
-      )
-
-      if (!record) {
-        return yield* new RecordNotFoundError({
-          message: `Record with ID ${input.recordId} not found`,
-        })
-      }
+      yield* checkRecordExistence(table.name, input.recordId, input.userId)
     }
 
     // Map to presentation format

@@ -25,6 +25,32 @@ function parsePaginationParams(c: Context): { limit: number; offset: number } {
 }
 
 /**
+ * Handle error from GetRecordHistory use case
+ */
+function handleHistoryError(
+  c: Context,
+  error: { readonly _tag: string; readonly message?: string; readonly cause?: unknown }
+) {
+  if (error._tag === 'TableNotFoundError') {
+    return c.json({ success: false, message: error.message, code: 'NOT_FOUND' }, 404)
+  }
+
+  if (error._tag === 'RecordNotFoundError') {
+    return c.json({ success: false, message: error.message, code: 'NOT_FOUND' }, 404)
+  }
+
+  if (error._tag === 'ActivityLogDatabaseError') {
+    console.error('Activity log database error:', error.cause)
+    return c.json(
+      { success: false, message: 'Failed to fetch record history', code: 'INTERNAL_ERROR' },
+      500
+    )
+  }
+
+  return c.json({ success: false, message: 'Internal server error', code: 'INTERNAL_ERROR' }, 500)
+}
+
+/**
  * Handle GET /api/tables/:tableId/records/:recordId/history
  *
  * Returns activity log history for a specific record with pagination and user metadata.
@@ -42,7 +68,6 @@ function parsePaginationParams(c: Context): { limit: number; offset: number } {
 export async function handleGetRecordHistory(c: Context, app: App) {
   const session = getSessionContext(c)
 
-  // Activity log APIs always require authentication
   if (!session) {
     return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
   }
@@ -50,15 +75,12 @@ export async function handleGetRecordHistory(c: Context, app: App) {
   const tableId = Number(c.req.param('tableId'))
   const recordId = c.req.param('recordId')
 
-  // Validate tableId is a valid number
   if (isNaN(tableId) || tableId <= 0) {
     return c.json({ success: false, message: 'Invalid table ID', code: 'VALIDATION_ERROR' }, 400)
   }
 
-  // Parse pagination params
   const { limit, offset } = parsePaginationParams(c)
 
-  // Execute use case
   const program = GetRecordHistory({
     tableId,
     recordId,
@@ -71,35 +93,9 @@ export async function handleGetRecordHistory(c: Context, app: App) {
   const result = await Effect.runPromise(program)
 
   if (result._tag === 'Left') {
-    const error = result.left
-
-    // Handle table not found
-    if (error._tag === 'TableNotFoundError') {
-      return c.json({ success: false, message: error.message, code: 'NOT_FOUND' }, 404)
-    }
-
-    // Handle record not found (no history exists)
-    if (error._tag === 'RecordNotFoundError') {
-      return c.json({ success: false, message: error.message, code: 'NOT_FOUND' }, 404)
-    }
-
-    // Handle database errors
-    if (error._tag === 'ActivityLogDatabaseError') {
-      console.error('Activity log database error:', error.cause)
-      return c.json(
-        { success: false, message: 'Failed to fetch record history', code: 'INTERNAL_ERROR' },
-        500
-      )
-    }
-
-    // Unknown error
-    return c.json({ success: false, message: 'Internal server error', code: 'INTERNAL_ERROR' }, 500)
+    return handleHistoryError(c, result.left)
   }
 
-  // Success - return history with pagination metadata
   const { history, pagination } = result.right
-  return c.json({
-    history,
-    pagination,
-  })
+  return c.json({ history, pagination })
 }

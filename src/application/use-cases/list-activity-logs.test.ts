@@ -72,6 +72,11 @@ const MockActivityLogServiceLive = Layer.succeed(ActivityLogService, {
       ipAddress: null,
       userAgent: null,
     }),
+  getRecordHistory: () =>
+    Effect.succeed({
+      logs: [],
+      total: 0,
+    }),
 })
 
 /**
@@ -126,6 +131,11 @@ const MockActivityLogServiceEmpty = Layer.succeed(ActivityLogService, {
       changes: null,
       ipAddress: null,
       userAgent: null,
+    }),
+  getRecordHistory: () =>
+    Effect.succeed({
+      logs: [],
+      total: 0,
     }),
 })
 
