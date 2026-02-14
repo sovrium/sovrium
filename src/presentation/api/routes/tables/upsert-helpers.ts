@@ -190,9 +190,9 @@ export function validateReadonlyFields(
       {
         success: false,
         message: 'Cannot set readonly field: id',
-        code: 'VALIDATION_ERROR',
+        code: 'FORBIDDEN',
       },
-      400
+      403
     )
   }
 
@@ -211,9 +211,9 @@ export function validateReadonlyFields(
         {
           success: false,
           message: `Cannot write to readonly field '${attemptedReadonlyField}'`,
-          code: 'VALIDATION_ERROR',
+          code: 'FORBIDDEN',
         },
-        400
+        403
       )
     }
   }
