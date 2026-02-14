@@ -13,6 +13,7 @@ import {
   activityLogs,
   type ActivityLog,
   type ActivityAction,
+  type ActivityLogChanges,
 } from '@/infrastructure/database/drizzle/schema/activity-log'
 
 /**
@@ -25,7 +26,18 @@ export class ActivityLogDatabaseError extends Data.TaggedError('ActivityLogDatab
 /**
  * Activity log with user metadata
  */
-export interface ActivityLogWithUser extends ActivityLog {
+export interface ActivityLogWithUser {
+  readonly id: string
+  readonly createdAt: Date
+  readonly userId: string | null
+  readonly sessionId: string | null
+  readonly action: ActivityAction
+  readonly tableName: string
+  readonly tableId: string
+  readonly recordId: string
+  readonly changes: ActivityLogChanges | null
+  readonly ipAddress: string | null
+  readonly userAgent: string | null
   readonly user:
     | {
         readonly id: string
@@ -134,29 +146,37 @@ async function queryActivityLogCount(
 /**
  * Map activity log with user to include only defined user data
  */
-function mapActivityLogWithUser(
-  log: Readonly<{
+function mapActivityLogWithUser(log: {
+  readonly id: string
+  readonly createdAt: Date
+  readonly userId: string | null
+  readonly sessionId: string | null
+  readonly action: ActivityAction
+  readonly tableName: string
+  readonly tableId: string | null
+  readonly recordId: string
+  readonly changes: ActivityLogChanges | null
+  readonly ipAddress: string | null
+  readonly userAgent: string | null
+  readonly user: {
     readonly id: string
-    readonly createdAt: Date
-    readonly userId: string | null
-    readonly sessionId: string | null
-    readonly action: ActivityAction
-    readonly tableName: string
-    readonly tableId: string
-    readonly recordId: string
-    readonly changes: unknown
-    readonly ipAddress: string | null
-    readonly userAgent: string | null
-    readonly user: {
-      readonly id: string
-      readonly name: string
-      readonly email: string
-    }
-  }>
-): Readonly<ActivityLogWithUser> {
+    readonly name: string
+    readonly email: string
+  } | null
+}): ActivityLogWithUser {
   return {
-    ...log,
-    user: log.user.id ? log.user : undefined,
+    id: log.id,
+    createdAt: log.createdAt,
+    userId: log.userId,
+    sessionId: log.sessionId,
+    action: log.action,
+    tableName: log.tableName,
+    tableId: log.tableId ?? '',
+    recordId: log.recordId,
+    changes: log.changes,
+    ipAddress: log.ipAddress,
+    userAgent: log.userAgent,
+    user: log.user?.id ? log.user : undefined,
   }
 }
 

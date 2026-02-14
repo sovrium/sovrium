@@ -29,11 +29,13 @@ interface ActivityLogResponse {
   readonly tableName: string
   readonly recordId: string
   readonly changes: unknown
-  readonly user: {
-    readonly id: string
-    readonly name: string
-    readonly email: string
-  } | null
+  readonly user:
+    | {
+        readonly id: string
+        readonly name: string
+        readonly email: string
+      }
+    | undefined
 }
 
 /**
@@ -48,7 +50,7 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
     tableName: log.tableName,
     recordId: log.recordId,
     changes: log.changes,
-    user: log.user,
+    user: log.user ?? undefined,
   }
 }
 
