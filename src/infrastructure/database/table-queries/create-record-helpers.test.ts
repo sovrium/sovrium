@@ -7,7 +7,7 @@
 
 import { describe, test, expect } from 'bun:test'
 import { sql } from 'drizzle-orm'
-import { Effect } from 'effect'
+import { Effect, Exit, Cause } from 'effect'
 import { buildInsertClauses, executeInsert } from './create-record-helpers'
 
 describe('buildInsertClauses', () => {
@@ -60,11 +60,15 @@ describe('executeInsert', () => {
     }
 
     const program = executeInsert('users', columnsClause, valuesClause, mockTx as any)
-    const result = await Effect.runPromise(program)
+    const exit = await Effect.runPromiseExit(program)
 
-    expect(result).toHaveProperty('id', 1)
-    expect(result).toHaveProperty('name', 'John')
-    expect(result).toHaveProperty('email', 'john@example.com')
+    if (exit._tag === 'Success') {
+      expect(exit.value).toHaveProperty('id', 1)
+      expect(exit.value).toHaveProperty('name', 'John')
+      expect(exit.value).toHaveProperty('email', 'john@example.com')
+    } else {
+      throw new Error('Expected success but got failure')
+    }
   })
 
   test('returns empty object when no result', async () => {
@@ -73,9 +77,13 @@ describe('executeInsert', () => {
     }
 
     const program = executeInsert('users', columnsClause, valuesClause, mockTx as any)
-    const result = await Effect.runPromise(program)
+    const exit = await Effect.runPromiseExit(program)
 
-    expect(result).toEqual({})
+    if (exit._tag === 'Success') {
+      expect(exit.value).toEqual({})
+    } else {
+      throw new Error('Expected success but got failure')
+    }
   })
 
   test('throws UniqueConstraintViolationError on unique constraint violation (code 23505)', async () => {
@@ -88,14 +96,14 @@ describe('executeInsert', () => {
     }
 
     const program = executeInsert('users', columnsClause, valuesClause, mockTx as any)
+    const exit = await Effect.runPromiseExit(program)
 
-    try {
-      await Effect.runPromise(program)
-      expect(true).toBe(false) // Should not reach here
-    } catch (error) {
-      // Effect wraps errors, check the message
+    if (Exit.isFailure(exit)) {
+      const error = Cause.squash(exit.cause) as Error
       expect(error).toHaveProperty('message')
-      expect((error as Error).message).toContain('Unique constraint violation')
+      expect(error.message).toContain('Unique constraint violation')
+    } else {
+      throw new Error('Expected failure but got success')
     }
   })
 
@@ -109,14 +117,14 @@ describe('executeInsert', () => {
     }
 
     const program = executeInsert('users', columnsClause, valuesClause, mockTx as any)
+    const exit = await Effect.runPromiseExit(program)
 
-    try {
-      await Effect.runPromise(program)
-      expect(true).toBe(false) // Should not reach here
-    } catch (error) {
-      // Effect wraps errors, check the message
+    if (Exit.isFailure(exit)) {
+      const error = Cause.squash(exit.cause) as Error
       expect(error).toHaveProperty('message')
-      expect((error as Error).message).toContain('Unique constraint violation')
+      expect(error.message).toContain('Unique constraint violation')
+    } else {
+      throw new Error('Expected failure but got success')
     }
   })
 
@@ -130,14 +138,14 @@ describe('executeInsert', () => {
     }
 
     const program = executeInsert('users', columnsClause, valuesClause, mockTx as any)
+    const exit = await Effect.runPromiseExit(program)
 
-    try {
-      await Effect.runPromise(program)
-      expect(true).toBe(false) // Should not reach here
-    } catch (error) {
-      // Effect wraps errors, check the message
+    if (Exit.isFailure(exit)) {
+      const error = Cause.squash(exit.cause) as Error
       expect(error).toHaveProperty('message')
-      expect((error as Error).message).toContain('Unique constraint violation')
+      expect(error.message).toContain('Unique constraint violation')
+    } else {
+      throw new Error('Expected failure but got success')
     }
   })
 
@@ -149,14 +157,14 @@ describe('executeInsert', () => {
     }
 
     const program = executeInsert('users', columnsClause, valuesClause, mockTx as any)
+    const exit = await Effect.runPromiseExit(program)
 
-    try {
-      await Effect.runPromise(program)
-      expect(true).toBe(false) // Should not reach here
-    } catch (error) {
-      // Effect wraps errors, check the message
+    if (Exit.isFailure(exit)) {
+      const error = Cause.squash(exit.cause) as Error
       expect(error).toHaveProperty('message')
-      expect((error as Error).message).toContain('Failed to create record in users')
+      expect(error.message).toContain('Failed to create record in users')
+    } else {
+      throw new Error('Expected failure but got success')
     }
   })
 
@@ -168,14 +176,14 @@ describe('executeInsert', () => {
     }
 
     const program = executeInsert('custom_table', columnsClause, valuesClause, mockTx as any)
+    const exit = await Effect.runPromiseExit(program)
 
-    try {
-      await Effect.runPromise(program)
-      expect(true).toBe(false) // Should not reach here
-    } catch (error) {
-      // Effect wraps errors, check the message
+    if (Exit.isFailure(exit)) {
+      const error = Cause.squash(exit.cause) as Error
       expect(error).toHaveProperty('message')
-      expect((error as Error).message).toContain('custom_table')
+      expect(error.message).toContain('custom_table')
+    } else {
+      throw new Error('Expected failure but got success')
     }
   })
 })
