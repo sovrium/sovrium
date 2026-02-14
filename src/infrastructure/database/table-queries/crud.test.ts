@@ -63,17 +63,19 @@ const defaultMockTx = createMockTx(async () => [])
 mock.module('@/infrastructure/database', () => createMockDb(defaultMockTx))
 
 // Mock helper modules
-mock.module('./create-record-helpers', () => ({
-  checkTableColumns: () => Effect.succeed({ hasOwnerId: false }),
-  sanitizeFields: (fields: any) => fields,
-  buildInsertClauses: () => ({
-    columnsClause: { queryChunks: ['name', 'email'] },
-    valuesClause: { queryChunks: ['Alice', 'alice@example.com'] },
-  }),
-  executeInsert: () =>
-    Effect.succeed({ id: 'record-123', name: 'Alice', email: 'alice@example.com' }),
-  isUniqueConstraintViolation: () => false,
-}))
+// NOTE: Commenting out create-record-helpers mock to prevent test pollution
+// This file tests CRUD operations end-to-end with real helpers
+// mock.module('./create-record-helpers', () => ({
+//   checkTableColumns: () => Effect.succeed({ hasOwnerId: false }),
+//   sanitizeFields: (fields: any) => fields,
+//   buildInsertClauses: () => ({
+//     columnsClause: { queryChunks: ['name', 'email'] },
+//     valuesClause: { queryChunks: ['Alice', 'alice@example.com'] },
+//   }),
+//   executeInsert: () =>
+//     Effect.succeed({ id: 'record-123', name: 'Alice', email: 'alice@example.com' }),
+//   isUniqueConstraintViolation: () => false,
+// }))
 
 mock.module('./delete-helpers', () => ({
   checkDeletedAtColumn: async () => true,
