@@ -172,7 +172,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-004: should set created_by to NULL when no authentication is configured',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
