@@ -595,7 +595,7 @@ describe('sql-generators', () => {
       expect(result).toBe('updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP')
     })
 
-    test('generates definition for created-by with NOT NULL', () => {
+    test('generates definition for created-by as nullable (NULL when no auth configured)', () => {
       // Given
 
       const field = {
@@ -607,10 +607,10 @@ describe('sql-generators', () => {
       const result = generateColumnDefinition(field as any, false)
 
       // Then
-      expect(result).toBe('created_by TEXT NOT NULL')
+      expect(result).toBe('created_by TEXT')
     })
 
-    test('generates definition for updated-by with NOT NULL', () => {
+    test('generates definition for updated-by as nullable (NULL when no auth configured)', () => {
       // Given
 
       const field = {
@@ -622,7 +622,7 @@ describe('sql-generators', () => {
       const result = generateColumnDefinition(field as any, false)
 
       // Then
-      expect(result).toBe('updated_by TEXT NOT NULL')
+      expect(result).toBe('updated_by TEXT')
     })
 
     test('generates definition for deleted-by as nullable (no NOT NULL)', () => {
