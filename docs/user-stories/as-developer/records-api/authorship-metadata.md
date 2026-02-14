@@ -102,7 +102,7 @@ PATCH /api/tables/1/records/1
 
 | ID     | Criterion                                                       | E2E Spec                            | Status |
 | ------ | --------------------------------------------------------------- | ----------------------------------- | ------ |
-| AC-001 | updatedBy is auto-set to current user ID on record update       | `API-TABLES-RECORDS-AUTHORSHIP-005` | ⏳     |
+| AC-001 | updatedBy is auto-set to current user ID on record update       | `API-TABLES-RECORDS-AUTHORSHIP-005` | ✅     |
 | AC-002 | updatedBy reflects the updating user, not the original creator  | `API-TABLES-RECORDS-AUTHORSHIP-006` | ⏳     |
 | AC-003 | updatedBy is set to same value as createdBy on initial creation | `API-TABLES-RECORDS-AUTHORSHIP-007` | ⏳     |
 | AC-004 | updatedBy is included in the API response after update          | `API-TABLES-RECORDS-AUTHORSHIP-008` | ⏳     |
