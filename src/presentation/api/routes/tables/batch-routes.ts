@@ -48,12 +48,16 @@ import type { Context, Hono } from 'hono'
 /**
  * Check if user is viewer and return 403 response if so
  */
-function checkViewerPermission(userRole: string, c: Context): Response | undefined {
+function checkViewerPermission(
+  userRole: string,
+  c: Context,
+  action: string = 'perform this action'
+): Response | undefined {
   if (userRole === 'viewer') {
     return c.json(
       {
         success: false,
-        message: 'You do not have permission to perform this action',
+        message: `You do not have permission to ${action}`,
         code: 'FORBIDDEN',
       },
       403
@@ -314,7 +318,7 @@ async function handleBatchDelete(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
 
   // Authorization check BEFORE validation (viewer role cannot delete)
-  const viewerCheck = checkViewerPermission(userRole, c)
+  const viewerCheck = checkViewerPermission(userRole, c, 'delete records in this table')
   if (viewerCheck) return viewerCheck
 
   // Check payload size before validation
