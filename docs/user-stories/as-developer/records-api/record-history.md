@@ -59,7 +59,7 @@ GET /api/tables/1/records/123/history
 
 | ID     | Criterion                                              | E2E Spec                                 | Status |
 | ------ | ------------------------------------------------------ | ---------------------------------------- | ------ |
-| AC-001 | Returns 200 OK with chronological history entries      | `API-ACTIVITY-RECORD-HISTORY-001`        | ⏳     |
+| AC-001 | Returns 200 OK with chronological history entries      | `API-ACTIVITY-RECORD-HISTORY-001`        | ✅     |
 | AC-002 | Includes action type (create, update, delete, restore) | `API-ACTIVITY-RECORD-HISTORY-002`        | ✅     |
 | AC-003 | Includes user who performed the action                 | `API-ACTIVITY-RECORD-HISTORY-003`        | ✅     |
 | AC-004 | Includes field-level change details for updates        | `API-ACTIVITY-RECORD-HISTORY-004`        | ⏳     |
