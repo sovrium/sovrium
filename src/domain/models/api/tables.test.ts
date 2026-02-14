@@ -264,10 +264,10 @@ describe('batch operation response schemas', () => {
   test('batchCreateRecordsResponseSchema validates', () => {
     const input = {
       records: [{ id: 'rec_1', fields: { name: 'John' }, ...validTimestamps }],
-      count: 1,
+      created: 1,
     }
     const result = batchCreateRecordsResponseSchema.parse(input)
-    expect(result.count).toBe(1)
+    expect(result.created).toBe(1)
   })
 
   test('batchDeleteRecordsResponseSchema validates', () => {

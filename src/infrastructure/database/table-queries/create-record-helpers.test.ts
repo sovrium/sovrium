@@ -5,10 +5,20 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { describe, test, expect } from 'bun:test'
+import { describe, test, expect, beforeAll, afterAll, mock } from 'bun:test'
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { buildInsertClauses, executeInsert } from './create-record-helpers'
+
+// Prevent mock pollution from crud.test.ts which mocks this module
+// This file tests the REAL implementation, not mocks
+beforeAll(() => {
+  mock.restore()
+})
+
+afterAll(() => {
+  mock.restore()
+})
 
 describe('buildInsertClauses', () => {
   test('builds columns and values for fields', () => {
