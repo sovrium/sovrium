@@ -24,7 +24,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-001: should return 200 with chronological change history',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
