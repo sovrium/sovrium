@@ -31,7 +31,7 @@ test.describe('GET /trash endpoint', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-TRASH-001: should return 200 with only soft-deleted records',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -242,7 +242,7 @@ test.describe('GET /trash endpoint', () => {
   // Consolidates 4 @spec tests into workflow steps
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-TRASH-REGRESSION: user can complete full trash workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {

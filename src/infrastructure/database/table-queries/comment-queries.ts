@@ -209,39 +209,59 @@ export function getCommentWithUser(config: {
 }
 
 /**
- * Build SQL query to check record existence with optional deleted_at filter
+ * Build SQL query to check record existence with optional deleted_at filter and owner_id check
  */
-function buildRecordCheckQuery(tableName: string, recordId: string, hasDeletedAt: boolean) {
-  return hasDeletedAt
-    ? sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
-    : sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId}`
+function buildRecordCheckQuery(params: {
+  readonly tableName: string
+  readonly recordId: string
+  readonly userId: string
+  readonly hasDeletedAt: boolean
+  readonly hasOwnerId: boolean
+}) {
+  const { tableName, recordId, userId, hasDeletedAt, hasOwnerId } = params
+  if (hasDeletedAt && hasOwnerId) {
+    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL AND owner_id = ${userId}`
+  }
+  if (hasDeletedAt) {
+    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
+  }
+  if (hasOwnerId) {
+    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND owner_id = ${userId}`
+  }
+  return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId}`
 }
 
 /**
- * Check if a record exists in the given table
+ * Check if a record exists in the given table (with owner_id isolation)
  */
 export function checkRecordExists(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
   readonly recordId: string
 }): Effect.Effect<boolean, SessionContextError> {
-  const { tableName, recordId } = config
+  const { session, tableName, recordId } = config
   return Effect.gen(function* () {
     // Check if table has deleted_at column
     const columnsResult = yield* Effect.tryPromise({
       try: () =>
         db.execute(
-          sql`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ${tableName} AND column_name = 'deleted_at'`
+          sql`SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ${tableName} AND column_name IN ('deleted_at', 'owner_id')`
         ),
       catch: (error) => new SessionContextError('Failed to check table columns', error),
     })
 
-    const hasDeletedAt = (columnsResult as readonly Record<string, unknown>[]).some(
-      (row) => row.column_name === 'deleted_at'
-    )
+    const columns = columnsResult as readonly Record<string, unknown>[]
+    const hasDeletedAt = columns.some((row) => row.column_name === 'deleted_at')
+    const hasOwnerId = columns.some((row) => row.column_name === 'owner_id')
 
-    // Check if record exists
-    const query = buildRecordCheckQuery(tableName, recordId, hasDeletedAt)
+    // Check if record exists (with owner_id check for multi-tenancy isolation)
+    const query = buildRecordCheckQuery({
+      tableName,
+      recordId,
+      userId: session.userId,
+      hasDeletedAt,
+      hasOwnerId,
+    })
     const result = yield* Effect.tryPromise({
       try: () => db.execute(query),
       catch: (error) => new SessionContextError('Failed to check record existence', error),
