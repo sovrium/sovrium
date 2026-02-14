@@ -121,11 +121,11 @@ DELETE /api/tables/1/records/batch
 | AC-003 | Returns 400 when ids array is empty                                                     | `API-TABLES-RECORDS-BATCH-DELETE-003`        | ✅     |
 | AC-004 | Returns 401 when not authenticated                                                      | `API-TABLES-RECORDS-BATCH-DELETE-004`        | ✅     |
 | AC-005 | Returns 403 when user lacks delete permission                                           | `API-TABLES-RECORDS-BATCH-DELETE-005`        | ✅     |
-| AC-006 | Soft deletes records by default                                                         | `API-TABLES-RECORDS-BATCH-DELETE-006`        | ⏳     |
-| AC-007 | Skips non-existent record IDs                                                           | `API-TABLES-RECORDS-BATCH-DELETE-007`        | ⏳     |
-| AC-008 | Supports permanent=true for hard delete                                                 | `API-TABLES-RECORDS-BATCH-DELETE-008`        | ⏳     |
-| AC-009 | Permanent delete requires admin role                                                    | `API-TABLES-RECORDS-BATCH-DELETE-009`        | ⏳     |
-| AC-010 | Maximum batch size is 100 records                                                       | `API-TABLES-RECORDS-BATCH-DELETE-010`        | ⏳     |
+| AC-006 | Soft deletes records by default                                                         | `API-TABLES-RECORDS-BATCH-DELETE-006`        | ✅     |
+| AC-007 | Skips non-existent record IDs                                                           | `API-TABLES-RECORDS-BATCH-DELETE-007`        | ✅     |
+| AC-008 | Supports permanent=true for hard delete                                                 | `API-TABLES-RECORDS-BATCH-DELETE-008`        | ✅     |
+| AC-009 | Permanent delete requires admin role                                                    | `API-TABLES-RECORDS-BATCH-DELETE-009`        | ✅     |
+| AC-010 | Maximum batch size is 100 records                                                       | `API-TABLES-RECORDS-BATCH-DELETE-010`        | ✅     |
 | AC-011 | Batch delete skips already soft-deleted records and returns count of newly deleted only |                                              |        |
 | AC-012 | Admin permanent delete with permanent=true hard deletes records                         |                                              |        |
 | AC-013 | User batch soft-deletes records (regression)                                            | `API-TABLES-RECORDS-BATCH-DELETE-REGRESSION` | ✅     |
