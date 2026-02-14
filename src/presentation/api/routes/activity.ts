@@ -53,6 +53,45 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
 }
 
 /**
+ * Parse query parameters for activity logs
+ */
+function parseActivityQueryParams(c: { req: { query: (key: string) => string | undefined } }) {
+  const pageStr = c.req.query('page')
+  const pageSizeStr = c.req.query('pageSize')
+  const tableName = c.req.query('tableName')
+  const action = c.req.query('action') as 'create' | 'update' | 'delete' | 'restore' | undefined
+  const filterUserId = c.req.query('userId')
+  const startDate = c.req.query('startDate')
+
+  return {
+    page: pageStr ? Number.parseInt(pageStr, 10) : undefined,
+    pageSize: pageSizeStr ? Number.parseInt(pageSizeStr, 10) : undefined,
+    tableName,
+    action,
+    filterUserId,
+    startDate,
+  }
+}
+
+/**
+ * Handle activity logs request error
+ */
+function handleActivityLogsError(error: unknown) {
+  const requestId = crypto.randomUUID()
+  const sanitized = sanitizeError(error, requestId)
+  const statusCode = getStatusCode(sanitized.code)
+
+  return {
+    json: {
+      success: false,
+      message: sanitized.message ?? sanitized.error,
+      code: sanitized.code,
+    },
+    status: statusCode,
+  }
+}
+
+/**
  * Chain activity routes onto a Hono app
  *
  * Provides:
@@ -80,45 +119,18 @@ export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
       )
     }
 
-    // Parse query parameters
-    const pageStr = c.req.query('page')
-    const pageSizeStr = c.req.query('pageSize')
-    const tableName = c.req.query('tableName')
-    const action = c.req.query('action') as 'create' | 'update' | 'delete' | 'restore' | undefined
-    const filterUserId = c.req.query('userId')
-    const startDate = c.req.query('startDate')
-
-    const page = pageStr ? Number.parseInt(pageStr, 10) : undefined
-    const pageSize = pageSizeStr ? Number.parseInt(pageSizeStr, 10) : undefined
+    const params = parseActivityQueryParams(c)
 
     const program = ListActivityLogs({
       userId: session.userId,
-      page,
-      pageSize,
-      tableName,
-      action,
-      filterUserId,
-      startDate,
+      ...params,
     }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
 
     const result = await Effect.runPromise(program)
 
     if (result._tag === 'Left') {
-      const error = result.left
-      const requestId = crypto.randomUUID()
-
-      // Sanitize error to prevent information disclosure
-      const sanitized = sanitizeError(error, requestId)
-      const statusCode = getStatusCode(sanitized.code)
-
-      return c.json(
-        {
-          success: false,
-          message: sanitized.message ?? sanitized.error,
-          code: sanitized.code,
-        },
-        statusCode
-      )
+      const errorResponse = handleActivityLogsError(result.left)
+      return c.json(errorResponse.json, errorResponse.status)
     }
 
     const response = result.right

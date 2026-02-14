@@ -81,6 +81,102 @@ export interface PaginatedActivityLogsOutput {
 }
 
 /**
+ * Validate pagination parameters
+ */
+function validatePaginationParams(
+  page: number,
+  pageSize: number
+): Effect.Effect<void, ValidationError> {
+  if (page < 1) {
+    return Effect.fail(new ValidationError({ message: 'Page must be at least 1' }))
+  }
+  if (pageSize > 100) {
+    return Effect.fail(new ValidationError({ message: 'Page size cannot exceed 100' }))
+  }
+  return Effect.void
+}
+
+/**
+ * Validate action parameter
+ */
+function validateAction(action: string | undefined): Effect.Effect<void, ValidationError> {
+  if (action && !['create', 'update', 'delete', 'restore'].includes(action)) {
+    return Effect.fail(
+      new ValidationError({
+        message: 'Action must be one of: create, update, delete, restore',
+      })
+    )
+  }
+  return Effect.void
+}
+
+/**
+ * Check user role permissions for activity logs
+ */
+function checkRolePermissions(
+  role: string | null,
+  userId: string,
+  filterUserId: string | undefined
+): Effect.Effect<void, ForbiddenError> {
+  if (!role) {
+    return Effect.fail(
+      new ForbiddenError({
+        message: 'You do not have permission to access activity logs',
+      })
+    )
+  }
+
+  if (role === 'viewer') {
+    return Effect.fail(
+      new ForbiddenError({
+        message: 'You do not have permission to access activity logs',
+      })
+    )
+  }
+
+  if (filterUserId && filterUserId !== userId && role !== 'admin') {
+    return Effect.fail(
+      new ForbiddenError({
+        message: 'You can only view your own activity logs',
+      })
+    )
+  }
+
+  return Effect.void
+}
+
+/**
+ * Map activity log to presentation format
+ */
+function mapActivityLogToOutput(log: {
+  readonly id: string
+  readonly createdAt: Date
+  readonly userId: string | null
+  readonly action: 'create' | 'update' | 'delete' | 'restore'
+  readonly tableName: string
+  readonly recordId: string
+  readonly changes: unknown
+  readonly user:
+    | {
+        readonly id: string
+        readonly name: string
+        readonly email: string
+      }
+    | undefined
+}): ActivityLogOutput {
+  return {
+    id: log.id,
+    createdAt: log.createdAt.toISOString(),
+    userId: log.userId ?? undefined,
+    action: log.action,
+    tableName: log.tableName,
+    recordId: log.recordId,
+    changes: log.changes,
+    user: log.user,
+  }
+}
+
+/**
  * List Activity Logs Use Case
  *
  * Application layer use case that:
@@ -106,49 +202,15 @@ export const ListActivityLogs = (
     const userRoleService = yield* UserRoleService
     const activityLogService = yield* ActivityLogService
 
-    // Validate query parameters
     const page = input.page ?? 1
     const pageSize = input.pageSize ?? 50
 
-    if (page < 1) {
-      return yield* new ValidationError({ message: 'Page must be at least 1' })
-    }
+    yield* validatePaginationParams(page, pageSize)
+    yield* validateAction(input.action)
 
-    if (pageSize > 100) {
-      return yield* new ValidationError({ message: 'Page size cannot exceed 100' })
-    }
-
-    if (input.action && !['create', 'update', 'delete', 'restore'].includes(input.action)) {
-      return yield* new ValidationError({
-        message: 'Action must be one of: create, update, delete, restore',
-      })
-    }
-
-    // Get user role to enforce permissions
     const role = yield* userRoleService.getUserRole(input.userId)
+    yield* checkRolePermissions(role, input.userId, input.filterUserId)
 
-    // If user has no role, deny access
-    if (!role) {
-      return yield* new ForbiddenError({
-        message: 'You do not have permission to access activity logs',
-      })
-    }
-
-    // Domain rule: Viewers cannot access activity logs
-    if (role === 'viewer') {
-      return yield* new ForbiddenError({
-        message: 'You do not have permission to access activity logs',
-      })
-    }
-
-    // Domain rule: Non-admin users can only filter by their own userId
-    if (input.filterUserId && input.filterUserId !== input.userId && role !== 'admin') {
-      return yield* new ForbiddenError({
-        message: 'You can only view your own activity logs',
-      })
-    }
-
-    // List activity logs with filters
     const result = yield* activityLogService.listWithFilters({
       page,
       pageSize,
@@ -158,18 +220,7 @@ export const ListActivityLogs = (
       startDate: input.startDate,
     })
 
-    // Map to presentation-friendly format
-    const activities = result.logs.map((log) => ({
-      id: log.id,
-      createdAt: log.createdAt.toISOString(),
-      userId: log.userId ?? undefined,
-      action: log.action,
-      tableName: log.tableName,
-      recordId: log.recordId,
-      changes: log.changes,
-      user: log.user,
-    }))
-
+    const activities = result.logs.map(mapActivityLogToOutput)
     const totalPages = Math.ceil(result.total / pageSize)
 
     return {

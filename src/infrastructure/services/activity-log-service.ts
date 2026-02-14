@@ -56,6 +56,111 @@ export interface PaginatedActivityLogs {
 }
 
 /**
+ * Build WHERE conditions for activity log queries
+ */
+function buildFilterConditions(filters: Readonly<ActivityLogFilters>) {
+  const baseConditions = [gte(activityLogs.createdAt, sql`NOW() - INTERVAL '1 year'`)]
+
+  const tableNameCondition = filters.tableName
+    ? [eq(activityLogs.tableName, filters.tableName)]
+    : []
+
+  const actionCondition = filters.action ? [eq(activityLogs.action, filters.action)] : []
+
+  const userIdCondition = filters.userId ? [eq(activityLogs.userId, filters.userId)] : []
+
+  const startDateCondition = filters.startDate
+    ? [gte(activityLogs.createdAt, new Date(filters.startDate))]
+    : []
+
+  return [
+    ...baseConditions,
+    ...tableNameCondition,
+    ...actionCondition,
+    ...userIdCondition,
+    ...startDateCondition,
+  ]
+}
+
+/**
+ * Query activity logs with user metadata
+ */
+async function queryActivityLogs(
+  conditions: readonly ReturnType<typeof buildFilterConditions>[number][],
+  pageSize: number,
+  offset: number
+) {
+  return db
+    .select({
+      id: activityLogs.id,
+      createdAt: activityLogs.createdAt,
+      userId: activityLogs.userId,
+      sessionId: activityLogs.sessionId,
+      action: activityLogs.action,
+      tableName: activityLogs.tableName,
+      tableId: activityLogs.tableId,
+      recordId: activityLogs.recordId,
+      changes: activityLogs.changes,
+      ipAddress: activityLogs.ipAddress,
+      userAgent: activityLogs.userAgent,
+      user: {
+        id: users.id,
+        name: users.name,
+        email: users.email,
+      },
+    })
+    .from(activityLogs)
+    .leftJoin(users, eq(activityLogs.userId, users.id))
+    .where(and(...conditions))
+    .orderBy(desc(activityLogs.createdAt))
+    .limit(pageSize)
+    .offset(offset)
+}
+
+/**
+ * Get total count of activity logs matching filters
+ */
+async function queryActivityLogCount(
+  conditions: readonly ReturnType<typeof buildFilterConditions>[number][]
+) {
+  const [countResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(activityLogs)
+    .where(and(...conditions))
+
+  return countResult?.count ?? 0
+}
+
+/**
+ * Map activity log with user to include only defined user data
+ */
+function mapActivityLogWithUser(
+  log: Readonly<{
+    readonly id: string
+    readonly createdAt: Date
+    readonly userId: string | null
+    readonly sessionId: string | null
+    readonly action: ActivityAction
+    readonly tableName: string
+    readonly tableId: string
+    readonly recordId: string
+    readonly changes: unknown
+    readonly ipAddress: string | null
+    readonly userAgent: string | null
+    readonly user: {
+      readonly id: string
+      readonly name: string
+      readonly email: string
+    }
+  }>
+): Readonly<ActivityLogWithUser> {
+  return {
+    ...log,
+    user: log.user.id ? log.user : undefined,
+  }
+}
+
+/**
  * Activity Log Service
  *
  * Provides type-safe database operations for activity logs using Drizzle ORM.
@@ -113,72 +218,12 @@ export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
         const pageSize = filters.pageSize ?? 50
         const offset = (page - 1) * pageSize
 
-        // Build WHERE conditions dynamically using immutable patterns
-        const baseConditions = [
-          // 1-year retention policy
-          gte(activityLogs.createdAt, sql`NOW() - INTERVAL '1 year'`),
-        ]
-
-        const tableNameCondition = filters.tableName
-          ? [eq(activityLogs.tableName, filters.tableName)]
-          : []
-
-        const actionCondition = filters.action ? [eq(activityLogs.action, filters.action)] : []
-
-        const userIdCondition = filters.userId ? [eq(activityLogs.userId, filters.userId)] : []
-
-        const startDateCondition = filters.startDate
-          ? [gte(activityLogs.createdAt, new Date(filters.startDate))]
-          : []
-
-        const conditions = [
-          ...baseConditions,
-          ...tableNameCondition,
-          ...actionCondition,
-          ...userIdCondition,
-          ...startDateCondition,
-        ]
-
-        // Query with joins for user metadata
-        const logs = await db
-          .select({
-            id: activityLogs.id,
-            createdAt: activityLogs.createdAt,
-            userId: activityLogs.userId,
-            sessionId: activityLogs.sessionId,
-            action: activityLogs.action,
-            tableName: activityLogs.tableName,
-            tableId: activityLogs.tableId,
-            recordId: activityLogs.recordId,
-            changes: activityLogs.changes,
-            ipAddress: activityLogs.ipAddress,
-            userAgent: activityLogs.userAgent,
-            user: {
-              id: users.id,
-              name: users.name,
-              email: users.email,
-            },
-          })
-          .from(activityLogs)
-          .leftJoin(users, eq(activityLogs.userId, users.id))
-          .where(and(...conditions))
-          .orderBy(desc(activityLogs.createdAt))
-          .limit(pageSize)
-          .offset(offset)
-
-        // Get total count for pagination
-        const [countResult] = await db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(activityLogs)
-          .where(and(...conditions))
-
-        const total = countResult?.count ?? 0
+        const conditions = buildFilterConditions(filters)
+        const logs = await queryActivityLogs(conditions, pageSize, offset)
+        const total = await queryActivityLogCount(conditions)
 
         return {
-          logs: logs.map((log) => ({
-            ...log,
-            user: log.user.id ? log.user : undefined,
-          })),
+          logs: logs.map(mapActivityLogWithUser),
           total,
         }
       },
