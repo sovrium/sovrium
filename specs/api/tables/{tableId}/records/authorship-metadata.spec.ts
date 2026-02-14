@@ -84,7 +84,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-002: should include created_by in API response after creation',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
