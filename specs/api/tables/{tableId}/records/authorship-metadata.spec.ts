@@ -215,7 +215,7 @@ test.describe('Record Authorship Metadata', () => {
   // US-API-AUTHORSHIP-002: Updated By on Record Update
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-005: should auto-set updated_by to current user ID on record update',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
