@@ -98,7 +98,10 @@ function mapLogWithUser(log: {
   readonly tableName: string
   readonly tableId: string
   readonly recordId: string
-  readonly changes: { readonly before?: Record<string, unknown>; readonly after?: Record<string, unknown> } | null
+  readonly changes: {
+    readonly before?: Record<string, unknown>
+    readonly after?: Record<string, unknown>
+  } | null
   readonly ipAddress: string | null
   readonly userAgent: string | null
   readonly userName: string | null
