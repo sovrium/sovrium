@@ -116,9 +116,9 @@ GET /api/tables/1/records/123/comments
 | AC-003 | Includes author information for each comment           | `API-TABLES-RECORDS-COMMENTS-LIST-003`        | ✅     |
 | AC-004 | Includes @mention metadata (user, position)            | `API-TABLES-RECORDS-COMMENTS-LIST-004`        | ✅     |
 | AC-005 | Returns 404 Not Found for non-existent record          | `API-TABLES-RECORDS-COMMENTS-LIST-005`        | ✅     |
-| AC-006 | Returns 401 when not authenticated                     | `API-TABLES-RECORDS-COMMENTS-LIST-006`        | ⏳     |
-| AC-007 | Returns 403 when user lacks comments view permission   | `API-TABLES-RECORDS-COMMENTS-LIST-007`        | ⏳     |
-| AC-008 | Supports pagination with limit and offset              | `API-TABLES-RECORDS-COMMENTS-LIST-008`        | ⏳     |
+| AC-006 | Returns 401 when not authenticated                     | `API-TABLES-RECORDS-COMMENTS-LIST-006`        | ✅     |
+| AC-007 | Returns 403 when user lacks comments view permission   | `API-TABLES-RECORDS-COMMENTS-LIST-007`        | ✅     |
+| AC-008 | Supports pagination with limit and offset              | `API-TABLES-RECORDS-COMMENTS-LIST-008`        | ✅     |
 | AC-009 | Orders comments by created_at ascending (oldest first) | `API-TABLES-RECORDS-COMMENTS-LIST-009`        | ⏳     |
 | AC-010 | Includes updated_at if comment was edited              | `API-TABLES-RECORDS-COMMENTS-LIST-010`        | ⏳     |
 | AC-011 | User lists comments on a record (regression)           | `API-TABLES-RECORDS-COMMENTS-LIST-REGRESSION` | ✅     |
@@ -271,10 +271,10 @@ DELETE /api/tables/1/records/123/comments/1
 | AC-003 | Returns 404 Not Found for non-existent comment | `API-TABLES-RECORDS-COMMENTS-DELETE-003`        | ✅     |
 | AC-004 | Returns 404 for already deleted comment        | `API-TABLES-RECORDS-COMMENTS-DELETE-004`        | ✅     |
 | AC-005 | Returns 401 when not authenticated             | `API-TABLES-RECORDS-COMMENTS-DELETE-005`        | ✅     |
-| AC-006 | Returns 403 when user is not comment author    | `API-TABLES-RECORDS-COMMENTS-DELETE-006`        | ⏳     |
-| AC-007 | Admin can delete any comment                   | `API-TABLES-RECORDS-COMMENTS-DELETE-007`        | ⏳     |
-| AC-008 | Logs comment deletion to activity history      | `API-TABLES-RECORDS-COMMENTS-DELETE-008`        | ⏳     |
-| AC-009 | Supports permanent delete with ?permanent=true | `API-TABLES-RECORDS-COMMENTS-DELETE-009`        | ⏳     |
+| AC-006 | Returns 403 when user is not comment author    | `API-TABLES-RECORDS-COMMENTS-DELETE-006`        | ✅     |
+| AC-007 | Admin can delete any comment                   | `API-TABLES-RECORDS-COMMENTS-DELETE-007`        | ✅     |
+| AC-008 | Logs comment deletion to activity history      | `API-TABLES-RECORDS-COMMENTS-DELETE-008`        | ✅     |
+| AC-009 | Supports permanent delete with ?permanent=true | `API-TABLES-RECORDS-COMMENTS-DELETE-009`        | ✅     |
 | AC-010 | User deletes their own comment (regression)    | `API-TABLES-RECORDS-COMMENTS-DELETE-REGRESSION` | ⏳     |
 
 ### Implementation References

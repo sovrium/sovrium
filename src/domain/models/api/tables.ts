@@ -253,8 +253,11 @@ export const restoreRecordResponseSchema = z.object({
  * Batch create records response schema
  */
 export const batchCreateRecordsResponseSchema = z.object({
-  records: z.array(recordSchema).describe('Created records'),
-  count: z.number().describe('Number of records created'),
+  created: z.number().describe('Number of records created'),
+  records: z
+    .array(recordSchema)
+    .optional()
+    .describe('Created records (only if returnRecords=true)'),
 })
 
 /**

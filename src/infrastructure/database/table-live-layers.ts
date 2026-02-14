@@ -6,6 +6,7 @@
  */
 
 import { Layer } from 'effect'
+import { ActivityRepositoryLive } from './activity-repository-live'
 import { BatchRepositoryLive } from './batch-repository-live'
 import { CommentRepositoryLive } from './comment-repository-live'
 import { TableRepositoryLive } from './table-repository-live'
@@ -14,7 +15,7 @@ import { TableRepositoryLive } from './table-repository-live'
  * Composite layer providing all table-related repository implementations
  *
  * Import this single layer in presentation routes to satisfy
- * all table, batch, and comment repository requirements.
+ * all table, batch, comment, and activity repository requirements.
  *
  * @example
  * ```typescript
@@ -24,5 +25,6 @@ import { TableRepositoryLive } from './table-repository-live'
 export const TableLive = Layer.mergeAll(
   TableRepositoryLive,
   BatchRepositoryLive,
-  CommentRepositoryLive
+  CommentRepositoryLive,
+  ActivityRepositoryLive
 )

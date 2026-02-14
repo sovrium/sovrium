@@ -24,7 +24,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-001: should return 200 with chronological change history',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -51,11 +51,11 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
       // Create record and activity history
       await executeQuery(`INSERT INTO tasks (id, title, status) VALUES (1, 'Task 1', 'pending')`)
       await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (id, table_id, user_id, action, table_name, record_id, changes, created_at)
         VALUES
-          ('${user.id}', 'create', 'tasks', 1, '{"title": "Task 1", "status": "pending"}', NOW() - INTERVAL '10 minutes'),
-          ('${user.id}', 'update', 'tasks', 1, '{"status": {"old": "pending", "new": "active"}}', NOW() - INTERVAL '5 minutes'),
-          ('${user.id}', 'update', 'tasks', 1, '{"title": {"old": "Task 1", "new": "Updated Task"}}', NOW() - INTERVAL '2 minutes')
+          (gen_random_uuid(), '1', '${user.id}', 'create', 'tasks', '1', '{"title": "Task 1", "status": "pending"}', NOW() - INTERVAL '10 minutes'),
+          (gen_random_uuid(), '1', '${user.id}', 'update', 'tasks', '1', '{"status": {"old": "pending", "new": "active"}}', NOW() - INTERVAL '5 minutes'),
+          (gen_random_uuid(), '1', '${user.id}', 'update', 'tasks', '1', '{"title": {"old": "Task 1", "new": "Updated Task"}}', NOW() - INTERVAL '2 minutes')
       `)
 
       // WHEN: User requests record history
