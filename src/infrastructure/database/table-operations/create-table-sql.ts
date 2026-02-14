@@ -29,7 +29,8 @@ import type { Table } from '@/domain/models/app/table'
 export const generateCreateTableSQL = (
   table: Table,
   tableUsesView?: ReadonlyMap<string, boolean>,
-  skipForeignKeys?: boolean
+  skipForeignKeys?: boolean,
+  hasAuthConfig: boolean = true
 ): string => {
   // Sanitize table name for PostgreSQL (lowercase, underscores)
   const sanitized = sanitizeTableName(table.name)
@@ -58,7 +59,7 @@ export const generateCreateTableSQL = (
       // Only add inline PRIMARY KEY for single-field composite keys (handled by generateSerialColumn)
       // Multi-field composite keys must have PRIMARY KEY at table level to avoid "multiple primary keys" error
       const isPrimaryKey = primaryKeyFields.includes(field.name) && primaryKeyFields.length === 1
-      return generateColumnDefinition(field, isPrimaryKey, table.fields)
+      return generateColumnDefinition(field, isPrimaryKey, table.fields, hasAuthConfig)
     })
 
   // Add PRIMARY KEY constraint on id if no custom primary key is defined

@@ -115,6 +115,7 @@ type CreateMigrateTablesConfig = {
   readonly circularTables: ReadonlySet<string>
   readonly previousSchema: { readonly tables: readonly object[] } | undefined
   readonly lookupViewModule: LookupViewModule
+  readonly hasAuthConfig: boolean
 }
 
 /** Create or migrate each table in sorted order */
@@ -122,8 +123,15 @@ const createMigrateTables = (
   config: CreateMigrateTablesConfig
 ): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
-    const { tx, sortedTables, tableUsesView, circularTables, previousSchema, lookupViewModule } =
-      config
+    const {
+      tx,
+      sortedTables,
+      tableUsesView,
+      circularTables,
+      previousSchema,
+      lookupViewModule,
+      hasAuthConfig,
+    } = config
     /* eslint-disable functional/no-loop-statements */
     for (const table of sortedTables) {
       const sanitized = sanitizeTableName(table.name)
@@ -139,6 +147,7 @@ const createMigrateTables = (
         tableUsesView,
         previousSchema,
         skipForeignKeys: circularTables.has(table.name),
+        hasAuthConfig,
       })
       logInfo(`[Created/migrated table] ${table.name}`)
     }
@@ -261,6 +270,7 @@ const executeMigrationSteps = (
       circularTables,
       previousSchema,
       lookupViewModule,
+      hasAuthConfig: !!app.auth,
     })
 
     // Step 7: Add FK constraints for circular dependencies

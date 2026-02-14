@@ -595,7 +595,7 @@ describe('sql-generators', () => {
       expect(result).toBe('updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP')
     })
 
-    test('generates definition for created-by as nullable (NULL when no auth configured)', () => {
+    test('generates definition for created-by as NOT NULL when auth configured (default)', () => {
       // Given
 
       const field = {
@@ -603,14 +603,29 @@ describe('sql-generators', () => {
         type: 'created-by',
       }
 
-      // When
+      // When — default hasAuthConfig is true
       const result = generateColumnDefinition(field as any, false)
+
+      // Then
+      expect(result).toBe('created_by TEXT NOT NULL')
+    })
+
+    test('generates definition for created-by as nullable when auth NOT configured', () => {
+      // Given
+
+      const field = {
+        name: 'created_by',
+        type: 'created-by',
+      }
+
+      // When — hasAuthConfig explicitly false
+      const result = generateColumnDefinition(field as any, false, undefined, false)
 
       // Then
       expect(result).toBe('created_by TEXT')
     })
 
-    test('generates definition for updated-by as nullable (NULL when no auth configured)', () => {
+    test('generates definition for updated-by as NOT NULL when auth configured (default)', () => {
       // Given
 
       const field = {
@@ -618,8 +633,23 @@ describe('sql-generators', () => {
         type: 'updated-by',
       }
 
-      // When
+      // When — default hasAuthConfig is true
       const result = generateColumnDefinition(field as any, false)
+
+      // Then
+      expect(result).toBe('updated_by TEXT NOT NULL')
+    })
+
+    test('generates definition for updated-by as nullable when auth NOT configured', () => {
+      // Given
+
+      const field = {
+        name: 'updated_by',
+        type: 'updated-by',
+      }
+
+      // When — hasAuthConfig explicitly false
+      const result = generateColumnDefinition(field as any, false, undefined, false)
 
       // Then
       expect(result).toBe('updated_by TEXT')
