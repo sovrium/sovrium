@@ -378,7 +378,7 @@ test.describe('List comments on a record', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-LIST-009: should include timestamps for each comment',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -397,6 +397,10 @@ test.describe('List comments on a record', () => {
       await createAuthenticatedUser()
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task with edited comment')
+      `)
+      await executeQuery(`
+        INSERT INTO auth.user (id, name, email, email_verified) VALUES
+          ('user_1', 'Test User', 'user1@example.com', true)
       `)
       await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
