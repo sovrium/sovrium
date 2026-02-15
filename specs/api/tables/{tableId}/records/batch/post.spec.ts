@@ -480,7 +480,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-010: should return 201 with all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedAdmin }) => {
