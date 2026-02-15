@@ -296,7 +296,7 @@ tables:
 | AC-002 | onDelete: set-null sets foreign key to NULL       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-004` | ✅     |
 | AC-003 | onDelete: restrict prevents parent deletion       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-005` | ✅     |
 | AC-004 | onUpdate: cascade updates foreign keys            | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-010` | ✅     |
-| AC-005 | Returns appropriate error on constraint violation | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-019` | ⏳     |
+| AC-005 | Returns appropriate error on constraint violation | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-019` | ✅     |
 
 ### Implementation References
 
