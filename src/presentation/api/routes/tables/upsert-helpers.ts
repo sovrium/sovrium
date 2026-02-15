@@ -300,11 +300,119 @@ export async function applyReadFiltering<E, R>(config: {
 }
 
 /**
+ * Create 403 response for protected field write attempt
+ */
+function createForbiddenFieldResponse(c: Context, forbiddenField: string): Response {
+  return c.json(
+    {
+      success: false,
+      message: `Cannot write to field '${forbiddenField}': insufficient permissions`,
+      code: 'FORBIDDEN',
+    },
+    403
+  )
+}
+
+/**
+ * Check if single-record upsert contains protected fields
+ * Single-record upserts reject if ANY protected fields present
+ */
+function checkSingleRecordProtectedFields(config: {
+  readonly c: Context
+  readonly app: App
+  readonly tableName: string
+  readonly userRole: string
+  readonly records: readonly { fields: Record<string, unknown> }[]
+}): { success: true } | { success: false; response: Response } {
+  const { c, app, tableName, userRole, records } = config
+
+  if (records.length !== 1) {
+    return { success: true }
+  }
+
+  const allForbiddenFields = records
+    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
+    .filter((fields) => fields.length > 0)
+
+  if (allForbiddenFields.length > 0) {
+    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+    const firstForbiddenField = uniqueForbiddenFields[0]
+    return {
+      success: false,
+      response: createForbiddenFieldResponse(c, firstForbiddenField!),
+    }
+  }
+
+  return { success: true }
+}
+
+/**
+ * Check if all fields were stripped from records (user tried to write only protected fields)
+ */
+function checkAllFieldsStripped(config: {
+  readonly c: Context
+  readonly app: App
+  readonly tableName: string
+  readonly userRole: string
+  readonly records: readonly { fields: Record<string, unknown> }[]
+  readonly strippedRecords: ReadonlyArray<{ fields: Record<string, unknown> }>
+}): { success: true } | { success: false; response: Response } {
+  const { c, app, tableName, userRole, records, strippedRecords } = config
+
+  const hasWritableFields = strippedRecords.some((record) => Object.keys(record.fields).length > 0)
+  if (hasWritableFields) {
+    return { success: true }
+  }
+
+  // All fields were stripped
+  const allForbiddenFields = records
+    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
+    .filter((fields) => fields.length > 0)
+  const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+  const firstForbiddenField = uniqueForbiddenFields[0]
+
+  return {
+    success: false,
+    response: createForbiddenFieldResponse(c, firstForbiddenField!),
+  }
+}
+
+/**
+ * Check required field validation
+ */
+async function checkRequiredFields(
+  table: NonNullable<App['tables']>[number] | undefined,
+  strippedRecords: ReadonlyArray<{ fields: Record<string, unknown> }>,
+  c: Context
+): Promise<
+  | { success: true }
+  | { success: false; response: Response }
+> {
+  const validationErrors = await validateUpsertRequiredFields(table, strippedRecords)
+  if (validationErrors.length === 0) {
+    return { success: true }
+  }
+
+  return {
+    success: false,
+    response: c.json(
+      {
+        success: false,
+        message: 'Validation failed: one or more records have invalid data',
+        code: 'VALIDATION_ERROR',
+        details: validationErrors,
+      },
+      400
+    ),
+  }
+}
+
+/**
  * Validate upsert request (permissions and required fields)
  *
  * Upsert behavior for protected fields:
- * - If user ONLY tries to write protected fields → 403 error (same as batch update)
- * - If user tries to write mix of protected + allowed fields → strip protected, succeed
+ * - Single-record upserts: Reject with 403 if ANY protected fields present
+ * - Multi-record upserts (batch): Strip protected fields, succeed if any writable fields remain
  * - Filter protected fields from response
  */
 export async function validateUpsertRequest(config: {
@@ -318,30 +426,25 @@ export async function validateUpsertRequest(config: {
   const { c, app, tableName, userRole, records, fieldsToMergeOn } = config
   const table = app.tables?.find((t) => t.name === tableName)
 
-  // Strip unwritable fields from records (same logic as batch update)
+  // Single-record upsert: reject if ANY protected fields present
+  const singleRecordCheck = checkSingleRecordProtectedFields({
+    c,
+    app,
+    tableName,
+    userRole,
+    records,
+  })
+  if (!singleRecordCheck.success) {
+    return singleRecordCheck
+  }
+
+  // For multi-record upserts, strip unwritable fields
   const strippedRecords = stripUnwritableFields(app, tableName, userRole, records)
 
-  // Check if ANY records have writable fields remaining after stripping
-  // This matches batch update behavior: if all fields were protected, return 403
-  const hasWritableFields = strippedRecords.some((record) => Object.keys(record.fields).length > 0)
-  if (!hasWritableFields) {
-    // All fields were stripped - user tried to write only protected fields
-    const allForbiddenFields = records
-      .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
-      .filter((fields) => fields.length > 0)
-    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
-    const firstForbiddenField = uniqueForbiddenFields[0]
-    return {
-      success: false as const,
-      response: c.json(
-        {
-          success: false,
-          message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
-          code: 'FORBIDDEN',
-        },
-        403
-      ),
-    }
+  // Check if all fields were stripped
+  const stripCheck = checkAllFieldsStripped({ c, app, tableName, userRole, records, strippedRecords })
+  if (!stripCheck.success) {
+    return stripCheck
   }
 
   // Check table-level permissions (create/update)
@@ -353,26 +456,14 @@ export async function validateUpsertRequest(config: {
     fieldsToMergeOn,
     c,
   })
-  if (permissionCheck.allowed === false) {
+  if (!permissionCheck.allowed) {
     return { success: false as const, response: permissionCheck.response }
   }
 
-  // Validate required fields on stripped records
-  const validationErrors = await validateUpsertRequiredFields(table, strippedRecords)
-
-  if (validationErrors.length > 0) {
-    return {
-      success: false as const,
-      response: c.json(
-        {
-          success: false,
-          message: 'Validation failed: one or more records have invalid data',
-          code: 'VALIDATION_ERROR',
-          details: validationErrors,
-        },
-        400
-      ),
-    }
+  // Validate required fields
+  const requiredCheck = await checkRequiredFields(table, strippedRecords, c)
+  if (!requiredCheck.success) {
+    return { success: false as const, response: requiredCheck.response }
   }
 
   return { success: true as const, strippedRecords }
