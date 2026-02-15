@@ -16,12 +16,13 @@ export const isUserReferenceField = (field: Fields[number]): boolean =>
   field.type === 'created-by' || field.type === 'updated-by' || field.type === 'deleted-by'
 
 /**
- * Check if field is an auto-populated user reference field (created-by, updated-by)
- * These fields are always NOT NULL because they're auto-populated on create/update
+ * Check if field is an auto-populated user reference field (created-by only)
+ * created-by is always NOT NULL because it's auto-populated on creation
+ * Note: updated-by is NOT included because it's only set during update (nullable until first update)
  * Note: deleted-by is NOT included because it's only set during soft-delete (nullable)
  */
 export const isAutoPopulatedUserField = (field: Fields[number]): boolean =>
-  field.type === 'created-by' || field.type === 'updated-by'
+  field.type === 'created-by'
 
 /**
  * Check if field is a user field (type: 'user')
