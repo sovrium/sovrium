@@ -248,7 +248,7 @@ tables:
 | AC-002 | Allows NULL for root-level records                 | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-015` | ✅     |
 | AC-003 | Supports tree traversal queries                    | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-016` | ✅     |
 | AC-004 | Prevents circular references (optional validation) | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-017` | ✅     |
-| AC-005 | Returns ancestors/descendants when requested       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-018` | ⏳     |
+| AC-005 | Returns ancestors/descendants when requested       | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-018` | ✅     |
 
 ### Implementation References
 
