@@ -303,9 +303,9 @@ export async function applyReadFiltering<E, R>(config: {
  * Validate upsert request (permissions and required fields)
  *
  * Upsert behavior for protected fields:
- * - Check field-level write permissions BEFORE any other validation
- * - If ANY forbidden fields are present, return 403 error
- * - This ensures consistent permission enforcement across all write operations
+ * - If user ONLY tries to write protected fields → 403 error (same as batch update)
+ * - If user tries to write mix of protected + allowed fields → strip protected, succeed
+ * - Filter protected fields from response
  */
 export async function validateUpsertRequest(config: {
   readonly c: Context
@@ -318,10 +318,30 @@ export async function validateUpsertRequest(config: {
   const { c, app, tableName, userRole, records, fieldsToMergeOn } = config
   const table = app.tables?.find((t) => t.name === tableName)
 
-  // Check field-level write permissions FIRST (before stripping)
-  const fieldPermissionCheck = checkFieldPermissions({ app, tableName, userRole, records, c })
-  if (fieldPermissionCheck.allowed === false) {
-    return { success: false as const, response: fieldPermissionCheck.response }
+  // Strip unwritable fields from records (same logic as batch update)
+  const strippedRecords = stripUnwritableFields(app, tableName, userRole, records)
+
+  // Check if ANY records have writable fields remaining after stripping
+  // This matches batch update behavior: if all fields were protected, return 403
+  const hasWritableFields = strippedRecords.some((record) => Object.keys(record.fields).length > 0)
+  if (!hasWritableFields) {
+    // All fields were stripped - user tried to write only protected fields
+    const allForbiddenFields = records
+      .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
+      .filter((fields) => fields.length > 0)
+    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+    const firstForbiddenField = uniqueForbiddenFields[0]
+    return {
+      success: false as const,
+      response: c.json(
+        {
+          success: false,
+          message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
+          code: 'FORBIDDEN',
+        },
+        403
+      ),
+    }
   }
 
   // Check table-level permissions (create/update)
@@ -329,7 +349,7 @@ export async function validateUpsertRequest(config: {
     app,
     tableName,
     userRole,
-    records,
+    records: strippedRecords,
     fieldsToMergeOn,
     c,
   })
@@ -337,8 +357,8 @@ export async function validateUpsertRequest(config: {
     return { success: false as const, response: permissionCheck.response }
   }
 
-  // Validate required fields
-  const validationErrors = await validateUpsertRequiredFields(table, records)
+  // Validate required fields on stripped records
+  const validationErrors = await validateUpsertRequiredFields(table, strippedRecords)
 
   if (validationErrors.length > 0) {
     return {
@@ -355,5 +375,5 @@ export async function validateUpsertRequest(config: {
     }
   }
 
-  return { success: true as const, strippedRecords: records }
+  return { success: true as const, strippedRecords }
 }
