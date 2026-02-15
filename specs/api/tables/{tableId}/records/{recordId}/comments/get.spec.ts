@@ -399,6 +399,10 @@ test.describe('List comments on a record', () => {
         INSERT INTO tasks (id, title) VALUES (1, 'Task with edited comment')
       `)
       await executeQuery(`
+        INSERT INTO auth.user (id, name, email, email_verified) VALUES
+          ('user_1', 'Test User', 'user1@example.com', true)
+      `)
+      await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content, created_at, updated_at)
         VALUES ('comment_1', '1', '1', 'user_1', 'Edited comment', NOW() - INTERVAL '1 hour', NOW())
       `)
