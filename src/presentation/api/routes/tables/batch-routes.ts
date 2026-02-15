@@ -183,6 +183,10 @@ async function handleBatchCreate(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
   const { session, tableName, userRole } = getTableContext(c)
 
+  // Authorization check BEFORE validation (viewer role cannot create)
+  const viewerCheck = checkViewerPermission(userRole, c)
+  if (viewerCheck) return viewerCheck
+
   // Check record count before validation to return 413 for payload too large
   const body = await c.req.json()
   const recordLimitCheck = checkRecordLimitExceeded(body.records || [], c)
