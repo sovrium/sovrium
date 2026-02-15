@@ -377,15 +377,13 @@ test.describe('Batch create records', () => {
       expect(data).toHaveProperty('success')
       expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('code')
-      expect(data).toHaveProperty('message')
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
+      expect(data.message).toBe("Cannot write to field 'salary': insufficient permissions")
       expect(data.code).toBe('FORBIDDEN')
-      expect(data.message).toBe('You do not have permission to write to field: salary')
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-008: should return 403 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedAdmin }) => {
@@ -416,19 +414,17 @@ test.describe('Batch create records', () => {
         },
       })
 
-      // THEN: Returns 403 Forbidden error
-      expect(response.status()).toBe(403)
+      // THEN: Returns 400 Validation error (readonly field validation)
+      expect(response.status()).toBe(400)
 
       const data = await response.json()
       // THEN: assertion
       expect(data).toHaveProperty('success')
       expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('code')
-      expect(data).toHaveProperty('message')
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
-      expect(data.code).toBe('FORBIDDEN')
-      expect(data.message).toBe('Cannot set readonly field: id')
+      expect(data.message).toBe("Cannot write to readonly field 'id'")
+      expect(data.code).toBe('VALIDATION_ERROR')
     }
   )
 

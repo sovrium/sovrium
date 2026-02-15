@@ -189,7 +189,7 @@ export function validateReadonlyFields(
     return c.json(
       {
         success: false,
-        message: 'Cannot set readonly field: id',
+        message: "Cannot write to readonly field 'id'",
         code: 'VALIDATION_ERROR',
       },
       400
@@ -384,10 +384,7 @@ async function checkRequiredFields(
   table: NonNullable<App['tables']>[number] | undefined,
   strippedRecords: ReadonlyArray<{ fields: Record<string, unknown> }>,
   c: Context
-): Promise<
-  | { success: true }
-  | { success: false; response: Response }
-> {
+): Promise<{ success: true } | { success: false; response: Response }> {
   const validationErrors = await validateUpsertRequiredFields(table, strippedRecords)
   if (validationErrors.length === 0) {
     return { success: true }
@@ -442,7 +439,14 @@ export async function validateUpsertRequest(config: {
   const strippedRecords = stripUnwritableFields(app, tableName, userRole, records)
 
   // Check if all fields were stripped
-  const stripCheck = checkAllFieldsStripped({ c, app, tableName, userRole, records, strippedRecords })
+  const stripCheck = checkAllFieldsStripped({
+    c,
+    app,
+    tableName,
+    userRole,
+    records,
+    strippedRecords,
+  })
   if (!stripCheck.success) {
     return stripCheck
   }
