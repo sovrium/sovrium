@@ -1,4 +1,4 @@
-name: Monitor
+name: TDD Monitor
 
 # Timeout-based fallback for stale TDD PRs (Fix #3)
 # Checks TDD PRs that have been in failed state for >30 minutes without Claude Code activity
@@ -94,7 +94,7 @@ jobs:
             RECENT_CLAUDE_RUNS=$(gh api \
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
-              "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?branch=$PR_BRANCH&created=>$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-30M +%Y-%m-%dT%H:%M:%SZ)" \
+              "/repos/${{ github.repository }}/actions/workflows/tdd-claude-code.yml/runs?branch=$PR_BRANCH&created=>$(date -u -d '30 minutes ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-30M +%Y-%m-%dT%H:%M:%SZ)" \
               --jq '.workflow_runs | length' 2>/dev/null || echo "0")
 
             echo "  Recent Claude Code runs (last 30 min): $RECENT_CLAUDE_RUNS"

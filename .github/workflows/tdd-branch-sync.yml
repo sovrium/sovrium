@@ -1,4 +1,4 @@
-name: Branch Sync
+name: TDD Branch Sync
 
 # Automatically sync TDD branches with main to prevent staleness
 # Triggered when main branch is updated or periodically via cron
@@ -117,7 +117,7 @@ jobs:
             # never reach the execute job.
             # See: ISSUE-2026-02-11-spurious-claude-code-triggers
             IN_PROGRESS_RUN_IDS=$(gh run list \
-              --workflow="Claude Code" \
+              --workflow="TDD Claude Code" \
               --status=in_progress \
               --json databaseId,displayTitle \
               --limit 20 \
@@ -134,7 +134,7 @@ jobs:
             done
 
             CLAUDE_QUEUED=$(gh run list \
-              --workflow="Claude Code" \
+              --workflow="TDD Claude Code" \
               --status=queued \
               --json databaseId,displayTitle \
               --limit 20 \

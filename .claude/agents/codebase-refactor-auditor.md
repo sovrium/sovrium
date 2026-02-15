@@ -149,10 +149,12 @@ This agent uses a two-phase strategy to prioritize recent changes over full code
 ### TDD Automation Pipeline Overview
 
 **Workflow Files** (located in `.github/workflows/`):
-- **pr-creator.yml** - Scans for `.fixme()` specs, creates TDD PRs (triggers: hourly cron + test.yml success)
+- **tdd-pr-creator.yml** - Scans for `.fixme()` specs, creates TDD PRs (triggers: hourly cron + test.yml success)
 - **test.yml** - Extended with TDD handling (auto-merge on success, dispatch @claude comment on failure)
-- **claude-code.yml** - Executes Claude Code to fix failing specs (invokes e2e-test-fixer or this agent)
-- **merge-watchdog.yml** - Handles stuck PRs with auto-rebase every 30 minutes
+- **tdd-claude-code.yml** - Executes Claude Code to fix failing specs (invokes e2e-test-fixer or this agent)
+- **tdd-monitor.yml** - Detects stale TDD PRs (failed >30 min without Claude Code activity)
+- **tdd-branch-sync.yml** - Syncs TDD branches with main to prevent staleness
+- **tdd-cleanup.yml** - Cancels Claude Code runs when TDD PRs reach terminal state
 
 **Cost Protection** (enforced in all workflows):
 - **Hard limits**: $100/day, $500/week

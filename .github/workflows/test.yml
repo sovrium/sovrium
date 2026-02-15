@@ -1017,7 +1017,7 @@ jobs:
 
             # Trigger branch-sync workflow since [skip ci] prevents automatic triggers
             echo "📡 Triggering branch-sync workflow to sync TDD branches..."
-            gh workflow run branch-sync.yml --ref main || echo "⚠️ Failed to trigger branch-sync (non-fatal)"
+            gh workflow run tdd-branch-sync.yml --ref main || echo "⚠️ Failed to trigger branch-sync (non-fatal)"
           fi
 
   # ============================================================================
@@ -1227,7 +1227,7 @@ jobs:
 
           # Get in-progress TDD Claude Code run IDs (not just count)
           IN_PROGRESS_RUN_IDS=$(gh run list \
-            --workflow="Claude Code" \
+            --workflow="TDD Claude Code" \
             --status=in_progress \
             --json databaseId,displayTitle \
             --limit 20 \
@@ -1256,7 +1256,7 @@ jobs:
           # These have not started any jobs yet and are rare for claude-code.yml.
           # We still count them as a conservative measure.
           QUEUED_WORKFLOWS=$(gh run list \
-            --workflow="Claude Code" \
+            --workflow="TDD Claude Code" \
             --status=queued \
             --json databaseId,displayTitle \
             --limit 20 \

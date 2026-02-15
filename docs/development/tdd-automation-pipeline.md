@@ -63,19 +63,22 @@ Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 1/5
 
 - Created with Attempt 1/Y by PR Creator
 - Incremented to Attempt X+1/Y by test.yml on each test failure
-- Read by claude-code.yml for model escalation (Sonnet attempts 1-3, Opus attempts 4-5)
+- Read by tdd-tdd-claude-code.yml for model escalation (Sonnet attempts 1-3, Opus attempts 4-5)
 - Max attempts default is 5 (configurable per spec)
 ```
 
 ### Workflows Summary
 
-| Workflow    | File                                | Trigger                                                             |
-| ----------- | ----------------------------------- | ------------------------------------------------------------------- |
-| PR Creator  | `.github/workflows/pr-creator.yml`  | Hourly cron + test.yml success on main + manual (workflow_dispatch) |
-| Test        | `.github/workflows/test.yml`        | Push to main + PR events (opened, synchronize, reopened, closed)    |
-| Claude Code | `.github/workflows/claude-code.yml` | @claude comment on PR                                               |
-| Monitor     | `.github/workflows/monitor.yml`     | Hourly cron + manual (workflow_dispatch)                            |
-| Branch Sync | `.github/workflows/branch-sync.yml` | Push to main + 15-minute cron + manual (workflow_dispatch)          |
+| Workflow        | File                                        | Trigger                                                             |
+| --------------- | ------------------------------------------- | ------------------------------------------------------------------- |
+| TDD PR Creator  | `.github/workflows/tdd-tdd-pr-creator.yml`  | Hourly cron + test.yml success on main + manual (workflow_dispatch) |
+| Test            | `.github/workflows/test.yml`                | Push to main + PR events (opened, synchronize, reopened, closed)    |
+| TDD Claude Code | `.github/workflows/tdd-tdd-claude-code.yml` | @claude comment on PR                                               |
+| TDD Monitor     | `.github/workflows/tdd-tdd-monitor.yml`     | Hourly cron + manual (workflow_dispatch)                            |
+| TDD Branch Sync | `.github/workflows/tdd-tdd-branch-sync.yml` | Push to main + 15-minute cron + manual (workflow_dispatch)          |
+| TDD Cleanup     | `.github/workflows/tdd-cleanup.yml`         | PR closed (merged) + label added (manual-intervention)              |
+
+**Naming Convention**: All TDD-specific workflow files are prefixed with `tdd-` for discoverability and filtering. The `test.yml` workflow is shared (general CI + TDD handling) and does not carry the prefix. Display names (`name:` field) similarly use the `TDD` prefix.
 
 **Note on Spec Progress Updates**: The `test` workflow includes an `update-spec-progress` job that automatically updates `SPEC-PROGRESS.md` when all tests pass on `main` branch. This job:
 
@@ -118,7 +121,7 @@ Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 1/5
 
 > **Note**: The workflow is currently pinned to SHA `b433f16b30d54063fd3bab6b12f46f3da00e41b6` (v1.0.47, SDK 0.2.38) — the last working version before the AJV validation crash in SDK 0.2.39+ ([GitHub issue #892](https://github.com/anthropics/claude-code-action/issues/892)). Previous pin to SDK 0.2.9 failed with a different crash ("exit code 1" — too old for current runtime). This will be unpinned to `@v1` once Anthropic fixes the SDK beyond 0.2.39.
 
-**Required Secret:** `CLAUDE_CODE_OAUTH_TOKEN` must be configured in repository Settings → Secrets and variables → Actions. See `.github/workflows/claude-code.yml` for usage.
+**Required Secret:** `CLAUDE_CODE_OAUTH_TOKEN` must be configured in repository Settings → Secrets and variables → Actions. See `.github/workflows/tdd-tdd-claude-code.yml` for usage.
 
 **Action Inputs:**
 
@@ -130,7 +133,7 @@ Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 1/5
 | `claude_args`             | See agent configurations below           | CLI-compatible arguments                        |
 | `timeout_minutes`         | `90` (default), configurable per-spec    | Read from `@tdd-timeout` comment in spec file   |
 
-**Required Permissions:** See `.github/workflows/claude-code.yml` for complete permissions configuration (contents, pull-requests, issues, actions, id-token).
+**Required Permissions:** See `.github/workflows/tdd-tdd-claude-code.yml` for complete permissions configuration (contents, pull-requests, issues, actions, id-token).
 
 ---
 
@@ -149,7 +152,7 @@ Both agents use **model escalation** to balance cost and success rate. The agent
 
 **Purpose:** Make failing E2E tests pass through minimal, correct implementation.
 
-**Configuration:** See `.github/workflows/claude-code.yml` for `claude_args` parameter values.
+**Configuration:** See `.github/workflows/tdd-tdd-claude-code.yml` for `claude_args` parameter values.
 
 | Parameter           | Value                                              | Rationale                                                                                   |
 | ------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
@@ -171,7 +174,7 @@ Both agents use **model escalation** to balance cost and success rate. The agent
 
 **Purpose:** Optimize implementations after tests pass (code quality, DRY, architecture).
 
-**Configuration:** See `.github/workflows/claude-code.yml` for `claude_args` parameter values.
+**Configuration:** See `.github/workflows/tdd-tdd-claude-code.yml` for `claude_args` parameter values.
 
 | Parameter           | Value                                              | Rationale                                                          |
 | ------------------- | -------------------------------------------------- | ------------------------------------------------------------------ |
@@ -243,7 +246,7 @@ The workflow dynamically selects the appropriate agent based on failure context:
 - Text like "Use the e2e-test-fixer agent" without Task tool invocation = base assistant with restricted tools
 - Proper invocation: "Use the Task tool to invoke the `e2e-test-fixer` agent to implement this spec."
 
-**Implementation Location**: See `.github/workflows/claude-code.yml` lines 513-582 for prompt generation logic.
+**Implementation Location**: See `.github/workflows/tdd-tdd-claude-code.yml` lines 513-582 for prompt generation logic.
 
 **Prompt Structure:**
 
@@ -276,7 +279,7 @@ Agent-specific prompts are dynamically generated by workflows based on failure c
 
 - **Test failures**: `.github/workflows/test.yml` - e2e-test-fixer prompt generation
 - **Quality failures**: `.github/workflows/test.yml` - codebase-refactor-auditor prompt generation
-- **Agent invocation**: `.github/workflows/claude-code.yml` - Task tool invocation prompts
+- **Agent invocation**: `.github/workflows/tdd-tdd-claude-code.yml` - Task tool invocation prompts
 
 **Note**: Merge conflicts are handled via early exit (not agent execution). See comment posted by workflow for manual resolution instructions.
 
@@ -300,7 +303,7 @@ Complex specs may require extended timeouts. Configure via:
    test.fixme('Complex integration test', async () => { ... })
    ```
 
-2. **Workflow Default** (in claude-code.yml):
+2. **Workflow Default** (in tdd-claude-code.yml):
 
    ```yaml
    - uses: anthropics/claude-code-action@v1
@@ -378,7 +381,7 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                                            │                                                          ║
 ║                                            ▼                                                          ║
 ║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
-║  WORKFLOW 1: PR CREATOR (.github/workflows/pr-creator.yml)                                           ║
+║  WORKFLOW 1: PR CREATOR (.github/workflows/tdd-pr-creator.yml)                                           ║
 ║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
 ║                                                                                                       ║
 ║                              ┌─────────────────────────────┐                                          ║
@@ -571,7 +574,7 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                   │                 │ 4. bun test:e2e -- <spec-file>  │                              ║
 ║                   │                 │                                 │                              ║
 ║                   │                 │ NOTE: Branch syncing handled    │                              ║
-║                   │                 │ automatically by claude-code.yml│                              ║
+║                   │                 │ automatically by tdd-claude-code.yml│                              ║
 ║                   │                 │ via merge strategy. No sync     │                              ║
 ║                   │                 │ check needed here.              │                              ║
 ║                   │                 └───────────────┬─────────────────┘                              ║
@@ -668,11 +671,11 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                   │ │ auditor...                            │                                         ║
 ║                   │ └───────────────┬───────────────────────┘                                         ║
 ║                   │                 │                                                                 ║
-║                   │                 │  ← @claude comment triggers claude-code.yml                     ║
+║                   │                 │  ← @claude comment triggers tdd-claude-code.yml                     ║
 ║                   │                 │                                                                 ║
 ║                   │                 ▼                                                                 ║
 ║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
-║  WORKFLOW 3: CLAUDE CODE (.github/workflows/claude-code.yml)                                         ║
+║  WORKFLOW 3: CLAUDE CODE (.github/workflows/tdd-claude-code.yml)                                         ║
 ║  ════════════════════════════════════════════════════════════════════════════════════════════════    ║
 ║                   │                                                                                   ║
 ║                   │  ┌─────────────────────────────┐                                                  ║
@@ -1002,8 +1005,10 @@ TERMINAL STATES:
 │ - PR closes             │       │   tdd-automation:       │
 │ - Label removed         │       │   manual-intervention   │
 │ - Next spec begins      │       │ - Human review needed   │
-│                         │       │ - Pipeline continues    │
-│                         │       │   with next spec        │
+│ - Running Claude Code   │       │ - Pipeline continues    │
+│   cancelled (cleanup)   │       │   with next spec        │
+│                         │       │ - Running Claude Code   │
+│                         │       │   cancelled (cleanup)   │
 └─────────────────────────┘       └─────────────────────────┘
 ```
 
@@ -1013,7 +1018,7 @@ TERMINAL STATES:
 
 ### 1. PR Creator Workflow
 
-**File:** `.github/workflows/pr-creator.yml`
+**File:** `.github/workflows/tdd-tdd-pr-creator.yml`
 
 **Triggers:**
 
@@ -1168,7 +1173,7 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 
 ### 3. Claude Code Workflow
 
-**File:** `.github/workflows/claude-code.yml`
+**File:** `.github/workflows/tdd-tdd-claude-code.yml`
 
 **Triggers:**
 
@@ -1196,26 +1201,28 @@ When a PR contains ONLY `.fixme()` removals from test files (i.e., test activati
 
 - **Parallel execution prevention**: Handled by `test.yml` workflow. Only the **last** test.yml execution on a PR will post `@claude` comment. If multiple test runs are queued/running (e.g., from main branch updates), earlier runs skip triggering Claude Code - only the final run with the latest failure triggers execution.
 
-  **Race Condition Protections (8 layers)**:
+  **Race Condition Protections (9 layers)**:
   1. **Smarter Timestamp-Based Check**: `test.yml` compares timestamps of active Claude Code runs. Only skips triggering if an active Claude Code run started AFTER the current test failure. This prevents skipping when the active run is handling an old failure.
 
   2. **Skipped Trigger Logging**: When automation decides not to trigger Claude Code (due to staleness or active Claude Code runs), the decision is logged in the workflow output with the reason, pending test count, and active Claude Code count. No PR comment is posted -- these skip events are transient operational states that resolve automatically, and posting comments adds noise to the PR conversation. The Monitor Workflow (layer 5) handles the case where automation genuinely stalls by adding the `manual-intervention` label after 30 minutes.
 
-  3. **Staleness Filter (Phantom Run Protection)**: When checking for active test.yml or claude-code.yml runs, only count runs as "active" if their `updated_at` timestamp is within the staleness threshold. For **test.yml runs**, the threshold is 30 minutes. For **claude-code.yml `in_progress` runs**, the staleness filter is bypassed because Claude Code runs are legitimately long-running (20-90 minutes) and GitHub's `updated_at` field does not continuously update for active runs -- it only reflects the last state transition. Filtering these by `updated_at` incorrectly removes actively running Claude Code jobs. For claude-code.yml `queued` runs, the 30-minute threshold still applies (queued runs should not stay queued that long). This prevents GitHub Actions infrastructure phantom runs from blocking the pipeline while preserving detection of legitimately long-running Claude Code jobs.
+  3. **Staleness Filter (Phantom Run Protection)**: When checking for active test.yml or tdd-claude-code.yml runs, only count runs as "active" if their `updated_at` timestamp is within the staleness threshold. For **test.yml runs**, the threshold is 30 minutes. For **tdd-claude-code.yml `in_progress` runs**, the staleness filter is bypassed because Claude Code runs are legitimately long-running (20-90 minutes) and GitHub's `updated_at` field does not continuously update for active runs -- it only reflects the last state transition. Filtering these by `updated_at` incorrectly removes actively running Claude Code jobs. For tdd-claude-code.yml `queued` runs, the 30-minute threshold still applies (queued runs should not stay queued that long). This prevents GitHub Actions infrastructure phantom runs from blocking the pipeline while preserving detection of legitimately long-running Claude Code jobs.
 
-  4. **Claude Code Workflow Check (Global with [TDD] Title Filter + Execute Job Verification)**: Before posting the `@claude` comment that triggers Claude Code, `test.yml` checks if any Claude Code workflow is already running for TDD automation. The check uses two separate `gh run list` calls -- one for `--status=in_progress` and one for `--status=queued` -- then combines the results. **IMPORTANT**: `gh run list` does NOT support multiple `--status` flags; the second flag silently overrides the first. This was the root cause of PR #7233 duplicate comment cascade (Bug 1). The results are filtered by `[TDD]` in the display title via jq. **Why no branch filter**: The `claude-code.yml` workflow is triggered by `issue_comment` events, which always report `head_branch: "main"` regardless of the PR's actual branch. Branch-based filtering would always return 0 results, defeating the check. **Why this is safe**: Serial processing guarantees only one active TDD PR at a time, so a global check for `[TDD]`-titled Claude Code runs is equivalent to a per-PR check.
+  4. **Claude Code Workflow Check (Global with [TDD] Title Filter + Execute Job Verification)**: Before posting the `@claude` comment that triggers Claude Code, `test.yml` checks if any Claude Code workflow is already running for TDD automation. The check uses two separate `gh run list` calls -- one for `--status=in_progress` and one for `--status=queued` -- then combines the results. **IMPORTANT**: `gh run list` does NOT support multiple `--status` flags; the second flag silently overrides the first. This was the root cause of PR #7233 duplicate comment cascade (Bug 1). The results are filtered by `[TDD]` in the display title via jq. **Why no branch filter**: The `tdd-claude-code.yml` workflow is triggered by `issue_comment` events, which always report `head_branch: "main"` regardless of the PR's actual branch. Branch-based filtering would always return 0 results, defeating the check. **Why this is safe**: Serial processing guarantees only one active TDD PR at a time, so a global check for `[TDD]`-titled Claude Code runs is equivalent to a per-PR check.
 
-     **Spurious trigger filtering (Execute Job Verification)**: The `claude-code.yml` workflow triggers on ALL `issue_comment:created` events. Non-`@claude` comments (e.g., "Credits Available", claude[bot] progress comments) create spurious workflow runs that enter the concurrency queue. These runs are filtered out by the `validate` job's `if:` condition, but while queued or being validated they appear as legitimate runs in `gh run list`. To prevent these spurious runs from blocking the pipeline, the check verifies that each matching run has an `Execute Claude Code` job in `in_progress` state. Runs without an active execute job (pending in concurrency queue, or being validated/skipped) are not counted. This is implemented via `gh run view <run-id> --json jobs` for each matching `in_progress` run. The same filtering is applied in `staleness-check.ts` and `branch-sync.yml`.
+     **Spurious trigger filtering (Execute Job Verification)**: The `tdd-claude-code.yml` workflow triggers on ALL `issue_comment:created` events. Non-`@claude` comments (e.g., "Credits Available", claude[bot] progress comments) create spurious workflow runs that enter the concurrency queue. These runs are filtered out by the `validate` job's `if:` condition, but while queued or being validated they appear as legitimate runs in `gh run list`. To prevent these spurious runs from blocking the pipeline, the check verifies that each matching run has an `Execute Claude Code` job in `in_progress` state. Runs without an active execute job (pending in concurrency queue, or being validated/skipped) are not counted. This is implemented via `gh run view <run-id> --json jobs` for each matching `in_progress` run. The same filtering is applied in `staleness-check.ts` and `tdd-branch-sync.yml`.
 
      If a running Claude Code workflow with an active execute job is detected, the comment posting is skipped and the reason is logged in the workflow output (no PR comment posted -- see layer 2 rationale).
 
   5. **Timeout-Based Fallback**: A scheduled workflow (hourly) checks TDD PRs that have been in failed state for >30 minutes without Claude Code activity. Automatically adds `tdd-automation:manual-intervention` label and posts an explanatory comment if automation has stalled.
 
-  6. **Concurrency Control (claude-code.yml)**: GitHub Actions concurrency group `claude-code-{PR#}` ensures only one Claude Code workflow runs per PR at a time. Uses `cancel-in-progress: false` to complete current run before starting next (avoids wasting API credits). Different PRs can run in parallel. Added after PR #7083 incident where two `@claude` comments triggered parallel runs.
+  6. **Concurrency Control (tdd-claude-code.yml)**: GitHub Actions concurrency group `claude-code-{PR#}` ensures only one Claude Code workflow runs per PR at a time. Uses `cancel-in-progress: false` to complete current run before starting next (avoids wasting API credits). Different PRs can run in parallel. Added after PR #7083 incident where two `@claude` comments triggered parallel runs.
 
   7. **Atomic Check-and-Post with Attempt-Specific Deduplication (PR #7225 fix)**: The staleness check, Claude Code running check, and `@claude` comment posting are combined into a **single workflow step**. Previously these were 3 separate steps with a timing gap of several minutes between the check and the post, allowing two concurrent `test.yml` runs to both pass checks and post duplicate `@claude` comments. The merged step also adds **attempt-specific comment deduplication**: before posting, it queries existing PR comments to check if a comment for the same attempt number (`Attempt N/M`) already exists. If a matching comment is found, the post is skipped. This reduces the race window from minutes to milliseconds while still allowing legitimate retries for different attempt numbers.
 
-  8. **Branch Sync Claude Code Guard (PR #7233 fix)**: The `branch-sync.yml` workflow checks for active/queued Claude Code runs before pushing merge commits to TDD branches. When Claude Code is actively implementing on a TDD branch, a push would trigger `test.yml` (via `pull_request: synchronize`), which can cancel the running Claude Code workflow and trigger a duplicate run with an incremented attempt counter. The guard uses two separate `gh run list` calls (one for `in_progress`, one for `queued`) with `[TDD]` title filtering via jq, then combines the counts. This two-call pattern matches layer 4 and is required because `gh run list` does not support multiple `--status` flags. No branch filter is used because `claude-code.yml` is triggered by `issue_comment` events which always report `head_branch: "main"`. Each matching `in_progress` run is further verified to have an active `Execute Claude Code` job (see layer 4, spurious trigger filtering). If active runs with real execute jobs are detected, the sync is deferred to the next cycle (15-minute cron or next push to main).
+  8. **Branch Sync Claude Code Guard (PR #7233 fix)**: The `tdd-branch-sync.yml` workflow checks for active/queued Claude Code runs before pushing merge commits to TDD branches. When Claude Code is actively implementing on a TDD branch, a push would trigger `test.yml` (via `pull_request: synchronize`), which can cancel the running Claude Code workflow and trigger a duplicate run with an incremented attempt counter. The guard uses two separate `gh run list` calls (one for `in_progress`, one for `queued`) with `[TDD]` title filtering via jq, then combines the counts. This two-call pattern matches layer 4 and is required because `gh run list` does not support multiple `--status` flags. No branch filter is used because `tdd-claude-code.yml` is triggered by `issue_comment` events which always report `head_branch: "main"`. Each matching `in_progress` run is further verified to have an active `Execute Claude Code` job (see layer 4, spurious trigger filtering). If active runs with real execute jobs are detected, the sync is deferred to the next cycle (15-minute cron or next push to main).
+
+  9. **Terminal State Cleanup (2026-02-15)**: The `tdd-cleanup.yml` workflow cancels running Claude Code workflows when a TDD PR reaches a terminal state (merged or manual-intervention labeled). This prevents wasted API credits and frees workflow slots. Triggered by `pull_request: closed` (merge) and `pull_request: labeled` (manual-intervention). Uses the same run detection pattern as layers 4 and 8 (two `gh run list` calls, `[TDD]` title filter, Execute Claude Code job verification). Cancellation via `gh run cancel` is idempotent -- cancelling a completed run is a no-op.
 
 - **Step 3 (Initial sync)**: Branch syncing is handled automatically by this workflow via merge strategy. The test workflow (`.github/workflows/test.yml`) does NOT check if the branch is behind main - syncing happens when Claude Code is triggered via `@claude` comment.
 
@@ -1272,7 +1279,7 @@ Now, conflicts immediately pause automation and wait for human resolution.
 
 ### 4. Monitor Workflow
 
-**File**: `.github/workflows/monitor.yml`
+**File**: `.github/workflows/tdd-tdd-monitor.yml`
 
 **Purpose**: Timeout-based fallback for detecting and handling stale TDD PRs that have been in failed state for >30 minutes without Claude Code activity.
 
@@ -1349,7 +1356,7 @@ All errors now follow this single path instead of complex categorization and mul
 
 ---
 
-### Branch Sync Workflow (`.github/workflows/branch-sync.yml`)
+### Branch Sync Workflow (`.github/workflows/tdd-tdd-branch-sync.yml`)
 
 **Purpose**: Proactively sync TDD branches with main to prevent staleness
 
@@ -1371,13 +1378,13 @@ All errors now follow this single path instead of complex categorization and mul
 
 **Claude Code Guard Details**:
 
-The guard uses two separate `gh run list` calls (one for `--status=in_progress`, one for `--status=queued`) with `[TDD]` title filtering via jq, then combines the counts. Two separate calls are required because `gh run list` does not support multiple `--status` flags -- the second flag silently overrides the first. No branch filter is used because `claude-code.yml` is triggered by `issue_comment` events which always report `head_branch: "main"`. This is safe because serial processing guarantees only one active TDD PR at a time.
+The guard uses two separate `gh run list` calls (one for `--status=in_progress`, one for `--status=queued`) with `[TDD]` title filtering via jq, then combines the counts. Two separate calls are required because `gh run list` does not support multiple `--status` flags -- the second flag silently overrides the first. No branch filter is used because `tdd-claude-code.yml` is triggered by `issue_comment` events which always report `head_branch: "main"`. This is safe because serial processing guarantees only one active TDD PR at a time.
 
-**Why this guard is necessary**: When `branch-sync.yml` pushes a merge commit to a TDD branch, it triggers `test.yml` (via `pull_request: synchronize` event). If Claude Code is mid-implementation, the tests will fail (incomplete code). The `test.yml` TDD Handle Failure handler sees no running Claude Code (the push may have cancelled it via concurrency) and posts a new `@claude` comment, incrementing the attempt counter. This wastes both an attempt (e.g., 3/5 becomes 4/5) and the cost of a new Claude Code run.
+**Why this guard is necessary**: When `tdd-branch-sync.yml` pushes a merge commit to a TDD branch, it triggers `test.yml` (via `pull_request: synchronize` event). If Claude Code is mid-implementation, the tests will fail (incomplete code). The `test.yml` TDD Handle Failure handler sees no running Claude Code (the push may have cancelled it via concurrency) and posts a new `@claude` comment, incrementing the attempt counter. This wastes both an attempt (e.g., 3/5 becomes 4/5) and the cost of a new Claude Code run.
 
 **Key Features**:
 
-- Uses merge strategy (matches `claude-code.yml` strategy)
+- Uses merge strategy (matches `tdd-claude-code.yml` strategy)
 - Detects and reports conflicting files
 - Posts detailed comments with resolution steps
 - Prevents stale branches from blocking TDD automation
@@ -1402,6 +1409,81 @@ The guard uses two separate `gh run list` calls (one for `--status=in_progress`,
 
 ---
 
+### TDD Cleanup Workflow (`.github/workflows/tdd-cleanup.yml`)
+
+**Purpose**: Cancel running Claude Code workflows when a TDD PR reaches a terminal state (merged or manual-intervention labeled). This frees up workflow slots and prevents wasted API credits on work that is no longer needed.
+
+**Triggers**:
+
+- `pull_request: closed` -- Fires when a TDD PR is merged (auto-merge squash) or manually closed
+- `pull_request: labeled` -- Fires when `tdd-automation:manual-intervention` label is added
+
+**Pre-conditions**:
+
+1. PR has `tdd-automation` label (filters out non-TDD PRs)
+2. For `labeled` trigger: the added label is `tdd-automation:manual-intervention`
+3. For `closed` trigger: the PR was merged (`github.event.pull_request.merged == true`)
+
+**Execution Flow**:
+
+| Step                     | Action                                                                |
+| ------------------------ | --------------------------------------------------------------------- |
+| 1. Filter TDD PRs        | Skip if PR doesn't have `tdd-automation` label                        |
+| 2. Detect terminal state | Identify whether trigger is merge or manual-intervention              |
+| 3. Find Claude Code runs | Query running/queued Claude Code workflows with `[TDD]` in title      |
+| 4. Filter spurious runs  | Verify each `in_progress` run has an active `Execute Claude Code` job |
+| 5. Cancel matching runs  | Cancel each genuine Claude Code run via `gh run cancel`               |
+| 6. Log results           | Report how many runs were cancelled and their IDs                     |
+
+**Claude Code Run Detection**:
+
+The workflow uses the same proven pattern as `tdd-branch-sync.yml` and `test.yml`:
+
+1. Two separate `gh run list` calls (one for `--status=in_progress`, one for `--status=queued`)
+2. Filter by `[TDD]` in display title via jq
+3. For each `in_progress` run: verify it has an active `Execute Claude Code` job via `gh run view <run-id> --json jobs`
+4. Queued runs are cancelled without job verification (they haven't started executing yet)
+
+**Why no branch filter**: `tdd-claude-code.yml` is triggered by `issue_comment` events which always report `head_branch: "main"`. Branch-based filtering would miss all Claude Code runs. The global `[TDD]` title filter is safe because serial processing guarantees only one active TDD PR at a time.
+
+**Race Condition Handling**:
+
+- **Claude Code finishes before cancellation**: `gh run cancel` on a completed run is a no-op (safe)
+- **Claude Code pushes then gets cancelled**: The push already happened; `test.yml` will run and find the PR merged/closed, which triggers normal cleanup
+- **Multiple terminal events in quick succession**: The workflow handles each event independently; duplicate cancellation attempts on already-cancelled runs are no-ops
+- **Manual-intervention label added WHILE Claude Code is mid-push**: The label addition is asynchronous to Claude Code's git operations; cancellation will attempt to stop the run but if the push completes first, subsequent tests will still run
+
+**Example Scenarios**:
+
+| Scenario                        | Action                                       | Runs Cancelled?   |
+| ------------------------------- | -------------------------------------------- | ----------------- |
+| TDD PR merged (all tests pass)  | Cancel any lingering Claude Code runs        | Yes (if found)    |
+| TDD PR closed without merge     | No action (not a terminal state for cleanup) | No                |
+| Manual-intervention label added | Cancel active Claude Code runs               | Yes (if found)    |
+| Non-TDD PR merged               | Skip (no `tdd-automation` label)             | No                |
+| No Claude Code runs active      | Log "no runs to cancel"                      | No                |
+| Claude Code already completed   | `gh run cancel` is a no-op                   | No (already done) |
+
+**Rationale**:
+
+A dedicated workflow is preferred over adding cancellation steps to every place that adds the `manual-intervention` label because:
+
+1. **Centralized**: Single place to maintain cancellation logic (not duplicated across 4+ workflows)
+2. **Event-driven**: Reacts to the GitHub event (label added, PR closed) regardless of which workflow caused it
+3. **Complete coverage**: Handles ALL sources of terminal states, including manual label additions by humans
+4. **Non-invasive**: Does not modify existing complex workflows (`tdd-claude-code.yml`, `test.yml`, `tdd-branch-sync.yml`)
+5. **Idempotent**: Cancelling an already-cancelled or completed run is a no-op
+
+**Design Decision (2026-02-15)**:
+
+Chose a dedicated `tdd-cleanup.yml` workflow over embedded cancellation steps because:
+
+- Adding cancellation to `tdd-claude-code.yml`'s error handlers would only cover errors originating from Claude Code itself, missing terminal states from `test.yml` (max attempts), `tdd-monitor.yml` (stale PRs), `tdd-branch-sync.yml` (conflicts), and manual human actions
+- The GitHub Actions `pull_request: labeled` and `pull_request: closed` events provide a reliable, centralized trigger point
+- The approach follows the existing pattern of dedicated workflows for specific concerns (tdd-monitor.yml for staleness, tdd-branch-sync.yml for branch updates)
+
+---
+
 ### Merge Watchdog (Removed 2026-01-28)
 
 **Status**: Removed as redundant (replaced by Branch Sync workflow)
@@ -1409,7 +1491,7 @@ The guard uses two separate `gh run list` calls (one for `--status=in_progress`,
 **Why removed**:
 
 - GitHub's native auto-merge feature handles PR merging automatically
-- PR Creator already enables auto-merge on creation (pr-creator.yml line 192)
+- PR Creator already enables auto-merge on creation (tdd-pr-creator.yml line 192)
 - test.yml now re-enables auto-merge on success (added as root cause fix)
 - No evidence of PRs getting "stuck" with passed checks
 - Unnecessary complexity: 48 cron runs/day, API rate limits, maintenance overhead
@@ -1503,7 +1585,7 @@ Claude Code action outputs a JSON result in workflow logs containing:
 
 **Extraction Flow:**
 
-1. Query `claude-code.yml` workflow runs from past 24h/7d
+1. Query `tdd-claude-code.yml` workflow runs from past 24h/7d
 2. For each successful run, fetch workflow logs
 3. Extract `total_cost_usd` from Claude Code action result JSON
 4. Store actual cost per run (keyed by run ID)
@@ -1729,7 +1811,7 @@ All GitHub CLI commands in workflows are wrapped with timeout and retry logic:
 - `gh workflow run` (trigger workflows)
 - `gh api` (API calls)
 
-**Example Pattern** (from `test.yml` and `claude-code.yml`):
+**Example Pattern** (from `test.yml` and `tdd-claude-code.yml`):
 
 ```bash
 # Post comment with timeout and retry logic
@@ -1778,7 +1860,7 @@ Without timeouts, `gh` commands can hang indefinitely when GitHub API is slow or
 
 In addition to budget-based credit checks, the pipeline probes the Claude Code API to detect actual credit exhaustion using a **workflow-based approach** (not API-based).
 
-**Probe Method** (`.github/workflows/pr-creator.yml` lines 30-41):
+**Probe Method** (`.github/workflows/tdd-tdd-pr-creator.yml` lines 30-41):
 
 - **Action**: `anthropics/claude-code-action@v1` (same action used for TDD execution)
 - **Prompt**: `"hi"` (minimal, 1-2 tokens)
@@ -1915,7 +1997,7 @@ For ALL error types:
 
 ### Error Detection Pipeline
 
-**Workflow**: `.github/workflows/claude-code.yml` (after Claude Code action)
+**Workflow**: `.github/workflows/tdd-tdd-claude-code.yml` (after Claude Code action)
 
 1. **Parse Claude Code Result**
    - Reads `execution_file` output from action
@@ -2062,7 +2144,7 @@ _Automated closure by TDD pipeline error handling_
 - **Attempts 1-3 (Sonnet 4.5)**: $10 per execution
 - **Attempts 4-5 (Opus 4.6)**: $15 per execution
 
-**Configuration**: Dynamically set in `.github/workflows/claude-code.yml` based on attempt number:
+**Configuration**: Dynamically set in `.github/workflows/tdd-tdd-claude-code.yml` based on attempt number:
 
 ```yaml
 # Attempt-based budget calculation
@@ -2175,7 +2257,7 @@ All TDD errors now follow a single, simplified recovery flow:
 **Action Options**:
 
 - **If on Sonnet attempt (1-3) and budget hit**: Wait for model escalation to Opus (attempt 4+) with higher $15 budget
-- **If on Opus attempt (4-5) and budget hit**: Spec is genuinely expensive — increase Opus budget in claude-code.yml or simplify spec
+- **If on Opus attempt (4-5) and budget hit**: Spec is genuinely expensive — increase Opus budget in tdd-claude-code.yml or simplify spec
 - **If spec is too complex**: Use `mark-for-spec-review` to simplify spec
 - **If uncertain**: Manual implementation, then adjust budget/spec based on learnings
 
@@ -2359,6 +2441,7 @@ Next Spec Processed
 | Unknown errors           | Retry once, then manual intervention            | Conservative approach for unexpected failures             |
 | Recovery actions         | Manual workflow_dispatch triggers               | Flexible recovery without pipeline re-runs                |
 | Commit detection         | SHA comparison (not commit counting)            | Accurate push verification, handles divergence            |
+| Terminal state cleanup   | Dedicated `tdd-cleanup.yml` workflow            | Centralized, event-driven, covers all terminal sources    |
 
 ### PR Creator Job Ordering (Cost Optimization)
 
@@ -2409,7 +2492,7 @@ Next Spec Processed
 
 **Solution**: Replace commit counting with **SHA comparison** for unambiguous push verification.
 
-#### Implementation (claude-code.yml, lines ~664-714)
+#### Implementation (tdd-claude-code.yml, lines ~664-714)
 
 ```yaml
 # Fetch remote branch to get latest SHA
@@ -2522,21 +2605,21 @@ IN_PROGRESS_TEST_RUNS=$(gh api \
   '.workflow_runs | map(select(.id != ($current_id | tonumber) and .updated_at > $threshold)) | length')
 
 # Same staleness filter for Claude Code runs
-# NOTE: claude-code.yml is triggered by issue_comment events, which always
+# NOTE: tdd-claude-code.yml is triggered by issue_comment events, which always
 # report head_branch="main" regardless of the PR's actual branch. Therefore
 # we query WITHOUT branch filter and filter by [TDD] display_title instead.
 # This is safe because serial processing guarantees only 1 active TDD PR.
 ACTIVE_CLAUDE_RUNS=$(gh api \
   -H "Accept: application/vnd.github+json" \
   -H "X-GitHub-Api-Version: 2022-11-28" \
-  "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=queued" \
+  "/repos/${{ github.repository }}/actions/workflows/tdd-claude-code.yml/runs?status=queued" \
   --jq --arg threshold "$STALENESS_THRESHOLD" \
   '.workflow_runs | map(select(.updated_at > $threshold and (.display_title | startswith("[TDD]"))))')
 
 IN_PROGRESS_CLAUDE=$(gh api \
   -H "Accept: application/vnd.github+json" \
   -H "X-GitHub-Api-Version: 2022-11-28" \
-  "/repos/${{ github.repository }}/actions/workflows/claude-code.yml/runs?status=in_progress" \
+  "/repos/${{ github.repository }}/actions/workflows/tdd-claude-code.yml/runs?status=in_progress" \
   --jq --arg threshold "$STALENESS_THRESHOLD" \
   '.workflow_runs | map(select(.updated_at > $threshold and (.display_title | startswith("[TDD]"))))')
 ```
@@ -2614,14 +2697,14 @@ Automated comments are posted by workflows for different scenarios:
   - Quality failure notifications (lint/typecheck)
   - Manual intervention notifications (max attempts exceeded)
 
-- **Claude Code Workflow**: `.github/workflows/claude-code.yml`
+- **Claude Code Workflow**: `.github/workflows/tdd-tdd-claude-code.yml`
   - Branch sync (merge) operation status
   - Merge conflict manual resolution instructions (informational, not triggering @claude)
   - Agent-specific prompt construction (for successful sync)
 
 **Note**:
 
-- Branch syncing is handled automatically by `claude-code.yml` via merge strategy (not test.yml)
+- Branch syncing is handled automatically by `tdd-claude-code.yml` via merge strategy (not test.yml)
 - Merge conflict comments do NOT include `@claude` - they provide manual resolution instructions only
 - After manual conflict resolution, human removes `manual-intervention` label and posts `@claude` to resume automation
 
@@ -2697,11 +2780,11 @@ Programs compose services to implement business logic using `Effect.gen`.
 
 Three TypeScript services replace complex bash template logic for generating GitHub PR comments:
 
-| Service                  | File                                                           | Purpose                                             | Replaces (Lines)                    |
-| ------------------------ | -------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------- |
-| `generateCreditComment`  | `scripts/tdd-automation/services/credit-comment-generator.ts`  | Generate credit usage markdown for PR comments      | ~60 lines bash in `claude-code.yml` |
-| `generateAgentPrompt`    | `scripts/tdd-automation/services/agent-prompt-generator.ts`    | Generate Claude Code agent invocation prompts       | ~85 lines bash in `claude-code.yml` |
-| `generateFailureComment` | `scripts/tdd-automation/services/failure-comment-generator.ts` | Generate failure recovery prompts for test failures | ~38 lines bash in `test.yml`        |
+| Service                  | File                                                           | Purpose                                             | Replaces (Lines)                        |
+| ------------------------ | -------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------- |
+| `generateCreditComment`  | `scripts/tdd-automation/services/credit-comment-generator.ts`  | Generate credit usage markdown for PR comments      | ~60 lines bash in `tdd-claude-code.yml` |
+| `generateAgentPrompt`    | `scripts/tdd-automation/services/agent-prompt-generator.ts`    | Generate Claude Code agent invocation prompts       | ~85 lines bash in `tdd-claude-code.yml` |
+| `generateFailureComment` | `scripts/tdd-automation/services/failure-comment-generator.ts` | Generate failure recovery prompts for test failures | ~38 lines bash in `test.yml`            |
 
 **Key Benefits:**
 
@@ -2977,7 +3060,7 @@ describe('myNewProgram', () => {
 | Variable                 | Used By              | Default  | Purpose                                |
 | ------------------------ | -------------------- | -------- | -------------------------------------- |
 | `GITHUB_TOKEN`           | All workflows        | Required | GitHub API authentication              |
-| `ANTHROPIC_API_KEY`      | claude-code.yml      | Required | Claude API authentication              |
+| `ANTHROPIC_API_KEY`      | tdd-claude-code.yml  | Required | Claude API authentication              |
 | `GH_PAT_WORKFLOW`        | test.yml             | Required | Branch protection bypass for main push |
 | `TDD_DAILY_LIMIT`        | check-credits.ts     | `200`    | Daily spend limit in dollars           |
 | `TDD_WEEKLY_LIMIT`       | check-credits.ts     | `1000`   | Weekly spend limit in dollars          |

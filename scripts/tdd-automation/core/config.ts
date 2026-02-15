@@ -75,7 +75,7 @@ export const TDD_CONFIG = {
 
   /** Claude Code workflow filename */
   get CLAUDE_CODE_WORKFLOW(): string {
-    return process.env['TDD_CLAUDE_CODE_WORKFLOW'] ?? 'claude-code.yml'
+    return process.env['TDD_CLAUDE_CODE_WORKFLOW'] ?? 'tdd-claude-code.yml'
   },
 
   /** Base branch for TDD PRs */
