@@ -891,7 +891,7 @@ test.describe('Relationship Field', () => {
 
   // ── Cascade Error (019) ──
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-019: should return appropriate error on FK constraint violation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
