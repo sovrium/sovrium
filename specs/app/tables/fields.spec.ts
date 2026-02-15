@@ -489,14 +489,14 @@ test.describe('Table Fields', () => {
   )
 
   test(
-    'APP-TABLES-FIELDS-016: should reject relationship field without relationType',
+    'APP-TABLES-FIELDS-016: should accept relationship field without relationType (defaults to many-to-one)',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
-      // NOTE: This test is superseded by APP-TABLES-FIELD-TYPES-RELATIONSHIP-017
-      // which specifies that relationType should default to 'many-to-one' when missing
+      // NOTE: This test behavior aligns with APP-TABLES-FIELD-TYPES-RELATIONSHIP-017
+      // which demonstrates that relationType defaults to 'many-to-one' when missing
       // GIVEN: Relationship field missing relationType
-      // WHEN: Attempting to start server with invalid schema
-      // THEN: Should throw validation error
+      // WHEN: Attempting to start server with schema
+      // THEN: Should succeed with default relationType of 'many-to-one'
       await expect(
         startServerWithSchema({
           name: 'test-app',
@@ -504,25 +504,31 @@ test.describe('Table Fields', () => {
             {
               id: 1,
               name: 'users',
-              fields: [{ id: 1, name: 'email', type: 'email' }],
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
             },
             {
               id: 2,
               name: 'posts',
               fields: [
-                // Testing missing relationType (runtime validation)
+                { id: 1, name: 'id', type: 'integer', required: true },
+                // Testing missing relationType (should default to many-to-one)
                 {
-                  id: 1,
+                  id: 2,
                   name: 'author_id',
                   type: 'relationship',
                   relatedTable: 'users',
-                  // relationType missing!
+                  // relationType omitted - should default to 'many-to-one'
                 },
               ],
+              primaryKey: { type: 'composite', fields: ['id'] },
             },
           ],
         })
-      ).rejects.toThrow(/relationType.*is missing|relationType is required/i)
+      ).resolves.not.toThrow()
     }
   )
 
