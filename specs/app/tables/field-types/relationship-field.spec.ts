@@ -1083,7 +1083,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-023: should return display value in API response',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedMember }) => {
