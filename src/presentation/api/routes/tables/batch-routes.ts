@@ -231,8 +231,14 @@ async function handleBatchCreate(c: Context, app: App) {
   // Extract flat field objects from nested format for database layer
   const flatRecordsData = result.data.records.map((record) => record.fields)
 
-  // Execute batch create with returnRecords parameter
-  const program = batchCreateProgram(session, tableName, flatRecordsData, result.data.returnRecords)
+  // Execute batch create with returnRecords parameter and app for numeric coercion
+  const program = batchCreateProgram(
+    session,
+    tableName,
+    flatRecordsData,
+    result.data.returnRecords,
+    app
+  )
 
   // Apply field-level read filtering to response (if records returned)
   const filteredProgram = program.pipe(
@@ -313,8 +319,14 @@ async function handleBatchUpdate(c: Context, app: App) {
     fields: record.fields,
   }))
 
-  // Execute batch update with returnRecords parameter
-  const program = batchUpdateProgram(session, tableName, recordsData, result.data.returnRecords)
+  // Execute batch update with returnRecords parameter and app for numeric coercion
+  const program = batchUpdateProgram(
+    session,
+    tableName,
+    recordsData,
+    result.data.returnRecords,
+    app
+  )
 
   // Apply field-level read filtering to response (if records returned)
   const filteredProgram = program.pipe(
