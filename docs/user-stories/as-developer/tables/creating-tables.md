@@ -173,7 +173,7 @@ tables:
 | AC-013 | Rejects multi-select field without options            | `APP-TABLES-FIELDS-013`        | ✅     |
 | AC-014 | Rejects decimal field with missing scale              | `APP-TABLES-FIELDS-014`        | ✅     |
 | AC-015 | Rejects relationship field without related table      | `APP-TABLES-FIELDS-015`        | ✅     |
-| AC-016 | Rejects relationship field with invalid relation type | `APP-TABLES-FIELDS-016`        | ✅     |
+| AC-016 | Rejects relationship field with invalid relation type | `APP-TABLES-FIELDS-016`        | ⏳     |
 | AC-017 | User can complete full fields workflow (regression)   | `APP-TABLES-FIELDS-REGRESSION` | ✅     |
 
 ### Implementation References
