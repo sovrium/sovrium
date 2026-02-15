@@ -248,7 +248,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-005: should return 403 for member without create permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
@@ -261,6 +261,9 @@ test.describe('Batch create records', () => {
             id: 5,
             name: 'projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+            permissions: {
+              create: ['admin'],
+            },
           },
         ],
       })
@@ -284,11 +287,9 @@ test.describe('Batch create records', () => {
       expect(data).toHaveProperty('success')
       expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('code')
-      expect(data).toHaveProperty('message')
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
-      expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to create records in this table')
+      expect(data.code).toBe('FORBIDDEN')
     }
   )
 
