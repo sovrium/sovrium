@@ -991,7 +991,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-021: should support limitToView on relationship field',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
