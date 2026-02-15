@@ -977,16 +977,17 @@ test.describe('Relationship Field', () => {
       })
 
       await executeQuery(`INSERT INTO categories (label) VALUES ('Electronics')`)
-      const cat = await executeQuery(`SELECT id FROM categories`)
-      await executeQuery(`INSERT INTO products (name, category_id) VALUES ('Laptop', ${cat[0].id})`)
+      const cat = await executeQuery(`SELECT id FROM categories WHERE label = 'Electronics'`)
+      await executeQuery(`INSERT INTO products (name, category_id) VALUES ('Laptop', ${cat.id})`)
 
       // THEN: FK column exists, displayField accessible via JOIN
       const result = await executeQuery(`
         SELECT p.name, c.label as category_label
         FROM products p JOIN categories c ON p.category_id = c.id
+        WHERE p.name = 'Laptop'
       `)
-      expect(result[0].name).toBe('Laptop')
-      expect(result[0].category_label).toBe('Electronics')
+      expect(result.name).toBe('Laptop')
+      expect(result.category_label).toBe('Electronics')
     }
   )
 
@@ -1068,16 +1069,17 @@ test.describe('Relationship Field', () => {
       })
 
       await executeQuery(`INSERT INTO contacts (first_name, last_name) VALUES ('John', 'Doe')`)
-      const contact = await executeQuery(`SELECT id FROM contacts`)
-      await executeQuery(`INSERT INTO tasks (assignee_id) VALUES (${contact[0].id})`)
+      const contact = await executeQuery(`SELECT id FROM contacts WHERE first_name = 'John'`)
+      await executeQuery(`INSERT INTO tasks (assignee_id) VALUES (${contact.id})`)
 
       // THEN: Both display fields accessible via JOIN
       const result = await executeQuery(`
         SELECT c.first_name, c.last_name
         FROM tasks t JOIN contacts c ON t.assignee_id = c.id
+        WHERE c.first_name = 'John'
       `)
-      expect(result[0].first_name).toBe('John')
-      expect(result[0].last_name).toBe('Doe')
+      expect(result.first_name).toBe('John')
+      expect(result.last_name).toBe('Doe')
     }
   )
 
@@ -1123,10 +1125,8 @@ test.describe('Relationship Field', () => {
       })
 
       await executeQuery(`INSERT INTO categories (name) VALUES ('Electronics')`)
-      const cat = await executeQuery(`SELECT id FROM categories`)
-      await executeQuery(
-        `INSERT INTO products (title, category_id) VALUES ('Laptop', ${cat[0].id})`
-      )
+      const cat = await executeQuery(`SELECT id FROM categories WHERE name = 'Electronics'`)
+      await executeQuery(`INSERT INTO products (title, category_id) VALUES ('Laptop', ${cat.id})`)
 
       // WHEN: Authenticated user queries products
       await createAuthenticatedMember({ email: 'user@example.com' })
