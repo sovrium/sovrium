@@ -93,7 +93,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-002: should return 201 with created=2 and no records array',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
