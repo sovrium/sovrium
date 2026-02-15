@@ -1033,7 +1033,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-022: should support multiple display fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
