@@ -293,7 +293,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-006: should return 403 for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
