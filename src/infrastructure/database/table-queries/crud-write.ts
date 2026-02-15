@@ -59,10 +59,13 @@ async function injectAuthorshipFields(
   const hasUpdatedBy = columnNames.has('updated_by')
 
   // Build new fields object with authorship metadata (immutable approach)
+  // When userId is 'guest' (no auth configured), set authorship fields to NULL
+  // eslint-disable-next-line unicorn/no-null -- NULL is intentional for database columns when no auth configured
+  const authorUserId = userId === 'guest' ? null : userId
   return {
     ...fields,
-    ...(hasCreatedBy ? { created_by: userId } : {}),
-    ...(hasUpdatedBy ? { updated_by: userId } : {}),
+    ...(hasCreatedBy ? { created_by: authorUserId } : {}),
+    ...(hasUpdatedBy ? { updated_by: authorUserId } : {}),
   }
 }
 
@@ -156,6 +159,41 @@ function logRecordUpdateActivity(config: {
 }
 
 /**
+ * Inject updated_by field into record fields for updates
+ *
+ * @param fields - Original record fields
+ * @param userId - User ID from session
+ * @param tx - Database transaction
+ * @param tableName - Table name
+ * @returns Fields with updated_by injected
+ */
+async function injectUpdatedByField(
+  fields: Readonly<Record<string, unknown>>,
+  userId: string,
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string
+): Promise<Record<string, unknown>> {
+  // Query table schema to check for updated_by column
+  const schemaQuery = await tx.execute(
+    sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'updated_by'`
+  )
+  const columnNames = new Set(
+    (schemaQuery as unknown as readonly { column_name: string }[]).map((row) => row.column_name)
+  )
+
+  const hasUpdatedBy = columnNames.has('updated_by')
+
+  // Build new fields object with updated_by metadata (immutable approach)
+  // When userId is 'guest' (no auth configured), set updated_by to NULL
+  // eslint-disable-next-line unicorn/no-null -- NULL is intentional for database columns when no auth configured
+  const authorUserId = userId === 'guest' ? null : userId
+  return {
+    ...fields,
+    ...(hasUpdatedBy ? { updated_by: authorUserId } : {}),
+  }
+}
+
+/**
  * Update a record
  *
  * @param session - Better Auth session
@@ -180,7 +218,15 @@ export function updateRecord(
         db.transaction(async (tx) => {
           validateTableName(tableName)
 
-          const entries = await validateFieldsNotEmpty(fields)
+          // Inject updated_by from session
+          const fieldsWithUpdatedBy = await injectUpdatedByField(
+            fields,
+            session.userId,
+            tx,
+            tableName
+          )
+
+          const entries = await validateFieldsNotEmpty(fieldsWithUpdatedBy)
           const before = await fetchRecordBeforeUpdateCRUD(tx, tableName, recordId)
           const setClause = buildUpdateSetClauseCRUD(entries)
           const updated = await executeRecordUpdateCRUD(tx, tableName, recordId, setClause)

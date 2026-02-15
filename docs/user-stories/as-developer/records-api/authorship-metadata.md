@@ -55,9 +55,9 @@ POST /api/tables/1/records
 | ID     | Criterion                                                   | E2E Spec                            | Status |
 | ------ | ----------------------------------------------------------- | ----------------------------------- | ------ |
 | AC-001 | createdBy is auto-set to current user ID on record creation | `API-TABLES-RECORDS-AUTHORSHIP-001` | ✅     |
-| AC-002 | createdBy is included in the API response after creation    | `API-TABLES-RECORDS-AUTHORSHIP-002` | ⏳     |
-| AC-003 | createdBy is stored in the database with correct user ID    | `API-TABLES-RECORDS-AUTHORSHIP-003` | ⏳     |
-| AC-004 | createdBy is NULL when no authentication is configured      | `API-TABLES-RECORDS-AUTHORSHIP-004` | ⏳     |
+| AC-002 | createdBy is included in the API response after creation    | `API-TABLES-RECORDS-AUTHORSHIP-002` | ✅     |
+| AC-003 | createdBy is stored in the database with correct user ID    | `API-TABLES-RECORDS-AUTHORSHIP-003` | ✅     |
+| AC-004 | createdBy is NULL when no authentication is configured      | `API-TABLES-RECORDS-AUTHORSHIP-004` | ✅     |
 
 ### Implementation References
 
@@ -102,7 +102,7 @@ PATCH /api/tables/1/records/1
 
 | ID     | Criterion                                                       | E2E Spec                            | Status |
 | ------ | --------------------------------------------------------------- | ----------------------------------- | ------ |
-| AC-001 | updatedBy is auto-set to current user ID on record update       | `API-TABLES-RECORDS-AUTHORSHIP-005` | ⏳     |
+| AC-001 | updatedBy is auto-set to current user ID on record update       | `API-TABLES-RECORDS-AUTHORSHIP-005` | ✅     |
 | AC-002 | updatedBy reflects the updating user, not the original creator  | `API-TABLES-RECORDS-AUTHORSHIP-006` | ⏳     |
 | AC-003 | updatedBy is set to same value as createdBy on initial creation | `API-TABLES-RECORDS-AUTHORSHIP-007` | ⏳     |
 | AC-004 | updatedBy is included in the API response after update          | `API-TABLES-RECORDS-AUTHORSHIP-008` | ⏳     |

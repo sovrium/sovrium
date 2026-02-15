@@ -35,7 +35,7 @@ export interface FormattedFieldValue {
 /**
  * Transformed record structure for API responses (Airtable-style)
  *
- * System fields (id, createdAt, updatedAt) are at root level.
+ * System fields (id, createdAt, updatedAt, createdBy, updatedBy) are at root level.
  * User-defined fields are nested under the `fields` property.
  */
 export interface TransformedRecord {
@@ -43,6 +43,9 @@ export interface TransformedRecord {
   readonly fields: Record<string, RecordFieldValue | FormattedFieldValue>
   readonly createdAt: string
   readonly updatedAt: string
+  readonly createdBy?: string
+  readonly updatedBy?: string
+  readonly deletedBy?: string
 }
 
 /**
@@ -253,8 +256,16 @@ export const transformRecord = (
     readonly timezone?: string
   }
 ): TransformedRecord => {
-  // Extract system fields
-  const { id, created_at: createdAt, updated_at: updatedAt, ...userFields } = record
+  // Extract system fields including authorship metadata
+  const {
+    id,
+    created_at: createdAt,
+    updated_at: updatedAt,
+    created_by: createdBy,
+    updated_by: updatedBy,
+    deleted_by: deletedBy,
+    ...userFields
+  } = record
 
   // Build user fields, potentially including created_at/updated_at if they're table fields
   const fieldsToTransform = buildFieldsObject(userFields, createdAt, updatedAt, options)
@@ -275,6 +286,9 @@ export const transformRecord = (
     fields: transformedFields,
     createdAt: createdAt ? toISOString(createdAt) : new Date().toISOString(),
     updatedAt: updatedAt ? toISOString(updatedAt) : new Date().toISOString(),
+    ...(createdBy ? { createdBy: String(createdBy) } : {}),
+    ...(updatedBy ? { updatedBy: String(updatedBy) } : {}),
+    ...(deletedBy ? { deletedBy: String(deletedBy) } : {}),
   }
 }
 

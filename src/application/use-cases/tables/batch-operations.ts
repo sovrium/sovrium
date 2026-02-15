@@ -16,21 +16,35 @@ import type { App } from '@/domain/models/app'
 export function batchCreateProgram(
   session: Readonly<UserSession>,
   tableName: string,
-  recordsData: readonly Record<string, unknown>[]
-) {
+  recordsData: readonly Record<string, unknown>[],
+  returnRecords: boolean = false,
+  app?: App
+): Effect.Effect<
+  { readonly created: number; readonly records?: readonly TransformedRecord[] },
+  SessionContextError | ValidationError,
+  BatchRepository
+> {
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
 
     // Create records in the database
     const createdRecords = yield* batch.batchCreate(session, tableName, recordsData)
 
-    // Transform records to API format
-    const transformed = transformRecords(createdRecords)
+    // Transform records to API format with app schema for numeric coercion
+    const transformed = transformRecords(createdRecords, { app, tableName })
 
-    return {
-      records: transformed,
-      count: transformed.length,
-    }
+    // Use functional pattern to build response object
+    const response: { readonly created: number; readonly records?: readonly TransformedRecord[] } =
+      returnRecords
+        ? {
+            created: transformed.length,
+            records: transformed as TransformedRecord[],
+          }
+        : {
+            created: transformed.length,
+          }
+
+    return response
   })
 }
 
@@ -38,7 +52,8 @@ export function batchUpdateProgram(
   session: Readonly<UserSession>,
   tableName: string,
   recordsData: readonly { readonly id: string; readonly fields?: Record<string, unknown> }[],
-  returnRecords: boolean = false
+  returnRecords: boolean = false,
+  app?: App
 ): Effect.Effect<
   { readonly updated: number; readonly records?: readonly TransformedRecord[] },
   SessionContextError | ValidationError,
@@ -48,8 +63,8 @@ export function batchUpdateProgram(
     const batch = yield* BatchRepository
     const updatedRecords = yield* batch.batchUpdate(session, tableName, recordsData)
 
-    // Transform records to API format (nested fields structure)
-    const transformed = transformRecords(updatedRecords)
+    // Transform records to API format with app schema for numeric coercion
+    const transformed = transformRecords(updatedRecords, { app, tableName })
 
     // Use functional pattern to build response object
     const response: { readonly updated: number; readonly records?: readonly TransformedRecord[] } =

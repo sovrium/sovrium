@@ -30,13 +30,13 @@ POST /api/tables/1/records/batch
 
 | ID     | Criterion                                               | E2E Spec                                   | Status |
 | ------ | ------------------------------------------------------- | ------------------------------------------ | ------ |
-| AC-001 | Returns 201 with created count and records array        | `API-TABLES-RECORDS-BATCH-POST-001`        | ⏳     |
-| AC-002 | Returns 404 Not Found for non-existent table            | `API-TABLES-RECORDS-BATCH-POST-002`        | ⏳     |
-| AC-003 | Returns 400 when records array is empty                 | `API-TABLES-RECORDS-BATCH-POST-003`        | ⏳     |
+| AC-001 | Returns 201 with created count and records array        | `API-TABLES-RECORDS-BATCH-POST-001`        | ✅     |
+| AC-002 | Returns 404 Not Found for non-existent table            | `API-TABLES-RECORDS-BATCH-POST-002`        | ✅     |
+| AC-003 | Returns 400 when records array is empty                 | `API-TABLES-RECORDS-BATCH-POST-003`        | ✅     |
 | AC-004 | Returns 400 when records array exceeds limit            | `API-TABLES-RECORDS-BATCH-POST-004`        | ✅     |
-| AC-005 | Returns 401 when not authenticated                      | `API-TABLES-RECORDS-BATCH-POST-005`        | ⏳     |
-| AC-006 | Returns 403 when user lacks create permission           | `API-TABLES-RECORDS-BATCH-POST-006`        | ⏳     |
-| AC-007 | Validates each record against schema                    | `API-TABLES-RECORDS-BATCH-POST-007`        | ⏳     |
+| AC-005 | Returns 401 when not authenticated                      | `API-TABLES-RECORDS-BATCH-POST-005`        | ✅     |
+| AC-006 | Returns 403 when user lacks create permission           | `API-TABLES-RECORDS-BATCH-POST-006`        | ✅     |
+| AC-007 | Validates each record against schema                    | `API-TABLES-RECORDS-BATCH-POST-007`        | ✅     |
 | AC-008 | Returns partial success with errors array               | `API-TABLES-RECORDS-BATCH-POST-008`        | ⏳     |
 | AC-009 | Supports transaction mode (all-or-nothing)              | `API-TABLES-RECORDS-BATCH-POST-009`        | ⏳     |
 | AC-010 | Returns created records when returnRecords=true         | `API-TABLES-RECORDS-BATCH-POST-010`        | ⏳     |
@@ -83,8 +83,8 @@ PATCH /api/tables/1/records/batch
 | AC-006 | Returns 403 when user lacks update permission     | `API-TABLES-RECORDS-BATCH-PATCH-006`        | ✅     |
 | AC-007 | Validates each record against schema              | `API-TABLES-RECORDS-BATCH-PATCH-007`        | ✅     |
 | AC-008 | Skips non-existent records with error in response | `API-TABLES-RECORDS-BATCH-PATCH-008`        | ✅     |
-| AC-009 | Supports transaction mode (all-or-nothing)        | `API-TABLES-RECORDS-BATCH-PATCH-009`        | ⏳     |
-| AC-010 | Updates updated_at timestamp for each record      | `API-TABLES-RECORDS-BATCH-PATCH-010`        | ⏳     |
+| AC-009 | Supports transaction mode (all-or-nothing)        | `API-TABLES-RECORDS-BATCH-PATCH-009`        | ✅     |
+| AC-010 | Updates updated_at timestamp for each record      | `API-TABLES-RECORDS-BATCH-PATCH-010`        | ✅     |
 | AC-011 | Maximum batch size is 100 records                 | `API-TABLES-RECORDS-BATCH-PATCH-011`        | ⏳     |
 | AC-012 | Updates records with proper data types            | `API-TABLES-RECORDS-BATCH-PATCH-012`        | ⏳     |
 | AC-013 | Excludes deleted records from update              | `API-TABLES-RECORDS-BATCH-PATCH-013`        | ⏳     |
@@ -120,12 +120,12 @@ DELETE /api/tables/1/records/batch
 | AC-002 | Returns 404 Not Found for non-existent table                                            | `API-TABLES-RECORDS-BATCH-DELETE-002`        | ✅     |
 | AC-003 | Returns 400 when ids array is empty                                                     | `API-TABLES-RECORDS-BATCH-DELETE-003`        | ✅     |
 | AC-004 | Returns 401 when not authenticated                                                      | `API-TABLES-RECORDS-BATCH-DELETE-004`        | ✅     |
-| AC-005 | Returns 403 when user lacks delete permission                                           | `API-TABLES-RECORDS-BATCH-DELETE-005`        | ⏳     |
-| AC-006 | Soft deletes records by default                                                         | `API-TABLES-RECORDS-BATCH-DELETE-006`        | ⏳     |
-| AC-007 | Skips non-existent record IDs                                                           | `API-TABLES-RECORDS-BATCH-DELETE-007`        | ⏳     |
-| AC-008 | Supports permanent=true for hard delete                                                 | `API-TABLES-RECORDS-BATCH-DELETE-008`        | ⏳     |
-| AC-009 | Permanent delete requires admin role                                                    | `API-TABLES-RECORDS-BATCH-DELETE-009`        | ⏳     |
-| AC-010 | Maximum batch size is 100 records                                                       | `API-TABLES-RECORDS-BATCH-DELETE-010`        | ⏳     |
+| AC-005 | Returns 403 when user lacks delete permission                                           | `API-TABLES-RECORDS-BATCH-DELETE-005`        | ✅     |
+| AC-006 | Soft deletes records by default                                                         | `API-TABLES-RECORDS-BATCH-DELETE-006`        | ✅     |
+| AC-007 | Skips non-existent record IDs                                                           | `API-TABLES-RECORDS-BATCH-DELETE-007`        | ✅     |
+| AC-008 | Supports permanent=true for hard delete                                                 | `API-TABLES-RECORDS-BATCH-DELETE-008`        | ✅     |
+| AC-009 | Permanent delete requires admin role                                                    | `API-TABLES-RECORDS-BATCH-DELETE-009`        | ✅     |
+| AC-010 | Maximum batch size is 100 records                                                       | `API-TABLES-RECORDS-BATCH-DELETE-010`        | ✅     |
 | AC-011 | Batch delete skips already soft-deleted records and returns count of newly deleted only |                                              |        |
 | AC-012 | Admin permanent delete with permanent=true hard deletes records                         |                                              |        |
 | AC-013 | User batch soft-deletes records (regression)                                            | `API-TABLES-RECORDS-BATCH-DELETE-REGRESSION` | ✅     |

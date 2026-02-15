@@ -130,17 +130,6 @@ export function deleteCommentProgram(
       return yield* Effect.fail(new SessionContextError('Comment not found'))
     }
 
-    // Check record exists (user must have access to the record)
-    const hasRecordAccess = yield* comments.checkRecordExists({
-      session,
-      tableName,
-      recordId: comment.recordId,
-    })
-
-    if (!hasRecordAccess) {
-      return yield* Effect.fail(new SessionContextError('Comment not found'))
-    }
-
     // Get current user to check role
     const currentUser = yield* comments.getUserById({ session, userId: session.userId })
 
@@ -151,6 +140,18 @@ export function deleteCommentProgram(
     // Check authorization: user is comment author OR user is admin
     const isAuthor = comment.userId === session.userId
     const isAdmin = currentUser.role === 'admin'
+
+    // Check record exists (admins can access all records, non-admins only their own)
+    const hasRecordAccess = yield* comments.checkRecordExists({
+      session,
+      tableName,
+      recordId: comment.recordId,
+      isAdmin,
+    })
+
+    if (!hasRecordAccess) {
+      return yield* Effect.fail(new SessionContextError('Comment not found'))
+    }
 
     if (!isAuthor && !isAdmin) {
       // User has record access but is not the comment author and not an admin

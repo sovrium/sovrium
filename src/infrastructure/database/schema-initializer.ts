@@ -73,15 +73,24 @@ type ViewGeneratorsModule = {
 /** Ensure Better Auth prerequisites exist (users table + updated-by trigger) */
 const ensureAuthPrerequisites = (
   tx: TransactionLike,
-  tables: readonly Table[]
+  tables: readonly Table[],
+  hasAuthConfig: boolean
 ): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
     logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
     const needs = needsUsersTable(tables)
     logInfo(`[executeSchemaInit] needsUsersTable: ${needs}`)
-    if (needs) {
+    logInfo(`[executeSchemaInit] hasAuthConfig: ${hasAuthConfig}`)
+
+    // Only enforce users table existence if auth is configured
+    // If auth is NOT configured, authorship fields will be NULL
+    if (needs && hasAuthConfig) {
       logInfo('[executeSchemaInit] Better Auth users table is needed, verifying it exists...')
       yield* Effect.promise(() => ensureBetterAuthUsersTable(tx))
+    } else if (needs && !hasAuthConfig) {
+      logInfo(
+        '[executeSchemaInit] User fields present but auth not configured - fields will be NULL'
+      )
     } else {
       logInfo('[executeSchemaInit] Better Auth users table not needed')
     }
@@ -106,6 +115,7 @@ type CreateMigrateTablesConfig = {
   readonly circularTables: ReadonlySet<string>
   readonly previousSchema: { readonly tables: readonly object[] } | undefined
   readonly lookupViewModule: LookupViewModule
+  readonly hasAuthConfig: boolean
 }
 
 /** Create or migrate each table in sorted order */
@@ -113,8 +123,15 @@ const createMigrateTables = (
   config: CreateMigrateTablesConfig
 ): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
-    const { tx, sortedTables, tableUsesView, circularTables, previousSchema, lookupViewModule } =
-      config
+    const {
+      tx,
+      sortedTables,
+      tableUsesView,
+      circularTables,
+      previousSchema,
+      lookupViewModule,
+      hasAuthConfig,
+    } = config
     /* eslint-disable functional/no-loop-statements */
     for (const table of sortedTables) {
       const sanitized = sanitizeTableName(table.name)
@@ -130,6 +147,7 @@ const createMigrateTables = (
         tableUsesView,
         previousSchema,
         skipForeignKeys: circularTables.has(table.name),
+        hasAuthConfig,
       })
       logInfo(`[Created/migrated table] ${table.name}`)
     }
@@ -221,7 +239,7 @@ const executeMigrationSteps = (
     yield* validateStoredChecksum(tx)
 
     // Steps 1-2: Ensure Better Auth prerequisites
-    yield* ensureAuthPrerequisites(tx, tables)
+    yield* ensureAuthPrerequisites(tx, tables, !!app.auth)
 
     // Step 3: Load previous schema for field rename detection
     const previousSchema = yield* getPreviousSchema(tx)
@@ -252,6 +270,7 @@ const executeMigrationSteps = (
       circularTables,
       previousSchema,
       lookupViewModule,
+      hasAuthConfig: !!app.auth,
     })
 
     // Step 7: Add FK constraints for circular dependencies
@@ -491,18 +510,15 @@ const initializeSchemaInternal = (
     // Normalize tables to empty array if undefined
     const tables = app.tables ?? []
 
-    // Check if tables require user fields but auth is not configured
+    // Check if tables require user fields and auth configuration status
+    // Note: Authorship fields (created-by, updated-by, deleted-by) are allowed without auth config
+    // When auth is not configured, these fields will be NULL
     const tablesNeedUsersTable = needsUsersTable(tables)
     const hasAuthConfig = !!app.auth
     logInfo(`[initializeSchemaInternal] Tables need users table: ${tablesNeedUsersTable}`)
     logInfo(`[initializeSchemaInternal] Auth config present: ${hasAuthConfig}`)
 
-    if (tablesNeedUsersTable && !hasAuthConfig) {
-      return yield* new AuthConfigRequiredForUserFields({
-        message:
-          'User fields (user, created-by, updated-by) require auth configuration. Please add auth: { strategies: [{ type: "emailAndPassword" }] } to your app schema.',
-      })
-    }
+    // No validation error - authorship fields are allowed without auth (they'll be NULL)
 
     // Get database URL from Effect Config (reads from environment)
     const databaseUrlConfig = yield* Config.string('DATABASE_URL').pipe(Config.withDefault(''))

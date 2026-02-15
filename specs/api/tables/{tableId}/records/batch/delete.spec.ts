@@ -224,7 +224,7 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-005: should return 403 for member without delete permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedMember }) => {
@@ -240,6 +240,9 @@ test.describe('Batch delete records', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'deleted_at', type: 'deleted-at', indexed: true },
             ],
+            permissions: {
+              delete: ['admin'],
+            },
           },
         ],
       })
@@ -265,7 +268,6 @@ test.describe('Batch delete records', () => {
 
       const data = await response.json()
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
       expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to delete records in this table')
 
@@ -277,7 +279,7 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-006: should return 403 for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedViewer }) => {
@@ -318,13 +320,12 @@ test.describe('Batch delete records', () => {
 
       const data = await response.json()
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
       expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to delete records in this table')
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-007: should return 200 for admin with full access',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {
@@ -382,7 +383,7 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-008: should return 200 for authenticated user with delete permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -438,7 +439,7 @@ test.describe('Batch delete records', () => {
   // Soft Delete Specific Tests
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-009: should skip already soft-deleted records in batch',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -490,7 +491,7 @@ test.describe('Batch delete records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-DELETE-010: should hard delete batch with permanent=true (admin only)',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedAdmin }) => {

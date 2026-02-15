@@ -263,6 +263,9 @@ export function createRecordProgram(config: CreateRecordConfig) {
       fields: filteredFields,
       createdAt: transformed.createdAt,
       updatedAt: transformed.updatedAt,
+      ...(transformed.createdBy ? { createdBy: transformed.createdBy } : {}),
+      ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
+      ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
     }
   })
 }

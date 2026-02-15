@@ -24,7 +24,7 @@ test.describe('Batch create records', () => {
   // @spec tests (one per spec) - EXHAUSTIVE coverage
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-001: should return 201 with created=3 and records array',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -93,7 +93,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-002: should return 201 with created=2 and no records array',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -149,7 +149,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-003: should return 400 with rollback on validation error',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -248,7 +248,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-005: should return 403 for member without create permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
@@ -261,6 +261,9 @@ test.describe('Batch create records', () => {
             id: 5,
             name: 'projects',
             fields: [{ id: 1, name: 'name', type: 'single-line-text' }],
+            permissions: {
+              create: ['admin'],
+            },
           },
         ],
       })
@@ -284,15 +287,13 @@ test.describe('Batch create records', () => {
       expect(data).toHaveProperty('success')
       expect(data).toHaveProperty('message')
       expect(data).toHaveProperty('code')
-      expect(data).toHaveProperty('message')
       expect(data.success).toBe(false)
-      expect(data.message).toBe('You do not have permission to perform this action')
-      expect(data.code).toBe('FORBIDDEN')
       expect(data.message).toBe('You do not have permission to create records in this table')
+      expect(data.code).toBe('FORBIDDEN')
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-006: should return 403 for viewer',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedViewer }) => {
@@ -334,7 +335,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-007: should return 403 when creating with protected field',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {

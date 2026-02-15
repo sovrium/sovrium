@@ -75,3 +75,55 @@ export async function createSingleRecord(
     throw error
   }
 }
+
+/**
+ * Effect-based helper to create a single record within a batch operation
+ *
+ * This is the Effect version of createSingleRecord, used by batchCreateRecords
+ * to properly propagate ValidationError through Effect.reduce.
+ */
+export function createSingleRecordInBatch(
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string,
+  fields: Readonly<Record<string, unknown>>
+): Effect.Effect<Record<string, unknown> | undefined, ValidationError> {
+  return Effect.tryPromise({
+    try: async () => {
+      // Build entries from user fields
+      const entries = Object.entries(fields)
+      if (entries.length === 0) return undefined
+
+      // Build column identifiers and values
+      const columnIdentifiers = entries.map(([key]) => {
+        validateColumnName(key)
+        return sql.identifier(key)
+      })
+      const valueParams = entries.map(([, value]) => sql`${value}`)
+
+      const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
+      const valuesClause = sql.join(valueParams, sql.raw(', '))
+
+      const result = (await tx.execute(
+        sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
+      )) as readonly Record<string, unknown>[]
+
+      return result[0] ?? undefined
+    },
+    catch: (error) => {
+      // PostgreSQL error codes: https://www.postgresql.org/docs/current/errcodes-appendix.html
+      // 23502 = not_null_violation
+      const pgError = error as { code?: string; message?: string }
+      if (pgError.code === '23502' || pgError.message?.includes('null value in column')) {
+        return new ValidationError('Validation failed: Required field is missing', [
+          { record: 0, field: 'unknown', error: 'Required field is missing' },
+        ])
+      }
+      // For other errors, return generic validation error
+      const errorMessage: string =
+        pgError.message !== undefined
+          ? pgError.message
+          : 'Insert failed due to constraint violation'
+      return new ValidationError(errorMessage, [])
+    },
+  })
+}

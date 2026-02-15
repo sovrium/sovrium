@@ -210,6 +210,7 @@ export function getCommentWithUser(config: {
 
 /**
  * Build SQL query to check record existence with optional deleted_at filter and owner_id check
+ * Admins bypass owner_id filtering to access all records
  */
 function buildRecordCheckQuery(params: {
   readonly tableName: string
@@ -217,29 +218,35 @@ function buildRecordCheckQuery(params: {
   readonly userId: string
   readonly hasDeletedAt: boolean
   readonly hasOwnerId: boolean
+  readonly isAdmin: boolean
 }) {
-  const { tableName, recordId, userId, hasDeletedAt, hasOwnerId } = params
-  if (hasDeletedAt && hasOwnerId) {
+  const { tableName, recordId, userId, hasDeletedAt, hasOwnerId, isAdmin } = params
+  // Admins bypass owner_id filtering
+  const shouldFilterOwner = hasOwnerId && !isAdmin
+
+  if (hasDeletedAt && shouldFilterOwner) {
     return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL AND owner_id = ${userId}`
   }
   if (hasDeletedAt) {
     return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
   }
-  if (hasOwnerId) {
+  if (shouldFilterOwner) {
     return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND owner_id = ${userId}`
   }
   return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId}`
 }
 
 /**
- * Check if a record exists in the given table (with owner_id isolation)
+ * Check if a record exists in the given table (with owner_id isolation for non-admins)
+ * Admins can access all records regardless of owner_id
  */
 export function checkRecordExists(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
   readonly recordId: string
+  readonly isAdmin?: boolean
 }): Effect.Effect<boolean, SessionContextError> {
-  const { session, tableName, recordId } = config
+  const { session, tableName, recordId, isAdmin = false } = config
   return Effect.gen(function* () {
     // Check if table has deleted_at column
     const columnsResult = yield* Effect.tryPromise({
@@ -254,13 +261,14 @@ export function checkRecordExists(config: {
     const hasDeletedAt = columns.some((row) => row.column_name === 'deleted_at')
     const hasOwnerId = columns.some((row) => row.column_name === 'owner_id')
 
-    // Check if record exists (with owner_id check for multi-tenancy isolation)
+    // Check if record exists (with owner_id check for multi-tenancy isolation, bypassed for admins)
     const query = buildRecordCheckQuery({
       tableName,
       recordId,
       userId: session.userId,
       hasDeletedAt,
       hasOwnerId,
+      isAdmin,
     })
     const result = yield* Effect.tryPromise({
       try: () => db.execute(query),

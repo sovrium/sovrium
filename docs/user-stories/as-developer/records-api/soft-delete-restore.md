@@ -281,7 +281,7 @@ GET /api/tables/1/records?includeDeleted=only
 | AC-002 | includeDeleted=only returns only deleted records             | `API-TABLES-RECORDS-INCLUDE-DELETED-002`        | ✅     |
 | AC-003 | Default behavior excludes deleted records                    | `API-TABLES-RECORDS-INCLUDE-DELETED-003`        | ✅     |
 | AC-004 | Deleted records are marked with deleted_at in response       | `API-TABLES-RECORDS-INCLUDE-DELETED-004`        | ✅     |
-| AC-005 | User can complete full include-deleted workflow (regression) | `API-TABLES-RECORDS-INCLUDE-DELETED-REGRESSION` | ⏳     |
+| AC-005 | User can complete full include-deleted workflow (regression) | `API-TABLES-RECORDS-INCLUDE-DELETED-REGRESSION` | ✅     |
 
 ### Implementation References
 

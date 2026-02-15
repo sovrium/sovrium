@@ -793,7 +793,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-017: should handle circular reference prevention in self-referencing',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -821,17 +821,17 @@ test.describe('Relationship Field', () => {
       // GIVEN: A → B hierarchy
       await executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('A', NULL)`)
       const a = await executeQuery(`SELECT id FROM categories WHERE name = 'A'`)
-      await executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('B', ${a[0].id})`)
+      await executeQuery(`INSERT INTO categories (name, parent_id) VALUES ('B', ${a.id})`)
       const b = await executeQuery(`SELECT id FROM categories WHERE name = 'B'`)
 
       // WHEN: Try to create a cycle: set A's parent to B
       // THEN: Either DB trigger prevents it or application validates
       // (behavior depends on implementation — may succeed at DB level if no trigger)
       try {
-        await executeQuery(`UPDATE categories SET parent_id = ${b[0].id} WHERE name = 'A'`)
+        await executeQuery(`UPDATE categories SET parent_id = ${b.id} WHERE name = 'A'`)
         // If no error, circular reference exists at DB level (needs app-level validation)
         const result = await executeQuery(`SELECT parent_id FROM categories WHERE name = 'A'`)
-        expect(result[0].parent_id).toBe(b[0].id)
+        expect(result.parent_id).toBe(b.id)
       } catch {
         // If error thrown, circular reference prevention is enforced
         expect(true).toBe(true)
@@ -839,7 +839,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-018: should support ancestor queries in self-referencing',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
@@ -867,25 +867,25 @@ test.describe('Relationship Field', () => {
       // GIVEN: CEO → VP → Manager chain
       await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('CEO', NULL)`)
       const ceo = await executeQuery(`SELECT id FROM employees WHERE name = 'CEO'`)
-      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('VP', ${ceo[0].id})`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('VP', ${ceo.id})`)
       const vp = await executeQuery(`SELECT id FROM employees WHERE name = 'VP'`)
-      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Manager', ${vp[0].id})`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Manager', ${vp.id})`)
       const mgr = await executeQuery(`SELECT id FROM employees WHERE name = 'Manager'`)
 
       // WHEN: Query ancestors of Manager via recursive CTE
       const ancestors = await executeQuery(`
         WITH RECURSIVE ancestors AS (
-          SELECT id, name, manager_id FROM employees WHERE id = ${mgr[0].id}
+          SELECT id, name, manager_id FROM employees WHERE id = ${mgr.id}
           UNION ALL
           SELECT e.id, e.name, e.manager_id
           FROM employees e JOIN ancestors a ON e.id = a.manager_id
         )
-        SELECT name FROM ancestors WHERE id != ${mgr[0].id} ORDER BY name
+        SELECT name FROM ancestors WHERE id != ${mgr.id} ORDER BY name
       `)
 
       // THEN: Returns [CEO, VP]
-      expect(ancestors).toHaveLength(2)
-      expect(ancestors.map((r: any) => r.name).sort()).toEqual(['CEO', 'VP'])
+      expect(ancestors.rows).toHaveLength(2)
+      expect(ancestors.rows.map((r: any) => r.name).sort()).toEqual(['CEO', 'VP'])
     }
   )
 

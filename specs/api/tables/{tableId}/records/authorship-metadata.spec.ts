@@ -84,7 +84,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-002: should include created_by in API response after creation',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -124,7 +124,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-003: should store created_by with correct user ID in database',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -172,7 +172,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-004: should set created_by to NULL when no authentication is configured',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
@@ -215,7 +215,7 @@ test.describe('Record Authorship Metadata', () => {
   // US-API-AUTHORSHIP-002: Updated By on Record Update
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-005: should auto-set updated_by to current user ID on record update',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {

@@ -91,16 +91,18 @@ export const migrateExistingTableEffect = (params: {
  * @param tableUsesView - Map of table names to whether they use a VIEW
  * @param skipForeignKeys - Skip foreign key constraints (for circular dependencies)
  */
-export const createNewTableEffect = (
-  tx: TransactionLike,
-  table: Table,
-  tableUsesView?: ReadonlyMap<string, boolean>,
-  skipForeignKeys?: boolean
-): Effect.Effect<void, SQLExecutionError> =>
+export const createNewTableEffect = (params: {
+  readonly tx: TransactionLike
+  readonly table: Table
+  readonly tableUsesView?: ReadonlyMap<string, boolean>
+  readonly skipForeignKeys?: boolean
+  readonly hasAuthConfig?: boolean
+}): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
+    const { tx, table, tableUsesView, skipForeignKeys, hasAuthConfig = true } = params
     // Wrap DDL generation in Effect.try to catch synchronous errors (e.g., unknown field types)
     const createTableSQL = yield* Effect.try({
-      try: () => generateCreateTableSQL(table, tableUsesView, skipForeignKeys),
+      try: () => generateCreateTableSQL(table, tableUsesView, skipForeignKeys, hasAuthConfig),
       catch: (error) =>
         new SQLExecutionError({
           message: `Failed to generate CREATE TABLE DDL: ${String(error)}`,
@@ -206,9 +208,11 @@ export const createOrMigrateTableEffect = (params: {
   readonly tableUsesView?: ReadonlyMap<string, boolean>
   readonly previousSchema?: { readonly tables: readonly object[] }
   readonly skipForeignKeys?: boolean
+  readonly hasAuthConfig?: boolean
 }): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const { tx, table, exists, tableUsesView, previousSchema, skipForeignKeys } = params
+    const { tx, table, exists, tableUsesView, previousSchema, skipForeignKeys, hasAuthConfig } =
+      params
     if (exists) {
       const existingColumns = yield* getExistingColumns(tx, table.name)
       yield* migrateExistingTableEffect({
@@ -219,6 +223,12 @@ export const createOrMigrateTableEffect = (params: {
         previousSchema,
       })
     } else {
-      yield* createNewTableEffect(tx, table, tableUsesView, skipForeignKeys)
+      yield* createNewTableEffect({
+        tx,
+        table,
+        tableUsesView,
+        skipForeignKeys,
+        hasAuthConfig: hasAuthConfig ?? true,
+      })
     }
   })
