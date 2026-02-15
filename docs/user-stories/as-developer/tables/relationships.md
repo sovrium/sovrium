@@ -477,8 +477,8 @@ tables:
 
 | ID     | Criterion                                       | E2E Spec                                  | Status |
 | ------ | ----------------------------------------------- | ----------------------------------------- | ------ |
-| AC-001 | Uses displayField for UI representation         | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-020` | ⏳     |
-| AC-002 | Filters available options based on limitToView  | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-021` | ⏳     |
+| AC-001 | Uses displayField for UI representation         | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-020` | ✅     |
+| AC-002 | Filters available options based on limitToView  | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-021` | ✅     |
 | AC-003 | Supports multiple display fields (concatenated) | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-022` | ⏳     |
 | AC-004 | Returns display value in API response           | `APP-TABLES-FIELD-TYPES-RELATIONSHIP-023` | ⏳     |
 
