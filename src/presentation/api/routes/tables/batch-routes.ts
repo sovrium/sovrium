@@ -207,29 +207,36 @@ async function handleBatchCreate(c: Context, app: App) {
     )
   }
 
-  // Extract fields from nested format (schema transforms to { fields: {...} })
-  const allForbiddenFields = result.data.records
-    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
-    .filter((fields) => fields.length > 0)
+  // Validate readonly fields BEFORE permission checks
+  const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
+  if (readonlyValidation) return readonlyValidation
 
-  if (allForbiddenFields.length > 0) {
+  // Authorization: Check field-level write permissions
+  // Strip unwritable fields instead of rejecting with 403
+  const { stripUnwritableFields } = await import('./upsert-helpers')
+  const strippedRecords = stripUnwritableFields(app, tableName, userRole, result.data.records)
+
+  // After stripping, check if ANY records have writable fields remaining
+  const hasWritableFields = strippedRecords.some((record) => Object.keys(record.fields).length > 0)
+  if (!hasWritableFields) {
+    // All fields were stripped - user tried to create with only protected fields
+    const allForbiddenFields = result.data.records
+      .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
+      .filter((fields) => fields.length > 0)
     const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+    const firstForbiddenField = uniqueForbiddenFields[0]
     return c.json(
       {
         success: false,
-        message: `Cannot write to field '${uniqueForbiddenFields[0]}': insufficient permissions`,
+        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
         code: 'FORBIDDEN',
       },
       403
     )
   }
 
-  // Validate readonly fields BEFORE permission checks
-  const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
-  if (readonlyValidation) return readonlyValidation
-
-  // Extract flat field objects from nested format for database layer
-  const flatRecordsData = result.data.records.map((record) => record.fields)
+  // Extract flat field objects from stripped records for database layer
+  const flatRecordsData = strippedRecords.map((record) => record.fields)
 
   // Execute batch create with returnRecords parameter and app for numeric coercion
   const program = batchCreateProgram(
