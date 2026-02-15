@@ -36,7 +36,7 @@ POST /api/tables/1/records/batch
 | AC-004 | Returns 400 when records array exceeds limit            | `API-TABLES-RECORDS-BATCH-POST-004`        | ✅     |
 | AC-005 | Returns 401 when not authenticated                      | `API-TABLES-RECORDS-BATCH-POST-005`        | ✅     |
 | AC-006 | Returns 403 when user lacks create permission           | `API-TABLES-RECORDS-BATCH-POST-006`        | ✅     |
-| AC-007 | Validates each record against schema                    | `API-TABLES-RECORDS-BATCH-POST-007`        | ⏳     |
+| AC-007 | Validates each record against schema                    | `API-TABLES-RECORDS-BATCH-POST-007`        | ✅     |
 | AC-008 | Returns partial success with errors array               | `API-TABLES-RECORDS-BATCH-POST-008`        | ⏳     |
 | AC-009 | Supports transaction mode (all-or-nothing)              | `API-TABLES-RECORDS-BATCH-POST-009`        | ⏳     |
 | AC-010 | Returns created records when returnRecords=true         | `API-TABLES-RECORDS-BATCH-POST-010`        | ⏳     |
