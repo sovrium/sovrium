@@ -6,9 +6,9 @@
  */
 
 import { Effect } from 'effect'
-import { db, SessionContextError } from '@/infrastructure/database'
+import { db, SessionContextError, ValidationError } from '@/infrastructure/database'
 import { logActivity } from './activity-log-helpers'
-import { createSingleRecord } from './batch-helpers'
+import { createSingleRecordInBatch, runEffectInTx } from './batch-helpers'
 import { validateTableName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -27,7 +27,7 @@ export function batchCreateRecords(
   session: Readonly<Session>,
   tableName: string,
   recordsData: readonly Record<string, unknown>[]
-): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
+): Effect.Effect<readonly Record<string, unknown>[], SessionContextError | ValidationError> {
   return Effect.gen(function* () {
     const createdRecords = yield* Effect.tryPromise({
       try: () =>
@@ -39,22 +39,21 @@ export function batchCreateRecords(
             throw new SessionContextError('Cannot create batch with no records', undefined)
           }
 
-          // Process records sequentially, collecting results
-          const records = await recordsData.reduce(
-            async (accPromise, fields) => {
-              const acc = await accPromise
-              const record = await createSingleRecord(tx, tableName, fields)
-              return record ? [...acc, record as Record<string, unknown>] : acc
-            },
-            Promise.resolve([] as readonly Record<string, unknown>[])
+          // Use Effect.reduce with runEffectInTx to properly propagate ValidationError
+          return await runEffectInTx(
+            Effect.reduce(recordsData, [] as readonly Record<string, unknown>[], (acc, fields) =>
+              createSingleRecordInBatch(tx, tableName, fields).pipe(
+                Effect.map((record) => (record ? [...acc, record] : acc))
+              )
+            )
           )
-
-          return records
         }),
       catch: (error) =>
         error instanceof SessionContextError
           ? error
-          : new SessionContextError(`Failed to create batch records in ${tableName}`, error),
+          : error instanceof ValidationError
+            ? error
+            : new SessionContextError(`Failed to create batch records in ${tableName}`, error),
     })
 
     // Log activity for each created record
