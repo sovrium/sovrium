@@ -625,7 +625,7 @@ describe('sql-generators', () => {
       expect(result).toBe('created_by TEXT')
     })
 
-    test('generates definition for updated-by as NOT NULL when auth configured (default)', () => {
+    test('generates definition for updated-by as nullable (NULL until first update)', () => {
       // Given
 
       const field = {
@@ -636,8 +636,8 @@ describe('sql-generators', () => {
       // When — default hasAuthConfig is true
       const result = generateColumnDefinition(field as any, false)
 
-      // Then
-      expect(result).toBe('updated_by TEXT NOT NULL')
+      // Then — updated-by is always nullable (only set on UPDATE, not INSERT)
+      expect(result).toBe('updated_by TEXT')
     })
 
     test('generates definition for updated-by as nullable when auth NOT configured', () => {
