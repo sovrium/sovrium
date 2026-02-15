@@ -839,7 +839,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-018: should support ancestor queries in self-referencing',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
