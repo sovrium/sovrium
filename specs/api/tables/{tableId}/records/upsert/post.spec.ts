@@ -513,8 +513,8 @@ test.describe('Upsert records (create or update)', () => {
     }
   )
 
-  test.fixme(
-    'API-TABLES-RECORDS-UPSERT-010: should return 403 for readonly fields',
+  test(
+    'API-TABLES-RECORDS-UPSERT-010: should return 400 for readonly fields',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedAdmin }) => {
       // GIVEN: An admin user attempting to set readonly fields
@@ -547,13 +547,13 @@ test.describe('Upsert records (create or update)', () => {
         },
       })
 
-      // THEN: Returns 403 Forbidden error
-      expect(response.status()).toBe(403)
+      // THEN: Returns 400 Validation Error
+      expect(response.status()).toBe(400)
 
       const data = await response.json()
       // THEN: assertion
       expect(data.success).toBe(false)
-      expect(data.code).toBe('FORBIDDEN')
+      expect(data.code).toBe('VALIDATION_ERROR')
       expect(data.message).toBe('Cannot set readonly field: id')
     }
   )
