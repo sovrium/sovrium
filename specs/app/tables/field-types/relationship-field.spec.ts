@@ -941,7 +941,7 @@ test.describe('Relationship Field', () => {
 
   // ── Display Options (020-023) ──
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-020: should use displayField for UI representation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
