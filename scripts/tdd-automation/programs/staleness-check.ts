@@ -11,7 +11,7 @@
  * Effect program that determines if the current test run should trigger
  * Claude Code execution based on:
  * - Other pending test.yml runs (not stale)
- * - Active claude-code.yml runs (not stale)
+ * - Active tdd-claude-code.yml runs (not stale)
  * - Staleness threshold (30 minutes)
  *
  * This prevents phantom runs from blocking TDD automation.
@@ -54,7 +54,7 @@ export interface StalenessCheckResult {
   readonly skipReason?: 'pending_tests' | 'active_claude_run'
   /** Number of pending test.yml runs (non-stale) */
   readonly pendingTests: number
-  /** Total active claude-code.yml runs (non-stale) */
+  /** Total active tdd-claude-code.yml runs (non-stale) */
   readonly activeClaude: number
   /** Claude Code runs started after current test */
   readonly newerClaudeRuns: number
@@ -93,7 +93,7 @@ function filterNewerRuns(runs: readonly WorkflowRun[], afterTime: Date): readonl
 
 /**
  * Filter runs by [TDD] display title prefix
- * Used for claude-code.yml runs which always report head_branch="main"
+ * Used for tdd-claude-code.yml runs which always report head_branch="main"
  */
 function filterTddRuns(runs: readonly WorkflowRun[]): readonly WorkflowRun[] {
   return runs.filter((run) => run.displayTitle.startsWith('[TDD]'))
@@ -111,7 +111,7 @@ interface WorkflowJob {
 /**
  * Check if a Claude Code workflow run has an active "Execute Claude Code" job.
  *
- * claude-code.yml triggers on ALL issue_comment:created events. Non-@claude
+ * tdd-claude-code.yml triggers on ALL issue_comment:created events. Non-@claude
  * comments create spurious runs that enter the concurrency queue. These runs
  * are filtered out by the validate job, but while in_progress (being validated)
  * they appear as legitimate runs in gh run list. Checking for an active
@@ -205,7 +205,7 @@ const queryWorkflowRunsByStatusAndBranch = (params: {
 /**
  * Query workflow runs by status only (no branch filter)
  *
- * Used for claude-code.yml which is triggered by issue_comment events.
+ * Used for tdd-claude-code.yml which is triggered by issue_comment events.
  * These events always report head_branch="main" regardless of the PR's
  * actual branch, so branch-based filtering would always return 0 results.
  *
@@ -286,17 +286,17 @@ export const checkStaleness = (config: StalenessCheckConfig) =>
       }),
     ])
 
-    // Query claude-code.yml runs (queued and in_progress) - NO branch filter
-    // claude-code.yml is triggered by issue_comment events which always report
+    // Query tdd-claude-code.yml runs (queued and in_progress) - NO branch filter
+    // tdd-claude-code.yml is triggered by issue_comment events which always report
     // head_branch="main". We filter by [TDD] display_title prefix instead.
     const [queuedClaude, inProgressClaude] = yield* Effect.all([
       queryWorkflowRunsByStatus({
-        workflow: 'claude-code.yml',
+        workflow: 'tdd-claude-code.yml',
         status: 'queued',
         repository: config.repository,
       }),
       queryWorkflowRunsByStatus({
-        workflow: 'claude-code.yml',
+        workflow: 'tdd-claude-code.yml',
         status: 'in_progress',
         repository: config.repository,
       }),

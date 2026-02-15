@@ -27,12 +27,12 @@ Copy this template when adding a new entry:
 ```markdown
 ### ISSUE-YYYY-MM-DD-<short-slug>
 
-| Field                    | Value                                     |
-| ------------------------ | ----------------------------------------- |
-| **Date**                 | YYYY-MM-DD                                |
-| **Severity**             | critical / high / medium / low            |
-| **Affected Workflow(s)** | e.g., `claude-code.yml`, `pr-creator.yml` |
-| **Error Symptoms**       | Brief description of what was observed    |
+| Field                    | Value                                             |
+| ------------------------ | ------------------------------------------------- |
+| **Date**                 | YYYY-MM-DD                                        |
+| **Severity**             | critical / high / medium / low                    |
+| **Affected Workflow(s)** | e.g., `tdd-claude-code.yml`, `tdd-pr-creator.yml` |
+| **Error Symptoms**       | Brief description of what was observed            |
 
 **Error Message / Log Excerpt**:
 \`\`\`

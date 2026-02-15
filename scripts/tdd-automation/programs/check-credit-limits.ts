@@ -54,7 +54,7 @@ export const checkCreditLimits = Effect.gen(function* () {
   // Fetch daily runs with graceful error handling (empty array if API fails)
   const dailyRuns = yield* pipe(
     github.getWorkflowRuns({
-      workflow: 'claude-code.yml',
+      workflow: 'tdd-claude-code.yml',
       createdAfter: oneDayAgo,
       status: 'success',
     }),
@@ -67,7 +67,7 @@ export const checkCreditLimits = Effect.gen(function* () {
   // Fetch weekly runs with graceful error handling (empty array if API fails)
   const weeklyRuns = yield* pipe(
     github.getWorkflowRuns({
-      workflow: 'claude-code.yml',
+      workflow: 'tdd-claude-code.yml',
       createdAfter: oneWeekAgo,
       status: 'success',
     }),

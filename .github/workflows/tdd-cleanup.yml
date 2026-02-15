@@ -1,0 +1,152 @@
+name: TDD Cleanup
+
+# Cancel running Claude Code workflows when a TDD PR reaches a terminal state.
+# Terminal states:
+# 1. PR merged (auto-merge squash after all tests pass)
+# 2. manual-intervention label added (errors, conflicts, max attempts, stale)
+#
+# This prevents wasted API credits and frees workflow slots for the next spec.
+# Uses the same Claude Code run detection pattern as tdd-branch-sync.yml and test.yml
+# (two gh run list calls, [TDD] title filter, Execute Claude Code job verification).
+
+on:
+  pull_request:
+    types: [closed, labeled]
+
+permissions:
+  actions: write
+  pull-requests: read
+
+jobs:
+  cancel-claude-code:
+    name: Cancel Claude Code on Terminal State
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    # Run only when:
+    # 1. PR has tdd-automation label (filters non-TDD PRs)
+    # 2. Either: PR was merged (closed + merged) OR manual-intervention label was just added
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'tdd-automation') &&
+      (
+        (github.event.action == 'closed' && github.event.pull_request.merged == true) ||
+        (github.event.action == 'labeled' && github.event.label.name == 'tdd-automation:manual-intervention')
+      )
+
+    steps:
+      - name: Determine terminal state
+        id: terminal-state
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if [ "${{ github.event.action }}" = "closed" ]; then
+            echo "reason=PR #${{ github.event.pull_request.number }} was merged"
+            echo "state=merged" >> "$GITHUB_OUTPUT"
+          else
+            echo "reason=manual-intervention label added to PR #${{ github.event.pull_request.number }}"
+            echo "state=manual-intervention" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "TDD Cleanup: Cancelling Claude Code workflows"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          echo "PR: #${{ github.event.pull_request.number }}"
+          echo "Title: $PR_TITLE"
+          echo "Terminal State: ${{ github.event.action }}"
+
+      - name: Find and cancel Claude Code runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          CANCELLED_COUNT=0
+
+          # ──────────────────────────────────────────────────────
+          # Find in_progress Claude Code runs with [TDD] in title
+          # ──────────────────────────────────────────────────────
+          #
+          # IMPORTANT: gh run list does NOT support multiple --status flags.
+          # The second flag silently overrides the first. We must make two
+          # separate calls and combine the results.
+          # See: ISSUE-2026-02-11-gh-run-list-dual-status
+          #
+          # SPURIOUS TRIGGER FILTERING: Verify each in_progress run has an
+          # active "Execute Claude Code" job. Non-@claude comments trigger
+          # spurious runs that show as in_progress during validation but
+          # never reach the execute job.
+          # See: ISSUE-2026-02-11-spurious-claude-code-triggers
+
+          echo "Searching for in_progress Claude Code runs..."
+
+          IN_PROGRESS_RUN_IDS=$(gh run list \
+            --repo "${{ github.repository }}" \
+            --workflow="TDD Claude Code" \
+            --status=in_progress \
+            --json databaseId,displayTitle \
+            --limit 20 \
+            --jq '[.[] | select(.displayTitle | startswith("[TDD]"))] | .[].databaseId')
+
+          for RUN_ID in $IN_PROGRESS_RUN_IDS; do
+            # Verify the run has an active Execute Claude Code job
+            # (filters out spurious runs from non-@claude comments)
+            EXECUTE_STATUS=$(gh run view "$RUN_ID" \
+              --repo "${{ github.repository }}" \
+              --json jobs \
+              --jq '[.jobs[] | select(.name == "Execute Claude Code" and .status == "in_progress")] | length' 2>/dev/null || echo "0")
+
+            if [ "$EXECUTE_STATUS" -gt 0 ]; then
+              echo "Cancelling in_progress Claude Code run #$RUN_ID (has active Execute Claude Code job)..."
+              if gh run cancel "$RUN_ID" --repo "${{ github.repository }}" 2>/dev/null; then
+                echo "  Cancelled run #$RUN_ID"
+                CANCELLED_COUNT=$((CANCELLED_COUNT + 1))
+              else
+                echo "  Run #$RUN_ID could not be cancelled (may have already completed)"
+              fi
+            else
+              echo "  Skipping run #$RUN_ID (no active Execute Claude Code job - spurious trigger)"
+            fi
+          done
+
+          # ──────────────────────────────────────────────────────
+          # Find queued Claude Code runs with [TDD] in title
+          # ──────────────────────────────────────────────────────
+          # Queued runs are cancelled without job verification
+          # (they haven't started executing yet)
+
+          echo ""
+          echo "Searching for queued Claude Code runs..."
+
+          QUEUED_RUN_IDS=$(gh run list \
+            --repo "${{ github.repository }}" \
+            --workflow="TDD Claude Code" \
+            --status=queued \
+            --json databaseId,displayTitle \
+            --limit 20 \
+            --jq '[.[] | select(.displayTitle | startswith("[TDD]"))] | .[].databaseId')
+
+          for RUN_ID in $QUEUED_RUN_IDS; do
+            echo "Cancelling queued Claude Code run #$RUN_ID..."
+            if gh run cancel "$RUN_ID" --repo "${{ github.repository }}" 2>/dev/null; then
+              echo "  Cancelled run #$RUN_ID"
+              CANCELLED_COUNT=$((CANCELLED_COUNT + 1))
+            else
+              echo "  Run #$RUN_ID could not be cancelled (may have already completed)"
+            fi
+          done
+
+          # ──────────────────────────────────────────────────────
+          # Summary
+          # ──────────────────────────────────────────────────────
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "TDD Cleanup Complete"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+
+          if [ "$CANCELLED_COUNT" -gt 0 ]; then
+            echo "Cancelled $CANCELLED_COUNT Claude Code run(s) for terminal TDD PR #${{ github.event.pull_request.number }}"
+            echo "Terminal state: ${{ steps.terminal-state.outputs.state }}"
+          else
+            echo "No active Claude Code runs found to cancel"
+          fi
