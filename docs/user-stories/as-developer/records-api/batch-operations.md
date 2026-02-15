@@ -34,7 +34,7 @@ POST /api/tables/1/records/batch
 | AC-002 | Returns 404 Not Found for non-existent table            | `API-TABLES-RECORDS-BATCH-POST-002`        | ✅     |
 | AC-003 | Returns 400 when records array is empty                 | `API-TABLES-RECORDS-BATCH-POST-003`        | ✅     |
 | AC-004 | Returns 400 when records array exceeds limit            | `API-TABLES-RECORDS-BATCH-POST-004`        | ✅     |
-| AC-005 | Returns 401 when not authenticated                      | `API-TABLES-RECORDS-BATCH-POST-005`        | ⏳     |
+| AC-005 | Returns 401 when not authenticated                      | `API-TABLES-RECORDS-BATCH-POST-005`        | ✅     |
 | AC-006 | Returns 403 when user lacks create permission           | `API-TABLES-RECORDS-BATCH-POST-006`        | ⏳     |
 | AC-007 | Validates each record against schema                    | `API-TABLES-RECORDS-BATCH-POST-007`        | ⏳     |
 | AC-008 | Returns partial success with errors array               | `API-TABLES-RECORDS-BATCH-POST-008`        | ⏳     |
