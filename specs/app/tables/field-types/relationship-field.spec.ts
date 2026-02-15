@@ -793,7 +793,7 @@ test.describe('Relationship Field', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-017: should handle circular reference prevention in self-referencing',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
