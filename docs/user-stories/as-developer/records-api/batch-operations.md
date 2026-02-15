@@ -83,7 +83,7 @@ PATCH /api/tables/1/records/batch
 | AC-006 | Returns 403 when user lacks update permission     | `API-TABLES-RECORDS-BATCH-PATCH-006`        | ✅     |
 | AC-007 | Validates each record against schema              | `API-TABLES-RECORDS-BATCH-PATCH-007`        | ✅     |
 | AC-008 | Skips non-existent records with error in response | `API-TABLES-RECORDS-BATCH-PATCH-008`        | ✅     |
-| AC-009 | Supports transaction mode (all-or-nothing)        | `API-TABLES-RECORDS-BATCH-PATCH-009`        | ⏳     |
+| AC-009 | Supports transaction mode (all-or-nothing)        | `API-TABLES-RECORDS-BATCH-PATCH-009`        | ✅     |
 | AC-010 | Updates updated_at timestamp for each record      | `API-TABLES-RECORDS-BATCH-PATCH-010`        | ⏳     |
 | AC-011 | Maximum batch size is 100 records                 | `API-TABLES-RECORDS-BATCH-PATCH-011`        | ⏳     |
 | AC-012 | Updates records with proper data types            | `API-TABLES-RECORDS-BATCH-PATCH-012`        | ⏳     |
