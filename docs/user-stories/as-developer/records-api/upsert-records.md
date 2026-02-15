@@ -79,7 +79,7 @@ POST /api/tables/1/records/upsert
 | AC-010 | Returns 400 for invalid field type value                  | `API-TABLES-RECORDS-UPSERT-010`        | ✅     |
 | AC-011 | Filters protected fields from upsert (id, created_at)     | `API-TABLES-RECORDS-UPSERT-011`        | ✅     |
 | AC-012 | Returns 200 OK with operation type in response            | `API-TABLES-RECORDS-UPSERT-012`        | ✅     |
-| AC-013 | Enforces constraints during upsert operation              | `API-TABLES-RECORDS-UPSERT-013`        | ⏳     |
+| AC-013 | Enforces constraints during upsert operation              | `API-TABLES-RECORDS-UPSERT-013`        | ✅     |
 | AC-014 | User can complete full upsert workflow (regression)       | `API-TABLES-RECORDS-UPSERT-REGRESSION` | ✅     |
 
 ### Implementation References
