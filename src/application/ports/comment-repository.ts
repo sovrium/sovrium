@@ -112,6 +112,7 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
       readonly session: Readonly<UserSession>
       readonly tableName: string
       readonly recordId: string
+      readonly isAdmin?: boolean
     }) => Effect.Effect<boolean, SessionContextError>
 
     readonly getForAuth: (config: {
