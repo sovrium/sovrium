@@ -248,7 +248,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-005: should return 403 for member without create permission',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedMember }) => {
