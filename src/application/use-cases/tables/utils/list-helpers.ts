@@ -69,7 +69,7 @@ export function applyPagination(
     readonly hasPreviousPage: boolean
   }
 } {
-  const paginationLimit = limit ?? 100
+  const paginationLimit = limit ?? 10
   const paginationOffset = offset ?? 0
   const paginatedRecords = records.slice(paginationOffset, paginationOffset + paginationLimit)
 
