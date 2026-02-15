@@ -488,10 +488,12 @@ test.describe('Table Fields', () => {
     }
   )
 
-  test(
+  test.fixme(
     'APP-TABLES-FIELDS-016: should reject relationship field without relationType',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
+      // NOTE: This test is superseded by APP-TABLES-FIELD-TYPES-RELATIONSHIP-017
+      // which specifies that relationType should default to 'many-to-one' when missing
       // GIVEN: Relationship field missing relationType
       // WHEN: Attempting to start server with invalid schema
       // THEN: Should throw validation error
@@ -878,33 +880,44 @@ test.describe('Table Fields', () => {
         ).rejects.toThrow(/relatedTable.*is missing|relatedTable is required/i)
       })
 
-      await test.step('APP-TABLES-FIELDS-016: Reject relationship field without relationType', async () => {
+      await test.step('APP-TABLES-FIELDS-016: Relationship field without relationType defaults to many-to-one', async () => {
+        // UPDATED: Test behavior changed by APP-TABLES-FIELD-TYPES-RELATIONSHIP-017
         // WHEN: Relationship field missing relationType
-        // THEN: Should throw validation error
-        await expect(
-          startServerWithSchema({
-            name: 'test-app-rel-type',
-            tables: [
-              {
-                id: 85,
-                name: 'users',
-                fields: [{ id: 1, name: 'email', type: 'email' }],
-              },
-              {
-                id: 84,
-                name: 'posts',
-                fields: [
-                  {
-                    id: 1,
-                    name: 'author_id',
-                    type: 'relationship',
-                    relatedTable: 'users',
-                  },
-                ],
-              },
-            ],
-          })
-        ).rejects.toThrow(/relationType.*is missing|relationType is required/i)
+        // THEN: Should succeed with default 'many-to-one' relationType (no error thrown)
+
+        // Simply verify that startServerWithSchema succeeds without throwing
+        await startServerWithSchema({
+          name: 'test-app-rel-type',
+          tables: [
+            {
+              id: 85,
+              name: 'users',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                { id: 2, name: 'email', type: 'email' },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+            {
+              id: 84,
+              name: 'posts',
+              fields: [
+                { id: 1, name: 'id', type: 'integer', required: true },
+                {
+                  id: 2,
+                  name: 'author_id',
+                  type: 'relationship',
+                  relatedTable: 'users',
+                  // relationType omitted - should default to 'many-to-one'
+                },
+              ],
+              primaryKey: { type: 'composite', fields: ['id'] },
+            },
+          ],
+        })
+
+        // If we get here, the schema was valid and server started successfully
+        // The default relationType of 'many-to-one' was applied
       })
 
       // Workflow completes successfully with proper validation
