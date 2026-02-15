@@ -31,7 +31,7 @@ POST /api/tables/1/records/batch
 | ID     | Criterion                                               | E2E Spec                                   | Status |
 | ------ | ------------------------------------------------------- | ------------------------------------------ | ------ |
 | AC-001 | Returns 201 with created count and records array        | `API-TABLES-RECORDS-BATCH-POST-001`        | ✅     |
-| AC-002 | Returns 404 Not Found for non-existent table            | `API-TABLES-RECORDS-BATCH-POST-002`        | ⏳     |
+| AC-002 | Returns 404 Not Found for non-existent table            | `API-TABLES-RECORDS-BATCH-POST-002`        | ✅     |
 | AC-003 | Returns 400 when records array is empty                 | `API-TABLES-RECORDS-BATCH-POST-003`        | ⏳     |
 | AC-004 | Returns 400 when records array exceeds limit            | `API-TABLES-RECORDS-BATCH-POST-004`        | ✅     |
 | AC-005 | Returns 401 when not authenticated                      | `API-TABLES-RECORDS-BATCH-POST-005`        | ⏳     |
