@@ -275,7 +275,7 @@ DELETE /api/tables/1/records/123/comments/1
 | AC-007 | Admin can delete any comment                   | `API-TABLES-RECORDS-COMMENTS-DELETE-007`        | ✅     |
 | AC-008 | Logs comment deletion to activity history      | `API-TABLES-RECORDS-COMMENTS-DELETE-008`        | ✅     |
 | AC-009 | Supports permanent delete with ?permanent=true | `API-TABLES-RECORDS-COMMENTS-DELETE-009`        | ✅     |
-| AC-010 | User deletes their own comment (regression)    | `API-TABLES-RECORDS-COMMENTS-DELETE-REGRESSION` | ⏳     |
+| AC-010 | User deletes their own comment (regression)    | `API-TABLES-RECORDS-COMMENTS-DELETE-REGRESSION` | ✅     |
 
 ### Implementation References
 
