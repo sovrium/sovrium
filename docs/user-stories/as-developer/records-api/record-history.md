@@ -120,7 +120,7 @@ GET /api/tables/1/records/123/comments
 | AC-007 | Returns 403 when user lacks comments view permission   | `API-TABLES-RECORDS-COMMENTS-LIST-007`        | ✅     |
 | AC-008 | Supports pagination with limit and offset              | `API-TABLES-RECORDS-COMMENTS-LIST-008`        | ✅     |
 | AC-009 | Orders comments by created_at ascending (oldest first) | `API-TABLES-RECORDS-COMMENTS-LIST-009`        | ✅     |
-| AC-010 | Includes updated_at if comment was edited              | `API-TABLES-RECORDS-COMMENTS-LIST-010`        | ⏳     |
+| AC-010 | Includes updated_at if comment was edited              | `API-TABLES-RECORDS-COMMENTS-LIST-010`        | ✅     |
 | AC-011 | User lists comments on a record (regression)           | `API-TABLES-RECORDS-COMMENTS-LIST-REGRESSION` | ✅     |
 
 ### Implementation References
