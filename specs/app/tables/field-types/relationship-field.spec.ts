@@ -867,25 +867,25 @@ test.describe('Relationship Field', () => {
       // GIVEN: CEO → VP → Manager chain
       await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('CEO', NULL)`)
       const ceo = await executeQuery(`SELECT id FROM employees WHERE name = 'CEO'`)
-      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('VP', ${ceo[0].id})`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('VP', ${ceo.id})`)
       const vp = await executeQuery(`SELECT id FROM employees WHERE name = 'VP'`)
-      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Manager', ${vp[0].id})`)
+      await executeQuery(`INSERT INTO employees (name, manager_id) VALUES ('Manager', ${vp.id})`)
       const mgr = await executeQuery(`SELECT id FROM employees WHERE name = 'Manager'`)
 
       // WHEN: Query ancestors of Manager via recursive CTE
       const ancestors = await executeQuery(`
         WITH RECURSIVE ancestors AS (
-          SELECT id, name, manager_id FROM employees WHERE id = ${mgr[0].id}
+          SELECT id, name, manager_id FROM employees WHERE id = ${mgr.id}
           UNION ALL
           SELECT e.id, e.name, e.manager_id
           FROM employees e JOIN ancestors a ON e.id = a.manager_id
         )
-        SELECT name FROM ancestors WHERE id != ${mgr[0].id} ORDER BY name
+        SELECT name FROM ancestors WHERE id != ${mgr.id} ORDER BY name
       `)
 
       // THEN: Returns [CEO, VP]
-      expect(ancestors).toHaveLength(2)
-      expect(ancestors.map((r: any) => r.name).sort()).toEqual(['CEO', 'VP'])
+      expect(ancestors.rows).toHaveLength(2)
+      expect(ancestors.rows.map((r: any) => r.name).sort()).toEqual(['CEO', 'VP'])
     }
   )
 
