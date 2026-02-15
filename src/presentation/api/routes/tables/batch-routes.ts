@@ -284,20 +284,32 @@ async function handleBatchUpdate(c: Context, app: App) {
   if (readonlyValidation) return readonlyValidation
 
   // Authorization: Check field-level write permissions
-  const fieldPermissionCheck = await import('./upsert-helpers').then((m) =>
-    m.checkFieldPermissions({
-      app,
-      tableName,
-      userRole,
-      records: result.data.records,
-      c,
-    })
-  )
-  if (!fieldPermissionCheck.allowed) return fieldPermissionCheck.response
+  // Strip unwritable fields instead of rejecting with 403
+  const { stripUnwritableFields } = await import('./upsert-helpers')
+  const strippedRecords = stripUnwritableFields(app, tableName, userRole, result.data.records)
+
+  // After stripping, check if ANY records have writable fields remaining
+  const hasWritableFields = strippedRecords.some((record) => Object.keys(record.fields).length > 0)
+  if (!hasWritableFields) {
+    // All fields were stripped - user tried to update only protected fields
+    const allForbiddenFields = result.data.records
+      .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
+      .filter((fields) => fields.length > 0)
+    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+    const firstForbiddenField = uniqueForbiddenFields[0]
+    return c.json(
+      {
+        success: false,
+        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
 
   // Keep records in { id, fields } format for database layer
-  const recordsData = result.data.records.map((record) => ({
-    id: record.id,
+  const recordsData = strippedRecords.map((record, index) => ({
+    id: result.data.records[index]!.id,
     fields: record.fields,
   }))
 
