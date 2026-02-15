@@ -929,15 +929,13 @@ test.describe('Relationship Field', () => {
       // GIVEN: Department with employees referencing it
       await executeQuery(`INSERT INTO departments (name) VALUES ('Engineering')`)
       const dept = await executeQuery(`SELECT id FROM departments WHERE name = 'Engineering'`)
-      await executeQuery(
-        `INSERT INTO employees (name, department_id) VALUES ('Alice', ${dept[0].id})`
-      )
+      await executeQuery(`INSERT INTO employees (name, department_id) VALUES ('Alice', ${dept.id})`)
 
       // WHEN: Attempt to delete department with RESTRICT constraint
       // THEN: Throws FK constraint violation error
-      await expect(
-        executeQuery(`DELETE FROM departments WHERE id = ${dept[0].id}`)
-      ).rejects.toThrow(/violates foreign key constraint/)
+      await expect(executeQuery(`DELETE FROM departments WHERE id = ${dept.id}`)).rejects.toThrow(
+        /violates foreign key constraint/
+      )
     }
   )
 
