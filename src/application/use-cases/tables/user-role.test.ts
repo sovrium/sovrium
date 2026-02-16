@@ -49,7 +49,7 @@ describe('getUserRole', () => {
       return {
         UserRoleRepository,
         UserRoleRepositoryLive: Layer.succeed(UserRoleRepository, {
-          getUserRole: (_userId: string) => Effect.succeed(undefined),
+          getUserRole: (_userId: string) => Effect.void,
         }),
       }
     })

@@ -23,7 +23,7 @@ const MockServerFactory = Layer.succeed(ServerFactory, {
   create: (config) =>
     Effect.succeed({
       url: `http://${config.hostname ?? 'localhost'}:${config.port ?? 3000}`,
-      stop: Effect.sync(() => {}),
+      stop: Effect.void,
     } as ServerInstance),
 })
 

@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/* eslint-disable max-lines, max-lines-per-function, max-statements -- Schema initialization requires complex multi-step orchestration */
 import { SQL } from 'bun'
 import { Config, Effect, Console, Data, Runtime, type ConfigError } from 'effect'
 import { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
