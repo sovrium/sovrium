@@ -34,7 +34,7 @@ import {
   createValidationLayer,
   formatValidationError,
 } from '@/presentation/api/validation'
-import { handleGetRecordError, handleRestoreRecordError } from './error-handlers'
+import { handleRouteError, handleRestoreRecordError } from './error-handlers'
 import { validateFilterParam, validateAggregateParam } from './field-permission-validation'
 import { parseFilter } from './list-records-filter'
 import { parseListRecordsParams } from './param-parsers'
@@ -269,7 +269,7 @@ export async function handleGetRecord(c: Context, app: App) {
       getRecordResponseSchema
     )
   } catch (error) {
-    return handleGetRecordError(c, error)
+    return handleRouteError(c, error)
   }
 }
 

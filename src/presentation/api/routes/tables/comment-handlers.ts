@@ -15,6 +15,7 @@ import {
 import { hasReadPermission } from '@/application/use-cases/tables/permissions/permissions'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
+import { handleRouteError } from './error-handlers'
 import { isAuthorizationError } from './utils'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -53,15 +54,15 @@ function validateCreateCommentBody(body: unknown): CreateCommentBody | undefined
 
 /**
  * Handle comment creation errors
+ *
+ * Authorization errors return 404 (prevents resource enumeration),
+ * all other errors are sanitized via the shared route error handler.
  */
 function handleCommentError(c: Context, error: unknown) {
   if (isAuthorizationError(error)) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
-  return c.json(
-    { success: false, message: 'Failed to create comment', code: 'INTERNAL_ERROR' },
-    500
-  )
+  return handleRouteError(c, error)
 }
 
 /**
@@ -136,11 +137,8 @@ function handleDeleteCommentError(c: Context, error: unknown) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 
-  // Internal server error
-  return c.json(
-    { success: false, message: 'Failed to delete comment', code: 'INTERNAL_ERROR' },
-    500
-  )
+  // All other errors - use shared sanitization
+  return handleRouteError(c, error)
 }
 
 /**

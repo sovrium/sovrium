@@ -9,12 +9,16 @@ import { sanitizeError, getStatusCode } from '@/presentation/api/utils/error-san
 import type { Context } from 'hono'
 
 /**
- * Handle errors from record GET operations
+ * Shared route error handler
  *
  * Uses centralized error sanitization to prevent information disclosure.
  * Automatically detects not-found/authorization errors and returns appropriate status codes.
+ *
+ * @param c - Hono context
+ * @param error - The error to handle
+ * @returns JSON response with sanitized error details
  */
-export function handleGetRecordError(c: Context, error: unknown): Response {
+export function handleRouteError(c: Context, error: unknown): Response {
   const requestId = crypto.randomUUID()
   const sanitized = sanitizeError(error, requestId)
   const statusCode = getStatusCode(sanitized.code)
@@ -32,11 +36,10 @@ export function handleGetRecordError(c: Context, error: unknown): Response {
 /**
  * Handle errors from record restore operations
  *
- * Uses centralized error sanitization with special handling for restore-specific errors.
+ * Adds restore-specific "Record is not deleted" check, then delegates
+ * to the shared route error handler.
  */
 export function handleRestoreRecordError(c: Context, error: unknown): Response {
-  const requestId = crypto.randomUUID()
-
   // Check for "Record is not deleted" error (safe to expose)
   const errorMessage = error instanceof Error ? error.message : String(error)
   if (errorMessage === 'Record is not deleted') {
@@ -46,35 +49,5 @@ export function handleRestoreRecordError(c: Context, error: unknown): Response {
     )
   }
 
-  const sanitized = sanitizeError(error, requestId)
-  const statusCode = getStatusCode(sanitized.code)
-
-  return c.json(
-    {
-      success: false,
-      message: sanitized.message,
-      code: sanitized.code,
-    },
-    statusCode
-  )
-}
-
-/**
- * Handle generic internal server errors
- *
- * Uses centralized error sanitization to prevent information disclosure.
- */
-export function handleInternalError(c: Context, error: unknown): Response {
-  const requestId = crypto.randomUUID()
-  const sanitized = sanitizeError(error, requestId)
-  const statusCode = getStatusCode(sanitized.code)
-
-  return c.json(
-    {
-      success: false,
-      message: sanitized.message,
-      code: sanitized.code,
-    },
-    statusCode
-  )
+  return handleRouteError(c, error)
 }

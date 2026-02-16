@@ -11,7 +11,7 @@ import { updateRecordProgram, rawGetRecordProgram } from '@/application/use-case
 import { transformRecord } from '@/application/use-cases/tables/utils/record-transformer'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
-import { handleGetRecordError, handleInternalError } from './error-handlers'
+import { handleRouteError } from './error-handlers'
 import { isAuthorizationError, type Session } from './utils'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -116,7 +116,7 @@ export async function handleNoAllowedFields(config: {
 
     return c.json({ record: transformRecord(record) }, 200)
   } catch (error) {
-    return handleGetRecordError(c, error)
+    return handleRouteError(c, error)
   }
 }
 
@@ -166,7 +166,7 @@ async function handleUpdateError(config: {
   const { session, tableName, recordId, error, c } = config
   // Check if this is an authorization error (RLS blocking the update)
   if (!isAuthorizationError(error)) {
-    return handleInternalError(c, error)
+    return handleRouteError(c, error)
   }
 
   // Try to read the record to differentiate between "not found" and "forbidden"

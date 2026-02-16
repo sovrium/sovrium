@@ -6,9 +6,8 @@
  */
 
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
+import type { Session } from '@/application/ports/models/user-session'
 import type { App } from '@/domain/models/app'
-// eslint-disable-next-line boundaries/element-types -- Type-only imports don't create runtime dependencies (architectural exception)
-import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { Context } from 'hono'
 
 // ============================================================================
@@ -16,8 +15,7 @@ import type { Context } from 'hono'
 // ============================================================================
 
 /**
- * Re-export Session type to avoid layer boundary violations in sibling files
- * This is the single point of import from infrastructure in this directory
+ * Re-export Session type for sibling files in this directory
  */
 export type { Session }
 

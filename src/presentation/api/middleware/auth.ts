@@ -6,8 +6,7 @@
  */
 
 import { logError, logWarning } from '@/infrastructure/logging/logger'
-// eslint-disable-next-line boundaries/element-types -- Type-only imports don't create runtime dependencies (architectural exception)
-import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { Session } from '@/application/ports/models/user-session'
 import type { Context, Next } from 'hono'
 
 /**

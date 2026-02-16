@@ -5,8 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// eslint-disable-next-line boundaries/element-types -- Type-only imports don't create runtime dependencies (architectural exception)
-import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { Session } from '@/application/ports/models/user-session'
 import type { ContextWithSession } from '@/presentation/api/middleware/auth'
 import type { ContextWithTableAndRole } from '@/presentation/api/middleware/table'
 import type { Context } from 'hono'

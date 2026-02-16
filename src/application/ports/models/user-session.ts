@@ -23,3 +23,12 @@ export interface UserSession {
   readonly userAgent: string | null
   readonly impersonatedBy: string | null
 }
+
+/**
+ * Session type alias for backward compatibility
+ *
+ * Allows presentation layer to import Session from the application
+ * boundary instead of reaching into infrastructure. Structurally
+ * compatible with the Drizzle-inferred Session type from Better Auth.
+ */
+export type Session = UserSession
