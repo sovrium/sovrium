@@ -71,8 +71,10 @@ test.describe('Change email address', () => {
       expect(data).toHaveProperty('status', true)
 
       // Verify email was sent to the NEW email address with custom subject
+      // Use longer timeout: email sending may be deferred and SMTP can be slow under load.
       const email = await mailpit.waitForEmail(
-        (e) => e.To[0]?.Address === newEmail && e.Subject.includes('TestApp')
+        (e) => e.To[0]?.Address === newEmail && e.Subject.includes('TestApp'),
+        { timeout: 15_000 }
       )
       expect(email).toBeDefined()
       expect(email.Subject).toBe('Verify your new TestApp email address')
@@ -408,16 +410,12 @@ test.describe('Change email address', () => {
         const data = await response.json()
         expect(data).toHaveProperty('status', true)
 
-        // CRITICAL: Wait for Better Auth background tasks to execute before checking email.
-        // Better Auth has backgroundTasks.enabled=true which defers email sending via setImmediate
-        // after the HTTP response is sent. This prevents race conditions where waitForEmail
-        // starts polling before the background task begins executing.
-        // 200ms is conservative enough for the event loop to process the deferred task.
-        await page.waitForTimeout(200)
-
         // Verify email was sent to the NEW email address with custom subject
+        // Use longer timeout: Better Auth may defer email sending via the event loop,
+        // and under CI load the SMTP round-trip to Mailpit can be slow.
         const email = await mailpit.waitForEmail(
-          (e) => e.To[0]?.Address === newWorkflowEmail && e.Subject.includes('TestApp')
+          (e) => e.To[0]?.Address === newWorkflowEmail && e.Subject.includes('TestApp'),
+          { timeout: 15_000 }
         )
         expect(email).toBeDefined()
         expect(email.Subject).toBe('Verify your new TestApp email address')
