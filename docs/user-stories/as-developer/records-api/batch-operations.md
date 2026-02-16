@@ -157,7 +157,7 @@ POST /api/tables/1/records/batch/restore
 | ------ | ------------------------------------------------ | --------------------------------------------- | ------ |
 | AC-001 | Returns 200 with restored count                  | `API-TABLES-RECORDS-BATCH-RESTORE-001`        | ✅     |
 | AC-002 | Returns 404 Not Found for non-existent table     | `API-TABLES-RECORDS-BATCH-RESTORE-002`        | ✅     |
-| AC-003 | Returns 400 when ids array is empty              | `API-TABLES-RECORDS-BATCH-RESTORE-003`        | ⏳     |
+| AC-003 | Returns 400 when ids array is empty              | `API-TABLES-RECORDS-BATCH-RESTORE-003`        | ✅     |
 | AC-004 | Returns 401 when not authenticated               | `API-TABLES-RECORDS-BATCH-RESTORE-004`        | ✅     |
 | AC-005 | Returns 403 when user lacks restore permission   | `API-TABLES-RECORDS-BATCH-RESTORE-005`        | ⏳     |
 | AC-006 | Clears deleted_at timestamp for restored records | `API-TABLES-RECORDS-BATCH-RESTORE-006`        | ⏳     |
