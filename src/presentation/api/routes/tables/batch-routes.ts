@@ -40,7 +40,7 @@ import type {
   TransformedRecord,
 } from '@/application/use-cases/tables/utils/record-transformer'
 import type { App } from '@/domain/models/app'
-import type { Context, Hono } from 'hono'
+import type { Context, Hono, TypedResponse } from 'hono'
 
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
 
