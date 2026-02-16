@@ -140,7 +140,7 @@ SELECT deleted_by, deleted_at FROM tasks WHERE id = 1;
 | AC-001 | deletedBy is auto-set to current user ID on soft delete    | `API-TABLES-RECORDS-AUTHORSHIP-009` | ✅     |
 | AC-002 | deletedBy is NULL for active (non-deleted) records         | `API-TABLES-RECORDS-AUTHORSHIP-010` | ✅     |
 | AC-003 | deletedBy is cleared (set to NULL) when record is restored | `API-TABLES-RECORDS-AUTHORSHIP-011` | ✅     |
-| AC-004 | deletedBy is included in trash listing response            | `API-TABLES-RECORDS-AUTHORSHIP-012` | ⏳     |
+| AC-004 | deletedBy is included in trash listing response            | `API-TABLES-RECORDS-AUTHORSHIP-012` | ✅     |
 
 ### Implementation References
 
@@ -220,7 +220,7 @@ The API silently ignores the `createdBy` value provided by the user and sets it 
 
 | ID     | Criterion                                                      | E2E Spec                            | Status |
 | ------ | -------------------------------------------------------------- | ----------------------------------- | ------ |
-| AC-001 | Batch create sets createdBy on all records to the current user | `API-TABLES-RECORDS-AUTHORSHIP-018` | ⏳     |
+| AC-001 | Batch create sets createdBy on all records to the current user | `API-TABLES-RECORDS-AUTHORSHIP-018` | ✅     |
 | AC-002 | Batch update sets updatedBy on all records to the current user | `API-TABLES-RECORDS-AUTHORSHIP-019` | ⏳     |
 | AC-003 | Batch delete sets deletedBy on all records to the current user | `API-TABLES-RECORDS-AUTHORSHIP-020` | ⏳     |
 

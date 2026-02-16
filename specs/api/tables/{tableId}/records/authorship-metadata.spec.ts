@@ -515,7 +515,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-012: should include deleted_by in trash listing response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -853,7 +853,7 @@ test.describe('Record Authorship Metadata', () => {
   // US-API-AUTHORSHIP-006: Batch Operations
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-018: should set created_by on all records during batch create',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {

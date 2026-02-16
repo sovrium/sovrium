@@ -46,9 +46,9 @@ The following roles are always available without configuration:
 | AC-004 | Role names follow naming convention (lowercase, alphanumeric, hyphens)     | `APP-AUTH-ROLES-004`        | ✅     |
 | AC-005 | Hierarchy level determines role ordering (higher = more permissions)       | `APP-AUTH-ROLES-005`        | ✅     |
 | AC-006 | Roles used in table permissions are validated against defined roles        | `APP-AUTH-ROLES-006`        | ✅     |
-| AC-007 | Schema validation error when table permission references undefined role    | `APP-AUTH-ROLES-007`        | ⏳     |
+| AC-007 | Schema validation error when table permission references undefined role    | `APP-AUTH-ROLES-007`        | ✅     |
 | AC-008 | Empty roles array is valid (only built-in roles available)                 | `APP-AUTH-ROLES-008`        | ✅     |
-| AC-009 | Role definition workflow completes successfully (regression)               | `APP-AUTH-ROLES-REGRESSION` | ⏳     |
+| AC-009 | Role definition workflow completes successfully (regression)               | `APP-AUTH-ROLES-REGRESSION` | ✅     |
 
 ### Implementation References
 
