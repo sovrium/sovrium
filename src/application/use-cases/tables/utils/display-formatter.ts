@@ -6,9 +6,7 @@
  */
 
 import type { App } from '@/domain/models/app'
-import type { CurrencyField } from '@/domain/models/app/table/field-types/currency-field'
-import type { DateField } from '@/domain/models/app/table/field-types/date-field'
-import type { DurationField } from '@/domain/models/app/table/field-types/duration-field'
+import type { CurrencyField, DateField, DurationField } from '@/domain/models/app/table/field-types'
 
 /**
  * Currency symbols mapping

@@ -8,7 +8,7 @@
 import { test, expect, describe } from 'bun:test'
 import { formatFieldForDisplay } from './display-formatter'
 import type { App } from '@/domain/models/app'
-import type { CurrencyField } from '@/domain/models/app/table/field-types/currency-field'
+import type { CurrencyField } from '@/domain/models/app/table/field-types'
 
 // Helper to create a minimal app with a table and currency field
 function createAppWithCurrencyField(fieldConfig: Partial<CurrencyField>): App {

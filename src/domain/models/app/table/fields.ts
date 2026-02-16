@@ -6,46 +6,48 @@
  */
 
 import { Schema } from 'effect'
-import { ArrayFieldSchema } from './field-types/array-field'
-import { AutonumberFieldSchema } from './field-types/autonumber-field'
-import { BarcodeFieldSchema } from './field-types/barcode-field'
-import { ButtonFieldSchema } from './field-types/button-field'
-import { CheckboxFieldSchema } from './field-types/checkbox-field'
-import { ColorFieldSchema } from './field-types/color-field'
-import { CountFieldSchema } from './field-types/count-field'
-import { CreatedAtFieldSchema } from './field-types/created-at-field'
-import { CreatedByFieldSchema } from './field-types/created-by-field'
-import { CurrencyFieldSchema } from './field-types/currency-field'
-import { DateFieldSchema } from './field-types/date-field'
-import { DecimalFieldSchema } from './field-types/decimal-field'
-import { DeletedAtFieldSchema } from './field-types/deleted-at-field'
-import { DeletedByFieldSchema } from './field-types/deleted-by-field'
-import { DurationFieldSchema } from './field-types/duration-field'
-import { EmailFieldSchema } from './field-types/email-field'
-import { FormulaFieldSchema } from './field-types/formula-field'
-import { GeolocationFieldSchema } from './field-types/geolocation-field'
-import { IntegerFieldSchema } from './field-types/integer-field'
-import { JsonFieldSchema } from './field-types/json-field'
-import { LongTextFieldSchema } from './field-types/long-text-field'
-import { LookupFieldSchema } from './field-types/lookup-field'
-import { MultiSelectFieldSchema } from './field-types/multi-select-field'
-import { MultipleAttachmentsFieldSchema } from './field-types/multiple-attachments-field'
-import { PercentageFieldSchema } from './field-types/percentage-field'
-import { PhoneNumberFieldSchema } from './field-types/phone-number-field'
-import { ProgressFieldSchema } from './field-types/progress-field'
-import { RatingFieldSchema } from './field-types/rating-field'
-import { RelationshipFieldSchema } from './field-types/relationship-field'
-import { RichTextFieldSchema } from './field-types/rich-text-field'
-import { RollupFieldSchema } from './field-types/rollup-field'
-import { SingleAttachmentFieldSchema } from './field-types/single-attachment-field'
-import { SingleLineTextFieldSchema } from './field-types/single-line-text-field'
-import { SingleSelectFieldSchema } from './field-types/single-select-field'
-import { StatusFieldSchema } from './field-types/status-field'
-import { UnknownFieldSchema } from './field-types/unknown-field'
-import { UpdatedAtFieldSchema } from './field-types/updated-at-field'
-import { UpdatedByFieldSchema } from './field-types/updated-by-field'
-import { UrlFieldSchema } from './field-types/url-field'
-import { UserFieldSchema } from './field-types/user-field'
+import {
+  ArrayFieldSchema,
+  AutonumberFieldSchema,
+  BarcodeFieldSchema,
+  ButtonFieldSchema,
+  CheckboxFieldSchema,
+  ColorFieldSchema,
+  CountFieldSchema,
+  CreatedAtFieldSchema,
+  CreatedByFieldSchema,
+  CurrencyFieldSchema,
+  DateFieldSchema,
+  DecimalFieldSchema,
+  DeletedAtFieldSchema,
+  DeletedByFieldSchema,
+  DurationFieldSchema,
+  EmailFieldSchema,
+  FormulaFieldSchema,
+  GeolocationFieldSchema,
+  IntegerFieldSchema,
+  JsonFieldSchema,
+  LongTextFieldSchema,
+  LookupFieldSchema,
+  MultiSelectFieldSchema,
+  MultipleAttachmentsFieldSchema,
+  PercentageFieldSchema,
+  PhoneNumberFieldSchema,
+  ProgressFieldSchema,
+  RatingFieldSchema,
+  RelationshipFieldSchema,
+  RichTextFieldSchema,
+  RollupFieldSchema,
+  SingleAttachmentFieldSchema,
+  SingleLineTextFieldSchema,
+  SingleSelectFieldSchema,
+  StatusFieldSchema,
+  UnknownFieldSchema,
+  UpdatedAtFieldSchema,
+  UpdatedByFieldSchema,
+  UrlFieldSchema,
+  UserFieldSchema,
+} from './field-types'
 
 /**
  * Table Fields
