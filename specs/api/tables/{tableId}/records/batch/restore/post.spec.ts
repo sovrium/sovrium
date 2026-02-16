@@ -18,7 +18,7 @@ import { test, expect } from '@/specs/fixtures'
  * - POST /batch/restore clears deleted_at timestamp on multiple soft-deleted records
  * - Returns count of restored records
  * - Rollback on partial failure (404 for any record in batch)
- * - Returns 400 if any record in batch is not soft-deleted
+ * - Skips records that are not soft-deleted (lenient mode)
  * - Permissions: Same as delete (member+ can restore)
  *
  * Test Organization:
@@ -133,7 +133,7 @@ test.describe('Batch Restore records', () => {
   )
 
   test(
-    'API-TABLES-RECORDS-BATCH-RESTORE-003: should return 400 for non-deleted records in batch',
+    'API-TABLES-RECORDS-BATCH-RESTORE-003: should skip non-deleted records in batch',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
       // GIVEN: Table with mix of deleted and active records
@@ -163,17 +163,18 @@ test.describe('Batch Restore records', () => {
         data: { ids: [1, 2] },
       })
 
-      // THEN: Returns 400 Bad Request
-      expect(response.status()).toBe(400)
+      // THEN: Returns 200 with restored count = 1 (only the deleted record)
+      expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data.error).toBe('Bad Request')
-      expect(data.message).toContain('Record is not deleted')
-      expect(data.recordId).toBe(2)
+      expect(data.success).toBe(true)
+      expect(data.restored).toBe(1)
 
-      // THEN: No records were restored (transaction rollback)
-      const result = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=1`)
-      expect(result.deleted_at).toBeTruthy()
+      // THEN: Only the deleted record was restored
+      const result1 = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=1`)
+      expect(result1.deleted_at).toBeNull()
+      const result2 = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=2`)
+      expect(result2.deleted_at).toBeNull()
     }
   )
 
@@ -316,7 +317,7 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-007: should skip records that are not soft-deleted',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedMember }) => {
@@ -348,8 +349,8 @@ test.describe('Batch Restore records', () => {
       await executeQuery(`INSERT INTO tasks (title, deleted_at) VALUES ('Deleted', NOW())`)
       await executeQuery(`INSERT INTO tasks (title) VALUES ('Active')`)
       const all = await executeQuery(`SELECT id, deleted_at FROM tasks ORDER BY id`)
-      const deletedId = all.find((r: any) => r.deleted_at !== null).id
-      const activeId = all.find((r: any) => r.deleted_at === null).id
+      const deletedId = all.rows.find((r: any) => r.deleted_at !== null).id
+      const activeId = all.rows.find((r: any) => r.deleted_at === null).id
 
       // WHEN: Batch restore both IDs
       await createAuthenticatedMember({ email: 'member@example.com' })
@@ -546,22 +547,21 @@ test.describe('Batch Restore records', () => {
         expect(result.count).toBe('2')
       })
 
-      // --- Step 003: Return 400 for non-deleted records ---
-      await test.step('API-TABLES-RECORDS-BATCH-RESTORE-003: Return 400 for non-deleted records in batch', async () => {
+      // --- Step 003: Skip non-deleted records in batch ---
+      await test.step('API-TABLES-RECORDS-BATCH-RESTORE-003: Skip non-deleted records in batch', async () => {
         // Record 1 still deleted from step 002 rollback, record 4 is active
         const response = await request.post('/api/tables/1/records/batch/restore', {
           data: { ids: [1, 4] },
         })
-        expect(response.status()).toBe(400)
+        expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data.error).toBe('Bad Request')
-        expect(data.message).toContain('Record is not deleted')
-        expect(data.recordId).toBe(4)
+        expect(data.success).toBe(true)
+        expect(data.restored).toBe(1)
 
-        // No records restored (transaction rollback)
+        // Only the deleted record was restored
         const result = await executeQuery(`SELECT deleted_at FROM tasks WHERE id=1`)
-        expect(result.deleted_at).toBeTruthy()
+        expect(result.deleted_at).toBeNull()
       })
 
       // --- Step 005 skipped: requires viewer auth context ---

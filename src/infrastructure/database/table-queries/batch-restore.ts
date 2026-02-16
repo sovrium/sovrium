@@ -42,49 +42,52 @@ function checkRestorePermission(
 }
 
 /**
- * Validate records exist and are soft-deleted
+ * Validate records exist and filter to only soft-deleted ones
+ * Returns array of record IDs that are actually soft-deleted
+ * Throws error if any record is not found (404)
  */
-async function validateRecordsForRestore(
+async function validateAndFilterRecordsForRestore(
   tx: Readonly<DrizzleTransaction>,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
-): Promise<void> {
+): Promise<readonly string[]> {
   const validationResults = await Promise.all(
     recordIds.map(async (recordId) => {
       const checkResult = (await tx.execute(
         sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
       )) as readonly Record<string, unknown>[]
 
-      if (checkResult.length === 0) return { recordId, error: 'not found' }
+      if (checkResult.length === 0) return { recordId, error: 'not found', isDeleted: false }
 
       const record = checkResult[0]
-      if (!record?.deleted_at) return { recordId, error: 'not deleted' }
+      const isDeleted = Boolean(record?.deleted_at)
 
-      return { recordId, error: undefined }
+      return { recordId, error: undefined, isDeleted }
     })
   )
 
-  const firstError = validationResults.find((result) => result.error !== undefined)
-  if (firstError) {
+  // Check for "not found" errors first (these should return 404)
+  const notFoundError = validationResults.find((result) => result.error === 'not found')
+  if (notFoundError) {
     // eslint-disable-next-line functional/no-throw-statements -- Required for Effect.tryPromise error handling
-    throw new Error(
-      firstError.error === 'not found'
-        ? `Record ${firstError.recordId} not found`
-        : `Record ${firstError.recordId} is not deleted`
-    )
+    throw new Error(`Record ${notFoundError.recordId} not found`)
   }
+
+  // Filter to only records that are actually soft-deleted (skip active records)
+  return validationResults.filter((result) => result.isDeleted).map((result) => result.recordId)
 }
 
 /**
- * Validate records for restore with Effect error handling
+ * Validate and filter records for restore with Effect error handling
+ * Returns array of record IDs that are actually soft-deleted
  */
-function validateRecordsForRestoreWithEffect(
+function validateAndFilterRecordsWithEffect(
   tx: Readonly<DrizzleTransaction>,
   tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
   recordIds: readonly string[]
-): Effect.Effect<void, SessionContextError> {
+): Effect.Effect<readonly string[], SessionContextError> {
   return Effect.tryPromise({
-    try: () => validateRecordsForRestore(tx, tableIdent, recordIds),
+    try: () => validateAndFilterRecordsForRestore(tx, tableIdent, recordIds),
     catch: (error) => {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       return new SessionContextError(`Validation failed: ${errorMessage}`, error)
@@ -162,10 +165,20 @@ export function batchRestoreRecords(
           validateTableName(tableName)
           const tableIdent = sql.identifier(tableName)
 
-          // eslint-disable-next-line functional/no-expression-statements -- Required for transaction validation
-          await runEffectInTx(validateRecordsForRestoreWithEffect(tx, tableIdent, recordIds))
+          // Validate and filter to only soft-deleted records
+          const deletedRecordIds = await runEffectInTx(
+            validateAndFilterRecordsWithEffect(tx, tableIdent, recordIds)
+          )
 
-          return await runEffectInTx(executeRestoreQuery(tx, tableIdent, tableName, recordIds))
+          // If no records to restore, return empty array
+          if (deletedRecordIds.length === 0) {
+            return []
+          }
+
+          // Restore only the filtered soft-deleted records
+          return await runEffectInTx(
+            executeRestoreQuery(tx, tableIdent, tableName, deletedRecordIds)
+          )
         }),
       catch: (error) =>
         error instanceof SessionContextError
