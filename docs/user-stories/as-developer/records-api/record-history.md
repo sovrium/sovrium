@@ -239,7 +239,7 @@ Content-Type: application/json
 | AC-005 | Returns 400 when content exceeds max length    | `API-TABLES-RECORDS-COMMENTS-UPDATE-005`        | ✅     |
 | AC-006 | Returns 404 Not Found for non-existent comment | `API-TABLES-RECORDS-COMMENTS-UPDATE-006`        | ✅     |
 | AC-007 | Returns 401 when not authenticated             | `API-TABLES-RECORDS-COMMENTS-UPDATE-007`        | ✅     |
-| AC-008 | Returns 403 when user is not comment author    | `API-TABLES-RECORDS-COMMENTS-UPDATE-008`        | ⏳     |
+| AC-008 | Returns 403 when user is not comment author    | `API-TABLES-RECORDS-COMMENTS-UPDATE-008`        | ✅     |
 | AC-009 | Admin can edit any comment                     | `API-TABLES-RECORDS-COMMENTS-UPDATE-009`        | ⏳     |
 | AC-010 | Logs comment edit to activity history          | `API-TABLES-RECORDS-COMMENTS-UPDATE-010`        | ⏳     |
 | AC-011 | User updates their own comment (regression)    | `API-TABLES-RECORDS-COMMENTS-UPDATE-REGRESSION` | ⏳     |
