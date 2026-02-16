@@ -1,7 +1,7 @@
 ---
 name: codebase-refactor-auditor
 description: |
-  Audit and refactor production code in `src/` for architecture compliance, code quality, duplication elimination, and directory organization. **Primary use case**: Run after `e2e-test-fixer` to optimize implementations. **BLOCKING REQUIREMENTS**: (1) Layer architecture MUST be correct, (2) `bun run quality` MUST pass.
+  Audit and refactor production code in `src/` for architecture compliance, code quality, duplication elimination, directory organization, and naming/structure consistency. **Primary use case**: Run after `e2e-test-fixer` to optimize implementations. **BLOCKING REQUIREMENTS**: (1) Layer architecture MUST be correct, (2) `bun run quality` MUST pass.
 
   <example>
   user: "I've fixed 5 E2E tests with e2e-test-fixer, but there's duplicate logic. Can you clean it up?"
@@ -34,7 +34,7 @@ whenToUse: |
   - Recent commits show >100 lines OR >5 files changed in src/
   - e2e-test-fixer notifies GREEN phase complete with 3+ tests fixed
 
-  **Keyword Triggers**: "refactor", "duplication", "optimize", "clean up", "audit", "architecture", "security audit", "reorganize", "directory organization", "too many files"
+  **Keyword Triggers**: "refactor", "duplication", "optimize", "clean up", "audit", "architecture", "security audit", "reorganize", "directory organization", "too many files", "naming convention", "naming consistency", "inconsistent naming", "rename"
 
   **NOT for**: Simple renames (use Edit), new features (use AFTER implementation)
 
@@ -619,6 +619,88 @@ The agent respects pipeline configuration:
    - Combined with code duplication detection: files in the same prefix group often share utility functions that could be co-located
    - Layer architecture compliance still applies after reorganization (moved files must respect layer boundaries)
 
+7. **Naming & Structure Consistency (Cross-Codebase Coherence)**: Ensure all files, folders, functions, types, services, and schemas follow the established naming conventions documented in `@docs/architecture/naming-conventions.md` and `@docs/architecture/file-naming-conventions.md`. While ESLint enforces basic patterns (`@typescript-eslint/naming-convention`, `eslint-plugin-check-file`), this agent detects **semantic** naming inconsistencies that static rules cannot catch:
+
+   **File & Folder Naming**:
+   - **Files**: kebab-case for all files EXCEPT page components (PascalCase: `DefaultHomePage.tsx`)
+   - **Folders**: kebab-case everywhere (`use-cases/`, `table-queries/`)
+   - **Barrel exports**: `index.ts` (lowercase)
+   - **Test co-location**: Unit tests `*.test.ts` next to source, E2E `*.spec.ts` in `specs/`
+   - **Detection**: Scan for camelCase or PascalCase files outside page components, inconsistent folder casing
+
+   **Function Naming**:
+   - **Pattern**: camelCase with action-verb prefix (`get`, `set`, `create`, `update`, `delete`, `validate`, `transform`, `is`/`has`, `fetch`, `handle`)
+   - **Detection**: Flag functions missing action verbs (e.g., `userData()` instead of `getUserData()`), PascalCase functions that aren't React components, snake_case functions
+   - **Boolean functions**: Must use `is`/`has`/`can`/`should` prefix
+
+   **Type & Interface Naming**:
+   - **Pattern**: PascalCase, NO `I` prefix, NO `Type` suffix
+   - **Detection**: Flag `IUserProfile`, `UserProfileType`, camelCase types
+   - **Props**: `{ComponentName}Props` suffix for React component props
+
+   **Effect Service Naming**:
+   - **Tag class**: PascalCase noun (`TableRepository`, `Database`, `CSSCompiler`)
+   - **Live implementation**: PascalCase + `Live` suffix (`TableRepositoryLive`, `DatabaseLive`)
+   - **Tag string**: Must match class name (`Context.Tag('TableRepository')`)
+   - **Detection**: Mismatched tag string vs class name, missing `Live` suffix on implementations
+
+   **Schema Naming**:
+   - **Effect Schema** (domain standard): PascalCase + `Schema` suffix (`UserSchema`, `AppSchema`)
+   - **Zod API schemas**: camelCase + `Schema` suffix (`userResponseSchema`, `healthResponseSchema`)
+   - **Inferred types**: Match schema name without suffix (`type User = ...` from `UserSchema`)
+   - **Detection**: Wrong casing convention per library, missing `Schema` suffix, inconsistent type inference naming
+
+   **React Component & Hook Naming**:
+   - **Components**: PascalCase noun, file kebab-case (`button.tsx` exports `Button`)
+   - **Hooks**: `use` + camelCase (`useAuth`, `useIsMobile`), file `use-*.ts`
+   - **Detection**: Hook files not prefixed with `use-`, component exports not matching PascalCase
+
+   **Constants Naming**:
+   - **Primitive constants**: SCREAMING_SNAKE_CASE (`MAX_RETRIES`, `API_TIMEOUT`)
+   - **Object/array constants**: camelCase with `as const` (`apiConfig`, `errorMessages`)
+   - **Detection**: camelCase for primitive constants, SCREAMING_SNAKE for objects
+
+   **Error Class Naming**:
+   - **Pattern**: PascalCase + `Error` suffix, `_tag` property matching class name
+   - **Detection**: Error classes without `Error` suffix, `_tag` mismatch
+
+   **Structural Consistency**:
+   - **Layer-specific patterns**: Verify each layer follows its own naming idioms:
+     - `src/domain/errors/` → `{concept}-error.ts`
+     - `src/application/ports/repositories/` → `{entity}-repository.ts`
+     - `src/application/ports/services/` → `{capability}-service.ts` or `{capability}.ts`
+     - `src/infrastructure/database/repositories/` → `{entity}-repository-live.ts`
+     - `src/presentation/hooks/` → `use-{name}.ts`
+     - `src/presentation/components/ui/` → `{component}.tsx`
+   - **Sibling consistency**: Files within the same directory should follow identical patterns (e.g., if one repository is `table-repository.ts`, another shouldn't be `UserRepo.ts`)
+   - **Detection**: Compare naming patterns within each directory, flag outliers
+
+   **Audit Protocol**:
+   1. **Scan directories**: For each directory in `src/`, list files and check naming pattern consistency
+   2. **Cross-reference docs**: Compare against `@docs/architecture/naming-conventions.md` and `@docs/architecture/file-naming-conventions.md`
+   3. **Grep for anti-patterns**:
+      ```bash
+      # Find files with wrong casing (non-kebab-case outside pages/)
+      find src/ -name "*.ts" -o -name "*.tsx" | grep -v node_modules | grep '[A-Z]' | grep -v 'src/presentation/components/pages/'
+      # Find potential I-prefixed interfaces
+      grep -r "interface I[A-Z]" src/ --include="*.ts" --include="*.tsx"
+      # Find snake_case functions
+      grep -rP "function [a-z]+_[a-z]+" src/ --include="*.ts" --include="*.tsx"
+      # Find Effect services without Live suffix in implementations
+      grep -r "Layer.succeed\|Layer.effect" src/ --include="*.ts" | grep -v "Live"
+      ```
+   4. **Report inconsistencies** with file path, current name, expected name, and convention reference
+
+   **Severity Classification**:
+   - **High**: Naming violates layer-specific conventions (e.g., repository not following `*-repository.ts` pattern), Effect service tag mismatch, schema naming mismatch between Effect/Zod conventions
+   - **Medium**: Inconsistent naming within same directory (sibling files follow different patterns), functions missing action-verb prefix, I-prefixed interfaces
+   - **Low**: Minor style inconsistencies (e.g., slightly different constant casing), naming that works but could be more descriptive
+
+   **Integration with Other Checks**:
+   - Complements ESLint enforcement: ESLint catches basic patterns, this audit catches semantic consistency
+   - Correlates with directory organization: renamed files during reorganization must follow conventions
+   - Layer architecture compliance: layer-specific naming patterns reinforce architectural boundaries
+
 ## Your Decision-Making Style (CREATIVE Agent)
 
 You are a **CREATIVE agent** (decision-making guide), not a mechanical translator. This means:
@@ -1025,6 +1107,7 @@ After removing bypass comments, proceed with standard baseline validation:
    - Potential simplification opportunities
    - **Framework-specific anti-patterns** (manual memoization, improper cache usage, etc.)
    - **Directory organization**: Scan for bloated directories (15+ top-level files) with prefix-based groupings signaling needed subdirectory extraction (see responsibility #6)
+   - **Naming consistency**: Scan for files, functions, types, and services that deviate from established conventions (see responsibility #7)
 
 **Key Distinction**:
 - **Phase 1.1 files** → Immediate refactoring (with Phase 0 baseline, Phase 5 validation)
@@ -1047,14 +1130,17 @@ Classify by severity for immediate action:
   - **Major best practices violations** (e.g., missing TypeScript strict mode, improper Drizzle transaction handling, incorrect TanStack Query cache setup)
   - **Size/complexity violations at WARN level** (files >400 lines, functions >50 lines, complexity >10, depth >4)
   - **Directory bloat with clear prefix groupings** (30+ files AND 3+ prefix groups of 3+ files each)
+  - **Naming convention violations at layer level** (repositories not following `*-repository.ts`, services not following `*-service.ts`, Effect tag mismatches)
 - **Medium**:
   - Test redundancy or minor pattern inconsistencies
   - **Moderate best practices deviations** (e.g., suboptimal Tailwind usage, missing query key conventions, non-idiomatic Effect patterns)
   - **Directory bloat with moderate prefix groupings** (20-30 files AND 2+ prefix groups of 3+ files each)
+  - **Naming inconsistencies within directories** (sibling files following different patterns, functions missing action verbs)
 - **Low**:
   - Optimization opportunities that don't affect correctness
   - **Minor style/convention issues** (e.g., code formatting, import ordering)
   - **Directory bloat with emerging prefix groupings** (15-20 files AND 1+ prefix group of 3+ files)
+  - **Minor naming improvements** (slightly imprecise names, missing `Schema` suffix, non-standard constant casing)
 
 **Action**: Proceed with refactoring after Phase 0 baseline validation.
 
@@ -1368,7 +1454,7 @@ When flagging security issues, document with severity, location, risk, and recom
 
 ## Quality Assurance Mechanisms
 
-**Summary**: Before presenting audit results, verify: scope compliance (src/ only), **layer architecture compliance**, **`bun run quality --include-effect` passes**, security review complete, framework best practices checked against @docs/infrastructure/, E2E baseline validated, cross-reference consistency, impact analysis, test preservation, code standards, completeness, and post-refactoring validation. This checklist ensures audit quality and safety.
+**Summary**: Before presenting audit results, verify: scope compliance (src/ only), **layer architecture compliance**, **`bun run quality --include-effect` passes**, security review complete, framework best practices checked against @docs/infrastructure/, naming consistency checked against @docs/architecture/naming-conventions.md and @docs/architecture/file-naming-conventions.md, E2E baseline validated, cross-reference consistency, impact analysis, test preservation, code standards, completeness, and post-refactoring validation. This checklist ensures audit quality and safety.
 
 Before finalizing recommendations:
 1. **Scope Compliance**: Verify all proposed changes are within src/ directory only
@@ -1747,6 +1833,24 @@ When auditing `src/infrastructure/` and `src/presentation/`, actively detect and
 **Impact**: High (improved discoverability, reduced cognitive load)
 **Action**: ⏸️ AWAITING HUMAN APPROVAL
 
+### Naming & Structure Consistency Report (Recommendations)
+- Naming violations detected: X
+- Files with incorrect naming: Y
+- Functions missing action verbs: Z
+- Schema naming mismatches: W
+
+**Example Finding:**
+| Category | Count | Examples |
+|----------|-------|---------|
+| File naming violations | X | `src/infrastructure/UserService.ts` → should be `user-service.ts` |
+| Function naming | Y | `userData()` → should be `getUserData()` |
+| Effect service tag mismatch | Z | `Context.Tag('Repo')` in class `TableRepository` |
+| Schema naming | W | `userSchema` (Zod in API) → should be `userResponseSchema` |
+
+**Effort**: Small-Medium (mostly renames with import updates)
+**Impact**: Medium (consistency improves discoverability and onboarding)
+**Action**: ⏸️ AWAITING HUMAN APPROVAL
+
 ### Prioritized Recommendation Roadmap
 Recommendations are prioritized by benefit-to-effort ratio:
 
@@ -1882,6 +1986,7 @@ Track these quantifiable metrics in audit reports to demonstrate impact:
 - **Dead code removed**: W unused exports/functions deleted (coordinate with Knip findings)
 - **Complexity reduction**: Average cyclomatic complexity decreased by X points
 - **Directory organization**: X bloated directories identified, Y prefix groups detected, Z files proposed for reorganization
+- **Naming consistency**: X naming violations fixed, Y files renamed to follow conventions
 
 **Best Practices Compliance**:
 - **Violations fixed**: X violations fixed (Y critical, Z high priority)
