@@ -113,6 +113,16 @@ export const createDatabaseIdentifierSchema = (identifierType: 'table' | 'field'
         Schema.minLength(1, { message: () => 'This field is required' }),
         Schema.maxLength(63, { message: () => 'Maximum length is 63 characters' }),
         Schema.filter((name) => {
+          const trimmed = name.trim()
+          if (/^\d/.test(trimmed)) {
+            return `Invalid table name '${name}': name must start with a letter`
+          }
+          if (!/^[a-zA-Z][a-zA-Z0-9_\s-]*$/.test(trimmed)) {
+            return `Invalid table name '${name}': name must start with a letter and contain only letters, numbers, underscores, hyphens, or spaces`
+          }
+          return true
+        }),
+        Schema.filter((name) => {
           const sanitized = name
             .toLowerCase()
             .replace(/[^a-z0-9_]/g, '_')

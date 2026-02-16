@@ -138,6 +138,17 @@ export const AppSchema = Schema.Struct({
    */
   pages: Schema.optional(PagesSchema),
 }).pipe(
+  Schema.filter((app) => {
+    const userFieldTypes = new Set(['user', 'created-by', 'updated-by'])
+    const hasUserFields =
+      app.tables?.some((table) => table.fields.some((field) => userFieldTypes.has(field.type))) ??
+      false
+
+    if (hasUserFields && !app.auth) {
+      return 'User fields (user, created-by, updated-by) require auth configuration'
+    }
+    return true
+  }),
   Schema.annotations({
     title: 'Application Configuration',
     description:

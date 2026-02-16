@@ -44,16 +44,7 @@ export function validateFieldWritePermissions(
         return undefined
       }
 
-      // Apply default write permissions for sensitive field types (currency)
-      const fieldDefinition = table.fields.find((f) => f.name === fieldName)
-      if (fieldDefinition?.type === 'currency') {
-        // Currency fields default to admin-only write access
-        const isAdmin = userRole === 'admin'
-        if (!isAdmin) {
-          return fieldName
-        }
-      }
-
+      // No explicit field permission configured — field is writable by all roles
       return undefined
     })
     .filter((field): field is string => field !== undefined)

@@ -210,11 +210,12 @@ export function getCommentProgram(config: GetCommentConfig): Effect.Effect<
       return yield* Effect.fail(new SessionContextError('Comment not found'))
     }
 
-    // Check record exists
+    // Check record exists (isAdmin: true because table-level read permission already validated by handler)
     const recordExists = yield* comments.checkRecordExists({
       session,
       tableName,
       recordId: comment.recordId,
+      isAdmin: true,
     })
 
     if (!recordExists) {

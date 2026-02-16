@@ -432,6 +432,9 @@ test.describe('Upsert records (create or update)', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
+            permissions: {
+              fields: [{ field: 'salary', read: ['admin'], write: ['admin'] }],
+            },
           },
         ],
       })
@@ -479,6 +482,9 @@ test.describe('Upsert records (create or update)', () => {
               { id: 2, name: 'name', type: 'single-line-text' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
+            permissions: {
+              fields: [{ field: 'salary', read: ['admin'], write: ['admin'] }],
+            },
           },
         ],
       })

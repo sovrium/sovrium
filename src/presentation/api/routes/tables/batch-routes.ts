@@ -453,6 +453,19 @@ async function handleUpsert(c: Context, app: App) {
 
   const table = app.tables?.find((t) => t.name === tableName)
 
+  // Check for 'id' field (always readonly) with upsert-specific message
+  const hasIdField = result.data.records.some((record) => 'id' in record.fields)
+  if (hasIdField) {
+    return c.json(
+      {
+        success: false,
+        message: 'Cannot set readonly field: id',
+        code: 'VALIDATION_ERROR',
+      },
+      400
+    )
+  }
+
   // Validate readonly fields BEFORE permission checks
   const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
   if (readonlyValidation) return readonlyValidation
