@@ -13,7 +13,7 @@ import {
   checkDeletedAtColumn,
 } from './delete-helpers'
 import { fetchRecordById } from './record-fetch-helpers'
-import type { DrizzleTransaction } from '@/infrastructure/database'
+import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
 
 const asTx = (mock: { execute: (...args: any[]) => any }) =>
   mock as unknown as Readonly<DrizzleTransaction>

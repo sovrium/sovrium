@@ -191,7 +191,7 @@ test.describe('Custom Role Definitions (US-AUTH-ROLES-001)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-006: should validate table permission roles against defined roles',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
@@ -264,7 +264,7 @@ test.describe('Custom Role Definitions (US-AUTH-ROLES-001)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-008: should accept empty roles array (only built-in roles available)',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
@@ -291,7 +291,7 @@ test.describe('Default Role Assignment (US-AUTH-ROLES-002)', () => {
   // @spec tests - EXHAUSTIVE coverage for US-AUTH-ROLES-002
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-009: should accept built-in role as defaultRole',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
@@ -312,7 +312,7 @@ test.describe('Default Role Assignment (US-AUTH-ROLES-002)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-010: should accept custom role name as defaultRole when defined in auth.roles',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
@@ -334,7 +334,7 @@ test.describe('Default Role Assignment (US-AUTH-ROLES-002)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-011: should default to member role when defaultRole is not specified',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, page }) => {
@@ -360,7 +360,7 @@ test.describe('Default Role Assignment (US-AUTH-ROLES-002)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-012: should reject defaultRole referencing undefined custom role',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

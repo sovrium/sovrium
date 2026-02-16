@@ -104,8 +104,8 @@ PATCH /api/tables/1/records/1
 | ------ | --------------------------------------------------------------- | ----------------------------------- | ------ |
 | AC-001 | updatedBy is auto-set to current user ID on record update       | `API-TABLES-RECORDS-AUTHORSHIP-005` | ✅     |
 | AC-002 | updatedBy reflects the updating user, not the original creator  | `API-TABLES-RECORDS-AUTHORSHIP-006` | ✅     |
-| AC-003 | updatedBy is set to same value as createdBy on initial creation | `API-TABLES-RECORDS-AUTHORSHIP-007` | ⏳     |
-| AC-004 | updatedBy is included in the API response after update          | `API-TABLES-RECORDS-AUTHORSHIP-008` | ⏳     |
+| AC-003 | updatedBy is set to same value as createdBy on initial creation | `API-TABLES-RECORDS-AUTHORSHIP-007` | ✅     |
+| AC-004 | updatedBy is included in the API response after update          | `API-TABLES-RECORDS-AUTHORSHIP-008` | ✅     |
 
 ### Implementation References
 
@@ -137,9 +137,9 @@ SELECT deleted_by, deleted_at FROM tasks WHERE id = 1;
 
 | ID     | Criterion                                                  | E2E Spec                            | Status |
 | ------ | ---------------------------------------------------------- | ----------------------------------- | ------ |
-| AC-001 | deletedBy is auto-set to current user ID on soft delete    | `API-TABLES-RECORDS-AUTHORSHIP-009` | ⏳     |
-| AC-002 | deletedBy is NULL for active (non-deleted) records         | `API-TABLES-RECORDS-AUTHORSHIP-010` | ⏳     |
-| AC-003 | deletedBy is cleared (set to NULL) when record is restored | `API-TABLES-RECORDS-AUTHORSHIP-011` | ⏳     |
+| AC-001 | deletedBy is auto-set to current user ID on soft delete    | `API-TABLES-RECORDS-AUTHORSHIP-009` | ✅     |
+| AC-002 | deletedBy is NULL for active (non-deleted) records         | `API-TABLES-RECORDS-AUTHORSHIP-010` | ✅     |
+| AC-003 | deletedBy is cleared (set to NULL) when record is restored | `API-TABLES-RECORDS-AUTHORSHIP-011` | ✅     |
 | AC-004 | deletedBy is included in trash listing response            | `API-TABLES-RECORDS-AUTHORSHIP-012` | ⏳     |
 
 ### Implementation References
@@ -175,9 +175,9 @@ The API silently ignores the `createdBy` value provided by the user and sets it 
 
 | ID     | Criterion                                           | E2E Spec                            | Status |
 | ------ | --------------------------------------------------- | ----------------------------------- | ------ |
-| AC-001 | API ignores user-provided createdBy value on create | `API-TABLES-RECORDS-AUTHORSHIP-013` | ⏳     |
-| AC-002 | API ignores user-provided updatedBy value on update | `API-TABLES-RECORDS-AUTHORSHIP-014` | ⏳     |
-| AC-003 | API ignores user-provided deletedBy value on delete | `API-TABLES-RECORDS-AUTHORSHIP-015` | ⏳     |
+| AC-001 | API ignores user-provided createdBy value on create | `API-TABLES-RECORDS-AUTHORSHIP-013` | ✅     |
+| AC-002 | API ignores user-provided updatedBy value on update | `API-TABLES-RECORDS-AUTHORSHIP-014` | ✅     |
+| AC-003 | API ignores user-provided deletedBy value on delete | `API-TABLES-RECORDS-AUTHORSHIP-015` | ✅     |
 
 ### Implementation References
 
@@ -201,8 +201,8 @@ The API silently ignores the `createdBy` value provided by the user and sets it 
 
 | ID     | Criterion                                                            | E2E Spec                            | Status |
 | ------ | -------------------------------------------------------------------- | ----------------------------------- | ------ |
-| AC-001 | Different users are tracked across create, update, delete operations | `API-TABLES-RECORDS-AUTHORSHIP-016` | ⏳     |
-| AC-002 | createdBy remains unchanged after update by different user           | `API-TABLES-RECORDS-AUTHORSHIP-017` | ⏳     |
+| AC-001 | Different users are tracked across create, update, delete operations | `API-TABLES-RECORDS-AUTHORSHIP-016` | ✅     |
+| AC-002 | createdBy remains unchanged after update by different user           | `API-TABLES-RECORDS-AUTHORSHIP-017` | ✅     |
 
 ### Implementation References
 
@@ -241,9 +241,9 @@ The API silently ignores the `createdBy` value provided by the user and sets it 
 
 | ID     | Criterion                                                               | E2E Spec                                   | Status |
 | ------ | ----------------------------------------------------------------------- | ------------------------------------------ | ------ |
-| AC-001 | createdBy is included in GET single record response                     | `API-TABLES-RECORDS-AUTHORSHIP-021`        | ⏳     |
-| AC-002 | updatedBy is included in GET single record response                     | `API-TABLES-RECORDS-AUTHORSHIP-022`        | ⏳     |
-| AC-003 | Authorship fields are included in list records response for each record | `API-TABLES-RECORDS-AUTHORSHIP-023`        | ⏳     |
+| AC-001 | createdBy is included in GET single record response                     | `API-TABLES-RECORDS-AUTHORSHIP-021`        | ✅     |
+| AC-002 | updatedBy is included in GET single record response                     | `API-TABLES-RECORDS-AUTHORSHIP-022`        | ✅     |
+| AC-003 | Authorship fields are included in list records response for each record | `API-TABLES-RECORDS-AUTHORSHIP-023`        | ✅     |
 | AC-004 | Full authorship lifecycle across CRUD operations (regression)           | `API-TABLES-RECORDS-AUTHORSHIP-REGRESSION` | ✅     |
 
 ### Implementation References
