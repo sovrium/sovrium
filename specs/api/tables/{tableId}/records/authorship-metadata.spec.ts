@@ -515,7 +515,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-012: should include deleted_by in trash listing response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {

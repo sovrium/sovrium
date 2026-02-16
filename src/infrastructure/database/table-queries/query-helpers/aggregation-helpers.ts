@@ -278,3 +278,37 @@ export function buildWhereClause(
 
   return conditions.length > 0 ? sql.raw(` WHERE ${conditions.join(' AND ')}`) : sql.raw('')
 }
+
+/**
+ * Check which authorship columns exist in a table
+ * Returns an object indicating presence of created_by, updated_by, and deleted_by
+ */
+export function checkAuthorshipColumns(
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string
+): Effect.Effect<
+  {
+    readonly hasCreatedBy: boolean
+    readonly hasUpdatedBy: boolean
+    readonly hasDeletedBy: boolean
+  },
+  SessionContextError
+> {
+  return Effect.tryPromise({
+    try: async () => {
+      const columnCheck = (await tx.execute(
+        sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name IN ('created_by', 'updated_by', 'deleted_by')`
+      )) as readonly Record<string, unknown>[]
+
+      const columns = new Set(columnCheck.map((row) => row['column_name'] as string))
+
+      return {
+        hasCreatedBy: columns.has('created_by'),
+        hasUpdatedBy: columns.has('updated_by'),
+        hasDeletedBy: columns.has('deleted_by'),
+      }
+    },
+    catch: (error) =>
+      new SessionContextError(`Failed to check authorship columns for ${tableName}`, error),
+  })
+}
