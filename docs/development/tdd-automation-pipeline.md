@@ -109,7 +109,7 @@ Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 1/5
 
 | Threshold  | Per-Run | Daily | Weekly | Action                                            |
 | ---------- | ------- | ----- | ------ | ------------------------------------------------- |
-| Hard Limit | $10-15  | $200  | $1000  | Claude Code stops / Skip workflow / Skip workflow |
+| Hard Limit | $15-20  | $200  | $1000  | Claude Code stops / Skip workflow / Skip workflow |
 | Warning    | N/A     | $160  | $800   | N/A / Log warning (80%) / Log warning (80%)       |
 
 **Per-Run**: Enforced by Claude Code CLI (`--max-budget-usd`), not workflow
@@ -1728,7 +1728,7 @@ All errors are handled identically, regardless of type. These subtypes are repor
 | Error Subtype                         | Description                                        | Handling                    |
 | ------------------------------------- | -------------------------------------------------- | --------------------------- |
 | `error_max_turns`                     | Exceeded max turns (50 for e2e-test-fixer)         | Label + comment + next spec |
-| `error_max_budget_usd`                | Exceeded $5 per-run budget limit                   | Label + comment + next spec |
+| `error_max_budget_usd`                | Exceeded per-run budget limit ($15/$20)            | Label + comment + next spec |
 | `error_during_execution`              | Agent encountered error during execution           | Label + comment + next spec |
 | `error_max_structured_output_retries` | Claude output parsing failed repeatedly            | Label + comment + next spec |
 | `no_commits_pushed` (NEW)             | Execution succeeded but no commits were pushed     | Label + comment + next spec |
@@ -1850,7 +1850,7 @@ Without timeouts, `gh` commands can hang indefinitely when GitHub API is slow or
 
 #### Cost Protection
 
-- **Per-run limit**: $10 for Sonnet (attempts 1-3), $15 for Opus (attempts 4-5) — enforced by `--max-budget-usd`
+- **Per-run limit**: $15 for Sonnet (attempts 1-3), $20 for Opus (attempts 4-5) — enforced by `--max-budget-usd`
 - **Daily limit**: $200 (checked before execution, blocks workflow if exceeded)
 - **Weekly limit**: $1000 (checked before execution, blocks workflow if exceeded)
 - **Cost tracking**: Actual Claude Code costs extracted from workflow logs and displayed in credit usage comments
@@ -2141,8 +2141,8 @@ _Automated closure by TDD pipeline error handling_
 
 **Budget Limits**: Model-based escalation:
 
-- **Attempts 1-3 (Sonnet 4.5)**: $10 per execution
-- **Attempts 4-5 (Opus 4.6)**: $15 per execution
+- **Attempts 1-3 (Sonnet 4.5)**: $15 per execution
+- **Attempts 4-5 (Opus 4.6)**: $20 per execution
 
 **Configuration**: Dynamically set in `.github/workflows/tdd-tdd-claude-code.yml` based on attempt number:
 
@@ -2161,7 +2161,7 @@ claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd ${{ 
 **Rationale**:
 
 - Prevents runaway costs from single spec
-- Higher Opus budget (50% increase) reflects stronger model capabilities and rarity (only attempts 4-5)
+- Higher Opus budget (33% increase) reflects stronger model capabilities and rarity (only attempts 4-5)
 - Complements daily ($200) and weekly ($1000) limits
 - Conservative limits encourage efficient spec design
 
@@ -2245,18 +2245,18 @@ All TDD errors now follow a single, simplified recovery flow:
 
 #### Scenario 5: Budget Limit Hit, Need to Increase or Simplify
 
-**Symptom**: Claude Code failed with `error_max_budget_usd` (hit $10 limit for Sonnet attempts or $15 limit for Opus attempts). Spec might be legitimately complex and need higher budget, or might need simplification.
+**Symptom**: Claude Code failed with `error_max_budget_usd` (hit $15 limit for Sonnet attempts or $20 limit for Opus attempts). Spec might be legitimately complex and need higher budget, or might need simplification.
 
 **Analysis Steps**:
 
-1. **Check attempt number**: Was it Sonnet (1-3, $10 budget) or Opus (4-5, $15 budget)?
+1. **Check attempt number**: Was it Sonnet (1-3, $15 budget) or Opus (4-5, $20 budget)?
 2. Review spec complexity - is it testing too many behaviors at once?
 3. Check turn count - did it use 40+ turns? (indicates max_turns would have been hit anyway)
 4. Evaluate if spec can be broken down into smaller tests
 
 **Action Options**:
 
-- **If on Sonnet attempt (1-3) and budget hit**: Wait for model escalation to Opus (attempt 4+) with higher $15 budget
+- **If on Sonnet attempt (1-3) and budget hit**: Wait for model escalation to Opus (attempt 4+) with higher $20 budget
 - **If on Opus attempt (4-5) and budget hit**: Spec is genuinely expensive — increase Opus budget in tdd-claude-code.yml or simplify spec
 - **If spec is too complex**: Use `mark-for-spec-review` to simplify spec
 - **If uncertain**: Manual implementation, then adjust budget/spec based on learnings
@@ -2365,20 +2365,20 @@ Next Spec Processed
 **Three-Layer Defense**:
 
 1. **Per-Run Budget** (Model-Based)
-   - **Sonnet attempts (1-3)**: $10 per execution (cost-effective baseline)
-   - **Opus attempts (4-5)**: $15 per execution (50% higher for stronger reasoning)
+   - **Sonnet attempts (1-3)**: $15 per execution (cost-effective baseline)
+   - **Opus attempts (4-5)**: $20 per execution (33% higher for stronger reasoning)
    - Immediate protection against runaway costs
    - Prevents single spec from consuming entire daily budget
    - Enforced by Claude Code CLI (`--max-budget-usd`)
 
 2. **Daily Limit** ($200)
    - Aggregate limit across all executions
-   - ~14-20 executions depending on Sonnet/Opus mix (realistic)
+   - ~10-13 executions depending on Sonnet/Opus mix (realistic)
    - Enforced by validation job (blocks execution)
 
 3. **Weekly Limit** ($1000)
    - Rolling 7-day window
-   - ~67-100 executions depending on Sonnet/Opus mix
+   - ~50-67 executions depending on Sonnet/Opus mix
    - Enforced by validation job (blocks execution)
 
 **Monitoring**:
@@ -2430,7 +2430,7 @@ Next Spec Processed
 | Branch naming            | `tdd/<spec-id>`                                 | Simple, serves as backup identifier                       |
 | @claude comment format   | Agent-specific with file paths                  | Enables correct agent selection                           |
 | Credit limits            | $200/day, $1000/week (+ per-run)                | Three-layer defense: per-run, daily, weekly               |
-| Per-run budget limit     | $10 (Sonnet), $15 (Opus)                        | Model escalation: Opus only for hard specs (attempts 4-5) |
+| Per-run budget limit     | $15 (Sonnet), $20 (Opus)                        | Model escalation: Opus only for hard specs (attempts 4-5) |
 | Model escalation         | Sonnet (1-3), Opus (4-5)                        | Cost-effective baseline, escalate only when needed        |
 | Cost tracking            | Actual costs from Claude Code result JSON       | Accurate tracking vs. $15 estimates                       |
 | Cost parsing             | JSON result + multi-pattern fallback            | Handles format changes gracefully                         |
