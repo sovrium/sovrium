@@ -6,28 +6,25 @@
  */
 
 import { test, expect, describe } from 'bun:test'
-import { Effect, Layer } from 'effect'
-import { AuthRepository } from '@/application/ports/repositories/auth-repository'
+import { Effect } from 'effect'
 import { getUserRole } from './user-role'
 
 describe('getUserRole', () => {
   test('should return role from AuthRepository', async () => {
-    const mockLayer = Layer.succeed(AuthRepository, {
-      verifyUserEmail: () => Effect.void,
+    const mockService = {
       getUserRole: () => Effect.succeed('admin' as string | undefined),
-    })
+    }
 
-    const role = await getUserRole('user-123', mockLayer)
+    const role = await getUserRole('user-123', mockService)
     expect(role).toBe('admin')
   })
 
   test('should return default role when service returns undefined', async () => {
-    const mockLayer = Layer.succeed(AuthRepository, {
-      verifyUserEmail: () => Effect.void,
+    const mockService = {
       getUserRole: () => Effect.succeed(undefined),
-    })
+    }
 
-    const role = await getUserRole('user-456', mockLayer)
+    const role = await getUserRole('user-456', mockService)
     expect(role).toBe('member')
   })
 })
