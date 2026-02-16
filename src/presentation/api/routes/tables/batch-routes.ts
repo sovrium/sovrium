@@ -76,6 +76,7 @@ function checkRecordLimitExceeded(records: readonly unknown[], c: Context): Resp
         success: false,
         message: 'Batch size exceeds maximum of 1000 records',
         code: 'PAYLOAD_TOO_LARGE',
+        error: 'PayloadTooLarge',
       },
       413
     )
