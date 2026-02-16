@@ -220,7 +220,7 @@ The API silently ignores the `createdBy` value provided by the user and sets it 
 
 | ID     | Criterion                                                      | E2E Spec                            | Status |
 | ------ | -------------------------------------------------------------- | ----------------------------------- | ------ |
-| AC-001 | Batch create sets createdBy on all records to the current user | `API-TABLES-RECORDS-AUTHORSHIP-018` | ⏳     |
+| AC-001 | Batch create sets createdBy on all records to the current user | `API-TABLES-RECORDS-AUTHORSHIP-018` | ✅     |
 | AC-002 | Batch update sets updatedBy on all records to the current user | `API-TABLES-RECORDS-AUTHORSHIP-019` | ⏳     |
 | AC-003 | Batch delete sets deletedBy on all records to the current user | `API-TABLES-RECORDS-AUTHORSHIP-020` | ⏳     |
 
