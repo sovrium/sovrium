@@ -264,7 +264,7 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-006: should clear deleted_at timestamp for restored records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedMember }) => {
