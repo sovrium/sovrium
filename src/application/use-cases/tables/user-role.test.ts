@@ -5,17 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { test, expect, describe, mock } from 'bun:test'
+import { test, expect, describe } from 'bun:test'
 import { Effect, Layer } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth-repository'
-
-// IMPORTANT: Clear any leaked module mocks from other test files (e.g., crud.test.ts).
-// Bun's mock.module() can leak across files on Linux when test files share a process.
-// We call mock.restore() BEFORE dynamically importing the modules under test
-// to ensure we get the real implementations, not mocked versions.
-mock.restore()
-
-const { getUserRole } = await import('./user-role')
+import { getUserRole } from './user-role'
 
 describe('getUserRole', () => {
   test('should return role from AuthRepository', async () => {

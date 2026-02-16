@@ -67,26 +67,15 @@ const defaultMockTx = createMockTx(async () => [])
 // Set up mocks inside beforeAll() instead of at top level.
 // Top-level mock.module() leaks to other test files on Linux CI because Bun's
 // mock.module() is process-global and affects all loaded modules.
+//
+// IMPORTANT: Only mock @/infrastructure/database (the barrel providing db).
+// Do NOT mock helper modules (delete-helpers, record-fetch-helpers, filter-operators)
+// — they use the mock tx passed from the mocked db.transaction(), and mocking them
+// contaminates the module cache for other test files (delete-helpers.test.ts etc.).
 beforeAll(async () => {
   mock.module('@/infrastructure/database', () => createMockDb(defaultMockTx))
 
-  mock.module('../mutation-helpers/delete-helpers', () => ({
-    checkDeletedAtColumn: async () => true,
-    executeSoftDelete: async () => true,
-    executeHardDelete: async () => true,
-    cascadeSoftDelete: async () => {},
-  }))
-
-  mock.module('../mutation-helpers/record-fetch-helpers', () => ({
-    fetchRecordById: async () => ({ id: 'record-123', name: 'Alice' }),
-  }))
-
-  mock.module('@/infrastructure/database/filter-operators', () => ({
-    generateSqlCondition: (field: string, operator: string, value: unknown) =>
-      `${field} ${operator} '${value}'`,
-  }))
-
-  // Dynamic import AFTER mocks are set up — ./crud depends on mocked modules
+  // Dynamic import AFTER mock is set up — ./crud depends on mocked @/infrastructure/database
   const crud = await import('./crud')
   listRecords = crud.listRecords
   listTrash = crud.listTrash
@@ -447,8 +436,25 @@ describe('updateRecord', () => {
 
 describe('deleteRecord', () => {
   test('performs soft delete when deleted_at column exists', async () => {
-    // Helper functions already tested in delete-helpers.test.ts
-    // This test verifies integration
+    // Real helpers call tx.execute() in this order:
+    // [0] checkDeletedAtColumn → information_schema check
+    // [1] fetchRecordById → SELECT record
+    // [2] hasDeletedByColumn (inside executeSoftDelete) → information_schema check
+    // [3] executeSoftDelete → UPDATE SET deleted_at
+    let callIndex = 0
+    const responses: unknown[][] = [
+      [{ column_name: 'deleted_at' }],
+      [{ id: 'record-123', name: 'Alice' }],
+      [],
+      [{ id: 'record-123' }],
+    ]
+    const mockTx = createMockTx(async () => {
+      const response = callIndex < responses.length ? responses[callIndex] : []
+      callIndex++
+      return response
+    })
+
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = deleteRecord(mockSession, 'users', 'record-123')
 
@@ -458,12 +464,22 @@ describe('deleteRecord', () => {
   })
 
   test('performs hard delete when no deleted_at column', async () => {
-    mock.module('../mutation-helpers/delete-helpers', () => ({
-      checkDeletedAtColumn: async () => false, // No soft delete support
-      executeSoftDelete: async () => true,
-      executeHardDelete: async () => true,
-      cascadeSoftDelete: async () => {},
-    }))
+    // [0] checkDeletedAtColumn → returns empty (no soft delete)
+    // [1] fetchRecordById → SELECT record
+    // [2] executeHardDelete → DELETE RETURNING
+    let callIndex = 0
+    const responses: unknown[][] = [
+      [],
+      [{ id: 'record-123', name: 'Alice' }],
+      [{ id: 'record-123' }],
+    ]
+    const mockTx = createMockTx(async () => {
+      const response = callIndex < responses.length ? responses[callIndex] : []
+      callIndex++
+      return response
+    })
+
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = deleteRecord(mockSession, 'users', 'record-123')
 
@@ -475,6 +491,18 @@ describe('deleteRecord', () => {
 
 describe('permanentlyDeleteRecord', () => {
   test('performs hard delete regardless of deleted_at column', async () => {
+    // [0] fetchRecordById → SELECT record
+    // [1] executeHardDelete → DELETE RETURNING
+    let callIndex = 0
+    const responses: unknown[][] = [[{ id: 'record-123', name: 'Alice' }], [{ id: 'record-123' }]]
+    const mockTx = createMockTx(async () => {
+      const response = callIndex < responses.length ? responses[callIndex] : []
+      callIndex++
+      return response
+    })
+
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
+
     const program = permanentlyDeleteRecord(mockSession, 'users', 'record-123')
 
     const result = await Effect.runPromise(program)
@@ -483,12 +511,17 @@ describe('permanentlyDeleteRecord', () => {
   })
 
   test('returns false when delete fails', async () => {
-    mock.module('../mutation-helpers/delete-helpers', () => ({
-      checkDeletedAtColumn: async () => true,
-      executeSoftDelete: async () => true,
-      executeHardDelete: async () => false, // Delete fails
-      cascadeSoftDelete: async () => {},
-    }))
+    // [0] fetchRecordById → SELECT record
+    // [1] executeHardDelete → DELETE RETURNING empty (failure)
+    let callIndex = 0
+    const responses: unknown[][] = [[{ id: 'record-123', name: 'Alice' }], []]
+    const mockTx = createMockTx(async () => {
+      const response = callIndex < responses.length ? responses[callIndex] : []
+      callIndex++
+      return response
+    })
+
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = permanentlyDeleteRecord(mockSession, 'users', 'record-123')
 
