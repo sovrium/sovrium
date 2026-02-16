@@ -14,6 +14,7 @@ import {
   buildOrderByClause,
   buildWhereClause,
   checkDeletedAtColumn as checkDeletedAtColumnHelper,
+  checkAuthorshipColumns,
 } from '../query-helpers/aggregation-helpers'
 import { buildTrashFilters, addTrashSorting } from '../query-helpers/trash-helpers'
 import { wrapDatabaseError } from '../shared/error-handling'
@@ -171,11 +172,110 @@ export function listTrash(config: {
           return [] as readonly Record<string, unknown>[]
         }
 
-        const baseQuery = sql`SELECT * FROM ${sql.identifier(tableName)} WHERE deleted_at IS NOT NULL`
-        const queryWithFilters = buildTrashFilters(baseQuery, filter?.and)
+        // Check which authorship columns exist in the table
+        const authorshipColumns = await Effect.runPromise(checkAuthorshipColumns(tx, tableName))
+
+        // Build SELECT clause with conditional authorship fields (immutable pattern)
+        // NOTE: Column aliases must be quoted to preserve camelCase in PostgreSQL results
+        const createdByFields = authorshipColumns.hasCreatedBy
+          ? [
+              'created_by_user.id AS "createdByUserId"',
+              'created_by_user.name AS "createdByUserName"',
+              'created_by_user.email AS "createdByUserEmail"',
+            ]
+          : []
+
+        const updatedByFields = authorshipColumns.hasUpdatedBy
+          ? [
+              'updated_by_user.id AS "updatedByUserId"',
+              'updated_by_user.name AS "updatedByUserName"',
+              'updated_by_user.email AS "updatedByUserEmail"',
+            ]
+          : []
+
+        const deletedByFields = authorshipColumns.hasDeletedBy
+          ? [
+              'deleted_by_user.id AS "deletedByUserId"',
+              'deleted_by_user.name AS "deletedByUserName"',
+              'deleted_by_user.email AS "deletedByUserEmail"',
+            ]
+          : []
+
+        const selectFields = ['t.*', ...createdByFields, ...updatedByFields, ...deletedByFields]
+
+        // Build FROM clause with conditional JOINs (immutable pattern)
+        const selectClause = sql.raw(selectFields.join(', '))
+        const initialQuery = sql`SELECT ${selectClause} FROM ${sql.identifier(tableName)} t`
+
+        const queryWithCreatedBy = authorshipColumns.hasCreatedBy
+          ? sql`${initialQuery} LEFT JOIN auth.user created_by_user ON t.created_by = created_by_user.id`
+          : initialQuery
+
+        const queryWithUpdatedBy = authorshipColumns.hasUpdatedBy
+          ? sql`${queryWithCreatedBy} LEFT JOIN auth.user updated_by_user ON t.updated_by = updated_by_user.id`
+          : queryWithCreatedBy
+
+        const queryWithDeletedBy = authorshipColumns.hasDeletedBy
+          ? sql`${queryWithUpdatedBy} LEFT JOIN auth.user deleted_by_user ON t.deleted_by = deleted_by_user.id`
+          : queryWithUpdatedBy
+
+        const queryWithWhere = sql`${queryWithDeletedBy} WHERE t.deleted_at IS NOT NULL`
+
+        const queryWithFilters = buildTrashFilters(queryWithWhere, filter?.and)
         const query = addTrashSorting(queryWithFilters, sort)
 
-        return await typedExecute(tx, query)
+        const rows = await typedExecute(tx, query)
+
+        // Transform rows to include user objects for authorship fields
+        return rows.map((row) => {
+          const {
+            createdByUserId,
+            createdByUserName,
+            createdByUserEmail,
+            updatedByUserId,
+            updatedByUserName,
+            updatedByUserEmail,
+            deletedByUserId,
+            deletedByUserName,
+            deletedByUserEmail,
+            ...recordFields
+          } = row
+
+          // Build user objects only if the user ID exists
+          const createdByUser =
+            createdByUserId !== null && createdByUserId !== undefined
+              ? {
+                  id: createdByUserId as string,
+                  name: createdByUserName as string | undefined,
+                  email: createdByUserEmail as string | undefined,
+                }
+              : undefined
+
+          const updatedByUser =
+            updatedByUserId !== null && updatedByUserId !== undefined
+              ? {
+                  id: updatedByUserId as string,
+                  name: updatedByUserName as string | undefined,
+                  email: updatedByUserEmail as string | undefined,
+                }
+              : undefined
+
+          const deletedByUser =
+            deletedByUserId !== null && deletedByUserId !== undefined
+              ? {
+                  id: deletedByUserId as string,
+                  name: deletedByUserName as string | undefined,
+                  email: deletedByUserEmail as string | undefined,
+                }
+              : undefined
+
+          return {
+            ...recordFields,
+            ...(createdByUser ? { created_by_user: createdByUser } : {}),
+            ...(updatedByUser ? { updated_by_user: updatedByUser } : {}),
+            ...(deletedByUser ? { deleted_by_user: deletedByUser } : {}),
+          }
+        })
       }),
     catch: wrapDatabaseError(`Failed to list trash from ${tableName}`),
   })
