@@ -242,7 +242,7 @@ Content-Type: application/json
 | AC-008 | Returns 403 when user is not comment author    | `API-TABLES-RECORDS-COMMENTS-UPDATE-008`        | ✅     |
 | AC-009 | Admin can edit any comment                     | `API-TABLES-RECORDS-COMMENTS-UPDATE-009`        | ✅     |
 | AC-010 | Logs comment edit to activity history          | `API-TABLES-RECORDS-COMMENTS-UPDATE-010`        | ✅     |
-| AC-011 | User updates their own comment (regression)    | `API-TABLES-RECORDS-COMMENTS-UPDATE-REGRESSION` | ⏳     |
+| AC-011 | User updates their own comment (regression)    | `API-TABLES-RECORDS-COMMENTS-UPDATE-REGRESSION` | ✅     |
 
 ### Implementation References
 
