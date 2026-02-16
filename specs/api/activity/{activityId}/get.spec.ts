@@ -24,7 +24,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-001: should return 200 with activity details',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
