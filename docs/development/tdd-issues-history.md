@@ -83,6 +83,58 @@ Use these tags in error symptoms or root cause to improve searchability:
 
 <!-- New entries go here, newest first -->
 
+### ISSUE-2026-02-16-sonnet-budget-exceeded
+
+| Field                    | Value                                                                                                                                                                                                            |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Date**                 | 2026-02-16                                                                                                                                                                                                       |
+| **Severity**             | medium                                                                                                                                                                                                           |
+| **Affected Workflow(s)** | `tdd-claude-code.yml`                                                                                                                                                                                            |
+| **Error Symptoms**       | `[COST]` -- Claude Code failed with `error_max_budget_usd` on PR #7366 (spec API-TABLES-RECORDS-AUTHORSHIP-012, attempt 2/5). The $10 Sonnet per-run budget was insufficient for complex multi-layer spec implementation. Daily usage was $50.18/$200 -- well within daily limits, so the bottleneck was purely the per-run cap. |
+
+**Error Message / Log Excerpt**:
+
+```
+Claude Code execution failed with error_max_budget_usd
+Spec: API-TABLES-RECORDS-AUTHORSHIP-012
+Attempt: 2/5 (Sonnet, $10 budget)
+Daily usage: $50.18/$200 (25% of daily limit)
+```
+
+**Root Cause Analysis**:
+
+The per-run budget limits ($10 for Sonnet, $15 for Opus) were set conservatively during initial pipeline configuration. As specs have grown in complexity -- particularly those requiring changes across multiple architectural layers (domain models, application use-cases, infrastructure repositories, presentation routes, plus E2E tests) -- the $10 Sonnet budget has become insufficient for legitimate implementations. This is not a runaway cost issue but a budget cap that is too tight for the actual work required.
+
+**Solution Applied**:
+
+Increased per-run budget limits:
+
+- **Sonnet (attempts 1-3)**: $10 to $15 (+50%)
+- **Opus (attempts 4-5)**: $15 to $20 (+33%)
+
+Updated execution count estimates for daily/weekly limits:
+- Daily ($200): ~10-13 executions (was ~14-20)
+- Weekly ($1000): ~50-67 executions (was ~67-100)
+
+Also fixed a stale documentation reference on line 1731 that still said "$5 per-run budget limit" from an earlier configuration.
+
+**Files Modified**:
+
+- `docs/development/tdd-automation-pipeline.md` -- Updated 12 references to per-run budget values (summary table, cost protection section, per-run budget section, troubleshooting scenario 5, cost protection strategy, design decisions table, execution count estimates, stale $5 reference)
+- `.github/workflows/tdd-claude-code.yml` -- Updated BUDGET variables: Sonnet $10.00 to $15.00, Opus $15.00 to $20.00, plus echo messages
+- `CLAUDE.md` -- Updated cost protection quick reference from "$10-15 per run" to "$15-20 per run"
+- `docs/development/tdd-issues-history.md` -- This entry
+
+**Lessons Learned**:
+
+- Per-run budget limits should be reviewed periodically as spec complexity evolves. The initial conservative limits were appropriate for simple specs but became a bottleneck as the TDD pipeline tackled multi-layer implementations.
+- When `error_max_budget_usd` occurs on a Sonnet attempt with daily budget headroom remaining, the per-run limit is the bottleneck -- not the aggregate limits. The correct response is to increase the per-run cap, not wait for model escalation.
+- Documentation should avoid hardcoded dollar values in error description tables (the stale $5 reference). Use relative descriptions ("per-run budget limit") or ensure all references are updated together.
+
+**Related Issues**: PR #7366 (TDD PR where budget was exceeded)
+
+---
+
 ### ISSUE-2026-02-11-spurious-claude-code-triggers
 
 | Field                    | Value                                                                                                                                                                                                                                                                                                                                                                                           |

@@ -358,7 +358,7 @@ gh workflow run tdd-pr-creator.yml
 - `tdd-automation` - PR identification (all TDD PRs)
 - `tdd-automation:manual-intervention` - Needs human review (on any error)
 
-**Cost Protection**: $10-15 per run (model-based), $200/day, $1000/week limits with 80% warnings
+**Cost Protection**: $15-20 per run (model-based), $200/day, $1000/week limits with 80% warnings
 
 **Full Documentation**: `@docs/development/tdd-automation-pipeline.md`
 
