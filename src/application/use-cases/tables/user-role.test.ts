@@ -6,13 +6,12 @@
  */
 
 import { test, expect, describe } from 'bun:test'
-import { Effect } from 'effect'
 import { getUserRole } from './user-role'
 
 describe('getUserRole', () => {
   test('should return role from AuthRepository', async () => {
     const mockService = {
-      getUserRole: () => Effect.succeed('admin' as string | undefined),
+      getUserRole: async () => 'admin' as string | undefined,
     }
 
     const role = await getUserRole('user-123', mockService)
@@ -21,7 +20,7 @@ describe('getUserRole', () => {
 
   test('should return default role when service returns undefined', async () => {
     const mockService = {
-      getUserRole: () => Effect.succeed(undefined),
+      getUserRole: async () => undefined,
     }
 
     const role = await getUserRole('user-456', mockService)

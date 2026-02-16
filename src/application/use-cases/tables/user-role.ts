@@ -13,7 +13,7 @@ const DEFAULT_ROLE = 'member'
 
 /** Service shape for direct injection (used by tests to bypass Effect DI) */
 export type AuthRoleService = {
-  readonly getUserRole: (userId: string) => Effect.Effect<string | undefined>
+  readonly getUserRole: (userId: string) => Promise<string | undefined>
 }
 
 /**
@@ -29,11 +29,11 @@ export type AuthRoleService = {
  *
  * @param userId - The user ID to look up
  * @param service - Optional direct service injection (for unit tests).
- *   Bypasses Effect DI to avoid mock.module contamination in Bun's shared process.
+ *   Uses plain Promises to avoid Effect module contamination in Bun's shared process.
  */
 export async function getUserRole(userId: string, service?: AuthRoleService): Promise<string> {
   if (service) {
-    const role = await Effect.runPromise(service.getUserRole(userId))
+    const role = await service.getUserRole(userId)
     return role ?? DEFAULT_ROLE
   }
 
