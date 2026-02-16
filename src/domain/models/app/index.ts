@@ -30,6 +30,15 @@ const extractRolesFromPermission = (permission: unknown): readonly string[] => {
 }
 
 /**
+ * Helper to sort an array of strings immutably.
+ * Returns a new sorted array without mutating the original.
+ */
+const sortStrings = (strings: readonly string[]): readonly string[] => {
+  // eslint-disable-next-line functional/immutable-data, no-restricted-syntax -- Encapsulated mutation for sorting
+  return [...strings].sort((a, b) => a.localeCompare(b))
+}
+
+/**
  * AppSchema defines the structure of an application configuration.
  *
  * This schema represents the core metadata for any application built
@@ -186,10 +195,14 @@ export const AppSchema = Schema.Struct({
         // Find first invalid role reference
         const invalidRole = allPermissionRoles.find((role) => !validRoles.has(role))
 
-        const sortedValidRoles = Array.from(validRoles).toSorted((a, b) => a.localeCompare(b))
-        return invalidRole
-          ? `Table '${table.name}' permissions reference undefined role '${invalidRole}'. Valid roles: ${sortedValidRoles.join(', ')}`
-          : undefined
+        if (!invalidRole) {
+          return undefined
+        }
+
+        // Build sorted list of valid roles for error message
+        const sortedValidRoles = sortStrings(Array.from(validRoles))
+
+        return `Table '${table.name}' permissions reference undefined role '${invalidRole}'. Valid roles: ${sortedValidRoles.join(', ')}`
       })
       .filter((error): error is string => error !== undefined)
 
