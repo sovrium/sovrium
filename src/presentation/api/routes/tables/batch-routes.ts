@@ -40,7 +40,7 @@ import type {
   TransformedRecord,
 } from '@/application/use-cases/tables/utils/record-transformer'
 import type { App } from '@/domain/models/app'
-import type { Context, Hono } from 'hono'
+import type { Context, Hono, TypedResponse } from 'hono'
 
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
 
@@ -177,6 +177,29 @@ async function handleBatchRestore(c: Context, _app: App) {
 }
 
 /**
+ * Check if user has create permission for the table
+ */
+function checkCreatePermission(
+  app: App,
+  tableName: string,
+  userRole: string,
+  c: Context
+): TypedResponse<unknown> | undefined {
+  const table = app.tables?.find((t) => t.name === tableName)
+  if (!hasCreatePermission(table, userRole)) {
+    return c.json(
+      {
+        success: false,
+        message: 'You do not have permission to create records in this table',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
+  return undefined
+}
+
+/**
  * Handle batch create endpoint
  */
 async function handleBatchCreate(c: Context, app: App) {
@@ -195,19 +218,11 @@ async function handleBatchCreate(c: Context, app: App) {
   const result = await validateRequest(c, batchCreateRecordsRequestSchema)
   if (!result.success) return result.response
 
-  const table = app.tables?.find((t) => t.name === tableName)
-  if (!hasCreatePermission(table, userRole)) {
-    return c.json(
-      {
-        success: false,
-        message: 'You do not have permission to create records in this table',
-        code: 'FORBIDDEN',
-      },
-      403
-    )
-  }
+  const createPermCheck = checkCreatePermission(app, tableName, userRole, c)
+  if (createPermCheck) return createPermCheck
 
   // Validate readonly fields BEFORE permission checks
+  const table = app.tables?.find((t) => t.name === tableName)
   const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
   if (readonlyValidation) return readonlyValidation
 
@@ -227,13 +242,10 @@ async function handleBatchCreate(c: Context, app: App) {
   const flatRecordsData = result.data.records.map((record) => record.fields)
 
   // Execute batch create with returnRecords parameter and app for numeric coercion
-  const program = batchCreateProgram(
-    session,
-    tableName,
-    flatRecordsData,
-    result.data.returnRecords,
-    app
-  )
+  const program = batchCreateProgram(session, tableName, flatRecordsData, {
+    returnRecords: result.data.returnRecords,
+    app,
+  })
 
   // Apply field-level read filtering to response (if records returned)
   const filteredProgram = program.pipe(
@@ -303,13 +315,10 @@ async function handleBatchUpdate(c: Context, app: App) {
   }))
 
   // Execute batch update with returnRecords parameter and app for numeric coercion
-  const program = batchUpdateProgram(
-    session,
-    tableName,
-    recordsData,
-    result.data.returnRecords,
-    app
-  )
+  const program = batchUpdateProgram(session, tableName, recordsData, {
+    returnRecords: result.data.returnRecords,
+    app,
+  })
 
   // Apply field-level read filtering to response (if records returned)
   const filteredProgram = program.pipe(

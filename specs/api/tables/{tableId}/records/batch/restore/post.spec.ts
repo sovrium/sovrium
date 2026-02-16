@@ -365,7 +365,7 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-008: should enforce maximum batch size of 100 records',
     { tag: '@spec' },
     async ({ startServerWithSchema, request, createAuthenticatedMember }) => {
