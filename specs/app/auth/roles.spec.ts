@@ -387,7 +387,7 @@ test.describe('Default Role Assignment (US-AUTH-ROLES-002)', () => {
 // Generated from 12 @spec tests - see individual @spec tests for exhaustive criteria
 // ============================================================================
 
-test.fixme(
+test(
   'APP-AUTH-ROLES-REGRESSION: developer can configure roles and default role assignment correctly',
   { tag: '@regression' },
   async ({ startServerWithSchema, createAuthenticatedAdmin, signUp, page }) => {
