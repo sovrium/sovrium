@@ -401,7 +401,7 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-009: should log batch restore operation to activity history',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedMember }) => {
@@ -438,7 +438,7 @@ test.describe('Batch Restore records', () => {
       // WHEN: Batch restore
       await createAuthenticatedMember({ email: 'member@example.com' })
       const response = await request.post('/api/tables/1/records/batch/restore', {
-        data: { ids: deleted.map((r: any) => String(r.id)) },
+        data: { ids: deleted.rows.map((r: any) => String(r.id)) },
       })
       expect(response.status()).toBe(200)
 
@@ -452,7 +452,7 @@ test.describe('Batch Restore records', () => {
   // @regression test (exactly one) - OPTIMIZED integration
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-REGRESSION: user can complete full batch restore workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {

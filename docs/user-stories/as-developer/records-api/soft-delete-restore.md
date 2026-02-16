@@ -207,8 +207,8 @@ Content-Type: application/json
 | AC-005 | Returns partial success response with error details        |                                               |        |
 | AC-006 | Returns 401 when not authenticated                         | `API-TABLES-RECORDS-BATCH-RESTORE-004`        | ✅     |
 | AC-007 | Returns 403 when user lacks restore permission             | `API-TABLES-RECORDS-BATCH-RESTORE-005`        | ✅     |
-| AC-008 | Logs batch restore operation to activity history           | `API-TABLES-RECORDS-BATCH-RESTORE-009`        | ⏳     |
-| AC-009 | User can complete full batch restore workflow (regression) | `API-TABLES-RECORDS-BATCH-RESTORE-REGRESSION` | ⏳     |
+| AC-008 | Logs batch restore operation to activity history           | `API-TABLES-RECORDS-BATCH-RESTORE-009`        | ✅     |
+| AC-009 | User can complete full batch restore workflow (regression) | `API-TABLES-RECORDS-BATCH-RESTORE-REGRESSION` | ✅     |
 
 ### Implementation References
 

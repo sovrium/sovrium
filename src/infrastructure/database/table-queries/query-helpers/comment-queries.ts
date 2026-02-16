@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines -- Comment queries module contains cohesive CRUD operations and helper functions */
+
 import { sql, eq, and, isNull, desc, asc } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { users } from '@/infrastructure/auth/better-auth/schema'
@@ -209,6 +211,11 @@ export function getCommentWithUser(config: {
 /**
  * Build SQL query to check record existence with optional deleted_at filter and owner_id check
  * Admins bypass owner_id filtering to access all records
+ *
+ * owner_id filtering logic:
+ * - Records with owner_id = NULL are accessible to all users (unowned records)
+ * - Records with owner_id = <userId> are accessible only to that user (owned records)
+ * - Admins can access all records regardless of owner_id
  */
 function buildRecordCheckQuery(params: {
   readonly tableName: string
@@ -223,13 +230,13 @@ function buildRecordCheckQuery(params: {
   const shouldFilterOwner = hasOwnerId && !isAdmin
 
   if (hasDeletedAt && shouldFilterOwner) {
-    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL AND owner_id = ${userId}`
+    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL AND (owner_id = ${userId} OR owner_id IS NULL)`
   }
   if (hasDeletedAt) {
     return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
   }
   if (shouldFilterOwner) {
-    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND owner_id = ${userId}`
+    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND (owner_id = ${userId} OR owner_id IS NULL)`
   }
   return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId}`
 }
@@ -487,5 +494,58 @@ export function getCommentsCount(config: {
     })
 
     return result[0]?.count ?? 0
+  })
+}
+
+/**
+ * Update a comment's content
+ */
+export function updateComment(config: {
+  readonly session: Readonly<Session>
+  readonly commentId: string
+  readonly content: string
+}): Effect.Effect<
+  {
+    readonly id: string
+    readonly tableId: string
+    readonly recordId: string
+    readonly userId: string
+    readonly content: string
+    readonly createdAt: Date
+    readonly updatedAt: Date
+  },
+  SessionContextError
+> {
+  const { commentId, content } = config
+  return Effect.tryPromise({
+    try: async () => {
+      const now = new Date()
+
+      const result = await db
+        .update(recordComments)
+        .set({ content, updatedAt: now })
+        .where(and(eq(recordComments.id, commentId), isNull(recordComments.deletedAt)))
+        .returning()
+
+      if (result.length === 0) {
+        // eslint-disable-next-line functional/no-throw-statements -- Required inside Effect.tryPromise for error propagation
+        throw new SessionContextError('Comment not found')
+      }
+
+      const comment = result[0]!
+      return {
+        id: comment.id,
+        tableId: comment.tableId,
+        recordId: comment.recordId,
+        userId: comment.userId,
+        content: comment.content,
+        createdAt: comment.createdAt,
+        updatedAt: comment.updatedAt,
+      }
+    },
+    catch: (error) =>
+      error instanceof SessionContextError
+        ? error
+        : new SessionContextError('Failed to update comment', error),
   })
 }

@@ -62,6 +62,16 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
+      update: () =>
+        Effect.succeed({
+          id: 'comment-123',
+          tableId: 'table-1',
+          recordId: 'record-1',
+          userId: 'user-456',
+          content: 'Updated',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
     })
 
     const program = Effect.gen(function* () {
@@ -107,6 +117,16 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
+      update: () =>
+        Effect.succeed({
+          id: 'comment-123',
+          tableId: 'table-1',
+          recordId: 'record-1',
+          userId: 'user-456',
+          content: 'Updated',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
     })
 
     const program = Effect.gen(function* () {
@@ -133,6 +153,16 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
+      update: () =>
+        Effect.succeed({
+          id: 'comment-123',
+          tableId: 'table-1',
+          recordId: 'record-1',
+          userId: 'user-456',
+          content: 'Updated',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
     })
 
     const program = Effect.gen(function* () {
@@ -166,6 +196,16 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
+      update: () =>
+        Effect.succeed({
+          id: 'comment-123',
+          tableId: 'table-1',
+          recordId: 'record-1',
+          userId: 'user-456',
+          content: 'Updated',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
     })
 
     const program = Effect.gen(function* () {
@@ -197,6 +237,16 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
+      update: () =>
+        Effect.succeed({
+          id: 'comment-123',
+          tableId: 'table-1',
+          recordId: 'record-1',
+          userId: 'user-456',
+          content: 'Updated',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
     })
 
     const program = Effect.gen(function* () {
@@ -223,6 +273,16 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(0),
+      update: () =>
+        Effect.succeed({
+          id: 'comment-123',
+          tableId: 'table-1',
+          recordId: 'record-1',
+          userId: 'user-456',
+          content: 'Updated',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
     })
 
     const program = Effect.gen(function* () {
@@ -281,6 +341,16 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed(mockComments),
       getCount: () => Effect.succeed(0),
+      update: () =>
+        Effect.succeed({
+          id: 'comment-123',
+          tableId: 'table-1',
+          recordId: 'record-1',
+          userId: 'user-456',
+          content: 'Updated',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
     })
 
     const program = Effect.gen(function* () {
@@ -311,6 +381,16 @@ describe('CommentRepository', () => {
       remove: () => Effect.void,
       list: () => Effect.succeed([]),
       getCount: () => Effect.succeed(42),
+      update: () =>
+        Effect.succeed({
+          id: 'comment-123',
+          tableId: 'table-1',
+          recordId: 'record-1',
+          userId: 'user-456',
+          content: 'Updated',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
     })
 
     const program = Effect.gen(function* () {

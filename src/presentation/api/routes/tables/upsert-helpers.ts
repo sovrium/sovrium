@@ -247,7 +247,7 @@ export function stripUnwritableFields<T extends { fields: Record<string, unknown
       {}
     )
 
-    return { ...record, fields: filteredFields }
+    return { ...record, fields: filteredFields } as T
   })
 }
 

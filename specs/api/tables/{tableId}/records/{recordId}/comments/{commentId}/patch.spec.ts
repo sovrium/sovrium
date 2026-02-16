@@ -27,7 +27,7 @@ test.describe('Update comment', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-001: should return 200 with updated comment data',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -83,7 +83,7 @@ test.describe('Update comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-002: should update @mentions in content',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -133,7 +133,7 @@ test.describe('Update comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-003: should return 400 Bad Request for empty content',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -178,7 +178,7 @@ test.describe('Update comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-004: should return 400 Bad Request for content too long',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -224,7 +224,7 @@ test.describe('Update comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-005: should return 401 Unauthorized',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery }) => {
@@ -242,6 +242,9 @@ test.describe('Update comment', () => {
       })
       await executeQuery(`
         INSERT INTO tasks (id, title) VALUES (1, 'Task One')
+      `)
+      await executeQuery(`
+        INSERT INTO auth.user (id, name, email) VALUES ('user_1', 'Test User', 'user1@example.com')
       `)
       await executeQuery(`
         INSERT INTO system.record_comments (id, record_id, table_id, user_id, content)
@@ -263,7 +266,7 @@ test.describe('Update comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-006: should return 403 Forbidden',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -310,7 +313,7 @@ test.describe('Update comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-007: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -351,7 +354,7 @@ test.describe('Update comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-008: should return 404 Not Found',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -403,7 +406,7 @@ test.describe('Update comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-009: should return 404 Not Found for soft-deleted comment',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -449,7 +452,7 @@ test.describe('Update comment', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-010: should include user metadata in response',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
@@ -511,7 +514,7 @@ test.describe('Update comment', () => {
   // Combines 10 @spec scenarios into one workflow validating the update comment feature
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-REGRESSION: user can complete full update comment workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
