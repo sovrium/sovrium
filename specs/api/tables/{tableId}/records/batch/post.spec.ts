@@ -351,21 +351,27 @@ test.describe('Batch create records', () => {
               { id: 1, name: 'name', type: 'single-line-text' },
               { id: 2, name: 'salary', type: 'currency', currency: 'USD' },
             ],
+            permissions: {
+              fields: [
+                {
+                  field: 'salary',
+                  read: ['admin'],
+                  write: ['admin'],
+                },
+              ],
+            },
           },
         ],
       })
       await createAuthenticatedMember()
 
-      // WHEN: Member attempts batch create with protected field
+      // WHEN: Member attempts batch create with protected field only
       const response = await request.post('/api/tables/8/records/batch', {
         headers: {
           'Content-Type': 'application/json',
         },
         data: {
-          records: [
-            { fields: { name: 'Alice Cooper', salary: 85_000 } },
-            { fields: { name: 'Bob Smith', salary: 90_000 } },
-          ],
+          records: [{ fields: { salary: 85_000 } }, { fields: { salary: 90_000 } }],
         },
       })
 
@@ -445,6 +451,15 @@ test.describe('Batch create records', () => {
               { id: 2, name: 'email', type: 'email' },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
+            permissions: {
+              fields: [
+                {
+                  field: 'salary',
+                  read: ['admin'],
+                  write: ['admin', 'member'],
+                },
+              ],
+            },
           },
         ],
       })
@@ -480,7 +495,7 @@ test.describe('Batch create records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-010: should return 201 with all fields for admin',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedAdmin }) => {
