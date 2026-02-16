@@ -27,7 +27,7 @@ test.describe('Update comment', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-COMMENTS-UPDATE-001: should return 200 with updated comment data',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
