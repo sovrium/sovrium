@@ -369,6 +369,8 @@ expect(value).toMatchSnapshot()
 
 ## Mocking
 
+### Function Mocks and Spies (Safe)
+
 ```typescript
 import { mock, spyOn } from 'bun:test'
 
@@ -384,6 +386,182 @@ spy.mockReturnValue(42)
 spy.mockResolvedValue('async value')
 spy.mockRejectedValue(new Error('error'))
 ```
+
+### ⚠️ CRITICAL: mock.module() Process-Global Contamination
+
+**DO NOT USE `mock.module()` IN TESTS** - It causes process-global module cache contamination.
+
+> **📖 See Also**: For the architectural decision and recommended dependency injection patterns, see [Test Mocking Strategy](../../architecture/testing-strategy/16-test-mocking-dependency-injection-over-mock-module.md).
+
+#### The Problem
+
+Bun's `mock.module()` (from `bun:test`) is **process-global**, NOT file-scoped. When `file-A.test.ts` calls `mock.module('@/some/module', ...)`, ALL subsequent test files that import `@/some/module` get the mocked version, even after `mock.restore()`.
+
+**Why This Happens**:
+
+1. `mock.module()` replaces module entries in Bun's internal module resolution cache
+2. `mock.restore()` clears mock factory registrations but does NOT evict already-cached module evaluations
+3. All test files share the same Bun process (even with sequential execution)
+4. The mock persists in the module cache for the lifetime of the test process
+
+#### Linux vs macOS Gotcha
+
+This contamination manifests differently on macOS (local) vs Linux (CI):
+
+- **macOS (HFS+/APFS)**: Files iterated alphabetically → Contamination happens in predictable order
+- **Linux (ext4)**: Files iterated by inode order → Contamination appears random/non-deterministic
+- **Result**: Tests pass locally on macOS but fail randomly on GitHub Actions (Linux)
+
+**Real-World Impact**: 24 test failures on Linux CI (all tests passed locally on macOS) caused by 2 "polluter" test files using `mock.module()`.
+
+#### Failed Mitigation Strategies
+
+These approaches **DO NOT** fix the contamination:
+
+❌ **mock.restore() in afterEach()** - Clears factory registrations but NOT cached module evaluations
+❌ **Sequential test execution** - Tests still share the same process and module cache
+❌ **Isolated describe blocks** - Module cache is process-global, not scope-scoped
+❌ **Dynamic imports** - Module cache contamination persists regardless of import style
+
+#### Safe Solution: Dependency Injection Pattern
+
+**Instead of** `mock.module()`, use dependency injection parameters:
+
+```typescript
+// ❌ DANGEROUS: mock.module() contaminates process-global module cache
+import { mock } from 'bun:test'
+import { deleteHelpers } from './delete-helpers'
+
+test('deletes user', async () => {
+  mock.module('./delete-helpers', () => ({
+    buildConditions: mock(() => ({ id: 1 })),
+  }))
+
+  // This mock persists in ALL subsequent test files!
+})
+
+// ✅ SAFE: Dependency injection for test control
+function deleteUser(
+  userId: number,
+  { buildConditionsFn = buildConditions }: { buildConditionsFn?: typeof buildConditions } = {}
+) {
+  const conditions = buildConditionsFn(userId)
+  // Use conditions...
+}
+
+test('deletes user', async () => {
+  const mockBuildConditions = mock(() => ({ id: 1 }))
+
+  await deleteUser(1, { buildConditionsFn: mockBuildConditions })
+
+  expect(mockBuildConditions).toHaveBeenCalledWith(1)
+})
+```
+
+**Benefits**:
+
+- ✅ No module cache contamination
+- ✅ Tests remain isolated
+- ✅ Works identically on macOS and Linux
+- ✅ Explicit dependencies make code more testable
+- ✅ Allows testing with real implementations OR mocks
+
+#### The ONE Safe Exception: Database Barrel Mock
+
+The ONLY safe use of `mock.module()` in Sovrium is for the `@/infrastructure/database` barrel:
+
+```typescript
+// Safe because ONLY the database connection object is replaced
+// No other test file depends on re-importing specific database module shapes
+import { mock } from 'bun:test'
+
+beforeEach(() => {
+  mock.module('@/infrastructure/database', () => ({
+    db: {
+      insert: mock(async () => [mockRecord]),
+      select: mock(() => ({ from: mock(() => ({ where: mock(async () => [mockRecord]) })) })),
+      update: mock(() => ({ set: mock(() => ({ where: mock(async () => [mockRecord]) })) })),
+      delete: mock(() => ({ where: mock(async () => [mockRecord]) })),
+    },
+  }))
+})
+
+afterEach(() => {
+  mock.restore()
+})
+```
+
+**Why this is safe**:
+
+- Database connection is an opaque object (no specific shape dependencies)
+- Tests only care about mock call tracking (`.toHaveBeenCalled()`)
+- No other test file expects to re-import specific database module exports
+
+#### Real-World Contamination Example
+
+**Polluter File**: `crud.test.ts`
+
+```typescript
+// This contaminated delete-helpers.test.ts (23 failures)
+beforeEach(() => {
+  mock.module('./delete-helpers', () => ({
+    buildDeleteConditions: mock(() => ({ id: 1 })),
+  }))
+})
+```
+
+**Victim File**: `delete-helpers.test.ts`
+
+```typescript
+// These tests failed because buildDeleteConditions always returned { id: 1 }
+test('buildDeleteConditions with multiple filters', () => {
+  const result = buildDeleteConditions({ id: 1, status: 'active' })
+  expect(result).toEqual({ id: 1, status: 'active' }) // ❌ Failed: got { id: 1 }
+})
+```
+
+**Fix**: Removed `mock.module()` from `crud.test.ts`, used call-counter mock `tx` pattern with real helper functions.
+
+#### How We Discovered This
+
+1. All tests passed locally (macOS)
+2. 24 tests failed on GitHub Actions (Linux)
+3. Failures were in different files than the polluter files
+4. `mock.restore()` was present but ineffective
+5. File iteration order was different on Linux (inode-based) vs macOS (alphabetical)
+6. Tracked contamination source to `mock.module()` calls
+
+#### Action Items for Developers
+
+**DO**:
+
+- ✅ Use dependency injection parameters for test control
+- ✅ Test with real helper functions when possible
+- ✅ Use `mock()` for function call tracking (NOT `mock.module()`)
+- ✅ Only mock the database barrel (`@/infrastructure/database`)
+
+**DON'T**:
+
+- ❌ Use `mock.module()` for application modules
+- ❌ Rely on `mock.restore()` to fix contamination (it doesn't)
+- ❌ Assume tests passing locally means they'll pass in CI
+- ❌ Mock helper functions or utilities with `mock.module()`
+
+#### Testing Contamination
+
+If you suspect contamination:
+
+1. Run tests locally: `bun test:unit`
+2. Check CI logs for Linux-specific failures
+3. Search for `mock.module()` calls in test files: `grep -r "mock.module" src/`
+4. Replace with dependency injection pattern
+5. Re-run tests on Linux CI to confirm fix
+
+#### References
+
+- Bun issue: https://github.com/oven-sh/bun/issues (process-global mock.module behavior)
+- Sovrium resolution: Removed all `mock.module()` calls except database barrel mock
+- Affected tests: 24 failures across 2 polluter files (fixed January 2025)
 
 ## Test Execution Approach
 

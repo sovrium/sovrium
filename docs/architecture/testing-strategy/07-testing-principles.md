@@ -13,10 +13,11 @@ The F.I.R.S.T principles ensure tests are reliable, maintainable, and valuable, 
 **Unit Tests (Bun)**: Tests should execute in milliseconds
 
 - ✅ Test pure functions without external dependencies
-- ✅ Mock external services (databases, APIs, file system)
+- ✅ Mock external services using dependency injection (databases, APIs, file system) — see [Part 16](./16-test-mocking-dependency-injection-over-mock-module.md)
 - ✅ Run in parallel by default (Bun's built-in behavior)
 - ✅ Use `bun test --watch` for instant feedback during development
 - ❌ Avoid actual network calls, database queries, or file I/O
+- ❌ Avoid `mock.module()` for application logic (causes cross-file contamination)
   **E2E Tests (Playwright)**: Tests should complete in seconds, not minutes
 - ✅ Run tests in parallel across multiple workers
 - ✅ Use network interception to mock slow API responses

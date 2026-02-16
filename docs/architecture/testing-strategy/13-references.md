@@ -4,13 +4,24 @@
 
 ## References
 
+### Testing Principles & Methodologies
+
 - **F.I.R.S.T Principles**: https://dev.to/luisfpedroso/master-the-art-of-software-testing-with-first-principles-18im
 - **Given-When-Then**: https://en.wikipedia.org/wiki/Given-When-Then
+- **Test-Driven Development**: https://martinfowler.com/bliki/TestDrivenDevelopment.html
+- **Behavior-Driven Development**: https://dannorth.net/introducing-bdd/
+
+### Tool-Specific Documentation
+
 - **Bun Test Documentation**: [bun-test.md](../infrastructure/testing/bun-test.md)
 - **Playwright Documentation**: [playwright.md](../infrastructure/testing/playwright.md)
 - **Playwright Best Practices**: https://playwright.dev/docs/best-practices
-- **Test-Driven Development**: https://martinfowler.com/bliki/TestDrivenDevelopment.html
-- **Behavior-Driven Development**: https://dannorth.net/introducing-bdd/
+
+### Sovrium-Specific Patterns
+
+- **Test Mocking with Dependency Injection**: [Part 16](./16-test-mocking-dependency-injection-over-mock-module.md)
+- **Authentication Testing Strategy**: [Part 15](./15-authentication-testing-strategy.md)
+- **Using test.step for Readability**: [Part 14](./14-using-test-steps-for-readability.md)
 
 ---
 

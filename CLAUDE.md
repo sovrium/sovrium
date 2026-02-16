@@ -206,6 +206,14 @@ git push origin main               # Triggers release ONLY with "release:" type
 - **Enforcement**: ESLint prevents wrong test runner imports (Playwright in unit tests, Bun Test in E2E tests)
 - **See**: `@docs/architecture/testing-strategy/06-test-file-naming-convention.md` for enforcement details
 
+### Unit Test Mocking (CRITICAL - Avoid mock.module())
+- **❌ NEVER use `mock.module()` for application modules** - Causes process-global cache contamination
+- **✅ USE dependency injection pattern** - Pass mocks as function parameters
+- **ONE exception**: Mocking `@/infrastructure/database` barrel is safe (opaque connection object)
+- **Why**: `mock.module()` contaminates Bun's module cache for ALL test files (even after `mock.restore()`)
+- **Impact**: 24 CI failures on Linux (tests passed locally on macOS due to file iteration differences)
+- **See**: `@docs/infrastructure/testing/bun-test.md#-critical-mockmodule-process-global-contamination` for full details
+
 ### Snapshot Testing (E2E Tests)
 - **ARIA Snapshots** (`toMatchAriaSnapshot`): For structure & accessibility validation
 - **Visual Screenshots** (`toHaveScreenshot`): For theme, layout & visual regression

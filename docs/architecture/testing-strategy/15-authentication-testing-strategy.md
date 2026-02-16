@@ -192,3 +192,11 @@ This matches APIs like:
 - [Managing Red Tests with .fixme()](./04-managing-red-tests-with-fixme.md)
 - [Testing Principles](./07-testing-principles.md)
 - [Playwright Best Practices](./08-playwright-best-practices.md)
+
+---
+
+## Navigation
+
+[← Part 14](./14-using-test-steps-for-readability.md) | [Part 16 →](./16-test-mocking-dependency-injection-over-mock-module.md)
+
+**Parts**: [Part 1](./01-start.md) | [Part 2](./02-overview.md) | [Part 3](./03-testing-approach.md) | [Part 4](./04-managing-red-tests-with-fixme.md) | [Part 5](./05-quick-reference-when-to-write-tests.md) | [Part 6](./06-test-file-naming-convention.md) | [Part 7](./07-testing-principles.md) | [Part 8](./08-playwright-best-practices.md) | [Part 9](./09-test-execution-strategies.md) | [Part 10](./10-best-practices-summary.md) | [Part 11](./11-anti-patterns-to-avoid.md) | [Part 12](./12-enforcement-and-code-review.md) | [Part 13](./13-references.md) | [Part 14](./14-using-test-steps-for-readability.md) | **Part 15** | [Part 16](./16-test-mocking-dependency-injection-over-mock-module.md)
