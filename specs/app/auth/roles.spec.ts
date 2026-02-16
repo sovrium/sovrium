@@ -101,7 +101,7 @@ test.describe('Custom Role Definitions (US-AUTH-ROLES-001)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-003: should reject duplicate role names in custom roles',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
