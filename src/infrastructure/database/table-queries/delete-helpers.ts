@@ -14,6 +14,7 @@ import { validateTableName, validateColumnName } from './validation'
  *
  * Helper function to cascade soft delete to child records based on onDelete: 'cascade' configuration
  */
+// eslint-disable-next-line max-params, max-lines-per-function -- Cascade delete requires app config, userId, and complex conditional logic for deleted_by
 export async function cascadeSoftDelete(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
@@ -28,7 +29,8 @@ export async function cascadeSoftDelete(
         readonly onDelete?: string
       }>
     }>
-  }
+  },
+  userId?: string
 ): Promise<void> {
   if (!app.tables) return
 
@@ -47,6 +49,10 @@ export async function cascadeSoftDelete(
       }))
   )
 
+  // When userId is 'guest' (no auth configured), set deleted_by to NULL
+  // eslint-disable-next-line unicorn/no-null -- NULL is intentional for database columns when no auth configured
+  const deletedByValue = !userId || userId === 'guest' ? null : userId
+
   // Cascade soft delete to each related table
   // eslint-disable-next-line functional/no-expression-statements -- Database updates for cascade delete are required side effects
   await Promise.all(
@@ -63,11 +69,25 @@ export async function cascadeSoftDelete(
       )) as readonly Record<string, unknown>[]
 
       if (childColumnCheck.length > 0) {
-        // Cascade soft delete to related records
-        // eslint-disable-next-line functional/no-expression-statements -- Database update for cascade is required
-        await tx.execute(
-          sql`UPDATE ${sql.identifier(childTable)} SET deleted_at = NOW() WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL`
-        )
+        // Check if child table has deleted_by column
+        const deletedByCheck = (await tx.execute(
+          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${childTable} AND column_name = 'deleted_by'`
+        )) as readonly Record<string, unknown>[]
+
+        const hasDeletedBy = deletedByCheck.length > 0
+
+        // Cascade soft delete to related records with deleted_by if column exists
+        if (hasDeletedBy) {
+          // eslint-disable-next-line functional/no-expression-statements -- Database update for cascade is required
+          await tx.execute(
+            sql`UPDATE ${sql.identifier(childTable)} SET deleted_at = NOW(), deleted_by = ${deletedByValue} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL`
+          )
+        } else {
+          // eslint-disable-next-line functional/no-expression-statements -- Database update for cascade is required
+          await tx.execute(
+            sql`UPDATE ${sql.identifier(childTable)} SET deleted_at = NOW() WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL`
+          )
+        }
       }
     })
   )
@@ -101,13 +121,32 @@ export async function fetchRecordBeforeDeletion(
 export async function executeSoftDelete(
   tx: Readonly<DrizzleTransaction>,
   tableName: string,
-  recordId: string
+  recordId: string,
+  userId?: string
 ): Promise<boolean> {
   try {
-    const tableIdent = sql.identifier(tableName)
-    const result = (await tx.execute(
-      sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
+    // Check if table has deleted_by column
+    const deletedByCheck = (await tx.execute(
+      sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_by'`
     )) as readonly Record<string, unknown>[]
+
+    const hasDeletedBy = deletedByCheck.length > 0
+
+    // When userId is 'guest' (no auth configured), set deleted_by to NULL
+    // eslint-disable-next-line unicorn/no-null -- NULL is intentional for database columns when no auth configured
+    const deletedByValue = !userId || userId === 'guest' ? null : userId
+
+    const tableIdent = sql.identifier(tableName)
+
+    // Build UPDATE query with or without deleted_by
+    const result = hasDeletedBy
+      ? ((await tx.execute(
+          sql`UPDATE ${tableIdent} SET deleted_at = NOW(), deleted_by = ${deletedByValue} WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
+        )) as readonly Record<string, unknown>[])
+      : ((await tx.execute(
+          sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
+        )) as readonly Record<string, unknown>[])
+
     return result.length > 0
   } catch (error) {
     // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling

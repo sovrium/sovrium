@@ -1297,8 +1297,8 @@ test.describe('Record Authorship Metadata', () => {
       })
 
       await test.step('API-TABLES-RECORDS-AUTHORSHIP-013: Read-only enforcement on create', async () => {
-        // Sign back in as Alice
-        await signIn({ email: 'alice@example.com', password: 'SecurePass123!' })
+        // Sign back in as Alice (using default createAuthenticatedUser password)
+        await signIn({ email: 'alice@example.com', password: 'TestPassword123!' })
 
         const response = await request.post('/api/tables/100/records', {
           headers: { 'Content-Type': 'application/json' },

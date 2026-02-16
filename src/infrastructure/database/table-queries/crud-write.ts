@@ -33,8 +33,8 @@ import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
- * Inject authorship metadata fields (created_by only) into record fields for INSERT
- * Note: updated_by is intentionally NOT set on INSERT (only on UPDATE via injectUpdatedByField)
+ * Inject authorship metadata fields (created_by and updated_by) into record fields for INSERT
+ * On creation, both created_by and updated_by are set to the same user ID
  *
  * @param fields - Original record fields
  * @param userId - User ID from session
@@ -50,22 +50,24 @@ async function injectAuthorshipFields(
 ): Promise<Record<string, unknown>> {
   // Query table schema to check for authorship columns
   const schemaQuery = await tx.execute(
-    sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'created_by'`
+    sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name IN ('created_by', 'updated_by')`
   )
   const columnNames = new Set(
     (schemaQuery as unknown as readonly { column_name: string }[]).map((row) => row.column_name)
   )
 
   const hasCreatedBy = columnNames.has('created_by')
+  const hasUpdatedBy = columnNames.has('updated_by')
 
   // Build new fields object with authorship metadata (immutable approach)
   // When userId is 'guest' (no auth configured), set authorship fields to NULL
-  // Note: updated_by is NOT set here - it's only set on UPDATE operations
+  // On creation, both created_by and updated_by are set to the same user ID
   // eslint-disable-next-line unicorn/no-null -- NULL is intentional for database columns when no auth configured
   const authorUserId = userId === 'guest' ? null : userId
   return {
     ...fields,
     ...(hasCreatedBy ? { created_by: authorUserId } : {}),
+    ...(hasUpdatedBy ? { updated_by: authorUserId } : {}),
   }
 }
 
@@ -300,7 +302,7 @@ export function deleteRecord(
 
           if (hasSoftDelete) {
             // Execute soft delete
-            const success = await executeSoftDelete(tx, tableName, recordId)
+            const success = await executeSoftDelete(tx, tableName, recordId, session.userId)
 
             if (!success) {
               return { success: false, recordBeforeData: undefined }
@@ -309,7 +311,7 @@ export function deleteRecord(
             // Cascade to related records if configured
             if (app) {
               // eslint-disable-next-line functional/no-expression-statements -- Required for cascade operation
-              await cascadeSoftDelete(tx, tableName, recordId, app)
+              await cascadeSoftDelete(tx, tableName, recordId, app, session.userId)
             }
 
             return { success: true, recordBeforeData }
@@ -405,6 +407,7 @@ export function permanentlyDeleteRecord(
  * @param recordId - Record ID
  * @returns Effect resolving to restored record or null
  */
+// eslint-disable-next-line max-lines-per-function -- Restore logic requires deleted_by column check and conditional restore
 export function restoreRecord(
   session: Readonly<Session>,
   tableName: string,
@@ -435,10 +438,22 @@ export function restoreRecord(
             return { _error: 'not_deleted' } as Record<string, unknown>
           }
 
-          // Restore record by clearing deleted_at
-          const result = (await tx.execute(
-            sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId} RETURNING *`
-          )) as unknown as readonly Record<string, unknown>[]
+          // Check if table has deleted_by column
+          const deletedByCheck = (await tx.execute(
+            sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_by'`
+          )) as readonly Record<string, unknown>[]
+
+          const hasDeletedBy = deletedByCheck.length > 0
+
+          // Restore record by clearing deleted_at and deleted_by (if column exists)
+          const result = hasDeletedBy
+            ? ((await tx.execute(
+                sql`UPDATE ${tableIdent} SET deleted_at = NULL, deleted_by = NULL WHERE id = ${recordId} RETURNING *`
+              )) as unknown as readonly Record<string, unknown>[])
+            : ((await tx.execute(
+                sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId} RETURNING *`
+              )) as unknown as readonly Record<string, unknown>[])
+
           return result[0] ?? {}
         }),
       catch: (error) =>

@@ -88,6 +88,7 @@ function shouldExcludeFieldByDefault(
  * @param params.record - Record object to filter
  * @returns Record with only readable fields
  */
+// eslint-disable-next-line max-lines-per-function -- Field filtering requires authorship field preservation logic (55 lines)
 export function filterReadableFields<T extends Record<string, unknown>>(
   params: Readonly<{
     app: App
@@ -105,8 +106,16 @@ export function filterReadableFields<T extends Record<string, unknown>>(
   // If no explicit field permissions defined, apply default rules
   if (!table?.permissions?.fields) {
     return Object.keys(record).reduce<Record<string, unknown>>((acc, fieldName) => {
-      // Always preserve system fields
-      if (fieldName === 'id' || fieldName === 'created_at' || fieldName === 'updated_at') {
+      // Always preserve system fields (including authorship metadata)
+      if (
+        fieldName === 'id' ||
+        fieldName === 'created_at' ||
+        fieldName === 'updated_at' ||
+        fieldName === 'created_by' ||
+        fieldName === 'updated_by' ||
+        fieldName === 'deleted_by' ||
+        fieldName === 'deleted_at'
+      ) {
         return { ...acc, [fieldName]: record[fieldName] }
       }
 
@@ -121,17 +130,25 @@ export function filterReadableFields<T extends Record<string, unknown>>(
   }
 
   // Filter fields based on read permissions
+  // eslint-disable-next-line complexity -- Field filtering requires conditional logic for multiple system field types (complexity 13)
   const filteredRecord = Object.keys(record).reduce<Record<string, unknown>>((acc, fieldName) => {
-    // Preserve system fields (id, created_at, updated_at) for root-level properties
-    // These will be transformed by record-transformer to root-level createdAt/updatedAt
+    // Preserve system fields (id, timestamps, authorship) for root-level properties
+    // These will be transformed by record-transformer to root-level camelCase properties
     // BUT if they're also defined as table fields, they should be included in fields object
     if (fieldName === 'id') {
       return { ...acc, [fieldName]: record[fieldName] }
     }
 
-    // For created_at and updated_at, always include them if they're in the record
+    // For timestamps and authorship fields, always include them if they're in the record
     // They may be both system fields AND user-defined fields
-    if (fieldName === 'created_at' || fieldName === 'updated_at') {
+    if (
+      fieldName === 'created_at' ||
+      fieldName === 'updated_at' ||
+      fieldName === 'created_by' ||
+      fieldName === 'updated_by' ||
+      fieldName === 'deleted_by' ||
+      fieldName === 'deleted_at'
+    ) {
       return { ...acc, [fieldName]: record[fieldName] }
     }
 

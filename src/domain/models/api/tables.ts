@@ -191,7 +191,7 @@ export const listRecordsResponseSchema = z.object({
 /**
  * Get record response schema
  *
- * Returns record in flattened format (id, fields, timestamps at root level)
+ * Returns record in flattened format (id, fields, timestamps, authorship at root level)
  * to match test expectations and provide consistent API response structure.
  */
 export const getRecordResponseSchema = z
@@ -200,6 +200,9 @@ export const getRecordResponseSchema = z
     fields: z
       .record(z.string(), formattedFieldValueSchema)
       .describe('User-defined field values (may include display formatting)'),
+    createdBy: z.string().optional().describe('User who created the record'),
+    updatedBy: z.string().optional().describe('User who last updated the record'),
+    deletedBy: z.string().optional().describe('User who deleted the record'),
   })
   .extend(timestampSchema.shape)
 
