@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { AuthSchema } from './auth'
+import { BUILT_IN_ROLES } from './auth/roles'
 import { BlocksSchema } from './blocks'
 import { DescriptionSchema } from './description'
 import { LanguagesSchema } from './languages'
@@ -16,6 +17,17 @@ import { PagesSchema } from './pages'
 import { TablesSchema } from './tables'
 import { ThemeSchema } from './theme'
 import { VersionSchema } from './version'
+
+/**
+ * Helper to extract role names from a permission value.
+ * Permissions can be 'all', 'authenticated', or an array of role names.
+ */
+const extractRolesFromPermission = (permission: unknown): readonly string[] => {
+  if (!permission) return []
+  if (typeof permission === 'string') return [] // 'all' or 'authenticated'
+  if (Array.isArray(permission)) return permission as readonly string[]
+  return []
+}
 
 /**
  * AppSchema defines the structure of an application configuration.
@@ -148,6 +160,40 @@ export const AppSchema = Schema.Struct({
       return 'User fields (user, created-by, updated-by) require auth configuration'
     }
     return true
+  }),
+  Schema.filter((app) => {
+    // Validate that table permissions only reference defined roles
+    if (!app.tables || app.tables.length === 0) {
+      return true // No tables, no validation needed
+    }
+
+    // Build set of all valid roles: built-in + custom
+    const customRoleNames = app.auth?.roles?.map((role) => role.name) ?? []
+    const validRoles = new Set<string>([...BUILT_IN_ROLES, ...customRoleNames])
+
+    // Check all tables for invalid role references
+    const validationErrors = app.tables
+      .filter((table) => table.permissions)
+      .map((table) => {
+        const tablePermissions = table.permissions as Record<string, unknown>
+
+        // Collect all roles from all permission types (including 'delete' key)
+        const permissionKeys = ['create', 'read', 'update', 'delete', 'comment'] as const
+        const allPermissionRoles = permissionKeys.flatMap((key) =>
+          extractRolesFromPermission(tablePermissions[key])
+        )
+
+        // Find first invalid role reference
+        const invalidRole = allPermissionRoles.find((role) => !validRoles.has(role))
+
+        const sortedValidRoles = Array.from(validRoles).toSorted((a, b) => a.localeCompare(b))
+        return invalidRole
+          ? `Table '${table.name}' permissions reference undefined role '${invalidRole}'. Valid roles: ${sortedValidRoles.join(', ')}`
+          : undefined
+      })
+      .filter((error): error is string => error !== undefined)
+
+    return validationErrors.length > 0 ? validationErrors[0] : true
   }),
   Schema.annotations({
     title: 'Application Configuration',
