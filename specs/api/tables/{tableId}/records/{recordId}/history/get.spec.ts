@@ -392,7 +392,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   )
 
   test(
-    'API-ACTIVITY-RECORD-HISTORY-010: should return 401 Unauthorized when auth is not configured',
+    'API-ACTIVITY-RECORD-HISTORY-010: should return 401 Unauthorized when user is not authenticated',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
       // GIVEN: Application with auth configured but user not authenticated

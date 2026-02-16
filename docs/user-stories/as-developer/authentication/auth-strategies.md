@@ -25,16 +25,16 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                                               | E2E Spec | Status |
-| ------ | --------------------------------------------------------------------------------------- | -------- | ------ |
-| AC-001 | `strategies` accepts an array of strategy objects with `type` field                     |          |        |
-| AC-002 | Supported strategy types: `emailAndPassword`, `magicLink`, `oauth`                      |          |        |
-| AC-003 | Each strategy type has its own configuration options (e.g., `minPasswordLength`)        |          |        |
-| AC-004 | Schema validates at least one strategy is defined                                       |          |        |
-| AC-005 | Duplicate strategy types trigger validation error                                       |          |        |
-| AC-006 | Unknown strategy types trigger validation error                                         |          |        |
-| AC-007 | Strategy-specific options are validated per type (e.g., `providers` required for oauth) |          |        |
-| AC-008 | `emailAndPassword` defaults: `minPasswordLength: 8`, `autoSignIn: true`                 |          |        |
+| ID     | Criterion                                                                               | E2E Spec                  | Status |
+| ------ | --------------------------------------------------------------------------------------- | ------------------------- | ------ |
+| AC-001 | `strategies` accepts an array of strategy objects with `type` field                     | `APP-AUTH-STRATEGIES-001` | ⏳     |
+| AC-002 | Supported strategy types: `emailAndPassword`, `magicLink`, `oauth`                      | `APP-AUTH-STRATEGIES-002` | ⏳     |
+| AC-003 | Each strategy type has its own configuration options (e.g., `minPasswordLength`)        | `APP-AUTH-STRATEGIES-003` | ⏳     |
+| AC-004 | Schema validates at least one strategy is defined                                       | `APP-AUTH-STRATEGIES-004` | ⏳     |
+| AC-005 | Duplicate strategy types trigger validation error                                       | `APP-AUTH-STRATEGIES-005` | ⏳     |
+| AC-006 | Unknown strategy types trigger validation error                                         | `APP-AUTH-STRATEGIES-006` | ⏳     |
+| AC-007 | Strategy-specific options are validated per type (e.g., `providers` required for oauth) | `APP-AUTH-STRATEGIES-007` | ⏳     |
+| AC-008 | `emailAndPassword` defaults: `minPasswordLength: 8`, `autoSignIn: true`                 | `APP-AUTH-STRATEGIES-008` | ⏳     |
 
 ### Strategy Types
 
@@ -72,6 +72,7 @@ Supported providers: `google`, `github`, `microsoft`, `slack`, `gitlab`
 ### Implementation References
 
 - **Schema**: `src/domain/models/app/auth/strategies.ts`
+- **E2E Spec**: `specs/app/auth/strategies.spec.ts`
 
 ---
 

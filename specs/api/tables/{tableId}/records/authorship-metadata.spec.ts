@@ -29,7 +29,7 @@ import { test, expect } from '@/specs/fixtures'
  *   and expose authorship fields during create, update, delete, and restore operations
  *
  * Test Organization:
- * 1. @spec tests - One per acceptance criterion (23 tests) - Exhaustive coverage
+ * 1. @spec tests - One per acceptance criterion (22 tests) - Exhaustive coverage
  * 2. @regression test - ONE optimized integration test - Full lifecycle workflow
  */
 
