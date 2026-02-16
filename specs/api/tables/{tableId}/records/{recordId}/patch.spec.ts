@@ -352,6 +352,9 @@ test.describe('Update record', () => {
               { id: 2, name: 'email', type: 'email', required: true },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
+            permissions: {
+              fields: [{ field: 'salary', read: ['admin'], write: ['admin'] }],
+            },
           },
         ],
       })
@@ -468,6 +471,9 @@ test.describe('Update record', () => {
               { id: 2, name: 'email', type: 'email', required: true },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
+            permissions: {
+              fields: [{ field: 'salary', read: ['admin'], write: ['admin'] }],
+            },
           },
         ],
       })
@@ -532,6 +538,9 @@ test.describe('Update record', () => {
               { id: 2, name: 'email', type: 'email', required: true },
               { id: 3, name: 'salary', type: 'currency', currency: 'USD' },
             ],
+            permissions: {
+              fields: [{ field: 'salary', read: ['admin'], write: ['admin'] }],
+            },
           },
         ],
       })
@@ -592,6 +601,9 @@ test.describe('Update record', () => {
               { id: 3, name: 'phone', type: 'phone-number' },
               { id: 4, name: 'salary', type: 'currency', currency: 'USD' },
             ],
+            permissions: {
+              fields: [{ field: 'salary', read: ['admin'], write: ['admin'] }],
+            },
           },
         ],
       })
