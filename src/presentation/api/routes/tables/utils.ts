@@ -106,24 +106,30 @@ export const handleBatchRestoreError = (c: Context, error: unknown) => {
 
   const errorMessage = error instanceof Error ? error.message : 'Unknown error'
 
+  // Handle "Record X not found" errors (404)
   if (errorMessage.includes('not found')) {
     const recordIdMatch = errorMessage.match(/Record (\S+) not found/)
+    const recordId = recordIdMatch?.[1] ? Number.parseInt(recordIdMatch[1]) : undefined
     return c.json(
       {
-        error: 'Record not found',
-        recordId: recordIdMatch?.[1] ? Number.parseInt(recordIdMatch[1]) : undefined,
+        success: false,
+        message: 'Resource not found',
+        code: 'NOT_FOUND',
+        recordId,
       },
       404
     )
   }
 
+  // Handle "Record X is not deleted" errors (400)
   if (errorMessage.includes('is not deleted')) {
     const recordIdMatch = errorMessage.match(/Record (\S+) is not deleted/)
+    const recordId = recordIdMatch?.[1] ? Number.parseInt(recordIdMatch[1]) : undefined
     return c.json(
       {
         error: 'Bad Request',
         message: 'Record is not deleted',
-        recordId: recordIdMatch?.[1] ? Number.parseInt(recordIdMatch[1]) : undefined,
+        recordId,
       },
       400
     )
