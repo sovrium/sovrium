@@ -38,7 +38,7 @@ test.describe('Custom Role Definitions (US-AUTH-ROLES-001)', () => {
   // @spec tests - EXHAUSTIVE coverage for US-AUTH-ROLES-001
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-001: should provide built-in roles admin=80, member=40, viewer=10 without configuration',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedAdmin, page }) => {
