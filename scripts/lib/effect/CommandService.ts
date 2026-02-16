@@ -134,8 +134,8 @@ const getExtendedEnv = (): Record<string, string> => {
     '/bin',
   ]
 
-  const pathParts = currentPath.split(':')
-  const missingPaths = additionalPaths.filter((p) => !pathParts.includes(p))
+  const pathParts = new Set(currentPath.split(':'))
+  const missingPaths = additionalPaths.filter((p) => !pathParts.has(p))
 
   if (missingPaths.length > 0) {
     env.PATH = [...missingPaths, currentPath].filter(Boolean).join(':')
