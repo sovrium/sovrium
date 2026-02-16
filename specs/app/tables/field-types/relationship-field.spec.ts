@@ -945,6 +945,7 @@ test.describe('Relationship Field', () => {
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-020: should use displayField for UI representation',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: A relationship field configured with displayField pointing to a label column
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -976,6 +977,7 @@ test.describe('Relationship Field', () => {
         ],
       })
 
+      // WHEN: Records are inserted and joined via the relationship
       await executeQuery(`INSERT INTO categories (label) VALUES ('Electronics')`)
       const cat = await executeQuery(`SELECT id FROM categories WHERE label = 'Electronics'`)
       await executeQuery(`INSERT INTO products (name, category_id) VALUES ('Laptop', ${cat.id})`)
@@ -1037,6 +1039,7 @@ test.describe('Relationship Field', () => {
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-022: should support multiple display fields',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
+      // GIVEN: A relationship field with displayField configured on a table with multiple text fields
       await startServerWithSchema({
         name: 'test-app',
         tables: [
@@ -1068,6 +1071,7 @@ test.describe('Relationship Field', () => {
         ],
       })
 
+      // WHEN: Records are inserted and joined via the relationship
       await executeQuery(`INSERT INTO contacts (first_name, last_name) VALUES ('John', 'Doe')`)
       const contact = await executeQuery(`SELECT id FROM contacts WHERE first_name = 'John'`)
       await executeQuery(`INSERT INTO tasks (assignee_id) VALUES (${contact.id})`)
@@ -1087,6 +1091,7 @@ test.describe('Relationship Field', () => {
     'APP-TABLES-FIELD-TYPES-RELATIONSHIP-023: should return display value in API response',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedMember }) => {
+      // GIVEN: A relationship field with displayField, and authenticated member with read access
       await startServerWithSchema({
         name: 'test-app',
         auth: {

@@ -12,7 +12,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/domain/models/app/table/field-types/ (created-by, updated-by, deleted-by)
  * Domain: api
- * Spec Count: 23
+ * Spec Count: 22
  *
  * Authorship Metadata Behavior:
  * - createdBy: Auto-set to current user ID on record creation, immutable

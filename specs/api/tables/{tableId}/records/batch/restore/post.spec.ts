@@ -369,6 +369,7 @@ test.describe('Batch Restore records', () => {
     'API-TABLES-RECORDS-BATCH-RESTORE-008: should enforce maximum batch size of 100 records',
     { tag: '@spec' },
     async ({ startServerWithSchema, request, createAuthenticatedMember }) => {
+      // GIVEN: A running server with a table that supports delete and restore
       await startServerWithSchema({
         name: 'test-app',
         auth: {

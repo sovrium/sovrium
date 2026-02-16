@@ -205,6 +205,7 @@ test.describe('Get table by ID', () => {
     'API-TABLES-GET-005: should include fields array with types in response',
     { tag: '@spec' },
     async ({ startServerWithSchema, request, createAuthenticatedMember }) => {
+      // GIVEN: A running server with a table containing multiple field types
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -253,6 +254,7 @@ test.describe('Get table by ID', () => {
     'API-TABLES-GET-006: should include views array in response',
     { tag: '@spec' },
     async ({ startServerWithSchema, request, createAuthenticatedMember }) => {
+      // GIVEN: A running server with a table configured with read permissions
       await startServerWithSchema({
         name: 'test-app',
         auth: {
@@ -291,6 +293,7 @@ test.describe('Get table by ID', () => {
     'API-TABLES-GET-007: should include permissions configuration in response',
     { tag: '@spec' },
     async ({ startServerWithSchema, request, createAuthenticatedMember }) => {
+      // GIVEN: A running server with a table that has specific read and create permissions
       await startServerWithSchema({
         name: 'test-app',
         auth: {

@@ -40,7 +40,7 @@ POST /api/tables/1/records
 
 ```json
 {
-  "id": 1,
+  "id": "1",
   "fields": {
     "title": "New Task"
   },
@@ -52,12 +52,12 @@ POST /api/tables/1/records
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                   | E2E Spec                            | Status |
-| ------ | ----------------------------------------------------------- | ----------------------------------- | ------ |
-| AC-001 | createdBy is auto-set to current user ID on record creation | `API-TABLES-RECORDS-AUTHORSHIP-001` | ✅     |
-| AC-002 | createdBy is included in the API response after creation    | `API-TABLES-RECORDS-AUTHORSHIP-002` | ✅     |
-| AC-003 | createdBy is stored in the database with correct user ID    | `API-TABLES-RECORDS-AUTHORSHIP-003` | ✅     |
-| AC-004 | createdBy is NULL when no authentication is configured      | `API-TABLES-RECORDS-AUTHORSHIP-004` | ✅     |
+| ID     | Criterion                                                                                                                  | E2E Spec                            | Status |
+| ------ | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ------ | --- |
+| AC-001 | createdBy is auto-set to current user ID on record creation                                                                | `API-TABLES-RECORDS-AUTHORSHIP-001` | ✅     |
+| AC-002 | createdBy is included in the API response after creation                                                                   | `API-TABLES-RECORDS-AUTHORSHIP-002` | ✅     |
+| AC-003 | createdBy is stored in the database with correct user ID                                                                   | `API-TABLES-RECORDS-AUTHORSHIP-003` | ✅     |
+| AC-004 | ~~createdBy is NULL when no authentication is configured~~ (N/A: AppSchema now requires auth when using authorship fields) | N/A                                 | N/A    |     |
 
 ### Implementation References
 
@@ -87,7 +87,7 @@ PATCH /api/tables/1/records/1
 
 ```json
 {
-  "id": 1,
+  "id": "1",
   "fields": {
     "title": "Updated Task Title"
   },
@@ -244,7 +244,7 @@ The API silently ignores the `createdBy` value provided by the user and sets it 
 | AC-001 | createdBy is included in GET single record response                     | `API-TABLES-RECORDS-AUTHORSHIP-021`        | ⏳     |
 | AC-002 | updatedBy is included in GET single record response                     | `API-TABLES-RECORDS-AUTHORSHIP-022`        | ⏳     |
 | AC-003 | Authorship fields are included in list records response for each record | `API-TABLES-RECORDS-AUTHORSHIP-023`        | ⏳     |
-| AC-004 | Full authorship lifecycle across CRUD operations (regression)           | `API-TABLES-RECORDS-AUTHORSHIP-REGRESSION` | ⏳     |
+| AC-004 | Full authorship lifecycle across CRUD operations (regression)           | `API-TABLES-RECORDS-AUTHORSHIP-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -264,11 +264,11 @@ The API silently ignores the `createdBy` value provided by the user and sets it 
 
 | User Story            | Title                         | Spec Count | Status   |
 | --------------------- | ----------------------------- | ---------- | -------- |
-| US-API-AUTHORSHIP-001 | Created By on Record Creation | 4          | Complete |
+| US-API-AUTHORSHIP-001 | Created By on Record Creation | 3          | Complete |
 | US-API-AUTHORSHIP-002 | Updated By on Record Update   | 4          | Complete |
 | US-API-AUTHORSHIP-003 | Deleted By on Soft Delete     | 4          | Complete |
 | US-API-AUTHORSHIP-004 | Read-Only Enforcement         | 3          | Complete |
 | US-API-AUTHORSHIP-005 | Multi-User Scenarios          | 2          | Complete |
 | US-API-AUTHORSHIP-006 | Batch Operations              | 3          | Complete |
 | US-API-AUTHORSHIP-007 | API Response Inclusion        | 4          | Complete |
-| **Total**             |                               | **24**     |          |
+| **Total**             |                               | **23**     |          |
