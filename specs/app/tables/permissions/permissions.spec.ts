@@ -526,13 +526,16 @@ test.describe('Table Permissions', () => {
       signOut,
     }) => {
       // SETUP: Single schema with all 6 tables (each DB step uses its own table ID)
-      // Table 99 with custom role 'super_admin' proves custom roles are accepted (step 006)
+      // Table 99 with custom role 'super-admin' proves custom roles are accepted (step 006)
       await startServerWithSchema({
         name: 'test-app',
         auth: {
           strategies: [{ type: 'emailAndPassword' }],
           defaultRole: 'viewer',
-          roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
+          roles: [
+            { name: 'editor', description: 'Can edit content', level: 30 },
+            { name: 'super-admin', description: 'Super administrator', level: 90 },
+          ],
         },
         tables: [
           {
@@ -625,7 +628,7 @@ test.describe('Table Permissions', () => {
             ],
             primaryKey: { type: 'composite', fields: ['id'] },
             permissions: {
-              read: ['super_admin'],
+              read: ['super-admin'],
             },
           },
         ],
