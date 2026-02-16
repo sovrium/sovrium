@@ -401,7 +401,7 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-009: should log batch restore operation to activity history',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedMember }) => {
