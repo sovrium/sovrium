@@ -31,6 +31,7 @@ import {
 import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { runEffect } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
+import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { validateRequest } from '@/presentation/api/utils/validate-request'
 import { validateReadonlyFields, validateUpsertRequest, applyReadFiltering } from './upsert-helpers'
 import { handleBatchRestoreError } from './utils'
@@ -174,34 +175,6 @@ async function handleBatchRestore(c: Context, _app: App) {
   } catch (error) {
     return handleBatchRestoreError(c, error)
   }
-}
-
-/**
- * Validate field-level write permissions for batch records
- */
-function validateFieldWritePermissions(
-  app: App,
-  tableName: string,
-  userRole: string,
-  fields: Record<string, unknown>
-): string[] {
-  const table = app.tables?.find((t) => t.name === tableName)
-  if (!table) return []
-
-  const roleHierarchy = { viewer: 0, member: 1, editor: 2, admin: 3 }
-  const userLevel = roleHierarchy[userRole as keyof typeof roleHierarchy] || 0
-
-  return Object.keys(fields)
-    .map((fieldName) => {
-      const field = table.fields?.find((f) => f.name === fieldName)
-      if (!field) return undefined
-
-      const writePermission = field.write || 'editor'
-      const requiredLevel = roleHierarchy[writePermission as keyof typeof roleHierarchy] || 0
-
-      return userLevel < requiredLevel ? fieldName : undefined
-    })
-    .filter((fieldName): fieldName is string => fieldName !== undefined)
 }
 
 /**

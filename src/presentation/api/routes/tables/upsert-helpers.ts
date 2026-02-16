@@ -225,12 +225,12 @@ export function validateReadonlyFields(
  * Strip protected fields that user cannot write from records
  * This prevents 403 errors for fields user doesn't have write access to
  */
-export function stripUnwritableFields(
+export function stripUnwritableFields<T extends { fields: Record<string, unknown> }>(
   app: App,
   tableName: string,
   userRole: string,
-  records: readonly { fields: Record<string, unknown> }[]
-): Array<{ fields: Record<string, unknown> }> {
+  records: readonly T[]
+): Array<T> {
   return records.map((record) => {
     const forbiddenFields = validateFieldWritePermissions(app, tableName, userRole, record.fields)
     if (forbiddenFields.length === 0) {
@@ -248,7 +248,7 @@ export function stripUnwritableFields(
       {}
     )
 
-    return { fields: filteredFields }
+    return { ...record, fields: filteredFields } as T
   })
 }
 
