@@ -132,7 +132,7 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-003: should return 400 for non-deleted records in batch',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
