@@ -9,12 +9,12 @@ import { Layer } from 'effect'
 import { createAuthLayer } from '@/infrastructure/auth/better-auth'
 import { CSSCompilerLive } from '@/infrastructure/css/css-compiler-live'
 import { DatabaseLive } from '@/infrastructure/database/drizzle/layer'
+import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth-repository-live'
 import { DevToolsLayerOptional } from '@/infrastructure/devtools'
 import { PageRendererLive } from '@/infrastructure/layers/page-renderer-layer'
 import { LoggerLive } from '@/infrastructure/logging/logger'
 import { ServerFactoryLive } from '@/infrastructure/server/server-factory-live'
 import { StaticSiteGeneratorLive } from '@/infrastructure/server/static-site-generator-live'
-import { AuthRepositoryLive } from '@/infrastructure/services/auth-repository-live'
 import type { Auth as AuthConfig } from '@/domain/models/app/auth'
 
 /**

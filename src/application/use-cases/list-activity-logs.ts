@@ -16,8 +16,8 @@ import {
   AuthRepository,
   type AuthDatabaseError,
 } from '@/application/ports/repositories/auth-repository'
-import { ActivityLogRepositoryLive } from '@/infrastructure/services/activity-log-repository-live'
-import { AuthRepositoryLive } from '@/infrastructure/services/auth-repository-live'
+import { ActivityLogRepositoryLive } from '@/infrastructure/database/repositories/activity-log-repository-live'
+import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth-repository-live'
 
 /**
  * Forbidden error when user lacks permission to access activity logs

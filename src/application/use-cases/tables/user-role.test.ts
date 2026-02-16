@@ -9,7 +9,7 @@ import { test, expect, describe, mock } from 'bun:test'
 import { Effect, Context, Layer } from 'effect'
 
 // Mock the infrastructure service before importing
-mock.module('@/infrastructure/services/auth-repository-live', () => {
+mock.module('@/infrastructure/database/repositories/auth-repository-live', () => {
   class AuthRepository extends Context.Tag('AuthRepository')() {}
 
   return {
@@ -44,7 +44,7 @@ describe('getUserRole', () => {
 
   test('should return default role when service returns undefined', async () => {
     // Reset mock for this test
-    mock.module('@/infrastructure/services/auth-repository-live', () => {
+    mock.module('@/infrastructure/database/repositories/auth-repository-live', () => {
       class AuthRepository extends Context.Tag('AuthRepository')() {}
 
       return {

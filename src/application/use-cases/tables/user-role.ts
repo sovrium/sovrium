@@ -7,7 +7,7 @@
 
 import { Effect } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth-repository'
-import { AuthRepositoryLive } from '@/infrastructure/services/auth-repository-live'
+import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth-repository-live'
 
 // Constants
 const DEFAULT_ROLE = 'member'

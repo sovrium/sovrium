@@ -266,6 +266,11 @@ sovrium/
 ├── src/                         # Layer-based architecture (see @docs/architecture/layer-based-architecture.md)
 │   ├── domain/                  # Domain Layer - Pure business logic
 │   ├── application/             # Application Layer - Use cases, orchestration
+│   │   ├── ports/               # Infrastructure interfaces (dependency inversion)
+│   │   │   ├── repositories/    # Data access ports (Effect Context.Tag)
+│   │   │   ├── services/        # Capability ports (CSS, rendering, server)
+│   │   │   └── models/          # Shared type definitions
+│   │   └── use-cases/           # Effect programs, workflow orchestration
 │   ├── infrastructure/          # Infrastructure Layer - External services, I/O
 │   ├── presentation/            # Presentation Layer - UI components, API routes
 │   ├── index.ts                 # Entry point

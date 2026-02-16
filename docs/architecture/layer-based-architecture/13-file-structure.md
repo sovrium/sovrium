@@ -91,12 +91,17 @@ sovrium/
 │   │   │   └── StartServer.ts            # ⚠️ Legacy location (migrate to server/)
 │   │   │
 │   │   ├── ports/                        # Infrastructure Interfaces (Dependency Inversion)
-│   │   │   ├── IConfigLoader.ts          # Load config from file system
-│   │   │   ├── IDatabase.ts              # Database operations
-│   │   │   ├── IEmailService.ts          # Send emails
-│   │   │   ├── IFileStorage.ts           # Store files
-│   │   │   ├── ILogger.ts                # Logging interface
-│   │   │   └── IWebhook.ts               # Webhook calls
+│   │   │   ├── repositories/             # Data access ports (Effect Context.Tag)
+│   │   │   │   ├── auth-repository.ts
+│   │   │   │   ├── table-repository.ts
+│   │   │   │   ├── activity-log-repository.ts
+│   │   │   │   └── ...
+│   │   │   ├── services/                 # Capability ports
+│   │   │   │   ├── css-compiler.ts
+│   │   │   │   ├── server-factory.ts
+│   │   │   │   └── ...
+│   │   │   └── models/                   # Shared type definitions
+│   │   │       └── user-session.ts
 │   │   │
 │   │   ├── services/                     # Application Services (Cross-cutting)
 │   │   │   ├── error-handling.ts         # ✅ EXISTING - Error handling utilities
