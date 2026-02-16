@@ -5,15 +5,18 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { describe, test, expect } from 'bun:test'
-import {
-  cascadeSoftDelete,
-  executeSoftDelete,
-  executeHardDelete,
-  checkDeletedAtColumn,
-} from './delete-helpers'
-import { fetchRecordById } from './record-fetch-helpers'
+import { describe, test, expect, mock } from 'bun:test'
 import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
+
+// IMPORTANT: Clear any leaked module mocks from other test files (e.g., crud.test.ts).
+// Bun's mock.module() can leak across files on Linux when test files share a process.
+// We call mock.restore() BEFORE dynamically importing the modules under test
+// to ensure we get the real implementations, not mocked versions.
+mock.restore()
+
+const { cascadeSoftDelete, executeSoftDelete, executeHardDelete, checkDeletedAtColumn } =
+  await import('./delete-helpers')
+const { fetchRecordById } = await import('./record-fetch-helpers')
 
 const asTx = (mock: { execute: (...args: any[]) => any }) =>
   mock as unknown as Readonly<DrizzleTransaction>
