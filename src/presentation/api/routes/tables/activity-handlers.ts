@@ -5,10 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
 import { getRecordHistoryProgram } from '@/application/use-cases/tables/activity-programs'
-import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
+import { runTableProgram } from './effect-runner'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -37,9 +36,9 @@ export async function handleGetRecordHistory(c: Context, app: App) {
     session,
     tableName: table.name,
     recordId,
-  }).pipe(Effect.provide(TableLive))
+  })
 
-  const result = await Effect.runPromise(program.pipe(Effect.either))
+  const result = await runTableProgram(program)
 
   if (result._tag === 'Left') {
     return c.json(

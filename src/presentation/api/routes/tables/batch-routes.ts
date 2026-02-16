@@ -32,11 +32,11 @@ import {
   batchDeleteRecordsResponseSchema,
   upsertRecordsResponseSchema,
 } from '@/domain/models/api/tables'
-import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { runEffect } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { validateRequest } from '@/presentation/api/utils/validate-request'
+import { runTableProgram, provideTableLive } from './effect-runner'
 import {
   validateReadonlyFields,
   validateUpsertRequest,
@@ -176,14 +176,13 @@ async function handleBatchRestore(c: Context, _app: App) {
   const result = await validateRequest(c, batchRestoreRecordsRequestSchema)
   if (!result.success) return result.response
 
-  try {
-    const response = await Effect.runPromise(
-      Effect.provide(batchRestoreProgram(session, tableName, result.data.ids), TableLive)
-    )
-    return c.json(response, 200)
-  } catch (error) {
-    return handleBatchRestoreError(c, error)
+  const programResult = await runTableProgram(batchRestoreProgram(session, tableName, result.data.ids))
+
+  if (programResult._tag === 'Left') {
+    return handleBatchRestoreError(c, programResult.left)
   }
+
+  return c.json(programResult.right, 200)
 }
 
 /**
@@ -281,12 +280,7 @@ async function handleBatchCreate(c: Context, app: App) {
     )
   )
 
-  return runEffect(
-    c,
-    Effect.provide(filteredProgram, TableLive),
-    batchCreateRecordsResponseSchema,
-    201
-  )
+  return runEffect(c, provideTableLive(filteredProgram), batchCreateRecordsResponseSchema, 201)
 }
 
 /**
@@ -391,7 +385,7 @@ async function handleBatchUpdate(c: Context, app: App) {
     )
   )
 
-  return runEffect(c, Effect.provide(filteredProgram, TableLive), batchUpdateRecordsResponseSchema)
+  return runEffect(c, provideTableLive(filteredProgram), batchUpdateRecordsResponseSchema)
 }
 
 /**
@@ -433,7 +427,7 @@ async function handleBatchDelete(c: Context, app: App) {
 
   return runEffect(
     c,
-    Effect.provide(batchDeleteProgram(session, tableName, result.data.ids, permanent), TableLive),
+    provideTableLive(batchDeleteProgram(session, tableName, result.data.ids, permanent)),
     batchDeleteRecordsResponseSchema
   )
 }
@@ -501,7 +495,7 @@ async function handleUpsert(c: Context, app: App) {
     userId: session.userId,
   })
 
-  return runEffect(c, Effect.provide(filteredProgram, TableLive), upsertRecordsResponseSchema)
+  return runEffect(c, provideTableLive(filteredProgram), upsertRecordsResponseSchema)
 }
 
 export function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {

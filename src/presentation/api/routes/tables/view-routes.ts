@@ -12,9 +12,9 @@ import {
   getViewRecordsProgram,
 } from '@/application/use-cases/tables/programs'
 import { getViewResponseSchema, getViewRecordsResponseSchema } from '@/domain/models/api/tables'
-import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { runEffect } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
+import { provideTableLive } from './effect-runner'
 import type { App } from '@/domain/models/app'
 import type { Hono } from 'hono'
 
@@ -46,6 +46,6 @@ export function chainViewRoutesMethods<T extends Hono>(honoApp: T, app: App) {
 
       const program = getViewRecordsProgram({ tableId, viewId, app, userRole, session })
 
-      return runEffect(c, Effect.provide(program, TableLive), getViewRecordsResponseSchema)
+      return runEffect(c, provideTableLive(program), getViewRecordsResponseSchema)
     })
 }

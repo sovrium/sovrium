@@ -26,7 +26,6 @@ import {
   getRecordResponseSchema,
   createRecordResponseSchema,
 } from '@/domain/models/api/tables'
-import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import {
@@ -34,6 +33,7 @@ import {
   createValidationLayer,
   formatValidationError,
 } from '@/presentation/api/validation'
+import { provideTableLive, runTableProgram } from './effect-runner'
 import { handleRouteError, handleRestoreRecordError } from './error-handlers'
 import { validateFilterParam, validateAggregateParam } from './field-permission-validation'
 import { parseFilter } from './list-records-filter'
@@ -111,7 +111,7 @@ export async function handleListRecords(c: Context, app: App) {
 
   return runEffect(
     c,
-    Effect.provide(
+    provideTableLive(
       createListRecordsProgram({
         session,
         tableName,
@@ -126,8 +126,7 @@ export async function handleListRecords(c: Context, app: App) {
         limit,
         offset,
         aggregate,
-      }),
-      TableLive
+      })
     ),
     listRecordsResponseSchema
   )
@@ -167,7 +166,7 @@ export async function handleListTrash(c: Context, app: App) {
 
   return runEffect(
     c,
-    Effect.provide(
+    provideTableLive(
       createListTrashProgram({
         session,
         tableName,
@@ -177,8 +176,7 @@ export async function handleListTrash(c: Context, app: App) {
         sort,
         limit,
         offset,
-      }),
-      TableLive
+      })
     ),
     listRecordsResponseSchema
   )
@@ -232,9 +230,8 @@ export async function handleCreateRecord(c: Context, app: App) {
 
   return await runEffect(
     c,
-    Effect.provide(
-      createRecordProgram({ session, tableName, fields: validationResult.right, app, userRole }),
-      TableLive
+    provideTableLive(
+      createRecordProgram({ session, tableName, fields: validationResult.right, app, userRole })
     ),
     createRecordResponseSchema,
     201
@@ -262,9 +259,8 @@ export async function handleGetRecord(c: Context, app: App) {
   try {
     return await runEffect(
       c,
-      Effect.provide(
-        createGetRecordProgram({ session, tableName, app, userRole, recordId, includeDeleted }),
-        TableLive
+      provideTableLive(
+        createGetRecordProgram({ session, tableName, app, userRole, recordId, includeDeleted })
       ),
       getRecordResponseSchema
     )
@@ -381,11 +377,9 @@ async function executePermanentDelete(
   recordId: string,
   c: Context
 ) {
-  const deleteResult = await Effect.runPromise(
-    Effect.provide(permanentlyDeleteRecordProgram(session, tableName, recordId), TableLive)
-  )
+  const result = await runTableProgram(permanentlyDeleteRecordProgram(session, tableName, recordId))
 
-  if (!deleteResult) {
+  if (result._tag === 'Left' || !result.right) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 
@@ -409,11 +403,9 @@ async function executeSoftDelete({
   readonly app: App
   readonly c: Context
 }) {
-  const deleteResult = await Effect.runPromise(
-    Effect.provide(deleteRecordProgram(session, tableName, recordId, app), TableLive)
-  )
+  const result = await runTableProgram(deleteRecordProgram(session, tableName, recordId, app))
 
-  if (!deleteResult) {
+  if (result._tag === 'Left' || !result.right) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
 
@@ -478,17 +470,15 @@ export async function handleRestoreRecord(c: Context, app: App) {
 
   const recordId = c.req.param('recordId')
 
-  try {
-    const restoreResult = await Effect.runPromise(
-      Effect.provide(restoreRecordProgram(session, tableName, recordId), TableLive)
-    )
+  const result = await runTableProgram(restoreRecordProgram(session, tableName, recordId))
 
-    if (!restoreResult.success) {
-      return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
-    }
-
-    return c.json(restoreResult, 200)
-  } catch (error) {
-    return handleRestoreRecordError(c, error)
+  if (result._tag === 'Left') {
+    return handleRestoreRecordError(c, result.left)
   }
+
+  if (!result.right.success) {
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  return c.json(result.right, 200)
 }

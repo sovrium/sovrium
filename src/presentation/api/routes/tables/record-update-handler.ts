@@ -5,12 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
 import { hasUpdatePermission } from '@/application/use-cases/tables/permissions/permissions'
 import { updateRecordProgram, rawGetRecordProgram } from '@/application/use-cases/tables/programs'
 import { transformRecord } from '@/application/use-cases/tables/utils/record-transformer'
-import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
+import { runTableProgram } from './effect-runner'
 import { handleRouteError } from './error-handlers'
 import { isAuthorizationError, type Session } from './utils'
 import type { App } from '@/domain/models/app'
@@ -106,9 +105,11 @@ export async function handleNoAllowedFields(config: {
 
   // If only system-protected fields were filtered, return unchanged record
   try {
-    const record = await Effect.runPromise(
-      Effect.provide(rawGetRecordProgram(session, tableName, recordId), TableLive)
-    )
+    const result = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
+    if (result._tag === 'Left') {
+      return handleRouteError(c, result.left)
+    }
+    const record = result.right
 
     if (!record) {
       return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
@@ -134,12 +135,15 @@ export async function executeUpdate(config: {
 }): Promise<Response> {
   const { session, tableName, recordId, allowedData, app, userRole, c } = config
   try {
-    const updateResult = await Effect.runPromise(
-      Effect.provide(
-        updateRecordProgram(session, tableName, recordId, { fields: allowedData, app, userRole }),
-        TableLive
-      )
+    const result = await runTableProgram(
+      updateRecordProgram(session, tableName, recordId, { fields: allowedData, app, userRole })
     )
+
+    if (result._tag === 'Left') {
+      return handleUpdateError({ session, tableName, recordId, error: result.left, c })
+    }
+
+    const updateResult = result.right
 
     // Check if update affected any rows (RLS may have blocked it)
     if (!updateResult || Object.keys(updateResult).length === 0) {
@@ -149,7 +153,7 @@ export async function executeUpdate(config: {
     // Return flattened response format (matching GET record response structure)
     return c.json(updateResult, 200)
   } catch (error) {
-    return handleUpdateError({ session, tableName, recordId, error, c })
+    return handleRouteError(c, error)
   }
 }
 
@@ -171,9 +175,11 @@ async function handleUpdateError(config: {
 
   // Try to read the record to differentiate between "not found" and "forbidden"
   try {
-    const readResult = await Effect.runPromise(
-      Effect.provide(rawGetRecordProgram(session, tableName, recordId), TableLive)
-    )
+    const result = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
+    if (result._tag === 'Left') {
+      return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+    }
+    const readResult = result.right
 
     // If we can read the record but couldn't update it, return 403 Forbidden
     if (readResult !== null) {
