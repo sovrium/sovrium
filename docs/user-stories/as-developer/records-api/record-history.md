@@ -236,7 +236,7 @@ Content-Type: application/json
 | AC-002 | Sets updated_at timestamp                      | `API-TABLES-RECORDS-COMMENTS-UPDATE-002`        | ✅     |
 | AC-003 | Re-parses @mentions and updates metadata       | `API-TABLES-RECORDS-COMMENTS-UPDATE-003`        | ✅     |
 | AC-004 | Returns 400 when content is empty              | `API-TABLES-RECORDS-COMMENTS-UPDATE-004`        | ✅     |
-| AC-005 | Returns 400 when content exceeds max length    | `API-TABLES-RECORDS-COMMENTS-UPDATE-005`        | ⏳     |
+| AC-005 | Returns 400 when content exceeds max length    | `API-TABLES-RECORDS-COMMENTS-UPDATE-005`        | ✅     |
 | AC-006 | Returns 404 Not Found for non-existent comment | `API-TABLES-RECORDS-COMMENTS-UPDATE-006`        | ⏳     |
 | AC-007 | Returns 401 when not authenticated             | `API-TABLES-RECORDS-COMMENTS-UPDATE-007`        | ⏳     |
 | AC-008 | Returns 403 when user is not comment author    | `API-TABLES-RECORDS-COMMENTS-UPDATE-008`        | ⏳     |
