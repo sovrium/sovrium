@@ -156,7 +156,7 @@
     "hono": "^4.11.9",
     "jiti": "^2.6.1",
     "js-yaml": "^4.1.1",
-    "lucide-react": "^0.563.0",
+    "lucide-react": "^0.564.0",
     "nanoid": "^5.1.6",
     "nodemailer": "^7.0.13",
     "postcss": "^8.5.6",
