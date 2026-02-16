@@ -503,9 +503,10 @@ async function handleUpsert(c: Context, app: App) {
 export function chainBatchRoutesMethods<T extends Hono>(honoApp: T, app: App) {
   return (
     honoApp
-      // IMPORTANT: More specific route (batch/restore) must come BEFORE generic batch routes
+      // IMPORTANT: More specific routes (batch/restore, batch/delete) must come BEFORE generic batch routes
       .post('/api/tables/:tableId/records/batch/restore', (c) => handleBatchRestore(c, app))
-      // Generic batch routes AFTER more specific batch/restore route
+      .post('/api/tables/:tableId/records/batch/delete', (c) => handleBatchDelete(c, app))
+      // Generic batch routes AFTER more specific batch/restore and batch/delete routes
       .post('/api/tables/:tableId/records/batch', (c) => handleBatchCreate(c, app))
       .patch('/api/tables/:tableId/records/batch', (c) => handleBatchUpdate(c, app))
       .delete('/api/tables/:tableId/records/batch', (c) => handleBatchDelete(c, app))

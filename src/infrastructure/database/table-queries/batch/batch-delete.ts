@@ -80,6 +80,24 @@ function checkSoftDeleteSupport(
 }
 
 /**
+ * Check if table has deleted_by column for authorship tracking
+ */
+function checkDeletedBySupport(
+  tx: Readonly<DrizzleTransaction>,
+  tableName: string
+): Effect.Effect<boolean, SessionContextError> {
+  return Effect.tryPromise({
+    try: async () => {
+      const columnCheck = (await tx.execute(
+        sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_by'`
+      )) as readonly Record<string, unknown>[]
+      return columnCheck.length > 0
+    },
+    catch: (error) => new SessionContextError('Failed to check deleted_by column', error),
+  })
+}
+
+/**
  * Execute delete query (soft or hard delete based on parameters)
  */
 function executeDeleteQuery(
@@ -88,7 +106,9 @@ function executeDeleteQuery(
     readonly tableName: string
     readonly recordIds: readonly string[]
     readonly hasSoftDelete: boolean
+    readonly hasDeletedBy: boolean
     readonly permanent: boolean
+    readonly userId: string
   }
 ): Effect.Effect<number, SessionContextError> {
   return Effect.tryPromise({
@@ -103,7 +123,9 @@ function executeDeleteQuery(
       const query = params.permanent
         ? sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
         : params.hasSoftDelete
-          ? sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
+          ? params.hasDeletedBy
+            ? sql`UPDATE ${tableIdent} SET deleted_at = NOW(), deleted_by = ${params.userId} WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
+            : sql`UPDATE ${tableIdent} SET deleted_at = NOW() WHERE id IN (${idParams}) AND deleted_at IS NULL RETURNING id`
           : sql`DELETE FROM ${tableIdent} WHERE id IN (${idParams}) RETURNING id`
 
       const result = (await tx.execute(query)) as readonly Record<string, unknown>[]
@@ -165,13 +187,16 @@ export function batchDeleteRecords(
 
           const before = await runEffectInTx(fetchRecordsByIds(tx, tableName, recordIds))
           const hasSoftDelete = await runEffectInTx(checkSoftDeleteSupport(tx, tableName))
+          const hasDeletedBy = await runEffectInTx(checkDeletedBySupport(tx, tableName))
 
           const count = await runEffectInTx(
             executeDeleteQuery(tx, {
               tableName,
               recordIds,
               hasSoftDelete,
+              hasDeletedBy,
               permanent,
+              userId: session.userId,
             })
           )
 
