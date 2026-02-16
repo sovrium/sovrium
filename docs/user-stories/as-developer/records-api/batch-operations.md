@@ -161,7 +161,7 @@ POST /api/tables/1/records/batch/restore
 | AC-004 | Returns 401 when not authenticated               | `API-TABLES-RECORDS-BATCH-RESTORE-004`        | ✅     |
 | AC-005 | Returns 403 when user lacks restore permission   | `API-TABLES-RECORDS-BATCH-RESTORE-005`        | ✅     |
 | AC-006 | Clears deleted_at timestamp for restored records | `API-TABLES-RECORDS-BATCH-RESTORE-006`        | ✅     |
-| AC-007 | Skips records that are not soft-deleted          | `API-TABLES-RECORDS-BATCH-RESTORE-007`        | ⏳     |
+| AC-007 | Skips records that are not soft-deleted          | `API-TABLES-RECORDS-BATCH-RESTORE-007`        | ✅     |
 | AC-008 | Maximum batch size is 100 records                | `API-TABLES-RECORDS-BATCH-RESTORE-008`        | ⏳     |
 | AC-009 | User batch restores records (regression)         | `API-TABLES-RECORDS-BATCH-RESTORE-REGRESSION` | ⏳     |
 
