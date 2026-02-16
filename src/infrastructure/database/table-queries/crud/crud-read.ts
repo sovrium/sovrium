@@ -139,6 +139,121 @@ export function computeAggregations(config: {
 }
 
 /**
+ * Build SELECT field list for authorship columns
+ */
+function buildAuthorshipSelectFields(authorshipColumns: {
+  readonly hasCreatedBy: boolean
+  readonly hasUpdatedBy: boolean
+  readonly hasDeletedBy: boolean
+}): readonly string[] {
+  const createdByFields = authorshipColumns.hasCreatedBy
+    ? [
+        'created_by_user.id AS "createdByUserId"',
+        'created_by_user.name AS "createdByUserName"',
+        'created_by_user.email AS "createdByUserEmail"',
+      ]
+    : []
+
+  const updatedByFields = authorshipColumns.hasUpdatedBy
+    ? [
+        'updated_by_user.id AS "updatedByUserId"',
+        'updated_by_user.name AS "updatedByUserName"',
+        'updated_by_user.email AS "updatedByUserEmail"',
+      ]
+    : []
+
+  const deletedByFields = authorshipColumns.hasDeletedBy
+    ? [
+        'deleted_by_user.id AS "deletedByUserId"',
+        'deleted_by_user.name AS "deletedByUserName"',
+        'deleted_by_user.email AS "deletedByUserEmail"',
+      ]
+    : []
+
+  return ['t.*', ...createdByFields, ...updatedByFields, ...deletedByFields]
+}
+
+/**
+ * Build query with conditional JOINs for authorship tables
+ */
+function buildAuthorshipJoins(
+  baseQuery: Readonly<ReturnType<typeof sql>>,
+  authorshipColumns: {
+    readonly hasCreatedBy: boolean
+    readonly hasUpdatedBy: boolean
+    readonly hasDeletedBy: boolean
+  }
+): Readonly<ReturnType<typeof sql>> {
+  const queryWithCreatedBy = authorshipColumns.hasCreatedBy
+    ? sql`${baseQuery} LEFT JOIN auth.user created_by_user ON t.created_by = created_by_user.id`
+    : baseQuery
+
+  const queryWithUpdatedBy = authorshipColumns.hasUpdatedBy
+    ? sql`${queryWithCreatedBy} LEFT JOIN auth.user updated_by_user ON t.updated_by = updated_by_user.id`
+    : queryWithCreatedBy
+
+  const queryWithDeletedBy = authorshipColumns.hasDeletedBy
+    ? sql`${queryWithUpdatedBy} LEFT JOIN auth.user deleted_by_user ON t.deleted_by = deleted_by_user.id`
+    : queryWithUpdatedBy
+
+  return queryWithDeletedBy
+}
+
+/**
+ * Transform row data to include user objects for authorship fields
+ */
+function transformRowWithAuthorship(
+  row: Readonly<Record<string, unknown>>
+): Readonly<Record<string, unknown>> {
+  const {
+    createdByUserId,
+    createdByUserName,
+    createdByUserEmail,
+    updatedByUserId,
+    updatedByUserName,
+    updatedByUserEmail,
+    deletedByUserId,
+    deletedByUserName,
+    deletedByUserEmail,
+    ...recordFields
+  } = row
+
+  const createdByUser =
+    createdByUserId !== null && createdByUserId !== undefined
+      ? {
+          id: createdByUserId as string,
+          name: createdByUserName as string | undefined,
+          email: createdByUserEmail as string | undefined,
+        }
+      : undefined
+
+  const updatedByUser =
+    updatedByUserId !== null && updatedByUserId !== undefined
+      ? {
+          id: updatedByUserId as string,
+          name: updatedByUserName as string | undefined,
+          email: updatedByUserEmail as string | undefined,
+        }
+      : undefined
+
+  const deletedByUser =
+    deletedByUserId !== null && deletedByUserId !== undefined
+      ? {
+          id: deletedByUserId as string,
+          name: deletedByUserName as string | undefined,
+          email: deletedByUserEmail as string | undefined,
+        }
+      : undefined
+
+  return {
+    ...recordFields,
+    ...(createdByUser ? { created_by_user: createdByUser } : {}),
+    ...(updatedByUser ? { updated_by_user: updatedByUser } : {}),
+    ...(deletedByUser ? { deleted_by_user: deletedByUser } : {}),
+  }
+}
+
+/**
  * List soft-deleted records from a table
  *
  * Returns all accessible soft-deleted records (Permissions applied via application layer).
@@ -172,110 +287,20 @@ export function listTrash(config: {
           return [] as readonly Record<string, unknown>[]
         }
 
-        // Check which authorship columns exist in the table
         const authorshipColumns = await Effect.runPromise(checkAuthorshipColumns(tx, tableName))
 
-        // Build SELECT clause with conditional authorship fields (immutable pattern)
-        // NOTE: Column aliases must be quoted to preserve camelCase in PostgreSQL results
-        const createdByFields = authorshipColumns.hasCreatedBy
-          ? [
-              'created_by_user.id AS "createdByUserId"',
-              'created_by_user.name AS "createdByUserName"',
-              'created_by_user.email AS "createdByUserEmail"',
-            ]
-          : []
-
-        const updatedByFields = authorshipColumns.hasUpdatedBy
-          ? [
-              'updated_by_user.id AS "updatedByUserId"',
-              'updated_by_user.name AS "updatedByUserName"',
-              'updated_by_user.email AS "updatedByUserEmail"',
-            ]
-          : []
-
-        const deletedByFields = authorshipColumns.hasDeletedBy
-          ? [
-              'deleted_by_user.id AS "deletedByUserId"',
-              'deleted_by_user.name AS "deletedByUserName"',
-              'deleted_by_user.email AS "deletedByUserEmail"',
-            ]
-          : []
-
-        const selectFields = ['t.*', ...createdByFields, ...updatedByFields, ...deletedByFields]
-
-        // Build FROM clause with conditional JOINs (immutable pattern)
+        const selectFields = buildAuthorshipSelectFields(authorshipColumns)
         const selectClause = sql.raw(selectFields.join(', '))
         const initialQuery = sql`SELECT ${selectClause} FROM ${sql.identifier(tableName)} t`
 
-        const queryWithCreatedBy = authorshipColumns.hasCreatedBy
-          ? sql`${initialQuery} LEFT JOIN auth.user created_by_user ON t.created_by = created_by_user.id`
-          : initialQuery
-
-        const queryWithUpdatedBy = authorshipColumns.hasUpdatedBy
-          ? sql`${queryWithCreatedBy} LEFT JOIN auth.user updated_by_user ON t.updated_by = updated_by_user.id`
-          : queryWithCreatedBy
-
-        const queryWithDeletedBy = authorshipColumns.hasDeletedBy
-          ? sql`${queryWithUpdatedBy} LEFT JOIN auth.user deleted_by_user ON t.deleted_by = deleted_by_user.id`
-          : queryWithUpdatedBy
-
-        const queryWithWhere = sql`${queryWithDeletedBy} WHERE t.deleted_at IS NOT NULL`
-
+        const queryWithJoins = buildAuthorshipJoins(initialQuery, authorshipColumns)
+        const queryWithWhere = sql`${queryWithJoins} WHERE t.deleted_at IS NOT NULL`
         const queryWithFilters = buildTrashFilters(queryWithWhere, filter?.and)
         const query = addTrashSorting(queryWithFilters, sort)
 
         const rows = await typedExecute(tx, query)
 
-        // Transform rows to include user objects for authorship fields
-        return rows.map((row) => {
-          const {
-            createdByUserId,
-            createdByUserName,
-            createdByUserEmail,
-            updatedByUserId,
-            updatedByUserName,
-            updatedByUserEmail,
-            deletedByUserId,
-            deletedByUserName,
-            deletedByUserEmail,
-            ...recordFields
-          } = row
-
-          // Build user objects only if the user ID exists
-          const createdByUser =
-            createdByUserId !== null && createdByUserId !== undefined
-              ? {
-                  id: createdByUserId as string,
-                  name: createdByUserName as string | undefined,
-                  email: createdByUserEmail as string | undefined,
-                }
-              : undefined
-
-          const updatedByUser =
-            updatedByUserId !== null && updatedByUserId !== undefined
-              ? {
-                  id: updatedByUserId as string,
-                  name: updatedByUserName as string | undefined,
-                  email: updatedByUserEmail as string | undefined,
-                }
-              : undefined
-
-          const deletedByUser =
-            deletedByUserId !== null && deletedByUserId !== undefined
-              ? {
-                  id: deletedByUserId as string,
-                  name: deletedByUserName as string | undefined,
-                  email: deletedByUserEmail as string | undefined,
-                }
-              : undefined
-
-          return {
-            ...recordFields,
-            ...(createdByUser ? { created_by_user: createdByUser } : {}),
-            ...(updatedByUser ? { updated_by_user: updatedByUser } : {}),
-            ...(deletedByUser ? { deleted_by_user: deletedByUser } : {}),
-          }
-        })
+        return rows.map(transformRowWithAuthorship)
       }),
     catch: wrapDatabaseError(`Failed to list trash from ${tableName}`),
   })
