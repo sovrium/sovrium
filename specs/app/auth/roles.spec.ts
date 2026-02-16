@@ -65,7 +65,7 @@ test.describe('Custom Role Definitions (US-AUTH-ROLES-001)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-002: should accept custom roles with name, optional description, and optional level',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
