@@ -903,7 +903,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-019: should set updated_by on all records during batch update',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
