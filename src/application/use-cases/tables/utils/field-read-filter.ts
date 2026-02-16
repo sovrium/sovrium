@@ -9,6 +9,27 @@ import type { App } from '@/domain/models/app'
 import type { TablePermission } from '@/domain/models/app/table/permissions'
 
 /**
+ * System fields that are always preserved in record filtering
+ * These include authorship metadata and timestamps
+ */
+const SYSTEM_FIELDS = new Set([
+  'id',
+  'created_at',
+  'updated_at',
+  'created_by',
+  'updated_by',
+  'deleted_by',
+  'deleted_at',
+])
+
+/**
+ * Check if field name is a system field
+ */
+function isSystemField(fieldName: string): boolean {
+  return SYSTEM_FIELDS.has(fieldName)
+}
+
+/**
  * Check if field is sensitive type (email, phone, currency)
  */
 function isSensitiveFieldType(fieldType: string): boolean {
@@ -88,7 +109,6 @@ function shouldExcludeFieldByDefault(
  * @param params.record - Record object to filter
  * @returns Record with only readable fields
  */
-// eslint-disable-next-line max-lines-per-function -- Field filtering requires authorship field preservation logic (55 lines)
 export function filterReadableFields<T extends Record<string, unknown>>(
   params: Readonly<{
     app: App
@@ -97,7 +117,7 @@ export function filterReadableFields<T extends Record<string, unknown>>(
     userId: string
     record: T
   }>
-): Record<string, unknown> {
+): Readonly<Record<string, unknown>> {
   const { app, tableName, userRole, userId, record } = params
 
   // Find table definition
@@ -107,15 +127,7 @@ export function filterReadableFields<T extends Record<string, unknown>>(
   if (!table?.permissions?.fields) {
     return Object.keys(record).reduce<Record<string, unknown>>((acc, fieldName) => {
       // Always preserve system fields (including authorship metadata)
-      if (
-        fieldName === 'id' ||
-        fieldName === 'created_at' ||
-        fieldName === 'updated_at' ||
-        fieldName === 'created_by' ||
-        fieldName === 'updated_by' ||
-        fieldName === 'deleted_by' ||
-        fieldName === 'deleted_at'
-      ) {
+      if (isSystemField(fieldName)) {
         return { ...acc, [fieldName]: record[fieldName] }
       }
 
@@ -130,25 +142,10 @@ export function filterReadableFields<T extends Record<string, unknown>>(
   }
 
   // Filter fields based on read permissions
-  // eslint-disable-next-line complexity -- Field filtering requires conditional logic for multiple system field types (complexity 13)
   const filteredRecord = Object.keys(record).reduce<Record<string, unknown>>((acc, fieldName) => {
-    // Preserve system fields (id, timestamps, authorship) for root-level properties
+    // Preserve system fields (id, timestamps, authorship metadata)
     // These will be transformed by record-transformer to root-level camelCase properties
-    // BUT if they're also defined as table fields, they should be included in fields object
-    if (fieldName === 'id') {
-      return { ...acc, [fieldName]: record[fieldName] }
-    }
-
-    // For timestamps and authorship fields, always include them if they're in the record
-    // They may be both system fields AND user-defined fields
-    if (
-      fieldName === 'created_at' ||
-      fieldName === 'updated_at' ||
-      fieldName === 'created_by' ||
-      fieldName === 'updated_by' ||
-      fieldName === 'deleted_by' ||
-      fieldName === 'deleted_at'
-    ) {
+    if (isSystemField(fieldName)) {
       return { ...acc, [fieldName]: record[fieldName] }
     }
 
@@ -183,7 +180,7 @@ function hasFieldReadPermission(
   permission: TablePermission,
   userRole: string,
   _userId: string,
-  _record: Record<string, unknown>
+  _record: Readonly<Record<string, unknown>>
 ): boolean {
   if (permission === 'all') return true
   if (permission === 'authenticated') return true

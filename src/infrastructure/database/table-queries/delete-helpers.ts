@@ -7,6 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
+import { hasDeletedByColumn, getDeletedByValue } from './authorship-helpers'
 import { validateTableName, validateColumnName } from './validation'
 
 /**
@@ -49,9 +50,7 @@ export async function cascadeSoftDelete(
       }))
   )
 
-  // When userId is 'guest' (no auth configured), set deleted_by to NULL
-  // eslint-disable-next-line unicorn/no-null -- NULL is intentional for database columns when no auth configured
-  const deletedByValue = !userId || userId === 'guest' ? null : userId
+  const deletedByValue = getDeletedByValue(userId)
 
   // Cascade soft delete to each related table
   // eslint-disable-next-line functional/no-expression-statements -- Database updates for cascade delete are required side effects
@@ -69,15 +68,11 @@ export async function cascadeSoftDelete(
       )) as readonly Record<string, unknown>[]
 
       if (childColumnCheck.length > 0) {
-        // Check if child table has deleted_by column
-        const deletedByCheck = (await tx.execute(
-          sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${childTable} AND column_name = 'deleted_by'`
-        )) as readonly Record<string, unknown>[]
-
-        const hasDeletedBy = deletedByCheck.length > 0
+        // Check if child table has deleted_by column (using helper)
+        const hasDeletedByCol = await hasDeletedByColumn(tx, childTable)
 
         // Cascade soft delete to related records with deleted_by if column exists
-        if (hasDeletedBy) {
+        if (hasDeletedByCol) {
           // eslint-disable-next-line functional/no-expression-statements -- Database update for cascade is required
           await tx.execute(
             sql`UPDATE ${sql.identifier(childTable)} SET deleted_at = NOW(), deleted_by = ${deletedByValue} WHERE ${sql.identifier(childColumn)} = ${recordId} AND deleted_at IS NULL`
@@ -125,21 +120,14 @@ export async function executeSoftDelete(
   userId?: string
 ): Promise<boolean> {
   try {
-    // Check if table has deleted_by column
-    const deletedByCheck = (await tx.execute(
-      sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_by'`
-    )) as readonly Record<string, unknown>[]
-
-    const hasDeletedBy = deletedByCheck.length > 0
-
-    // When userId is 'guest' (no auth configured), set deleted_by to NULL
-    // eslint-disable-next-line unicorn/no-null -- NULL is intentional for database columns when no auth configured
-    const deletedByValue = !userId || userId === 'guest' ? null : userId
+    // Check if table has deleted_by column using helper
+    const hasDeletedByCol = await hasDeletedByColumn(tx, tableName)
+    const deletedByValue = getDeletedByValue(userId)
 
     const tableIdent = sql.identifier(tableName)
 
     // Build UPDATE query with or without deleted_by
-    const result = hasDeletedBy
+    const result = hasDeletedByCol
       ? ((await tx.execute(
           sql`UPDATE ${tableIdent} SET deleted_at = NOW(), deleted_by = ${deletedByValue} WHERE id = ${recordId} AND deleted_at IS NULL RETURNING id`
         )) as readonly Record<string, unknown>[])
