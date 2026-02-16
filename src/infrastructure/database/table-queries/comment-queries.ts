@@ -213,6 +213,11 @@ export function getCommentWithUser(config: {
 /**
  * Build SQL query to check record existence with optional deleted_at filter and owner_id check
  * Admins bypass owner_id filtering to access all records
+ *
+ * owner_id filtering logic:
+ * - Records with owner_id = NULL are accessible to all users (unowned records)
+ * - Records with owner_id = <userId> are accessible only to that user (owned records)
+ * - Admins can access all records regardless of owner_id
  */
 function buildRecordCheckQuery(params: {
   readonly tableName: string
@@ -227,13 +232,13 @@ function buildRecordCheckQuery(params: {
   const shouldFilterOwner = hasOwnerId && !isAdmin
 
   if (hasDeletedAt && shouldFilterOwner) {
-    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL AND owner_id = ${userId}`
+    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL AND (owner_id = ${userId} OR owner_id IS NULL)`
   }
   if (hasDeletedAt) {
     return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND deleted_at IS NULL`
   }
   if (shouldFilterOwner) {
-    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND owner_id = ${userId}`
+    return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId} AND (owner_id = ${userId} OR owner_id IS NULL)`
   }
   return sql`SELECT id FROM ${sql.identifier(tableName)} WHERE id = ${recordId}`
 }
