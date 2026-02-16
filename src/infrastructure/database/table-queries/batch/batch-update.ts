@@ -13,6 +13,7 @@ import {
   type DrizzleTransaction,
   type SessionContextError,
 } from '@/infrastructure/database'
+import { injectUpdateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { fetchRecordByIdEffect } from '../mutation-helpers/record-fetch-helpers'
 import { buildUpdateSetClauseCRUD } from '../mutation-helpers/update-helpers'
 import { logActivity } from '../query-helpers/activity-log-helpers'
@@ -81,10 +82,15 @@ function updateSingleRecordInBatch(
 ): Effect.Effect<Record<string, unknown> | undefined, ValidationError> {
   return Effect.gen(function* () {
     const fieldsToUpdate = extractFieldsFromUpdate(update)
-    const entries = Object.entries(fieldsToUpdate)
 
-    if (entries.length === 0) return undefined
+    if (Object.keys(fieldsToUpdate).length === 0) return undefined
 
+    // Inject updated_by authorship metadata
+    const fieldsWithAuthorship = yield* Effect.promise(() =>
+      injectUpdateAuthorship(fieldsToUpdate, session.userId, tx, tableName)
+    )
+
+    const entries = Object.entries(fieldsWithAuthorship)
     const recordBefore = yield* fetchRecordByIdEffect(tx, tableName, update.id)
     const setClause = buildUpdateSetClauseCRUD(entries)
     const updatedRecord = yield* executeRecordUpdate(tx, tableName, update.id, setClause)
