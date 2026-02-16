@@ -5,19 +5,21 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { describe, test, expect, mock, afterAll } from 'bun:test'
+import { describe, test, expect, mock, beforeAll, afterAll } from 'bun:test'
 import { Effect } from 'effect'
-import {
-  listRecords,
-  listTrash,
-  getRecord,
-  createRecord,
-  updateRecord,
-  deleteRecord,
-  permanentlyDeleteRecord,
-  restoreRecord,
-} from './crud'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+
+// CRUD functions — dynamically imported inside beforeAll() after mock setup.
+// This prevents mock.module() from running at file-load time, which would leak
+// mocked modules to other test files sharing the same Bun process on Linux CI.
+let listRecords: any
+let listTrash: any
+let getRecord: any
+let createRecord: any
+let updateRecord: any
+let deleteRecord: any
+let permanentlyDeleteRecord: any
+let restoreRecord: any
 
 // Mock session
 const mockSession: Readonly<Session> = {
@@ -61,38 +63,29 @@ function createMockDb(mockTx: { execute: any }) {
 
 // Default mock: empty results
 const defaultMockTx = createMockTx(async () => [])
-mock.module('@/infrastructure/database', () => createMockDb(defaultMockTx))
 
-// Mock helper modules
-// NOTE: Commenting out create-record-helpers mock to prevent test pollution
-// This file tests CRUD operations end-to-end with real helpers
-// mock.module('./create-record-helpers', () => ({
-//   checkTableColumns: () => Effect.succeed({ hasOwnerId: false }),
-//   sanitizeFields: (fields: any) => fields,
-//   buildInsertClauses: () => ({
-//     columnsClause: { queryChunks: ['name', 'email'] },
-//     valuesClause: { queryChunks: ['Alice', 'alice@example.com'] },
-//   }),
-//   executeInsert: () =>
-//     Effect.succeed({ id: 'record-123', name: 'Alice', email: 'alice@example.com' }),
-//   isUniqueConstraintViolation: () => false,
-// }))
+// Set up mocks inside beforeAll() instead of at top level.
+// Top-level mock.module() leaks to other test files on Linux CI because Bun's
+// mock.module() is process-global and affects all loaded modules.
+//
+// IMPORTANT: Only mock @/infrastructure/database (the barrel providing db).
+// Do NOT mock helper modules (delete-helpers, record-fetch-helpers, filter-operators)
+// — they use the mock tx passed from the mocked db.transaction(), and mocking them
+// contaminates the module cache for other test files (delete-helpers.test.ts etc.).
+beforeAll(async () => {
+  mock.module('@/infrastructure/database', () => createMockDb(defaultMockTx))
 
-mock.module('../mutation-helpers/delete-helpers', () => ({
-  checkDeletedAtColumn: async () => true,
-  executeSoftDelete: async () => true,
-  executeHardDelete: async () => true,
-  cascadeSoftDelete: async () => {},
-}))
-
-mock.module('../mutation-helpers/record-fetch-helpers', () => ({
-  fetchRecordById: async () => ({ id: 'record-123', name: 'Alice' }),
-}))
-
-mock.module('@/infrastructure/database/filter-operators', () => ({
-  generateSqlCondition: (field: string, operator: string, value: unknown) =>
-    `${field} ${operator} '${value}'`,
-}))
+  // Dynamic import AFTER mock is set up — ./crud depends on mocked @/infrastructure/database
+  const crud = await import('./crud')
+  listRecords = crud.listRecords
+  listTrash = crud.listTrash
+  getRecord = crud.getRecord
+  createRecord = crud.createRecord
+  updateRecord = crud.updateRecord
+  deleteRecord = crud.deleteRecord
+  permanentlyDeleteRecord = crud.permanentlyDeleteRecord
+  restoreRecord = crud.restoreRecord
+})
 
 describe('listRecords', () => {
   describe('when fetching all records', () => {
@@ -114,7 +107,7 @@ describe('listRecords', () => {
         tableName: 'users',
       })
 
-      const result = await Effect.runPromise(program)
+      const result: any = await Effect.runPromise(program)
 
       expect(result).toHaveLength(2)
       expect(result[0]).toHaveProperty('name', 'Alice')
@@ -262,7 +255,7 @@ describe('listTrash', () => {
 
     const program = listTrash({ session: mockSession, tableName: 'users' })
 
-    const result = await Effect.runPromise(program)
+    const result: any = await Effect.runPromise(program)
 
     expect(result).toHaveLength(1)
     expect(result[0]).toHaveProperty('name', 'Deleted User')
@@ -443,8 +436,25 @@ describe('updateRecord', () => {
 
 describe('deleteRecord', () => {
   test('performs soft delete when deleted_at column exists', async () => {
-    // Helper functions already tested in delete-helpers.test.ts
-    // This test verifies integration
+    // Real helpers call tx.execute() in this order:
+    // [0] checkDeletedAtColumn → information_schema check
+    // [1] fetchRecordById → SELECT record
+    // [2] hasDeletedByColumn (inside executeSoftDelete) → information_schema check
+    // [3] executeSoftDelete → UPDATE SET deleted_at
+    let callIndex = 0
+    const responses: unknown[][] = [
+      [{ column_name: 'deleted_at' }],
+      [{ id: 'record-123', name: 'Alice' }],
+      [],
+      [{ id: 'record-123' }],
+    ]
+    const mockTx = createMockTx(async () => {
+      const response = callIndex < responses.length ? responses[callIndex] : []
+      callIndex++
+      return response
+    })
+
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = deleteRecord(mockSession, 'users', 'record-123')
 
@@ -454,12 +464,22 @@ describe('deleteRecord', () => {
   })
 
   test('performs hard delete when no deleted_at column', async () => {
-    mock.module('../mutation-helpers/delete-helpers', () => ({
-      checkDeletedAtColumn: async () => false, // No soft delete support
-      executeSoftDelete: async () => true,
-      executeHardDelete: async () => true,
-      cascadeSoftDelete: async () => {},
-    }))
+    // [0] checkDeletedAtColumn → returns empty (no soft delete)
+    // [1] fetchRecordById → SELECT record
+    // [2] executeHardDelete → DELETE RETURNING
+    let callIndex = 0
+    const responses: unknown[][] = [
+      [],
+      [{ id: 'record-123', name: 'Alice' }],
+      [{ id: 'record-123' }],
+    ]
+    const mockTx = createMockTx(async () => {
+      const response = callIndex < responses.length ? responses[callIndex] : []
+      callIndex++
+      return response
+    })
+
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = deleteRecord(mockSession, 'users', 'record-123')
 
@@ -471,6 +491,18 @@ describe('deleteRecord', () => {
 
 describe('permanentlyDeleteRecord', () => {
   test('performs hard delete regardless of deleted_at column', async () => {
+    // [0] fetchRecordById → SELECT record
+    // [1] executeHardDelete → DELETE RETURNING
+    let callIndex = 0
+    const responses: unknown[][] = [[{ id: 'record-123', name: 'Alice' }], [{ id: 'record-123' }]]
+    const mockTx = createMockTx(async () => {
+      const response = callIndex < responses.length ? responses[callIndex] : []
+      callIndex++
+      return response
+    })
+
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
+
     const program = permanentlyDeleteRecord(mockSession, 'users', 'record-123')
 
     const result = await Effect.runPromise(program)
@@ -479,12 +511,17 @@ describe('permanentlyDeleteRecord', () => {
   })
 
   test('returns false when delete fails', async () => {
-    mock.module('../mutation-helpers/delete-helpers', () => ({
-      checkDeletedAtColumn: async () => true,
-      executeSoftDelete: async () => true,
-      executeHardDelete: async () => false, // Delete fails
-      cascadeSoftDelete: async () => {},
-    }))
+    // [0] fetchRecordById → SELECT record
+    // [1] executeHardDelete → DELETE RETURNING empty (failure)
+    let callIndex = 0
+    const responses: unknown[][] = [[{ id: 'record-123', name: 'Alice' }], []]
+    const mockTx = createMockTx(async () => {
+      const response = callIndex < responses.length ? responses[callIndex] : []
+      callIndex++
+      return response
+    })
+
+    mock.module('@/infrastructure/database', () => createMockDb(mockTx))
 
     const program = permanentlyDeleteRecord(mockSession, 'users', 'record-123')
 
