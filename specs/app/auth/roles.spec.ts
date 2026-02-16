@@ -165,7 +165,7 @@ test.describe('Custom Role Definitions (US-AUTH-ROLES-001)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-005: should order roles by hierarchy level (higher level = more permissions)',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
