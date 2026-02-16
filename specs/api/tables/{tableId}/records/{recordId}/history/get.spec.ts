@@ -171,7 +171,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-005: should return empty history when no activities exist',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
