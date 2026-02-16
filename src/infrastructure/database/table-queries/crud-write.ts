@@ -7,34 +7,27 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import {
-  db,
-  SessionContextError,
-  UniqueConstraintViolationError,
-} from '@/infrastructure/database'
+import { db, SessionContextError, UniqueConstraintViolationError } from '@/infrastructure/database'
 import { logActivity } from './activity-log-helpers'
-import {
-  injectCreateAuthorship,
-  injectUpdateAuthorship,
-} from './authorship-helpers'
+import { injectCreateAuthorship, injectUpdateAuthorship } from './authorship-helpers'
 import { buildInsertClauses, isUniqueConstraintViolation } from './create-record-helpers'
 import {
   cascadeSoftDelete,
-  fetchRecordBeforeDeletion,
   executeSoftDelete,
   executeHardDelete,
   checkDeletedAtColumn,
 } from './delete-helpers'
+import { wrapDatabaseError } from './error-handling'
+import { fetchRecordById } from './record-fetch-helpers'
+import { typedExecute } from './typed-execute'
 import {
   validateFieldsNotEmpty,
-  fetchRecordBeforeUpdateCRUD,
   buildUpdateSetClauseCRUD,
   executeRecordUpdateCRUD,
 } from './update-helpers'
 import { validateTableName } from './validation'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
-
 
 /**
  * Create a new record
@@ -125,7 +118,6 @@ function logRecordUpdateActivity(config: {
   })
 }
 
-
 /**
  * Update a record
  *
@@ -160,15 +152,12 @@ export function updateRecord(
           )
 
           const entries = await validateFieldsNotEmpty(fieldsWithUpdatedBy)
-          const before = await fetchRecordBeforeUpdateCRUD(tx, tableName, recordId)
+          const before = await fetchRecordById(tx, tableName, recordId)
           const setClause = buildUpdateSetClauseCRUD(entries)
           const updated = await executeRecordUpdateCRUD(tx, tableName, recordId, setClause)
           return { recordBefore: before, updatedRecord: updated }
         }),
-      catch: (error) =>
-        error instanceof SessionContextError
-          ? error
-          : new SessionContextError(`Failed to update record in ${tableName}`, error),
+      catch: wrapDatabaseError(`Failed to update record in ${tableName}`),
     })
 
     yield* logRecordUpdateActivity({
@@ -229,7 +218,7 @@ export function deleteRecord(
           const hasSoftDelete = await checkDeletedAtColumn(tx, tableName)
 
           // Fetch record before deletion for activity logging
-          const recordBeforeData = await fetchRecordBeforeDeletion(tx, tableName, recordId)
+          const recordBeforeData = await fetchRecordById(tx, tableName, recordId)
 
           if (hasSoftDelete) {
             // Execute soft delete
@@ -252,10 +241,7 @@ export function deleteRecord(
             return { success, recordBeforeData: undefined }
           }
         }),
-      catch: (error) =>
-        error instanceof SessionContextError
-          ? error
-          : new SessionContextError(`Failed to delete record from ${tableName}`, error),
+      catch: wrapDatabaseError(`Failed to delete record from ${tableName}`),
     })
 
     // Log activity for soft delete (outside transaction)
@@ -298,17 +284,14 @@ export function permanentlyDeleteRecord(
           validateTableName(tableName)
 
           // Fetch record before deletion for activity logging
-          const recordBeforeData = await fetchRecordBeforeDeletion(tx, tableName, recordId)
+          const recordBeforeData = await fetchRecordById(tx, tableName, recordId)
 
           // Execute hard delete
           const success = await executeHardDelete(tx, tableName, recordId)
 
           return { success, recordBeforeData: success ? recordBeforeData : undefined }
         }),
-      catch: (error) =>
-        error instanceof SessionContextError
-          ? error
-          : new SessionContextError(`Failed to permanently delete record from ${tableName}`, error),
+      catch: wrapDatabaseError(`Failed to permanently delete record from ${tableName}`),
     })
 
     // Log activity for permanent delete (outside transaction)
@@ -352,9 +335,10 @@ export function restoreRecord(
           const tableIdent = sql.identifier(tableName)
 
           // Check if record exists (including soft-deleted records)
-          const checkResult = (await tx.execute(
+          const checkResult = await typedExecute(
+            tx,
             sql`SELECT id, deleted_at FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
-          )) as unknown as readonly Record<string, unknown>[]
+          )
 
           if (checkResult.length === 0) {
             // eslint-disable-next-line unicorn/no-null -- Null is intentional for non-existent records
@@ -370,30 +354,27 @@ export function restoreRecord(
           }
 
           // Check if table has deleted_by column
-          const deletedByCheck = (await tx.execute(
+          const deletedByCheck = await typedExecute(
+            tx,
             sql`SELECT column_name FROM information_schema.columns WHERE table_name = ${tableName} AND column_name = 'deleted_by'`
-          )) as readonly Record<string, unknown>[]
+          )
 
           const hasDeletedBy = deletedByCheck.length > 0
 
           // Restore record by clearing deleted_at and deleted_by (if column exists)
           const result = hasDeletedBy
-            ? ((await tx.execute(
+            ? await typedExecute(
+                tx,
                 sql`UPDATE ${tableIdent} SET deleted_at = NULL, deleted_by = NULL WHERE id = ${recordId} RETURNING *`
-              )) as unknown as readonly Record<string, unknown>[])
-            : ((await tx.execute(
+              )
+            : await typedExecute(
+                tx,
                 sql`UPDATE ${tableIdent} SET deleted_at = NULL WHERE id = ${recordId} RETURNING *`
-              )) as unknown as readonly Record<string, unknown>[])
+              )
 
           return result[0] ?? {}
         }),
-      catch: (error) =>
-        error instanceof SessionContextError
-          ? error
-          : new SessionContextError(
-              `Failed to restore record ${recordId} from ${tableName}`,
-              error
-            ),
+      catch: wrapDatabaseError(`Failed to restore record ${recordId} from ${tableName}`),
     })
 
     // Log activity for record restoration (outside transaction)

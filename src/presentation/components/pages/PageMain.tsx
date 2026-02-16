@@ -7,7 +7,7 @@
 
 import { type ReactElement } from 'react'
 import { SectionRenderer } from '@/presentation/components/pages/SectionRenderer'
-import { toSlug } from '@/presentation/utilities/string-utils'
+import { toSlug } from '@/presentation/utils/string-utils'
 import type {
   BlockReference,
   SimpleBlockReference,

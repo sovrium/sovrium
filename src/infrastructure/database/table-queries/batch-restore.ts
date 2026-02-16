@@ -16,6 +16,7 @@ import {
 } from '@/infrastructure/database'
 import { logActivity } from './activity-log-helpers'
 import { runEffectInTx } from './batch-helpers'
+import { wrapDatabaseError } from './error-handling'
 import { validateTableName } from './validation'
 
 /**
@@ -180,10 +181,7 @@ export function batchRestoreRecords(
             executeRestoreQuery(tx, tableIdent, tableName, deletedRecordIds)
           )
         }),
-      catch: (error) =>
-        error instanceof SessionContextError
-          ? error
-          : new SessionContextError(`Failed to restore records in ${tableName}`, error),
+      catch: wrapDatabaseError(`Failed to restore records in ${tableName}`),
     })
 
     yield* logRestoreActivities(session, tableName, restoredRecords)

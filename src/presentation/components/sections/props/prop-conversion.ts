@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { toKebabCase } from '@/presentation/utilities/string-utils'
+import { toKebabCase } from '@/presentation/utils/string-utils'
 
 /**
  * HTML/React props that should not be converted to data attributes

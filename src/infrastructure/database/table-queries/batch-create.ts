@@ -6,11 +6,13 @@
  */
 
 import { Effect } from 'effect'
-import { db, SessionContextError, ValidationError } from '@/infrastructure/database'
+import { db, SessionContextError } from '@/infrastructure/database'
 import { logActivity } from './activity-log-helpers'
 import { createSingleRecordInBatch, runEffectInTx } from './batch-helpers'
+import { wrapDatabaseErrorWithValidation } from './error-handling'
 import { validateTableName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { ValidationError } from '@/infrastructure/database'
 
 /**
  * Batch create records
@@ -48,12 +50,7 @@ export function batchCreateRecords(
             )
           )
         }),
-      catch: (error) =>
-        error instanceof SessionContextError
-          ? error
-          : error instanceof ValidationError
-            ? error
-            : new SessionContextError(`Failed to create batch records in ${tableName}`, error),
+      catch: wrapDatabaseErrorWithValidation(`Failed to create batch records in ${tableName}`),
     })
 
     // Log activity for each created record

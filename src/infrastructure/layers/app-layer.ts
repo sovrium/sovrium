@@ -14,6 +14,7 @@ import { PageRendererLive } from '@/infrastructure/layers/page-renderer-layer'
 import { LoggerLive } from '@/infrastructure/logging/logger'
 import { ServerFactoryLive } from '@/infrastructure/server/server-factory-live'
 import { StaticSiteGeneratorLive } from '@/infrastructure/server/static-site-generator-live'
+import { AuthUserServiceLive } from '@/infrastructure/services/auth-user-service'
 import type { Auth as AuthConfig } from '@/domain/models/app/auth'
 
 /**
@@ -48,7 +49,8 @@ export const createAppLayer = (authConfig?: AuthConfig) =>
     CSSCompilerLive,
     StaticSiteGeneratorLive,
     DevToolsLayerOptional,
-    LoggerLive
+    LoggerLive,
+    AuthUserServiceLive
   )
 
 /**

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { toKebabCase } from '@/presentation/utilities/string-utils'
+import { toKebabCase } from '@/presentation/utils/string-utils'
 
 /**
  * Normalize animation names in CSS value to kebab-case

@@ -6,6 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { typedExecute } from './typed-execute'
 import type { DrizzleTransaction } from '@/infrastructure/database'
 
 /**
@@ -32,15 +33,14 @@ async function checkAuthorshipColumns(
   columnNames: readonly string[]
 ): Promise<Set<string>> {
   // Query information_schema for column existence
-  const schemaQuery = await tx.execute(
+  const rows = await typedExecute<{ column_name: string }>(
+    tx,
     sql.raw(
-      `SELECT column_name FROM information_schema.columns WHERE table_name = '${tableName}' AND column_name IN (${columnNames.map(name => `'${name}'`).join(', ')})`
+      `SELECT column_name FROM information_schema.columns WHERE table_name = '${tableName}' AND column_name IN (${columnNames.map((name) => `'${name}'`).join(', ')})`
     )
   )
 
-  return new Set(
-    (schemaQuery as unknown as readonly { column_name: string }[]).map((row) => row.column_name)
-  )
+  return new Set(rows.map((row) => row.column_name))
 }
 
 /**
@@ -84,8 +84,12 @@ export async function injectCreateAuthorship(
   // Build fields object with authorship metadata (immutable)
   return {
     ...fields,
-    ...(existingColumns.has(AUTHORSHIP_FIELDS.CREATED_BY) ? { [AUTHORSHIP_FIELDS.CREATED_BY]: authorUserId } : {}),
-    ...(existingColumns.has(AUTHORSHIP_FIELDS.UPDATED_BY) ? { [AUTHORSHIP_FIELDS.UPDATED_BY]: authorUserId } : {}),
+    ...(existingColumns.has(AUTHORSHIP_FIELDS.CREATED_BY)
+      ? { [AUTHORSHIP_FIELDS.CREATED_BY]: authorUserId }
+      : {}),
+    ...(existingColumns.has(AUTHORSHIP_FIELDS.UPDATED_BY)
+      ? { [AUTHORSHIP_FIELDS.UPDATED_BY]: authorUserId }
+      : {}),
   }
 }
 
@@ -113,7 +117,9 @@ export async function injectUpdateAuthorship(
 
   return {
     ...fields,
-    ...(existingColumns.has(AUTHORSHIP_FIELDS.UPDATED_BY) ? { [AUTHORSHIP_FIELDS.UPDATED_BY]: authorUserId } : {}),
+    ...(existingColumns.has(AUTHORSHIP_FIELDS.UPDATED_BY)
+      ? { [AUTHORSHIP_FIELDS.UPDATED_BY]: authorUserId }
+      : {}),
   }
 }
 

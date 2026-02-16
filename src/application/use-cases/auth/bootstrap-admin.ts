@@ -5,12 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { eq } from 'drizzle-orm'
 import { Effect, Console, Data } from 'effect'
 import { getStrategy } from '@/domain/models/app/auth'
 import { Auth } from '@/infrastructure/auth/better-auth'
-import { users } from '@/infrastructure/auth/better-auth/schema'
-import { Database } from '@/infrastructure/database/drizzle/layer'
+import {
+  AuthUserService,
+  type AuthUserDatabaseError,
+} from '@/infrastructure/services/auth-user-service'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'effect'
 
@@ -92,7 +93,11 @@ const createAdminUser = (
   auth: Context.Tag.Service<typeof Auth>,
   config: Readonly<AdminBootstrapConfig>,
   _requireEmailVerification: boolean
-): Effect.Effect<{ alreadyExists: boolean; userId?: string }, DatabaseError, Database> =>
+): Effect.Effect<
+  { alreadyExists: boolean; userId?: string },
+  DatabaseError | AuthUserDatabaseError,
+  AuthUserService
+> =>
   Effect.gen(function* () {
     // Attempt to create user
     const result = yield* Effect.tryPromise({
@@ -135,15 +140,10 @@ const createAdminUser = (
 
     // If email verification is NOT required, manually set emailVerified to true
     // Better Auth's createUser API doesn't respect the emailVerified field
-    // Use Drizzle ORM to directly update the database
+    // Delegate to AuthUserService for database access
     if (userId) {
-      const db = yield* Database
-
-      // Update database and propagate any errors
-      yield* Effect.tryPromise({
-        try: () => db.update(users).set({ emailVerified: true }).where(eq(users.id, userId)),
-        catch: (error) => new DatabaseError({ cause: error }),
-      }).pipe(Effect.asVoid)
+      const authUserService = yield* AuthUserService
+      yield* authUserService.verifyUserEmail(userId)
     }
 
     return { alreadyExists: false, userId }
@@ -235,7 +235,11 @@ const handlePostCreation = (
  */
 export const bootstrapAdmin = (
   app: App
-): Effect.Effect<void, InvalidEmailError | WeakPasswordError | DatabaseError, Auth | Database> =>
+): Effect.Effect<
+  void,
+  InvalidEmailError | WeakPasswordError | DatabaseError | AuthUserDatabaseError,
+  Auth | AuthUserService
+> =>
   Effect.gen(function* () {
     const parsedConfig = parseAdminBootstrapConfig()
     const config = yield* checkBootstrapPreconditions(app, parsedConfig)

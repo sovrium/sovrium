@@ -10,6 +10,8 @@ import { Effect } from 'effect'
 import { db, SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
 import { logActivity } from './activity-log-helpers'
 import { runEffectInTx } from './batch-helpers'
+import { wrapDatabaseError } from './error-handling'
+import { fetchRecordsByIds } from './record-fetch-helpers'
 import { validateTableName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -56,29 +58,6 @@ function validateRecordsForDeleteWithEffect(
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       return new SessionContextError(`Validation failed: ${errorMessage}`, error)
     },
-  })
-}
-
-/**
- * Fetch records before deletion for activity logging
- */
-function fetchRecordsBeforeDelete(
-  tx: Readonly<DrizzleTransaction>,
-  tableIdent: Readonly<ReturnType<typeof sql.identifier>>,
-  recordIds: readonly string[]
-): Effect.Effect<readonly Record<string, unknown>[], SessionContextError> {
-  return Effect.tryPromise({
-    try: async () => {
-      const idParams = sql.join(
-        recordIds.map((id) => sql`${id}`),
-        sql.raw(', ')
-      )
-      const result = (await tx.execute(
-        sql`SELECT * FROM ${tableIdent} WHERE id IN (${idParams})`
-      )) as readonly Record<string, unknown>[]
-      return result
-    },
-    catch: (error) => new SessionContextError('Failed to fetch records before deletion', error),
   })
 }
 
@@ -184,7 +163,7 @@ export function batchDeleteRecords(
           // eslint-disable-next-line functional/no-expression-statements -- Required for transaction validation
           await runEffectInTx(validateRecordsForDeleteWithEffect(tx, tableIdent, recordIds))
 
-          const before = await runEffectInTx(fetchRecordsBeforeDelete(tx, tableIdent, recordIds))
+          const before = await runEffectInTx(fetchRecordsByIds(tx, tableName, recordIds))
           const hasSoftDelete = await runEffectInTx(checkSoftDeleteSupport(tx, tableName))
 
           const count = await runEffectInTx(
@@ -198,10 +177,7 @@ export function batchDeleteRecords(
 
           return { deletedCount: count, recordsBefore: before }
         }),
-      catch: (error) =>
-        error instanceof SessionContextError
-          ? error
-          : new SessionContextError(`Failed to delete records in ${tableName}`, error),
+      catch: wrapDatabaseError(`Failed to delete records in ${tableName}`),
     })
 
     yield* logDeleteActivities(session, tableName, recordsBefore)

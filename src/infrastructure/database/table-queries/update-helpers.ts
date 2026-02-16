@@ -27,26 +27,6 @@ export async function validateFieldsNotEmpty(
 }
 
 /**
- * Fetch record before update for activity logging (CRUD version)
- * Promise-based for transaction use
- */
-export async function fetchRecordBeforeUpdateCRUD(
-  tx: Readonly<DrizzleTransaction>,
-  tableName: string,
-  recordId: string
-): Promise<Record<string, unknown> | undefined> {
-  try {
-    const result = (await tx.execute(
-      sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${recordId} LIMIT 1`
-    )) as readonly Record<string, unknown>[]
-    return result[0]
-  } catch (error) {
-    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
-    throw new SessionContextError(`Failed to fetch record ${recordId}`, error)
-  }
-}
-
-/**
  * Build UPDATE SET clause with validated columns (CRUD version)
  */
 export function buildUpdateSetClauseCRUD(

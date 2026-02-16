@@ -11,8 +11,8 @@ import { AppValidationError } from '@/application/errors/app-validation-error'
 import { PageRenderer } from '@/application/ports/page-renderer'
 import { ServerFactory } from '@/application/ports/server-factory'
 import { Auth } from '@/infrastructure/auth/better-auth'
-import { Database } from '@/infrastructure/database/drizzle/layer'
 import { LoggerSilent } from '@/infrastructure/logging/logger'
+import { AuthUserService } from '@/infrastructure/services/auth-user-service'
 import { startServer } from './start-server'
 import type { ServerInstance } from '@/application/models/server'
 
@@ -49,25 +49,21 @@ const MockAuth = Layer.succeed(Auth, {
 })
 
 /**
- * Mock Database service for testing (no actual database operations)
- * Database is used for admin bootstrap in startServer
+ * Mock AuthUserService for testing (no actual database operations)
+ * AuthUserService is used for admin bootstrap email verification
  */
-const MockDatabase = Layer.succeed(Database, {
-  update: () => ({
-    set: () => ({
-      where: () => Promise.resolve(),
-    }),
-  }),
-} as any)
+const MockAuthUserService = Layer.succeed(AuthUserService, {
+  verifyUserEmail: (_userId: string) => Effect.void,
+})
 
 /**
- * Test Layer composition (MockServerFactory + MockPageRenderer + MockAuth + MockDatabase + LoggerSilent)
+ * Test Layer composition (MockServerFactory + MockPageRenderer + MockAuth + MockAuthUserService + LoggerSilent)
  */
 const TestLayer = Layer.mergeAll(
   MockServerFactory,
   MockPageRenderer,
   MockAuth,
-  MockDatabase,
+  MockAuthUserService,
   LoggerSilent
 )
 

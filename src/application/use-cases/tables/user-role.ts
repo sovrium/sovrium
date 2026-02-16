@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { eq } from 'drizzle-orm'
-import { users as authUsers } from '@/infrastructure/auth/better-auth/schema'
+import { Effect } from 'effect'
+import { UserRoleService, UserRoleServiceLive } from '@/infrastructure/services/user-role-service'
 
 // Constants
 const DEFAULT_ROLE = 'member'
@@ -14,21 +14,21 @@ const DEFAULT_ROLE = 'member'
 /**
  * Retrieves the user's global role from the database
  *
- * Uses Drizzle ORM for type-safe, parameterized queries (SQL injection safe).
+ * Delegates to UserRoleService (infrastructure layer) for database access.
+ * This application layer function provides a convenient async interface
+ * for use in presentation layer middleware and routes.
  *
  * Role resolution:
- * 1. Fetch global user role from users table
+ * 1. Fetch global user role from users table via UserRoleService
  * 2. Default: 'member'
  */
 export async function getUserRole(userId: string): Promise<string> {
-  const { db } = await import('@/infrastructure/database')
+  const program = Effect.gen(function* () {
+    const service = yield* UserRoleService
+    return yield* service.getUserRole(userId)
+  }).pipe(Effect.provide(UserRoleServiceLive))
 
-  // Fetch global user role from users table
-  const userResult = await db
-    .select({ role: authUsers.role })
-    .from(authUsers)
-    .where(eq(authUsers.id, userId))
-    .limit(1)
+  const role = await Effect.runPromise(program)
 
-  return userResult[0]?.role || DEFAULT_ROLE
+  return role ?? DEFAULT_ROLE
 }

@@ -79,10 +79,13 @@ mock.module('@/infrastructure/database', () => createMockDb(defaultMockTx))
 
 mock.module('./delete-helpers', () => ({
   checkDeletedAtColumn: async () => true,
-  fetchRecordBeforeDeletion: async () => ({ id: 'record-123', name: 'Alice' }),
   executeSoftDelete: async () => true,
   executeHardDelete: async () => true,
   cascadeSoftDelete: async () => {},
+}))
+
+mock.module('./record-fetch-helpers', () => ({
+  fetchRecordById: async () => ({ id: 'record-123', name: 'Alice' }),
 }))
 
 mock.module('./activity-log-helpers', () => ({
@@ -456,7 +459,6 @@ describe('deleteRecord', () => {
   test('performs hard delete when no deleted_at column', async () => {
     mock.module('./delete-helpers', () => ({
       checkDeletedAtColumn: async () => false, // No soft delete support
-      fetchRecordBeforeDeletion: async () => ({ id: 'record-123', name: 'Alice' }),
       executeSoftDelete: async () => true,
       executeHardDelete: async () => true,
       cascadeSoftDelete: async () => {},
@@ -482,7 +484,6 @@ describe('permanentlyDeleteRecord', () => {
   test('returns false when delete fails', async () => {
     mock.module('./delete-helpers', () => ({
       checkDeletedAtColumn: async () => true,
-      fetchRecordBeforeDeletion: async () => ({ id: 'record-123', name: 'Alice' }),
       executeSoftDelete: async () => true,
       executeHardDelete: async () => false, // Delete fails
       cascadeSoftDelete: async () => {},

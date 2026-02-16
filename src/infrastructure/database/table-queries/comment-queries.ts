@@ -11,6 +11,7 @@ import { users } from '@/infrastructure/auth/better-auth/schema'
 import { SessionContextError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import { recordComments } from '@/infrastructure/database/drizzle/schema/record-comments'
+import { wrapDatabaseError } from './error-handling'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -63,10 +64,7 @@ export function createComment(config: {
         createdAt: comment.createdAt,
       }
     },
-    catch: (error) =>
-      error instanceof SessionContextError
-        ? error
-        : new SessionContextError('Failed to create comment', error),
+    catch: wrapDatabaseError('Failed to create comment'),
   })
 }
 
@@ -339,10 +337,7 @@ export function deleteComment(config: {
         throw new SessionContextError('Comment not found')
       }
     },
-    catch: (error) =>
-      error instanceof SessionContextError
-        ? error
-        : new SessionContextError('Failed to delete comment', error),
+    catch: wrapDatabaseError('Failed to delete comment'),
   })
 }
 

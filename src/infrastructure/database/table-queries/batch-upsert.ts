@@ -15,6 +15,7 @@ import {
 } from '@/infrastructure/database'
 import { logActivity } from './activity-log-helpers'
 import { BatchValidationError, runEffectInTx, createSingleRecord } from './batch-helpers'
+import { typedExecute } from './typed-execute'
 import { validateTableName, validateColumnName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -236,7 +237,8 @@ async function validateRequiredFieldsInRecord(
   recordIndex: number
 ): Promise<readonly string[]> {
   // Query table schema to get required fields
-  const schemaQuery = (await tx.execute(
+  const schemaQuery = await typedExecute<{ column_name: string }>(
+    tx,
     sql`
       SELECT column_name, is_nullable, column_default
       FROM information_schema.columns
@@ -245,7 +247,7 @@ async function validateRequiredFieldsInRecord(
         AND is_nullable = 'NO'
         AND column_default IS NULL
     `
-  )) as unknown as ReadonlyArray<{ column_name: string }>
+  )
 
   const requiredFields = schemaQuery.map((row) => row.column_name)
 

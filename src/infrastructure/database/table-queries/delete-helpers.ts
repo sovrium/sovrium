@@ -89,27 +89,6 @@ export async function cascadeSoftDelete(
 }
 
 /**
- * Fetch record before deletion for activity logging
- * Promise-based for transaction use
- */
-export async function fetchRecordBeforeDeletion(
-  tx: Readonly<DrizzleTransaction>,
-  tableName: string,
-  recordId: string
-): Promise<Record<string, unknown> | undefined> {
-  try {
-    const tableIdent = sql.identifier(tableName)
-    const recordBefore = (await tx.execute(
-      sql`SELECT * FROM ${tableIdent} WHERE id = ${recordId} LIMIT 1`
-    )) as readonly Record<string, unknown>[]
-    return recordBefore[0]
-  } catch (error) {
-    // eslint-disable-next-line functional/no-throw-statements -- Required for transaction error handling
-    throw new SessionContextError(`Failed to fetch record before deletion`, error)
-  }
-}
-
-/**
  * Execute soft delete operation
  * Promise-based for transaction use
  */

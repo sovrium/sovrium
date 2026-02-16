@@ -7,7 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { db, SessionContextError } from '@/infrastructure/database'
+import { db } from '@/infrastructure/database'
 import {
   buildAggregationSelects,
   parseAggregationResult,
@@ -15,9 +15,12 @@ import {
   buildWhereClause,
   checkDeletedAtColumn as checkDeletedAtColumnHelper,
 } from './aggregation-helpers'
+import { wrapDatabaseError } from './error-handling'
 import { buildTrashFilters, addTrashSorting } from './trash-helpers'
+import { typedExecute } from './typed-execute'
 import { validateTableName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
+import type { SessionContextError } from '@/infrastructure/database'
 
 /**
  * List all records from a table
@@ -62,16 +65,12 @@ export function listRecords(config: {
         const whereClause = buildWhereClause(hasDeletedAt, includeDeleted, filter)
         const orderByClause = buildOrderByClause(sort, app, tableName)
 
-        const result = await tx.execute(
+        return await typedExecute(
+          tx,
           sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause}${orderByClause}`
         )
-
-        return result as unknown as readonly Record<string, unknown>[]
       }),
-    catch: (error) =>
-      error instanceof SessionContextError
-        ? error
-        : new SessionContextError(`Failed to list records from ${tableName}`, error),
+    catch: wrapDatabaseError(`Failed to list records from ${tableName}`),
   })
 }
 
@@ -86,7 +85,7 @@ export function listRecords(config: {
  * @param config.aggregate - Aggregation configuration
  * @returns Effect resolving to aggregation results
  */
-// eslint-disable-next-line max-lines-per-function -- Aggregation logic requires multiple SQL clauses
+
 export function computeAggregations(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
@@ -126,19 +125,15 @@ export function computeAggregations(config: {
         if (aggregationSelects.length === 0) return {}
 
         const selectClause = sql.raw(aggregationSelects.join(', '))
-        const result = await tx.execute(
+        const rows = await typedExecute(
+          tx,
           sql`SELECT ${selectClause} FROM ${sql.identifier(tableName)}${whereClause}`
         )
-
-        const rows = result as unknown as readonly Record<string, unknown>[]
         if (rows.length === 0) return {}
 
         return parseAggregationResult(rows[0]!, aggregate)
       }),
-    catch: (error) =>
-      error instanceof SessionContextError
-        ? error
-        : new SessionContextError(`Failed to compute aggregations from ${tableName}`, error),
+    catch: wrapDatabaseError(`Failed to compute aggregations from ${tableName}`),
   })
 }
 
@@ -180,13 +175,9 @@ export function listTrash(config: {
         const queryWithFilters = buildTrashFilters(baseQuery, filter?.and)
         const query = addTrashSorting(queryWithFilters, sort)
 
-        const result = await tx.execute(query)
-        return result as unknown as readonly Record<string, unknown>[]
+        return await typedExecute(tx, query)
       }),
-    catch: (error) =>
-      error instanceof SessionContextError
-        ? error
-        : new SessionContextError(`Failed to list trash from ${tableName}`, error),
+    catch: wrapDatabaseError(`Failed to list trash from ${tableName}`),
   })
 }
 
@@ -222,18 +213,14 @@ export function getRecord(
             : sql` WHERE id = ${recordId}`
 
         // Use parameterized query for recordId (automatic via template literal)
-        const result = await tx.execute(
+        const rows = await typedExecute(
+          tx,
           sql`SELECT * FROM ${sql.identifier(tableName)}${whereClause} LIMIT 1`
         )
-
-        const rows = result as unknown as readonly Record<string, unknown>[]
 
         // eslint-disable-next-line unicorn/no-null -- Null is intentional for database records that don't exist
         return rows[0] ?? null
       }),
-    catch: (error) =>
-      error instanceof SessionContextError
-        ? error
-        : new SessionContextError(`Failed to get record ${recordId} from ${tableName}`, error),
+    catch: wrapDatabaseError(`Failed to get record ${recordId} from ${tableName}`),
   })
 }

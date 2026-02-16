@@ -34,6 +34,47 @@ export async function runEffectInTx<A, E>(effect: Effect.Effect<A, E, never>): P
 }
 
 /**
+ * Build INSERT SQL clauses from fields object.
+ * Returns undefined if fields is empty.
+ */
+function buildInsertClauses(fields: Readonly<Record<string, unknown>>):
+  | {
+      readonly columnsClause: ReturnType<typeof sql.join>
+      readonly valuesClause: ReturnType<typeof sql.join>
+    }
+  | undefined {
+  const entries = Object.entries(fields)
+  if (entries.length === 0) return undefined
+
+  const columnIdentifiers = entries.map(([key]) => {
+    validateColumnName(key)
+    return sql.identifier(key)
+  })
+  const valueParams = entries.map(([, value]) => sql`${value}`)
+
+  return {
+    columnsClause: sql.join(columnIdentifiers, sql.raw(', ')),
+    valuesClause: sql.join(valueParams, sql.raw(', ')),
+  }
+}
+
+/**
+ * Handle PostgreSQL NOT NULL violation errors, converting to ValidationError.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types -- called from Effect.tryPromise catch
+function handleInsertError(error: unknown): ValidationError {
+  const pgError = error as { code?: string; message?: string }
+  if (pgError.code === '23502' || pgError.message?.includes('null value in column')) {
+    return new ValidationError('Validation failed: Required field is missing', [
+      { record: 0, field: 'unknown', error: 'Required field is missing' },
+    ])
+  }
+  const errorMessage: string =
+    pgError.message !== undefined ? pgError.message : 'Insert failed due to constraint violation'
+  return new ValidationError(errorMessage, [])
+}
+
+/**
  * Helper to create a single record within a transaction
  */
 export async function createSingleRecord(
@@ -41,38 +82,18 @@ export async function createSingleRecord(
   tableName: string,
   fields: Readonly<Record<string, unknown>>
 ): Promise<Readonly<Record<string, unknown>> | undefined> {
-  // Build entries from user fields
-  const entries = Object.entries(fields)
-  if (entries.length === 0) return undefined
-
-  // Build column identifiers and values
-  const columnIdentifiers = entries.map(([key]) => {
-    validateColumnName(key)
-    return sql.identifier(key)
-  })
-  const valueParams = entries.map(([, value]) => sql`${value}`)
-
-  const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
-  const valuesClause = sql.join(valueParams, sql.raw(', '))
+  const clauses = buildInsertClauses(fields)
+  if (!clauses) return undefined
 
   try {
     const result = (await tx.execute(
-      sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
+      sql`INSERT INTO ${sql.identifier(tableName)} (${clauses.columnsClause}) VALUES (${clauses.valuesClause}) RETURNING *`
     )) as readonly Record<string, unknown>[]
 
     return result[0] ?? undefined
   } catch (error) {
-    // PostgreSQL error codes: https://www.postgresql.org/docs/current/errcodes-appendix.html
-    // 23502 = not_null_violation
-    const pgError = error as { code?: string; message?: string }
-    if (pgError.code === '23502' || pgError.message?.includes('null value in column')) {
-      // eslint-disable-next-line functional/no-throw-statements -- Required for error propagation
-      throw new ValidationError('Validation failed: Required field is missing', [
-        { record: 0, field: 'unknown', error: 'Required field is missing' },
-      ])
-    }
     // eslint-disable-next-line functional/no-throw-statements -- Required for error propagation
-    throw error
+    throw handleInsertError(error)
   }
 }
 
@@ -89,41 +110,15 @@ export function createSingleRecordInBatch(
 ): Effect.Effect<Record<string, unknown> | undefined, ValidationError> {
   return Effect.tryPromise({
     try: async () => {
-      // Build entries from user fields
-      const entries = Object.entries(fields)
-      if (entries.length === 0) return undefined
-
-      // Build column identifiers and values
-      const columnIdentifiers = entries.map(([key]) => {
-        validateColumnName(key)
-        return sql.identifier(key)
-      })
-      const valueParams = entries.map(([, value]) => sql`${value}`)
-
-      const columnsClause = sql.join(columnIdentifiers, sql.raw(', '))
-      const valuesClause = sql.join(valueParams, sql.raw(', '))
+      const clauses = buildInsertClauses(fields)
+      if (!clauses) return undefined
 
       const result = (await tx.execute(
-        sql`INSERT INTO ${sql.identifier(tableName)} (${columnsClause}) VALUES (${valuesClause}) RETURNING *`
+        sql`INSERT INTO ${sql.identifier(tableName)} (${clauses.columnsClause}) VALUES (${clauses.valuesClause}) RETURNING *`
       )) as readonly Record<string, unknown>[]
 
       return result[0] ?? undefined
     },
-    catch: (error) => {
-      // PostgreSQL error codes: https://www.postgresql.org/docs/current/errcodes-appendix.html
-      // 23502 = not_null_violation
-      const pgError = error as { code?: string; message?: string }
-      if (pgError.code === '23502' || pgError.message?.includes('null value in column')) {
-        return new ValidationError('Validation failed: Required field is missing', [
-          { record: 0, field: 'unknown', error: 'Required field is missing' },
-        ])
-      }
-      // For other errors, return generic validation error
-      const errorMessage: string =
-        pgError.message !== undefined
-          ? pgError.message
-          : 'Insert failed due to constraint violation'
-      return new ValidationError(errorMessage, [])
-    },
+    catch: handleInsertError,
   })
 }

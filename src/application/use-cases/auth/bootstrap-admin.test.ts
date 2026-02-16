@@ -8,7 +8,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect, Layer } from 'effect'
 import { Auth, AuthError } from '@/infrastructure/auth/better-auth'
-import { Database } from '@/infrastructure/database/drizzle/layer'
+import { AuthUserService } from '@/infrastructure/services/auth-user-service'
 import {
   bootstrapAdmin,
   parseAdminBootstrapConfig,
@@ -22,19 +22,15 @@ import type { App } from '@/domain/models/app'
  * Unit tests for bootstrap-admin use case
  *
  * Tests the application layer logic for bootstrapping admin accounts.
- * Uses mock Auth and Database services to test use case logic without external dependencies.
+ * Uses mock Auth and AuthUserService to test use case logic without external dependencies.
  */
 
 /**
- * Mock Database service that simulates Drizzle ORM operations
+ * Mock AuthUserService that simulates email verification
  */
-const MockDatabaseService = Layer.succeed(Database, {
-  update: () => ({
-    set: () => ({
-      where: () => Promise.resolve(),
-    }),
-  }),
-} as any)
+const MockAuthUserService = Layer.succeed(AuthUserService, {
+  verifyUserEmail: (_userId: string) => Effect.void,
+})
 
 /**
  * Mock Auth service that simulates successful user creation
@@ -214,7 +210,7 @@ describe('bootstrapAdmin', () => {
     delete process.env.AUTH_ADMIN_PASSWORD
 
     const program = bootstrapAdmin(mockAppWithAdmin).pipe(
-      Effect.provide(Layer.mergeAll(MockAuthServiceCreate, MockDatabaseService))
+      Effect.provide(Layer.mergeAll(MockAuthServiceCreate, MockAuthUserService))
     )
 
     const result = await Effect.runPromise(program)
@@ -238,7 +234,7 @@ describe('bootstrapAdmin', () => {
     process.env.AUTH_ADMIN_PASSWORD = 'securePassword123'
 
     const program = bootstrapAdmin(mockAppWithoutAdmin).pipe(
-      Effect.provide(Layer.mergeAll(MockAuthServiceCreate, MockDatabaseService))
+      Effect.provide(Layer.mergeAll(MockAuthServiceCreate, MockAuthUserService))
     )
 
     const result = await Effect.runPromise(program)
@@ -262,7 +258,7 @@ describe('bootstrapAdmin', () => {
     process.env.AUTH_ADMIN_PASSWORD = 'securePassword123'
 
     const program = bootstrapAdmin(mockAppWithAdmin).pipe(
-      Effect.provide(Layer.mergeAll(MockAuthServiceCreate, MockDatabaseService)),
+      Effect.provide(Layer.mergeAll(MockAuthServiceCreate, MockAuthUserService)),
       Effect.either
     )
 
@@ -292,7 +288,7 @@ describe('bootstrapAdmin', () => {
     process.env.AUTH_ADMIN_PASSWORD = 'short'
 
     const program = bootstrapAdmin(mockAppWithAdmin).pipe(
-      Effect.provide(Layer.mergeAll(MockAuthServiceCreate, MockDatabaseService)),
+      Effect.provide(Layer.mergeAll(MockAuthServiceCreate, MockAuthUserService)),
       Effect.either
     )
 
@@ -322,7 +318,7 @@ describe('bootstrapAdmin', () => {
     process.env.AUTH_ADMIN_NAME = 'Admin User'
 
     const program = bootstrapAdmin(mockAppWithAdmin).pipe(
-      Effect.provide(Layer.mergeAll(MockAuthServiceCreate, MockDatabaseService))
+      Effect.provide(Layer.mergeAll(MockAuthServiceCreate, MockAuthUserService))
     )
 
     const result = await Effect.runPromise(program)
@@ -347,7 +343,7 @@ describe('bootstrapAdmin', () => {
     process.env.AUTH_ADMIN_PASSWORD = 'securePassword123'
 
     const program = bootstrapAdmin(mockAppWithAdmin).pipe(
-      Effect.provide(Layer.mergeAll(MockAuthServiceExists, MockDatabaseService))
+      Effect.provide(Layer.mergeAll(MockAuthServiceExists, MockAuthUserService))
     )
 
     const result = await Effect.runPromise(program)
@@ -371,7 +367,7 @@ describe('bootstrapAdmin', () => {
     process.env.AUTH_ADMIN_PASSWORD = 'securePassword123'
 
     const program = bootstrapAdmin(mockAppWithAdmin).pipe(
-      Effect.provide(Layer.mergeAll(MockAuthServiceError, MockDatabaseService)),
+      Effect.provide(Layer.mergeAll(MockAuthServiceError, MockAuthUserService)),
       Effect.either
     )
 

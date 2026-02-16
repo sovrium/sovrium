@@ -9,13 +9,16 @@ import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import {
   db,
-  SessionContextError,
   ValidationError,
   type DrizzleTransaction,
+  type SessionContextError,
 } from '@/infrastructure/database'
 import { logActivity } from './activity-log-helpers'
 import { runEffectInTx } from './batch-helpers'
-import { validateTableName, validateColumnName } from './validation'
+import { wrapDatabaseErrorWithValidation } from './error-handling'
+import { fetchRecordByIdEffect } from './record-fetch-helpers'
+import { buildUpdateSetClauseCRUD } from './update-helpers'
+import { validateTableName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -27,39 +30,6 @@ function extractFieldsFromUpdate(update: {
 }): Readonly<Record<string, unknown>> {
   // Return fields property or empty object if not provided
   return update.fields ?? {}
-}
-
-/**
- * Fetch record before update for activity logging
- */
-function fetchRecordBeforeUpdate(
-  tx: Readonly<DrizzleTransaction>,
-  tableName: string,
-  recordId: string
-): Effect.Effect<Record<string, unknown> | undefined, never> {
-  return Effect.tryPromise({
-    try: async () => {
-      const result = (await tx.execute(
-        sql`SELECT * FROM ${sql.identifier(tableName)} WHERE id = ${recordId} LIMIT 1`
-      )) as readonly Record<string, unknown>[]
-      return result[0]
-    },
-    catch: () => undefined,
-  }).pipe(Effect.orElseSucceed(() => undefined))
-}
-
-/**
- * Build UPDATE SET clause with validated column names
- */
-function buildUpdateSetClause(
-  fields: Readonly<Record<string, unknown>>
-): Readonly<ReturnType<typeof sql.join>> {
-  const entries = Object.entries(fields)
-  const setClauses = entries.map(([key, value]) => {
-    validateColumnName(key)
-    return sql`${sql.identifier(key)} = ${value}`
-  })
-  return sql.join(setClauses, sql.raw(', '))
 }
 
 /**
@@ -115,8 +85,8 @@ function updateSingleRecordInBatch(
 
     if (entries.length === 0) return undefined
 
-    const recordBefore = yield* fetchRecordBeforeUpdate(tx, tableName, update.id)
-    const setClause = buildUpdateSetClause(fieldsToUpdate)
+    const recordBefore = yield* fetchRecordByIdEffect(tx, tableName, update.id)
+    const setClause = buildUpdateSetClauseCRUD(entries)
     const updatedRecord = yield* executeRecordUpdate(tx, tableName, update.id, setClause)
 
     if (updatedRecord) {
@@ -165,11 +135,6 @@ export function batchUpdateRecords(
           )
         )
       }),
-    catch: (error) =>
-      error instanceof SessionContextError
-        ? error
-        : error instanceof ValidationError
-          ? error
-          : new SessionContextError(`Failed to batch update records in ${tableName}`, error),
+    catch: wrapDatabaseErrorWithValidation(`Failed to batch update records in ${tableName}`),
   })
 }

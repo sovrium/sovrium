@@ -8,11 +8,11 @@
 import { describe, test, expect } from 'bun:test'
 import {
   cascadeSoftDelete,
-  fetchRecordBeforeDeletion,
   executeSoftDelete,
   executeHardDelete,
   checkDeletedAtColumn,
 } from './delete-helpers'
+import { fetchRecordById } from './record-fetch-helpers'
 import type { DrizzleTransaction } from '@/infrastructure/database'
 
 const asTx = (mock: { execute: (...args: any[]) => any }) =>
@@ -379,7 +379,7 @@ describe('cascadeSoftDelete', () => {
   })
 })
 
-describe('fetchRecordBeforeDeletion', () => {
+describe('fetchRecordById', () => {
   describe('when record exists', () => {
     test('returns record data for activity logging', async () => {
       const mockRecord = {
@@ -394,7 +394,7 @@ describe('fetchRecordBeforeDeletion', () => {
         },
       }
 
-      const result = await fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
+      const result = await fetchRecordById(asTx(mockTx), 'users', '123')
 
       expect(result).toEqual(mockRecord)
     })
@@ -409,7 +409,7 @@ describe('fetchRecordBeforeDeletion', () => {
         },
       }
 
-      await fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
+      await fetchRecordById(asTx(mockTx), 'users', '123')
 
       // Verify query was executed (can't directly inspect sql.identifier but query should be defined)
       expect(executedQuery).toBeDefined()
@@ -422,7 +422,7 @@ describe('fetchRecordBeforeDeletion', () => {
         execute: async () => [],
       }
 
-      const result = await fetchRecordBeforeDeletion(asTx(mockTx), 'users', '999')
+      const result = await fetchRecordById(asTx(mockTx), 'users', '999')
 
       expect(result).toBeUndefined()
     })
@@ -437,12 +437,12 @@ describe('fetchRecordBeforeDeletion', () => {
       }
 
       try {
-        await fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
+        await fetchRecordById(asTx(mockTx), 'users', '123')
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
         // Promise rejection wraps the SessionContextError
         expect(error).toHaveProperty('message')
-        expect((error as Error).message).toContain('Failed to fetch record before deletion')
+        expect((error as Error).message).toContain('Failed to fetch record')
       }
     })
 
@@ -456,10 +456,10 @@ describe('fetchRecordBeforeDeletion', () => {
       }
 
       try {
-        await fetchRecordBeforeDeletion(asTx(mockTx), 'users', '123')
+        await fetchRecordById(asTx(mockTx), 'users', '123')
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
-        expect((error as Error).message).toContain('Failed to fetch record before deletion')
+        expect((error as Error).message).toContain('Failed to fetch record')
       }
     })
   })
