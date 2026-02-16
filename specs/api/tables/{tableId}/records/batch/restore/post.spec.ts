@@ -438,7 +438,7 @@ test.describe('Batch Restore records', () => {
       // WHEN: Batch restore
       await createAuthenticatedMember({ email: 'member@example.com' })
       const response = await request.post('/api/tables/1/records/batch/restore', {
-        data: { ids: deleted.map((r: any) => String(r.id)) },
+        data: { ids: deleted.rows.map((r: any) => String(r.id)) },
       })
       expect(response.status()).toBe(200)
 
