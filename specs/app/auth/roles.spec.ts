@@ -38,7 +38,7 @@ test.describe('Custom Role Definitions (US-AUTH-ROLES-001)', () => {
   // @spec tests - EXHAUSTIVE coverage for US-AUTH-ROLES-001
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-001: should provide built-in roles admin=80, member=40, viewer=10 without configuration',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedAdmin, page }) => {
@@ -65,7 +65,7 @@ test.describe('Custom Role Definitions (US-AUTH-ROLES-001)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-002: should accept custom roles with name, optional description, and optional level',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
@@ -101,7 +101,7 @@ test.describe('Custom Role Definitions (US-AUTH-ROLES-001)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-003: should reject duplicate role names in custom roles',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -123,7 +123,7 @@ test.describe('Custom Role Definitions (US-AUTH-ROLES-001)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-004: should enforce role naming convention (lowercase, alphanumeric, hyphens)',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
