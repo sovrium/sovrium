@@ -11,7 +11,7 @@ import {
   executeSQLStatements,
   type TransactionLike,
   type SQLExecutionError,
-} from '../sql-execution'
+} from '../sql/sql-execution'
 import { PROTECTED_SYSTEM_TABLES } from './constants'
 import { detectTableRenames } from './rename-detection'
 import type { Table } from '@/domain/models/app/table'

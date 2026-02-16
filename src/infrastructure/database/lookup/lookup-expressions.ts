@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { toSingular, generateJunctionTableName } from '../sql/sql-generators'
 import { buildWhereClause } from './lookup-view-helpers'
-import { toSingular, generateJunctionTableName } from './sql-generators'
 import type { ViewFilterCondition } from '@/domain/models/app/table/views/filters'
 
 /**

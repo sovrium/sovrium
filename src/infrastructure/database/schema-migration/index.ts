@@ -20,7 +20,7 @@
 
 // Type exports
 export type { ExistingColumnInfo } from './column-detection'
-export { type TransactionLike as BunSQLTransaction } from '../sql-execution'
+export { type TransactionLike as BunSQLTransaction } from '../sql/sql-execution'
 
 // Constants
 export { PROTECTED_SYSTEM_TABLES } from './constants'

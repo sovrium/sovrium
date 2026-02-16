@@ -10,13 +10,25 @@ import { Effect, Context, Layer } from 'effect'
 
 // Mock the infrastructure service before importing
 mock.module('@/infrastructure/services/user-role-service', () => {
-  class UserRoleService extends Context.Tag('UserRoleService')() {}
+  class UserRoleRepository extends Context.Tag('UserRoleRepository')() {}
 
   return {
-    UserRoleService,
-    UserRoleServiceLive: Layer.succeed(UserRoleService, {
+    UserRoleRepository,
+    UserRoleRepositoryLive: Layer.succeed(UserRoleRepository, {
       getUserRole: (_userId: string) => Effect.succeed('admin'),
     }),
+  }
+})
+
+// Mock the port to match the mock module
+mock.module('@/application/ports/user-role-repository', () => {
+  class UserRoleRepository extends Context.Tag('UserRoleRepository')() {}
+
+  return {
+    UserRoleRepository,
+    UserRoleDatabaseError: class extends Error {
+      readonly _tag = 'UserRoleDatabaseError'
+    },
   }
 })
 
@@ -24,7 +36,7 @@ mock.module('@/infrastructure/services/user-role-service', () => {
 const { getUserRole } = await import('./user-role')
 
 describe('getUserRole', () => {
-  test('should return role from UserRoleService', async () => {
+  test('should return role from UserRoleRepository', async () => {
     const role = await getUserRole('user-123')
     expect(role).toBe('admin')
   })
@@ -32,13 +44,24 @@ describe('getUserRole', () => {
   test('should return default role when service returns undefined', async () => {
     // Reset mock for this test
     mock.module('@/infrastructure/services/user-role-service', () => {
-      class UserRoleService extends Context.Tag('UserRoleService')() {}
+      class UserRoleRepository extends Context.Tag('UserRoleRepository')() {}
 
       return {
-        UserRoleService,
-        UserRoleServiceLive: Layer.succeed(UserRoleService, {
+        UserRoleRepository,
+        UserRoleRepositoryLive: Layer.succeed(UserRoleRepository, {
           getUserRole: (_userId: string) => Effect.succeed(undefined),
         }),
+      }
+    })
+
+    mock.module('@/application/ports/user-role-repository', () => {
+      class UserRoleRepository extends Context.Tag('UserRoleRepository')() {}
+
+      return {
+        UserRoleRepository,
+        UserRoleDatabaseError: class extends Error {
+          readonly _tag = 'UserRoleDatabaseError'
+        },
       }
     })
 

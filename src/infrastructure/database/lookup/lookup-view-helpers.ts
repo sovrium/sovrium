@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { generateSqlCondition } from './filter-operators'
+import { generateSqlCondition } from '../filter-operators'
 import type { ViewFilterCondition } from '@/domain/models/app/table/views/filters'
 
 /**

@@ -10,7 +10,7 @@ import {
   executeSQLStatements,
   type TransactionLike,
   type SQLExecutionError,
-} from '../sql-execution'
+} from '../sql/sql-execution'
 import type { Table } from '@/domain/models/app/table'
 
 /**
@@ -85,7 +85,9 @@ export const syncIndexes = (
   previousSchema?: { readonly tables: readonly object[] }
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const { generateIndexStatements } = yield* Effect.promise(() => import('../index-generators'))
+    const { generateIndexStatements } = yield* Effect.promise(
+      () => import('../generators/index-generators')
+    )
 
     // Get previous table definition
     const previousTable = previousSchema?.tables.find(

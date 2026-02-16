@@ -8,16 +8,16 @@
 // eslint-disable-next-line no-restricted-syntax -- Activity logs are a cross-cutting concern, not phase-specific
 import { Data, Effect, Layer } from 'effect'
 import {
-  ActivityLogService,
-  ActivityLogServiceLive,
+  ActivityLogRepository,
+  type ActivityLog,
   type ActivityLogDatabaseError,
-} from '@/infrastructure/services/activity-log-service'
+} from '@/application/ports/activity-log-repository'
 import {
-  UserRoleService,
-  UserRoleServiceLive,
+  UserRoleRepository,
   type UserRoleDatabaseError,
-} from '@/infrastructure/services/user-role-service'
-import type { ActivityLog } from '@/infrastructure/database/drizzle/schema/activity-log'
+} from '@/application/ports/user-role-repository'
+import { ActivityLogRepositoryLive } from '@/infrastructure/services/activity-log-service'
+import { UserRoleRepositoryLive } from '@/infrastructure/services/user-role-service'
 
 /**
  * Forbidden error when user lacks permission to access activity logs
@@ -71,7 +71,7 @@ function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
  *
  * Follows layer-based architecture:
  * - Application Layer: This file (orchestration + business logic)
- * - Infrastructure Layer: ActivityLogService, UserRoleService
+ * - Infrastructure Layer: ActivityLogRepository, UserRoleRepository
  * - Domain Layer: Business rules (viewer restriction)
  */
 export const ListActivityLogs = (
@@ -79,14 +79,14 @@ export const ListActivityLogs = (
 ): Effect.Effect<
   readonly ActivityLogOutput[],
   ForbiddenError | ActivityLogDatabaseError | UserRoleDatabaseError,
-  ActivityLogService | UserRoleService
+  ActivityLogRepository | UserRoleRepository
 > =>
   Effect.gen(function* () {
-    const userRoleService = yield* UserRoleService
-    const activityLogService = yield* ActivityLogService
+    const userRoleRepo = yield* UserRoleRepository
+    const activityLogRepo = yield* ActivityLogRepository
 
     // Get user role to enforce permissions
-    const role = yield* userRoleService.getUserRole(input.userId)
+    const role = yield* userRoleRepo.getUserRole(input.userId)
 
     // If user has no role, deny access
     if (!role) {
@@ -103,7 +103,7 @@ export const ListActivityLogs = (
     }
 
     // List all activity logs
-    const logs = yield* activityLogService.listAll()
+    const logs = yield* activityLogRepo.listAll()
 
     // Map to presentation-friendly format
     return logs.map(mapActivityLog)
@@ -114,4 +114,7 @@ export const ListActivityLogs = (
  *
  * Combines all services needed for activity log use cases.
  */
-export const ListActivityLogsLayer = Layer.mergeAll(ActivityLogServiceLive, UserRoleServiceLive)
+export const ListActivityLogsLayer = Layer.mergeAll(
+  ActivityLogRepositoryLive,
+  UserRoleRepositoryLive
+)

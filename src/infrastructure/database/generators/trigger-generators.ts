@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sanitizeTableName } from './field-utils'
+import { sanitizeTableName } from '../field-utils'
 import type { Table } from '@/domain/models/app/table'
 
 /**

@@ -10,7 +10,7 @@ import {
   shouldUseView,
   generateLookupViewSQL,
   generateLookupViewTriggers,
-} from '../lookup-view-generators'
+} from '../lookup/lookup-view-generators'
 import {
   generateAlterTableStatements,
   syncUniqueConstraints,
@@ -25,8 +25,8 @@ import {
   getExistingColumns,
   SQLExecutionError,
   type TransactionLike,
-} from '../sql-execution'
-import { generateTableViewStatements, generateReadOnlyViewTrigger } from '../view-generators'
+} from '../sql/sql-execution'
+import { generateTableViewStatements, generateReadOnlyViewTrigger } from '../views/view-generators'
 import { generateCreateTableSQL } from './create-table-sql'
 import { recreateTableWithDataEffect } from './migration-utils'
 import { applyTableFeatures, applyTableFeaturesWithoutIndexes } from './table-features'

@@ -12,8 +12,8 @@
  * used in lookup VIEWs.
  */
 
-import { generateSqlCondition } from './filter-operators'
-import { toSingular, generateJunctionTableName } from './sql-generators'
+import { generateSqlCondition } from '../filter-operators'
+import { toSingular, generateJunctionTableName } from '../sql/sql-generators'
 import type { Fields } from '@/domain/models/app/table/fields'
 import type { ViewFilterCondition } from '@/domain/models/app/table/views/filters'
 

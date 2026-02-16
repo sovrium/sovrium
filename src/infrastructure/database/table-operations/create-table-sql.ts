@@ -6,8 +6,8 @@
  */
 
 import { shouldCreateDatabaseColumn, sanitizeTableName } from '../field-utils'
-import { shouldUseView, getBaseTableName } from '../lookup-view-generators'
-import { generateColumnDefinition, generateTableConstraints } from '../sql-generators'
+import { shouldUseView, getBaseTableName } from '../lookup/lookup-view-generators'
+import { generateColumnDefinition, generateTableConstraints } from '../sql/sql-generators'
 import {
   generateIdColumn,
   needsAutomaticIdColumn,

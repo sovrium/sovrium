@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+/* eslint-disable max-lines, max-lines-per-function, max-statements -- Schema initialization requires complex multi-step orchestration */
 import { SQL } from 'bun'
 import { Config, Effect, Console, Data, Runtime, type ConfigError } from 'effect'
 import { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
@@ -16,8 +17,8 @@ import {
   ensureBetterAuthUsersTable,
   ensureUpdatedByTriggerFunction,
   type BetterAuthUsersTableRequired,
-} from './auth-validation'
-import { sanitizeTableName, isManyToManyRelationship } from './field-utils'
+} from '../auth/auth-validation'
+import { sanitizeTableName, isManyToManyRelationship } from '../field-utils'
 import {
   getPreviousSchema,
   logRollbackOperation,
@@ -25,35 +26,35 @@ import {
   storeSchemaChecksum,
   generateSchemaChecksum,
   validateStoredChecksum,
-} from './migration-audit-trail'
-import {
-  detectCircularDependenciesWithOptionalFK,
-  sortTablesByDependencies,
-} from './schema-dependency-sorting'
+} from '../migration-audit-trail'
 import {
   dropObsoleteTables,
   renameTablesIfNeeded,
   syncForeignKeyConstraints,
-} from './schema-migration-helpers'
+} from '../schema-migration-helpers'
 import {
   tableExists,
   executeSQL,
   type SQLExecutionError,
   type TransactionLike,
-} from './sql-execution'
-import { generateJunctionTableDDL, generateJunctionTableName } from './sql-generators'
+} from '../sql/sql-execution'
+import { generateJunctionTableDDL, generateJunctionTableName } from '../sql/sql-generators'
 import {
   createOrMigrateTableEffect,
   createLookupViewsEffect,
   createTableViewsEffect,
-} from './table-operations'
+} from '../table-operations'
+import {
+  detectCircularDependenciesWithOptionalFK,
+  sortTablesByDependencies,
+} from './schema-dependency-sorting'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/table'
 
 // Re-export error types for convenience
 export { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 export { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
-export { BetterAuthUsersTableRequired } from './auth-validation'
+export { BetterAuthUsersTableRequired } from '../auth/auth-validation'
 
 export class NoDatabaseUrlError extends Data.TaggedError('NoDatabaseUrlError')<{
   readonly message: string
@@ -251,7 +252,7 @@ const executeMigrationSteps = (
     yield* dropObsoleteTables(tx, tables)
 
     // Step 5: Build view map and detect circular dependencies
-    const lookupViewModule = yield* Effect.promise(() => import('./lookup-view-generators'))
+    const lookupViewModule = yield* Effect.promise(() => import('../lookup/lookup-view-generators'))
     const tableUsesView = buildTableUsesViewMap(tables, lookupViewModule)
     const circularTables = detectCircularDependenciesWithOptionalFK(tables)
     if (circularTables.size > 0) {
@@ -281,7 +282,7 @@ const executeMigrationSteps = (
     yield* createJunctionTables(tx, junctionTableSpecs)
 
     // Steps 9-11: Create all views
-    const viewGeneratorsModule = yield* Effect.promise(() => import('./view-generators'))
+    const viewGeneratorsModule = yield* Effect.promise(() => import('../views/view-generators'))
     yield* createAllViews(tx, sortedTables, viewGeneratorsModule)
 
     // Steps 12-13: Record migration and store checksum
@@ -552,7 +553,7 @@ const initializeSchemaInternal = (
             // Side effect: Drop obsolete views in database transaction
             /* eslint-disable functional/no-expression-statements */
             await db.begin(async (tx) => {
-              const viewGeneratorsModule = await import('./view-generators')
+              const viewGeneratorsModule = await import('../views/view-generators')
               await viewGeneratorsModule.dropAllObsoleteViews(tx, tables)
             })
             /* eslint-enable functional/no-expression-statements */

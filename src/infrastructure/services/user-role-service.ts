@@ -6,41 +6,17 @@
  */
 
 import { eq } from 'drizzle-orm'
-import { Context, Data, Effect, Layer } from 'effect'
+import { Effect, Layer } from 'effect'
+import { UserRoleRepository, UserRoleDatabaseError } from '@/application/ports/user-role-repository'
 import { users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
 
 /**
- * Database error for user role operations
- */
-export class UserRoleDatabaseError extends Data.TaggedError('UserRoleDatabaseError')<{
-  readonly cause: unknown
-}> {}
-
-/**
- * User Role Service
- *
- * Provides type-safe database operations for user roles using Drizzle ORM.
- * Follows Sovrium patterns:
- * - Effect.ts for functional programming
- * - Drizzle ORM query builder (NO raw SQL)
- * - Context/Layer for dependency injection
- */
-export class UserRoleService extends Context.Tag('UserRoleService')<
-  UserRoleService,
-  {
-    readonly getUserRole: (
-      userId: string
-    ) => Effect.Effect<string | undefined, UserRoleDatabaseError>
-  }
->() {}
-
-/**
- * User Role Service Implementation
+ * User Role Repository Implementation
  *
  * Uses Drizzle ORM query builder for type-safe, SQL-injection-proof queries.
  */
-export const UserRoleServiceLive = Layer.succeed(UserRoleService, {
+export const UserRoleRepositoryLive = Layer.succeed(UserRoleRepository, {
   /**
    * Get user's global role from users table
    *

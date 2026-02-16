@@ -6,56 +6,20 @@
  */
 
 import { desc } from 'drizzle-orm'
-import { Context, Data, Effect, Layer } from 'effect'
-import { db } from '@/infrastructure/database'
+import { Effect, Layer } from 'effect'
 import {
-  activityLogs,
-  type ActivityLog,
-} from '@/infrastructure/database/drizzle/schema/activity-log'
+  ActivityLogRepository,
+  ActivityLogDatabaseError,
+} from '@/application/ports/activity-log-repository'
+import { db } from '@/infrastructure/database'
+import { activityLogs } from '@/infrastructure/database/drizzle/schema/activity-log'
 
 /**
- * Database error for activity log operations
- */
-export class ActivityLogDatabaseError extends Data.TaggedError('ActivityLogDatabaseError')<{
-  readonly cause: unknown
-}> {}
-
-/**
- * Activity Log Service
- *
- * Provides type-safe database operations for activity logs using Drizzle ORM.
- * Follows Sovrium patterns:
- * - Effect.ts for functional programming
- * - Drizzle ORM query builder (NO raw SQL)
- * - Context/Layer for dependency injection
- */
-export class ActivityLogService extends Context.Tag('ActivityLogService')<
-  ActivityLogService,
-  {
-    readonly listAll: () => Effect.Effect<readonly ActivityLog[], ActivityLogDatabaseError>
-    readonly create: (log: {
-      readonly userId: string
-      readonly action: 'create' | 'update' | 'delete' | 'restore'
-      readonly tableName: string
-      readonly tableId: string
-      readonly recordId: string
-      readonly changes: {
-        readonly before?: Record<string, unknown>
-        readonly after?: Record<string, unknown>
-      }
-      readonly sessionId?: string
-      readonly ipAddress?: string
-      readonly userAgent?: string
-    }) => Effect.Effect<ActivityLog, ActivityLogDatabaseError>
-  }
->() {}
-
-/**
- * Activity Log Service Implementation
+ * Activity Log Repository Implementation
  *
  * Uses Drizzle ORM query builder for type-safe, SQL-injection-proof queries.
  */
-export const ActivityLogServiceLive = Layer.succeed(ActivityLogService, {
+export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
   /**
    * List all activity logs
    */

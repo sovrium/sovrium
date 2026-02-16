@@ -6,7 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import { UserRoleService, UserRoleServiceLive } from '@/infrastructure/services/user-role-service'
+import { UserRoleRepository } from '@/application/ports/user-role-repository'
+import { UserRoleRepositoryLive } from '@/infrastructure/services/user-role-service'
 
 // Constants
 const DEFAULT_ROLE = 'member'
@@ -14,19 +15,19 @@ const DEFAULT_ROLE = 'member'
 /**
  * Retrieves the user's global role from the database
  *
- * Delegates to UserRoleService (infrastructure layer) for database access.
+ * Delegates to UserRoleRepository (infrastructure layer) for database access.
  * This application layer function provides a convenient async interface
  * for use in presentation layer middleware and routes.
  *
  * Role resolution:
- * 1. Fetch global user role from users table via UserRoleService
+ * 1. Fetch global user role from users table via UserRoleRepository
  * 2. Default: 'member'
  */
 export async function getUserRole(userId: string): Promise<string> {
   const program = Effect.gen(function* () {
-    const service = yield* UserRoleService
-    return yield* service.getUserRole(userId)
-  }).pipe(Effect.provide(UserRoleServiceLive))
+    const repo = yield* UserRoleRepository
+    return yield* repo.getUserRole(userId)
+  }).pipe(Effect.provide(UserRoleRepositoryLive))
 
   const role = await Effect.runPromise(program)
 

@@ -7,21 +7,21 @@
 
 import { Effect } from 'effect'
 import { sanitizeTableName } from '../field-utils'
-import { createVolatileFormulaTriggers } from '../formula-trigger-generators'
-import { generateIndexStatements } from '../index-generators'
-import { shouldUseView, getBaseTableName } from '../lookup-view-generators'
-import {
-  executeSQLStatements,
-  executeSQLStatementsParallel,
-  type TransactionLike,
-  type SQLExecutionError,
-} from '../sql-execution'
+import { createVolatileFormulaTriggers } from '../formula/formula-trigger-generators'
+import { generateIndexStatements } from '../generators/index-generators'
 import {
   generateCreatedAtTriggers,
   generateAutonumberTriggers,
   generateUpdatedByTriggers,
   generateUpdatedAtTriggers,
-} from '../trigger-generators'
+} from '../generators/trigger-generators'
+import { shouldUseView, getBaseTableName } from '../lookup/lookup-view-generators'
+import {
+  executeSQLStatements,
+  executeSQLStatementsParallel,
+  type TransactionLike,
+  type SQLExecutionError,
+} from '../sql/sql-execution'
 import type { Table } from '@/domain/models/app/table'
 
 /**

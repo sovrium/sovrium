@@ -41,8 +41,8 @@ import {
   sovriumMigrationLog,
   sovriumSchemaChecksum,
 } from './drizzle/schema'
-import { executeSQL, SQLExecutionError, type TransactionLike } from './sql-execution'
-import { escapeSqlString } from './sql-utils'
+import { executeSQL, SQLExecutionError, type TransactionLike } from './sql/sql-execution'
+import { escapeSqlString } from './sql/sql-utils'
 import type { App } from '@/domain/models/app'
 
 // Re-export types from Drizzle schema for consumers

@@ -13,7 +13,7 @@ import {
   initializeSchema,
   type AuthConfigRequiredForUserFields,
   type SchemaInitializationError,
-} from '@/infrastructure/database/schema-initializer'
+} from '@/infrastructure/database/schema/schema-initializer'
 import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import { createApiRoutes } from '@/infrastructure/server/route-setup/api-routes'
 import {

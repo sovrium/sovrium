@@ -6,14 +6,14 @@
  */
 
 import { Effect } from 'effect'
-import { generateSqlCondition } from './filter-operators'
+import { generateSqlCondition } from '../filter-operators'
 import {
   getExistingViews,
   getExistingMaterializedViews,
   executeSQLStatements,
   executeSQLStatementsParallel,
   type TransactionLike,
-} from './sql-execution'
+} from '../sql/sql-execution'
 import type { Table } from '@/domain/models/app/table'
 import type { View } from '@/domain/models/app/table/views'
 import type { ViewFilterNode } from '@/domain/models/app/table/views/filters'

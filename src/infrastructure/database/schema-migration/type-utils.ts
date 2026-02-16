@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { mapFieldTypeToPostgres } from '../sql-generators'
+import { mapFieldTypeToPostgres } from '../sql/sql-generators'
 import type { Fields } from '@/domain/models/app/table/fields'
 
 /**

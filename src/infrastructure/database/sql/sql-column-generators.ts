@@ -9,7 +9,7 @@ import {
   isFormulaVolatile,
   isFormulaReturningArray,
   translateFormulaToPostgres,
-} from './formula-utils'
+} from '../formula/formula-utils'
 import { isAutoTimestampField, isFieldNotNull, shouldUseSerial } from './sql-field-predicates'
 import { mapFieldTypeToPostgres, mapFormulaResultTypeToPostgres } from './sql-type-mappings'
 import { escapeSqlString } from './sql-utils'

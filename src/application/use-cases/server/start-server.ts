@@ -13,13 +13,13 @@ import { bootstrapAdmin } from '@/application/use-cases/auth/bootstrap-admin'
 import { AppSchema } from '@/domain/models/app'
 import { Logger } from '@/infrastructure/logging/logger'
 import type { ServerInstance } from '@/application/models/server'
+import type { AuthUserRepository } from '@/application/ports/auth-user-repository'
 import type { App } from '@/domain/models/app'
 import type { Auth } from '@/infrastructure/auth/better-auth'
 import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
-import type { AuthUserService } from '@/infrastructure/services/auth-user-service'
 
 /**
  * Server configuration options
@@ -72,7 +72,7 @@ export const startServer = (
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
   | Error,
-  ServerFactory | PageRenderer | Auth | AuthUserService | Logger
+  ServerFactory | PageRenderer | Auth | AuthUserRepository | Logger
 > =>
   Effect.gen(function* () {
     // Validate app configuration using domain model schema

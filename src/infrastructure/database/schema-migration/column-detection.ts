@@ -6,7 +6,7 @@
  */
 
 import { shouldCreateDatabaseColumn } from '../field-utils'
-import { generateColumnDefinition, isFieldNotNull } from '../sql-generators'
+import { generateColumnDefinition, isFieldNotNull } from '../sql/sql-generators'
 import {
   normalizeDataType,
   doesColumnTypeMatch,

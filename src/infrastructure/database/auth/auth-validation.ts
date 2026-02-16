@@ -7,7 +7,7 @@
 
 import { Data } from 'effect'
 import { logInfo } from '@/infrastructure/logging/logger'
-import { isUserReferenceField, isUserField } from './sql-generators'
+import { isUserReferenceField, isUserField } from '../sql/sql-generators'
 import type { Table } from '@/domain/models/app/table'
 
 export class BetterAuthUsersTableRequired extends Data.TaggedError('BetterAuthUsersTableRequired')<{

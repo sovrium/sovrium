@@ -6,10 +6,10 @@
  */
 
 import { Layer } from 'effect'
-import { ActivityRepositoryLive } from './activity-repository-live'
-import { BatchRepositoryLive } from './batch-repository-live'
-import { CommentRepositoryLive } from './comment-repository-live'
-import { TableRepositoryLive } from './table-repository-live'
+import { ActivityRepositoryLive } from './repositories/activity-repository-live'
+import { BatchRepositoryLive } from './repositories/batch-repository-live'
+import { CommentRepositoryLive } from './repositories/comment-repository-live'
+import { TableRepositoryLive } from './repositories/table-repository-live'
 
 /**
  * Composite layer providing all table-related repository implementations

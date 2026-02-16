@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { TransactionLike } from '../sql-execution'
+import type { TransactionLike } from '../sql/sql-execution'
 
 /**
  * Type definition for Bun SQL transaction

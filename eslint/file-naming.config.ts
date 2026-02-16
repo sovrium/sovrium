@@ -46,7 +46,7 @@ export default [
           'src/**/errors/*-error.ts': '*-error',
 
           // Specific patterns for file types
-          'src/infrastructure/database/repositories/*.ts': '*-repository',
+          'src/infrastructure/database/repositories/*.ts': '*-repository-live',
           'src/infrastructure/layers/*.ts': '*-layer',
           'src/presentation/components/ui/*-variants.ts': '*-variants',
           'src/presentation/hooks/*.{ts,tsx}': 'use-*',

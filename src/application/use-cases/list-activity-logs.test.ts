@@ -7,8 +7,8 @@
 
 import { describe, expect, test } from 'bun:test'
 import { Effect, Layer } from 'effect'
-import { ActivityLogService } from '@/infrastructure/services/activity-log-service'
-import { UserRoleService } from '@/infrastructure/services/user-role-service'
+import { ActivityLogRepository } from '@/application/ports/activity-log-repository'
+import { UserRoleRepository } from '@/application/ports/user-role-repository'
 import {
   ListActivityLogs,
   ForbiddenError,
@@ -24,7 +24,7 @@ import {
  */
 
 /**
- * Mock ActivityLogService for testing
+ * Mock ActivityLogRepository for testing
  * Returns mock activity logs
  */
 const mockLogs = [
@@ -56,7 +56,7 @@ const mockLogs = [
   },
 ]
 
-const MockActivityLogServiceLive = Layer.succeed(ActivityLogService, {
+const MockActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
   listAll: () => Effect.succeed(mockLogs),
   create: () =>
     Effect.succeed({
@@ -75,43 +75,43 @@ const MockActivityLogServiceLive = Layer.succeed(ActivityLogService, {
 })
 
 /**
- * Mock UserRoleService that returns admin role
+ * Mock UserRoleRepository that returns admin role
  */
-const MockUserRoleServiceAdmin = Layer.succeed(UserRoleService, {
+const MockUserRoleRepositoryAdmin = Layer.succeed(UserRoleRepository, {
   getUserRole: () => Effect.succeed('admin'),
 })
 
 /**
- * Mock UserRoleService that returns member role
+ * Mock UserRoleRepository that returns member role
  */
-const MockUserRoleServiceMember = Layer.succeed(UserRoleService, {
+const MockUserRoleRepositoryMember = Layer.succeed(UserRoleRepository, {
   getUserRole: () => Effect.succeed('member'),
 })
 
 /**
- * Mock UserRoleService that returns viewer role
+ * Mock UserRoleRepository that returns viewer role
  */
-const MockUserRoleServiceViewer = Layer.succeed(UserRoleService, {
+const MockUserRoleRepositoryViewer = Layer.succeed(UserRoleRepository, {
   getUserRole: () => Effect.succeed('viewer'),
 })
 
 /**
- * Mock UserRoleService that returns no role (undefined)
+ * Mock UserRoleRepository that returns no role (undefined)
  *
  * NOTE: Effect.succeed(undefined) is CORRECT - return type is `Effect<string | undefined, E>`
  * We're returning `undefined` as a valid value (user has no role).
  * Effect.void would return `Effect<void, E>` which breaks the type contract.
  * The effectSucceedWithVoid diagnostic is a false positive when undefined is an intentional value.
  */
-const MockUserRoleServiceNoRole = Layer.succeed(UserRoleService, {
+const MockUserRoleRepositoryNoRole = Layer.succeed(UserRoleRepository, {
   // @effect-diagnostics effect/effectSucceedWithVoid:off
   getUserRole: () => Effect.succeed(undefined),
 })
 
 /**
- * Mock ActivityLogService that returns empty array
+ * Mock ActivityLogRepository that returns empty array
  */
-const MockActivityLogServiceEmpty = Layer.succeed(ActivityLogService, {
+const MockActivityLogRepositoryEmpty = Layer.succeed(ActivityLogRepository, {
   listAll: () => Effect.succeed([]),
   create: () =>
     Effect.succeed({
@@ -170,7 +170,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceAdmin))
+      Effect.provide(Layer.mergeAll(MockActivityLogRepositoryLive, MockUserRoleRepositoryAdmin))
     )
     const result = await Effect.runPromise(program)
 
@@ -193,7 +193,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceMember))
+      Effect.provide(Layer.mergeAll(MockActivityLogRepositoryLive, MockUserRoleRepositoryMember))
     )
     const result = await Effect.runPromise(program)
 
@@ -212,7 +212,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceViewer)),
+      Effect.provide(Layer.mergeAll(MockActivityLogRepositoryLive, MockUserRoleRepositoryViewer)),
       Effect.either
     )
     const result = await Effect.runPromise(program)
@@ -235,7 +235,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceNoRole)),
+      Effect.provide(Layer.mergeAll(MockActivityLogRepositoryLive, MockUserRoleRepositoryNoRole)),
       Effect.either
     )
     const result = await Effect.runPromise(program)
@@ -258,7 +258,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(Layer.mergeAll(MockActivityLogServiceEmpty, MockUserRoleServiceAdmin))
+      Effect.provide(Layer.mergeAll(MockActivityLogRepositoryEmpty, MockUserRoleRepositoryAdmin))
     )
     const result = await Effect.runPromise(program)
 
@@ -277,7 +277,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceAdmin))
+      Effect.provide(Layer.mergeAll(MockActivityLogRepositoryLive, MockUserRoleRepositoryAdmin))
     )
     const result = await Effect.runPromise(program)
 
@@ -306,7 +306,7 @@ describe('ListActivityLogs', () => {
     }
 
     const program = ListActivityLogs(input).pipe(
-      Effect.provide(Layer.mergeAll(MockActivityLogServiceLive, MockUserRoleServiceAdmin))
+      Effect.provide(Layer.mergeAll(MockActivityLogRepositoryLive, MockUserRoleRepositoryAdmin))
     )
     const result = await Effect.runPromise(program)
 

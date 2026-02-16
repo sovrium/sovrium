@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { formatSqlValue, formatLikePattern, escapeSqlString } from './sql-utils'
+import { formatSqlValue, formatLikePattern, escapeSqlString } from './sql/sql-utils'
 
 /**
  * SQL operator mapping for comparison operators

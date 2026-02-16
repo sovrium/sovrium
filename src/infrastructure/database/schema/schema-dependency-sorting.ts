@@ -12,7 +12,7 @@
  * Used by schema-initializer.ts to ensure tables are created in correct order.
  */
 
-import { isRelationshipField } from './sql-generators'
+import { isRelationshipField } from '../sql/sql-generators'
 import type { Table } from '@/domain/models/app/table'
 
 /**
