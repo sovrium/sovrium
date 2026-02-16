@@ -123,7 +123,7 @@ test.describe('Custom Role Definitions (US-AUTH-ROLES-001)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-004: should enforce role naming convention (lowercase, alphanumeric, hyphens)',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
