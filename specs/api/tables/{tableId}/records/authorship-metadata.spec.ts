@@ -260,7 +260,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-006: should reflect the updating user, not the original creator',
     { tag: '@spec' },
     async ({

@@ -40,7 +40,7 @@ import type {
   TransformedRecord,
 } from '@/application/use-cases/tables/utils/record-transformer'
 import type { App } from '@/domain/models/app'
-import type { Context, Hono, TypedResponse } from 'hono'
+import type { Context, Hono } from 'hono'
 
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
 
@@ -177,26 +177,62 @@ async function handleBatchRestore(c: Context, _app: App) {
 }
 
 /**
- * Check if user has create permission for the table
+ * Validate field-level write permissions for batch records
  */
-function checkCreatePermission(
+function validateFieldWritePermissions(
   app: App,
   tableName: string,
   userRole: string,
-  c: Context
-): TypedResponse<unknown> | undefined {
+  fields: Record<string, unknown>
+): string[] {
   const table = app.tables?.find((t) => t.name === tableName)
-  if (!hasCreatePermission(table, userRole)) {
+  if (!table) return []
+
+  const roleHierarchy = { viewer: 0, member: 1, editor: 2, admin: 3 }
+  const userLevel = roleHierarchy[userRole as keyof typeof roleHierarchy] || 0
+
+  return Object.keys(fields)
+    .map((fieldName) => {
+      const field = table.fields?.find((f) => f.name === fieldName)
+      if (!field) return undefined
+
+      const writePermission = field.write || 'editor'
+      const requiredLevel = roleHierarchy[writePermission as keyof typeof roleHierarchy] || 0
+
+      return userLevel < requiredLevel ? fieldName : undefined
+    })
+    .filter((fieldName): fieldName is string => fieldName !== undefined)
+}
+
+/**
+ * Check field-level write permissions for batch records
+ */
+function checkBatchFieldPermissions(config: {
+  readonly records: readonly { readonly fields: Record<string, unknown> }[]
+  readonly app: App
+  readonly tableName: string
+  readonly userRole: string
+  readonly c: Context
+}): Response | null {
+  const { records, app, tableName, userRole, c } = config
+  const allForbiddenFields = records
+    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
+    .filter((fields) => fields.length > 0)
+
+  if (allForbiddenFields.length > 0) {
+    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
     return c.json(
       {
         success: false,
-        message: 'You do not have permission to create records in this table',
+        message: `Cannot write to field '${uniqueForbiddenFields[0]}': insufficient permissions`,
         code: 'FORBIDDEN',
       },
       403
     )
   }
-  return undefined
+
+  // eslint-disable-next-line unicorn/no-null -- null indicates no permission error
+  return null
 }
 
 /**
@@ -218,31 +254,40 @@ async function handleBatchCreate(c: Context, app: App) {
   const result = await validateRequest(c, batchCreateRecordsRequestSchema)
   if (!result.success) return result.response
 
-  const createPermCheck = checkCreatePermission(app, tableName, userRole, c)
-  if (createPermCheck) return createPermCheck
-
-  // Validate readonly fields BEFORE permission checks
   const table = app.tables?.find((t) => t.name === tableName)
-  const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
-  if (readonlyValidation) return readonlyValidation
+  if (!hasCreatePermission(table, userRole)) {
+    return c.json(
+      {
+        success: false,
+        message: 'You do not have permission to create records in this table',
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
 
-  // Authorization: Check field-level write permissions
-  // Return 403 if user attempts to write to any protected field
-  const { checkFieldPermissions } = await import('./upsert-helpers')
-  const permissionCheck = checkFieldPermissions({
+  // Check field-level permissions
+  const fieldPermCheck = checkBatchFieldPermissions({
+    records: result.data.records,
     app,
     tableName,
     userRole,
-    records: result.data.records,
     c,
   })
-  if (!permissionCheck.allowed) return permissionCheck.response
+  if (fieldPermCheck) return fieldPermCheck
+
+  // Validate readonly fields
+  const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
+  if (readonlyValidation) return readonlyValidation
 
   // Extract flat field objects from records for database layer
   const flatRecordsData = result.data.records.map((record) => record.fields)
 
   // Execute batch create with returnRecords parameter and app for numeric coercion
-  const program = batchCreateProgram(session, tableName, flatRecordsData, {
+  const program = batchCreateProgram({
+    session,
+    tableName,
+    recordsData: flatRecordsData,
     returnRecords: result.data.returnRecords,
     app,
   })
@@ -260,6 +305,40 @@ async function handleBatchCreate(c: Context, app: App) {
     batchCreateRecordsResponseSchema,
     201
   )
+}
+
+/**
+ * Validate stripped records have at least some writable fields
+ */
+function validateStrippedRecordsNotEmpty(config: {
+  readonly strippedRecords: readonly { readonly fields: Record<string, unknown> }[]
+  readonly originalRecords: readonly { readonly fields: Record<string, unknown> }[]
+  readonly app: App
+  readonly tableName: string
+  readonly userRole: string
+  readonly c: Context
+}): Response | null {
+  const { strippedRecords, originalRecords, app, tableName, userRole, c } = config
+  const hasWritableFields = strippedRecords.some((record) => Object.keys(record.fields).length > 0)
+  if (!hasWritableFields) {
+    // All fields were stripped - user tried to update only protected fields
+    const allForbiddenFields = originalRecords
+      .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
+      .filter((fields) => fields.length > 0)
+    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+    const firstForbiddenField = uniqueForbiddenFields[0]
+    return c.json(
+      {
+        success: false,
+        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
+        code: 'FORBIDDEN',
+      },
+      403
+    )
+  }
+
+  // eslint-disable-next-line unicorn/no-null -- null indicates no error
+  return null
 }
 
 /**
@@ -296,26 +375,32 @@ async function handleBatchUpdate(c: Context, app: App) {
   const readonlyValidation = validateReadonlyFields(table, result.data.records, c)
   if (readonlyValidation) return readonlyValidation
 
-  // Authorization: Check field-level write permissions
-  // Return 403 if user attempts to write to any protected field
-  const { checkFieldPermissions } = await import('./upsert-helpers')
-  const permissionCheck = checkFieldPermissions({
+  // Authorization: Check field-level write permissions and strip unwritable fields
+  const { stripUnwritableFields } = await import('./upsert-helpers')
+  const strippedRecords = stripUnwritableFields(app, tableName, userRole, result.data.records)
+
+  // Validate at least some writable fields remain after stripping
+  const strippedValidation = validateStrippedRecordsNotEmpty({
+    strippedRecords,
+    originalRecords: result.data.records,
     app,
     tableName,
     userRole,
-    records: result.data.records,
     c,
   })
-  if (!permissionCheck.allowed) return permissionCheck.response
+  if (strippedValidation) return strippedValidation
 
   // Keep records in { id, fields } format for database layer
-  const recordsData = result.data.records.map((record) => ({
+  const recordsData = strippedRecords.map((record) => ({
     id: record.id,
     fields: record.fields,
   }))
 
   // Execute batch update with returnRecords parameter and app for numeric coercion
-  const program = batchUpdateProgram(session, tableName, recordsData, {
+  const program = batchUpdateProgram({
+    session,
+    tableName,
+    recordsData,
     returnRecords: result.data.returnRecords,
     app,
   })

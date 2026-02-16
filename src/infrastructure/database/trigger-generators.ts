@@ -105,7 +105,7 @@ export const generateUpdatedByTriggers = (table: Table): readonly string[] => {
   const sanitized = sanitizeTableName(table.name)
 
   return [
-    // Create trigger
+    // Create trigger (fires on UPDATE only - updated_by should be NULL on INSERT)
     `DROP TRIGGER IF EXISTS set_updated_by ON ${sanitized}`,
     `CREATE TRIGGER set_updated_by
 BEFORE UPDATE ON ${sanitized}
