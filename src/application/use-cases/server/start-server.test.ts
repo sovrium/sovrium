@@ -8,9 +8,9 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect, Layer } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
-import { AuthUserRepository } from '@/application/ports/auth-user-repository'
-import { PageRenderer } from '@/application/ports/page-renderer'
-import { ServerFactory } from '@/application/ports/server-factory'
+import { AuthRepository } from '@/application/ports/repositories/auth-repository'
+import { PageRenderer } from '@/application/ports/services/page-renderer'
+import { ServerFactory } from '@/application/ports/services/server-factory'
 import { Auth } from '@/infrastructure/auth/better-auth'
 import { LoggerSilent } from '@/infrastructure/logging/logger'
 import { startServer } from './start-server'
@@ -49,21 +49,22 @@ const MockAuth = Layer.succeed(Auth, {
 })
 
 /**
- * Mock AuthUserRepository for testing (no actual database operations)
- * AuthUserRepository is used for admin bootstrap email verification
+ * Mock AuthRepository for testing (no actual database operations)
+ * AuthRepository is used for admin bootstrap email verification and role lookup
  */
-const MockAuthUserRepository = Layer.succeed(AuthUserRepository, {
+const MockAuthRepository = Layer.succeed(AuthRepository, {
   verifyUserEmail: (_userId: string) => Effect.void,
+  getUserRole: () => Effect.succeed('admin'),
 })
 
 /**
- * Test Layer composition (MockServerFactory + MockPageRenderer + MockAuth + MockAuthUserRepository + LoggerSilent)
+ * Test Layer composition (MockServerFactory + MockPageRenderer + MockAuth + MockAuthRepository + LoggerSilent)
  */
 const TestLayer = Layer.mergeAll(
   MockServerFactory,
   MockPageRenderer,
   MockAuth,
-  MockAuthUserRepository,
+  MockAuthRepository,
   LoggerSilent
 )
 

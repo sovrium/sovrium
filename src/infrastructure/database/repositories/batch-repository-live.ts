@@ -6,7 +6,7 @@
  */
 
 import { Layer } from 'effect'
-import { BatchRepository } from '@/application/ports/batch-repository'
+import { BatchRepository } from '@/application/ports/repositories/batch-repository'
 import {
   batchCreateRecords,
   batchUpdateRecords,

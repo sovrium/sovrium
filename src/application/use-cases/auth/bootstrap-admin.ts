@@ -7,9 +7,9 @@
 
 import { Effect, Console, Data } from 'effect'
 import {
-  AuthUserRepository,
-  type AuthUserDatabaseError,
-} from '@/application/ports/auth-user-repository'
+  AuthRepository,
+  type AuthDatabaseError,
+} from '@/application/ports/repositories/auth-repository'
 import { getStrategy } from '@/domain/models/app/auth'
 import { Auth } from '@/infrastructure/auth/better-auth'
 import type { App } from '@/domain/models/app'
@@ -95,8 +95,8 @@ const createAdminUser = (
   _requireEmailVerification: boolean
 ): Effect.Effect<
   { alreadyExists: boolean; userId?: string },
-  DatabaseError | AuthUserDatabaseError,
-  AuthUserRepository
+  DatabaseError | AuthDatabaseError,
+  AuthRepository
 > =>
   Effect.gen(function* () {
     // Attempt to create user
@@ -142,8 +142,8 @@ const createAdminUser = (
     // Better Auth's createUser API doesn't respect the emailVerified field
     // Delegate to AuthUserRepository for database access
     if (userId) {
-      const authUserRepo = yield* AuthUserRepository
-      yield* authUserRepo.verifyUserEmail(userId)
+      const authRepo = yield* AuthRepository
+      yield* authRepo.verifyUserEmail(userId)
     }
 
     return { alreadyExists: false, userId }
@@ -237,8 +237,8 @@ export const bootstrapAdmin = (
   app: App
 ): Effect.Effect<
   void,
-  InvalidEmailError | WeakPasswordError | DatabaseError | AuthUserDatabaseError,
-  Auth | AuthUserRepository
+  InvalidEmailError | WeakPasswordError | DatabaseError | AuthDatabaseError,
+  Auth | AuthRepository
 > =>
   Effect.gen(function* () {
     const parsedConfig = parseAdminBootstrapConfig()

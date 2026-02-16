@@ -7,13 +7,13 @@
 
 import { Effect, Schema } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
-import { PageRenderer } from '@/application/ports/page-renderer'
-import { ServerFactory } from '@/application/ports/server-factory'
+import { PageRenderer } from '@/application/ports/services/page-renderer'
+import { ServerFactory } from '@/application/ports/services/server-factory'
 import { bootstrapAdmin } from '@/application/use-cases/auth/bootstrap-admin'
 import { AppSchema } from '@/domain/models/app'
 import { Logger } from '@/infrastructure/logging/logger'
 import type { ServerInstance } from '@/application/models/server'
-import type { AuthUserRepository } from '@/application/ports/auth-user-repository'
+import type { AuthRepository } from '@/application/ports/repositories/auth-repository'
 import type { App } from '@/domain/models/app'
 import type { Auth } from '@/infrastructure/auth/better-auth'
 import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
@@ -72,7 +72,7 @@ export const startServer = (
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
   | Error,
-  ServerFactory | PageRenderer | Auth | AuthUserRepository | Logger
+  ServerFactory | PageRenderer | Auth | AuthRepository | Logger
 > =>
   Effect.gen(function* () {
     // Validate app configuration using domain model schema

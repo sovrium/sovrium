@@ -6,7 +6,7 @@
  */
 
 import { Layer } from 'effect'
-import { CSSCompiler } from '@/application/ports/css-compiler'
+import { CSSCompiler } from '@/application/ports/services/css-compiler'
 import { compileCSS } from '@/infrastructure/css/compiler'
 
 /**

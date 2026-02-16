@@ -6,9 +6,9 @@
  */
 
 import { Effect } from 'effect'
-import { ActivityRepository } from '@/application/ports/activity-repository'
-import type { ActivityHistoryEntry } from '@/application/ports/activity-repository'
-import type { UserSession } from '@/application/ports/user-session'
+import { ActivityRepository } from '@/application/ports/repositories/activity-repository'
+import type { UserSession } from '@/application/ports/models/user-session'
+import type { ActivityHistoryEntry } from '@/application/ports/repositories/activity-repository'
 import type { SessionContextError } from '@/domain/errors'
 
 /**

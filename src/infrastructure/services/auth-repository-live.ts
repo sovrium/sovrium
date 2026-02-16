@@ -7,22 +7,23 @@
 
 import { eq } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
-import { UserRoleRepository, UserRoleDatabaseError } from '@/application/ports/user-role-repository'
+import { AuthRepository, AuthDatabaseError } from '@/application/ports/repositories/auth-repository'
 import { users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
 
 /**
- * User Role Repository Implementation
+ * Auth Repository Implementation
  *
- * Uses Drizzle ORM query builder for type-safe, SQL-injection-proof queries.
+ * Provides database operations for auth-related user management.
+ * Both methods operate on the Better Auth `users` table via Drizzle ORM.
  */
-export const UserRoleRepositoryLive = Layer.succeed(UserRoleRepository, {
-  /**
-   * Get user's global role from users table
-   *
-   * @param userId - User ID to look up
-   * @returns Effect resolving to user role or undefined if not found
-   */
+export const AuthRepositoryLive = Layer.succeed(AuthRepository, {
+  verifyUserEmail: (userId: string) =>
+    Effect.tryPromise({
+      try: () => db.update(users).set({ emailVerified: true }).where(eq(users.id, userId)),
+      catch: (error) => new AuthDatabaseError({ cause: error }),
+    }).pipe(Effect.asVoid),
+
   getUserRole: (userId: string) =>
     Effect.gen(function* () {
       const result = yield* Effect.tryPromise({
@@ -33,7 +34,7 @@ export const UserRoleRepositoryLive = Layer.succeed(UserRoleRepository, {
             .where(eq(users.id, userId))
             .limit(1)
         },
-        catch: (error) => new UserRoleDatabaseError({ cause: error }),
+        catch: (error) => new AuthDatabaseError({ cause: error }),
       })
 
       return result[0]?.role ?? undefined

@@ -6,8 +6,8 @@
  */
 
 import { Effect } from 'effect'
-import { UserRoleRepository } from '@/application/ports/user-role-repository'
-import { UserRoleRepositoryLive } from '@/infrastructure/services/user-role-service'
+import { AuthRepository } from '@/application/ports/repositories/auth-repository'
+import { AuthRepositoryLive } from '@/infrastructure/services/auth-repository-live'
 
 // Constants
 const DEFAULT_ROLE = 'member'
@@ -25,9 +25,9 @@ const DEFAULT_ROLE = 'member'
  */
 export async function getUserRole(userId: string): Promise<string> {
   const program = Effect.gen(function* () {
-    const repo = yield* UserRoleRepository
+    const repo = yield* AuthRepository
     return yield* repo.getUserRole(userId)
-  }).pipe(Effect.provide(UserRoleRepositoryLive))
+  }).pipe(Effect.provide(AuthRepositoryLive))
 
   const role = await Effect.runPromise(program)
 

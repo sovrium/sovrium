@@ -11,13 +11,13 @@ import {
   ActivityLogRepository,
   type ActivityLog,
   type ActivityLogDatabaseError,
-} from '@/application/ports/activity-log-repository'
+} from '@/application/ports/repositories/activity-log-repository'
 import {
-  UserRoleRepository,
-  type UserRoleDatabaseError,
-} from '@/application/ports/user-role-repository'
-import { ActivityLogRepositoryLive } from '@/infrastructure/services/activity-log-service'
-import { UserRoleRepositoryLive } from '@/infrastructure/services/user-role-service'
+  AuthRepository,
+  type AuthDatabaseError,
+} from '@/application/ports/repositories/auth-repository'
+import { ActivityLogRepositoryLive } from '@/infrastructure/services/activity-log-repository-live'
+import { AuthRepositoryLive } from '@/infrastructure/services/auth-repository-live'
 
 /**
  * Forbidden error when user lacks permission to access activity logs
@@ -78,15 +78,15 @@ export const ListActivityLogs = (
   input: ListActivityLogsInput
 ): Effect.Effect<
   readonly ActivityLogOutput[],
-  ForbiddenError | ActivityLogDatabaseError | UserRoleDatabaseError,
-  ActivityLogRepository | UserRoleRepository
+  ForbiddenError | ActivityLogDatabaseError | AuthDatabaseError,
+  ActivityLogRepository | AuthRepository
 > =>
   Effect.gen(function* () {
-    const userRoleRepo = yield* UserRoleRepository
+    const authRepo = yield* AuthRepository
     const activityLogRepo = yield* ActivityLogRepository
 
     // Get user role to enforce permissions
-    const role = yield* userRoleRepo.getUserRole(input.userId)
+    const role = yield* authRepo.getUserRole(input.userId)
 
     // If user has no role, deny access
     if (!role) {
@@ -114,7 +114,4 @@ export const ListActivityLogs = (
  *
  * Combines all services needed for activity log use cases.
  */
-export const ListActivityLogsLayer = Layer.mergeAll(
-  ActivityLogRepositoryLive,
-  UserRoleRepositoryLive
-)
+export const ListActivityLogsLayer = Layer.mergeAll(ActivityLogRepositoryLive, AuthRepositoryLive)

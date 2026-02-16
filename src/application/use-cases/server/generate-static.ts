@@ -10,13 +10,13 @@ import { AppValidationError } from '@/application/errors/app-validation-error'
 import {
   CSSCompiler as CSSCompilerService,
   type CSSCompilationError,
-} from '@/application/ports/css-compiler'
-import { PageRenderer as PageRendererService } from '@/application/ports/page-renderer'
-import { ServerFactory as ServerFactoryService } from '@/application/ports/server-factory'
+} from '@/application/ports/services/css-compiler'
+import { PageRenderer as PageRendererService } from '@/application/ports/services/page-renderer'
+import { ServerFactory as ServerFactoryService } from '@/application/ports/services/server-factory'
 import {
   StaticSiteGenerator as StaticSiteGeneratorService,
   type SSGGenerationError,
-} from '@/application/ports/static-site-generator'
+} from '@/application/ports/services/static-site-generator'
 import { AppSchema } from '@/domain/models/app'
 import {
   fs,

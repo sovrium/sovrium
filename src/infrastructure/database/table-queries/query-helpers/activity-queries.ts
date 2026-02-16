@@ -11,7 +11,7 @@ import { users } from '@/infrastructure/auth/better-auth/schema'
 import { SessionContextError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import { activityLogs } from '@/infrastructure/database/drizzle/schema/activity-log'
-import type { ActivityHistoryEntry } from '@/application/ports/activity-repository'
+import type { ActivityHistoryEntry } from '@/application/ports/repositories/activity-repository'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**

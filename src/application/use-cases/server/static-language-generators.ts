@@ -10,13 +10,13 @@
 import { Effect, Console, Schema, type Context } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
 import { AppSchema } from '@/domain/models/app'
-import type { CSSCompilationError } from '@/application/ports/css-compiler'
-import type { PageRenderer as PageRendererService } from '@/application/ports/page-renderer'
-import type { ServerFactory as ServerFactoryService } from '@/application/ports/server-factory'
+import type { CSSCompilationError } from '@/application/ports/services/css-compiler'
+import type { PageRenderer as PageRendererService } from '@/application/ports/services/page-renderer'
+import type { ServerFactory as ServerFactoryService } from '@/application/ports/services/server-factory'
 import type {
   SSGGenerationError,
   StaticSiteGenerator as StaticSiteGeneratorService,
-} from '@/application/ports/static-site-generator'
+} from '@/application/ports/services/static-site-generator'
 import type { App } from '@/domain/models/app'
 import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'

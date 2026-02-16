@@ -6,7 +6,7 @@
  */
 
 import { Layer } from 'effect'
-import { StaticSiteGenerator } from '@/application/ports/static-site-generator'
+import { StaticSiteGenerator } from '@/application/ports/services/static-site-generator'
 import { generateStaticSite } from '@/infrastructure/server/ssg-adapter'
 
 /**

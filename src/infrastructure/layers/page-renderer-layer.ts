@@ -6,7 +6,7 @@
  */
 
 import { Layer } from 'effect'
-import { PageRenderer } from '@/application/ports/page-renderer'
+import { PageRenderer } from '@/application/ports/services/page-renderer'
 import { renderErrorPage, renderNotFoundPage } from '@/presentation/rendering/render-error-pages'
 import { renderHomePage, renderPage } from '@/presentation/rendering/render-homepage'
 

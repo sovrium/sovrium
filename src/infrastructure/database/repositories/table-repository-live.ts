@@ -6,7 +6,7 @@
  */
 
 import { Layer } from 'effect'
-import { TableRepository } from '@/application/ports/table-repository'
+import { TableRepository } from '@/application/ports/repositories/table-repository'
 import {
   listRecords,
   listTrash,

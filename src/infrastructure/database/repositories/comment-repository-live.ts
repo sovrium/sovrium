@@ -6,7 +6,7 @@
  */
 
 import { Layer } from 'effect'
-import { CommentRepository } from '@/application/ports/comment-repository'
+import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import {
   createComment,
   getCommentWithUser,

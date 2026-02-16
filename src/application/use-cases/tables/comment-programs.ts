@@ -6,9 +6,9 @@
  */
 
 import { Effect } from 'effect'
-import { CommentRepository } from '@/application/ports/comment-repository'
+import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { SessionContextError } from '@/domain/errors'
-import type { UserSession } from '@/application/ports/user-session'
+import type { UserSession } from '@/application/ports/models/user-session'
 
 /**
  * Create comment on a record

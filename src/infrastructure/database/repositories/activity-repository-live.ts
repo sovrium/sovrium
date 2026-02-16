@@ -6,7 +6,7 @@
  */
 
 import { Layer } from 'effect'
-import { ActivityRepository } from '@/application/ports/activity-repository'
+import { ActivityRepository } from '@/application/ports/repositories/activity-repository'
 import { getRecordHistory } from '@/infrastructure/database/table-queries/query-helpers/activity-queries'
 
 /**

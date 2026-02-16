@@ -13,7 +13,7 @@ import {
   type AggregateQuery,
   type AggregationResult,
 } from './table-repository'
-import type { UserSession } from './user-session'
+import type { UserSession } from '@/application/ports/models/user-session'
 
 describe('TableRepository', () => {
   const mockSession: UserSession = {

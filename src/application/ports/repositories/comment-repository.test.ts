@@ -14,7 +14,7 @@ import {
   type CommentUser,
   type ListedComment,
 } from './comment-repository'
-import type { UserSession } from './user-session'
+import type { UserSession } from '@/application/ports/models/user-session'
 
 // Typed stub for optional port methods — avoids Effect diagnostic
 // "effectSucceedWithVoid" false positive on `none()`

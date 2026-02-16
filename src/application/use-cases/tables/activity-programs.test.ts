@@ -7,10 +7,10 @@
 
 import { describe, test, expect } from 'bun:test'
 import { Effect, Layer } from 'effect'
-import { ActivityRepository } from '@/application/ports/activity-repository'
+import { ActivityRepository } from '@/application/ports/repositories/activity-repository'
 import { getRecordHistoryProgram } from './activity-programs'
-import type { ActivityHistoryEntry } from '@/application/ports/activity-repository'
-import type { UserSession } from '@/application/ports/user-session'
+import type { UserSession } from '@/application/ports/models/user-session'
+import type { ActivityHistoryEntry } from '@/application/ports/repositories/activity-repository'
 
 describe('activity-programs', () => {
   describe('getRecordHistoryProgram', () => {

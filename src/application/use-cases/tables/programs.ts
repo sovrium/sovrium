@@ -6,13 +6,13 @@
  */
 
 import { Effect } from 'effect'
-import { TableRepository } from '@/application/ports/table-repository'
+import { TableRepository } from '@/application/ports/repositories/table-repository'
 import { SessionContextError } from '@/domain/errors'
 import { filterReadableFields } from './utils/field-read-filter'
 import { processRecords, applyPagination } from './utils/list-helpers'
 import { transformRecord } from './utils/record-transformer'
 import type { TransformedRecord } from './utils/record-transformer'
-import type { UserSession } from '@/application/ports/user-session'
+import type { UserSession } from '@/application/ports/models/user-session'
 import type {
   ListRecordsResponse,
   GetRecordResponse,

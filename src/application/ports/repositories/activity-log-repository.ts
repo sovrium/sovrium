@@ -42,7 +42,7 @@ export class ActivityLogDatabaseError extends Data.TaggedError('ActivityLogDatab
  * Activity Log Repository Port
  *
  * Provides type-safe database operations for activity logs.
- * Implementation lives in infrastructure layer (activity-log-service.ts).
+ * Implementation lives in infrastructure layer (activity-log-repository-live.ts).
  */
 export class ActivityLogRepository extends Context.Tag('ActivityLogRepository')<
   ActivityLogRepository,

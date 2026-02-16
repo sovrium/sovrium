@@ -6,7 +6,7 @@
  */
 
 import { Effect, Layer } from 'effect'
-import { ServerFactory } from '@/application/ports/server-factory'
+import { ServerFactory } from '@/application/ports/services/server-factory'
 import { createServer } from './server'
 
 /**

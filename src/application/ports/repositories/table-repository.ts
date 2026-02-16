@@ -6,7 +6,7 @@
  */
 
 import { Context } from 'effect'
-import type { UserSession } from './user-session'
+import type { UserSession } from '@/application/ports/models/user-session'
 import type { SessionContextError, UniqueConstraintViolationError } from '@/domain/errors'
 import type { App } from '@/domain/models/app'
 import type { Effect } from 'effect'

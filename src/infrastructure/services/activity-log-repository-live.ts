@@ -10,7 +10,7 @@ import { Effect, Layer } from 'effect'
 import {
   ActivityLogRepository,
   ActivityLogDatabaseError,
-} from '@/application/ports/activity-log-repository'
+} from '@/application/ports/repositories/activity-log-repository'
 import { db } from '@/infrastructure/database'
 import { activityLogs } from '@/infrastructure/database/drizzle/schema/activity-log'
 

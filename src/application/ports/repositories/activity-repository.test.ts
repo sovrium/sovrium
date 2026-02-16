@@ -9,7 +9,7 @@ import { describe, test, expect } from 'bun:test'
 import { Effect, Layer } from 'effect'
 import { ActivityRepository } from './activity-repository'
 import type { ActivityHistoryEntry } from './activity-repository'
-import type { UserSession } from './user-session'
+import type { UserSession } from '@/application/ports/models/user-session'
 
 describe('ActivityRepository', () => {
   test('should be a Context.Tag', () => {

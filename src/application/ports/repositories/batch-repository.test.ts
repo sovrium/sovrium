@@ -8,7 +8,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Effect, Layer } from 'effect'
 import { BatchRepository, type BatchValidationError, type UpsertResult } from './batch-repository'
-import type { UserSession } from './user-session'
+import type { UserSession } from '@/application/ports/models/user-session'
 
 describe('BatchRepository', () => {
   const mockSession: UserSession = {

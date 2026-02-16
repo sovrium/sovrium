@@ -6,7 +6,7 @@
  */
 
 import { Effect } from 'effect'
-import { TableRepository } from '@/application/ports/table-repository'
+import { TableRepository } from '@/application/ports/repositories/table-repository'
 import { ForbiddenError } from '@/domain/errors'
 import {
   isAdminRole,
@@ -15,7 +15,7 @@ import {
   evaluateFieldPermissions,
 } from './permissions/permissions'
 import { processRecords } from './utils/list-helpers'
-import type { UserSession } from '@/application/ports/user-session'
+import type { UserSession } from '@/application/ports/models/user-session'
 import type { SessionContextError } from '@/domain/errors'
 import type { GetTableResponse } from '@/domain/models/api/tables'
 import type { App } from '@/domain/models/app'

@@ -6,9 +6,12 @@
  */
 
 import { Effect } from 'effect'
-import { BatchRepository, type BatchValidationError } from '@/application/ports/batch-repository'
+import {
+  BatchRepository,
+  type BatchValidationError,
+} from '@/application/ports/repositories/batch-repository'
 import { transformRecords, type TransformedRecord } from './utils/record-transformer'
-import type { UserSession } from '@/application/ports/user-session'
+import type { UserSession } from '@/application/ports/models/user-session'
 import type { ForbiddenError, SessionContextError, ValidationError } from '@/domain/errors'
 import type { BatchRestoreRecordsResponse } from '@/domain/models/api/tables'
 import type { App } from '@/domain/models/app'
