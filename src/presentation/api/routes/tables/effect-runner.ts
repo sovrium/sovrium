@@ -29,8 +29,7 @@ import { TableLive } from '@/infrastructure/database/table-live-layers'
 export async function runTableProgram<A, E, R>(
   program: Effect.Effect<A, E, R>
 ): Promise<
-  | { readonly _tag: 'Left'; readonly left: E }
-  | { readonly _tag: 'Right'; readonly right: A }
+  { readonly _tag: 'Left'; readonly left: E } | { readonly _tag: 'Right'; readonly right: A }
 > {
   // Type assertion: TableLive provides all required repositories, so remaining requirements are never
   const provided = Effect.provide(program, TableLive) as Effect.Effect<A, E, never>

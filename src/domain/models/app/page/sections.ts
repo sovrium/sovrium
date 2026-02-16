@@ -135,7 +135,7 @@ export const ComponentTypeSchema = Schema.Literal(
  *
  * @see specs/app/pages/sections/sections.schema.json
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Recursive schema with suspended types requires any for circular reference resolution
 export const ComponentSchema: Schema.Schema<any, any, never> = Schema.Struct({
   type: ComponentTypeSchema,
   props: Schema.optional(BlockPropsSchema),

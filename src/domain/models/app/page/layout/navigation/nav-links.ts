@@ -81,7 +81,7 @@ export const NavLinkTargetSchema = Schema.Literal('_self', '_blank', '_parent', 
  *
  * @see specs/app/pages/layout/navigation/nav-links.schema.json
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Recursive schema with suspended children requires any for circular reference resolution
 export const NavLinkSchema: Schema.Schema<any, any, never> = Schema.Struct({
   label: Schema.String.annotations({
     description: 'Link text',

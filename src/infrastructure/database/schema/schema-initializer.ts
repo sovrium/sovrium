@@ -163,24 +163,22 @@ const addCircularFKConstraints = (
     /* eslint-enable functional/no-loop-statements */
   })
 
-/** Collect junction table specs for many-to-many relationships */
+/** Collect junction table specs for many-to-many relationships (functional construction with deduplication) */
 const collectJunctionTableSpecs = (
   sortedTables: readonly Table[],
   tableUsesView: ReadonlyMap<string, boolean>
 ): ReadonlyMap<string, { readonly name: string; readonly ddl: string }> => {
-  const specs = new Map<string, { name: string; ddl: string }>()
-  sortedTables.forEach((table) => {
+  const junctionSpecs = sortedTables.flatMap((table) => {
     const manyToManyFields = table.fields.filter(isManyToManyRelationship)
-    manyToManyFields.forEach((field) => {
+    return manyToManyFields.map((field) => {
       const junctionTableName = generateJunctionTableName(table.name, field.relatedTable)
-      if (!specs.has(junctionTableName)) {
-        const ddl = generateJunctionTableDDL(table.name, field.relatedTable, tableUsesView)
-        // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
-        specs.set(junctionTableName, { name: junctionTableName, ddl })
-      }
+      const ddl = generateJunctionTableDDL(table.name, field.relatedTable, tableUsesView)
+      return [junctionTableName, { name: junctionTableName, ddl }] as const
     })
   })
-  return specs
+
+  // Deduplicate by junction table name (keep first occurrence)
+  return new Map(junctionSpecs)
 }
 
 /** Create junction tables for many-to-many relationships */

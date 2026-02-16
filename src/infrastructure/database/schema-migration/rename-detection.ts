@@ -37,15 +37,15 @@ export const detectFieldRenames = (
     currentFields.filter((f) => f.id !== undefined).map((f) => [f.id, f.name])
   )
 
-  // Detect renames: same ID, different name
-  const renames = new Map<string, string>()
-  currentFieldsById.forEach((newName, fieldId) => {
-    const oldName = previousFieldsById.get(fieldId)
-    if (oldName && oldName !== newName) {
-      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
-      renames.set(oldName, newName)
-    }
-  })
+  // Detect renames: same ID, different name (functional construction)
+  const renames = new Map<string, string>(
+    Array.from(currentFieldsById.entries())
+      .map(([fieldId, newName]) => {
+        const oldName = previousFieldsById.get(fieldId)
+        return oldName && oldName !== newName ? [oldName, newName] : undefined
+      })
+      .filter((entry): entry is [string, string] => entry !== undefined)
+  )
 
   return renames
 }
@@ -73,15 +73,15 @@ export const detectTableRenames = (
       .map((t) => [t.id, t.name])
   )
 
-  // Detect renames: same ID, different name
-  const renames = new Map<string, string>()
-  currentTablesById.forEach((newName, tableId) => {
-    const oldName = previousTablesById.get(tableId)
-    if (oldName && oldName !== newName) {
-      // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
-      renames.set(oldName, newName)
-    }
-  })
+  // Detect renames: same ID, different name (functional construction)
+  const renames = new Map<string, string>(
+    Array.from(currentTablesById.entries())
+      .map(([tableId, newName]) => {
+        const oldName = previousTablesById.get(tableId)
+        return oldName && oldName !== newName ? [oldName, newName] : undefined
+      })
+      .filter((entry): entry is [string, string] => entry !== undefined)
+  )
 
   return renames
 }

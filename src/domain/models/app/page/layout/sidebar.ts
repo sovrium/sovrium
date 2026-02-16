@@ -70,7 +70,7 @@ export const SidebarItemTypeSchema = Schema.Literal('link', 'group', 'divider').
  * }
  * ```
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Recursive schema with suspended children requires any for circular reference resolution
 export const SidebarItemSchema: Schema.Schema<any, any, never> = Schema.Struct({
   type: SidebarItemTypeSchema,
   label: Schema.optional(

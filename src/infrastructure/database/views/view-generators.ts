@@ -230,16 +230,10 @@ export const dropAllObsoleteViews = async (
       { concurrency: 2 }
     )
 
-    // Collect all view IDs from all tables
-    const allSchemaViews = new Set<string>()
-    tables.forEach((table) => {
-      if (table.views) {
-        table.views.forEach((view) => {
-          // eslint-disable-next-line functional/immutable-data
-          allSchemaViews.add(String(view.id))
-        })
-      }
-    })
+    // Collect all view IDs from all tables (functional construction)
+    const allSchemaViews = new Set<string>(
+      tables.flatMap((table) => (table.views ? table.views.map((view) => String(view.id)) : []))
+    )
 
     // Find views to drop - any view in DB that's not in schema
     const viewsToDrop = existingViewNames.filter((viewName) => !allSchemaViews.has(viewName))

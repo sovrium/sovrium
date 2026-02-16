@@ -43,7 +43,7 @@ import { BlockPropsSchema } from './block-props'
  *
  * @see specs/app/blocks/common/block-children.schema.json#/items
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Recursive schema with suspended children requires any for circular reference resolution
 export const BlockChildElementSchema: Schema.Schema<any, any, never> = Schema.Struct({
   type: Schema.String.pipe(
     Schema.annotations({

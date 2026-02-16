@@ -27,9 +27,8 @@ export const detectCircularDependenciesWithOptionalFK = (
   tables: readonly Table[]
 ): ReadonlySet<string> => {
   const tablesByName = new Map(tables.map((t) => [t.name, t]))
-  const circularTables = new Set<string>()
-
-  tables.forEach((table) => {
+  // Collect circular table names (functional construction)
+  const circularTableNames = tables.flatMap((table) => {
     const optionalRelationships = table.fields.filter(
       (field): field is typeof field & { relatedTable: string } =>
         isRelationshipField(field) &&
@@ -37,27 +36,22 @@ export const detectCircularDependenciesWithOptionalFK = (
         field.required === false // Explicitly optional FK (allows NULL)
     )
 
-    optionalRelationships.forEach((field) => {
+    return optionalRelationships.flatMap((field) => {
       const relatedTableName = field.relatedTable
       const relatedTable = tablesByName.get(relatedTableName)
 
-      if (!relatedTable) return
+      if (!relatedTable) return []
 
       // Check if related table also has a relationship back to this table
       const hasReverseRelationship = relatedTable.fields.some(
         (f) => isRelationshipField(f) && f.relatedTable === table.name
       )
 
-      if (hasReverseRelationship) {
-        // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
-        circularTables.add(table.name)
-        // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements
-        circularTables.add(relatedTableName)
-      }
+      return hasReverseRelationship ? [table.name, relatedTableName] : []
     })
   })
 
-  return circularTables
+  return new Set(circularTableNames)
 }
 
 /**
@@ -110,14 +104,14 @@ export const sortTablesByDependencies = (tables: readonly Table[]): readonly Tab
     const updated = new Map(
       Array.from(remaining.entries()).map(([name, deps]) => {
         const newDeps = new Set(deps)
-        // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, drizzle/enforce-delete-with-where
+        // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, drizzle/enforce-delete-with-where -- Topological sort requires working copy mutation for efficiency; drizzle false positive (Set.delete not DB)
         newDeps.delete(current)
         return [name, newDeps]
       })
     )
 
     // Remove current table from remaining
-    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, drizzle/enforce-delete-with-where
+    // eslint-disable-next-line functional/immutable-data, functional/no-expression-statements, drizzle/enforce-delete-with-where -- Topological sort requires working copy mutation for efficiency; drizzle false positive (Map.delete not DB)
     updated.delete(current)
 
     // Find next table with no dependencies

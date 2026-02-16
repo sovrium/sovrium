@@ -176,7 +176,9 @@ async function handleBatchRestore(c: Context, _app: App) {
   const result = await validateRequest(c, batchRestoreRecordsRequestSchema)
   if (!result.success) return result.response
 
-  const programResult = await runTableProgram(batchRestoreProgram(session, tableName, result.data.ids))
+  const programResult = await runTableProgram(
+    batchRestoreProgram(session, tableName, result.data.ids)
+  )
 
   if (programResult._tag === 'Left') {
     return handleBatchRestoreError(c, programResult.left)
