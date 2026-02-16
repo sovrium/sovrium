@@ -734,6 +734,8 @@ test.describe('Record Authorship Metadata', () => {
         ],
       })
 
+      // WHEN: Three different users each perform a different operation on the same record
+
       // Step 1: Alice creates the record
       const { user: alice } = await createAuthenticatedUser({
         email: 'alice@example.com',
@@ -808,6 +810,8 @@ test.describe('Record Authorship Metadata', () => {
           },
         ],
       })
+
+      // WHEN: Alice creates a record and Bob updates it multiple times
 
       // Alice creates the record
       const { user: alice } = await createAuthenticatedUser({
