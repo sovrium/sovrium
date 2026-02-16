@@ -7,7 +7,8 @@
 
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
+import { SessionContextError } from '@/domain/errors'
+import type { DrizzleTransaction } from '@/infrastructure/database/drizzle/db'
 
 /**
  * Fetch a single record by ID (Promise-based for transaction use)

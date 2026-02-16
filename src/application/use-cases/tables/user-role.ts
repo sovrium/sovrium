@@ -7,7 +7,6 @@
 
 import { Effect, type Layer } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth-repository'
-import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth-repository-live'
 
 // Constants
 const DEFAULT_ROLE = 'member'
@@ -27,10 +26,16 @@ export async function getUserRole(
   userId: string,
   layer?: Layer.Layer<AuthRepository>
 ): Promise<string> {
+  // Lazy-load AuthRepositoryLive to avoid triggering database initialization at import time.
+  // This allows unit tests to inject a mock layer without the db barrel side effect.
+  const resolvedLayer =
+    layer ??
+    (await import('@/infrastructure/database/repositories/auth-repository-live')).AuthRepositoryLive
+
   const program = Effect.gen(function* () {
     const repo = yield* AuthRepository
     return yield* repo.getUserRole(userId)
-  }).pipe(Effect.provide(layer ?? AuthRepositoryLive))
+  }).pipe(Effect.provide(resolvedLayer))
 
   const role = await Effect.runPromise(program)
 
