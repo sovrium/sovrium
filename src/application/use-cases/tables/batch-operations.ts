@@ -17,8 +17,7 @@ export function batchCreateProgram(
   session: Readonly<UserSession>,
   tableName: string,
   recordsData: readonly Record<string, unknown>[],
-  returnRecords: boolean = false,
-  app?: App
+  options: { readonly returnRecords?: boolean; readonly app?: App } = {}
 ): Effect.Effect<
   { readonly created: number; readonly records?: readonly TransformedRecord[] },
   SessionContextError | ValidationError,
@@ -26,6 +25,7 @@ export function batchCreateProgram(
 > {
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
+    const { returnRecords = false, app } = options
 
     // Create records in the database
     const createdRecords = yield* batch.batchCreate(session, tableName, recordsData)
@@ -52,8 +52,7 @@ export function batchUpdateProgram(
   session: Readonly<UserSession>,
   tableName: string,
   recordsData: readonly { readonly id: string; readonly fields?: Record<string, unknown> }[],
-  returnRecords: boolean = false,
-  app?: App
+  options: { readonly returnRecords?: boolean; readonly app?: App } = {}
 ): Effect.Effect<
   { readonly updated: number; readonly records?: readonly TransformedRecord[] },
   SessionContextError | ValidationError,
@@ -61,6 +60,7 @@ export function batchUpdateProgram(
 > {
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
+    const { returnRecords = false, app } = options
     const updatedRecords = yield* batch.batchUpdate(session, tableName, recordsData)
 
     // Transform records to API format with app schema for numeric coercion
