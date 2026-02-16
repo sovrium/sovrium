@@ -7,8 +7,8 @@
 
 import { sql } from 'drizzle-orm'
 import { SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
+import { validateTableName, validateColumnName } from '../shared/validation'
 import { hasDeletedByColumn, getDeletedByValue } from './authorship-helpers'
-import { validateTableName, validateColumnName } from './validation'
 
 /**
  * Cascade soft delete to related records

@@ -6,7 +6,7 @@
  */
 
 import { sql } from 'drizzle-orm'
-import { typedExecute } from './typed-execute'
+import { typedExecute } from '../shared/typed-execute'
 import type { DrizzleTransaction } from '@/infrastructure/database'
 
 /**

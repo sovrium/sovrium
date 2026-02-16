@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { resolveTokenReference } from '@/infrastructure/css/theme-token-resolver'
+import { resolveTokenReference } from '@/infrastructure/css/theme/theme-token-resolver'
 import type { Theme } from '@/domain/models/app/theme'
 import type { AnimationConfigObject, AnimationsConfig } from '@/domain/models/app/theme/animations'
 

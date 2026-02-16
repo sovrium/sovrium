@@ -13,10 +13,10 @@ import {
   ValidationError,
   type DrizzleTransaction,
 } from '@/infrastructure/database'
-import { logActivity } from './activity-log-helpers'
+import { logActivity } from '../query-helpers/activity-log-helpers'
+import { typedExecute } from '../shared/typed-execute'
+import { validateTableName, validateColumnName } from '../shared/validation'
 import { BatchValidationError, runEffectInTx, createSingleRecord } from './batch-helpers'
-import { typedExecute } from './typed-execute'
-import { validateTableName, validateColumnName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**

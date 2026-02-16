@@ -43,6 +43,7 @@ function createMockDb(mockTx: { execute: any }) {
     db: {
       transaction: mock(async (fn: (tx: any) => Promise<any>) => fn(mockTx)),
       execute: mockTx.execute,
+      insert: mock(() => ({ values: mock(async () => ({})) })),
     },
     SessionContextError: class SessionContextError extends Error {
       constructor(message: string, cause?: unknown) {
@@ -77,19 +78,15 @@ mock.module('@/infrastructure/database', () => createMockDb(defaultMockTx))
 //   isUniqueConstraintViolation: () => false,
 // }))
 
-mock.module('./delete-helpers', () => ({
+mock.module('../mutation-helpers/delete-helpers', () => ({
   checkDeletedAtColumn: async () => true,
   executeSoftDelete: async () => true,
   executeHardDelete: async () => true,
   cascadeSoftDelete: async () => {},
 }))
 
-mock.module('./record-fetch-helpers', () => ({
+mock.module('../mutation-helpers/record-fetch-helpers', () => ({
   fetchRecordById: async () => ({ id: 'record-123', name: 'Alice' }),
-}))
-
-mock.module('./activity-log-helpers', () => ({
-  logActivity: () => Effect.void,
 }))
 
 mock.module('@/infrastructure/database/filter-operators', () => ({
@@ -457,7 +454,7 @@ describe('deleteRecord', () => {
   })
 
   test('performs hard delete when no deleted_at column', async () => {
-    mock.module('./delete-helpers', () => ({
+    mock.module('../mutation-helpers/delete-helpers', () => ({
       checkDeletedAtColumn: async () => false, // No soft delete support
       executeSoftDelete: async () => true,
       executeHardDelete: async () => true,
@@ -482,7 +479,7 @@ describe('permanentlyDeleteRecord', () => {
   })
 
   test('returns false when delete fails', async () => {
-    mock.module('./delete-helpers', () => ({
+    mock.module('../mutation-helpers/delete-helpers', () => ({
       checkDeletedAtColumn: async () => true,
       executeSoftDelete: async () => true,
       executeHardDelete: async () => false, // Delete fails

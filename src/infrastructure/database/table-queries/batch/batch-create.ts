@@ -7,10 +7,10 @@
 
 import { Effect } from 'effect'
 import { db, SessionContextError } from '@/infrastructure/database'
-import { logActivity } from './activity-log-helpers'
+import { logActivity } from '../query-helpers/activity-log-helpers'
+import { wrapDatabaseErrorWithValidation } from '../shared/error-handling'
+import { validateTableName } from '../shared/validation'
 import { createSingleRecordInBatch, runEffectInTx } from './batch-helpers'
-import { wrapDatabaseErrorWithValidation } from './error-handling'
-import { validateTableName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { ValidationError } from '@/infrastructure/database'
 

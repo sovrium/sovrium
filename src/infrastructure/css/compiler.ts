@@ -8,16 +8,16 @@
 import tailwindcss from '@tailwindcss/postcss'
 import { Console, Effect } from 'effect'
 import postcss from 'postcss'
-import { generateAnimationStyles } from '@/infrastructure/css/animation-styles-generator'
-import {
-  generateComponentsLayer,
-  generateUtilitiesLayer,
-} from '@/infrastructure/css/component-layer-generators'
 import {
   getOrComputeCachedCSS,
   getThemeCacheKey,
   type CompiledCSS,
-} from '@/infrastructure/css/css-cache-service'
+} from '@/infrastructure/css/cache/css-cache-service'
+import { generateAnimationStyles } from '@/infrastructure/css/styles/animation-styles-generator'
+import {
+  generateComponentsLayer,
+  generateUtilitiesLayer,
+} from '@/infrastructure/css/styles/component-layer-generators'
 import {
   generateThemeBorderRadius,
   generateThemeBreakpoints,
@@ -25,15 +25,15 @@ import {
   generateThemeFonts,
   generateThemeShadows,
   generateThemeSpacing,
-} from '@/infrastructure/css/theme-generators'
-import { generateBaseLayer } from '@/infrastructure/css/theme-layer-generators'
+} from '@/infrastructure/css/theme/theme-generators'
+import { generateBaseLayer } from '@/infrastructure/css/theme/theme-layer-generators'
 import { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import { logDebug, logError } from '@/infrastructure/logging/logger'
 import type { App } from '@/domain/models/app'
 import type { Theme } from '@/domain/models/app/theme'
 
 // Re-export CompiledCSS type for external use
-export type { CompiledCSS } from '@/infrastructure/css/css-cache-service'
+export type { CompiledCSS } from '@/infrastructure/css/cache/css-cache-service'
 
 /**
  * Generate complete Tailwind @theme CSS from app theme

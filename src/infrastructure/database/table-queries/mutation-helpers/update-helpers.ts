@@ -7,7 +7,7 @@
 
 import { sql } from 'drizzle-orm'
 import { SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
-import { validateColumnName } from './validation'
+import { validateColumnName } from '../shared/validation'
 
 /**
  * Validate fields object is not empty

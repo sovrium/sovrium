@@ -12,7 +12,7 @@ import {
   UniqueConstraintViolationError,
   type DrizzleTransaction,
 } from '@/infrastructure/database'
-import { validateColumnName } from './validation'
+import { validateColumnName } from '../shared/validation'
 
 /**
  * Check if an object has PostgreSQL unique constraint violation markers

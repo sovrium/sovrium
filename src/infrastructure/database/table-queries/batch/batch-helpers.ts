@@ -8,7 +8,7 @@
 import { sql } from 'drizzle-orm'
 import { Data, Effect, Exit, Cause } from 'effect'
 import { ValidationError, type DrizzleTransaction } from '@/infrastructure/database'
-import { validateColumnName } from './validation'
+import { validateColumnName } from '../shared/validation'
 
 /**
  * Batch validation error - returned when batch validation fails

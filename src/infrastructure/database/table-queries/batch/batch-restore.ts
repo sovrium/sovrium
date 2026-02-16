@@ -14,10 +14,10 @@ import {
   ForbiddenError,
   type DrizzleTransaction,
 } from '@/infrastructure/database'
-import { logActivity } from './activity-log-helpers'
+import { logActivity } from '../query-helpers/activity-log-helpers'
+import { wrapDatabaseError } from '../shared/error-handling'
+import { validateTableName } from '../shared/validation'
 import { runEffectInTx } from './batch-helpers'
-import { wrapDatabaseError } from './error-handling'
-import { validateTableName } from './validation'
 
 /**
  * Check if user has permission to restore records

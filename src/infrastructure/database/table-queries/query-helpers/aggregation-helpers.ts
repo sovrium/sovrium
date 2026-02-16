@@ -8,8 +8,8 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
-import { generateSqlCondition } from '../filter-operators'
-import { validateColumnName } from './validation'
+import { generateSqlCondition } from '../../filter-operators'
+import { validateColumnName } from '../shared/validation'
 
 /**
  * Build SQL aggregation SELECT clauses for requested operations

@@ -16,7 +16,7 @@ import {
   deleteComment,
   listComments,
   getCommentsCount,
-} from '@/infrastructure/database/table-queries/comment-queries'
+} from '@/infrastructure/database/table-queries/query-helpers/comment-queries'
 
 /**
  * Live implementation of CommentRepository using comment-queries infrastructure

@@ -7,7 +7,7 @@
 
 import { Layer } from 'effect'
 import { ActivityRepository } from '@/application/ports/activity-repository'
-import { getRecordHistory } from '@/infrastructure/database/table-queries/activity-queries'
+import { getRecordHistory } from '@/infrastructure/database/table-queries/query-helpers/activity-queries'
 
 /**
  * Live implementation of ActivityRepository using activity-queries infrastructure

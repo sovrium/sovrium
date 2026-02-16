@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { generateClickAnimationCSS } from '@/infrastructure/css/click-animations'
+import { generateClickAnimationCSS } from '@/infrastructure/css/styles/click-animations'
 import type { Theme } from '@/domain/models/app/theme'
 
 /**

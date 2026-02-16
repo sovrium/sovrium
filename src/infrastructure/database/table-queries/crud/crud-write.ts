@@ -8,24 +8,30 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { db, SessionContextError, UniqueConstraintViolationError } from '@/infrastructure/database'
-import { logActivity } from './activity-log-helpers'
-import { injectCreateAuthorship, injectUpdateAuthorship } from './authorship-helpers'
-import { buildInsertClauses, isUniqueConstraintViolation } from './create-record-helpers'
+import {
+  injectCreateAuthorship,
+  injectUpdateAuthorship,
+} from '../mutation-helpers/authorship-helpers'
+import {
+  buildInsertClauses,
+  isUniqueConstraintViolation,
+} from '../mutation-helpers/create-record-helpers'
 import {
   cascadeSoftDelete,
   executeSoftDelete,
   executeHardDelete,
   checkDeletedAtColumn,
-} from './delete-helpers'
-import { wrapDatabaseError } from './error-handling'
-import { fetchRecordById } from './record-fetch-helpers'
-import { typedExecute } from './typed-execute'
+} from '../mutation-helpers/delete-helpers'
+import { fetchRecordById } from '../mutation-helpers/record-fetch-helpers'
 import {
   validateFieldsNotEmpty,
   buildUpdateSetClauseCRUD,
   executeRecordUpdateCRUD,
-} from './update-helpers'
-import { validateTableName } from './validation'
+} from '../mutation-helpers/update-helpers'
+import { logActivity } from '../query-helpers/activity-log-helpers'
+import { wrapDatabaseError } from '../shared/error-handling'
+import { typedExecute } from '../shared/typed-execute'
+import { validateTableName } from '../shared/validation'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 

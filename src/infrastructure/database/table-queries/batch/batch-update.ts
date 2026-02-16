@@ -13,12 +13,12 @@ import {
   type DrizzleTransaction,
   type SessionContextError,
 } from '@/infrastructure/database'
-import { logActivity } from './activity-log-helpers'
+import { fetchRecordByIdEffect } from '../mutation-helpers/record-fetch-helpers'
+import { buildUpdateSetClauseCRUD } from '../mutation-helpers/update-helpers'
+import { logActivity } from '../query-helpers/activity-log-helpers'
+import { wrapDatabaseErrorWithValidation } from '../shared/error-handling'
+import { validateTableName } from '../shared/validation'
 import { runEffectInTx } from './batch-helpers'
-import { wrapDatabaseErrorWithValidation } from './error-handling'
-import { fetchRecordByIdEffect } from './record-fetch-helpers'
-import { buildUpdateSetClauseCRUD } from './update-helpers'
-import { validateTableName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**

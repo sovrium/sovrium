@@ -14,11 +14,11 @@ import {
   buildOrderByClause,
   buildWhereClause,
   checkDeletedAtColumn as checkDeletedAtColumnHelper,
-} from './aggregation-helpers'
-import { wrapDatabaseError } from './error-handling'
-import { buildTrashFilters, addTrashSorting } from './trash-helpers'
-import { typedExecute } from './typed-execute'
-import { validateTableName } from './validation'
+} from '../query-helpers/aggregation-helpers'
+import { buildTrashFilters, addTrashSorting } from '../query-helpers/trash-helpers'
+import { wrapDatabaseError } from '../shared/error-handling'
+import { typedExecute } from '../shared/typed-execute'
+import { validateTableName } from '../shared/validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { SessionContextError } from '@/infrastructure/database'
 

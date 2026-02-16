@@ -11,7 +11,7 @@ import { users } from '@/infrastructure/auth/better-auth/schema'
 import { SessionContextError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import { recordComments } from '@/infrastructure/database/drizzle/schema/record-comments'
-import { wrapDatabaseError } from './error-handling'
+import { wrapDatabaseError } from '../shared/error-handling'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**

@@ -6,6 +6,6 @@
  */
 
 // Re-export all table query functions from modular files
-export * from './validation'
-export * from './crud'
-export * from './batch'
+export * from './shared/validation'
+export * from './crud/crud'
+export * from './batch/batch'

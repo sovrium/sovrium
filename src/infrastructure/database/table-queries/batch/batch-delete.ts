@@ -8,11 +8,11 @@
 import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { db, SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
-import { logActivity } from './activity-log-helpers'
+import { fetchRecordsByIds } from '../mutation-helpers/record-fetch-helpers'
+import { logActivity } from '../query-helpers/activity-log-helpers'
+import { wrapDatabaseError } from '../shared/error-handling'
+import { validateTableName } from '../shared/validation'
 import { runEffectInTx } from './batch-helpers'
-import { wrapDatabaseError } from './error-handling'
-import { fetchRecordsByIds } from './record-fetch-helpers'
-import { validateTableName } from './validation'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
