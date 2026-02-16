@@ -13,19 +13,20 @@ import type { ForbiddenError, SessionContextError, ValidationError } from '@/dom
 import type { BatchRestoreRecordsResponse } from '@/domain/models/api/tables'
 import type { App } from '@/domain/models/app'
 
-export function batchCreateProgram(
-  session: Readonly<UserSession>,
-  tableName: string,
-  recordsData: readonly Record<string, unknown>[],
-  options: { readonly returnRecords?: boolean; readonly app?: App } = {}
-): Effect.Effect<
+export function batchCreateProgram(config: {
+  readonly session: Readonly<UserSession>
+  readonly tableName: string
+  readonly recordsData: readonly Record<string, unknown>[]
+  readonly returnRecords?: boolean
+  readonly app?: App
+}): Effect.Effect<
   { readonly created: number; readonly records?: readonly TransformedRecord[] },
   SessionContextError | ValidationError,
   BatchRepository
 > {
+  const { session, tableName, recordsData, returnRecords = false, app } = config
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
-    const { returnRecords = false, app } = options
 
     // Create records in the database
     const createdRecords = yield* batch.batchCreate(session, tableName, recordsData)
@@ -48,19 +49,23 @@ export function batchCreateProgram(
   })
 }
 
-export function batchUpdateProgram(
-  session: Readonly<UserSession>,
-  tableName: string,
-  recordsData: readonly { readonly id: string; readonly fields?: Record<string, unknown> }[],
-  options: { readonly returnRecords?: boolean; readonly app?: App } = {}
-): Effect.Effect<
+export function batchUpdateProgram(config: {
+  readonly session: Readonly<UserSession>
+  readonly tableName: string
+  readonly recordsData: readonly {
+    readonly id: string
+    readonly fields?: Record<string, unknown>
+  }[]
+  readonly returnRecords?: boolean
+  readonly app?: App
+}): Effect.Effect<
   { readonly updated: number; readonly records?: readonly TransformedRecord[] },
   SessionContextError | ValidationError,
   BatchRepository
 > {
+  const { session, tableName, recordsData, returnRecords = false, app } = config
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
-    const { returnRecords = false, app } = options
     const updatedRecords = yield* batch.batchUpdate(session, tableName, recordsData)
 
     // Transform records to API format with app schema for numeric coercion

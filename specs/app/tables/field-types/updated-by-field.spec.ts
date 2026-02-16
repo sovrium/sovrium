@@ -24,7 +24,7 @@ import { test, expect } from '@/specs/fixtures'
 
 test.describe('Updated By Field', () => {
   test(
-    'APP-TABLES-FIELD-TYPES-UPDATED-BY-001: should create PostgreSQL TEXT NOT NULL column with FOREIGN KEY and trigger',
+    'APP-TABLES-FIELD-TYPES-UPDATED-BY-001: should create PostgreSQL TEXT column (nullable until first update) with FOREIGN KEY and trigger',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery }) => {
       // GIVEN: table configuration
@@ -52,8 +52,8 @@ test.describe('Updated By Field', () => {
       // THEN: column should be TEXT (compatible with Better Auth TEXT id)
       expect(columnInfo.column_name).toBe('updated_by')
       expect(columnInfo.data_type).toBe('text')
-      // THEN: should be NOT NULL
-      expect(columnInfo.is_nullable).toBe('NO')
+      // THEN: should be nullable (NULL on INSERT, populated only on UPDATE via trigger)
+      expect(columnInfo.is_nullable).toBe('YES')
 
       // NOTE: FK checks disabled due to transaction visibility issue
       // See: https://github.com/sovrium/sovrium/issues/3980
@@ -362,13 +362,13 @@ test.describe('Updated By Field', () => {
         ],
       })
 
-      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-001: Creates PostgreSQL TEXT NOT NULL column with FOREIGN KEY and trigger', async () => {
+      await test.step('APP-TABLES-FIELD-TYPES-UPDATED-BY-001: Creates PostgreSQL TEXT column (nullable until first update) with FOREIGN KEY and trigger', async () => {
         const columnInfo = await executeQuery(
           "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name='products' AND column_name='updated_by'"
         )
         expect(columnInfo.column_name).toBe('updated_by')
         expect(columnInfo.data_type).toBe('text')
-        expect(columnInfo.is_nullable).toBe('NO')
+        expect(columnInfo.is_nullable).toBe('YES')
         const triggerCount = await executeQuery(
           "SELECT COUNT(*) as count FROM information_schema.triggers WHERE event_object_table='products' AND trigger_name='set_updated_by'"
         )

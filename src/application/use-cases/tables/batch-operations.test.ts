@@ -42,7 +42,11 @@ describe('batch-operations', () => {
 
       // Note: This test verifies the program structure
       // In actual execution, it would require infrastructure dependencies
-      const program = batchCreateProgram(session, tableName, recordsData)
+      const program = batchCreateProgram({
+        session,
+        tableName,
+        recordsData,
+      })
 
       // Verify the program is an Effect
       expect(Effect.isEffect(program)).toBe(true)
@@ -59,7 +63,11 @@ describe('batch-operations', () => {
         { id: 'record-2', name: 'Updated 2' },
       ]
 
-      const program = batchUpdateProgram(session, tableName, recordsData)
+      const program = batchUpdateProgram({
+        session,
+        tableName,
+        recordsData,
+      })
 
       // Verify the program is an Effect
       expect(Effect.isEffect(program)).toBe(true)
