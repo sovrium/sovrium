@@ -41,6 +41,7 @@ Use this checklist during code reviews to ensure the testing strategy is followe
 - [ ] **Unit Tests Exist**: Co-located unit tests exist for all implementation files
 - [ ] **Unit Tests Timing**: Unit tests were committed AFTER implementation (check git history)
 - [ ] **Unit Test Coverage**: Edge cases, error paths, and boundary conditions covered
+- [ ] **Test Mocking Pattern**: No `mock.module()` calls in application/presentation tests (except database barrel) — uses dependency injection instead (see [Part 16](./16-test-mocking-dependency-injection-over-mock-module.md))
 - [ ] **All Tests Pass**: `bun test:all` succeeds
 - [ ] **No Test Skips**: No `.skip()` or `.only()` in committed tests
 

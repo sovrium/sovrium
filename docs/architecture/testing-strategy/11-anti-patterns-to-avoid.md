@@ -25,6 +25,8 @@
 - ❌ Skipping unit tests after implementation ("we have E2E tests, that's enough")
 - ❌ Writing unit tests before understanding actual implementation (premature)
 - ❌ Incomplete edge case coverage (unit tests should be comprehensive)
+- ❌ **Using `mock.module()` for application modules** - Causes process-global contamination and cross-file test failures (see [Part 16](./16-test-mocking-dependency-injection-over-mock-module.md) for architectural decision and DI patterns)
+- ❌ Relying on `mock.restore()` to fix module cache contamination (it doesn't evict cached evaluations)
 
 ---
 
