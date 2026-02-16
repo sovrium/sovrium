@@ -264,7 +264,7 @@ test.describe('Batch Restore records', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-RESTORE-006: should clear deleted_at timestamp for restored records',
     { tag: '@spec' },
     async ({ startServerWithSchema, executeQuery, request, createAuthenticatedMember }) => {
@@ -297,18 +297,18 @@ test.describe('Batch Restore records', () => {
         `INSERT INTO tasks (title, deleted_at) VALUES ('Task 1', NOW()), ('Task 2', NOW())`
       )
       const deleted = await executeQuery(`SELECT id FROM tasks WHERE deleted_at IS NOT NULL`)
-      expect(deleted).toHaveLength(2)
+      expect(deleted.rows).toHaveLength(2)
 
       // WHEN: Batch restore both records
       await createAuthenticatedMember({ email: 'member@example.com' })
       const response = await request.post('/api/tables/1/records/batch/restore', {
-        data: { ids: deleted.map((r: any) => String(r.id)) },
+        data: { ids: deleted.rows.map((r: any) => String(r.id)) },
       })
 
       // THEN: deleted_at is cleared
       expect(response.status()).toBe(200)
       const restored = await executeQuery(
-        `SELECT id, deleted_at FROM tasks WHERE id IN (${deleted.map((r: any) => r.id).join(',')})`
+        `SELECT id, deleted_at FROM tasks WHERE id IN (${deleted.rows.map((r: any) => r.id).join(',')})`
       )
       for (const record of restored.rows) {
         expect(record.deleted_at).toBeNull()
