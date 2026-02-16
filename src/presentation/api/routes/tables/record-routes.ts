@@ -11,6 +11,7 @@ import {
   handleDeleteComment,
   handleGetComment,
   handleListComments,
+  handleUpdateComment,
 } from './comment-handlers'
 import {
   handleListRecords,
@@ -40,6 +41,9 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
     .post('/api/tables/:tableId/records/:recordId/comments', (c) => handleCreateComment(c, app))
     .get('/api/tables/:tableId/records/:recordId/comments/:commentId', (c) =>
       handleGetComment(c, app)
+    )
+    .patch('/api/tables/:tableId/records/:recordId/comments/:commentId', (c) =>
+      handleUpdateComment(c, app)
     )
     .delete('/api/tables/:tableId/records/:recordId/comments/:commentId', (c) =>
       handleDeleteComment(c, app)

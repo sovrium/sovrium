@@ -11,6 +11,7 @@ import {
   deleteCommentProgram,
   getCommentProgram,
   listCommentsProgram,
+  updateCommentProgram,
 } from '@/application/use-cases/tables/comment-programs'
 import { hasReadPermission } from '@/application/use-cases/tables/permissions/permissions'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
@@ -212,6 +213,97 @@ export async function handleGetComment(c: Context, app: App) {
 
   if (result._tag === 'Left') {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  return c.json(result.right, 200)
+}
+
+/**
+ * Validate update comment request body
+ */
+function validateUpdateCommentBody(body: unknown): CreateCommentBody | undefined {
+  if (typeof body !== 'object' || body === undefined) {
+    return undefined
+  }
+
+  const { content } = body as Record<string, unknown>
+
+  if (typeof content !== 'string') {
+    return undefined
+  }
+
+  if (content.length === 0) {
+    return undefined
+  }
+
+  if (content.length > 10_000) {
+    return undefined
+  }
+
+  return { content }
+}
+
+/**
+ * Handle update comment error
+ */
+function handleUpdateCommentError(c: Context, error: unknown) {
+  // Check for authorization errors
+  if (isAuthorizationError(error)) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+
+    // Forbidden error (user is not author)
+    if (errorMessage.includes('Forbidden')) {
+      return c.json({ success: false, code: 'FORBIDDEN' }, 403)
+    }
+
+    // Not found error (comment doesn't exist, already deleted, or no record access)
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  // Internal server error
+  return c.json(
+    { success: false, message: 'Failed to update comment', code: 'INTERNAL_ERROR' },
+    500
+  )
+}
+
+/**
+ * Handle update comment
+ */
+export async function handleUpdateComment(c: Context, app: App) {
+  const { session } = getTableContext(c)
+  const tableId = c.req.param('tableId')
+  const commentId = c.req.param('commentId')
+
+  // Find table by ID
+  const table = app.tables?.find((t) => String(t.id) === String(tableId))
+  if (!table) {
+    return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  // Parse and validate request body
+  const body = await c.req.json().catch(() => undefined)
+  const validated = validateUpdateCommentBody(body)
+
+  if (!validated) {
+    return c.json(
+      { success: false, message: 'Invalid request body', code: 'VALIDATION_ERROR' },
+      400
+    )
+  }
+
+  // Update comment
+  const program = updateCommentProgram({
+    session,
+    commentId,
+    tableName: table.name,
+    content: validated.content,
+  })
+
+  const result = await Effect.runPromise(program.pipe(Effect.provide(TableLive), Effect.either))
+
+  if (result._tag === 'Left') {
+    return handleUpdateCommentError(c, result.left)
   }
 
   return c.json(result.right, 200)

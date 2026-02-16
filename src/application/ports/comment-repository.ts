@@ -142,5 +142,22 @@ export class CommentRepository extends Context.Tag('CommentRepository')<
       readonly session: Readonly<UserSession>
       readonly recordId: string
     }) => Effect.Effect<number, SessionContextError>
+
+    readonly update: (config: {
+      readonly session: Readonly<UserSession>
+      readonly commentId: string
+      readonly content: string
+    }) => Effect.Effect<
+      {
+        readonly id: string
+        readonly tableId: string
+        readonly recordId: string
+        readonly userId: string
+        readonly content: string
+        readonly createdAt: Date
+        readonly updatedAt: Date
+      },
+      SessionContextError
+    >
   }
 >() {}
