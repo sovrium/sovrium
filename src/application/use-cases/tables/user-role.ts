@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect } from 'effect'
+import { Effect, type Layer } from 'effect'
 import { AuthRepository } from '@/application/ports/repositories/auth-repository'
 import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth-repository-live'
 
@@ -23,11 +23,14 @@ const DEFAULT_ROLE = 'member'
  * 1. Fetch global user role from users table via UserRoleRepository
  * 2. Default: 'member'
  */
-export async function getUserRole(userId: string): Promise<string> {
+export async function getUserRole(
+  userId: string,
+  layer?: Layer.Layer<AuthRepository>
+): Promise<string> {
   const program = Effect.gen(function* () {
     const repo = yield* AuthRepository
     return yield* repo.getUserRole(userId)
-  }).pipe(Effect.provide(AuthRepositoryLive))
+  }).pipe(Effect.provide(layer ?? AuthRepositoryLive))
 
   const role = await Effect.runPromise(program)
 

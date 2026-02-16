@@ -18,30 +18,50 @@ import type { DrizzleTransaction } from '@/infrastructure/database'
 const asTx = (mock: { execute: (...args: any[]) => any }) =>
   mock as unknown as Readonly<DrizzleTransaction>
 
+/**
+ * Create a call-counter mock that returns different results per call index.
+ *
+ * Why call counters instead of JSON.stringify pattern matching:
+ * - drizzle-orm SQL objects (sql`...` and sql.raw(...)) have different internal
+ *   structures whose JSON.stringify output varies between macOS and Linux
+ * - Call counters are platform-independent and match the actual call sequence
+ *
+ * Call sequences for each function:
+ * - cascadeSoftDelete per child table WITH deleted_at:
+ *     [0] information_schema check (deleted_at), [1] hasDeletedByColumn check (deleted_by), [2] UPDATE
+ * - cascadeSoftDelete per child table WITHOUT deleted_at:
+ *     [0] information_schema check → returns empty → skips
+ * - executeSoftDelete: [0] hasDeletedByColumn check, [1] UPDATE
+ * - executeHardDelete: [0] DELETE
+ * - checkDeletedAtColumn: [0] SELECT information_schema
+ * - fetchRecordById: [0] SELECT
+ */
+function createCallCounterMock(responses: ReadonlyArray<unknown[]>) {
+  let callIndex = 0
+  return {
+    callCount: () => callIndex,
+    tx: {
+      execute: async () => {
+        const response = callIndex < responses.length ? responses[callIndex] : []
+        callIndex++
+        return response
+      },
+    },
+  }
+}
+
 describe('cascadeSoftDelete', () => {
   describe('when app has tables with cascade relationships', () => {
     test('cascades soft delete to child records with onDelete: cascade', async () => {
-      let checkColumnCalled = false
-      let cascadeUpdateCalled = false
-
-      const mockTx = {
-        execute: async (_query: any) => {
-          const queryStr = JSON.stringify(_query)
-
-          // Mock information_schema query for deleted_at column check
-          if (queryStr.includes('information_schema') || queryStr.includes('column_name')) {
-            checkColumnCalled = true
-            return [{ column_name: 'deleted_at' }]
-          }
-
-          // Mock cascade update (UPDATE query)
-          if (queryStr.includes('UPDATE') || queryStr.includes('deleted_at')) {
-            cascadeUpdateCalled = true
-          }
-
-          return []
-        },
-      }
+      // For 1 child table with deleted_at:
+      // Call 0: information_schema check → has deleted_at
+      // Call 1: hasDeletedByColumn check (checkAuthorshipColumns) → has deleted_by
+      // Call 2: UPDATE cascade
+      const mock = createCallCounterMock([
+        [{ column_name: 'deleted_at' }], // deleted_at exists
+        [{ column_name: 'deleted_by' }], // deleted_by exists
+        [], // UPDATE result
+      ])
 
       const app = {
         tables: [
@@ -70,34 +90,24 @@ describe('cascadeSoftDelete', () => {
         ],
       }
 
-      await cascadeSoftDelete(asTx(mockTx), 'posts', 'post-123', app)
+      await cascadeSoftDelete(asTx(mock.tx), 'posts', 'post-123', app)
 
-      // Should check for deleted_at column in child table
-      expect(checkColumnCalled).toBe(true)
-
-      // Should execute cascade update for comments table
-      expect(cascadeUpdateCalled).toBe(true)
+      // Should have executed 3 calls: deleted_at check + deleted_by check + UPDATE
+      expect(mock.callCount()).toBe(3)
     })
 
     test('cascades to multiple child tables', async () => {
-      let updateCount = 0
-
-      const mockTx = {
-        execute: async (_query: any) => {
-          const queryStr = JSON.stringify(_query)
-
-          if (queryStr.includes('information_schema') || queryStr.includes('column_name')) {
-            return [{ column_name: 'deleted_at' }]
-          }
-
-          // Count UPDATE queries
-          if (queryStr.includes('UPDATE') || queryStr.includes('deleted_at')) {
-            updateCount++
-          }
-
-          return []
-        },
-      }
+      // For 2 child tables, each with deleted_at:
+      // Calls 0-2: first table (deleted_at check, deleted_by check, UPDATE)
+      // Calls 3-5: second table (deleted_at check, deleted_by check, UPDATE)
+      const mock = createCallCounterMock([
+        [{ column_name: 'deleted_at' }], // table 1: deleted_at exists
+        [{ column_name: 'deleted_by' }], // table 1: deleted_by exists
+        [], // table 1: UPDATE
+        [{ column_name: 'deleted_at' }], // table 2: deleted_at exists
+        [{ column_name: 'deleted_by' }], // table 2: deleted_by exists
+        [], // table 2: UPDATE
+      ])
 
       const app = {
         tables: [
@@ -126,34 +136,20 @@ describe('cascadeSoftDelete', () => {
         ],
       }
 
-      await cascadeSoftDelete(asTx(mockTx), 'posts', 'post-123', app)
+      await cascadeSoftDelete(asTx(mock.tx), 'posts', 'post-123', app)
 
-      // Should cascade to both comments and likes
-      expect(updateCount).toBe(2)
+      // Both tables get cascaded (3 calls each = 6 total)
+      // Note: cascadeSoftDelete uses Promise.all so order may vary,
+      // but total call count is deterministic
+      expect(mock.callCount()).toBe(6)
     })
 
     test('skips cascade for tables without deleted_at column', async () => {
-      let checkColumnCalled = false
-      let updateCount = 0
-
-      const mockTx = {
-        execute: async (_query: any) => {
-          const queryStr = JSON.stringify(_query)
-
-          // Return empty array (no deleted_at column)
-          if (queryStr.includes('information_schema') || queryStr.includes('column_name')) {
-            checkColumnCalled = true
-            return []
-          }
-
-          // Count UPDATE queries
-          if (queryStr.includes('UPDATE')) {
-            updateCount++
-          }
-
-          return []
-        },
-      }
+      // For 1 child table WITHOUT deleted_at:
+      // Call 0: information_schema check → empty (no deleted_at)
+      const mock = createCallCounterMock([
+        [], // no deleted_at column
+      ])
 
       const app = {
         tables: [
@@ -171,64 +167,46 @@ describe('cascadeSoftDelete', () => {
         ],
       }
 
-      await cascadeSoftDelete(asTx(mockTx), 'posts', 'post-123', app)
+      await cascadeSoftDelete(asTx(mock.tx), 'posts', 'post-123', app)
 
-      // Should check for deleted_at
-      expect(checkColumnCalled).toBe(true)
-
-      // Should NOT execute cascade update (no deleted_at column)
-      expect(updateCount).toBe(0)
+      // Only 1 call: the deleted_at check (no UPDATE because no deleted_at)
+      expect(mock.callCount()).toBe(1)
     })
   })
 
   describe('when app has no tables', () => {
     test('returns without error when app.tables is undefined', async () => {
-      const mockTx = {
-        execute: async () => [],
-      }
-
+      const mock = createCallCounterMock([])
       const app = {}
 
-      // Should not throw
       await expect(
-        cascadeSoftDelete(asTx(mockTx), 'users', 'user-123', app)
+        cascadeSoftDelete(asTx(mock.tx), 'users', 'user-123', app)
       ).resolves.toBeUndefined()
+
+      expect(mock.callCount()).toBe(0)
     })
 
     test('returns without error when app.tables is empty array', async () => {
-      const mockTx = {
-        execute: async () => [],
-      }
-
+      const mock = createCallCounterMock([])
       const app = { tables: [] }
 
-      // Should not throw
       await expect(
-        cascadeSoftDelete(asTx(mockTx), 'users', 'user-123', app)
+        cascadeSoftDelete(asTx(mock.tx), 'users', 'user-123', app)
       ).resolves.toBeUndefined()
+
+      expect(mock.callCount()).toBe(0)
     })
   })
 
   describe('when relationships have different onDelete values', () => {
     test('only cascades for onDelete: cascade, not onDelete: set-null', async () => {
-      let updateCount = 0
-
-      const mockTx = {
-        execute: async (_query: any) => {
-          const queryStr = JSON.stringify(_query)
-
-          if (queryStr.includes('information_schema') || queryStr.includes('column_name')) {
-            return [{ column_name: 'deleted_at' }]
-          }
-
-          // Count UPDATE queries
-          if (queryStr.includes('UPDATE')) {
-            updateCount++
-          }
-
-          return []
-        },
-      }
+      // Only 'comments' has onDelete: cascade, 'favorites' has set-null
+      // So only 1 child table cascades: 3 calls
+      const mock = createCallCounterMock([
+        [{ column_name: 'deleted_at' }], // comments: deleted_at exists
+        [{ column_name: 'deleted_by' }], // comments: deleted_by exists
+        [], // comments: UPDATE
+      ])
 
       const app = {
         tables: [
@@ -239,7 +217,7 @@ describe('cascadeSoftDelete', () => {
                 name: 'post_id',
                 type: 'relationship',
                 relatedTable: 'posts',
-                onDelete: 'cascade', // Should cascade
+                onDelete: 'cascade',
               },
             ],
           },
@@ -250,34 +228,27 @@ describe('cascadeSoftDelete', () => {
                 name: 'post_id',
                 type: 'relationship',
                 relatedTable: 'posts',
-                onDelete: 'set-null', // Should NOT cascade
+                onDelete: 'set-null',
               },
             ],
           },
         ],
       }
 
-      await cascadeSoftDelete(asTx(mockTx), 'posts', 'post-123', app)
+      await cascadeSoftDelete(asTx(mock.tx), 'posts', 'post-123', app)
 
-      // Should only cascade to comments (not favorites)
-      expect(updateCount).toBe(1)
+      // Only comments cascaded (3 calls), favorites skipped
+      expect(mock.callCount()).toBe(3)
     })
 
     test('ignores non-relationship fields', async () => {
-      let executeCalled = false
-
-      const mockTx = {
-        execute: async (_query: any) => {
-          executeCalled = true
-          const queryStr = JSON.stringify(_query)
-
-          if (queryStr.includes('information_schema') || queryStr.includes('column_name')) {
-            return [{ column_name: 'deleted_at' }]
-          }
-
-          return []
-        },
-      }
+      // Only 'posts' table has a relationship to 'users' with cascade
+      // The 'title' field (type: text) is ignored
+      const mock = createCallCounterMock([
+        [{ column_name: 'deleted_at' }], // posts: deleted_at exists
+        [{ column_name: 'deleted_by' }], // posts: deleted_by exists
+        [], // posts: UPDATE
+      ])
 
       const app = {
         tables: [
@@ -286,7 +257,7 @@ describe('cascadeSoftDelete', () => {
             fields: [
               {
                 name: 'title',
-                type: 'text', // Not a relationship
+                type: 'text',
               },
               {
                 name: 'author_id',
@@ -299,31 +270,22 @@ describe('cascadeSoftDelete', () => {
         ],
       }
 
-      await cascadeSoftDelete(asTx(mockTx), 'users', 'user-123', app)
+      await cascadeSoftDelete(asTx(mock.tx), 'users', 'user-123', app)
 
-      // Should execute queries (checking for deleted_at column)
-      expect(executeCalled).toBe(true)
+      // Should execute calls (relationship field found)
+      expect(mock.callCount()).toBeGreaterThan(0)
     })
   })
 
   describe('SQL injection prevention', () => {
     test('validates table names before cascading', async () => {
-      const mockTx = {
-        execute: async (_query: any) => {
-          const queryStr = _query.queryChunks.join(' ')
-
-          if (queryStr.includes('information_schema.columns')) {
-            return [{ column_name: 'deleted_at' }]
-          }
-
-          return []
-        },
-      }
+      // Validation throws before any tx.execute call
+      const mock = createCallCounterMock([])
 
       const app = {
         tables: [
           {
-            name: 'comments; DROP TABLE users;--', // Malicious table name
+            name: 'comments; DROP TABLE users;--',
             fields: [
               {
                 name: 'post_id',
@@ -336,24 +298,14 @@ describe('cascadeSoftDelete', () => {
         ],
       }
 
-      // Should throw validation error (invalid table name)
-      await expect(cascadeSoftDelete(asTx(mockTx), 'posts', 'post-123', app)).rejects.toThrow(
+      await expect(cascadeSoftDelete(asTx(mock.tx), 'posts', 'post-123', app)).rejects.toThrow(
         'Invalid table name'
       )
     })
 
     test('validates column names before cascading', async () => {
-      const mockTx = {
-        execute: async (_query: any) => {
-          const queryStr = _query.queryChunks.join(' ')
-
-          if (queryStr.includes('information_schema.columns')) {
-            return [{ column_name: 'deleted_at' }]
-          }
-
-          return []
-        },
-      }
+      // Validation throws before any tx.execute call
+      const mock = createCallCounterMock([])
 
       const app = {
         tables: [
@@ -361,7 +313,7 @@ describe('cascadeSoftDelete', () => {
             name: 'comments',
             fields: [
               {
-                name: 'post_id; DROP TABLE users;--', // Malicious column name
+                name: 'post_id; DROP TABLE users;--',
                 type: 'relationship',
                 relatedTable: 'posts',
                 onDelete: 'cascade',
@@ -371,8 +323,7 @@ describe('cascadeSoftDelete', () => {
         ],
       }
 
-      // Should throw validation error (invalid column name)
-      await expect(cascadeSoftDelete(asTx(mockTx), 'posts', 'post-123', app)).rejects.toThrow(
+      await expect(cascadeSoftDelete(asTx(mock.tx), 'posts', 'post-123', app)).rejects.toThrow(
         'Invalid column name'
       )
     })
@@ -388,41 +339,28 @@ describe('fetchRecordById', () => {
         created_at: new Date(),
       }
 
-      const mockTx = {
-        execute: async (_query: any) => {
-          return [mockRecord]
-        },
-      }
+      const mock = createCallCounterMock([[mockRecord]])
 
-      const result = await fetchRecordById(asTx(mockTx), 'users', '123')
+      const result = await fetchRecordById(asTx(mock.tx), 'users', '123')
 
       expect(result).toEqual(mockRecord)
     })
 
     test('uses sql.identifier for table name safety', async () => {
-      let executedQuery: any = null
+      const mock = createCallCounterMock([[{ id: '123' }]])
 
-      const mockTx = {
-        execute: async (_query: any) => {
-          executedQuery = _query
-          return [{ id: '123' }]
-        },
-      }
+      await fetchRecordById(asTx(mock.tx), 'users', '123')
 
-      await fetchRecordById(asTx(mockTx), 'users', '123')
-
-      // Verify query was executed (can't directly inspect sql.identifier but query should be defined)
-      expect(executedQuery).toBeDefined()
+      // Verify query was executed
+      expect(mock.callCount()).toBe(1)
     })
   })
 
   describe('when record does not exist', () => {
     test('returns undefined when no record found', async () => {
-      const mockTx = {
-        execute: async () => [],
-      }
+      const mock = createCallCounterMock([[]])
 
-      const result = await fetchRecordById(asTx(mockTx), 'users', '999')
+      const result = await fetchRecordById(asTx(mock.tx), 'users', '999')
 
       expect(result).toBeUndefined()
     })
@@ -440,7 +378,6 @@ describe('fetchRecordById', () => {
         await fetchRecordById(asTx(mockTx), 'users', '123')
         expect(true).toBe(false) // Should not reach here
       } catch (error) {
-        // Promise rejection wraps the SessionContextError
         expect(error).toHaveProperty('message')
         expect((error as Error).message).toContain('Failed to fetch record')
       }
@@ -468,44 +405,38 @@ describe('fetchRecordById', () => {
 describe('executeSoftDelete', () => {
   describe('when record exists and is not deleted', () => {
     test('sets deleted_at to NOW() and returns true', async () => {
-      const mockTx = {
-        execute: async (_query: any) => {
-          // Return non-empty result (record was updated)
-          return [{ id: '123' }]
-        },
-      }
+      // executeSoftDelete: [0] hasDeletedByColumn check, [1] UPDATE
+      const mock = createCallCounterMock([
+        [], // no deleted_by column
+        [{ id: '123' }], // UPDATE returned row
+      ])
 
-      const result = await executeSoftDelete(asTx(mockTx), 'users', '123')
+      const result = await executeSoftDelete(asTx(mock.tx), 'users', '123')
 
       expect(result).toBe(true)
     })
 
     test('uses sql.identifier for table name safety', async () => {
-      let executedQuery: any = null
+      const mock = createCallCounterMock([
+        [], // no deleted_by column
+        [{ id: '123' }], // UPDATE returned row
+      ])
 
-      const mockTx = {
-        execute: async (_query: any) => {
-          executedQuery = _query
-          return [{ id: '123' }]
-        },
-      }
+      await executeSoftDelete(asTx(mock.tx), 'users', '123')
 
-      await executeSoftDelete(asTx(mockTx), 'users', '123')
-
-      expect(executedQuery).toBeDefined()
+      // 2 calls: hasDeletedByColumn check + UPDATE
+      expect(mock.callCount()).toBe(2)
     })
   })
 
   describe('when record does not exist or is already deleted', () => {
     test('returns false when no record updated', async () => {
-      const mockTx = {
-        execute: async () => {
-          // Return empty array (no record updated)
-          return []
-        },
-      }
+      const mock = createCallCounterMock([
+        [], // no deleted_by column
+        [], // UPDATE returned empty (no match)
+      ])
 
-      const result = await executeSoftDelete(asTx(mockTx), 'users', '999')
+      const result = await executeSoftDelete(asTx(mock.tx), 'users', '999')
 
       expect(result).toBe(false)
     })
@@ -550,44 +481,33 @@ describe('executeSoftDelete', () => {
 describe('executeHardDelete', () => {
   describe('when record exists', () => {
     test('permanently deletes record and returns true', async () => {
-      const mockTx = {
-        execute: async (_query: any) => {
-          // Return non-empty result (record was deleted)
-          return [{ id: '123' }]
-        },
-      }
+      const mock = createCallCounterMock([
+        [{ id: '123' }], // DELETE returned row
+      ])
 
-      const result = await executeHardDelete(asTx(mockTx), 'users', '123')
+      const result = await executeHardDelete(asTx(mock.tx), 'users', '123')
 
       expect(result).toBe(true)
     })
 
     test('uses sql.identifier for table name safety', async () => {
-      let executedQuery: any = null
+      const mock = createCallCounterMock([
+        [{ id: '123' }], // DELETE returned row
+      ])
 
-      const mockTx = {
-        execute: async (_query: any) => {
-          executedQuery = _query
-          return [{ id: '123' }]
-        },
-      }
+      await executeHardDelete(asTx(mock.tx), 'users', '123')
 
-      await executeHardDelete(asTx(mockTx), 'users', '123')
-
-      expect(executedQuery).toBeDefined()
+      expect(mock.callCount()).toBe(1)
     })
   })
 
   describe('when record does not exist', () => {
     test('returns false when no record deleted', async () => {
-      const mockTx = {
-        execute: async () => {
-          // Return empty array (no record deleted)
-          return []
-        },
-      }
+      const mock = createCallCounterMock([
+        [], // DELETE returned empty
+      ])
 
-      const result = await executeHardDelete(asTx(mockTx), 'users', '999')
+      const result = await executeHardDelete(asTx(mock.tx), 'users', '999')
 
       expect(result).toBe(false)
     })
@@ -632,14 +552,11 @@ describe('executeHardDelete', () => {
 describe('checkDeletedAtColumn', () => {
   describe('when table has deleted_at column', () => {
     test('returns true', async () => {
-      const mockTx = {
-        execute: async (_query: any) => {
-          // Return column info (deleted_at exists)
-          return [{ column_name: 'deleted_at' }]
-        },
-      }
+      const mock = createCallCounterMock([
+        [{ column_name: 'deleted_at' }], // column exists
+      ])
 
-      const result = await checkDeletedAtColumn(asTx(mockTx), 'users')
+      const result = await checkDeletedAtColumn(asTx(mock.tx), 'users')
 
       expect(result).toBe(true)
     })
@@ -647,14 +564,11 @@ describe('checkDeletedAtColumn', () => {
 
   describe('when table does NOT have deleted_at column', () => {
     test('returns false', async () => {
-      const mockTx = {
-        execute: async () => {
-          // Return empty array (column does not exist)
-          return []
-        },
-      }
+      const mock = createCallCounterMock([
+        [], // column does not exist
+      ])
 
-      const result = await checkDeletedAtColumn(asTx(mockTx), 'users')
+      const result = await checkDeletedAtColumn(asTx(mock.tx), 'users')
 
       expect(result).toBe(false)
     })
