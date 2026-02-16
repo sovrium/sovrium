@@ -956,7 +956,7 @@ test.describe('Record Authorship Metadata', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-AUTHORSHIP-020: should set deleted_by on all records during batch delete',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
