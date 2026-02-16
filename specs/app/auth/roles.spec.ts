@@ -230,7 +230,7 @@ test.describe('Custom Role Definitions (US-AUTH-ROLES-001)', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-ROLES-007: should reject table permission referencing undefined role',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
