@@ -37,7 +37,7 @@ test.describe('Auth Strategy Configuration', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-AUTH-STRATEGIES-001: should accept array of strategy objects with type field',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
@@ -57,7 +57,7 @@ test.describe('Auth Strategy Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-STRATEGIES-002: should support emailAndPassword, magicLink, and oauth strategy types',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
@@ -81,7 +81,7 @@ test.describe('Auth Strategy Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-STRATEGIES-003: should accept strategy-specific configuration options per type',
     { tag: '@spec' },
     async ({ startServerWithSchema, page }) => {
@@ -119,7 +119,7 @@ test.describe('Auth Strategy Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-STRATEGIES-004: should reject configuration when no strategies are defined',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -138,7 +138,7 @@ test.describe('Auth Strategy Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-STRATEGIES-005: should reject configuration with duplicate strategy types',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -159,7 +159,7 @@ test.describe('Auth Strategy Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-STRATEGIES-006: should reject configuration with unknown strategy type',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -178,7 +178,7 @@ test.describe('Auth Strategy Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-STRATEGIES-007: should validate strategy-specific required options',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -197,7 +197,7 @@ test.describe('Auth Strategy Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-AUTH-STRATEGIES-008: should apply emailAndPassword defaults when options are omitted',
     { tag: '@spec' },
     async ({ startServerWithSchema, signUp, page }) => {
@@ -239,7 +239,7 @@ test.describe('Auth Strategy Configuration', () => {
   // Generated from 8 @spec tests - see individual @spec tests for exhaustive criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-AUTH-STRATEGIES-REGRESSION: developer can configure authentication strategies correctly',
     { tag: '@regression' },
     async ({ startServerWithSchema, signUp, page }) => {
