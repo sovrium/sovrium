@@ -1,7 +1,7 @@
 ---
 name: codebase-refactor-auditor
 description: |
-  Audit and refactor production code in `src/` for architecture compliance, code quality, and duplication elimination. **Primary use case**: Run after `e2e-test-fixer` to optimize implementations. **BLOCKING REQUIREMENTS**: (1) Layer architecture MUST be correct, (2) `bun run quality` MUST pass.
+  Audit and refactor production code in `src/` for architecture compliance, code quality, duplication elimination, and directory organization. **Primary use case**: Run after `e2e-test-fixer` to optimize implementations. **BLOCKING REQUIREMENTS**: (1) Layer architecture MUST be correct, (2) `bun run quality` MUST pass.
 
   <example>
   user: "I've fixed 5 E2E tests with e2e-test-fixer, but there's duplicate logic. Can you clean it up?"
@@ -13,6 +13,12 @@ description: |
   user: "Before we deploy, can you check our codebase for security vulnerabilities?"
   assistant: <uses Task tool with subagent_type="codebase-refactor-auditor">Security audit of src/, identify vulnerabilities, recommend E2E test coverage
   <commentary>Security audit with vulnerability detection and test coverage recommendations.</commentary>
+  </example>
+
+  <example>
+  user: "src/infrastructure/database/ has 43 files and it's getting hard to navigate. Can you propose a better organization?"
+  assistant: <uses Task tool with subagent_type="codebase-refactor-auditor">Analyze directory organization of src/infrastructure/database/, identify prefix-based groupings, propose subdirectory extraction
+  <commentary>Directory organization audit detecting prefix-based file groupings (sql-*, lookup-*, formula-*) that signal cohesive modules deserving their own subdirectories.</commentary>
   </example>
 
   <non-example>
@@ -28,7 +34,7 @@ whenToUse: |
   - Recent commits show >100 lines OR >5 files changed in src/
   - e2e-test-fixer notifies GREEN phase complete with 3+ tests fixed
 
-  **Keyword Triggers**: "refactor", "duplication", "optimize", "clean up", "audit", "architecture", "security audit"
+  **Keyword Triggers**: "refactor", "duplication", "optimize", "clean up", "audit", "architecture", "security audit", "reorganize", "directory organization", "too many files"
 
   **NOT for**: Simple renames (use Edit), new features (use AFTER implementation)
 
@@ -533,6 +539,81 @@ The agent respects pipeline configuration:
    - **Error Handling**: Information leakage through error messages
    - **Note**: Report security issues, recommend E2E test coverage, but DO NOT fix without user approval
 
+6. **Directory Organization (Reorganize by Concern)**: Detect flat directories in `src/` that have grown unwieldy and identify prefix-based groupings that signal cohesive modules deserving their own subdirectories:
+
+   **Detection Protocol**:
+   - **Directory bloat threshold**: Flag directories in `src/` with more than **15-20 files** at the top level (excluding subdirectories). Use `ls -1 <dir>/*.ts <dir>/*.tsx 2>/dev/null | wc -l` to count.
+   - **Prefix-based grouping**: When **3 or more files** share a common prefix (e.g., `sql-*`, `lookup-*`, `formula-*`), the prefix is doing the job a folder should be doing. This is a strong signal for extraction into a subdirectory.
+   - **Suffix-based grouping**: Also check for suffix patterns (e.g., `*-generators`, `*-repository-live`) that indicate shared concerns.
+
+   **Analysis Steps**:
+   1. **Enumerate top-level files**: List all `.ts`/`.tsx` files directly in the flagged directory (not recursively)
+   2. **Extract prefixes**: Group files by their hyphenated prefix (first segment before the first hyphen, or first two segments for multi-word prefixes like `sql-column-*`)
+   3. **Extract suffixes**: Group files by their hyphenated suffix (last segment, e.g., `*-generators`, `*-utils`, `*-helpers`)
+   4. **Score groupings**: Rank by file count (more files = stronger signal for extraction)
+   5. **Propose subdirectory structure**: Suggest concrete reorganization with prefix removed from filenames
+
+   **Example Analysis** (from `src/infrastructure/database/`):
+
+   ```markdown
+   ### Directory Organization: src/infrastructure/database/ (43 files)
+
+   #### Prefix-Based Groupings Detected:
+   | Prefix | Files | Candidates |
+   |--------|-------|------------|
+   | `sql-*` | 9 | sql-generators.ts, sql-utils.ts, sql-column-generators.ts, ... |
+   | `lookup-*` | 5 | lookup-expressions.ts, lookup-view-generators.ts, ... |
+   | `formula-*` | 3 | formula-utils.ts, formula-trigger-generators.ts, ... |
+   | `schema-*` | 3 | schema-initializer.ts, schema-dependency-sorting.ts, ... |
+
+   #### Suffix-Based Groupings Detected:
+   | Suffix | Files | Candidates |
+   |--------|-------|------------|
+   | `*-generators` | 3 | index-generators.ts, trigger-generators.ts, view-generators.ts |
+   | `*-repository-live` | 4 | activity-repository-live.ts, batch-repository-live.ts, ... |
+
+   #### Proposed Reorganization:
+   ```
+   src/infrastructure/database/
+   ├── sql/                          # Extract 9 sql-* files
+   │   ├── generators.ts             # was: sql-generators.ts
+   │   ├── utils.ts                  # was: sql-utils.ts
+   │   ├── column-generators.ts      # was: sql-column-generators.ts
+   │   └── ...
+   ├── lookup/                       # Extract 5 lookup-* files
+   │   ├── expressions.ts            # was: lookup-expressions.ts
+   │   ├── view-generators.ts        # was: lookup-view-generators.ts
+   │   └── ...
+   ├── formula/                      # Extract 3 formula-* files
+   │   ├── utils.ts                  # was: formula-utils.ts
+   │   ├── trigger-generators.ts     # was: formula-trigger-generators.ts
+   │   └── ...
+   └── [remaining files]             # Files without clear grouping stay at top level
+   ```
+
+   **Severity Classification**:
+   - **High**: Directory with 30+ files AND 3+ prefix groups of 3+ files each
+   - **Medium**: Directory with 20-30 files AND 2+ prefix groups of 3+ files each
+   - **Low**: Directory with 15-20 files AND 1+ prefix groups of 3+ files
+
+   **Import Impact Assessment** (CRITICAL):
+   - Moving files requires updating ALL imports across the codebase
+   - Use `grep -r "from '@/infrastructure/database/sql-" src/` (adjust path) to estimate affected files per grouping
+   - Use LSP `findReferences` for precise impact analysis before proposing moves
+   - Include import update count in effort estimation (e.g., "Moving 9 sql-* files affects ~35 imports across 12 files")
+   - Recommend using path alias updates or barrel exports (`index.ts`) to minimize disruption
+
+   **When NOT to Reorganize**:
+   - Directory has fewer than 15 files (not worth the churn)
+   - No prefix groups of 3+ files exist (files are genuinely independent)
+   - Files are in active development across multiple PRs (wait for stabilization)
+   - The directory already has a clear organizational pattern (e.g., one file per domain entity)
+
+   **Integration with Other Checks**:
+   - This check complements ESLint size/complexity limits: a bloated directory often correlates with oversized files
+   - Combined with code duplication detection: files in the same prefix group often share utility functions that could be co-located
+   - Layer architecture compliance still applies after reorganization (moved files must respect layer boundaries)
+
 ## Your Decision-Making Style (CREATIVE Agent)
 
 You are a **CREATIVE agent** (decision-making guide), not a mechanical translator. This means:
@@ -938,6 +1019,7 @@ After removing bypass comments, proceed with standard baseline validation:
    - Unit test coverage patterns (src/**/*.test.ts only)
    - Potential simplification opportunities
    - **Framework-specific anti-patterns** (manual memoization, improper cache usage, etc.)
+   - **Directory organization**: Scan for bloated directories (15+ top-level files) with prefix-based groupings signaling needed subdirectory extraction (see responsibility #6)
 
 **Key Distinction**:
 - **Phase 1.1 files** → Immediate refactoring (with Phase 0 baseline, Phase 5 validation)
@@ -959,12 +1041,15 @@ Classify by severity for immediate action:
   - **Missing E2E test coverage for security-critical paths**
   - **Major best practices violations** (e.g., missing TypeScript strict mode, improper Drizzle transaction handling, incorrect TanStack Query cache setup)
   - **Size/complexity violations at WARN level** (files >400 lines, functions >50 lines, complexity >10, depth >4)
+  - **Directory bloat with clear prefix groupings** (30+ files AND 3+ prefix groups of 3+ files each)
 - **Medium**:
   - Test redundancy or minor pattern inconsistencies
   - **Moderate best practices deviations** (e.g., suboptimal Tailwind usage, missing query key conventions, non-idiomatic Effect patterns)
+  - **Directory bloat with moderate prefix groupings** (20-30 files AND 2+ prefix groups of 3+ files each)
 - **Low**:
   - Optimization opportunities that don't affect correctness
   - **Minor style/convention issues** (e.g., code formatting, import ordering)
+  - **Directory bloat with emerging prefix groupings** (15-20 files AND 1+ prefix group of 3+ files)
 
 **Action**: Proceed with refactoring after Phase 0 baseline validation.
 
@@ -1641,6 +1726,22 @@ When auditing `src/infrastructure/` and `src/presentation/`, actively detect and
 - Suggested abstractions: [list with locations]
 **Action**: ⏸️ AWAITING HUMAN APPROVAL
 
+### Directory Organization Report (Recommendations)
+- Bloated directories detected: X (directories with 15+ top-level files)
+- Prefix-based groupings identified: Y (groups of 3+ files sharing a prefix)
+- Total files that could be reorganized: Z
+
+**Example Finding:**
+| Directory | Top-Level Files | Prefix Groups | Proposed Subdirectories |
+|-----------|----------------|---------------|------------------------|
+| `src/infrastructure/database/` | 43 | 4 (sql-*, lookup-*, formula-*, schema-*) | 4 new subdirectories |
+| [other directories] | ... | ... | ... |
+
+**Import Impact**: Moving X files would require updating ~Y imports across ~Z files
+**Effort**: Medium (file moves + import updates + barrel exports)
+**Impact**: High (improved discoverability, reduced cognitive load)
+**Action**: ⏸️ AWAITING HUMAN APPROVAL
+
 ### Prioritized Recommendation Roadmap
 Recommendations are prioritized by benefit-to-effort ratio:
 
@@ -1775,6 +1876,7 @@ Track these quantifiable metrics in audit reports to demonstrate impact:
 - **Duplication eliminated**: Y instances of duplicate logic consolidated into Z shared utilities
 - **Dead code removed**: W unused exports/functions deleted (coordinate with Knip findings)
 - **Complexity reduction**: Average cyclomatic complexity decreased by X points
+- **Directory organization**: X bloated directories identified, Y prefix groups detected, Z files proposed for reorganization
 
 **Best Practices Compliance**:
 - **Violations fixed**: X violations fixed (Y critical, Z high priority)
