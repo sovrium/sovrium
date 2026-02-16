@@ -43,7 +43,7 @@ POST /api/tables/1/records/batch
 | AC-011 | Returns only count when returnRecords=false             | `API-TABLES-RECORDS-BATCH-POST-011`        | ✅     |
 | AC-012 | Maximum batch size is 100 records                       | `API-TABLES-RECORDS-BATCH-POST-012`        | ✅     |
 | AC-013 | Rolls back all on validation error in transaction mode  | `API-TABLES-RECORDS-BATCH-POST-013`        | ✅     |
-| AC-014 | User batch creates records with validation (regression) | `API-TABLES-RECORDS-BATCH-POST-REGRESSION` | ⏳     |
+| AC-014 | User batch creates records with validation (regression) | `API-TABLES-RECORDS-BATCH-POST-REGRESSION` | ✅     |
 
 ### Implementation References
 
