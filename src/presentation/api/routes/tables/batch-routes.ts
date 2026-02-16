@@ -31,7 +31,6 @@ import {
 import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { runEffect } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
-import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { validateRequest } from '@/presentation/api/utils/validate-request'
 import { validateReadonlyFields, validateUpsertRequest, applyReadFiltering } from './upsert-helpers'
 import { handleBatchRestoreError } from './utils'
@@ -213,31 +212,19 @@ async function handleBatchCreate(c: Context, app: App) {
   if (readonlyValidation) return readonlyValidation
 
   // Authorization: Check field-level write permissions
-  // Strip unwritable fields instead of rejecting with 403
-  const { stripUnwritableFields } = await import('./upsert-helpers')
-  const strippedRecords = stripUnwritableFields(app, tableName, userRole, result.data.records)
+  // Return 403 if user attempts to write to any protected field
+  const { checkFieldPermissions } = await import('./upsert-helpers')
+  const permissionCheck = checkFieldPermissions({
+    app,
+    tableName,
+    userRole,
+    records: result.data.records,
+    c,
+  })
+  if (!permissionCheck.allowed) return permissionCheck.response
 
-  // After stripping, check if ANY records have writable fields remaining
-  const hasWritableFields = strippedRecords.some((record) => Object.keys(record.fields).length > 0)
-  if (!hasWritableFields) {
-    // All fields were stripped - user tried to create with only protected fields
-    const allForbiddenFields = result.data.records
-      .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
-      .filter((fields) => fields.length > 0)
-    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
-    const firstForbiddenField = uniqueForbiddenFields[0]
-    return c.json(
-      {
-        success: false,
-        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
-        code: 'FORBIDDEN',
-      },
-      403
-    )
-  }
-
-  // Extract flat field objects from stripped records for database layer
-  const flatRecordsData = strippedRecords.map((record) => record.fields)
+  // Extract flat field objects from records for database layer
+  const flatRecordsData = result.data.records.map((record) => record.fields)
 
   // Execute batch create with returnRecords parameter and app for numeric coercion
   const program = batchCreateProgram(
@@ -298,32 +285,20 @@ async function handleBatchUpdate(c: Context, app: App) {
   if (readonlyValidation) return readonlyValidation
 
   // Authorization: Check field-level write permissions
-  // Strip unwritable fields instead of rejecting with 403
-  const { stripUnwritableFields } = await import('./upsert-helpers')
-  const strippedRecords = stripUnwritableFields(app, tableName, userRole, result.data.records)
-
-  // After stripping, check if ANY records have writable fields remaining
-  const hasWritableFields = strippedRecords.some((record) => Object.keys(record.fields).length > 0)
-  if (!hasWritableFields) {
-    // All fields were stripped - user tried to update only protected fields
-    const allForbiddenFields = result.data.records
-      .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
-      .filter((fields) => fields.length > 0)
-    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
-    const firstForbiddenField = uniqueForbiddenFields[0]
-    return c.json(
-      {
-        success: false,
-        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
-        code: 'FORBIDDEN',
-      },
-      403
-    )
-  }
+  // Return 403 if user attempts to write to any protected field
+  const { checkFieldPermissions } = await import('./upsert-helpers')
+  const permissionCheck = checkFieldPermissions({
+    app,
+    tableName,
+    userRole,
+    records: result.data.records,
+    c,
+  })
+  if (!permissionCheck.allowed) return permissionCheck.response
 
   // Keep records in { id, fields } format for database layer
-  const recordsData = strippedRecords.map((record, index) => ({
-    id: result.data.records[index]!.id,
+  const recordsData = result.data.records.map((record) => ({
+    id: record.id,
     fields: record.fields,
   }))
 

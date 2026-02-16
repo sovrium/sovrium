@@ -699,7 +699,7 @@ test.describe('Batch create records', () => {
   // Skipped: 006 (viewer role), 010 (admin role) - require different auth contexts
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-TABLES-RECORDS-BATCH-POST-REGRESSION: user can complete full batch create workflow',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, executeQuery, createAuthenticatedUser }) => {
