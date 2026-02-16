@@ -31,7 +31,7 @@ export type ServerStartupError = AppValidationError | ServerCreationError | CSSC
  * ```typescript
  * import { Effect } from 'effect'
  * import { start } from '@/index'
- * import { handleStartupError } from '@/utils/error-handling'
+ * import { handleStartupError } from '@/application/use-cases/server/startup-error-handler'
  *
  * const program = start(myApp).pipe(
  *   Effect.catchAll(handleStartupError)

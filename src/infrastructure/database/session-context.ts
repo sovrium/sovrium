@@ -17,5 +17,4 @@ export {
   ForbiddenError,
   UniqueConstraintViolationError,
   ValidationError,
-  type DatabaseTransaction,
 } from '@/domain/errors'

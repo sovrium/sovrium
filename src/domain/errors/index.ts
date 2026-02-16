@@ -76,10 +76,3 @@ export class ValidationError extends Error {
     this.details = details
   }
 }
-
-/**
- * Database transaction interface supporting unsafe SQL execution
- */
-export interface DatabaseTransaction {
-  readonly unsafe: (sql: string) => Promise<unknown>
-}
