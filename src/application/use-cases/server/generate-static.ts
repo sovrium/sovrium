@@ -19,9 +19,9 @@ import {
 } from '@/application/ports/static-site-generator'
 import { AppSchema } from '@/domain/models/app'
 import {
-  importFsModule,
-  importTranslationReplacer,
-  importPathModule,
+  fs,
+  path,
+  translationReplacer,
   writeCssFile,
   generateHydrationFiles,
   copyPublicAssets,
@@ -183,16 +183,15 @@ function optimizeHtmlFiles(
   outputDir: string,
   options: GenerateStaticOptions,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
-  fs: any
+  fsModule: any
 ) {
   return Effect.gen(function* () {
-    const path = yield* importPathModule()
-    yield* formatHtmlFiles(generatedFiles, outputDir, fs, path)
+    yield* formatHtmlFiles(generatedFiles, outputDir, fsModule, path)
     yield* applyHtmlOptimizations({
       generatedFiles,
       outputDir,
       options,
-      fs,
+      fs: fsModule,
       path,
     })
   })
@@ -247,9 +246,8 @@ export const generateStatic = (
   ServerFactoryService | PageRendererService | CSSCompilerService | StaticSiteGeneratorService
 > => {
   const program = Effect.gen(function* () {
-    // Step 1: Import dependencies
-    const fs = yield* importFsModule()
-    const { replaceAppTokens } = yield* importTranslationReplacer()
+    // Step 1: Dependencies are statically imported
+    const { replaceAppTokens } = translationReplacer
 
     // Step 2: Validate app schema
     const validatedApp = yield* validateAppSchema(app)

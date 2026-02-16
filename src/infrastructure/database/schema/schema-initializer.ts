@@ -19,6 +19,7 @@ import {
   type BetterAuthUsersTableRequired,
 } from '../auth/auth-validation'
 import { sanitizeTableName, isManyToManyRelationship } from '../field-utils'
+import * as lookupViewGenerators from '../lookup/lookup-view-generators'
 import {
   getPreviousSchema,
   logRollbackOperation,
@@ -44,6 +45,7 @@ import {
   createLookupViewsEffect,
   createTableViewsEffect,
 } from '../table-operations'
+import * as viewGenerators from '../views/view-generators'
 import {
   detectCircularDependenciesWithOptionalFK,
   sortTablesByDependencies,
@@ -59,17 +61,6 @@ export { BetterAuthUsersTableRequired } from '../auth/auth-validation'
 export class NoDatabaseUrlError extends Data.TaggedError('NoDatabaseUrlError')<{
   readonly message: string
 }> {}
-
-// Type for lookup view module (dynamic import)
-type LookupViewModule = {
-  readonly shouldUseView: (table: Table) => boolean
-  readonly getBaseTableName: (tableName: string) => string
-}
-
-// Type for view generators module (dynamic import)
-type ViewGeneratorsModule = {
-  readonly dropAllObsoleteViews: (tx: TransactionLike, tables: readonly Table[]) => Promise<void>
-}
 
 /** Ensure Better Auth prerequisites exist (users table + updated-by trigger) */
 const ensureAuthPrerequisites = (
@@ -104,7 +95,7 @@ const ensureAuthPrerequisites = (
 /** Build map of which tables use VIEWs (have lookup fields) */
 const buildTableUsesViewMap = (
   tables: readonly Table[],
-  lookupViewModule: LookupViewModule
+  lookupViewModule: typeof lookupViewGenerators
 ): ReadonlyMap<string, boolean> =>
   new Map(tables.map((table) => [table.name, lookupViewModule.shouldUseView(table)]))
 
@@ -115,7 +106,7 @@ type CreateMigrateTablesConfig = {
   readonly tableUsesView: ReadonlyMap<string, boolean>
   readonly circularTables: ReadonlySet<string>
   readonly previousSchema: { readonly tables: readonly object[] } | undefined
-  readonly lookupViewModule: LookupViewModule
+  readonly lookupViewModule: typeof lookupViewGenerators
   readonly hasAuthConfig: boolean
 }
 
@@ -215,7 +206,7 @@ const createJunctionTables = (
 const createAllViews = (
   tx: TransactionLike,
   sortedTables: readonly Table[],
-  viewGeneratorsModule: ViewGeneratorsModule
+  viewGeneratorsModule: typeof viewGenerators
 ): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
     yield* Effect.promise(() => viewGeneratorsModule.dropAllObsoleteViews(tx, sortedTables))
@@ -252,8 +243,7 @@ const executeMigrationSteps = (
     yield* dropObsoleteTables(tx, tables)
 
     // Step 5: Build view map and detect circular dependencies
-    const lookupViewModule = yield* Effect.promise(() => import('../lookup/lookup-view-generators'))
-    const tableUsesView = buildTableUsesViewMap(tables, lookupViewModule)
+    const tableUsesView = buildTableUsesViewMap(tables, lookupViewGenerators)
     const circularTables = detectCircularDependenciesWithOptionalFK(tables)
     if (circularTables.size > 0) {
       logInfo(`[Circular dependencies detected] ${Array.from(circularTables).join(', ')}`)
@@ -270,7 +260,7 @@ const executeMigrationSteps = (
       tableUsesView,
       circularTables,
       previousSchema,
-      lookupViewModule,
+      lookupViewModule: lookupViewGenerators,
       hasAuthConfig: !!app.auth,
     })
 
@@ -282,8 +272,7 @@ const executeMigrationSteps = (
     yield* createJunctionTables(tx, junctionTableSpecs)
 
     // Steps 9-11: Create all views
-    const viewGeneratorsModule = yield* Effect.promise(() => import('../views/view-generators'))
-    yield* createAllViews(tx, sortedTables, viewGeneratorsModule)
+    yield* createAllViews(tx, sortedTables, viewGenerators)
 
     // Steps 12-13: Record migration and store checksum
     yield* recordMigration(tx, app)
@@ -553,8 +542,7 @@ const initializeSchemaInternal = (
             // Side effect: Drop obsolete views in database transaction
             /* eslint-disable functional/no-expression-statements */
             await db.begin(async (tx) => {
-              const viewGeneratorsModule = await import('../views/view-generators')
-              await viewGeneratorsModule.dropAllObsoleteViews(tx, tables)
+              await viewGenerators.dropAllObsoleteViews(tx, tables)
             })
             /* eslint-enable functional/no-expression-statements */
           },

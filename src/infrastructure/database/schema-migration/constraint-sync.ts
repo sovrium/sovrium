@@ -11,6 +11,7 @@ import {
   type TransactionLike,
   type SQLExecutionError,
 } from '../sql/sql-execution'
+import { generateForeignKeyConstraints, generateTableConstraints } from '../sql/sql-generators'
 import type { Table } from '@/domain/models/app/table'
 
 /**
@@ -146,9 +147,6 @@ export const syncForeignKeyConstraints = (
   tableUsesView?: ReadonlyMap<string, boolean>
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const { generateForeignKeyConstraints } = yield* Effect.promise(
-      () => import('../sql/sql-generators')
-    )
     const fkConstraints = generateForeignKeyConstraints(table.name, table.fields, tableUsesView)
 
     // Build drop and add statements for each FK constraint
@@ -239,9 +237,6 @@ export const syncCheckConstraints = (
   table: Table
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const { generateTableConstraints } = yield* Effect.promise(
-      () => import('../sql/sql-generators')
-    )
     const allConstraints = generateTableConstraints(table, undefined)
 
     // Filter only CHECK constraints (not UNIQUE, FK, or PRIMARY KEY)

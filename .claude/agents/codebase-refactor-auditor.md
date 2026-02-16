@@ -489,7 +489,7 @@ The agent respects pipeline configuration:
    - **Effect.ts & Web Framework** (@docs/infrastructure/framework/effect.md, hono.md, better-auth.md): Effect.gen patterns, error handling, service injection, cache usage, Hono middleware/routing, Better Auth session management and CSRF protection
    - **Database** (@docs/infrastructure/database/drizzle.md): Drizzle schema patterns, query optimization, transaction handling with Effect, migration management
    - **UI Frameworks** (@docs/infrastructure/ui/*.md): React 19 (no manual memoization), TanStack Query/Table integration, shadcn/ui composition, Tailwind utility-first patterns, React Hook Form with Zod
-   - **Language & Runtime** (@docs/infrastructure/language/typescript.md, runtime/bun.md): TypeScript strict mode, type inference, branded types, Bun-specific APIs
+   - **Language & Runtime** (@docs/infrastructure/language/typescript.md, runtime/bun.md): TypeScript strict mode, type inference, branded types, Bun-specific APIs, static imports preferred over dynamic imports (see Code Reduction responsibility)
    - **Code Quality** (@docs/infrastructure/quality/*.md): ESLint functional programming rules (modular config in `eslint/*.config.ts`), code size/complexity limits (`eslint/size-limits.config.ts`), Prettier formatting (no semicolons, single quotes), Knip dead code detection
    - **Testing** (@docs/infrastructure/testing/*.md): F.I.R.S.T principles (Bun Test), Playwright test tags (@spec, @regression, @spec)
 
@@ -517,6 +517,11 @@ The agent respects pipeline configuration:
    - Eliminating unnecessary abstractions or over-engineering
    - Simplifying complex conditional logic
    - Removing dead code (coordinate with Knip tool findings)
+   - **Replacing dynamic imports with static imports** where the module is always needed:
+     - `await import('module')` adds runtime overhead (async resolution, promise allocation) compared to `import ... from 'module'` which is resolved at startup
+     - Dynamic imports are appropriate ONLY when: (1) the module is conditionally loaded based on runtime environment (e.g., Bun vs Node.js driver selection), (2) the module is used in a rarely-executed code path and is expensive to load (true lazy loading), or (3) test files need module re-import for isolation
+     - **Detection**: `grep -r "await import(" src/ --include="*.ts" --include="*.tsx"` — review each hit and determine if a static import would suffice
+     - **Common anti-pattern**: Using `const { something } = await import('module')` inside a function when the module is always imported regardless of conditions — replace with a top-level `import { something } from 'module'`
    - **Enforcing ESLint size/complexity limits** (`eslint/size-limits.config.ts`):
      - **Default limits**: 400 lines/file, 50 lines/function, complexity 10, max depth 4, max params 4, max statements 20
      - **React components** (`src/presentation/components/**/*.tsx`): Stricter 300 lines (ERROR level), 60 lines/function

@@ -6,7 +6,11 @@
  */
 
 import { Effect } from 'effect'
-import { hasCreatePermission } from '@/application/use-cases/tables/permissions/permissions'
+import {
+  hasCreatePermission,
+  hasUpdatePermission,
+  hasDeletePermission,
+} from '@/application/use-cases/tables/permissions/permissions'
 import {
   batchCreateProgram,
   batchUpdateProgram,
@@ -32,7 +36,12 @@ import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { runEffect } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { validateRequest } from '@/presentation/api/utils/validate-request'
-import { validateReadonlyFields, validateUpsertRequest, applyReadFiltering } from './upsert-helpers'
+import {
+  validateReadonlyFields,
+  validateUpsertRequest,
+  applyReadFiltering,
+  stripUnwritableFields,
+} from './upsert-helpers'
 import { handleBatchRestoreError } from './utils'
 import type {
   RecordFieldValue,
@@ -358,8 +367,6 @@ async function handleBatchUpdate(c: Context, app: App) {
   const table = app.tables?.find((t) => t.name === tableName)
 
   // Authorization: Check table-level update permission
-  const { hasUpdatePermission } =
-    await import('@/application/use-cases/tables/permissions/permissions')
   if (!hasUpdatePermission(table, userRole, app.tables)) {
     return c.json(
       {
@@ -376,7 +383,6 @@ async function handleBatchUpdate(c: Context, app: App) {
   if (readonlyValidation) return readonlyValidation
 
   // Authorization: Check field-level write permissions and strip unwritable fields
-  const { stripUnwritableFields } = await import('./upsert-helpers')
   const strippedRecords = stripUnwritableFields(app, tableName, userRole, result.data.records)
 
   // Validate at least some writable fields remain after stripping
@@ -438,8 +444,6 @@ async function handleBatchDelete(c: Context, app: App) {
   const table = app.tables?.find((t) => t.name === tableName)
 
   // Authorization: Check table-level delete permission
-  const { hasDeletePermission } =
-    await import('@/application/use-cases/tables/permissions/permissions')
   if (!hasDeletePermission(table, userRole, app.tables)) {
     return c.json(
       {
@@ -503,7 +507,7 @@ async function handleUpsert(c: Context, app: App) {
   })
 
   // Apply field-level read filtering to response
-  const filteredProgram = await applyReadFiltering({
+  const filteredProgram = applyReadFiltering({
     program,
     app,
     tableName,

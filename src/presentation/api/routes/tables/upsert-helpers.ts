@@ -5,9 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { hasCreatePermission } from '@/application/use-cases/tables/permissions/permissions'
+import {
+  hasCreatePermission,
+  hasUpdatePermission,
+} from '@/application/use-cases/tables/permissions/permissions'
+import { filterReadableFields } from '@/application/use-cases/tables/utils/field-read-filter'
+import { db } from '@/infrastructure/database/drizzle'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
+import { validateRequiredFieldsForRecord } from './create-record-helpers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -19,8 +26,6 @@ export async function validateUpsertRequiredFields(
   table: NonNullable<App['tables']>[number] | undefined,
   records: readonly { fields: Record<string, unknown> }[]
 ): Promise<Array<{ record: number; field: string; error: string }>> {
-  const { validateRequiredFieldsForRecord } = await import('./create-record-helpers')
-
   return records.flatMap((record, index) => {
     // Extract fields from nested format
     const missingFields = validateRequiredFieldsForRecord(table, record.fields)
@@ -40,9 +45,6 @@ export async function checkForExistingRecords(
   records: readonly { fields: Record<string, unknown> }[],
   fieldsToMergeOn: readonly string[]
 ): Promise<boolean> {
-  const { db } = await import('@/infrastructure/database/drizzle')
-  const { sql } = await import('drizzle-orm')
-
   // Build WHERE clause - skip records missing merge fields (will fail validation)
   const mergeConditions = records
     .filter((record) =>
@@ -119,9 +121,6 @@ export async function checkUpsertPermissionsWithUpdateCheck(config: {
 }): Promise<{ allowed: true } | { allowed: false; response: Response }> {
   const { app, tableName, userRole, records, fieldsToMergeOn, c } = config
   const table = app.tables?.find((t) => t.name === tableName)
-
-  const { hasUpdatePermission } =
-    await import('@/application/use-cases/tables/permissions/permissions')
 
   // Check if any records will be updated
   const hasExistingRecords = await checkForExistingRecords(tableName, records, fieldsToMergeOn)
@@ -261,16 +260,14 @@ type UpsertResponse = {
 /**
  * Apply field-level read filtering to upsert response
  */
-export async function applyReadFiltering<E, R>(config: {
+export function applyReadFiltering<E, R>(config: {
   readonly program: Effect.Effect<UpsertResponse, E, R>
   readonly app: App
   readonly tableName: string
   readonly userRole: string
   readonly userId: string
-}): Promise<Effect.Effect<UpsertResponse, E, R>> {
+}): Effect.Effect<UpsertResponse, E, R> {
   const { program, app, tableName, userRole, userId } = config
-  const { filterReadableFields } =
-    await import('@/application/use-cases/tables/utils/field-read-filter')
 
   return program.pipe(
     Effect.map((response) => {

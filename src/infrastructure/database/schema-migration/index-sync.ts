@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { generateIndexStatements } from '../generators/index-generators'
 import {
   executeSQLStatements,
   type TransactionLike,
@@ -85,10 +86,6 @@ export const syncIndexes = (
   previousSchema?: { readonly tables: readonly object[] }
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
-    const { generateIndexStatements } = yield* Effect.promise(
-      () => import('../generators/index-generators')
-    )
-
     // Get previous table definition
     const previousTable = previousSchema?.tables.find(
       (t: object) => 'name' in t && t.name === table.name

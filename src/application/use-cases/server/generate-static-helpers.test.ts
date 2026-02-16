@@ -7,58 +7,9 @@
 
 import { test, expect, describe } from 'bun:test'
 import { Effect } from 'effect'
-import {
-  importFsModule,
-  importTranslationReplacer,
-  importPathModule,
-  importCopyDirectory,
-  generateHydrationFiles,
-  copyPublicAssets,
-} from './generate-static-helpers'
+import { generateHydrationFiles, copyPublicAssets } from './generate-static-helpers'
 
 describe('generate-static-helpers', () => {
-  describe('importFsModule', () => {
-    test('should successfully import fs module', async () => {
-      const program = importFsModule()
-      const result = await Effect.runPromise(program)
-
-      expect(result).toBeDefined()
-      expect(result.writeFile).toBeDefined()
-      expect(result.readFile).toBeDefined()
-    })
-  })
-
-  describe('importTranslationReplacer', () => {
-    test('should successfully import translation replacer', async () => {
-      const program = importTranslationReplacer()
-      const result = await Effect.runPromise(program)
-
-      expect(result).toBeDefined()
-      expect(result.replaceAppTokens).toBeDefined()
-    })
-  })
-
-  describe('importPathModule', () => {
-    test('should successfully import path module', async () => {
-      const program = importPathModule()
-      const result = await Effect.runPromise(program)
-
-      expect(result).toBeDefined()
-      expect(result.join).toBeDefined()
-      expect(result.resolve).toBeDefined()
-    })
-  })
-
-  describe('importCopyDirectory', () => {
-    test('should successfully import copy directory module', async () => {
-      const program = importCopyDirectory()
-      const result = await Effect.runPromise(program)
-
-      expect(result).toBeDefined()
-      expect(result.copyDirectory).toBeDefined()
-    })
-  })
-
   describe('generateHydrationFiles', () => {
     test('should generate hydration file when enabled', async () => {
       const mockFs = {

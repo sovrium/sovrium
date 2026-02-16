@@ -5,8 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import fs from 'node:fs/promises'
+import path from 'node:path'
 import { Effect, Console } from 'effect'
 import { StaticGenerationError } from '@/application/errors/static-generation-error'
+import { copyDirectory } from '@/infrastructure/filesystem/copy-directory'
 import {
   formatHtmlWithPrettier,
   generateClientHydrationScript,
@@ -18,64 +21,12 @@ import {
   isGitHubPagesUrl,
   rewriteBasePathInHtml,
 } from './static-url-rewriter'
+import * as translationReplacer from './translation-replacer'
 import type { GenerateStaticOptions } from './generate-static'
 import type { App } from '@/domain/models/app'
 
-/**
- * Import required filesystem module
- */
-export function importFsModule() {
-  return Effect.tryPromise({
-    try: () => import('node:fs/promises'),
-    catch: (error) =>
-      new StaticGenerationError({
-        message: 'Failed to import fs module',
-        cause: error,
-      }),
-  })
-}
-
-/**
- * Import translation replacer module
- */
-export function importTranslationReplacer() {
-  return Effect.tryPromise({
-    try: () => import('./translation-replacer'),
-    catch: (error) =>
-      new StaticGenerationError({
-        message: 'Failed to import translation-replacer module',
-        cause: error,
-      }),
-  })
-}
-
-/**
- * Import path module
- */
-export function importPathModule() {
-  return Effect.tryPromise({
-    try: () => import('node:path'),
-    catch: (error) =>
-      new StaticGenerationError({
-        message: 'Failed to import path module',
-        cause: error,
-      }),
-  })
-}
-
-/**
- * Import copy-directory module
- */
-export function importCopyDirectory() {
-  return Effect.tryPromise({
-    try: () => import('@/infrastructure/filesystem/copy-directory'),
-    catch: (error) =>
-      new StaticGenerationError({
-        message: 'Failed to import copy-directory module',
-        cause: error,
-      }),
-  })
-}
+// Re-export static modules for callers that previously used the import helpers
+export { fs, path, translationReplacer }
 
 /**
  * Write CSS file to output directory
@@ -160,7 +111,6 @@ export function copyPublicAssets(publicDir: string | undefined, outputDir: strin
     onTrue: () =>
       Effect.gen(function* () {
         yield* Console.log(`📁 Copying assets from ${publicDir}...`)
-        const { copyDirectory } = yield* importCopyDirectory()
         return yield* copyDirectory(publicDir!, outputDir)
       }),
     onFalse: () => Effect.succeed([] as readonly string[]),
