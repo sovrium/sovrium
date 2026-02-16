@@ -7,6 +7,7 @@
 
 import { Effect } from 'effect'
 import { db, SessionContextError } from '@/infrastructure/database'
+import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import { wrapDatabaseErrorWithValidation } from '../shared/error-handling'
 import { validateTableName } from '../shared/validation'
@@ -41,12 +42,22 @@ export function batchCreateRecords(
             throw new SessionContextError('Cannot create batch with no records', undefined)
           }
 
+          // Inject authorship metadata for each record
+          const recordsWithAuthorship = await Promise.all(
+            recordsData.map((fields) =>
+              injectCreateAuthorship(fields, session.userId, tx, tableName)
+            )
+          )
+
           // Use Effect.reduce with runEffectInTx to properly propagate ValidationError
           return await runEffectInTx(
-            Effect.reduce(recordsData, [] as readonly Record<string, unknown>[], (acc, fields) =>
-              createSingleRecordInBatch(tx, tableName, fields).pipe(
-                Effect.map((record) => (record ? [...acc, record] : acc))
-              )
+            Effect.reduce(
+              recordsWithAuthorship,
+              [] as readonly Record<string, unknown>[],
+              (acc, fields) =>
+                createSingleRecordInBatch(tx, tableName, fields).pipe(
+                  Effect.map((record) => (record ? [...acc, record] : acc))
+                )
             )
           )
         }),
