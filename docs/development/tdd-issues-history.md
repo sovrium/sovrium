@@ -85,11 +85,11 @@ Use these tags in error symptoms or root cause to improve searchability:
 
 ### ISSUE-2026-02-16-sonnet-budget-exceeded
 
-| Field                    | Value                                                                                                                                                                                                            |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Date**                 | 2026-02-16                                                                                                                                                                                                       |
-| **Severity**             | medium                                                                                                                                                                                                           |
-| **Affected Workflow(s)** | `tdd-claude-code.yml`                                                                                                                                                                                            |
+| Field                    | Value                                                                                                                                                                                                                                                                                                                            |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Date**                 | 2026-02-16                                                                                                                                                                                                                                                                                                                       |
+| **Severity**             | medium                                                                                                                                                                                                                                                                                                                           |
+| **Affected Workflow(s)** | `tdd-claude-code.yml`                                                                                                                                                                                                                                                                                                            |
 | **Error Symptoms**       | `[COST]` -- Claude Code failed with `error_max_budget_usd` on PR #7366 (spec API-TABLES-RECORDS-AUTHORSHIP-012, attempt 2/5). The $10 Sonnet per-run budget was insufficient for complex multi-layer spec implementation. Daily usage was $50.18/$200 -- well within daily limits, so the bottleneck was purely the per-run cap. |
 
 **Error Message / Log Excerpt**:
@@ -113,6 +113,7 @@ Increased per-run budget limits:
 - **Opus (attempts 4-5)**: $15 to $20 (+33%)
 
 Updated execution count estimates for daily/weekly limits:
+
 - Daily ($200): ~10-13 executions (was ~14-20)
 - Weekly ($1000): ~50-67 executions (was ~67-100)
 
