@@ -11,6 +11,8 @@ import {
   ListActivityLogs,
   ListActivityLogsLayer,
 } from '@/application/use-cases/list-activity-logs'
+import { getActivityDetailsProgram } from '@/application/use-cases/tables/activity-programs'
+import { ActivityRepositoryLive } from '@/infrastructure/database/repositories/activity-repository-live'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { sanitizeError, getStatusCode } from '@/presentation/api/utils/error-sanitizer'
 import type { Hono } from 'hono'
@@ -49,46 +51,103 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
  *
  * Provides:
  * - GET /api/activity - List activity logs (admin/member only)
+ * - GET /api/activity/:activityId - Get activity details
  *
  * @param honoApp - Hono instance to chain routes onto
  * @returns Hono app with activity routes chained
  */
 export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
-  return honoApp.get('/api/activity', async (c) => {
-    const session = getSessionContext(c)
+  return honoApp
+    .get('/api/activity', async (c) => {
+      const session = getSessionContext(c)
 
-    if (!session) {
-      return c.json(
-        { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
-        401
-      )
-    }
+      if (!session) {
+        return c.json(
+          { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
+          401
+        )
+      }
 
-    const program = ListActivityLogs({
-      userId: session.userId,
-    }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
+      const program = ListActivityLogs({
+        userId: session.userId,
+      }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
 
-    const result = await Effect.runPromise(program)
+      const result = await Effect.runPromise(program)
 
-    if (result._tag === 'Left') {
-      const error = result.left
-      const requestId = crypto.randomUUID()
+      if (result._tag === 'Left') {
+        const error = result.left
+        const requestId = crypto.randomUUID()
 
-      // Sanitize error to prevent information disclosure
-      const sanitized = sanitizeError(error, requestId)
-      const statusCode = getStatusCode(sanitized.code)
+        // Sanitize error to prevent information disclosure
+        const sanitized = sanitizeError(error, requestId)
+        const statusCode = getStatusCode(sanitized.code)
 
-      return c.json(
-        {
-          success: false,
-          message: sanitized.message ?? sanitized.error,
-          code: sanitized.code,
-        },
-        statusCode
-      )
-    }
+        return c.json(
+          {
+            success: false,
+            message: sanitized.message ?? sanitized.error,
+            code: sanitized.code,
+          },
+          statusCode
+        )
+      }
 
-    const logs = result.right
-    return c.json(logs.map(mapToApiResponse), 200)
-  }) as T
+      const logs = result.right
+      return c.json(logs.map(mapToApiResponse), 200)
+    })
+    .get('/api/activity/:activityId', async (c) => {
+      const session = getSessionContext(c)
+
+      if (!session) {
+        return c.json(
+          { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
+          401
+        )
+      }
+
+      const activityId = c.req.param('activityId')
+
+      // Validate activity ID format (should be a valid string ID, not "invalid-id")
+      if (!activityId || activityId.trim() === '' || activityId === 'invalid-id') {
+        return c.json(
+          { success: false, message: 'Invalid activity ID format', code: 'INVALID_INPUT' },
+          400
+        )
+      }
+
+      const program = getActivityDetailsProgram({
+        session,
+        activityId,
+      }).pipe(Effect.provide(ActivityRepositoryLive), Effect.either)
+
+      const result = await Effect.runPromise(program)
+
+      if (result._tag === 'Left') {
+        const error = result.left
+        const requestId = crypto.randomUUID()
+
+        // Sanitize error to prevent information disclosure
+        const sanitized = sanitizeError(error, requestId)
+        const statusCode = getStatusCode(sanitized.code)
+
+        // Map "not found" errors to 404
+        if (
+          sanitized.message?.includes('not found') ||
+          sanitized.message?.includes('Activity not found')
+        ) {
+          return c.json({ success: false, message: 'Activity not found', code: 'NOT_FOUND' }, 404)
+        }
+
+        return c.json(
+          {
+            success: false,
+            message: sanitized.message ?? sanitized.error,
+            code: sanitized.code,
+          },
+          statusCode
+        )
+      }
+
+      return c.json(result.right, 200)
+    }) as T
 }

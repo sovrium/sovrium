@@ -28,6 +28,27 @@ export interface ActivityHistoryEntry {
 }
 
 /**
+ * Activity details with complete metadata
+ */
+export interface ActivityDetails {
+  readonly id: string
+  readonly userId: string | null
+  readonly action: string
+  readonly tableName: string
+  readonly recordId: string
+  readonly changes: unknown
+  readonly createdAt: Date
+  readonly user:
+    | {
+        readonly id: string
+        readonly name: string
+        readonly email: string
+        readonly image: string | null
+      }
+    | undefined
+}
+
+/**
  * Activity Repository Port
  */
 export class ActivityRepository extends Context.Tag('ActivityRepository')<
@@ -38,5 +59,9 @@ export class ActivityRepository extends Context.Tag('ActivityRepository')<
       readonly tableName: string
       readonly recordId: string
     }) => Effect.Effect<readonly ActivityHistoryEntry[], SessionContextError>
+    readonly getActivityById: (config: {
+      readonly session: Readonly<UserSession>
+      readonly activityId: string
+    }) => Effect.Effect<ActivityDetails, SessionContextError>
   }
 >() {}

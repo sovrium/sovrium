@@ -11,7 +11,10 @@ import { users } from '@/infrastructure/auth/better-auth/schema'
 import { SessionContextError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import { activityLogs } from '@/infrastructure/database/drizzle/schema/activity-log'
-import type { ActivityHistoryEntry } from '@/application/ports/repositories/activity-repository'
+import type {
+  ActivityHistoryEntry,
+  ActivityDetails,
+} from '@/application/ports/repositories/activity-repository'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -57,5 +60,68 @@ export function getRecordHistory(config: {
       }))
     },
     catch: (error) => new SessionContextError('Failed to fetch activity history', error),
+  })
+}
+
+/**
+ * Fetch single activity by ID
+ */
+export function getActivityById(config: {
+  readonly session: Readonly<Session>
+  readonly activityId: string
+}): Effect.Effect<ActivityDetails, SessionContextError> {
+  const { activityId } = config
+
+  return Effect.tryPromise({
+    try: async () => {
+      const results = await db
+        .select({
+          id: activityLogs.id,
+          userId: activityLogs.userId,
+          action: activityLogs.action,
+          tableName: activityLogs.tableName,
+          recordId: activityLogs.recordId,
+          changes: activityLogs.changes,
+          createdAt: activityLogs.createdAt,
+          userName: users.name,
+          userEmail: users.email,
+          userImage: users.image,
+        })
+        .from(activityLogs)
+        .leftJoin(users, eq(activityLogs.userId, users.id))
+        .where(eq(activityLogs.id, activityId))
+        .limit(1)
+
+      if (results.length === 0) {
+        throw new SessionContextError('Activity not found', { activityId })
+      }
+
+      const row = results[0]
+
+      return {
+        id: row.id,
+        userId: row.userId,
+        action: row.action,
+        tableName: row.tableName,
+        recordId: row.recordId,
+        changes: row.changes,
+        createdAt: row.createdAt,
+        user:
+          row.userId && row.userName && row.userEmail
+            ? {
+                id: row.userId,
+                name: row.userName,
+                email: row.userEmail,
+                image: row.userImage,
+              }
+            : undefined,
+      }
+    },
+    catch: (error) => {
+      if (error instanceof SessionContextError) {
+        return error
+      }
+      return new SessionContextError('Failed to fetch activity', error)
+    },
   })
 }

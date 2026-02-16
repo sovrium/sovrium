@@ -27,7 +27,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   test(
     'API-ACTIVITY-DETAILS-001: should return 200 with activity details',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Application with a specific activity log
       await startServerWithSchema({
         name: 'test-app',
@@ -48,14 +48,14 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const { user } = await createAuthenticatedUser()
 
       const activityResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
-        VALUES ('${user.id}', 'create', 'tasks', 1, '{"title": "Task 1", "priority": 5}', NOW())
+        INSERT INTO system.activity_logs (user_id, action, table_name, table_id, record_id, changes, created_at)
+        VALUES ('${user.id}', 'create', 'tasks', '1', '1', '{"title": "Task 1", "priority": 5}', NOW())
         RETURNING id
       `)
       const activityId = activityResult.id
 
       // WHEN: User requests specific activity details
-      const response = await page.request.get(`/api/activity/${activityId}`)
+      const response = await request.get(`/api/activity/${activityId}`, {})
 
       // THEN: Returns 200 with complete activity details
       expect(response.status()).toBe(200)
@@ -75,7 +75,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   test.fixme(
     'API-ACTIVITY-DETAILS-002: should return 401 when user is not authenticated',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: Application with auth enabled but user not signed in
       await startServerWithSchema({
         name: 'test-app',
@@ -83,7 +83,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       })
 
       // WHEN: Unauthenticated user requests activity details
-      const response = await page.request.get('/api/activity/123')
+      const response = await request.get('/api/activity/123')
 
       // THEN: Returns 401 Unauthorized
       expect(response.status()).toBe(401)
@@ -98,7 +98,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   test.fixme(
     'API-ACTIVITY-DETAILS-003: should return 404 when activity does not exist',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Application with authenticated user but no activity with ID 99999
       await startServerWithSchema({
         name: 'test-app',
@@ -108,7 +108,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       await createAuthenticatedUser()
 
       // WHEN: User requests non-existent activity
-      const response = await page.request.get('/api/activity/99999')
+      const response = await request.get('/api/activity/99999')
 
       // THEN: Returns 404 Not Found
       expect(response.status()).toBe(404)
@@ -123,7 +123,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   test.fixme(
     'API-ACTIVITY-DETAILS-004: should include user metadata in activity details',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Application with activity log and user information
       await startServerWithSchema({
         name: 'test-app',
@@ -144,14 +144,14 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const { user } = await createAuthenticatedUser({ name: 'Bob Smith' })
 
       const activityResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
-        VALUES ('${user.id}', 'update', 'tasks', 1, '{"title": {"old": "Old", "new": "New"}}', NOW())
+        INSERT INTO system.activity_logs (user_id, action, table_name, table_id, record_id, changes, created_at)
+        VALUES ('${user.id}', 'update', 'tasks', '1', '1', '{"title": {"old": "Old", "new": "New"}}', NOW())
         RETURNING id
       `)
       const activityId = activityResult.id
 
       // WHEN: User requests activity details
-      const response = await page.request.get(`/api/activity/${activityId}`)
+      const response = await request.get(`/api/activity/${activityId}`)
 
       // THEN: Activity includes user metadata
       expect(response.status()).toBe(200)
@@ -166,7 +166,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   test.fixme(
     'API-ACTIVITY-DETAILS-005: should return activity with null changes for delete action',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
       // GIVEN: Application with delete activity log
       await startServerWithSchema({
         name: 'test-app',
@@ -187,14 +187,14 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const { user } = await createAuthenticatedUser()
 
       const activityResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
-        VALUES ('${user.id}', 'delete', 'tasks', 1, NULL, NOW())
+        INSERT INTO system.activity_logs (user_id, action, table_name, table_id, record_id, changes, created_at)
+        VALUES ('${user.id}', 'delete', 'tasks', '1', '1', NULL, NOW())
         RETURNING id
       `)
       const activityId = activityResult.id
 
       // WHEN: User requests delete activity details
-      const response = await page.request.get(`/api/activity/${activityId}`)
+      const response = await request.get(`/api/activity/${activityId}`)
 
       // THEN: Returns activity with null changes
       expect(response.status()).toBe(200)
@@ -208,7 +208,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   test.fixme(
     'API-ACTIVITY-DETAILS-006: should return 400 when activityId is invalid format',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
+    async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
       // GIVEN: Application with authenticated user
       await startServerWithSchema({
         name: 'test-app',
@@ -218,7 +218,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       await createAuthenticatedUser()
 
       // WHEN: User requests activity with invalid ID format
-      const response = await page.request.get('/api/activity/invalid-id')
+      const response = await request.get('/api/activity/invalid-id')
 
       // THEN: Returns 400 Bad Request
       expect(response.status()).toBe(400)
@@ -233,7 +233,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   test.fixme(
     'API-ACTIVITY-DETAILS-007: should return 401 Unauthorized when auth is not configured',
     { tag: '@spec' },
-    async ({ page, startServerWithSchema }) => {
+    async ({ request, startServerWithSchema }) => {
       // GIVEN: Application WITHOUT auth configured
       await startServerWithSchema({
         name: 'test-app',
@@ -252,7 +252,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       })
 
       // WHEN: Unauthenticated user requests activity details
-      const response = await page.request.get('/api/activity/123')
+      const response = await request.get('/api/activity/123')
 
       // THEN: Returns 401 Unauthorized (activity APIs always require auth)
       expect(response.status()).toBe(401)
@@ -302,12 +302,13 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
 
       // --- Insert activity logs for testing ---
       const updateResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (user_id, action, table_name, table_id, record_id, changes, created_at)
         VALUES (
           '${userId}',
           'update',
           'tasks',
-          42,
+          '1',
+          '42',
           '{"status": {"old": "pending", "new": "completed"}, "updatedAt": "2025-12-16T10:00:00Z"}',
           NOW()
         )
@@ -316,8 +317,8 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const updateActivityId = updateResult.id
 
       const deleteResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
-        VALUES ('${userId}', 'delete', 'tasks', 99, NULL, NOW())
+        INSERT INTO system.activity_logs (user_id, action, table_name, table_id, record_id, changes, created_at)
+        VALUES ('${userId}', 'delete', 'tasks', '1', '99', NULL, NOW())
         RETURNING id
       `)
       const deleteActivityId = deleteResult.id

@@ -8,7 +8,10 @@
 import { Effect } from 'effect'
 import { ActivityRepository } from '@/application/ports/repositories/activity-repository'
 import type { UserSession } from '@/application/ports/models/user-session'
-import type { ActivityHistoryEntry } from '@/application/ports/repositories/activity-repository'
+import type {
+  ActivityHistoryEntry,
+  ActivityDetails,
+} from '@/application/ports/repositories/activity-repository'
 import type { SessionContextError } from '@/domain/errors'
 
 /**
@@ -65,5 +68,65 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
     return {
       history: history.map(formatActivityEntry),
     }
+  })
+}
+
+/**
+ * Get activity details configuration
+ */
+interface GetActivityDetailsConfig {
+  readonly session: Readonly<UserSession>
+  readonly activityId: string
+}
+
+/**
+ * Format activity details for API response
+ */
+function formatActivityDetails(details: ActivityDetails) {
+  return {
+    id: details.id,
+    userId: details.userId,
+    action: details.action,
+    tableName: details.tableName,
+    recordId: parseInt(details.recordId, 10),
+    changes: details.changes,
+    createdAt: details.createdAt.toISOString(),
+    user: details.user,
+  }
+}
+
+/**
+ * Get activity details program
+ */
+export function getActivityDetailsProgram(config: GetActivityDetailsConfig): Effect.Effect<
+  {
+    readonly id: string
+    readonly userId: string | null
+    readonly action: string
+    readonly tableName: string
+    readonly recordId: number
+    readonly changes: unknown
+    readonly createdAt: string
+    readonly user:
+      | {
+          readonly id: string
+          readonly name: string
+          readonly email: string
+          readonly image: string | null
+        }
+      | undefined
+  },
+  SessionContextError,
+  ActivityRepository
+> {
+  return Effect.gen(function* () {
+    const activityRepo = yield* ActivityRepository
+    const { session, activityId } = config
+
+    // Fetch activity details
+    const details = yield* activityRepo.getActivityById({ session, activityId })
+
+    // Format response
+    return formatActivityDetails(details)
   })
 }
