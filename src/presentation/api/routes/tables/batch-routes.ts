@@ -40,7 +40,7 @@ import type {
   TransformedRecord,
 } from '@/application/use-cases/tables/utils/record-transformer'
 import type { App } from '@/domain/models/app'
-import type { Context, Hono, TypedResponse } from 'hono'
+import type { Context, Hono } from 'hono'
 
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
 
@@ -188,22 +188,20 @@ function validateFieldWritePermissions(
   const table = app.tables?.find((t) => t.name === tableName)
   if (!table) return []
 
-  const forbiddenFields: string[] = []
-  for (const fieldName of Object.keys(fields)) {
-    const field = table.fields?.find((f) => f.name === fieldName)
-    if (!field) continue
+  const roleHierarchy = { viewer: 0, member: 1, editor: 2, admin: 3 }
+  const userLevel = roleHierarchy[userRole as keyof typeof roleHierarchy] || 0
 
-    const writePermission = field.write || 'editor'
-    const roleHierarchy = { viewer: 0, member: 1, editor: 2, admin: 3 }
-    const requiredLevel = roleHierarchy[writePermission as keyof typeof roleHierarchy] || 0
-    const userLevel = roleHierarchy[userRole as keyof typeof roleHierarchy] || 0
+  return Object.keys(fields)
+    .map((fieldName) => {
+      const field = table.fields?.find((f) => f.name === fieldName)
+      if (!field) return undefined
 
-    if (userLevel < requiredLevel) {
-      forbiddenFields.push(fieldName)
-    }
-  }
+      const writePermission = field.write || 'editor'
+      const requiredLevel = roleHierarchy[writePermission as keyof typeof roleHierarchy] || 0
 
-  return forbiddenFields
+      return userLevel < requiredLevel ? fieldName : undefined
+    })
+    .filter((fieldName): fieldName is string => fieldName !== undefined)
 }
 
 /**
