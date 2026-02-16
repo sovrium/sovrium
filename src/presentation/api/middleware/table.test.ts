@@ -5,15 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { describe, test, expect, mock, afterAll } from 'bun:test'
+import { describe, test, expect, mock } from 'bun:test'
 import { validateTable, enrichUserRole } from './table'
 import type { App } from '@/domain/models/app'
 import type { Context, Next } from 'hono'
-
-// Mock getUserRole
-mock.module('@/application/use-cases/tables/user-role', () => ({
-  getUserRole: mock(async () => 'member'),
-}))
 
 // Helper to create a mock Hono context
 function createMockContext(
@@ -172,7 +167,7 @@ describe('enrichUserRole middleware', () => {
       const c = createMockContext({ session: null })
       const next = createMockNext()
 
-      const middleware = enrichUserRole()
+      const middleware = enrichUserRole(async () => 'member')
       await middleware(c, next)
 
       const responses = c.getJsonResponses()
@@ -194,7 +189,7 @@ describe('enrichUserRole middleware', () => {
       })
       const next = createMockNext()
 
-      const middleware = enrichUserRole()
+      const middleware = enrichUserRole(async () => 'member')
       await middleware(c, next)
 
       const setValues = c.getSetValues()
@@ -203,8 +198,4 @@ describe('enrichUserRole middleware', () => {
       expect(c.getJsonResponses()).toHaveLength(0)
     })
   })
-})
-
-afterAll(() => {
-  mock.restore()
 })

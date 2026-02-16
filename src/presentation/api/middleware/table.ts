@@ -109,25 +109,6 @@ export function validateTable(app: App) {
 }
 
 /**
- * Internal middleware handler for enrichUserRole
- */
-async function enrichUserRoleHandler(c: Context, next: Next) {
-  const { session } = (c as ContextWithSession).var
-
-  // Defensive check (should not happen if requireAuth() used before)
-  if (!session) {
-    return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
-  }
-
-  const userRole = await getUserRole(session.userId)
-
-  c.set('userRole', userRole)
-
-  // eslint-disable-next-line functional/no-expression-statements -- Required for middleware to continue
-  await next()
-}
-
-/**
  * Middleware to enrich context with user role
  *
  * Fetches user role from database and attaches to context.
@@ -146,8 +127,29 @@ async function enrichUserRoleHandler(c: Context, next: Next) {
  * })
  * ```
  *
+ * @param getUserRoleFn - Optional function to resolve user role (for unit tests).
+ *   Defaults to the real getUserRole from application layer.
  * @returns Hono middleware function
  */
-export function enrichUserRole() {
-  return enrichUserRoleHandler
+export function enrichUserRole(getUserRoleFn?: (userId: string) => Promise<string>) {
+  const resolveRole = getUserRoleFn ?? getUserRole
+
+  return async (c: Context, next: Next) => {
+    const { session } = (c as ContextWithSession).var
+
+    // Defensive check (should not happen if requireAuth() used before)
+    if (!session) {
+      return c.json(
+        { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
+        401
+      )
+    }
+
+    const userRole = await resolveRole(session.userId)
+
+    c.set('userRole', userRole)
+
+    // eslint-disable-next-line functional/no-expression-statements -- Required for middleware to continue
+    await next()
+  }
 }
