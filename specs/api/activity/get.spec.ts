@@ -423,7 +423,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-LIST-011: should return 400 when pageSize exceeds maximum',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
