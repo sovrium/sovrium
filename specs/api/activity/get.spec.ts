@@ -223,15 +223,15 @@ test.describe('GET /api/activity - List Activity Logs', () => {
           ('${user2.user.id}', 'create', 'tasks', 3, '{"title": "Task 3"}', NOW())
       `)
 
-      // WHEN: User requests activities filtered by user1's ID
-      const response = await page.request.get(`/api/activity?userId=${user1.user.id}`)
+      // WHEN: User requests activities filtered by their own ID (user2 is currently authenticated)
+      const response = await page.request.get(`/api/activity?userId=${user2.user.id}`)
 
-      // THEN: Returns only user1's activities
+      // THEN: Returns only their own activities (user2 has 1 activity)
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data.activities).toHaveLength(2)
-      expect(data.activities.every((a: any) => a.userId === user1.user.id)).toBe(true)
+      expect(data.activities).toHaveLength(1)
+      expect(data.activities.every((a: any) => a.userId === user2.user.id)).toBe(true)
     }
   )
 
@@ -674,7 +674,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-LIST-018: should return 403 when non-admin filters by another users userId',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -705,11 +705,8 @@ test.describe('GET /api/activity - List Activity Logs', () => {
           ('${user2.user.id}', 'create', 'tasks', 2, '{"title": "User2 Task"}', NOW())
       `)
 
-      // Sign in as user1 (need to re-authenticate as user1, since user2 is currently authenticated)
-      // Note: Implementation detail - test assumes proper session management
-
-      // WHEN: User1 tries to filter by user2's userId
-      const response = await page.request.get(`/api/activity?userId=${user2.user.id}`)
+      // WHEN: User2 (currently authenticated) tries to filter by user1's userId
+      const response = await page.request.get(`/api/activity?userId=${user1.user.id}`)
 
       // THEN: Returns 403 Forbidden (non-admin cannot view other users' activities)
       expect(response.status()).toBe(403)

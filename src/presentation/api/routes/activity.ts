@@ -168,6 +168,20 @@ function parseActionFilter(
 }
 
 /**
+ * Check if a user is authorized to filter by the given userId
+ *
+ * Non-admin users can only filter by their own userId.
+ * Returns true if authorized, false if forbidden.
+ */
+function isAuthorizedForUserIdFilter(
+  sessionUserId: string,
+  userIdFilter: string | undefined
+): boolean {
+  if (userIdFilter === undefined) return true
+  return userIdFilter === sessionUserId
+}
+
+/**
  * Filter options for activity log queries
  */
 interface ActivityFilters {
@@ -194,6 +208,75 @@ function applyFilters(
 }
 
 /**
+ * Parse query filter parameters from request context
+ *
+ * Returns undefined for tableName/userId if not provided,
+ * null for action if invalid value provided.
+ */
+function parseQueryFilters(c: Context): {
+  tableName: string | undefined
+  action: 'create' | 'update' | 'delete' | 'restore' | undefined | null
+  userId: string | undefined
+  startDate: Date | undefined
+} {
+  return {
+    tableName: c.req.query('tableName'),
+    action: parseActionFilter(c.req.query('action')),
+    userId: c.req.query('userId'),
+    startDate:
+      c.req.query('startDate') !== undefined ? new Date(c.req.query('startDate')!) : undefined,
+  }
+}
+
+/**
+ * Validation error response from list activity request validation
+ */
+interface ListActivityValidationError {
+  readonly status: number
+  readonly body: { success: false; message: string; code: string }
+}
+
+/**
+ * Validate list activity request parameters
+ *
+ * Returns error response object if invalid, or undefined if valid.
+ */
+function validateListActivityRequest(
+  c: Context,
+  sessionUserId: string
+): ListActivityValidationError | undefined {
+  const params = parsePaginationParams(c.req.query('page'), c.req.query('pageSize'))
+  if (params === undefined) {
+    return {
+      status: 400,
+      body: { success: false, message: 'Invalid pagination parameters', code: 'INVALID_PARAMETER' },
+    }
+  }
+
+  const { action } = parseQueryFilters(c)
+  if (action === null) {
+    return {
+      status: 400,
+      body: { success: false, message: 'Invalid action filter', code: 'INVALID_PARAMETER' },
+    }
+  }
+
+  const userIdFilter = c.req.query('userId')
+  if (!isAuthorizedForUserIdFilter(sessionUserId, userIdFilter)) {
+    return {
+      status: 403,
+      body: {
+        success: false,
+        message: 'Forbidden: cannot view other users activities',
+        code: 'FORBIDDEN',
+      },
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Handle GET /api/activity - List activity logs with pagination
  */
 async function handleListActivityLogs(c: Context) {
@@ -202,27 +285,13 @@ async function handleListActivityLogs(c: Context) {
     return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
   }
 
-  const params = parsePaginationParams(c.req.query('page'), c.req.query('pageSize'))
-  if (params === undefined) {
-    return c.json(
-      { success: false, message: 'Invalid pagination parameters', code: 'INVALID_PARAMETER' },
-      400
-    )
+  const validationError = validateListActivityRequest(c, session.userId)
+  if (validationError !== undefined) {
+    return c.json(validationError.body, validationError.status as 400 | 403)
   }
 
-  const tableNameFilter = c.req.query('tableName')
-  const parsedAction = parseActionFilter(c.req.query('action'))
-  if (parsedAction === null) {
-    return c.json(
-      { success: false, message: 'Invalid action filter', code: 'INVALID_PARAMETER' },
-      400
-    )
-  }
-
-  const userIdFilter = c.req.query('userId')
-
-  const startDateParam = c.req.query('startDate')
-  const startDateFilter = startDateParam !== undefined ? new Date(startDateParam) : undefined
+  const params = parsePaginationParams(c.req.query('page'), c.req.query('pageSize'))!
+  const { tableName, action, userId, startDate } = parseQueryFilters(c)
 
   const result = await Effect.runPromise(
     ListActivityLogs({ userId: session.userId }).pipe(
@@ -240,10 +309,10 @@ async function handleListActivityLogs(c: Context) {
   }
 
   const filtered = applyFilters(result.right, {
-    tableName: tableNameFilter,
-    action: parsedAction ?? undefined,
-    userId: userIdFilter,
-    startDate: startDateFilter,
+    tableName,
+    action: action ?? undefined,
+    userId,
+    startDate,
   })
   return c.json(buildPaginatedResponse(filtered, params.page, params.pageSize), 200)
 }
