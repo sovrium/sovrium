@@ -8,8 +8,8 @@
 import { Effect } from 'effect'
 import {
   getActivityById,
-  ActivityDatabaseError,
-  ActivityNotFoundError,
+  type ActivityDatabaseError,
+  type ActivityNotFoundError,
 } from '@/infrastructure/database/activity-queries'
 
 /**

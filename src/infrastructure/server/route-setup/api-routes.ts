@@ -170,7 +170,7 @@ const applyActivityRateLimitMiddleware = (honoApp: Hono): Hono => {
  * @param honoApp - Hono instance to chain routes onto
  * @returns Hono app with all API routes chained
  */
-// eslint-disable-next-line functional/prefer-immutable-types -- Hono types are mutable by library design
+// eslint-disable-next-line functional/prefer-immutable-types, max-lines-per-function -- Hono types are mutable by library design; function composes middleware chain and requires activity auth setup
 export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   // Create Better Auth instance for middleware
   const auth = createAuthInstance(app.auth)

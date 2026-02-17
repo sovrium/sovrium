@@ -5,9 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { eq } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { Database } from '@/infrastructure/database'
-import { sql } from 'drizzle-orm'
+import { Database, activityLogs, users } from '@/infrastructure/database'
 
 /**
  * Activity log with user metadata
@@ -49,7 +49,7 @@ export class ActivityNotFoundError {
  * Fetches activity log details with a JOIN to the users table to include
  * user information (name, email).
  *
- * @param activityId - Activity log ID (UUID string)
+ * @param activityId - Activity log ID (UUID string or numeric string)
  * @returns Effect program that resolves to activity with user metadata or fails with error
  */
 export const getActivityById = (activityId: string) =>
@@ -57,60 +57,53 @@ export const getActivityById = (activityId: string) =>
     const db = yield* Database
 
     const result = yield* Effect.tryPromise({
-      try: async () => {
-        const rows = await db.execute(sql`
-          SELECT
-            al.id,
-            al.user_id AS "userId",
-            al.action,
-            al.table_name AS "tableName",
-            CAST(al.record_id AS INTEGER) AS "recordId",
-            al.changes,
-            al.created_at AS "createdAt",
-            u.id AS "user.id",
-            u.name AS "user.name",
-            u.email AS "user.email"
-          FROM system.activity_logs al
-          LEFT JOIN system.users u ON al.user_id = u.id
-          WHERE al.id = ${activityId}
-        `)
-        return rows
-      },
+      try: () =>
+        db
+          .select({
+            id: activityLogs.id,
+            userId: activityLogs.userId,
+            action: activityLogs.action,
+            tableName: activityLogs.tableName,
+            recordId: activityLogs.recordId,
+            changes: activityLogs.changes,
+            createdAt: activityLogs.createdAt,
+            userName: users.name,
+            userEmail: users.email,
+            userIdJoined: users.id,
+          })
+          .from(activityLogs)
+          .leftJoin(users, eq(activityLogs.userId, users.id))
+          .where(eq(activityLogs.id, activityId))
+          .limit(1),
       catch: (error) => new ActivityDatabaseError(error),
     })
 
-    if (!result || result.length === 0) {
+    if (result.length === 0 || !result[0]) {
       return yield* Effect.fail(new ActivityNotFoundError(activityId))
     }
 
-    const row = result[0] as {
-      id: string
-      userId: string
-      action: string
-      tableName: string
-      recordId: number
-      changes: string | null
-      createdAt: Date
-      'user.id': string
-      'user.name': string
-      'user.email': string
-    }
+    const row = result[0]
 
-    // Parse changes if present
-    const changes = row.changes ? (JSON.parse(row.changes) as Record<string, unknown>) : null
+    // Parse recordId as integer (stored as text in DB)
+    const recordIdInt = parseInt(row.recordId, 10)
+    const recordId = isNaN(recordIdInt) ? 0 : recordIdInt
+
+    // Changes is already JSONB (parsed by Drizzle), cast to expected type
+    // eslint-disable-next-line unicorn/no-null -- Null is intentional for JSONB columns with no data
+    const changes = (row.changes as Record<string, unknown> | null) ?? null
 
     const activity: ActivityLogWithUser = {
       id: row.id,
-      userId: row.userId,
+      userId: row.userId ?? '',
       action: row.action,
       tableName: row.tableName,
-      recordId: row.recordId,
+      recordId,
       changes,
       createdAt: row.createdAt,
       user: {
-        id: row['user.id'],
-        name: row['user.name'],
-        email: row['user.email'],
+        id: row.userIdJoined ?? '',
+        name: row.userName ?? '',
+        email: row.userEmail ?? '',
       },
     }
 
