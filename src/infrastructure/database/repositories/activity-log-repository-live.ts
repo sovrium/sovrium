@@ -46,7 +46,7 @@ export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
           .from(activityLogs)
           .leftJoin(users, eq(activityLogs.userId, users.id))
           .where(gte(activityLogs.createdAt, sql`NOW() - INTERVAL '1 year'`))
-          .orderBy(desc(activityLogs.createdAt))
+          .orderBy(sql`(${activityLogs.userId} IS NULL) DESC`, desc(activityLogs.createdAt))
 
         return rows.map((row) => ({
           id: row.id,
@@ -63,7 +63,8 @@ export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
           user:
             row.userId && row.userName && row.userEmail
               ? { id: row.userId, name: row.userName, email: row.userEmail }
-              : undefined,
+              : // eslint-disable-next-line unicorn/no-null -- Null is intentional for system-logged activities (no user_id)
+                null,
         }))
       },
       catch: (error) => new ActivityLogDatabaseError({ cause: error }),
