@@ -65,13 +65,10 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
     const activityRepo = yield* ActivityRepository
     const { session, tableName, recordId, limit, offset } = config
 
-    // Check if record exists before fetching history
+    // Check if record exists in the table (handles live records)
     const recordExists = yield* activityRepo.checkRecordExists({ session, tableName, recordId })
-    if (!recordExists) {
-      return yield* Effect.fail(new SessionContextError('Record not found'))
-    }
 
-    // Fetch activity history with pagination
+    // Fetch activity history with pagination (needed even for deleted records)
     const { entries, total } = yield* activityRepo.getRecordHistory({
       session,
       tableName,
@@ -79,6 +76,11 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
       limit,
       offset,
     })
+
+    // If record doesn't exist in table AND has no activity logs, it truly doesn't exist
+    if (!recordExists && total === 0) {
+      return yield* Effect.fail(new SessionContextError('Record not found'))
+    }
 
     // Resolve pagination values (default: all results)
     const resolvedLimit = limit ?? total
