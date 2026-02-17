@@ -12,6 +12,7 @@ import {
   ListActivityLogs,
   ListActivityLogsLayer,
 } from '@/application/use-cases/list-activity-logs'
+import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { DatabaseLive } from '@/infrastructure/database'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { sanitizeError, getStatusCode } from '@/presentation/api/utils/error-sanitizer'
@@ -170,15 +171,18 @@ function parseActionFilter(
 /**
  * Check if a user is authorized to filter by the given userId
  *
+ * Admins can filter by any userId.
  * Non-admin users can only filter by their own userId.
  * Returns true if authorized, false if forbidden.
  */
-function isAuthorizedForUserIdFilter(
+async function isAuthorizedForUserIdFilter(
   sessionUserId: string,
   userIdFilter: string | undefined
-): boolean {
+): Promise<boolean> {
   if (userIdFilter === undefined) return true
-  return userIdFilter === sessionUserId
+  if (userIdFilter === sessionUserId) return true
+  const role = await getUserRole(sessionUserId)
+  return role === 'admin'
 }
 
 /**
@@ -241,10 +245,10 @@ interface ListActivityValidationError {
  *
  * Returns error response object if invalid, or undefined if valid.
  */
-function validateListActivityRequest(
+async function validateListActivityRequest(
   c: Context,
   sessionUserId: string
-): ListActivityValidationError | undefined {
+): Promise<ListActivityValidationError | undefined> {
   const params = parsePaginationParams(c.req.query('page'), c.req.query('pageSize'))
   if (params === undefined) {
     return {
@@ -262,7 +266,8 @@ function validateListActivityRequest(
   }
 
   const userIdFilter = c.req.query('userId')
-  if (!isAuthorizedForUserIdFilter(sessionUserId, userIdFilter)) {
+  const authorized = await isAuthorizedForUserIdFilter(sessionUserId, userIdFilter)
+  if (!authorized) {
     return {
       status: 403,
       body: {
@@ -285,7 +290,7 @@ async function handleListActivityLogs(c: Context) {
     return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
   }
 
-  const validationError = validateListActivityRequest(c, session.userId)
+  const validationError = await validateListActivityRequest(c, session.userId)
   if (validationError !== undefined) {
     return c.json(validationError.body, validationError.status as 400 | 403)
   }
