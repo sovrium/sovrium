@@ -135,48 +135,84 @@ async function handleGetActivityById(c: Context) {
 }
 
 /**
+ * Valid activity action types
+ */
+const VALID_ACTIONS = ['create', 'update', 'delete', 'restore'] as const
+
+/**
+ * Parse and validate action filter parameter
+ *
+ * Returns undefined if no filter, null if invalid value.
+ */
+function parseActionFilter(
+  action: string | undefined
+): 'create' | 'update' | 'delete' | 'restore' | undefined | null {
+  if (action === undefined) return undefined
+  if (VALID_ACTIONS.includes(action as (typeof VALID_ACTIONS)[number])) {
+    return action as 'create' | 'update' | 'delete' | 'restore'
+  }
+  // eslint-disable-next-line unicorn/no-null -- Null signals invalid action (vs undefined = no filter)
+  return null
+}
+
+/**
+ * Apply tableName and action filters to activity logs
+ */
+function applyFilters(
+  logs: readonly ActivityLogOutput[],
+  tableNameFilter: string | undefined,
+  actionFilter: 'create' | 'update' | 'delete' | 'restore' | undefined
+): readonly ActivityLogOutput[] {
+  return logs.filter(
+    (log) =>
+      (tableNameFilter === undefined || log.tableName === tableNameFilter) &&
+      (actionFilter === undefined || log.action === actionFilter)
+  )
+}
+
+/**
  * Handle GET /api/activity - List activity logs with pagination
  */
 async function handleListActivityLogs(c: Context) {
   const session = getSessionContext(c)
-
   if (!session) {
     return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
   }
 
   const params = parsePaginationParams(c.req.query('page'), c.req.query('pageSize'))
-
   if (params === undefined) {
     return c.json(
-      {
-        success: false,
-        message: 'Invalid pagination parameters: page must be >= 1 and pageSize must be 1-100',
-        code: 'INVALID_PARAMETER',
-      },
+      { success: false, message: 'Invalid pagination parameters', code: 'INVALID_PARAMETER' },
       400
     )
   }
 
-  const program = ListActivityLogs({ userId: session.userId }).pipe(
-    Effect.provide(ListActivityLogsLayer),
-    Effect.either
-  )
-
-  const result = await Effect.runPromise(program)
-
-  if (result._tag === 'Left') {
-    const error = result.left
-    const requestId = crypto.randomUUID()
-    const sanitized = sanitizeError(error, requestId)
-    const statusCode = getStatusCode(sanitized.code)
-
+  const tableNameFilter = c.req.query('tableName')
+  const parsedAction = parseActionFilter(c.req.query('action'))
+  if (parsedAction === null) {
     return c.json(
-      { success: false, message: sanitized.message ?? sanitized.error, code: sanitized.code },
-      statusCode
+      { success: false, message: 'Invalid action filter', code: 'INVALID_PARAMETER' },
+      400
     )
   }
 
-  return c.json(buildPaginatedResponse(result.right, params.page, params.pageSize), 200)
+  const result = await Effect.runPromise(
+    ListActivityLogs({ userId: session.userId }).pipe(
+      Effect.provide(ListActivityLogsLayer),
+      Effect.either
+    )
+  )
+
+  if (result._tag === 'Left') {
+    const sanitized = sanitizeError(result.left, crypto.randomUUID())
+    return c.json(
+      { success: false, message: sanitized.message ?? sanitized.error, code: sanitized.code },
+      getStatusCode(sanitized.code)
+    )
+  }
+
+  const filtered = applyFilters(result.right, tableNameFilter, parsedAction)
+  return c.json(buildPaginatedResponse(filtered, params.page, params.pageSize), 200)
 }
 
 /**
