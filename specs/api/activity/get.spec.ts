@@ -326,7 +326,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-LIST-008: should support pagination with page and pageSize parameters',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
