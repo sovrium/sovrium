@@ -77,7 +77,7 @@ GET /api/activity?page=1&pageSize=20&table=orders&action=update
 | AC-011 | Returns 400 when pageSize exceeds maximum                   | `API-ACTIVITY-LIST-011`        | ✅     |
 | AC-012 | Includes user metadata in activity logs                     | `API-ACTIVITY-LIST-012`        | ✅     |
 | AC-013 | Excludes activities older than 1 year (retention policy)    | `API-ACTIVITY-LIST-013`        | ✅     |
-| AC-014 | Returns 400 when action filter has invalid value            | `API-ACTIVITY-LIST-014`        | ⏳     |
+| AC-014 | Returns 400 when action filter has invalid value            | `API-ACTIVITY-LIST-014`        | ✅     |
 | AC-015 | Returns 401 Unauthorized when auth is not configured        | `API-ACTIVITY-LIST-015`        | ✅     |
 | AC-016 | Includes null user metadata for system-logged activities    | `API-ACTIVITY-LIST-016`        | ⏳     |
 | AC-017 | Allows non-admin user to filter by their own userId         | `API-ACTIVITY-LIST-017`        | ⏳     |
