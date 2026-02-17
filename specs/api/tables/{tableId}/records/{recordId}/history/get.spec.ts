@@ -424,7 +424,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-REGRESSION: user can view complete change history for a record',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
