@@ -718,7 +718,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-LIST-019: should allow admin to filter by any userId',
     { tag: '@spec' },
     async ({
