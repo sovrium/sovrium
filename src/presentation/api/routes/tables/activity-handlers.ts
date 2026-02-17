@@ -8,6 +8,7 @@
 import { getRecordHistoryProgram } from '@/application/use-cases/tables/activity-programs'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { runTableProgram } from './effect-runner'
+import { handleRouteError } from './error-handlers'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
 
@@ -41,10 +42,7 @@ export async function handleGetRecordHistory(c: Context, app: App) {
   const result = await runTableProgram(program)
 
   if (result._tag === 'Left') {
-    return c.json(
-      { success: false, message: 'Failed to fetch activity history', code: 'INTERNAL_ERROR' },
-      500
-    )
+    return handleRouteError(c, result.left)
   }
 
   return c.json(result.right, 200)

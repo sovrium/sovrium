@@ -46,6 +46,7 @@ describe('ActivityRepository', () => {
 
     const TestActivityRepositoryLive = Layer.succeed(ActivityRepository, {
       getRecordHistory: () => Effect.succeed(mockHistory),
+      checkRecordExists: () => Effect.succeed(true),
     })
 
     const program = Effect.gen(function* () {
@@ -105,6 +106,7 @@ describe('ActivityRepository', () => {
 
     const TestActivityRepositoryLive = Layer.succeed(ActivityRepository, {
       getRecordHistory: () => Effect.succeed(mockHistory),
+      checkRecordExists: () => Effect.succeed(true),
     })
 
     const program = Effect.gen(function* () {
@@ -148,6 +150,7 @@ describe('ActivityRepository', () => {
 
     const TestActivityRepositoryLive = Layer.succeed(ActivityRepository, {
       getRecordHistory: () => Effect.succeed(mockHistory),
+      checkRecordExists: () => Effect.succeed(true),
     })
 
     const program = Effect.gen(function* () {

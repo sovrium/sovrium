@@ -38,5 +38,10 @@ export class ActivityRepository extends Context.Tag('ActivityRepository')<
       readonly tableName: string
       readonly recordId: string
     }) => Effect.Effect<readonly ActivityHistoryEntry[], SessionContextError>
+    readonly checkRecordExists: (config: {
+      readonly session: Readonly<UserSession>
+      readonly tableName: string
+      readonly recordId: string
+    }) => Effect.Effect<boolean, SessionContextError>
   }
 >() {}
