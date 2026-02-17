@@ -45,25 +45,26 @@ describe('ActivityRepository', () => {
     }
 
     const TestActivityRepositoryLive = Layer.succeed(ActivityRepository, {
-      getRecordHistory: () => Effect.succeed(mockHistory),
+      getRecordHistory: () => Effect.succeed({ entries: mockHistory, total: mockHistory.length }),
       checkRecordExists: () => Effect.succeed(true),
     })
 
     const program = Effect.gen(function* () {
       const repo = yield* ActivityRepository
-      const history = yield* repo.getRecordHistory({
+      const result = yield* repo.getRecordHistory({
         session: mockSession,
         tableName: 'users',
         recordId: 'record-1',
       })
-      return history
+      return result
     })
 
     const result = await Effect.runPromise(program.pipe(Effect.provide(TestActivityRepositoryLive)))
 
-    expect(result).toEqual(mockHistory)
-    expect(result[0]?.action).toBe('create')
-    expect(result[0]?.user?.name).toBe('Test User')
+    expect(result.entries).toEqual(mockHistory)
+    expect(result.entries[0]?.action).toBe('create')
+    expect(result.entries[0]?.user?.name).toBe('Test User')
+    expect(result.total).toBe(1)
   })
 
   test('should handle multiple history entries', async () => {
@@ -105,7 +106,7 @@ describe('ActivityRepository', () => {
     }
 
     const TestActivityRepositoryLive = Layer.succeed(ActivityRepository, {
-      getRecordHistory: () => Effect.succeed(mockHistory),
+      getRecordHistory: () => Effect.succeed({ entries: mockHistory, total: mockHistory.length }),
       checkRecordExists: () => Effect.succeed(true),
     })
 
@@ -120,10 +121,11 @@ describe('ActivityRepository', () => {
 
     const result = await Effect.runPromise(program.pipe(Effect.provide(TestActivityRepositoryLive)))
 
-    expect(result).toHaveLength(2)
-    expect(result[0]?.action).toBe('create')
-    expect(result[1]?.action).toBe('update')
-    expect(result[1]?.user?.image).toBe('avatar.jpg')
+    expect(result.entries).toHaveLength(2)
+    expect(result.entries[0]?.action).toBe('create')
+    expect(result.entries[1]?.action).toBe('update')
+    expect(result.entries[1]?.user?.image).toBe('avatar.jpg')
+    expect(result.total).toBe(2)
   })
 
   test('should handle entries with undefined user', async () => {
@@ -149,7 +151,7 @@ describe('ActivityRepository', () => {
     }
 
     const TestActivityRepositoryLive = Layer.succeed(ActivityRepository, {
-      getRecordHistory: () => Effect.succeed(mockHistory),
+      getRecordHistory: () => Effect.succeed({ entries: mockHistory, total: mockHistory.length }),
       checkRecordExists: () => Effect.succeed(true),
     })
 
@@ -164,7 +166,8 @@ describe('ActivityRepository', () => {
 
     const result = await Effect.runPromise(program.pipe(Effect.provide(TestActivityRepositoryLive)))
 
-    expect(result[0]?.user).toBeUndefined()
-    expect(result[0]?.action).toBe('system-generated')
+    expect(result.entries[0]?.user).toBeUndefined()
+    expect(result.entries[0]?.action).toBe('system-generated')
+    expect(result.total).toBe(1)
   })
 })

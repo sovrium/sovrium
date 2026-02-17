@@ -46,7 +46,7 @@ describe('activity-programs', () => {
           expect(session).toEqual(mockSession)
           expect(tableName).toBe('users')
           expect(recordId).toBe('record-1')
-          return Effect.succeed(mockHistory)
+          return Effect.succeed({ entries: mockHistory, total: mockHistory.length })
         },
         checkRecordExists: () => Effect.succeed(true),
       })
@@ -113,7 +113,7 @@ describe('activity-programs', () => {
       }
 
       const TestActivityRepositoryLive = Layer.succeed(ActivityRepository, {
-        getRecordHistory: () => Effect.succeed(mockHistory),
+        getRecordHistory: () => Effect.succeed({ entries: mockHistory, total: mockHistory.length }),
         checkRecordExists: () => Effect.succeed(true),
       })
 
@@ -157,7 +157,7 @@ describe('activity-programs', () => {
       }
 
       const TestActivityRepositoryLive = Layer.succeed(ActivityRepository, {
-        getRecordHistory: () => Effect.succeed(mockHistory),
+        getRecordHistory: () => Effect.succeed({ entries: mockHistory, total: mockHistory.length }),
         checkRecordExists: () => Effect.succeed(true),
       })
 
@@ -214,7 +214,7 @@ describe('activity-programs', () => {
       }
 
       const TestActivityRepositoryLive = Layer.succeed(ActivityRepository, {
-        getRecordHistory: () => Effect.succeed(mockHistory),
+        getRecordHistory: () => Effect.succeed({ entries: mockHistory, total: mockHistory.length }),
         checkRecordExists: () => Effect.succeed(true),
       })
 
