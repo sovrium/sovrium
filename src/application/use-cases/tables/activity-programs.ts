@@ -18,6 +18,8 @@ interface GetRecordHistoryConfig {
   readonly session: Readonly<UserSession>
   readonly tableName: string
   readonly recordId: string
+  readonly limit?: number
+  readonly offset?: number
 }
 
 /**
@@ -50,13 +52,18 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
           }
         | undefined
     }[]
+    readonly pagination: {
+      readonly limit: number
+      readonly offset: number
+      readonly total: number
+    }
   },
   SessionContextError,
   ActivityRepository
 > {
   return Effect.gen(function* () {
     const activityRepo = yield* ActivityRepository
-    const { session, tableName, recordId } = config
+    const { session, tableName, recordId, limit, offset } = config
 
     // Check if record exists before fetching history
     const recordExists = yield* activityRepo.checkRecordExists({ session, tableName, recordId })
@@ -64,12 +71,27 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
       return yield* Effect.fail(new SessionContextError('Record not found'))
     }
 
-    // Fetch activity history
-    const history = yield* activityRepo.getRecordHistory({ session, tableName, recordId })
+    // Fetch activity history with pagination
+    const { entries, total } = yield* activityRepo.getRecordHistory({
+      session,
+      tableName,
+      recordId,
+      limit,
+      offset,
+    })
+
+    // Resolve pagination values (default: all results)
+    const resolvedLimit = limit ?? total
+    const resolvedOffset = offset ?? 0
 
     // Format response
     return {
-      history: history.map(formatActivityEntry),
+      history: entries.map(formatActivityEntry),
+      pagination: {
+        limit: resolvedLimit,
+        offset: resolvedOffset,
+        total,
+      },
     }
   })
 }

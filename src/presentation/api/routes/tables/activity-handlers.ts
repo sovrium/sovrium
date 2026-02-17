@@ -26,6 +26,12 @@ export async function handleGetRecordHistory(c: Context, app: App) {
   const tableId = c.req.param('tableId')
   const recordId = c.req.param('recordId')
 
+  // Parse pagination query params
+  const limitParam = c.req.query('limit')
+  const offsetParam = c.req.query('offset')
+  const limit = limitParam !== undefined ? parseInt(limitParam, 10) : undefined
+  const offset = offsetParam !== undefined ? parseInt(offsetParam, 10) : undefined
+
   // Find table by ID
   const table = app.tables?.find((t) => String(t.id) === String(tableId))
   if (!table) {
@@ -37,6 +43,8 @@ export async function handleGetRecordHistory(c: Context, app: App) {
     session,
     tableName: table.name,
     recordId,
+    limit: Number.isNaN(limit) ? undefined : limit,
+    offset: Number.isNaN(offset) ? undefined : offset,
   })
 
   const result = await runTableProgram(program)

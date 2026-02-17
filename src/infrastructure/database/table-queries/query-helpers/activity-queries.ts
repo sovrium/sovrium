@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { eq, and, asc, gte } from 'drizzle-orm'
+import { eq, and, asc, gte, sql } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { users } from '@/infrastructure/auth/better-auth/schema'
 import { SessionContextError } from '@/infrastructure/database'
@@ -15,22 +15,70 @@ import type { ActivityHistoryEntry } from '@/application/ports/repositories/acti
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
- * Fetch activity history for a specific record
+ * Build where condition for activity log queries (with 1-year retention policy)
+ */
+function buildActivityWhereCondition(tableName: string, recordId: string) {
+  const now = new Date()
+  const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
+  return and(
+    eq(activityLogs.tableName, tableName),
+    eq(activityLogs.recordId, recordId),
+    gte(activityLogs.createdAt, oneYearAgo)
+  )
+}
+
+/**
+ * Transform an activity log row into an ActivityHistoryEntry
+ */
+function transformActivityRow(row: {
+  readonly action: string
+  readonly createdAt: Date
+  readonly changes: unknown
+  readonly userId: string | null
+  readonly userName: string | null
+  readonly userEmail: string | null
+  readonly userImage: string | null
+}): ActivityHistoryEntry {
+  return {
+    action: row.action,
+    createdAt: row.createdAt,
+    changes: row.changes,
+    user:
+      row.userId && row.userName && row.userEmail
+        ? { id: row.userId, name: row.userName, email: row.userEmail, image: row.userImage }
+        : undefined,
+  }
+}
+
+/**
+ * Fetch activity history for a specific record with optional pagination
  */
 export function getRecordHistory(config: {
   readonly session: Readonly<Session>
   readonly tableName: string
   readonly recordId: string
-}): Effect.Effect<readonly ActivityHistoryEntry[], SessionContextError> {
-  const { tableName, recordId } = config
+  readonly limit?: number
+  readonly offset?: number
+}): Effect.Effect<
+  {
+    readonly entries: readonly ActivityHistoryEntry[]
+    readonly total: number
+  },
+  SessionContextError
+> {
+  const { tableName, recordId, limit, offset } = config
 
   return Effect.tryPromise({
     try: async () => {
-      // Retention policy: exclude activities older than 1 year
-      const now = new Date()
-      const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
+      const whereCondition = buildActivityWhereCondition(tableName, recordId)
 
-      const results = await db
+      const countResult = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(activityLogs)
+        .where(whereCondition)
+      const total = countResult[0]?.count ?? 0
+
+      const baseQuery = db
         .select({
           action: activityLogs.action,
           createdAt: activityLogs.createdAt,
@@ -42,29 +90,18 @@ export function getRecordHistory(config: {
         })
         .from(activityLogs)
         .leftJoin(users, eq(activityLogs.userId, users.id))
-        .where(
-          and(
-            eq(activityLogs.tableName, tableName),
-            eq(activityLogs.recordId, recordId),
-            gte(activityLogs.createdAt, oneYearAgo)
-          )
-        )
+        .where(whereCondition)
         .orderBy(asc(activityLogs.createdAt))
 
-      return results.map((row) => ({
-        action: row.action,
-        createdAt: row.createdAt,
-        changes: row.changes,
-        user:
-          row.userId && row.userName && row.userEmail
-            ? {
-                id: row.userId,
-                name: row.userName,
-                email: row.userEmail,
-                image: row.userImage,
-              }
-            : undefined,
-      }))
+      const paginatedQuery =
+        limit !== undefined
+          ? offset !== undefined
+            ? baseQuery.limit(limit).offset(offset)
+            : baseQuery.limit(limit)
+          : baseQuery
+
+      const results = await paginatedQuery
+      return { entries: results.map(transformActivityRow), total }
     },
     catch: (error) => new SessionContextError('Failed to fetch activity history', error),
   })
