@@ -156,19 +156,28 @@ function parseActionFilter(
 }
 
 /**
- * Apply tableName, action, and userId filters to activity logs
+ * Filter options for activity log queries
+ */
+interface ActivityFilters {
+  readonly tableName?: string
+  readonly action?: 'create' | 'update' | 'delete' | 'restore'
+  readonly userId?: string
+  readonly startDate?: Date
+}
+
+/**
+ * Apply tableName, action, userId, and startDate filters to activity logs
  */
 function applyFilters(
   logs: readonly ActivityLogOutput[],
-  tableNameFilter: string | undefined,
-  actionFilter: 'create' | 'update' | 'delete' | 'restore' | undefined,
-  userIdFilter: string | undefined
+  filters: ActivityFilters
 ): readonly ActivityLogOutput[] {
   return logs.filter(
     (log) =>
-      (tableNameFilter === undefined || log.tableName === tableNameFilter) &&
-      (actionFilter === undefined || log.action === actionFilter) &&
-      (userIdFilter === undefined || log.userId === userIdFilter)
+      (filters.tableName === undefined || log.tableName === filters.tableName) &&
+      (filters.action === undefined || log.action === filters.action) &&
+      (filters.userId === undefined || log.userId === filters.userId) &&
+      (filters.startDate === undefined || new Date(log.createdAt) >= filters.startDate)
   )
 }
 
@@ -200,6 +209,9 @@ async function handleListActivityLogs(c: Context) {
 
   const userIdFilter = c.req.query('userId')
 
+  const startDateParam = c.req.query('startDate')
+  const startDateFilter = startDateParam !== undefined ? new Date(startDateParam) : undefined
+
   const result = await Effect.runPromise(
     ListActivityLogs({ userId: session.userId }).pipe(
       Effect.provide(ListActivityLogsLayer),
@@ -215,7 +227,12 @@ async function handleListActivityLogs(c: Context) {
     )
   }
 
-  const filtered = applyFilters(result.right, tableNameFilter, parsedAction, userIdFilter)
+  const filtered = applyFilters(result.right, {
+    tableName: tableNameFilter,
+    action: parsedAction ?? undefined,
+    userId: userIdFilter,
+    startDate: startDateFilter,
+  })
   return c.json(buildPaginatedResponse(filtered, params.page, params.pageSize), 200)
 }
 
