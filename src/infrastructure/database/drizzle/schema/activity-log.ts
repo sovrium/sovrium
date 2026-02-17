@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { sql } from 'drizzle-orm'
 import { text, timestamp, jsonb, index } from 'drizzle-orm/pg-core'
 import { users } from '../../../auth/better-auth/schema'
 import { systemSchema } from './migration-audit'
@@ -53,7 +54,10 @@ export const activityLogs = systemSchema.table(
   'activity_logs',
   {
     // Primary key - UUID for distributed systems compatibility
-    id: text('id').primaryKey(),
+    // Default generates UUID automatically via PostgreSQL gen_random_uuid()
+    id: text('id')
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
 
     // Event metadata
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -69,7 +73,8 @@ export const activityLogs = systemSchema.table(
 
     // Table identification
     tableName: text('table_name').notNull(),
-    tableId: text('table_id').notNull(),
+    // tableId is optional - not all activity sources have a table schema ID
+    tableId: text('table_id'),
 
     // Record identification within the table
     recordId: text('record_id').notNull(),

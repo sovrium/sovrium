@@ -21,7 +21,7 @@ export interface ActivityLog {
   readonly sessionId: string | null
   readonly action: 'create' | 'update' | 'delete' | 'restore'
   readonly tableName: string
-  readonly tableId: string
+  readonly tableId: string | null
   readonly recordId: string
   readonly changes: {
     readonly before?: Record<string, unknown>
