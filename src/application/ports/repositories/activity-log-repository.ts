@@ -38,7 +38,7 @@ export interface ActivityLog {
   } | null
   readonly ipAddress: string | null
   readonly userAgent: string | null
-  readonly user?: ActivityLogUser | undefined
+  readonly user?: ActivityLogUser | null | undefined
 }
 
 /**

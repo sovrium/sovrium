@@ -46,6 +46,7 @@ export interface ActivityLogOutputUser {
  * Activity log output type for presentation layer
  *
  * Decouples presentation from infrastructure database schema.
+ * user is null for system-logged activities (no user_id).
  */
 export interface ActivityLogOutput {
   readonly id: string
@@ -54,13 +55,15 @@ export interface ActivityLogOutput {
   readonly action: 'create' | 'update' | 'delete' | 'restore'
   readonly tableName: string
   readonly recordId: string
-  readonly user: ActivityLogOutputUser | undefined
+  readonly user: ActivityLogOutputUser | null
 }
 
 /**
  * Map infrastructure ActivityLog to application output
  */
 function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
+  // eslint-disable-next-line unicorn/no-null -- Null is intentional for system-logged activities (no user_id)
+  const user = log.user != null ? log.user : null
   return {
     id: log.id,
     createdAt: log.createdAt.toISOString(),
@@ -68,7 +71,7 @@ function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
     action: log.action,
     tableName: log.tableName,
     recordId: log.recordId,
-    user: log.user ?? undefined,
+    user,
   }
 }
 

@@ -31,6 +31,7 @@ interface ActivityLogResponseUser {
  *
  * Maps application ActivityLogOutput to API JSON response format.
  * Uses camelCase for all fields per API conventions.
+ * user is null for system-logged activities (no user_id).
  */
 interface ActivityLogResponse {
   readonly id: string
@@ -39,7 +40,7 @@ interface ActivityLogResponse {
   readonly action: 'create' | 'update' | 'delete' | 'restore'
   readonly tableName: string
   readonly recordId: string
-  readonly user: ActivityLogResponseUser | undefined
+  readonly user: ActivityLogResponseUser | null
 }
 
 /**
