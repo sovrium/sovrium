@@ -24,7 +24,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-001: should return 200 with activity details',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -48,8 +48,8 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const { user } = await createAuthenticatedUser()
 
       const activityResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
-        VALUES ('${user.id}', 'create', 'tasks', 1, '{"title": "Task 1", "priority": 5}', NOW())
+        INSERT INTO system.activity_logs (id, table_id, user_id, action, table_name, record_id, changes, created_at)
+        VALUES (gen_random_uuid()::text, '1', '${user.id}', 'create', 'tasks', '1', '{"title": "Task 1", "priority": 5}', NOW())
         RETURNING id
       `)
       const activityId = activityResult.id
@@ -72,7 +72,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-002: should return 401 when user is not authenticated',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -95,7 +95,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-003: should return 404 when activity does not exist',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
@@ -120,7 +120,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-004: should include user metadata in activity details',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -144,8 +144,8 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const { user } = await createAuthenticatedUser({ name: 'Bob Smith' })
 
       const activityResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
-        VALUES ('${user.id}', 'update', 'tasks', 1, '{"title": {"old": "Old", "new": "New"}}', NOW())
+        INSERT INTO system.activity_logs (id, table_id, user_id, action, table_name, record_id, changes, created_at)
+        VALUES (gen_random_uuid()::text, '1', '${user.id}', 'update', 'tasks', '1', '{"title": {"old": "Old", "new": "New"}}', NOW())
         RETURNING id
       `)
       const activityId = activityResult.id
@@ -163,7 +163,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-005: should return activity with null changes for delete action',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -187,8 +187,8 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const { user } = await createAuthenticatedUser()
 
       const activityResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
-        VALUES ('${user.id}', 'delete', 'tasks', 1, NULL, NOW())
+        INSERT INTO system.activity_logs (id, table_id, user_id, action, table_name, record_id, changes, created_at)
+        VALUES (gen_random_uuid()::text, '1', '${user.id}', 'delete', 'tasks', '1', NULL, NOW())
         RETURNING id
       `)
       const activityId = activityResult.id
@@ -205,7 +205,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-006: should return 400 when activityId is invalid format',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
@@ -230,7 +230,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-007: should return 401 Unauthorized when auth is not configured',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
@@ -263,7 +263,7 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ACTIVITY-DETAILS-REGRESSION: user can retrieve specific activity with full metadata',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -302,12 +302,14 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
 
       // --- Insert activity logs for testing ---
       const updateResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (id, table_id, user_id, action, table_name, record_id, changes, created_at)
         VALUES (
+          gen_random_uuid()::text,
+          '1',
           '${userId}',
           'update',
           'tasks',
-          42,
+          '42',
           '{"status": {"old": "pending", "new": "completed"}, "updatedAt": "2025-12-16T10:00:00Z"}',
           NOW()
         )
@@ -316,8 +318,8 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const updateActivityId = updateResult.id
 
       const deleteResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
-        VALUES ('${userId}', 'delete', 'tasks', 99, NULL, NOW())
+        INSERT INTO system.activity_logs (id, table_id, user_id, action, table_name, record_id, changes, created_at)
+        VALUES (gen_random_uuid()::text, '1', '${userId}', 'delete', 'tasks', '99', NULL, NOW())
         RETURNING id
       `)
       const deleteActivityId = deleteResult.id
