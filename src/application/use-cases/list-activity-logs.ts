@@ -34,6 +34,15 @@ export interface ListActivityLogsInput {
 }
 
 /**
+ * User metadata in activity log output
+ */
+export interface ActivityLogOutputUser {
+  readonly id: string
+  readonly name: string
+  readonly email: string
+}
+
+/**
  * Activity log output type for presentation layer
  *
  * Decouples presentation from infrastructure database schema.
@@ -45,6 +54,7 @@ export interface ActivityLogOutput {
   readonly action: 'create' | 'update' | 'delete' | 'restore'
   readonly tableName: string
   readonly recordId: string
+  readonly user: ActivityLogOutputUser | undefined
 }
 
 /**
@@ -58,6 +68,7 @@ function mapActivityLog(log: Readonly<ActivityLog>): ActivityLogOutput {
     action: log.action,
     tableName: log.tableName,
     recordId: log.recordId,
+    user: log.user ?? undefined,
   }
 }
 

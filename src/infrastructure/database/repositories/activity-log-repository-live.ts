@@ -5,12 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { desc } from 'drizzle-orm'
+import { desc, eq } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import {
   ActivityLogRepository,
   ActivityLogDatabaseError,
 } from '@/application/ports/repositories/activity-log-repository'
+import { users } from '@/infrastructure/auth/better-auth/schema'
 import { db } from '@/infrastructure/database'
 import { activityLogs } from '@/infrastructure/database/drizzle/schema/activity-log'
 
@@ -21,11 +22,49 @@ import { activityLogs } from '@/infrastructure/database/drizzle/schema/activity-
  */
 export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
   /**
-   * List all activity logs
+   * List all activity logs with user metadata
    */
   listAll: () =>
     Effect.tryPromise({
-      try: () => db.select().from(activityLogs).orderBy(desc(activityLogs.createdAt)),
+      try: async () => {
+        const rows = await db
+          .select({
+            id: activityLogs.id,
+            createdAt: activityLogs.createdAt,
+            userId: activityLogs.userId,
+            sessionId: activityLogs.sessionId,
+            action: activityLogs.action,
+            tableName: activityLogs.tableName,
+            tableId: activityLogs.tableId,
+            recordId: activityLogs.recordId,
+            changes: activityLogs.changes,
+            ipAddress: activityLogs.ipAddress,
+            userAgent: activityLogs.userAgent,
+            userName: users.name,
+            userEmail: users.email,
+          })
+          .from(activityLogs)
+          .leftJoin(users, eq(activityLogs.userId, users.id))
+          .orderBy(desc(activityLogs.createdAt))
+
+        return rows.map((row) => ({
+          id: row.id,
+          createdAt: row.createdAt,
+          userId: row.userId,
+          sessionId: row.sessionId,
+          action: row.action,
+          tableName: row.tableName,
+          tableId: row.tableId,
+          recordId: row.recordId,
+          changes: row.changes,
+          ipAddress: row.ipAddress,
+          userAgent: row.userAgent,
+          user:
+            row.userId && row.userName && row.userEmail
+              ? { id: row.userId, name: row.userName, email: row.userEmail }
+              : undefined,
+        }))
+      },
       catch: (error) => new ActivityLogDatabaseError({ cause: error }),
     }),
 

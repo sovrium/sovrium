@@ -18,6 +18,15 @@ import { sanitizeError, getStatusCode } from '@/presentation/api/utils/error-san
 import type { Context, Hono } from 'hono'
 
 /**
+ * User metadata in activity log API response
+ */
+interface ActivityLogResponseUser {
+  readonly id: string
+  readonly name: string
+  readonly email: string
+}
+
+/**
  * Activity log API response type
  *
  * Maps application ActivityLogOutput to API JSON response format.
@@ -30,6 +39,7 @@ interface ActivityLogResponse {
   readonly action: 'create' | 'update' | 'delete' | 'restore'
   readonly tableName: string
   readonly recordId: string
+  readonly user: ActivityLogResponseUser | undefined
 }
 
 /**
@@ -61,6 +71,7 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
     action: log.action,
     tableName: log.tableName,
     recordId: log.recordId,
+    user: log.user,
   }
 }
 
