@@ -278,7 +278,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-LIST-007: should return activities sorted by creation date descending',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
