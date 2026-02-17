@@ -130,10 +130,11 @@ export function getActivityById(config: {
       catch: (error) => new SessionContextError('Failed to fetch activity', error),
     })
 
-    if (results.length === 0) {
+    const row = results[0]
+    if (!row) {
       return yield* Effect.fail(new SessionContextError('Activity not found', { activityId }))
     }
 
-    return formatActivityDetailsRow(results[0])
+    return formatActivityDetailsRow(row)
   })
 }

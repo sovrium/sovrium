@@ -31,6 +31,55 @@ class HealthResponseValidationError extends Data.TaggedError('HealthResponseVali
 }> {}
 
 /**
+ * Create health check endpoint handler
+ * Returns a Hono app with the /api/health route configured
+ */
+// eslint-disable-next-line functional/prefer-immutable-types -- Hono types are mutable by library design
+const createHealthCheckEndpoint = (honoApp: Hono, app: App): Hono => {
+  return honoApp.get('/api/health', async (c) => {
+    // Use Effect.gen for functional composition
+    const program = Effect.gen(function* () {
+      // Build health response (explicitly typed for Zod validation)
+      // eslint-disable-next-line functional/prefer-immutable-types -- Required for Zod schema validation
+      const response: HealthResponse = {
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        app: {
+          name: app.name,
+        },
+      }
+
+      // Validate response against schema (ensures type safety)
+      const validated = yield* Effect.try({
+        try: () => healthResponseSchema.parse(response),
+        catch: (error) =>
+          new HealthResponseValidationError({
+            message: `Health response validation failed: ${error}`,
+            cause: error,
+          }),
+      })
+
+      return validated
+    })
+
+    try {
+      // Run Effect program and return result
+      const data = await Effect.runPromise(program)
+      return c.json(data, 200)
+    } catch {
+      // Handle errors gracefully
+      return c.json(
+        {
+          error: 'Internal server error',
+          code: 'HEALTH_CHECK_FAILED',
+        },
+        500
+      )
+    }
+  })
+}
+
+/**
  * Apply rate limiting middleware for table API endpoints
  * Returns a Hono app with rate limiting middleware applied
  */
@@ -176,47 +225,7 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   const auth = createAuthInstance(app.auth)
 
   // Create health check endpoint
-  const honoWithHealth = honoApp.get('/api/health', async (c) => {
-    // Use Effect.gen for functional composition
-    const program = Effect.gen(function* () {
-      // Build health response (explicitly typed for Zod validation)
-      // eslint-disable-next-line functional/prefer-immutable-types -- Required for Zod schema validation
-      const response: HealthResponse = {
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-        app: {
-          name: app.name,
-        },
-      }
-
-      // Validate response against schema (ensures type safety)
-      const validated = yield* Effect.try({
-        try: () => healthResponseSchema.parse(response),
-        catch: (error) =>
-          new HealthResponseValidationError({
-            message: `Health response validation failed: ${error}`,
-            cause: error,
-          }),
-      })
-
-      return validated
-    })
-
-    try {
-      // Run Effect program and return result
-      const data = await Effect.runPromise(program)
-      return c.json(data, 200)
-    } catch {
-      // Handle errors gracefully
-      return c.json(
-        {
-          error: 'Internal server error',
-          code: 'HEALTH_CHECK_FAILED',
-        },
-        500
-      )
-    }
-  })
+  const honoWithHealth = createHealthCheckEndpoint(honoApp, app)
 
   // Apply rate limiting middleware BEFORE auth middleware
   // This prevents auth bypass by rate limiting all requests first
