@@ -8,6 +8,7 @@
 import { Layer } from 'effect'
 import { ActivityRepository } from '@/application/ports/repositories/activity-repository'
 import { getRecordHistory } from '@/infrastructure/database/table-queries/query-helpers/activity-queries'
+import { checkRecordExists } from '@/infrastructure/database/table-queries/query-helpers/comment-queries'
 
 /**
  * Live implementation of ActivityRepository using activity-queries infrastructure
@@ -16,4 +17,5 @@ import { getRecordHistory } from '@/infrastructure/database/table-queries/query-
  */
 export const ActivityRepositoryLive = Layer.succeed(ActivityRepository, {
   getRecordHistory,
+  checkRecordExists,
 })

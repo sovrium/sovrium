@@ -135,7 +135,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-004: should return 404 when record does not exist',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {

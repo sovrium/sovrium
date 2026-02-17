@@ -7,9 +7,9 @@
 
 import { Effect } from 'effect'
 import { ActivityRepository } from '@/application/ports/repositories/activity-repository'
+import { SessionContextError } from '@/domain/errors'
 import type { UserSession } from '@/application/ports/models/user-session'
 import type { ActivityHistoryEntry } from '@/application/ports/repositories/activity-repository'
-import type { SessionContextError } from '@/domain/errors'
 
 /**
  * Get record history configuration
@@ -57,6 +57,12 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
   return Effect.gen(function* () {
     const activityRepo = yield* ActivityRepository
     const { session, tableName, recordId } = config
+
+    // Check if record exists before fetching history
+    const recordExists = yield* activityRepo.checkRecordExists({ session, tableName, recordId })
+    if (!recordExists) {
+      return yield* Effect.fail(new SessionContextError('Record not found'))
+    }
 
     // Fetch activity history
     const history = yield* activityRepo.getRecordHistory({ session, tableName, recordId })

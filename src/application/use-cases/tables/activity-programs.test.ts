@@ -48,6 +48,7 @@ describe('activity-programs', () => {
           expect(recordId).toBe('record-1')
           return Effect.succeed(mockHistory)
         },
+        checkRecordExists: () => Effect.succeed(true),
       })
 
       const program = getRecordHistoryProgram({
@@ -113,6 +114,7 @@ describe('activity-programs', () => {
 
       const TestActivityRepositoryLive = Layer.succeed(ActivityRepository, {
         getRecordHistory: () => Effect.succeed(mockHistory),
+        checkRecordExists: () => Effect.succeed(true),
       })
 
       const program = getRecordHistoryProgram({
@@ -156,6 +158,7 @@ describe('activity-programs', () => {
 
       const TestActivityRepositoryLive = Layer.succeed(ActivityRepository, {
         getRecordHistory: () => Effect.succeed(mockHistory),
+        checkRecordExists: () => Effect.succeed(true),
       })
 
       const program = getRecordHistoryProgram({
@@ -212,6 +215,7 @@ describe('activity-programs', () => {
 
       const TestActivityRepositoryLive = Layer.succeed(ActivityRepository, {
         getRecordHistory: () => Effect.succeed(mockHistory),
+        checkRecordExists: () => Effect.succeed(true),
       })
 
       const program = getRecordHistoryProgram({
