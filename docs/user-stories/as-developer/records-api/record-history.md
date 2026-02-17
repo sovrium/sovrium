@@ -64,7 +64,7 @@ GET /api/tables/1/records/123/history
 | AC-003 | Includes user who performed the action                 | `API-ACTIVITY-RECORD-HISTORY-003`        | ✅     |
 | AC-004 | Includes field-level change details for updates        | `API-ACTIVITY-RECORD-HISTORY-004`        | ✅     |
 | AC-005 | Returns 404 Not Found for non-existent record          | `API-ACTIVITY-RECORD-HISTORY-005`        | ✅     |
-| AC-006 | Returns 401 when not authenticated                     | `API-ACTIVITY-RECORD-HISTORY-006`        | ⏳     |
+| AC-006 | Returns 401 when not authenticated                     | `API-ACTIVITY-RECORD-HISTORY-006`        | ✅     |
 | AC-007 | Returns 403 when user lacks history view permission    | `API-ACTIVITY-RECORD-HISTORY-007`        | ⏳     |
 | AC-008 | Respects retention policy (excludes expired entries)   | `API-ACTIVITY-RECORD-HISTORY-008`        | ⏳     |
 | AC-009 | Supports pagination with limit and offset              | `API-ACTIVITY-RECORD-HISTORY-009`        | ⏳     |
