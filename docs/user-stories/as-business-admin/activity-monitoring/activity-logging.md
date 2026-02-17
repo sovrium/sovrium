@@ -79,7 +79,7 @@ GET /api/activity?page=1&pageSize=20&table=orders&action=update
 | AC-013 | Excludes activities older than 1 year (retention policy)    | `API-ACTIVITY-LIST-013`        | ✅     |
 | AC-014 | Returns 400 when action filter has invalid value            | `API-ACTIVITY-LIST-014`        | ✅     |
 | AC-015 | Returns 401 Unauthorized when auth is not configured        | `API-ACTIVITY-LIST-015`        | ✅     |
-| AC-016 | Includes null user metadata for system-logged activities    | `API-ACTIVITY-LIST-016`        | ⏳     |
+| AC-016 | Includes null user metadata for system-logged activities    | `API-ACTIVITY-LIST-016`        | ✅     |
 | AC-017 | Allows non-admin user to filter by their own userId         | `API-ACTIVITY-LIST-017`        | ⏳     |
 | AC-018 | Returns 403 when non-admin filters by another user's userId | `API-ACTIVITY-LIST-018`        | ⏳     |
 | AC-019 | Allows admin to filter by any userId                        | `API-ACTIVITY-LIST-019`        | ⏳     |
