@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { eq, and, asc } from 'drizzle-orm'
+import { eq, and, asc, gte } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { users } from '@/infrastructure/auth/better-auth/schema'
 import { SessionContextError } from '@/infrastructure/database'
@@ -26,6 +26,10 @@ export function getRecordHistory(config: {
 
   return Effect.tryPromise({
     try: async () => {
+      // Retention policy: exclude activities older than 1 year
+      const now = new Date()
+      const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate())
+
       const results = await db
         .select({
           action: activityLogs.action,
@@ -38,7 +42,13 @@ export function getRecordHistory(config: {
         })
         .from(activityLogs)
         .leftJoin(users, eq(activityLogs.userId, users.id))
-        .where(and(eq(activityLogs.tableName, tableName), eq(activityLogs.recordId, recordId)))
+        .where(
+          and(
+            eq(activityLogs.tableName, tableName),
+            eq(activityLogs.recordId, recordId),
+            gte(activityLogs.createdAt, oneYearAgo)
+          )
+        )
         .orderBy(asc(activityLogs.createdAt))
 
       return results.map((row) => ({
