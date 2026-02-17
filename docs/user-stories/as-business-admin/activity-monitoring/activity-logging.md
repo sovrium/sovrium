@@ -68,7 +68,7 @@ GET /api/activity?page=1&pageSize=20&table=orders&action=update
 | AC-002 | Returns 401 when user is not authenticated                  | `API-ACTIVITY-LIST-002`        | ✅     |
 | AC-003 | Returns activities filtered by table name                   | `API-ACTIVITY-LIST-003`        | ✅     |
 | AC-004 | Returns activities filtered by action type                  | `API-ACTIVITY-LIST-004`        | ✅     |
-| AC-005 | Returns activities filtered by user ID                      | `API-ACTIVITY-LIST-005`        | ⏳     |
+| AC-005 | Returns activities filtered by user ID                      | `API-ACTIVITY-LIST-005`        | ✅     |
 | AC-006 | Returns activities filtered by date range                   | `API-ACTIVITY-LIST-006`        | ⏳     |
 | AC-007 | Returns activities sorted by creation date descending       | `API-ACTIVITY-LIST-007`        | ⏳     |
 | AC-008 | Supports pagination with page and pageSize parameters       | `API-ACTIVITY-LIST-008`        | ⏳     |
