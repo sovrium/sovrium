@@ -156,17 +156,19 @@ function parseActionFilter(
 }
 
 /**
- * Apply tableName and action filters to activity logs
+ * Apply tableName, action, and userId filters to activity logs
  */
 function applyFilters(
   logs: readonly ActivityLogOutput[],
   tableNameFilter: string | undefined,
-  actionFilter: 'create' | 'update' | 'delete' | 'restore' | undefined
+  actionFilter: 'create' | 'update' | 'delete' | 'restore' | undefined,
+  userIdFilter: string | undefined
 ): readonly ActivityLogOutput[] {
   return logs.filter(
     (log) =>
       (tableNameFilter === undefined || log.tableName === tableNameFilter) &&
-      (actionFilter === undefined || log.action === actionFilter)
+      (actionFilter === undefined || log.action === actionFilter) &&
+      (userIdFilter === undefined || log.userId === userIdFilter)
   )
 }
 
@@ -196,6 +198,8 @@ async function handleListActivityLogs(c: Context) {
     )
   }
 
+  const userIdFilter = c.req.query('userId')
+
   const result = await Effect.runPromise(
     ListActivityLogs({ userId: session.userId }).pipe(
       Effect.provide(ListActivityLogsLayer),
@@ -211,7 +215,7 @@ async function handleListActivityLogs(c: Context) {
     )
   }
 
-  const filtered = applyFilters(result.right, tableNameFilter, parsedAction)
+  const filtered = applyFilters(result.right, tableNameFilter, parsedAction, userIdFilter)
   return c.json(buildPaginatedResponse(filtered, params.page, params.pageSize), 200)
 }
 
