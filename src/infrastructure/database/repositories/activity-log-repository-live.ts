@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { desc, eq } from 'drizzle-orm'
+import { desc, eq, gte, sql } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import {
   ActivityLogRepository,
@@ -45,6 +45,7 @@ export const ActivityLogRepositoryLive = Layer.succeed(ActivityLogRepository, {
           })
           .from(activityLogs)
           .leftJoin(users, eq(activityLogs.userId, users.id))
+          .where(gte(activityLogs.createdAt, sql`NOW() - INTERVAL '1 year'`))
           .orderBy(desc(activityLogs.createdAt))
 
         return rows.map((row) => ({
