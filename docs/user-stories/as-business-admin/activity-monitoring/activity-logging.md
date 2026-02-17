@@ -83,7 +83,7 @@ GET /api/activity?page=1&pageSize=20&table=orders&action=update
 | AC-017 | Allows non-admin user to filter by their own userId         | `API-ACTIVITY-LIST-017`        | ✅     |
 | AC-018 | Returns 403 when non-admin filters by another user's userId | `API-ACTIVITY-LIST-018`        | ✅     |
 | AC-019 | Allows admin to filter by any userId                        | `API-ACTIVITY-LIST-019`        | ✅     |
-| AC-020 | User can retrieve and filter activity logs (regression)     | `API-ACTIVITY-LIST-REGRESSION` | ⏳     |
+| AC-020 | User can retrieve and filter activity logs (regression)     | `API-ACTIVITY-LIST-REGRESSION` | ✅     |
 
 ### Implementation References
 
