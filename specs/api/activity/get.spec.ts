@@ -373,7 +373,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-LIST-009: should return empty array when no activities exist',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
