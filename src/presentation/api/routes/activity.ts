@@ -15,7 +15,7 @@ import { getActivityDetailsProgram } from '@/application/use-cases/tables/activi
 import { ActivityRepositoryLive } from '@/infrastructure/database/repositories/activity-repository-live'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { sanitizeError, getStatusCode } from '@/presentation/api/utils/error-sanitizer'
-import type { Hono } from 'hono'
+import type { Hono, Context } from 'hono'
 
 /**
  * Activity log API response type
@@ -47,6 +47,100 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
 }
 
 /**
+ * Handle GET /api/activity - List activity logs
+ */
+async function handleListActivityLogs(c: Context) {
+  const session = getSessionContext(c)
+
+  if (!session) {
+    return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
+  }
+
+  const program = ListActivityLogs({
+    userId: session.userId,
+  }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
+
+  const result = await Effect.runPromise(program)
+
+  if (result._tag === 'Left') {
+    const error = result.left
+    const requestId = crypto.randomUUID()
+    const sanitized = sanitizeError(error, requestId)
+    const statusCode = getStatusCode(sanitized.code)
+
+    return c.json(
+      {
+        success: false,
+        message: sanitized.message ?? sanitized.error,
+        code: sanitized.code,
+      },
+      statusCode
+    )
+  }
+
+  const logs = result.right
+  return c.json(logs.map(mapToApiResponse), 200)
+}
+
+/**
+ * Handle error for activity details endpoint
+ */
+function handleActivityError(c: Context, error: unknown) {
+  const requestId = crypto.randomUUID()
+  const sanitized = sanitizeError(error, requestId)
+  const statusCode = getStatusCode(sanitized.code)
+
+  if (
+    sanitized.message?.includes('not found') ||
+    sanitized.message?.includes('Activity not found')
+  ) {
+    return c.json({ success: false, message: 'Activity not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  return c.json(
+    {
+      success: false,
+      message: sanitized.message ?? sanitized.error,
+      code: sanitized.code,
+    },
+    statusCode
+  )
+}
+
+/**
+ * Handle GET /api/activity/:activityId - Get activity details
+ */
+async function handleGetActivityDetails(c: Context) {
+  const session = getSessionContext(c)
+
+  if (!session) {
+    return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
+  }
+
+  const activityId = c.req.param('activityId')
+
+  if (!activityId || activityId.trim() === '' || activityId === 'invalid-id') {
+    return c.json(
+      { success: false, message: 'Invalid activity ID format', code: 'INVALID_INPUT' },
+      400
+    )
+  }
+
+  const program = getActivityDetailsProgram({
+    session,
+    activityId,
+  }).pipe(Effect.provide(ActivityRepositoryLive), Effect.either)
+
+  const result = await Effect.runPromise(program)
+
+  if (result._tag === 'Left') {
+    return handleActivityError(c, result.left)
+  }
+
+  return c.json(result.right, 200)
+}
+
+/**
  * Chain activity routes onto a Hono app
  *
  * Provides:
@@ -58,96 +152,6 @@ function mapToApiResponse(log: ActivityLogOutput): ActivityLogResponse {
  */
 export function chainActivityRoutes<T extends Hono>(honoApp: T): T {
   return honoApp
-    .get('/api/activity', async (c) => {
-      const session = getSessionContext(c)
-
-      if (!session) {
-        return c.json(
-          { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
-          401
-        )
-      }
-
-      const program = ListActivityLogs({
-        userId: session.userId,
-      }).pipe(Effect.provide(ListActivityLogsLayer), Effect.either)
-
-      const result = await Effect.runPromise(program)
-
-      if (result._tag === 'Left') {
-        const error = result.left
-        const requestId = crypto.randomUUID()
-
-        // Sanitize error to prevent information disclosure
-        const sanitized = sanitizeError(error, requestId)
-        const statusCode = getStatusCode(sanitized.code)
-
-        return c.json(
-          {
-            success: false,
-            message: sanitized.message ?? sanitized.error,
-            code: sanitized.code,
-          },
-          statusCode
-        )
-      }
-
-      const logs = result.right
-      return c.json(logs.map(mapToApiResponse), 200)
-    })
-    .get('/api/activity/:activityId', async (c) => {
-      const session = getSessionContext(c)
-
-      if (!session) {
-        return c.json(
-          { success: false, message: 'Authentication required', code: 'UNAUTHORIZED' },
-          401
-        )
-      }
-
-      const activityId = c.req.param('activityId')
-
-      // Validate activity ID format (should be a valid string ID, not "invalid-id")
-      if (!activityId || activityId.trim() === '' || activityId === 'invalid-id') {
-        return c.json(
-          { success: false, message: 'Invalid activity ID format', code: 'INVALID_INPUT' },
-          400
-        )
-      }
-
-      const program = getActivityDetailsProgram({
-        session,
-        activityId,
-      }).pipe(Effect.provide(ActivityRepositoryLive), Effect.either)
-
-      const result = await Effect.runPromise(program)
-
-      if (result._tag === 'Left') {
-        const error = result.left
-        const requestId = crypto.randomUUID()
-
-        // Sanitize error to prevent information disclosure
-        const sanitized = sanitizeError(error, requestId)
-        const statusCode = getStatusCode(sanitized.code)
-
-        // Map "not found" errors to 404
-        if (
-          sanitized.message?.includes('not found') ||
-          sanitized.message?.includes('Activity not found')
-        ) {
-          return c.json({ success: false, message: 'Activity not found', code: 'NOT_FOUND' }, 404)
-        }
-
-        return c.json(
-          {
-            success: false,
-            message: sanitized.message ?? sanitized.error,
-            code: sanitized.code,
-          },
-          statusCode
-        )
-      }
-
-      return c.json(result.right, 200)
-    }) as T
+    .get('/api/activity', handleListActivityLogs)
+    .get('/api/activity/:activityId', handleGetActivityDetails) as T
 }

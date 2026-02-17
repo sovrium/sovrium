@@ -64,6 +64,41 @@ export function getRecordHistory(config: {
 }
 
 /**
+ * Format activity details row to ActivityDetails type
+ */
+function formatActivityDetailsRow(row: {
+  readonly id: string
+  readonly userId: string | null
+  readonly action: string
+  readonly tableName: string
+  readonly recordId: string
+  readonly changes: unknown
+  readonly createdAt: Date
+  readonly userName: string | null
+  readonly userEmail: string | null
+  readonly userImage: string | null
+}): ActivityDetails {
+  return {
+    id: row.id,
+    userId: row.userId,
+    action: row.action,
+    tableName: row.tableName,
+    recordId: row.recordId,
+    changes: row.changes,
+    createdAt: row.createdAt,
+    user:
+      row.userId && row.userName && row.userEmail
+        ? {
+            id: row.userId,
+            name: row.userName,
+            email: row.userEmail,
+            image: row.userImage,
+          }
+        : undefined,
+  }
+}
+
+/**
  * Fetch single activity by ID
  */
 export function getActivityById(config: {
@@ -72,56 +107,33 @@ export function getActivityById(config: {
 }): Effect.Effect<ActivityDetails, SessionContextError> {
   const { activityId } = config
 
-  return Effect.tryPromise({
-    try: async () => {
-      const results = await db
-        .select({
-          id: activityLogs.id,
-          userId: activityLogs.userId,
-          action: activityLogs.action,
-          tableName: activityLogs.tableName,
-          recordId: activityLogs.recordId,
-          changes: activityLogs.changes,
-          createdAt: activityLogs.createdAt,
-          userName: users.name,
-          userEmail: users.email,
-          userImage: users.image,
-        })
-        .from(activityLogs)
-        .leftJoin(users, eq(activityLogs.userId, users.id))
-        .where(eq(activityLogs.id, activityId))
-        .limit(1)
+  return Effect.gen(function* () {
+    const results = yield* Effect.tryPromise({
+      try: () =>
+        db
+          .select({
+            id: activityLogs.id,
+            userId: activityLogs.userId,
+            action: activityLogs.action,
+            tableName: activityLogs.tableName,
+            recordId: activityLogs.recordId,
+            changes: activityLogs.changes,
+            createdAt: activityLogs.createdAt,
+            userName: users.name,
+            userEmail: users.email,
+            userImage: users.image,
+          })
+          .from(activityLogs)
+          .leftJoin(users, eq(activityLogs.userId, users.id))
+          .where(eq(activityLogs.id, activityId))
+          .limit(1),
+      catch: (error) => new SessionContextError('Failed to fetch activity', error),
+    })
 
-      if (results.length === 0) {
-        throw new SessionContextError('Activity not found', { activityId })
-      }
+    if (results.length === 0) {
+      return yield* Effect.fail(new SessionContextError('Activity not found', { activityId }))
+    }
 
-      const row = results[0]
-
-      return {
-        id: row.id,
-        userId: row.userId,
-        action: row.action,
-        tableName: row.tableName,
-        recordId: row.recordId,
-        changes: row.changes,
-        createdAt: row.createdAt,
-        user:
-          row.userId && row.userName && row.userEmail
-            ? {
-                id: row.userId,
-                name: row.userName,
-                email: row.userEmail,
-                image: row.userImage,
-              }
-            : undefined,
-      }
-    },
-    catch: (error) => {
-      if (error instanceof SessionContextError) {
-        return error
-      }
-      return new SessionContextError('Failed to fetch activity', error)
-    },
+    return formatActivityDetailsRow(results[0])
   })
 }
