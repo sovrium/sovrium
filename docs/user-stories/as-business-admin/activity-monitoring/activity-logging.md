@@ -129,14 +129,14 @@ GET /api/activity/act_123
 
 | ID     | Criterion                                                   | E2E Spec                          | Status |
 | ------ | ----------------------------------------------------------- | --------------------------------- | ------ |
-| AC-001 | Returns 200 OK with activity details                        | `API-ACTIVITY-DETAILS-001`        | ⏳     |
-| AC-002 | Returns 401 when user is not authenticated                  | `API-ACTIVITY-DETAILS-002`        | ⏳     |
-| AC-003 | Returns 404 when activity does not exist                    | `API-ACTIVITY-DETAILS-003`        | ⏳     |
-| AC-004 | Includes user metadata in activity details                  | `API-ACTIVITY-DETAILS-004`        | ⏳     |
-| AC-005 | Returns activity with null changes for delete action        | `API-ACTIVITY-DETAILS-005`        | ⏳     |
-| AC-006 | Returns 400 when activityId is invalid format               | `API-ACTIVITY-DETAILS-006`        | ⏳     |
-| AC-007 | Returns 401 Unauthorized when auth is not configured        | `API-ACTIVITY-DETAILS-007`        | ⏳     |
-| AC-008 | User retrieves specific activity with metadata (regression) | `API-ACTIVITY-DETAILS-REGRESSION` | ⏳     |
+| AC-001 | Returns 200 OK with activity details                        | `API-ACTIVITY-DETAILS-001`        | ✅     |
+| AC-002 | Returns 401 when user is not authenticated                  | `API-ACTIVITY-DETAILS-002`        | ✅     |
+| AC-003 | Returns 404 when activity does not exist                    | `API-ACTIVITY-DETAILS-003`        | ✅     |
+| AC-004 | Includes user metadata in activity details                  | `API-ACTIVITY-DETAILS-004`        | ✅     |
+| AC-005 | Returns activity with null changes for delete action        | `API-ACTIVITY-DETAILS-005`        | ✅     |
+| AC-006 | Returns 400 when activityId is invalid format               | `API-ACTIVITY-DETAILS-006`        | ✅     |
+| AC-007 | Returns 401 Unauthorized when auth is not configured        | `API-ACTIVITY-DETAILS-007`        | ✅     |
+| AC-008 | User retrieves specific activity with metadata (regression) | `API-ACTIVITY-DETAILS-REGRESSION` | ✅     |
 
 ### Implementation References
 
