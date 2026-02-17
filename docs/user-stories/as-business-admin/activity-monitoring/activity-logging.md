@@ -64,7 +64,7 @@ GET /api/activity?page=1&pageSize=20&table=orders&action=update
 
 | ID     | Criterion                                                   | E2E Spec                       | Status |
 | ------ | ----------------------------------------------------------- | ------------------------------ | ------ |
-| AC-001 | Returns 200 OK with paginated activity logs                 | `API-ACTIVITY-LIST-001`        | ⏳     |
+| AC-001 | Returns 200 OK with paginated activity logs                 | `API-ACTIVITY-LIST-001`        | ✅     |
 | AC-002 | Returns 401 when user is not authenticated                  | `API-ACTIVITY-LIST-002`        | ✅     |
 | AC-003 | Returns activities filtered by table name                   | `API-ACTIVITY-LIST-003`        | ⏳     |
 | AC-004 | Returns activities filtered by action type                  | `API-ACTIVITY-LIST-004`        | ⏳     |
