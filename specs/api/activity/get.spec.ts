@@ -533,7 +533,7 @@ test.describe('GET /api/activity - List Activity Logs', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-LIST-014: should return 400 when action filter has invalid value',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser }) => {
