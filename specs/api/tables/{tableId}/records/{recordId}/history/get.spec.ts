@@ -251,7 +251,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-007: should exclude activities older than 1 year (retention policy)',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
