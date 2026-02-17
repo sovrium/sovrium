@@ -48,8 +48,8 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const { user } = await createAuthenticatedUser()
 
       const activityResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
-        VALUES ('${user.id}', 'create', 'tasks', 1, '{"title": "Task 1", "priority": 5}', NOW())
+        INSERT INTO system.activity_logs (id, table_id, user_id, action, table_name, record_id, changes, created_at)
+        VALUES (gen_random_uuid()::text, '1', '${user.id}', 'create', 'tasks', '1', '{"title": "Task 1", "priority": 5}', NOW())
         RETURNING id
       `)
       const activityId = activityResult.id
@@ -144,8 +144,8 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const { user } = await createAuthenticatedUser({ name: 'Bob Smith' })
 
       const activityResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
-        VALUES ('${user.id}', 'update', 'tasks', 1, '{"title": {"old": "Old", "new": "New"}}', NOW())
+        INSERT INTO system.activity_logs (id, table_id, user_id, action, table_name, record_id, changes, created_at)
+        VALUES (gen_random_uuid()::text, '1', '${user.id}', 'update', 'tasks', '1', '{"title": {"old": "Old", "new": "New"}}', NOW())
         RETURNING id
       `)
       const activityId = activityResult.id
@@ -187,8 +187,8 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const { user } = await createAuthenticatedUser()
 
       const activityResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
-        VALUES ('${user.id}', 'delete', 'tasks', 1, NULL, NOW())
+        INSERT INTO system.activity_logs (id, table_id, user_id, action, table_name, record_id, changes, created_at)
+        VALUES (gen_random_uuid()::text, '1', '${user.id}', 'delete', 'tasks', '1', NULL, NOW())
         RETURNING id
       `)
       const activityId = activityResult.id
@@ -302,12 +302,14 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
 
       // --- Insert activity logs for testing ---
       const updateResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
+        INSERT INTO system.activity_logs (id, table_id, user_id, action, table_name, record_id, changes, created_at)
         VALUES (
+          gen_random_uuid()::text,
+          '1',
           '${userId}',
           'update',
           'tasks',
-          42,
+          '42',
           '{"status": {"old": "pending", "new": "completed"}, "updatedAt": "2025-12-16T10:00:00Z"}',
           NOW()
         )
@@ -316,8 +318,8 @@ test.describe('GET /api/activity/:activityId - Get Activity Log Details', () => 
       const updateActivityId = updateResult.id
 
       const deleteResult = await executeQuery(`
-        INSERT INTO system.activity_logs (user_id, action, table_name, record_id, changes, created_at)
-        VALUES ('${userId}', 'delete', 'tasks', 99, NULL, NOW())
+        INSERT INTO system.activity_logs (id, table_id, user_id, action, table_name, record_id, changes, created_at)
+        VALUES (gen_random_uuid()::text, '1', '${userId}', 'delete', 'tasks', '99', NULL, NOW())
         RETURNING id
       `)
       const deleteActivityId = deleteResult.id
