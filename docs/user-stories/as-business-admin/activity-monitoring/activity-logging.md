@@ -72,8 +72,8 @@ GET /api/activity?page=1&pageSize=20&table=orders&action=update
 | AC-006 | Returns activities filtered by date range                   | `API-ACTIVITY-LIST-006`        | ✅     |
 | AC-007 | Returns activities sorted by creation date descending       | `API-ACTIVITY-LIST-007`        | ✅     |
 | AC-008 | Supports pagination with page and pageSize parameters       | `API-ACTIVITY-LIST-008`        | ✅     |
-| AC-009 | Returns empty array when no activities exist                | `API-ACTIVITY-LIST-009`        | ⏳     |
-| AC-010 | Returns 400 when page parameter is invalid                  | `API-ACTIVITY-LIST-010`        | ⏳     |
+| AC-009 | Returns empty array when no activities exist                | `API-ACTIVITY-LIST-009`        | ✅     |
+| AC-010 | Returns 400 when page parameter is invalid                  | `API-ACTIVITY-LIST-010`        | ✅     |
 | AC-011 | Returns 400 when pageSize exceeds maximum                   | `API-ACTIVITY-LIST-011`        | ⏳     |
 | AC-012 | Includes user metadata in activity logs                     | `API-ACTIVITY-LIST-012`        | ⏳     |
 | AC-013 | Excludes activities older than 1 year (retention policy)    | `API-ACTIVITY-LIST-013`        | ⏳     |
