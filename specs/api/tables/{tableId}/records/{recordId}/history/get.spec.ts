@@ -206,7 +206,7 @@ test.describe('GET /api/tables/:tableId/records/:recordId/history - Get Record C
     }
   )
 
-  test.fixme(
+  test(
     'API-ACTIVITY-RECORD-HISTORY-006: should include user metadata for each activity',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
