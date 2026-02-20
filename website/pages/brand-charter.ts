@@ -244,9 +244,12 @@ export const brandCharter: Page = {
                       },
                       children: [
                         sidebarLink('principles', 'Principles'),
+                        sidebarLink('design-philosophy', 'Design Philosophy'),
                         sidebarLink('logo', 'Logo'),
                         sidebarLink('colors', 'Colors'),
                         sidebarLink('typography', 'Typography'),
+                        sidebarLink('spacing', 'Spacing & Whitespace'),
+                        sidebarLink('transitions', 'Transitions'),
                         sidebarLink('tone', 'Tone & Voice'),
                         sidebarLink('components', 'Components'),
                         sidebarLink('visuals', 'Visuals'),
@@ -291,7 +294,7 @@ export const brandCharter: Page = {
                             ),
                             principleCard(
                               'Clarity & Precision',
-                              'Configuration-as-code demands clarity. Our design language is clean, structured, and unambiguous. We favor sharp geometry over decoration, monospace accents over script, and white space over clutter.'
+                              'Configuration-as-code demands clarity. Our design language is clean, structured, and unambiguous. We favor sharp geometry over decoration, monospace accents over script, and generous whitespace over density. Every pixel is intentional.'
                             ),
                             principleCard(
                               'Technical Credibility',
@@ -301,6 +304,77 @@ export const brandCharter: Page = {
                               'Openness & Trust',
                               'Source-available, self-hosted, no telemetry. Our visual identity reflects transparency: open structures, visible layers, nothing hidden behind a paywall or a dark pattern.'
                             ),
+                          ],
+                        },
+                      ],
+                    },
+
+                    // ══ 1b. Design Philosophy ═════════════════════════
+                    {
+                      type: 'div',
+                      props: { id: 'design-philosophy' },
+                      children: [
+                        {
+                          type: 'h2',
+                          content: 'Design Philosophy',
+                          props: {
+                            className: 'text-2xl sm:text-3xl font-bold mb-2 text-sovereignty-light',
+                          },
+                        },
+                        {
+                          type: 'paragraph',
+                          content:
+                            'Sovrium\u2019s visual identity aspires to the same standard as the finest product websites \u2014 Apple, Linear, Stripe. Not by imitating their aesthetic, but by matching their attention to detail, intentionality, and polish in every pixel.',
+                          props: { className: 'text-sovereignty-gray-400 mb-8' },
+                        },
+                        {
+                          type: 'grid',
+                          props: {
+                            className: 'grid grid-cols-1 sm:grid-cols-2 gap-4',
+                          },
+                          children: [
+                            principleCard(
+                              'Typography-First',
+                              'Typography is the primary design element, not decoration. Every heading, body text, and caption has a clear purpose in the visual hierarchy. Use font weight, size, tracking, and color deliberately \u2014 never arbitrarily.'
+                            ),
+                            principleCard(
+                              'Generous Whitespace',
+                              'Whitespace is not empty space; it is a structural element. Sections feel spacious, not crammed. Content blocks breathe. When in doubt, add more space, not less. Density signals clutter; space signals confidence.'
+                            ),
+                            principleCard(
+                              'Pixel-Perfect Alignment',
+                              'Every element aligns to a deliberate grid. Text baselines match across columns. Icons are optically centered. Spacing between similar elements is mathematically consistent \u2014 not \u201Cclose enough,\u201D but exact.'
+                            ),
+                            principleCard(
+                              'Purposeful Restraint',
+                              'Every visual element \u2014 gradient, border, shadow, icon \u2014 serves a function: guide attention, create hierarchy, or indicate interactivity. If it doesn\u2019t serve a function, remove it. Decoration without purpose is noise.'
+                            ),
+                          ],
+                        },
+
+                        // The quality bar
+                        {
+                          type: 'div',
+                          props: {
+                            className:
+                              'mt-10 bg-sovereignty-gray-900 border border-sovereignty-accent/30 p-6 rounded-lg',
+                          },
+                          children: [
+                            {
+                              type: 'h3',
+                              content: 'The Quality Bar',
+                              props: {
+                                className: 'text-lg font-semibold mb-3 text-sovereignty-accent',
+                              },
+                            },
+                            {
+                              type: 'paragraph',
+                              content:
+                                'A designer visiting sovrium.com should find nothing to criticize. Transitions are smooth. Colors are purposeful. Spacing is generous and consistent. Text is readable and well-proportioned. The experience feels like a single, cohesive product \u2014 not a collection of pages assembled over time.',
+                              props: {
+                                className: 'text-sovereignty-gray-300 leading-relaxed italic',
+                              },
+                            },
                           ],
                         },
                       ],
@@ -707,6 +781,520 @@ export const brandCharter: Page = {
                               'Fira Code 400 / 14px / line-height 1.5',
                               'bun run start app.yaml'
                             ),
+                          ],
+                        },
+                      ],
+                    },
+
+                    // ══ 4b. Spacing & Whitespace ══════════════════════
+                    {
+                      type: 'div',
+                      props: { id: 'spacing' },
+                      children: [
+                        {
+                          type: 'h2',
+                          content: 'Spacing & Whitespace',
+                          props: {
+                            className: 'text-2xl sm:text-3xl font-bold mb-2 text-sovereignty-light',
+                          },
+                        },
+                        {
+                          type: 'paragraph',
+                          content:
+                            'Generous whitespace is a defining characteristic of the Sovrium aesthetic. Space communicates confidence and clarity. These values are non-negotiable.',
+                          props: { className: 'text-sovereignty-gray-400 mb-8' },
+                        },
+
+                        // Vertical spacing table
+                        {
+                          type: 'h3',
+                          content: 'Vertical rhythm',
+                          props: {
+                            className: 'text-lg font-semibold mb-4 text-sovereignty-gray-300',
+                          },
+                        },
+                        {
+                          type: 'div',
+                          props: {
+                            className:
+                              'bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg p-6 mb-8',
+                          },
+                          children: [
+                            {
+                              type: 'div',
+                              props: { className: 'space-y-4' },
+                              children: [
+                                {
+                                  type: 'div',
+                                  props: {
+                                    className:
+                                      'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-sovereignty-gray-800',
+                                  },
+                                  children: [
+                                    {
+                                      type: 'span',
+                                      content: 'Between page sections',
+                                      props: {
+                                        className: 'font-semibold text-sovereignty-light',
+                                      },
+                                    },
+                                    {
+                                      type: 'span',
+                                      content: '96\u2013120px desktop / 48\u201364px mobile',
+                                      props: {
+                                        className: 'text-sm font-mono text-sovereignty-accent',
+                                      },
+                                    },
+                                  ],
+                                },
+                                {
+                                  type: 'div',
+                                  props: {
+                                    className:
+                                      'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-sovereignty-gray-800',
+                                  },
+                                  children: [
+                                    {
+                                      type: 'span',
+                                      content: 'Section heading to content',
+                                      props: {
+                                        className: 'font-semibold text-sovereignty-light',
+                                      },
+                                    },
+                                    {
+                                      type: 'span',
+                                      content: '32\u201348px desktop / 24\u201332px mobile',
+                                      props: {
+                                        className: 'text-sm font-mono text-sovereignty-accent',
+                                      },
+                                    },
+                                  ],
+                                },
+                                {
+                                  type: 'div',
+                                  props: {
+                                    className:
+                                      'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-sovereignty-gray-800',
+                                  },
+                                  children: [
+                                    {
+                                      type: 'span',
+                                      content: 'Between cards in a grid',
+                                      props: {
+                                        className: 'font-semibold text-sovereignty-light',
+                                      },
+                                    },
+                                    {
+                                      type: 'span',
+                                      content: '24\u201332px desktop / 16\u201320px mobile',
+                                      props: {
+                                        className: 'text-sm font-mono text-sovereignty-accent',
+                                      },
+                                    },
+                                  ],
+                                },
+                                {
+                                  type: 'div',
+                                  props: {
+                                    className:
+                                      'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-sovereignty-gray-800',
+                                  },
+                                  children: [
+                                    {
+                                      type: 'span',
+                                      content: 'Card internal padding',
+                                      props: {
+                                        className: 'font-semibold text-sovereignty-light',
+                                      },
+                                    },
+                                    {
+                                      type: 'span',
+                                      content: '24\u201332px desktop / 20\u201324px mobile',
+                                      props: {
+                                        className: 'text-sm font-mono text-sovereignty-accent',
+                                      },
+                                    },
+                                  ],
+                                },
+                                {
+                                  type: 'div',
+                                  props: {
+                                    className:
+                                      'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3',
+                                  },
+                                  children: [
+                                    {
+                                      type: 'span',
+                                      content: 'Between paragraphs',
+                                      props: {
+                                        className: 'font-semibold text-sovereignty-light',
+                                      },
+                                    },
+                                    {
+                                      type: 'span',
+                                      content: '16\u201324px desktop / 12\u201316px mobile',
+                                      props: {
+                                        className: 'text-sm font-mono text-sovereignty-accent',
+                                      },
+                                    },
+                                  ],
+                                },
+                              ],
+                            },
+                          ],
+                        },
+
+                        // Content width
+                        {
+                          type: 'h3',
+                          content: 'Content width',
+                          props: {
+                            className: 'text-lg font-semibold mb-4 text-sovereignty-gray-300',
+                          },
+                        },
+                        {
+                          type: 'div',
+                          props: {
+                            className:
+                              'bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg p-6 mb-8',
+                          },
+                          children: [
+                            {
+                              type: 'div',
+                              props: { className: 'space-y-4' },
+                              children: [
+                                {
+                                  type: 'div',
+                                  props: {
+                                    className:
+                                      'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-sovereignty-gray-800',
+                                  },
+                                  children: [
+                                    {
+                                      type: 'span',
+                                      content: 'Page max-width (general)',
+                                      props: {
+                                        className: 'font-semibold text-sovereignty-light',
+                                      },
+                                    },
+                                    {
+                                      type: 'span',
+                                      content: '1200px (max-w-6xl)',
+                                      props: {
+                                        className: 'text-sm font-mono text-sovereignty-accent',
+                                      },
+                                    },
+                                  ],
+                                },
+                                {
+                                  type: 'div',
+                                  props: {
+                                    className:
+                                      'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-sovereignty-gray-800',
+                                  },
+                                  children: [
+                                    {
+                                      type: 'span',
+                                      content: 'Page max-width (text-heavy)',
+                                      props: {
+                                        className: 'font-semibold text-sovereignty-light',
+                                      },
+                                    },
+                                    {
+                                      type: 'span',
+                                      content: '768px (max-w-3xl)',
+                                      props: {
+                                        className: 'text-sm font-mono text-sovereignty-accent',
+                                      },
+                                    },
+                                  ],
+                                },
+                                {
+                                  type: 'div',
+                                  props: {
+                                    className:
+                                      'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3',
+                                  },
+                                  children: [
+                                    {
+                                      type: 'span',
+                                      content: 'Horizontal page padding',
+                                      props: {
+                                        className: 'font-semibold text-sovereignty-light',
+                                      },
+                                    },
+                                    {
+                                      type: 'span',
+                                      content: '16px mobile / 24px tablet / 32px desktop',
+                                      props: {
+                                        className: 'text-sm font-mono text-sovereignty-accent',
+                                      },
+                                    },
+                                  ],
+                                },
+                              ],
+                            },
+                          ],
+                        },
+
+                        // Whitespace principle callout
+                        {
+                          type: 'div',
+                          props: {
+                            className:
+                              'bg-sovereignty-gray-900 border border-sovereignty-accent/30 p-6 rounded-lg',
+                          },
+                          children: [
+                            {
+                              type: 'h3',
+                              content: 'The Whitespace Rule',
+                              props: {
+                                className: 'text-lg font-semibold mb-3 text-sovereignty-accent',
+                              },
+                            },
+                            {
+                              type: 'paragraph',
+                              content:
+                                'If a section feels crowded, the answer is never \u201Cmake the text smaller.\u201D The answer is always \u201Cadd more space\u201D or \u201Cremove content.\u201D Density signals clutter. Space signals confidence and clarity.',
+                              props: {
+                                className: 'text-sovereignty-gray-300 leading-relaxed italic',
+                              },
+                            },
+                          ],
+                        },
+                      ],
+                    },
+
+                    // ══ 4c. Transitions & Animation ═══════════════════
+                    {
+                      type: 'div',
+                      props: { id: 'transitions' },
+                      children: [
+                        {
+                          type: 'h2',
+                          content: 'Transitions & Animation',
+                          props: {
+                            className: 'text-2xl sm:text-3xl font-bold mb-2 text-sovereignty-light',
+                          },
+                        },
+                        {
+                          type: 'paragraph',
+                          content:
+                            'Motion should feel natural and purposeful. Every transition serves a function: providing feedback, guiding attention, or smoothing state changes. Motion that exists only for show is removed.',
+                          props: { className: 'text-sovereignty-gray-400 mb-8' },
+                        },
+
+                        // Transition table
+                        {
+                          type: 'h3',
+                          content: 'Standard durations',
+                          props: {
+                            className: 'text-lg font-semibold mb-4 text-sovereignty-gray-300',
+                          },
+                        },
+                        {
+                          type: 'div',
+                          props: {
+                            className:
+                              'bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg p-6 mb-8',
+                          },
+                          children: [
+                            {
+                              type: 'div',
+                              props: { className: 'space-y-4' },
+                              children: [
+                                {
+                                  type: 'div',
+                                  props: {
+                                    className:
+                                      'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-sovereignty-gray-800',
+                                  },
+                                  children: [
+                                    {
+                                      type: 'div',
+                                      children: [
+                                        {
+                                          type: 'span',
+                                          content: 'Links',
+                                          props: {
+                                            className: 'font-semibold text-sovereignty-light',
+                                          },
+                                        },
+                                        {
+                                          type: 'paragraph',
+                                          content: 'Color change on hover',
+                                          props: {
+                                            className: 'text-xs text-sovereignty-gray-500',
+                                          },
+                                        },
+                                      ],
+                                    },
+                                    {
+                                      type: 'span',
+                                      content: '150ms ease-out',
+                                      props: {
+                                        className: 'text-sm font-mono text-sovereignty-accent',
+                                      },
+                                    },
+                                  ],
+                                },
+                                {
+                                  type: 'div',
+                                  props: {
+                                    className:
+                                      'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-sovereignty-gray-800',
+                                  },
+                                  children: [
+                                    {
+                                      type: 'div',
+                                      children: [
+                                        {
+                                          type: 'span',
+                                          content: 'Buttons',
+                                          props: {
+                                            className: 'font-semibold text-sovereignty-light',
+                                          },
+                                        },
+                                        {
+                                          type: 'paragraph',
+                                          content: 'Background, border, shadow',
+                                          props: {
+                                            className: 'text-xs text-sovereignty-gray-500',
+                                          },
+                                        },
+                                      ],
+                                    },
+                                    {
+                                      type: 'span',
+                                      content: '200ms ease-out',
+                                      props: {
+                                        className: 'text-sm font-mono text-sovereignty-accent',
+                                      },
+                                    },
+                                  ],
+                                },
+                                {
+                                  type: 'div',
+                                  props: {
+                                    className:
+                                      'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3 border-b border-sovereignty-gray-800',
+                                  },
+                                  children: [
+                                    {
+                                      type: 'div',
+                                      children: [
+                                        {
+                                          type: 'span',
+                                          content: 'Cards',
+                                          props: {
+                                            className: 'font-semibold text-sovereignty-light',
+                                          },
+                                        },
+                                        {
+                                          type: 'paragraph',
+                                          content: 'Border color, shadow, subtle lift',
+                                          props: {
+                                            className: 'text-xs text-sovereignty-gray-500',
+                                          },
+                                        },
+                                      ],
+                                    },
+                                    {
+                                      type: 'span',
+                                      content: '300ms ease-out',
+                                      props: {
+                                        className: 'text-sm font-mono text-sovereignty-accent',
+                                      },
+                                    },
+                                  ],
+                                },
+                                {
+                                  type: 'div',
+                                  props: {
+                                    className:
+                                      'flex flex-col sm:flex-row sm:items-center sm:justify-between py-3',
+                                  },
+                                  children: [
+                                    {
+                                      type: 'div',
+                                      children: [
+                                        {
+                                          type: 'span',
+                                          content: 'Navigation (mobile)',
+                                          props: {
+                                            className: 'font-semibold text-sovereignty-light',
+                                          },
+                                        },
+                                        {
+                                          type: 'paragraph',
+                                          content: 'Height, opacity',
+                                          props: {
+                                            className: 'text-xs text-sovereignty-gray-500',
+                                          },
+                                        },
+                                      ],
+                                    },
+                                    {
+                                      type: 'span',
+                                      content: '300ms ease-in-out',
+                                      props: {
+                                        className: 'text-sm font-mono text-sovereignty-accent',
+                                      },
+                                    },
+                                  ],
+                                },
+                              ],
+                            },
+                          ],
+                        },
+
+                        // Motion rules
+                        {
+                          type: 'grid',
+                          props: { className: 'grid grid-cols-1 sm:grid-cols-2 gap-6' },
+                          children: [
+                            {
+                              type: 'div',
+                              props: { className: 'space-y-3' },
+                              children: [
+                                {
+                                  type: 'h4',
+                                  content: 'Motion principles',
+                                  props: {
+                                    className:
+                                      'text-sm uppercase tracking-widest text-green-500 font-semibold mb-2',
+                                  },
+                                },
+                                doItem('All interactive elements have a transition'),
+                                doItem(
+                                  'Hover states are subtle: opacity shift, gentle color change, or slight lift'
+                                ),
+                                doItem('Easing is always ease-out or ease-in-out, never linear'),
+                                doItem(
+                                  'Maximum transition duration: 400ms (longer feels sluggish)'
+                                ),
+                              ],
+                            },
+                            {
+                              type: 'div',
+                              props: { className: 'space-y-3' },
+                              children: [
+                                {
+                                  type: 'h4',
+                                  content: 'Motion anti-patterns',
+                                  props: {
+                                    className:
+                                      'text-sm uppercase tracking-widest text-red-500 font-semibold mb-2',
+                                  },
+                                },
+                                dontItem('Instant color jumps with no transition'),
+                                dontItem('Bouncy or elastic easing (feels playful, not premium)'),
+                                dontItem('Transitions on scroll position or layout shifts'),
+                                dontItem(
+                                  'Animation for decoration (spinning icons, pulsing badges)'
+                                ),
+                              ],
+                            },
                           ],
                         },
                       ],
@@ -1271,12 +1859,66 @@ export const brandCharter: Page = {
                           ],
                         },
 
+                        // Design Excellence Checklist
+                        {
+                          type: 'div',
+                          props: {
+                            className:
+                              'mt-10 bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg',
+                          },
+                          children: [
+                            {
+                              type: 'h3',
+                              content: 'Design Excellence Checklist',
+                              props: {
+                                className: 'text-lg font-semibold mb-4 text-sovereignty-light',
+                              },
+                            },
+                            {
+                              type: 'paragraph',
+                              content:
+                                'Before publishing any page, verify every item. These are the details that separate professional from amateur.',
+                              props: {
+                                className: 'text-sm text-sovereignty-gray-400 mb-4',
+                              },
+                            },
+                            {
+                              type: 'div',
+                              props: { className: 'space-y-3' },
+                              children: [
+                                doItem(
+                                  'Whitespace is generous \u2014 sections feel spacious, not crowded'
+                                ),
+                                doItem(
+                                  'Typography hierarchy is clear \u2014 3\u20134 contrast levels, logical heading step-down'
+                                ),
+                                doItem(
+                                  'Alignment is pixel-perfect \u2014 grid items align, spacing is mathematically consistent'
+                                ),
+                                doItem(
+                                  'All interactive elements have smooth transitions \u2014 no instant color jumps'
+                                ),
+                                doItem(
+                                  'Accent color is used sparingly \u2014 only on CTAs, links, and emphasis'
+                                ),
+                                doItem(
+                                  'Content breathes \u2014 comfortable line-height, text not too wide'
+                                ),
+                                doItem('Same component is pixel-identical everywhere it appears'),
+                                doItem(
+                                  'No decoration without purpose \u2014 every visual element serves a function'
+                                ),
+                              ],
+                            },
+                          ],
+                        },
+
                         // Authenticity filter
                         {
                           type: 'div',
                           props: {
                             className:
-                              'mt-10 bg-sovereignty-gray-900 border border-sovereignty-accent/30 p-6 rounded-lg',
+                              'mt-6 bg-sovereignty-gray-900 border border-sovereignty-accent/30 p-6 rounded-lg',
                           },
                           children: [
                             {
