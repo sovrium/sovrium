@@ -144,7 +144,7 @@ const marqueeLogoItem = (logo: { readonly name: string; readonly src: string }) 
   type: 'div' as const,
   props: {
     className:
-      'flex-shrink-0 flex items-center justify-center h-16 w-40 mx-6 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-300',
+      'flex-shrink-0 flex items-center justify-center h-16 w-40 mx-6 opacity-60 hover:opacity-100 transition-all duration-300',
   },
   children: [
     {
@@ -152,7 +152,7 @@ const marqueeLogoItem = (logo: { readonly name: string; readonly src: string }) 
       props: {
         src: logo.src,
         alt: logo.name,
-        className: 'h-full w-full object-contain',
+        className: 'h-full w-full object-contain brightness-0 invert',
       },
     },
   ],
@@ -173,6 +173,9 @@ export const partners: Page = {
       'sovrium partner, consulting, implementation, internal tools, process optimization, digital transformation',
     author: 'ESSENTIAL SERVICES',
     canonical: 'https://sovrium.com/partners',
+    favicons: {
+      icon: './favicon.svg',
+    },
     openGraph: {
       title: '$t:partners.meta.og.title',
       description: '$t:partners.meta.og.description',

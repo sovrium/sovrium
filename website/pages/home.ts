@@ -18,6 +18,9 @@ export const home: Page = {
       'digital sovereignty, self-hosted platform, no-code alternative, configuration-driven, airtable alternative, retool alternative, SaaS replacement',
     author: 'ESSENTIAL SERVICES',
     canonical: 'https://sovrium.com',
+    favicons: {
+      icon: './favicon.svg',
+    },
     openGraph: {
       title: '$t:home.meta.og.title',
       description: '$t:home.meta.og.description',

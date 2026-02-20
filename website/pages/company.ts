@@ -67,6 +67,9 @@ export const company: Page = {
       'sovrium, company, vision, team, ESSENTIAL SERVICES, digital sovereignty, open source',
     author: 'ESSENTIAL SERVICES',
     canonical: 'https://sovrium.com/company',
+    favicons: {
+      icon: './favicon.svg',
+    },
     openGraph: {
       title: '$t:company.meta.og.title',
       description: '$t:company.meta.og.description',

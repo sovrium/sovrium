@@ -156,6 +156,9 @@ export const brandCharter: Page = {
     description:
       'Sovrium brand guidelines: logo, colors, typography, tone of voice, and visual identity.',
     noindex: true, // Exclude from sitemap and search engines
+    favicons: {
+      icon: './favicon.svg',
+    },
   },
   sections: [
     // ─── Header ─────────────────────────────────────────────────────────────

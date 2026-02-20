@@ -15,6 +15,9 @@ export const privacyPolicy: Page = {
     title: 'Privacy Policy - Sovrium',
     description: 'Privacy policy for Sovrium, the self-hosted configuration-driven platform',
     canonical: 'https://sovrium.com/privacy-policy',
+    favicons: {
+      icon: './favicon.svg',
+    },
   },
   sections: [
     // Navigation Bar

@@ -16,6 +16,9 @@ export const dataDeletion: Page = {
     description:
       'Instructions for requesting deletion of your data related to Sovrium software and services by ESSENTIAL SERVICES.',
     canonical: 'https://sovrium.com/data-deletion',
+    favicons: {
+      icon: './favicon.svg',
+    },
   },
   sections: [
     // Navigation Bar

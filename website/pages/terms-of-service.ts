@@ -16,6 +16,9 @@ export const termsOfService: Page = {
     description:
       'Terms of service and license information for Sovrium, the self-hosted configuration-driven platform',
     canonical: 'https://sovrium.com/terms-of-service',
+    favicons: {
+      icon: './favicon.svg',
+    },
   },
   sections: [
     // Navigation Bar
