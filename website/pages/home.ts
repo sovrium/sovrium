@@ -423,52 +423,11 @@ export const home: Page = {
                   'bg-sovereignty-darker border border-sovereignty-gray-800 rounded-lg mb-12 md:mb-16 overflow-hidden',
               },
               children: [
-                // Window chrome header bar
-                {
-                  type: 'div',
-                  props: {
-                    className:
-                      'flex items-center gap-2 px-4 py-3 bg-sovereignty-gray-900 border-b border-sovereignty-gray-800',
-                  },
-                  children: [
-                    {
-                      type: 'div',
-                      props: { className: 'flex items-center gap-1.5' },
-                      children: [
-                        {
-                          type: 'div',
-                          props: {
-                            className: 'w-3 h-3 rounded-full bg-red-500/80',
-                          },
-                        },
-                        {
-                          type: 'div',
-                          props: {
-                            className: 'w-3 h-3 rounded-full bg-yellow-500/80',
-                          },
-                        },
-                        {
-                          type: 'div',
-                          props: {
-                            className: 'w-3 h-3 rounded-full bg-green-500/80',
-                          },
-                        },
-                      ],
-                    },
-                    {
-                      type: 'span',
-                      content: 'app.ts',
-                      props: {
-                        className: 'text-sovereignty-gray-400 text-xs font-mono ml-2',
-                      },
-                    },
-                  ],
-                },
                 // Syntax-highlighted code block (Prism.js)
                 {
                   type: 'pre',
                   props: {
-                    className: 'overflow-x-auto !m-0 !rounded-none !border-0',
+                    className: 'overflow-x-auto !m-0 !rounded-t-lg !rounded-b-none !border-0',
                   },
                   children: [
                     {
