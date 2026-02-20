@@ -138,6 +138,28 @@ interface ListTrashConfig {
   readonly offset?: number
 }
 
+/**
+ * Extract deletedBy user object from a raw trash record.
+ * The listTrash query joins auth.user and returns deleted_by_user object.
+ */
+function extractDeletedByUser(
+  rawRecord: Readonly<Record<string, unknown>>
+): Readonly<{ id: string; name?: string; email?: string }> | undefined {
+  const deletedByUser = rawRecord['deleted_by_user']
+  if (!deletedByUser || typeof deletedByUser !== 'object') return undefined
+  const userObj = deletedByUser as Record<string, unknown>
+  if (!userObj['id']) return undefined
+  return {
+    id: String(userObj['id']),
+    ...(userObj['name'] !== undefined && userObj['name'] !== null
+      ? { name: String(userObj['name']) }
+      : {}),
+    ...(userObj['email'] !== undefined && userObj['email'] !== null
+      ? { email: String(userObj['email']) }
+      : {}),
+  }
+}
+
 export function createListTrashProgram(
   config: ListTrashConfig
 ): Effect.Effect<ListRecordsResponse, SessionContextError, TableRepository> {
@@ -157,14 +179,20 @@ export function createListTrashProgram(
       userId: session.userId,
     })
 
-    // Preserve numeric IDs (transformRecord converts all IDs to strings, but we need to preserve numeric types)
+    // Preserve numeric IDs and attach deletedBy user object from joined query results
     const recordsWithPreservedIds = processedRecords.map((record) => {
       // Try to parse ID as number if it's a numeric string, otherwise keep as-is
-      const originalId = records.find((r) => String(r.id) === String(record.id))?.id
+      const rawRecord = records.find((r) => String(r.id) === String(record.id))
+      const originalId = rawRecord?.id
       const id = typeof originalId === 'number' ? originalId : record.id
+
+      // Extract deletedBy user object from the raw record's join result
+      const deletedBy = rawRecord ? extractDeletedByUser(rawRecord) : undefined
+
       return {
         ...record,
         id,
+        ...(deletedBy ? { deletedBy } : {}),
       }
     })
 

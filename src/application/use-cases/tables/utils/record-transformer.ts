@@ -33,6 +33,15 @@ export interface FormattedFieldValue {
 }
 
 /**
+ * User reference object for authorship fields (createdBy, updatedBy, deletedBy)
+ */
+export interface AuthorUserRef {
+  readonly id: string
+  readonly name?: string
+  readonly email?: string
+}
+
+/**
  * Transformed record structure for API responses (Airtable-style)
  *
  * System fields (id, createdAt, updatedAt, createdBy, updatedBy) are at root level.
@@ -45,7 +54,7 @@ export interface TransformedRecord {
   readonly updatedAt: string
   readonly createdBy?: string
   readonly updatedBy?: string
-  readonly deletedBy?: string
+  readonly deletedBy?: AuthorUserRef
 }
 
 /**
@@ -288,7 +297,7 @@ export const transformRecord = (
     updatedAt: updatedAt ? toISOString(updatedAt) : new Date().toISOString(),
     ...(createdBy ? { createdBy: String(createdBy) } : {}),
     ...(updatedBy ? { updatedBy: String(updatedBy) } : {}),
-    ...(deletedBy ? { deletedBy: String(deletedBy) } : {}),
+    ...(deletedBy ? { deletedBy: { id: String(deletedBy) } } : {}),
   }
 }
 

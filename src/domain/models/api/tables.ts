@@ -115,6 +115,15 @@ export const tableSummarySchema = z
  * User-defined fields are nested under the `fields` property.
  * System fields (id, createdAt, updatedAt) remain at root level.
  */
+/**
+ * User reference schema for authorship fields
+ */
+export const userRefSchema = z.object({
+  id: z.string().describe('User identifier'),
+  name: z.string().optional().describe('User display name'),
+  email: z.string().optional().describe('User email address'),
+})
+
 export const recordSchema = z
   .object({
     id: z.union([z.string(), z.number()]).describe('Record identifier'),
@@ -123,6 +132,7 @@ export const recordSchema = z
       .describe('User-defined field values (may include display formatting)'),
     createdBy: z.string().optional().describe('User who created the record'),
     updatedBy: z.string().optional().describe('User who last updated the record'),
+    deletedBy: userRefSchema.optional().describe('User who deleted the record'),
   })
   .extend(timestampSchema.shape)
 
@@ -202,7 +212,7 @@ export const getRecordResponseSchema = z
       .describe('User-defined field values (may include display formatting)'),
     createdBy: z.string().optional().describe('User who created the record'),
     updatedBy: z.string().optional().describe('User who last updated the record'),
-    deletedBy: z.string().optional().describe('User who deleted the record'),
+    deletedBy: userRefSchema.optional().describe('User who deleted the record'),
   })
   .extend(timestampSchema.shape)
 
