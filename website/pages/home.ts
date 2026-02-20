@@ -6,6 +6,7 @@
  */
 
 import { favicons } from './favicons'
+import { footerI18n } from './footer'
 import { navbar } from './navbar'
 import type { Page } from '@/index'
 
@@ -49,7 +50,7 @@ export const home: Page = {
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4 text-center' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8 text-center' },
           children: [
             {
               type: 'h1',
@@ -114,7 +115,7 @@ export const home: Page = {
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             {
               type: 'h2',
@@ -358,7 +359,7 @@ export const home: Page = {
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             {
               type: 'h2',
@@ -567,7 +568,7 @@ await start({
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             {
               type: 'h2',
@@ -756,7 +757,7 @@ await start({
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             {
               type: 'h2',
@@ -957,7 +958,7 @@ await start({
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             {
               type: 'h2',
@@ -1101,7 +1102,7 @@ await start({
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             {
               type: 'h2',
@@ -1308,7 +1309,7 @@ await start({
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             {
               type: 'h2',
@@ -1418,7 +1419,7 @@ await start({
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             {
               type: 'h2',
@@ -1577,7 +1578,7 @@ await start({
 
     // Footer CTA Section
     {
-      type: 'footer',
+      type: 'section',
       props: {
         className:
           'py-16 bg-sovereignty-darker border-t border-sovereignty-gray-800 text-sovereignty-light',
@@ -1585,7 +1586,7 @@ await start({
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4 text-center' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 text-center' },
           children: [
             {
               type: 'h2',
@@ -1594,7 +1595,7 @@ await start({
             },
             {
               type: 'flex',
-              props: { className: 'flex-col sm:flex-row justify-center gap-4 mb-12' },
+              props: { className: 'flex-col sm:flex-row justify-center gap-4' },
               children: [
                 {
                   type: 'link',
@@ -1602,7 +1603,7 @@ await start({
                   props: {
                     href: 'https://github.com/sovrium/sovrium/blob/main/README.md',
                     className:
-                      'inline-block bg-sovereignty-accent hover:bg-sovereignty-accent-hover text-white px-6 py-3 rounded-lg font-semibold transition-all text-center',
+                      'inline-block bg-sovereignty-accent hover:bg-sovereignty-accent-hover text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 text-center',
                   },
                 },
                 {
@@ -1611,80 +1612,18 @@ await start({
                   props: {
                     href: 'https://github.com/sovrium/sovrium',
                     className:
-                      'inline-block border-2 border-sovereignty-accent text-sovereignty-accent px-6 py-3 rounded-lg font-semibold hover:bg-sovereignty-accent hover:text-white transition-all text-center',
+                      'inline-block border-2 border-sovereignty-accent text-sovereignty-accent px-6 py-3 rounded-lg font-semibold hover:bg-sovereignty-accent hover:text-white transition-all duration-200 text-center',
                   },
                 },
               ],
-            },
-
-            // Footer Links
-            {
-              type: 'flex',
-              props: {
-                className:
-                  'flex-col sm:flex-row justify-center gap-4 sm:gap-6 md:gap-8 text-sovereignty-gray-400 mb-8 text-center sm:text-left',
-              },
-              children: [
-                {
-                  type: 'link',
-                  content: '$t:home.footer.privacy',
-                  props: {
-                    href: '$t:home.footer.privacy.href',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: '$t:home.footer.terms',
-                  props: {
-                    href: '$t:home.footer.terms.href',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: '$t:home.footer.dataDeletion',
-                  props: {
-                    href: '$t:home.footer.dataDeletion.href',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: '$t:home.footer.license',
-                  props: {
-                    href: 'https://github.com/sovrium/sovrium/blob/main/LICENSE.md',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: '$t:home.footer.trademark',
-                  props: {
-                    href: 'https://github.com/sovrium/sovrium/blob/main/TRADEMARK.md',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: '$t:home.footer.partners',
-                  props: {
-                    href: '$t:home.footer.partners.href',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-              ],
-            },
-
-            {
-              type: 'paragraph',
-              content: '$t:home.footer.copyright',
-              props: { className: 'text-sovereignty-gray-500 text-sm' },
             },
           ],
         },
       ],
     },
+
+    // Footer
+    footerI18n,
 
     // Built with Sovrium Badge (Fixed bottom-right)
     {

@@ -6,6 +6,7 @@
  */
 
 import { favicons } from './favicons'
+import { footerI18n } from './footer'
 import { navbar } from './navbar'
 import type { Page } from '@/index'
 
@@ -201,7 +202,7 @@ export const partners: Page = {
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4 text-center' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8 text-center' },
           children: [
             {
               type: 'h1',
@@ -258,7 +259,7 @@ export const partners: Page = {
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4 text-center' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8 text-center' },
           children: [
             {
               type: 'paragraph',
@@ -302,7 +303,7 @@ export const partners: Page = {
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             {
               type: 'h2',
@@ -331,7 +332,7 @@ export const partners: Page = {
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             {
               type: 'h2',
@@ -376,7 +377,7 @@ export const partners: Page = {
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             {
               type: 'h2',
@@ -426,7 +427,7 @@ export const partners: Page = {
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4' },
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             {
               type: 'h2',
@@ -460,7 +461,7 @@ export const partners: Page = {
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-4xl mx-auto px-4' },
+          props: { className: 'max-w-4xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             {
               type: 'card',
@@ -502,83 +503,7 @@ export const partners: Page = {
     },
 
     // ─── Section 8: Footer ───────────────────────────────────────────────────
-    {
-      type: 'footer',
-      props: {
-        className:
-          'py-16 bg-sovereignty-darker border-t border-sovereignty-gray-800 text-sovereignty-light',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4 text-center' },
-          children: [
-            {
-              type: 'flex',
-              props: {
-                className:
-                  'flex-col sm:flex-row justify-center gap-4 sm:gap-6 md:gap-8 text-sovereignty-gray-400 mb-8 text-center sm:text-left',
-              },
-              children: [
-                {
-                  type: 'link',
-                  content: '$t:partners.footer.privacy',
-                  props: {
-                    href: '$t:partners.footer.privacy.href',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: '$t:partners.footer.terms',
-                  props: {
-                    href: '$t:partners.footer.terms.href',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: '$t:partners.footer.dataDeletion',
-                  props: {
-                    href: '$t:partners.footer.dataDeletion.href',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: '$t:partners.footer.license',
-                  props: {
-                    href: 'https://github.com/sovrium/sovrium/blob/main/LICENSE.md',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: '$t:partners.footer.trademark',
-                  props: {
-                    href: 'https://github.com/sovrium/sovrium/blob/main/TRADEMARK.md',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: 'sovrium.com',
-                  props: {
-                    href: '$t:partners.footer.sovrium.href',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-              ],
-            },
-            {
-              type: 'paragraph',
-              content: '$t:partners.footer.copyright',
-              props: { className: 'text-sovereignty-gray-500 text-sm' },
-            },
-          ],
-        },
-      ],
-    },
+    footerI18n,
 
     // ─── Built with Sovrium Badge (Fixed bottom-right) ────────────────────────
     {

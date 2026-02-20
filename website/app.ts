@@ -121,6 +121,31 @@ export const app: App = {
         'nav.company.href': '/en/company',
 
         // ════════════════════════════════════════════════════════════════════
+        //  GLOBAL FOOTER
+        // ════════════════════════════════════════════════════════════════════
+        'footer.description':
+          'A self-hosted, configuration-driven platform that puts you back in control of your software.',
+        'footer.col.product': 'Product',
+        'footer.col.product.docs': 'Documentation',
+        'footer.col.product.github': 'GitHub',
+        'footer.col.product.license': 'License',
+        'footer.col.company': 'Company',
+        'footer.col.company.about': 'About',
+        'footer.col.company.about.href': '/en/company',
+        'footer.col.company.partners': 'Partners',
+        'footer.col.company.partners.href': '/en/partners',
+        'footer.col.company.trademark': 'Trademark',
+        'footer.col.legal': 'Legal',
+        'footer.col.legal.privacy': 'Privacy Policy',
+        'footer.col.legal.privacy.href': '/en/privacy-policy',
+        'footer.col.legal.terms': 'Terms of Service',
+        'footer.col.legal.terms.href': '/en/terms-of-service',
+        'footer.col.legal.dataDeletion': 'Data Deletion',
+        'footer.col.legal.dataDeletion.href': '/en/data-deletion',
+        'footer.copyright':
+          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE is a registered trademark of ESSENTIAL SERVICES.',
+
+        // ════════════════════════════════════════════════════════════════════
         //  HOME PAGE
         // ════════════════════════════════════════════════════════════════════
 
@@ -359,7 +384,7 @@ export const app: App = {
         // ── Partners: Hero ──────────────────────────────────────────────────
         'partners.hero.title': 'Tailor-made solutions to your software challenges',
         'partners.hero.subtitle':
-          'We design, build, and maintain custom internal tools on your infrastructure. No vendor lock-in, no surprise bills \u2014 just software that works for your team.',
+          'We design, build, and maintain custom internal tools, AI-powered solutions, and automated workflows on your infrastructure. No vendor lock-in, no surprise bills \u2014 just software that works for your team.',
         'partners.hero.cta.primary': 'Join the Waitlist',
         'partners.hero.cta.secondary': 'Our Methodology',
 
@@ -401,21 +426,20 @@ export const app: App = {
         'partners.process.step5.description':
           'Ongoing support and evolution as your needs grow. We stay with you for the long run.',
 
-        // ── Partners: Methodology (10 principles — exact LTF Engine wording)
+        // ── Partners: Methodology (13 principles) ──────────────────────────
         'partners.methodology.title': 'Our Methodology',
         'partners.methodology.subtitle': '10 principles that guide every project we deliver.',
         'partners.methodology.1.title':
-          '\u2699\uFE0F We automate existing processes and exclusively develop internal tools',
+          '\u2699\uFE0F We automate processes, build internal tools, and leverage AI to amplify your team',
         'partners.methodology.1.description':
-          'We listen to your needs and analyze your current processes to identify repetitive tasks that can be automated.',
+          'We analyze your workflows to identify repetitive tasks, design end-to-end automations, and integrate AI where it accelerates delivery.',
         'partners.methodology.2.title':
           '\uD83D\uDCAC We are available to answer your questions, needs, and technical support',
         'partners.methodology.2.description':
           'Our team is here to understand your specific needs and support you in your projects.',
-        'partners.methodology.3.title':
-          '\uD83E\uDD47 We use the best of both code and No Code worlds',
+        'partners.methodology.3.title': '\uD83E\uDD47 We use the best of Code, No Code, and AI',
         'partners.methodology.3.description':
-          'We combine the advantages of traditional coding technologies and No Code solutions to provide you with tailor-made tools.',
+          'We combine traditional code, No Code platforms, and AI-powered tools to deliver the right solution for each use case.',
         'partners.methodology.4.title':
           '\uD83D\uDCBB We work remotely and asynchronously, using video conferencing when necessary',
         'partners.methodology.4.description':
@@ -611,6 +635,31 @@ export const app: App = {
         'nav.partners.href': '/fr/partners',
         'nav.company': 'Entreprise',
         'nav.company.href': '/fr/company',
+
+        // ════════════════════════════════════════════════════════════════════
+        //  GLOBAL FOOTER
+        // ════════════════════════════════════════════════════════════════════
+        'footer.description':
+          'Une plateforme auto-h\u00E9berg\u00E9e et pilot\u00E9e par la configuration qui vous redonne le contr\u00F4le de votre logiciel.',
+        'footer.col.product': 'Produit',
+        'footer.col.product.docs': 'Documentation',
+        'footer.col.product.github': 'GitHub',
+        'footer.col.product.license': 'Licence',
+        'footer.col.company': 'Entreprise',
+        'footer.col.company.about': '\u00C0 propos',
+        'footer.col.company.about.href': '/fr/company',
+        'footer.col.company.partners': 'Partenaires',
+        'footer.col.company.partners.href': '/fr/partners',
+        'footer.col.company.trademark': 'Marque d\u00E9pos\u00E9e',
+        'footer.col.legal': 'L\u00E9gal',
+        'footer.col.legal.privacy': 'Politique de confidentialit\u00E9',
+        'footer.col.legal.privacy.href': '/fr/privacy-policy',
+        'footer.col.legal.terms': 'Conditions d\u2019utilisation',
+        'footer.col.legal.terms.href': '/fr/terms-of-service',
+        'footer.col.legal.dataDeletion': 'Suppression des donn\u00E9es',
+        'footer.col.legal.dataDeletion.href': '/fr/data-deletion',
+        'footer.copyright':
+          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE est une marque enregistr\u00E9e d\u2019ESSENTIAL SERVICES.',
 
         // ════════════════════════════════════════════════════════════════════
         //  HOME PAGE
@@ -867,7 +916,7 @@ export const app: App = {
         // ── Partners: Hero ──────────────────────────────────────────────────
         'partners.hero.title': 'Des solutions sur mesure pour vos d\u00E9fis logiciels',
         'partners.hero.subtitle':
-          'Nous concevons, construisons et maintenons des outils internes sur mesure sur votre infrastructure. Aucun vendor lock-in, aucune facture surprise \u2014 juste du logiciel qui fonctionne pour votre \u00E9quipe.',
+          'Nous concevons, construisons et maintenons des outils internes, des solutions pilot\u00E9es par l\u2019IA et des workflows automatis\u00E9s sur votre infrastructure. Aucun vendor lock-in, aucune facture surprise \u2014 juste du logiciel qui fonctionne pour votre \u00E9quipe.',
         'partners.hero.cta.primary': 'Rejoindre la liste d\u2019attente',
         'partners.hero.cta.secondary': 'Notre m\u00E9thodologie',
 
@@ -909,21 +958,21 @@ export const app: App = {
         'partners.process.step5.description':
           'Support continu et \u00E9volution au fil de vos besoins. Nous restons \u00E0 vos c\u00F4t\u00E9s sur le long terme.',
 
-        // ── Partners: Methodology (10 principles — exact LTF Engine wording)
+        // ── Partners: Methodology (13 principles) ──────────────────────────
         'partners.methodology.title': 'Notre m\u00E9thodologie',
         'partners.methodology.subtitle': '10 principes qui guident chaque projet que nous livrons.',
         'partners.methodology.1.title':
-          '\u2699\uFE0F Nous automatisons les processus existants et d\u00E9veloppons exclusivement des outils internes',
+          '\u2699\uFE0F Nous automatisons les processus, construisons des outils internes et exploitons l\u2019IA pour amplifier votre \u00E9quipe',
         'partners.methodology.1.description':
-          'Nous \u00E9coutons vos besoins et analysons vos processus actuels pour identifier les t\u00E2ches r\u00E9p\u00E9titives pouvant \u00EAtre automatis\u00E9es.',
+          'Nous analysons vos workflows pour identifier les t\u00E2ches r\u00E9p\u00E9titives, concevons des automatisations de bout en bout et int\u00E9grons l\u2019IA l\u00E0 o\u00F9 elle acc\u00E9l\u00E8re la livraison.',
         'partners.methodology.2.title':
           '\uD83D\uDCAC Nous sommes disponibles pour r\u00E9pondre \u00E0 vos questions, besoins et support technique',
         'partners.methodology.2.description':
           'Notre \u00E9quipe est l\u00E0 pour comprendre vos besoins sp\u00E9cifiques et vous accompagner dans vos projets.',
         'partners.methodology.3.title':
-          '\uD83E\uDD47 Nous utilisons le meilleur des mondes Code et No Code',
+          '\uD83E\uDD47 Nous utilisons le meilleur du Code, du No Code et de l\u2019IA',
         'partners.methodology.3.description':
-          'Nous combinons les avantages des technologies de codage traditionnelles et des solutions No Code pour vous fournir des outils sur mesure.',
+          'Nous combinons le code traditionnel, les plateformes No Code et les outils d\u2019IA pour d\u00E9livrer la bonne solution \u00E0 chaque cas d\u2019usage.',
         'partners.methodology.4.title':
           '\uD83D\uDCBB Nous travaillons \u00E0 distance et de mani\u00E8re asynchrone, en utilisant la visioconf\u00E9rence lorsque n\u00E9cessaire',
         'partners.methodology.4.description':

@@ -43,12 +43,12 @@ export const dataDeletion: Page = {
       type: 'section',
       props: {
         className:
-          'py-16 bg-gradient-to-b from-sovereignty-dark to-sovereignty-darker text-sovereignty-light',
+          'py-16 md:py-24 bg-gradient-to-b from-sovereignty-dark to-sovereignty-darker text-sovereignty-light',
       },
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-4xl mx-auto px-4' },
+          props: { className: 'max-w-4xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             {
               type: 'h1',
@@ -69,12 +69,12 @@ export const dataDeletion: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-8 md:py-12 bg-sovereignty-darker text-sovereignty-light',
+        className: 'py-12 md:py-16 bg-sovereignty-darker text-sovereignty-light',
       },
       children: [
         {
           type: 'container',
-          props: { className: 'max-w-4xl mx-auto px-4 sm:px-6 md:px-8 prose prose-invert' },
+          props: { className: 'max-w-4xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
             // Introduction
             {
