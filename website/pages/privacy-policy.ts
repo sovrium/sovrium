@@ -35,7 +35,7 @@ export const privacyPolicy: Page = {
             },
             {
               type: 'paragraph',
-              content: 'Last Updated: January 1, 2025',
+              content: 'Last Updated: February 20, 2026',
               props: { className: 'text-sovereignty-gray-400' },
             },
           ],
@@ -193,6 +193,59 @@ export const privacyPolicy: Page = {
                     'When you interact with our GitHub repository (issues, pull requests, discussions), GitHub collects data according to their privacy policy. We may see public information you share on GitHub.',
                   props: { className: 'text-sovereignty-light' },
                 },
+
+                {
+                  type: 'h3',
+                  content: '2.4 Facebook and Social Login',
+                  props: {
+                    className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
+                  },
+                },
+                {
+                  type: 'paragraph',
+                  content:
+                    'Sovrium-powered applications may integrate Facebook Login (or other social authentication providers) as an optional sign-in method. When a user authenticates via Facebook Login, the following data may be received by the Sovrium application:',
+                  props: { className: 'text-sovereignty-light mb-3' },
+                },
+                {
+                  type: 'div',
+                  props: { className: 'ml-4 sm:ml-6 space-y-2' },
+                  children: [
+                    {
+                      type: 'paragraph',
+                      content: '\u2022 Name and profile picture',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content: '\u2022 Email address',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content: '\u2022 Facebook user ID',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                  ],
+                },
+                {
+                  type: 'paragraph',
+                  content:
+                    'Legal basis: This data is processed under GDPR Art. 6(1)(b) (performance of a contract) when you choose to sign in via Facebook Login, and Art. 6(1)(a) (consent) as you explicitly authorize the data sharing through Facebook\u2019s authorization dialog.',
+                  props: { className: 'text-sovereignty-light mt-3 mb-3' },
+                },
+                {
+                  type: 'paragraph',
+                  content:
+                    'This data is used solely for the purpose of authenticating your identity and creating your user account within the Sovrium-powered application. For self-hosted installations, this data is stored on the infrastructure controlled by the organization operating the application. ESSENTIAL SERVICES does not have access to this data unless it directly operates the application.',
+                  props: { className: 'text-sovereignty-light mb-3' },
+                },
+                {
+                  type: 'paragraph',
+                  content:
+                    'You may request deletion of your data at any time. See our Data Deletion page at sovrium.com/data-deletion for detailed instructions.',
+                  props: { className: 'text-sovereignty-light' },
+                },
               ],
             },
 
@@ -239,6 +292,38 @@ export const privacyPolicy: Page = {
                     },
                   ],
                 },
+
+                {
+                  type: 'h3',
+                  content: '3.1 Data Retention',
+                  props: {
+                    className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
+                  },
+                },
+                {
+                  type: 'div',
+                  props: { className: 'ml-4 sm:ml-6 space-y-2' },
+                  children: [
+                    {
+                      type: 'paragraph',
+                      content:
+                        '\u2022 Website analytics: Aggregated and anonymized. No personal data is retained.',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content:
+                        '\u2022 Facebook Login data (for ESSENTIAL SERVICES-operated applications): Retained as long as your user account is active. Deleted within 30 days of a valid deletion request.',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content:
+                        '\u2022 Self-hosted installations: Data retention is determined by the organization operating the Sovrium instance.',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                  ],
+                },
               ],
             },
 
@@ -269,6 +354,12 @@ export const privacyPolicy: Page = {
                     {
                       type: 'paragraph',
                       content: '• Google Fonts (for typography)',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content:
+                        '• Facebook/Meta (for social authentication in Sovrium-powered applications)',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
@@ -432,6 +523,21 @@ export const privacyPolicy: Page = {
                       content: '• Company: ESSENTIAL SERVICES',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
+                    {
+                      type: 'paragraph',
+                      content: '• SIRET: 91313578400014',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content: '• Address: 128 Rue La Bo\u00E9tie, 75008 Paris, France',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content: '• Data Deletion: sovrium.com/data-deletion',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
                   ],
                 },
               ],
@@ -507,7 +613,8 @@ export const privacyPolicy: Page = {
             },
             {
               type: 'paragraph',
-              content: '© 2025 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
+              content:
+                '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
               props: { className: 'text-sovereignty-gray-500 text-sm' },
             },
           ],

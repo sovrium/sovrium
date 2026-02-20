@@ -6,6 +6,8 @@
  */
 
 import { type App } from '@/index'
+import { brandCharter } from './pages/brand-charter'
+import { dataDeletion } from './pages/data-deletion'
 import { home } from './pages/home'
 import { partners } from './pages/partners'
 import { privacyPolicy } from './pages/privacy-policy'
@@ -316,6 +318,8 @@ export const app: App = {
         'home.footer.trademark': 'Trademark',
         'home.footer.partners': 'Partners',
         'home.footer.partners.href': '/en/partners',
+        'home.footer.dataDeletion': 'Data Deletion',
+        'home.footer.dataDeletion.href': '/en/data-deletion',
         'home.footer.copyright':
           '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
 
@@ -451,6 +455,8 @@ export const app: App = {
         'partners.footer.terms.href': '/en/terms-of-service',
         'partners.footer.license': 'License',
         'partners.footer.trademark': 'Trademark',
+        'partners.footer.dataDeletion': 'Data Deletion',
+        'partners.footer.dataDeletion.href': '/en/data-deletion',
         'partners.footer.sovrium.href': 'https://sovrium.com/en/',
         'partners.footer.copyright':
           '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
@@ -688,6 +694,8 @@ export const app: App = {
         'home.footer.trademark': 'Marque d\u00E9pos\u00E9e',
         'home.footer.partners': 'Partenaires',
         'home.footer.partners.href': '/fr/partners',
+        'home.footer.dataDeletion': 'Suppression des donn\u00E9es',
+        'home.footer.dataDeletion.href': '/fr/data-deletion',
         'home.footer.copyright':
           '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium est une marque d\u2019ESSENTIAL SERVICES.',
 
@@ -825,6 +833,8 @@ export const app: App = {
         'partners.footer.terms.href': '/fr/terms-of-service',
         'partners.footer.license': 'Licence',
         'partners.footer.trademark': 'Marque d\u00E9pos\u00E9e',
+        'partners.footer.dataDeletion': 'Suppression des donn\u00E9es',
+        'partners.footer.dataDeletion.href': '/fr/data-deletion',
         'partners.footer.sovrium.href': 'https://sovrium.com/fr/',
         'partners.footer.copyright':
           '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium est une marque d\u2019ESSENTIAL SERVICES.',
@@ -832,5 +842,5 @@ export const app: App = {
     },
   },
   blocks: [],
-  pages: [home, termsOfService, privacyPolicy, partners],
+  pages: [home, termsOfService, privacyPolicy, dataDeletion, partners, brandCharter],
 }

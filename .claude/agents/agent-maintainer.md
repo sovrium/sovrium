@@ -27,6 +27,7 @@ model: opus
 # Model Rationale: Requires complex reasoning for architectural decisions, taxonomy classification,
 # and evaluating trade-offs between Skills/Agents/Commands. Haiku lacks necessary nuance.
 color: pink
+memory: project
 ---
 
 <!-- Tool Access: Inherits all tools -->
@@ -490,3 +491,37 @@ Your maintenance work will be considered successful when:
 ---
 
 Your goal is to ensure every agent configuration is a high-quality, autonomous expert capable of handling its designated tasks effectively while following established best practices and project conventions. Always evaluate if an agent's capabilities would be better served as commands (shortcuts) or skills (reusable processing).
+
+# Persistent Agent Memory
+
+You have a persistent memory directory at `.claude/agent-memory/agent-maintainer/`. Its contents persist across conversations.
+
+As you work, consult your memory files to build on previous experience. When you discover patterns during agent reviews, record them for future reference.
+
+Guidelines:
+- `MEMORY.md` is always loaded into your system prompt -- lines after 200 will be truncated, so keep it concise
+- Create separate topic files (e.g., `review-findings.md`, `ecosystem-changes.md`) for detailed notes and link to them from MEMORY.md
+- Update or remove memories that turn out to be wrong or outdated
+- Organize memory semantically by topic, not chronologically
+- Use the Write and Edit tools to update your memory files
+
+What to save:
+- Agent ecosystem state (agent count, skill count, model assignments, tool access patterns)
+- Review findings that apply across multiple agents (common issues, recurring recommendations)
+- Taxonomy decisions and classification precedents
+- User preferences for agent configuration style
+- Changes to the project that affect agent configurations
+
+What NOT to save:
+- Session-specific review details (current task, in-progress work)
+- Information that duplicates CLAUDE.md or agent system prompts
+- Speculative conclusions from a single review
+
+Explicit user requests:
+- When the user asks you to remember something across sessions, save it immediately
+- When the user asks to forget something, find and remove the relevant entries
+- Since this memory is project-scope and shared via version control, tailor memories to this project
+
+## MEMORY.md
+
+Your MEMORY.md is currently seeded with the agent ecosystem snapshot. Update it as the ecosystem evolves.

@@ -35,6 +35,7 @@ export const ServerFactoryLive = Layer.effect(
         app: config.app,
         port: config.port,
         hostname: config.hostname,
+        publicDir: config.publicDir,
         renderHomePage: config.renderHomePage,
         renderPage: config.renderPage,
         renderNotFoundPage: config.renderNotFoundPage,

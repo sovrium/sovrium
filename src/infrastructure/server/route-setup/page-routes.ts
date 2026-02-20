@@ -18,6 +18,7 @@ import type { App } from '@/domain/models/app'
  */
 export interface HonoAppConfig {
   readonly app: App
+  readonly publicDir?: string
   readonly renderHomePage: (app: App, detectedLanguage?: string) => string
   readonly renderPage: (app: App, path: string, detectedLanguage?: string) => string | undefined
   readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string

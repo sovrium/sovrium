@@ -36,6 +36,12 @@ export interface StartOptions {
    * @default "localhost"
    */
   readonly hostname?: string
+
+  /**
+   * Directory to serve static files from during development
+   * Files are served at their relative path (e.g., `publicDir/logos/x.png` → `/logos/x.png`)
+   */
+  readonly publicDir?: string
 }
 
 /**
@@ -101,6 +107,7 @@ export const startServer = (
       app: validatedApp,
       port: options.port,
       hostname: options.hostname,
+      publicDir: options.publicDir,
       renderHomePage: pageRenderer.renderHome,
       renderPage: pageRenderer.renderPage,
       renderNotFoundPage: pageRenderer.renderNotFound,

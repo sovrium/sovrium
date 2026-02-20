@@ -126,14 +126,34 @@ const statCard = (key: string) => ({
   ],
 })
 
-const clientLogo = (label: string) => ({
-  type: 'span' as const,
-  content: label,
-  props: {
-    className:
-      'text-sovereignty-gray-400 text-lg font-bold tracking-wider uppercase hover:text-sovereignty-light transition-colors',
-  },
-})
+const clientLogos: Record<string, string> = {
+  'ESCP Business School': '/logos/escp.png',
+  TH1: '/logos/th1.jpeg',
+  'Agora Store': '/logos/agorastore.png',
+  'Capital PV': '/logos/capitalpv.svg',
+}
+
+const clientLogo = (label: string) => {
+  const src = clientLogos[label]
+  if (src) {
+    return {
+      type: 'image' as const,
+      props: {
+        src,
+        alt: label,
+        className: 'h-10 w-auto object-contain opacity-60 hover:opacity-100 transition-opacity',
+      },
+    }
+  }
+  return {
+    type: 'span' as const,
+    content: label,
+    props: {
+      className:
+        'text-sovereignty-gray-400 text-lg font-bold tracking-wider uppercase hover:text-sovereignty-light transition-colors',
+    },
+  }
+}
 
 // ─── Page ───────────────────────────────────────────────────────────────────────
 
@@ -243,7 +263,7 @@ export const partners: Page = {
             {
               type: 'flex',
               props: {
-                className: 'flex-wrap justify-center gap-4',
+                className: 'flex-wrap justify-center items-center gap-8 md:gap-12',
               },
               children: [
                 clientLogo('ESCP Business School'),

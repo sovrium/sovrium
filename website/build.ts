@@ -8,4 +8,5 @@ await build(app, {
   generateSitemap: true,
   generateRobotsTxt: true,
   deployment: 'github-pages',
+  publicDir: './website/assets',
 })

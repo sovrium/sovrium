@@ -107,14 +107,49 @@ export function setupJavaScriptRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
 }
 
 /**
- * Setup static asset routes (CSS and JavaScript)
+ * Setup public directory file serving for development
  *
- * Mounts both CSS and JavaScript asset routes
+ * Serves files from a local directory at their relative path.
+ * e.g., `publicDir/logos/escp.png` is served at `/logos/escp.png`
+ *
+ * @param honoApp - Hono application instance
+ * @param publicDir - Directory path to serve files from
+ * @returns Hono app with public dir route configured
+ */
+export function setupPublicDirRoute(honoApp: Readonly<Hono>, publicDir: string): Readonly<Hono> {
+  return honoApp.get('/*', async (c, next) => {
+    const path = c.req.path
+    const filePath = `${publicDir}${path}`
+    const file = Bun.file(filePath)
+
+    if (await file.exists()) {
+      return new Response(file, {
+        headers: {
+          'Cache-Control': `public, max-age=${STATIC_ASSET_CACHE_DURATION_SECONDS}`,
+        },
+      })
+    }
+
+    // eslint-disable-next-line functional/no-expression-statements
+    await next()
+  })
+}
+
+/**
+ * Setup static asset routes (CSS, JavaScript, and optional public directory)
+ *
+ * Mounts CSS, JavaScript, and optionally public directory asset routes
  *
  * @param honoApp - Hono application instance
  * @param app - Application configuration
+ * @param publicDir - Optional directory to serve static files from
  * @returns Hono app with static asset routes configured
  */
-export function setupStaticAssets(honoApp: Readonly<Hono>, app: App): Readonly<Hono> {
-  return setupJavaScriptRoutes(setupCSSRoute(honoApp, app))
+export function setupStaticAssets(
+  honoApp: Readonly<Hono>,
+  app: App,
+  publicDir?: string
+): Readonly<Hono> {
+  const withAssets = setupJavaScriptRoutes(setupCSSRoute(honoApp, app))
+  return publicDir ? setupPublicDirRoute(withAssets, publicDir) : withAssets
 }

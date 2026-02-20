@@ -44,6 +44,7 @@ export interface ServerFactoryConfig {
   readonly app: App
   readonly port?: number
   readonly hostname?: string
+  readonly publicDir?: string
   readonly renderHomePage: (app: App) => string
   readonly renderPage: (app: App, path: string) => string | undefined
   readonly renderNotFoundPage: () => string

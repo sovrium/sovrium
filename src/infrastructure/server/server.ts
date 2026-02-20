@@ -42,6 +42,7 @@ export interface ServerConfig {
   readonly app: App
   readonly port?: number
   readonly hostname?: string
+  readonly publicDir?: string
   readonly renderHomePage: (app: App, detectedLanguage?: string) => string
   readonly renderPage: (app: App, path: string, detectedLanguage?: string) => string | undefined
   readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string
@@ -77,7 +78,8 @@ export function createHonoApp(config: HonoAppConfig): Readonly<Hono> {
         setupAuthMiddleware(setupOpenApiRoutes(createApiRoutes(app, new Hono())), app),
         app
       ),
-      app
+      app,
+      config.publicDir
     ),
     config
   )
@@ -209,6 +211,7 @@ export const createServer = (
       app,
       port = 3000,
       hostname = 'localhost',
+      publicDir,
       renderHomePage,
       renderPage,
       renderNotFoundPage,
@@ -226,6 +229,7 @@ export const createServer = (
     // Create Hono app
     const honoApp = createHonoApp({
       app,
+      publicDir,
       renderHomePage,
       renderPage,
       renderNotFoundPage,
