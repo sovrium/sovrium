@@ -152,15 +152,15 @@ export const app: App = {
         // ════════════════════════════════════════════════════════════════════
 
         // ── Home: Meta ──────────────────────────────────────────────────────
-        'home.meta.title': 'Sovrium \u2014 Own Your Software',
+        'home.meta.title': 'Sovrium \u2014 Build Apps with Configuration, Not Code',
         'home.meta.description':
-          'Build complete business applications with a single configuration file. Self-hosted, open-source, no vendor lock-in.',
-        'home.meta.og.title': 'Sovrium \u2014 Own Your Software',
+          'Build complete business applications with a single configuration file. The open-source, self-hosted SaaS alternative \u2014 no vendor lock-in.',
+        'home.meta.og.title': 'Sovrium \u2014 Build Apps with Configuration, Not Code',
         'home.meta.og.description':
-          'Configuration-driven application platform. Self-hosted, no vendor lock-in.',
-        'home.meta.twitter.title': 'Sovrium \u2014 Own Your Software',
+          'Open-source, configuration-driven application platform. The self-hosted SaaS alternative with no vendor lock-in.',
+        'home.meta.twitter.title': 'Sovrium \u2014 Build Apps with Configuration, Not Code',
         'home.meta.twitter.description':
-          'Configuration-driven application platform. Self-hosted, no vendor lock-in.',
+          'Open-source, configuration-driven application platform. The self-hosted SaaS alternative with no vendor lock-in.',
 
         // ── Home: Hero ──────────────────────────────────────────────────────
         'home.hero.title': 'Sovrium, the sovereignty element',
@@ -542,6 +542,399 @@ export const app: App = {
         'company.cta.github': 'View on GitHub',
         'company.cta.partners': 'Work With Us',
         'company.cta.partners.href': '/en/partners',
+
+        // ════════════════════════════════════════════════════════════════════
+        //  TERMS OF SERVICE PAGE
+        // ════════════════════════════════════════════════════════════════════
+
+        // ── Terms: Meta ───────────────────────────────────────────────────
+        'terms.meta.title': 'Terms of Service - Sovrium',
+        'terms.meta.description':
+          'Terms of service and license information for Sovrium, the self-hosted configuration-driven platform.',
+        'terms.meta.og.title': 'Terms of Service - Sovrium',
+        'terms.meta.og.description':
+          'Terms of service and license information for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+        'terms.meta.twitter.title': 'Terms of Service - Sovrium',
+        'terms.meta.twitter.description':
+          'Terms of service and license information for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+
+        // ── Terms: Header ─────────────────────────────────────────────────
+        'terms.header.title': 'Terms of Service',
+        'terms.header.lastUpdated': 'Last Updated: February 20, 2026',
+
+        // ── Terms: 1. Agreement ───────────────────────────────────────────
+        'terms.s1.title': '1. Agreement to Terms',
+        'terms.s1.p1':
+          'By accessing or using the Sovrium software, website, or any related services (collectively, the "Services"), you agree to be bound by these Terms of Service ("Terms") and all applicable laws and regulations. If you do not agree with these Terms, you may not use our Services.',
+
+        // ── Terms: 2. Software License ────────────────────────────────────
+        'terms.s2.title': '2. Software License',
+        'terms.s2.p1':
+          'Sovrium is licensed under the Business Source License 1.1 (BSL 1.1). The full license terms are available in the LICENSE.md file in the source repository.',
+        'terms.s2.permitted.title': '2.1 Permitted Uses',
+        'terms.s2.permitted.intro': 'You may use Sovrium for:',
+        'terms.s2.permitted.item1': '\u2713 Internal business use within your organization',
+        'terms.s2.permitted.item2': '\u2713 Personal projects and development',
+        'terms.s2.permitted.item3': '\u2713 Educational and academic purposes',
+        'terms.s2.permitted.item4': '\u2713 Non-competing client deployments',
+        'terms.s2.permitted.item5':
+          '\u2713 Creating applications for your own use or your direct clients',
+        'terms.s2.prohibited.title': '2.2 Prohibited Uses',
+        'terms.s2.prohibited.intro': 'Without a commercial license, you may NOT:',
+        'terms.s2.prohibited.item1':
+          '\u274C Offer Sovrium as a commercial hosted or managed service to third parties',
+        'terms.s2.prohibited.item2': '\u274C Create a competitive SaaS offering based on Sovrium',
+        'terms.s2.prohibited.item3':
+          '\u274C Resell, sublicense, or distribute Sovrium as a commercial product',
+        'terms.s2.prohibited.item4': '\u274C Remove or modify copyright notices or license terms',
+        'terms.s2.changeDate.title': '2.3 Change Date',
+        'terms.s2.changeDate.p1':
+          'On January 1, 2029, the BSL 1.1 license will automatically convert to Apache License 2.0, making Sovrium fully open source.',
+        'terms.s2.commercial.title': '2.4 Commercial Licensing',
+        'terms.s2.commercial.p1':
+          'For commercial hosting, managed services, or competitive use cases, please contact license@sovrium.com to obtain a commercial license.',
+
+        // ── Terms: 3. Trademark ───────────────────────────────────────────
+        'terms.s3.title': '3. Trademark and Branding',
+        'terms.s3.p1':
+          'Sovrium\u00AE is a registered trademark of ESSENTIAL SERVICES, registered with the Institut National de la Propri\u00E9t\u00E9 Industrielle (INPI) in France under registration number FR5200287.',
+        'terms.s3.p2': 'The trademark registration can be verified on the INPI public registry:',
+        'terms.s3.mayIntro': 'You may:',
+        'terms.s3.may1': '\u2713 State that your application is "Powered by Sovrium"',
+        'terms.s3.may2': '\u2713 Use the Sovrium name in factual statements about the software',
+        'terms.s3.may3': '\u2713 Include Sovrium in technical documentation',
+        'terms.s3.mayNotIntro': 'You may NOT:',
+        'terms.s3.mayNot1': '\u274C Use Sovrium in your product name without permission',
+        'terms.s3.mayNot2': '\u274C Imply endorsement by ESSENTIAL SERVICES',
+        'terms.s3.mayNot3': '\u274C Modify the Sovrium logo without authorization',
+        'terms.s3.guidelinesNote':
+          'For detailed trademark guidelines, see TRADEMARK.md in the source repository.',
+
+        // ── Terms: 4. Warranty ────────────────────────────────────────────
+        'terms.s4.title': '4. Warranty Disclaimer',
+        'terms.s4.p1':
+          'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.',
+        'terms.s4.p2': 'ESSENTIAL SERVICES does not warrant that:',
+        'terms.s4.item1': '\u2022 The software will meet your requirements',
+        'terms.s4.item2': '\u2022 The software will be uninterrupted or error-free',
+        'terms.s4.item3': '\u2022 Any defects will be corrected',
+        'terms.s4.item4': '\u2022 The software is free of vulnerabilities',
+
+        // ── Terms: 5. Liability ───────────────────────────────────────────
+        'terms.s5.title': '5. Limitation of Liability',
+        'terms.s5.p1':
+          'IN NO EVENT SHALL ESSENTIAL SERVICES, ITS OFFICERS, DIRECTORS, EMPLOYEES, OR AGENTS BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION, LOSS OF PROFITS, DATA, USE, OR OTHER INTANGIBLE LOSSES.',
+        'terms.s5.p2':
+          'This limitation applies even if ESSENTIAL SERVICES has been advised of the possibility of such damages.',
+
+        // ── Terms: 6. Indemnification ─────────────────────────────────────
+        'terms.s6.title': '6. Indemnification',
+        'terms.s6.p1':
+          'You agree to indemnify and hold harmless ESSENTIAL SERVICES from any claims, damages, losses, liabilities, and expenses (including legal fees) arising from:',
+        'terms.s6.item1': '\u2022 Your use of the software',
+        'terms.s6.item2': '\u2022 Your violation of these Terms',
+        'terms.s6.item3': '\u2022 Your violation of any third-party rights',
+        'terms.s6.item4': '\u2022 Your applications built with Sovrium',
+
+        // ── Terms: 7. Modifications ───────────────────────────────────────
+        'terms.s7.title': '7. Modifications to Terms',
+        'terms.s7.p1':
+          'We reserve the right to modify these Terms at any time. Changes will be effective immediately upon posting to the website. Your continued use of the Services after changes constitutes acceptance of the modified Terms.',
+
+        // ── Terms: 8. Termination ─────────────────────────────────────────
+        'terms.s8.title': '8. Termination',
+        'terms.s8.p1':
+          'We may terminate or suspend your access to the Services immediately, without prior notice, for any reason, including:',
+        'terms.s8.item1': '\u2022 Breach of these Terms',
+        'terms.s8.item2': '\u2022 Violation of the BSL 1.1 license',
+        'terms.s8.item3': '\u2022 Unauthorized commercial use',
+        'terms.s8.item4': '\u2022 Harmful or malicious use',
+
+        // ── Terms: 9. Governing Law ───────────────────────────────────────
+        'terms.s9.title': '9. Governing Law',
+        'terms.s9.p1':
+          'These Terms shall be governed by and construed in accordance with the laws of France, without regard to its conflict of law provisions. Any disputes shall be resolved in the courts of France.',
+
+        // ── Terms: 10. Severability ───────────────────────────────────────
+        'terms.s10.title': '10. Severability',
+        'terms.s10.p1':
+          'If any provision of these Terms is held to be invalid or unenforceable, the remaining provisions shall continue in full force and effect.',
+
+        // ── Terms: 11. Entire Agreement ───────────────────────────────────
+        'terms.s11.title': '11. Entire Agreement',
+        'terms.s11.p1':
+          'These Terms, together with the BSL 1.1 license and any commercial license agreements, constitute the entire agreement between you and ESSENTIAL SERVICES regarding the use of Sovrium.',
+
+        // ── Terms: 12. User Data ──────────────────────────────────────────
+        'terms.s12.title': '12. User Data and Privacy',
+        'terms.s12.p1':
+          'Your use of Sovrium may involve the collection, processing, and storage of personal data. Our handling of personal data is governed by our Privacy Policy, available at sovrium.com/privacy-policy.',
+        'terms.s12.p2':
+          'For self-hosted installations, the organization operating the Sovrium instance is the data controller and is responsible for compliance with applicable data protection laws (e.g., GDPR). ESSENTIAL SERVICES does not access, process, or store data from self-hosted installations.',
+        'terms.s12.p3':
+          'You may request the deletion of your personal data in accordance with our Data Deletion policy at sovrium.com/data-deletion.',
+
+        // ── Terms: 13. Contact ────────────────────────────────────────────
+        'terms.s13.title': '13. Contact Information',
+        'terms.s13.intro': 'For questions about these Terms or licensing:',
+        'terms.s13.item1': '\u2022 License inquiries: license@sovrium.com',
+        'terms.s13.item2': '\u2022 General questions: GitHub Issues',
+        'terms.s13.item3': '\u2022 Company: ESSENTIAL SERVICES, SAS au capital de 10 000 \u20AC',
+        'terms.s13.item4': '\u2022 RCS Paris \u2014 SIREN: 834 241 481',
+        'terms.s13.item5': '\u2022 SIRET: 834 241 481 00029',
+        'terms.s13.item6': '\u2022 TVA: FR04834241481',
+        'terms.s13.item7': '\u2022 Address: 128 Rue La Bo\u00E9tie, 75008 Paris, France',
+        'terms.s13.item8': '\u2022 President: Thomas Jeanneau',
+        'terms.s13.item9': '\u2022 Website: sovrium.com',
+
+        // ── Terms: Notice ─────────────────────────────────────────────────
+        'terms.notice.title': '\u26A0\uFE0F Important Notice',
+        'terms.notice.p1':
+          'By downloading, installing, or using Sovrium, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service and the Business Source License 1.1.',
+
+        // ════════════════════════════════════════════════════════════════════
+        //  PRIVACY POLICY PAGE
+        // ════════════════════════════════════════════════════════════════════
+
+        // ── Privacy: Meta ─────────────────────────────────────────────────
+        'privacy.meta.title': 'Privacy Policy - Sovrium',
+        'privacy.meta.description':
+          'Privacy policy for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+        'privacy.meta.og.title': 'Privacy Policy - Sovrium',
+        'privacy.meta.og.description':
+          'Privacy policy for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+        'privacy.meta.twitter.title': 'Privacy Policy - Sovrium',
+        'privacy.meta.twitter.description':
+          'Privacy policy for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+
+        // ── Privacy: Header ───────────────────────────────────────────────
+        'privacy.header.title': 'Privacy Policy',
+        'privacy.header.lastUpdated': 'Last Updated: February 20, 2026',
+
+        // ── Privacy: 1. Introduction ──────────────────────────────────────
+        'privacy.s1.title': '1. Introduction',
+        'privacy.s1.p1':
+          'ESSENTIAL SERVICES ("we", "us", "our") respects your privacy. This Privacy Policy explains how we collect, use, and protect information related to sovrium.com (the "Website") and the Sovrium software (the "Software").',
+        'privacy.s1.p2':
+          'Sovrium is designed with digital sovereignty in mind. As a self-hosted platform, we believe your data should remain under your control.',
+
+        // ── Privacy: 2. Data Collection ───────────────────────────────────
+        'privacy.s2.title': '2. Data Collection',
+        'privacy.s2.analytics.title': '2.1 Website Analytics',
+        'privacy.s2.analytics.p1':
+          'We may use privacy-respecting analytics services (such as Plausible Analytics) to understand website traffic and usage patterns. These services:',
+        'privacy.s2.analytics.item1': '\u2022 Do not use cookies',
+        'privacy.s2.analytics.item2': '\u2022 Do not collect personal data',
+        'privacy.s2.analytics.item3': '\u2022 Do not track users across sites',
+        'privacy.s2.analytics.item4': '\u2022 Are fully GDPR compliant',
+        'privacy.s2.cookies.title': '2.2 Cookies',
+        'privacy.s2.cookies.p1':
+          'The sovrium.com website does not use cookies. We do not set any first-party or third-party cookies. No cookie consent banner is necessary because no cookies are used.',
+        'privacy.s2.selfHosted.title': '2.3 Self-Hosted Software',
+        'privacy.s2.selfHosted.p1':
+          'Sovrium is self-hosted software that runs on your infrastructure. We do not:',
+        'privacy.s2.selfHosted.item1': '\u2022 Collect data from your Sovrium installations',
+        'privacy.s2.selfHosted.item2': '\u2022 Store or process your application data',
+        'privacy.s2.selfHosted.item3': '\u2022 Have access to your configurations',
+        'privacy.s2.selfHosted.item4': '\u2022 Monitor your usage or deployments',
+        'privacy.s2.selfHosted.note':
+          'You are the data controller for all data processed by your Sovrium installation.',
+        'privacy.s2.github.title': '2.4 GitHub and Open Source',
+        'privacy.s2.github.p1':
+          'When you interact with our GitHub repository (issues, pull requests, discussions), GitHub collects data according to their privacy policy. We may see public information you share on GitHub.',
+        'privacy.s2.facebook.title': '2.5 Facebook and Social Login',
+        'privacy.s2.facebook.p1':
+          'Sovrium-powered applications may integrate Facebook Login (or other social authentication providers) as an optional sign-in method. When a user authenticates via Facebook Login, the following data may be received by the Sovrium application:',
+        'privacy.s2.facebook.item1': '\u2022 Name and profile picture',
+        'privacy.s2.facebook.item2': '\u2022 Email address',
+        'privacy.s2.facebook.item3': '\u2022 Facebook user ID',
+        'privacy.s2.facebook.legal':
+          'Legal basis: This data is processed under GDPR Art. 6(1)(b) (performance of a contract) when you choose to sign in via Facebook Login, and Art. 6(1)(a) (consent) as you explicitly authorize the data sharing through Facebook\u2019s authorization dialog.',
+        'privacy.s2.facebook.purpose':
+          'This data is used solely for the purpose of authenticating your identity and creating your user account within the Sovrium-powered application. For self-hosted installations, this data is stored on the infrastructure controlled by the organization operating the application. ESSENTIAL SERVICES does not have access to this data unless it directly operates the application.',
+        'privacy.s2.facebook.deletion':
+          'You may request deletion of your data at any time. See our Data Deletion page at sovrium.com/data-deletion for detailed instructions.',
+
+        // ── Privacy: 3. Use of Information ────────────────────────────────
+        'privacy.s3.title': '3. Use of Information',
+        'privacy.s3.p1': 'Any analytics data we collect is used solely to:',
+        'privacy.s3.item1': '\u2022 Improve our website and documentation',
+        'privacy.s3.item2': '\u2022 Understand which features interest users',
+        'privacy.s3.item3': '\u2022 Fix technical issues with the website',
+        'privacy.s3.item4': '\u2022 Plan development priorities',
+        'privacy.s3.retention.title': '3.1 Data Retention',
+        'privacy.s3.retention.item1':
+          '\u2022 Website analytics: Aggregated and anonymized. No personal data is retained.',
+        'privacy.s3.retention.item2':
+          '\u2022 Facebook Login data (for ESSENTIAL SERVICES-operated applications): Retained as long as your user account is active. Deleted within 30 days of a valid deletion request.',
+        'privacy.s3.retention.item3':
+          '\u2022 Self-hosted installations: Data retention is determined by the organization operating the Sovrium instance.',
+
+        // ── Privacy: 4. Third-Party Services ──────────────────────────────
+        'privacy.s4.title': '4. Third-Party Services',
+        'privacy.s4.p1': 'Our website may link to or interact with third-party services:',
+        'privacy.s4.item1': '\u2022 GitHub (for source code and issues)',
+        'privacy.s4.item2': '\u2022 Google Fonts (for typography)',
+        'privacy.s4.item3':
+          '\u2022 Facebook/Meta (for social authentication in Sovrium-powered applications)',
+        'privacy.s4.item4': '\u2022 CDN services (for faster content delivery)',
+        'privacy.s4.note':
+          'These services have their own privacy policies and data practices. We encourage you to review their policies, in particular the Meta Privacy Policy at https://www.facebook.com/privacy/policy/.',
+        'privacy.s4.sharing.title': '4.1 Data Sharing',
+        'privacy.s4.sharing.p1':
+          'ESSENTIAL SERVICES does not sell, rent, or trade your personal data to third parties. We do not share your personal data with third parties for their marketing purposes. Data may only be shared with third parties in the following limited circumstances:',
+        'privacy.s4.sharing.item1':
+          '\u2022 With your explicit consent (e.g., when you authorize a social login)',
+        'privacy.s4.sharing.item2':
+          '\u2022 To comply with legal obligations or respond to lawful government requests',
+        'privacy.s4.sharing.item3':
+          '\u2022 To protect the rights, property, or safety of ESSENTIAL SERVICES, our users, or the public',
+
+        // ── Privacy: 5. International Transfers ───────────────────────────
+        'privacy.s5.title': '5. International Data Transfers',
+        'privacy.s5.p1':
+          'When you use Facebook Login or other social authentication providers, your data may be transferred to and processed in countries outside the European Economic Area (EEA), including the United States. These transfers are necessary for the performance of the authentication service and are conducted in accordance with applicable data protection laws.',
+        'privacy.s5.p2':
+          'Where data is transferred outside the EEA, we rely on appropriate safeguards such as the EU-US Data Privacy Framework, Standard Contractual Clauses (SCCs), or other lawful transfer mechanisms to ensure your data is adequately protected.',
+        'privacy.s5.p3':
+          'For self-hosted Sovrium installations, data transfers are determined by the organization operating the instance. ESSENTIAL SERVICES has no involvement in those transfers.',
+
+        // ── Privacy: 6. Your Rights ───────────────────────────────────────
+        'privacy.s6.title': '6. Your Rights',
+        'privacy.s6.p1': 'Under GDPR and other privacy laws, you have the right to:',
+        'privacy.s6.item1': '\u2022 Access any personal data we hold about you',
+        'privacy.s6.item2': '\u2022 Request correction of inaccurate data',
+        'privacy.s6.item3': '\u2022 Request deletion of your data',
+        'privacy.s6.item4': '\u2022 Object to data processing',
+        'privacy.s6.item5': '\u2022 Request data portability',
+        'privacy.s6.contact': 'To exercise these rights, contact us at privacy@sovrium.com.',
+
+        // ── Privacy: 7. Security ──────────────────────────────────────────
+        'privacy.s7.title': '7. Security',
+        'privacy.s7.p1':
+          'We take reasonable measures to protect any information we collect. However, as we collect minimal data and the Sovrium software is self-hosted, your primary security responsibility lies with your own infrastructure and deployment practices.',
+
+        // ── Privacy: 8. Children ──────────────────────────────────────────
+        'privacy.s8.title': "8. Children's Privacy",
+        'privacy.s8.p1':
+          'Our website and software are not directed to children under 13. We do not knowingly collect personal information from children under 13.',
+
+        // ── Privacy: 9. Changes ───────────────────────────────────────────
+        'privacy.s9.title': '9. Changes to This Policy',
+        'privacy.s9.p1':
+          'We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated "Last Updated" date. Your continued use of the website after changes constitutes acceptance of the updated policy.',
+
+        // ── Privacy: 10. Contact ──────────────────────────────────────────
+        'privacy.s10.title': '10. Contact Information',
+        'privacy.s10.intro': 'For privacy-related inquiries:',
+        'privacy.s10.item1': '\u2022 Email: privacy@sovrium.com',
+        'privacy.s10.item2': '\u2022 GitHub Issues: https://github.com/sovrium/sovrium/issues',
+        'privacy.s10.item3': '\u2022 Company: ESSENTIAL SERVICES, SAS au capital de 10 000 \u20AC',
+        'privacy.s10.item4': '\u2022 RCS Paris \u2014 SIREN: 834 241 481',
+        'privacy.s10.item5': '\u2022 SIRET: 834 241 481 00029',
+        'privacy.s10.item6': '\u2022 TVA: FR04834241481',
+        'privacy.s10.item7': '\u2022 Address: 128 Rue La Bo\u00E9tie, 75008 Paris, France',
+        'privacy.s10.item8': '\u2022 President: Thomas Jeanneau',
+        'privacy.s10.item9': '\u2022 Data Deletion: sovrium.com/data-deletion',
+
+        // ── Privacy: 11. Data Protection ──────────────────────────────────
+        'privacy.s11.title': '11. Data Protection',
+        'privacy.s11.p1':
+          'As a company committed to digital sovereignty, we practice data minimization. We collect the absolute minimum data necessary and encourage you to maintain control of your own data through self-hosting.',
+
+        // ════════════════════════════════════════════════════════════════════
+        //  DATA DELETION PAGE
+        // ════════════════════════════════════════════════════════════════════
+
+        // ── DataDeletion: Meta ────────────────────────────────────────────
+        'dataDeletion.meta.title': 'Data Deletion Request - Sovrium',
+        'dataDeletion.meta.description':
+          'Instructions for requesting deletion of your data related to Sovrium software and services by ESSENTIAL SERVICES.',
+        'dataDeletion.meta.og.title': 'Data Deletion Request - Sovrium',
+        'dataDeletion.meta.og.description':
+          'Instructions for requesting deletion of your data related to Sovrium software and services by ESSENTIAL SERVICES.',
+        'dataDeletion.meta.twitter.title': 'Data Deletion Request - Sovrium',
+        'dataDeletion.meta.twitter.description':
+          'Instructions for requesting deletion of your data related to Sovrium software and services by ESSENTIAL SERVICES.',
+
+        // ── DataDeletion: Header ──────────────────────────────────────────
+        'dataDeletion.header.title': 'Data Deletion Request',
+        'dataDeletion.header.lastUpdated': 'Last Updated: February 20, 2026',
+
+        // ── DataDeletion: Intro ───────────────────────────────────────────
+        'dataDeletion.intro.p1':
+          'This page explains how to request the deletion of your personal data in connection with Sovrium software and services operated by ESSENTIAL SERVICES. Depending on how you interact with Sovrium, the process may differ.',
+
+        // ── DataDeletion: 1. Self-Hosted ──────────────────────────────────
+        'dataDeletion.s1.title': '1. Sovrium Software (Self-Hosted Installations)',
+        'dataDeletion.s1.p1':
+          'Sovrium is a self-hosted, configuration-driven application platform. When an organization deploys Sovrium on their own infrastructure, they are the data controller for all user data processed by that installation. ESSENTIAL SERVICES does not have access to data stored in self-hosted Sovrium instances.',
+        'dataDeletion.s1.p2': 'If you are a user of a Sovrium-powered application:',
+        'dataDeletion.s1.item1':
+          '\u2022 Contact the administrator of the organization that operates the application',
+        'dataDeletion.s1.item2':
+          '\u2022 The organization is responsible for handling your data deletion request under applicable data protection laws (e.g., GDPR)',
+        'dataDeletion.s1.item3':
+          '\u2022 ESSENTIAL SERVICES cannot delete data from self-hosted installations as we do not have access to them',
+
+        // ── DataDeletion: 2. Facebook Login ───────────────────────────────
+        'dataDeletion.s2.title': '2. Facebook Login and Social Authentication',
+        'dataDeletion.s2.p1':
+          'Sovrium-powered applications may integrate Facebook Login as an authentication method. When you use Facebook Login to sign in to a Sovrium-powered application, certain data from your Facebook profile may be shared with that application.',
+        'dataDeletion.s2.p2':
+          'The following data types may be stored and are subject to deletion upon request:',
+        'dataDeletion.s2.item1': '\u2022 Your name (as provided by Facebook)',
+        'dataDeletion.s2.item2': '\u2022 Your email address',
+        'dataDeletion.s2.item3': '\u2022 Your profile picture URL',
+        'dataDeletion.s2.item4': '\u2022 Your Facebook user ID',
+        'dataDeletion.s2.item5':
+          '\u2022 Any application-specific data created during your use of the Sovrium-powered application',
+        'dataDeletion.s2.deleteIntro': 'To delete your data associated with Facebook Login:',
+        'dataDeletion.s2.step1.title': 'Step 1: Remove the app from Facebook',
+        'dataDeletion.s2.step1.item1': '\u2022 Go to your Facebook Settings',
+        'dataDeletion.s2.step1.item2':
+          '\u2022 Navigate to Settings & Privacy > Settings > Apps and Websites',
+        'dataDeletion.s2.step1.item3':
+          '\u2022 Find the Sovrium-powered application and click "Remove" to revoke access',
+        'dataDeletion.s2.step1.item4':
+          '\u2022 Check the box to delete any data the app may have received from Facebook',
+        'dataDeletion.s2.step2.title': 'Step 2: Contact the application administrator',
+        'dataDeletion.s2.step2.item1':
+          '\u2022 Contact the organization that operates the Sovrium-powered application',
+        'dataDeletion.s2.step2.item2':
+          '\u2022 Request deletion of all personal data stored in their Sovrium installation, including data received via Facebook Login',
+        'dataDeletion.s2.step3.title': 'Step 3: For applications operated by ESSENTIAL SERVICES',
+        'dataDeletion.s2.step3.p1':
+          'If the application is directly operated by ESSENTIAL SERVICES, you can request data deletion by emailing privacy@sovrium.com with the subject line "Data Deletion Request". Please include the email address associated with your account.',
+
+        // ── DataDeletion: 3. Website ──────────────────────────────────────
+        'dataDeletion.s3.title': '3. sovrium.com Website',
+        'dataDeletion.s3.p1':
+          'The sovrium.com website collects minimal data. We do not use cookies, do not require user accounts, and do not collect personal information through our website. If you believe we hold any personal data about you from your interactions with our website, you may contact us at privacy@sovrium.com to request its deletion.',
+
+        // ── DataDeletion: 4. Confirmation ─────────────────────────────────
+        'dataDeletion.s4.title': '4. Data Deletion Confirmation',
+        'dataDeletion.s4.p1':
+          'When we receive a valid data deletion request for services operated by ESSENTIAL SERVICES:',
+        'dataDeletion.s4.item1': '\u2022 We will process your request within 30 days of receipt',
+        'dataDeletion.s4.item2':
+          '\u2022 We will send you a confirmation once your data has been deleted',
+        'dataDeletion.s4.item3':
+          '\u2022 Some data may be retained if required by law or legitimate legal obligations',
+        'dataDeletion.s4.item4':
+          '\u2022 You will receive a confirmation code via email that you can use to verify the status of your deletion request',
+
+        // ── DataDeletion: 5. Contact ──────────────────────────────────────
+        'dataDeletion.s5.title': '5. Contact',
+        'dataDeletion.s5.intro': 'For data deletion requests or questions about your data:',
+        'dataDeletion.s5.item1': '\u2022 Email: privacy@sovrium.com',
+        'dataDeletion.s5.item2':
+          '\u2022 Company: ESSENTIAL SERVICES, SAS au capital de 10 000 \u20AC',
+        'dataDeletion.s5.item3': '\u2022 RCS Paris \u2014 SIREN: 834 241 481',
+        'dataDeletion.s5.item4': '\u2022 SIRET: 834 241 481 00029',
+        'dataDeletion.s5.item5': '\u2022 TVA: FR04834241481',
+        'dataDeletion.s5.item6': '\u2022 Address: 128 Rue La Bo\u00E9tie, 75008 Paris, France',
+        'dataDeletion.s5.item7': '\u2022 President: Thomas Jeanneau',
       },
       fr: {
         // ════════════════════════════════════════════════════════════════════
@@ -584,15 +977,15 @@ export const app: App = {
         // ════════════════════════════════════════════════════════════════════
 
         // ── Home: Meta ──────────────────────────────────────────────────────
-        'home.meta.title': 'Sovrium \u2014 Ma\u00EEtrisez votre logiciel',
+        'home.meta.title': 'Sovrium \u2014 Cr\u00E9ez des apps par configuration, sans code',
         'home.meta.description':
-          'Construisez des applications m\u00E9tier compl\u00E8tes avec un simple fichier de configuration. Auto-h\u00E9berg\u00E9, open-source, sans d\u00E9pendance fournisseur.',
-        'home.meta.og.title': 'Sovrium \u2014 Ma\u00EEtrisez votre logiciel',
+          'Construisez des applications m\u00E9tier compl\u00E8tes avec un simple fichier de configuration. L\u0027alternative SaaS open-source et auto-h\u00E9berg\u00E9e \u2014 sans d\u00E9pendance fournisseur.',
+        'home.meta.og.title': 'Sovrium \u2014 Cr\u00E9ez des apps par configuration, sans code',
         'home.meta.og.description':
-          'Plateforme applicative pilot\u00E9e par la configuration. Auto-h\u00E9berg\u00E9e, sans d\u00E9pendance fournisseur.',
-        'home.meta.twitter.title': 'Sovrium \u2014 Ma\u00EEtrisez votre logiciel',
+          'Plateforme applicative open-source pilot\u00E9e par la configuration. L\u0027alternative SaaS auto-h\u00E9berg\u00E9e, sans d\u00E9pendance fournisseur.',
+        'home.meta.twitter.title': 'Sovrium \u2014 Cr\u00E9ez des apps par configuration, sans code',
         'home.meta.twitter.description':
-          'Plateforme applicative pilot\u00E9e par la configuration. Auto-h\u00E9berg\u00E9e, sans d\u00E9pendance fournisseur.',
+          'Plateforme applicative open-source pilot\u00E9e par la configuration. L\u0027alternative SaaS auto-h\u00E9berg\u00E9e, sans d\u00E9pendance fournisseur.',
 
         // ── Home: Hero ──────────────────────────────────────────────────────
         'home.hero.title': 'Sovrium, l\u0027\u00E9l\u00E9ment de souverainet\u00E9',
@@ -982,6 +1375,424 @@ export const app: App = {
         'company.cta.github': 'Voir sur GitHub',
         'company.cta.partners': 'Travailler avec nous',
         'company.cta.partners.href': '/fr/partners',
+
+        // ════════════════════════════════════════════════════════════════════
+        //  TERMS OF SERVICE PAGE
+        // ════════════════════════════════════════════════════════════════════
+
+        // ── Terms: Meta ───────────────────────────────────────────────────
+        'terms.meta.title': 'Conditions d\u2019utilisation - Sovrium',
+        'terms.meta.description':
+          'Conditions d\u2019utilisation et informations de licence pour Sovrium, la plateforme auto-h\u00E9berg\u00E9e pilot\u00E9e par la configuration.',
+        'terms.meta.og.title': 'Conditions d\u2019utilisation - Sovrium',
+        'terms.meta.og.description':
+          'Conditions d\u2019utilisation et informations de licence pour Sovrium, la plateforme auto-h\u00E9berg\u00E9e pilot\u00E9e par la configuration par ESSENTIAL SERVICES.',
+        'terms.meta.twitter.title': 'Conditions d\u2019utilisation - Sovrium',
+        'terms.meta.twitter.description':
+          'Conditions d\u2019utilisation et informations de licence pour Sovrium, la plateforme auto-h\u00E9berg\u00E9e pilot\u00E9e par la configuration par ESSENTIAL SERVICES.',
+
+        // ── Terms: Header ─────────────────────────────────────────────────
+        'terms.header.title': 'Conditions d\u2019utilisation',
+        'terms.header.lastUpdated': 'Derni\u00E8re mise \u00E0 jour\u00A0: 20 f\u00E9vrier 2026',
+
+        // ── Terms: 1. Agreement ───────────────────────────────────────────
+        'terms.s1.title': '1. Acceptation des conditions',
+        'terms.s1.p1':
+          'En acc\u00E9dant ou en utilisant le logiciel Sovrium, le site web ou tout service associ\u00E9 (collectivement, les \u00AB\u00A0Services\u00A0\u00BB), vous acceptez d\u2019\u00EAtre li\u00E9 par les pr\u00E9sentes Conditions d\u2019utilisation (\u00AB\u00A0Conditions\u00A0\u00BB) et par toutes les lois et r\u00E9glementations applicables. Si vous n\u2019acceptez pas ces Conditions, vous ne pouvez pas utiliser nos Services.',
+
+        // ── Terms: 2. Software License ────────────────────────────────────
+        'terms.s2.title': '2. Licence logicielle',
+        'terms.s2.p1':
+          'Sovrium est distribu\u00E9 sous la Business Source License 1.1 (BSL 1.1). Les termes complets de la licence sont disponibles dans le fichier LICENSE.md du d\u00E9p\u00F4t source.',
+        'terms.s2.permitted.title': '2.1 Utilisations autoris\u00E9es',
+        'terms.s2.permitted.intro': 'Vous pouvez utiliser Sovrium pour\u00A0:',
+        'terms.s2.permitted.item1': '\u2713 Usage interne au sein de votre organisation',
+        'terms.s2.permitted.item2': '\u2713 Projets personnels et d\u00E9veloppement',
+        'terms.s2.permitted.item3': '\u2713 Objectifs \u00E9ducatifs et acad\u00E9miques',
+        'terms.s2.permitted.item4': '\u2713 D\u00E9ploiements clients non concurrents',
+        'terms.s2.permitted.item5':
+          '\u2713 Cr\u00E9ation d\u2019applications pour votre propre usage ou vos clients directs',
+        'terms.s2.prohibited.title': '2.2 Utilisations interdites',
+        'terms.s2.prohibited.intro': 'Sans licence commerciale, vous ne pouvez PAS\u00A0:',
+        'terms.s2.prohibited.item1':
+          '\u274C Proposer Sovrium comme service h\u00E9berg\u00E9 ou g\u00E9r\u00E9 commercial \u00E0 des tiers',
+        'terms.s2.prohibited.item2':
+          '\u274C Cr\u00E9er une offre SaaS concurrente bas\u00E9e sur Sovrium',
+        'terms.s2.prohibited.item3':
+          '\u274C Revendre, sous-licencier ou distribuer Sovrium comme produit commercial',
+        'terms.s2.prohibited.item4':
+          '\u274C Supprimer ou modifier les mentions de droits d\u2019auteur ou les termes de licence',
+        'terms.s2.changeDate.title': '2.3 Date de changement',
+        'terms.s2.changeDate.p1':
+          'Le 1er janvier 2029, la licence BSL 1.1 se convertira automatiquement en Apache License 2.0, rendant Sovrium enti\u00E8rement open source.',
+        'terms.s2.commercial.title': '2.4 Licence commerciale',
+        'terms.s2.commercial.p1':
+          'Pour l\u2019h\u00E9bergement commercial, les services g\u00E9r\u00E9s ou les cas d\u2019usage concurrentiels, veuillez contacter license@sovrium.com pour obtenir une licence commerciale.',
+
+        // ── Terms: 3. Trademark ───────────────────────────────────────────
+        'terms.s3.title': '3. Marque et image de marque',
+        'terms.s3.p1':
+          'Sovrium\u00AE est une marque d\u00E9pos\u00E9e d\u2019ESSENTIAL SERVICES, enregistr\u00E9e aupr\u00E8s de l\u2019Institut National de la Propri\u00E9t\u00E9 Industrielle (INPI) en France sous le num\u00E9ro d\u2019enregistrement FR5200287.',
+        'terms.s3.p2':
+          'L\u2019enregistrement de la marque peut \u00EAtre v\u00E9rifi\u00E9 sur le registre public de l\u2019INPI\u00A0:',
+        'terms.s3.mayIntro': 'Vous pouvez\u00A0:',
+        'terms.s3.may1':
+          '\u2713 Indiquer que votre application est \u00AB\u00A0Powered by Sovrium\u00A0\u00BB',
+        'terms.s3.may2':
+          '\u2713 Utiliser le nom Sovrium dans des d\u00E9clarations factuelles sur le logiciel',
+        'terms.s3.may3': '\u2713 Inclure Sovrium dans la documentation technique',
+        'terms.s3.mayNotIntro': 'Vous ne pouvez PAS\u00A0:',
+        'terms.s3.mayNot1':
+          '\u274C Utiliser Sovrium dans le nom de votre produit sans autorisation',
+        'terms.s3.mayNot2': '\u274C Impliquer une approbation d\u2019ESSENTIAL SERVICES',
+        'terms.s3.mayNot3': '\u274C Modifier le logo Sovrium sans autorisation',
+        'terms.s3.guidelinesNote':
+          'Pour les directives d\u00E9taill\u00E9es sur la marque, consultez TRADEMARK.md dans le d\u00E9p\u00F4t source.',
+
+        // ── Terms: 4. Warranty ────────────────────────────────────────────
+        'terms.s4.title': '4. Exclusion de garantie',
+        'terms.s4.p1':
+          'LE LOGICIEL EST FOURNI \u00AB\u00A0TEL QUEL\u00A0\u00BB, SANS GARANTIE D\u2019AUCUNE SORTE, EXPRESSE OU IMPLICITE, Y COMPRIS MAIS SANS S\u2019Y LIMITER LES GARANTIES DE QUALIT\u00C9 MARCHANDE, D\u2019AD\u00C9QUATION \u00C0 UN USAGE PARTICULIER ET D\u2019ABSENCE DE CONTREFA\u00C7ON.',
+        'terms.s4.p2': 'ESSENTIAL SERVICES ne garantit pas que\u00A0:',
+        'terms.s4.item1': '\u2022 Le logiciel r\u00E9pondra \u00E0 vos besoins',
+        'terms.s4.item2': '\u2022 Le logiciel fonctionnera sans interruption ou sans erreur',
+        'terms.s4.item3': '\u2022 Les d\u00E9fauts seront corrig\u00E9s',
+        'terms.s4.item4': '\u2022 Le logiciel est exempt de vuln\u00E9rabilit\u00E9s',
+
+        // ── Terms: 5. Liability ───────────────────────────────────────────
+        'terms.s5.title': '5. Limitation de responsabilit\u00E9',
+        'terms.s5.p1':
+          'EN AUCUN CAS ESSENTIAL SERVICES, SES DIRIGEANTS, ADMINISTRATEURS, EMPLOY\u00C9S OU AGENTS NE POURRONT \u00CATRE TENUS RESPONSABLES DE TOUT DOMMAGE INDIRECT, ACCESSOIRE, SP\u00C9CIAL, CONS\u00C9CUTIF OU PUNITIF, Y COMPRIS SANS LIMITATION LA PERTE DE PROFITS, DE DONN\u00C9ES, D\u2019UTILISATION OU D\u2019AUTRES PERTES INTANGIBLES.',
+        'terms.s5.p2':
+          'Cette limitation s\u2019applique m\u00EAme si ESSENTIAL SERVICES a \u00E9t\u00E9 inform\u00E9 de la possibilit\u00E9 de tels dommages.',
+
+        // ── Terms: 6. Indemnification ─────────────────────────────────────
+        'terms.s6.title': '6. Indemnisation',
+        'terms.s6.p1':
+          'Vous acceptez d\u2019indemniser et de d\u00E9gager ESSENTIAL SERVICES de toute responsabilit\u00E9 en cas de r\u00E9clamations, dommages, pertes, responsabilit\u00E9s et d\u00E9penses (y compris les frais juridiques) r\u00E9sultant de\u00A0:',
+        'terms.s6.item1': '\u2022 Votre utilisation du logiciel',
+        'terms.s6.item2': '\u2022 Votre violation de ces Conditions',
+        'terms.s6.item3': '\u2022 Votre violation des droits de tiers',
+        'terms.s6.item4': '\u2022 Vos applications construites avec Sovrium',
+
+        // ── Terms: 7. Modifications ───────────────────────────────────────
+        'terms.s7.title': '7. Modifications des conditions',
+        'terms.s7.p1':
+          'Nous nous r\u00E9servons le droit de modifier ces Conditions \u00E0 tout moment. Les modifications prendront effet imm\u00E9diatement apr\u00E8s leur publication sur le site web. Votre utilisation continue des Services apr\u00E8s les modifications constitue une acceptation des Conditions modifi\u00E9es.',
+
+        // ── Terms: 8. Termination ─────────────────────────────────────────
+        'terms.s8.title': '8. R\u00E9siliation',
+        'terms.s8.p1':
+          'Nous pouvons r\u00E9silier ou suspendre votre acc\u00E8s aux Services imm\u00E9diatement, sans pr\u00E9avis, pour toute raison, y compris\u00A0:',
+        'terms.s8.item1': '\u2022 Violation de ces Conditions',
+        'terms.s8.item2': '\u2022 Violation de la licence BSL 1.1',
+        'terms.s8.item3': '\u2022 Utilisation commerciale non autoris\u00E9e',
+        'terms.s8.item4': '\u2022 Utilisation nuisible ou malveillante',
+
+        // ── Terms: 9. Governing Law ───────────────────────────────────────
+        'terms.s9.title': '9. Droit applicable',
+        'terms.s9.p1':
+          'Les pr\u00E9sentes Conditions sont r\u00E9gies par et interpr\u00E9t\u00E9es conform\u00E9ment au droit fran\u00E7ais, sans \u00E9gard \u00E0 ses dispositions en mati\u00E8re de conflit de lois. Tout litige sera r\u00E9solu devant les tribunaux fran\u00E7ais.',
+
+        // ── Terms: 10. Severability ───────────────────────────────────────
+        'terms.s10.title': '10. Divisibilit\u00E9',
+        'terms.s10.p1':
+          'Si une disposition des pr\u00E9sentes Conditions est jug\u00E9e invalide ou inapplicable, les dispositions restantes continueront de produire pleinement leurs effets.',
+
+        // ── Terms: 11. Entire Agreement ───────────────────────────────────
+        'terms.s11.title': '11. Int\u00E9gralit\u00E9 de l\u2019accord',
+        'terms.s11.p1':
+          'Les pr\u00E9sentes Conditions, conjointement avec la licence BSL 1.1 et tout accord de licence commerciale, constituent l\u2019int\u00E9gralit\u00E9 de l\u2019accord entre vous et ESSENTIAL SERVICES concernant l\u2019utilisation de Sovrium.',
+
+        // ── Terms: 12. User Data ──────────────────────────────────────────
+        'terms.s12.title': '12. Donn\u00E9es utilisateur et confidentialit\u00E9',
+        'terms.s12.p1':
+          'Votre utilisation de Sovrium peut impliquer la collecte, le traitement et le stockage de donn\u00E9es personnelles. Notre gestion des donn\u00E9es personnelles est r\u00E9gie par notre Politique de confidentialit\u00E9, disponible sur sovrium.com/privacy-policy.',
+        'terms.s12.p2':
+          'Pour les installations auto-h\u00E9berg\u00E9es, l\u2019organisation exploitant l\u2019instance Sovrium est le responsable du traitement des donn\u00E9es et est responsable de la conformit\u00E9 aux lois applicables en mati\u00E8re de protection des donn\u00E9es (ex.\u00A0: RGPD). ESSENTIAL SERVICES n\u2019acc\u00E8de pas, ne traite pas et ne stocke pas les donn\u00E9es des installations auto-h\u00E9berg\u00E9es.',
+        'terms.s12.p3':
+          'Vous pouvez demander la suppression de vos donn\u00E9es personnelles conform\u00E9ment \u00E0 notre politique de suppression des donn\u00E9es sur sovrium.com/data-deletion.',
+
+        // ── Terms: 13. Contact ────────────────────────────────────────────
+        'terms.s13.title': '13. Coordonn\u00E9es',
+        'terms.s13.intro': 'Pour toute question concernant ces Conditions ou la licence\u00A0:',
+        'terms.s13.item1': '\u2022 Questions de licence\u00A0: license@sovrium.com',
+        'terms.s13.item2': '\u2022 Questions g\u00E9n\u00E9rales\u00A0: GitHub Issues',
+        'terms.s13.item3':
+          '\u2022 Soci\u00E9t\u00E9\u00A0: ESSENTIAL SERVICES, SAS au capital de 10\u00A0000\u00A0\u20AC',
+        'terms.s13.item4': '\u2022 RCS Paris \u2014 SIREN\u00A0: 834 241 481',
+        'terms.s13.item5': '\u2022 SIRET\u00A0: 834 241 481 00029',
+        'terms.s13.item6': '\u2022 TVA\u00A0: FR04834241481',
+        'terms.s13.item7': '\u2022 Adresse\u00A0: 128 Rue La Bo\u00E9tie, 75008 Paris, France',
+        'terms.s13.item8': '\u2022 Pr\u00E9sident\u00A0: Thomas Jeanneau',
+        'terms.s13.item9': '\u2022 Site web\u00A0: sovrium.com',
+
+        // ── Terms: Notice ─────────────────────────────────────────────────
+        'terms.notice.title': '\u26A0\uFE0F Avis important',
+        'terms.notice.p1':
+          'En t\u00E9l\u00E9chargeant, installant ou utilisant Sovrium, vous reconnaissez avoir lu, compris et accept\u00E9 d\u2019\u00EAtre li\u00E9 par les pr\u00E9sentes Conditions d\u2019utilisation et la Business Source License 1.1.',
+
+        // ════════════════════════════════════════════════════════════════════
+        //  PRIVACY POLICY PAGE
+        // ════════════════════════════════════════════════════════════════════
+
+        // ── Privacy: Meta ─────────────────────────────────────────────────
+        'privacy.meta.title': 'Politique de confidentialit\u00E9 - Sovrium',
+        'privacy.meta.description':
+          'Politique de confidentialit\u00E9 pour Sovrium, la plateforme auto-h\u00E9berg\u00E9e pilot\u00E9e par la configuration par ESSENTIAL SERVICES.',
+        'privacy.meta.og.title': 'Politique de confidentialit\u00E9 - Sovrium',
+        'privacy.meta.og.description':
+          'Politique de confidentialit\u00E9 pour Sovrium, la plateforme auto-h\u00E9berg\u00E9e pilot\u00E9e par la configuration par ESSENTIAL SERVICES.',
+        'privacy.meta.twitter.title': 'Politique de confidentialit\u00E9 - Sovrium',
+        'privacy.meta.twitter.description':
+          'Politique de confidentialit\u00E9 pour Sovrium, la plateforme auto-h\u00E9berg\u00E9e pilot\u00E9e par la configuration par ESSENTIAL SERVICES.',
+
+        // ── Privacy: Header ───────────────────────────────────────────────
+        'privacy.header.title': 'Politique de confidentialit\u00E9',
+        'privacy.header.lastUpdated': 'Derni\u00E8re mise \u00E0 jour\u00A0: 20 f\u00E9vrier 2026',
+
+        // ── Privacy: 1. Introduction ──────────────────────────────────────
+        'privacy.s1.title': '1. Introduction',
+        'privacy.s1.p1':
+          'ESSENTIAL SERVICES (\u00AB\u00A0nous\u00A0\u00BB, \u00AB\u00A0notre\u00A0\u00BB) respecte votre vie priv\u00E9e. La pr\u00E9sente Politique de confidentialit\u00E9 explique comment nous collectons, utilisons et prot\u00E9geons les informations li\u00E9es \u00E0 sovrium.com (le \u00AB\u00A0Site\u00A0\u00BB) et au logiciel Sovrium (le \u00AB\u00A0Logiciel\u00A0\u00BB).',
+        'privacy.s1.p2':
+          'Sovrium est con\u00E7u avec la souverainet\u00E9 num\u00E9rique \u00E0 l\u2019esprit. En tant que plateforme auto-h\u00E9berg\u00E9e, nous croyons que vos donn\u00E9es doivent rester sous votre contr\u00F4le.',
+
+        // ── Privacy: 2. Data Collection ───────────────────────────────────
+        'privacy.s2.title': '2. Collecte de donn\u00E9es',
+        'privacy.s2.analytics.title': '2.1 Analyse du site web',
+        'privacy.s2.analytics.p1':
+          'Nous pouvons utiliser des services d\u2019analyse respectueux de la vie priv\u00E9e (tels que Plausible Analytics) pour comprendre le trafic et les sch\u00E9mas d\u2019utilisation du site. Ces services\u00A0:',
+        'privacy.s2.analytics.item1': '\u2022 N\u2019utilisent pas de cookies',
+        'privacy.s2.analytics.item2': '\u2022 Ne collectent pas de donn\u00E9es personnelles',
+        'privacy.s2.analytics.item3': '\u2022 Ne suivent pas les utilisateurs entre les sites',
+        'privacy.s2.analytics.item4': '\u2022 Sont enti\u00E8rement conformes au RGPD',
+        'privacy.s2.cookies.title': '2.2 Cookies',
+        'privacy.s2.cookies.p1':
+          'Le site sovrium.com n\u2019utilise pas de cookies. Nous ne d\u00E9finissons aucun cookie premi\u00E8re partie ou tiers. Aucune banni\u00E8re de consentement aux cookies n\u2019est n\u00E9cessaire car aucun cookie n\u2019est utilis\u00E9.',
+        'privacy.s2.selfHosted.title': '2.3 Logiciel auto-h\u00E9berg\u00E9',
+        'privacy.s2.selfHosted.p1':
+          'Sovrium est un logiciel auto-h\u00E9berg\u00E9 qui fonctionne sur votre infrastructure. Nous ne\u00A0:',
+        'privacy.s2.selfHosted.item1':
+          '\u2022 Collectons pas de donn\u00E9es de vos installations Sovrium',
+        'privacy.s2.selfHosted.item2':
+          '\u2022 Stockons ni ne traitons les donn\u00E9es de vos applications',
+        'privacy.s2.selfHosted.item3': '\u2022 Avons acc\u00E8s \u00E0 vos configurations',
+        'privacy.s2.selfHosted.item4':
+          '\u2022 Surveillons votre utilisation ou vos d\u00E9ploiements',
+        'privacy.s2.selfHosted.note':
+          'Vous \u00EAtes le responsable du traitement de toutes les donn\u00E9es trait\u00E9es par votre installation Sovrium.',
+        'privacy.s2.github.title': '2.4 GitHub et Open Source',
+        'privacy.s2.github.p1':
+          'Lorsque vous interagissez avec notre d\u00E9p\u00F4t GitHub (issues, pull requests, discussions), GitHub collecte des donn\u00E9es conform\u00E9ment \u00E0 sa politique de confidentialit\u00E9. Nous pouvons voir les informations publiques que vous partagez sur GitHub.',
+        'privacy.s2.facebook.title': '2.5 Facebook et connexion sociale',
+        'privacy.s2.facebook.p1':
+          'Les applications pilot\u00E9es par Sovrium peuvent int\u00E9grer Facebook Login (ou d\u2019autres fournisseurs d\u2019authentification sociale) comme m\u00E9thode de connexion optionnelle. Lorsqu\u2019un utilisateur s\u2019authentifie via Facebook Login, les donn\u00E9es suivantes peuvent \u00EAtre re\u00E7ues par l\u2019application Sovrium\u00A0:',
+        'privacy.s2.facebook.item1': '\u2022 Nom et photo de profil',
+        'privacy.s2.facebook.item2': '\u2022 Adresse e-mail',
+        'privacy.s2.facebook.item3': '\u2022 Identifiant utilisateur Facebook',
+        'privacy.s2.facebook.legal':
+          'Base juridique\u00A0: Ces donn\u00E9es sont trait\u00E9es au titre de l\u2019article 6(1)(b) du RGPD (ex\u00E9cution d\u2019un contrat) lorsque vous choisissez de vous connecter via Facebook Login, et de l\u2019article 6(1)(a) (consentement) car vous autorisez explicitement le partage de donn\u00E9es via la bo\u00EEte de dialogue d\u2019autorisation de Facebook.',
+        'privacy.s2.facebook.purpose':
+          'Ces donn\u00E9es sont utilis\u00E9es uniquement pour authentifier votre identit\u00E9 et cr\u00E9er votre compte utilisateur au sein de l\u2019application Sovrium. Pour les installations auto-h\u00E9berg\u00E9es, ces donn\u00E9es sont stock\u00E9es sur l\u2019infrastructure contr\u00F4l\u00E9e par l\u2019organisation exploitant l\u2019application. ESSENTIAL SERVICES n\u2019a pas acc\u00E8s \u00E0 ces donn\u00E9es sauf s\u2019il exploite directement l\u2019application.',
+        'privacy.s2.facebook.deletion':
+          'Vous pouvez demander la suppression de vos donn\u00E9es \u00E0 tout moment. Consultez notre page de suppression des donn\u00E9es sur sovrium.com/data-deletion pour des instructions d\u00E9taill\u00E9es.',
+
+        // ── Privacy: 3. Use of Information ────────────────────────────────
+        'privacy.s3.title': '3. Utilisation des informations',
+        'privacy.s3.p1':
+          'Toutes les donn\u00E9es analytiques que nous collectons sont utilis\u00E9es uniquement pour\u00A0:',
+        'privacy.s3.item1': '\u2022 Am\u00E9liorer notre site web et notre documentation',
+        'privacy.s3.item2':
+          '\u2022 Comprendre quelles fonctionnalit\u00E9s int\u00E9ressent les utilisateurs',
+        'privacy.s3.item3': '\u2022 R\u00E9soudre les probl\u00E8mes techniques du site',
+        'privacy.s3.item4': '\u2022 Planifier les priorit\u00E9s de d\u00E9veloppement',
+        'privacy.s3.retention.title': '3.1 Conservation des donn\u00E9es',
+        'privacy.s3.retention.item1':
+          '\u2022 Analyse du site\u00A0: Agr\u00E9g\u00E9e et anonymis\u00E9e. Aucune donn\u00E9e personnelle n\u2019est conserv\u00E9e.',
+        'privacy.s3.retention.item2':
+          '\u2022 Donn\u00E9es Facebook Login (pour les applications exploit\u00E9es par ESSENTIAL SERVICES)\u00A0: Conserv\u00E9es tant que votre compte utilisateur est actif. Supprim\u00E9es dans les 30 jours suivant une demande de suppression valide.',
+        'privacy.s3.retention.item3':
+          '\u2022 Installations auto-h\u00E9berg\u00E9es\u00A0: La conservation des donn\u00E9es est d\u00E9termin\u00E9e par l\u2019organisation exploitant l\u2019instance Sovrium.',
+
+        // ── Privacy: 4. Third-Party Services ──────────────────────────────
+        'privacy.s4.title': '4. Services tiers',
+        'privacy.s4.p1':
+          'Notre site peut \u00EAtre li\u00E9 \u00E0 ou interagir avec des services tiers\u00A0:',
+        'privacy.s4.item1': '\u2022 GitHub (pour le code source et les issues)',
+        'privacy.s4.item2': '\u2022 Google Fonts (pour la typographie)',
+        'privacy.s4.item3':
+          '\u2022 Facebook/Meta (pour l\u2019authentification sociale dans les applications Sovrium)',
+        'privacy.s4.item4': '\u2022 Services CDN (pour une diffusion de contenu plus rapide)',
+        'privacy.s4.note':
+          'Ces services ont leurs propres politiques de confidentialit\u00E9 et pratiques en mati\u00E8re de donn\u00E9es. Nous vous encourageons \u00E0 consulter leurs politiques, en particulier la Politique de confidentialit\u00E9 de Meta sur https://www.facebook.com/privacy/policy/.',
+        'privacy.s4.sharing.title': '4.1 Partage de donn\u00E9es',
+        'privacy.s4.sharing.p1':
+          'ESSENTIAL SERVICES ne vend, ne loue et n\u2019\u00E9change pas vos donn\u00E9es personnelles \u00E0 des tiers. Nous ne partageons pas vos donn\u00E9es personnelles avec des tiers \u00E0 des fins de marketing. Les donn\u00E9es ne peuvent \u00EAtre partag\u00E9es avec des tiers que dans les circonstances limit\u00E9es suivantes\u00A0:',
+        'privacy.s4.sharing.item1':
+          '\u2022 Avec votre consentement explicite (ex.\u00A0: lorsque vous autorisez une connexion sociale)',
+        'privacy.s4.sharing.item2':
+          '\u2022 Pour se conformer aux obligations l\u00E9gales ou r\u00E9pondre aux demandes l\u00E9gitimes des autorit\u00E9s',
+        'privacy.s4.sharing.item3':
+          '\u2022 Pour prot\u00E9ger les droits, la propri\u00E9t\u00E9 ou la s\u00E9curit\u00E9 d\u2019ESSENTIAL SERVICES, de nos utilisateurs ou du public',
+
+        // ── Privacy: 5. International Transfers ───────────────────────────
+        'privacy.s5.title': '5. Transferts internationaux de donn\u00E9es',
+        'privacy.s5.p1':
+          'Lorsque vous utilisez Facebook Login ou d\u2019autres fournisseurs d\u2019authentification sociale, vos donn\u00E9es peuvent \u00EAtre transf\u00E9r\u00E9es et trait\u00E9es dans des pays situ\u00E9s en dehors de l\u2019Espace \u00E9conomique europ\u00E9en (EEE), y compris les \u00C9tats-Unis. Ces transferts sont n\u00E9cessaires \u00E0 l\u2019ex\u00E9cution du service d\u2019authentification et sont effectu\u00E9s conform\u00E9ment aux lois applicables en mati\u00E8re de protection des donn\u00E9es.',
+        'privacy.s5.p2':
+          'Lorsque les donn\u00E9es sont transf\u00E9r\u00E9es en dehors de l\u2019EEE, nous nous appuyons sur des garanties appropri\u00E9es telles que le EU-US Data Privacy Framework, les Clauses contractuelles types (CCT) ou d\u2019autres m\u00E9canismes de transfert l\u00E9gaux pour garantir une protection ad\u00E9quate de vos donn\u00E9es.',
+        'privacy.s5.p3':
+          'Pour les installations Sovrium auto-h\u00E9berg\u00E9es, les transferts de donn\u00E9es sont d\u00E9termin\u00E9s par l\u2019organisation exploitant l\u2019instance. ESSENTIAL SERVICES n\u2019intervient pas dans ces transferts.',
+
+        // ── Privacy: 6. Your Rights ───────────────────────────────────────
+        'privacy.s6.title': '6. Vos droits',
+        'privacy.s6.p1':
+          'En vertu du RGPD et d\u2019autres lois sur la protection de la vie priv\u00E9e, vous avez le droit de\u00A0:',
+        'privacy.s6.item1':
+          '\u2022 Acc\u00E9der \u00E0 toute donn\u00E9e personnelle que nous d\u00E9tenons \u00E0 votre sujet',
+        'privacy.s6.item2': '\u2022 Demander la correction de donn\u00E9es inexactes',
+        'privacy.s6.item3': '\u2022 Demander la suppression de vos donn\u00E9es',
+        'privacy.s6.item4': '\u2022 Vous opposer au traitement des donn\u00E9es',
+        'privacy.s6.item5': '\u2022 Demander la portabilit\u00E9 des donn\u00E9es',
+        'privacy.s6.contact': 'Pour exercer ces droits, contactez-nous \u00E0 privacy@sovrium.com.',
+
+        // ── Privacy: 7. Security ──────────────────────────────────────────
+        'privacy.s7.title': '7. S\u00E9curit\u00E9',
+        'privacy.s7.p1':
+          'Nous prenons des mesures raisonnables pour prot\u00E9ger toute information que nous collectons. Cependant, comme nous collectons un minimum de donn\u00E9es et que le logiciel Sovrium est auto-h\u00E9berg\u00E9, votre responsabilit\u00E9 principale en mati\u00E8re de s\u00E9curit\u00E9 concerne votre propre infrastructure et vos pratiques de d\u00E9ploiement.',
+
+        // ── Privacy: 8. Children ──────────────────────────────────────────
+        'privacy.s8.title': '8. Confidentialit\u00E9 des enfants',
+        'privacy.s8.p1':
+          'Notre site et notre logiciel ne sont pas destin\u00E9s aux enfants de moins de 13 ans. Nous ne collectons pas sciemment d\u2019informations personnelles aupr\u00E8s d\u2019enfants de moins de 13 ans.',
+
+        // ── Privacy: 9. Changes ───────────────────────────────────────────
+        'privacy.s9.title': '9. Modifications de cette politique',
+        'privacy.s9.p1':
+          'Nous pouvons mettre \u00E0 jour cette Politique de confidentialit\u00E9 de temps \u00E0 autre. Les modifications seront publi\u00E9es sur cette page avec une date de \u00AB\u00A0Derni\u00E8re mise \u00E0 jour\u00A0\u00BB actualis\u00E9e. Votre utilisation continue du site apr\u00E8s les modifications constitue une acceptation de la politique mise \u00E0 jour.',
+
+        // ── Privacy: 10. Contact ──────────────────────────────────────────
+        'privacy.s10.title': '10. Coordonn\u00E9es',
+        'privacy.s10.intro': 'Pour toute question relative \u00E0 la confidentialit\u00E9\u00A0:',
+        'privacy.s10.item1': '\u2022 E-mail\u00A0: privacy@sovrium.com',
+        'privacy.s10.item2':
+          '\u2022 GitHub Issues\u00A0: https://github.com/sovrium/sovrium/issues',
+        'privacy.s10.item3':
+          '\u2022 Soci\u00E9t\u00E9\u00A0: ESSENTIAL SERVICES, SAS au capital de 10\u00A0000\u00A0\u20AC',
+        'privacy.s10.item4': '\u2022 RCS Paris \u2014 SIREN\u00A0: 834 241 481',
+        'privacy.s10.item5': '\u2022 SIRET\u00A0: 834 241 481 00029',
+        'privacy.s10.item6': '\u2022 TVA\u00A0: FR04834241481',
+        'privacy.s10.item7': '\u2022 Adresse\u00A0: 128 Rue La Bo\u00E9tie, 75008 Paris, France',
+        'privacy.s10.item8': '\u2022 Pr\u00E9sident\u00A0: Thomas Jeanneau',
+        'privacy.s10.item9': '\u2022 Suppression des donn\u00E9es\u00A0: sovrium.com/data-deletion',
+
+        // ── Privacy: 11. Data Protection ──────────────────────────────────
+        'privacy.s11.title': '11. Protection des donn\u00E9es',
+        'privacy.s11.p1':
+          'En tant qu\u2019entreprise engag\u00E9e pour la souverainet\u00E9 num\u00E9rique, nous pratiquons la minimisation des donn\u00E9es. Nous collectons le strict minimum n\u00E9cessaire et vous encourageons \u00E0 garder le contr\u00F4le de vos propres donn\u00E9es gr\u00E2ce \u00E0 l\u2019auto-h\u00E9bergement.',
+
+        // ════════════════════════════════════════════════════════════════════
+        //  DATA DELETION PAGE
+        // ════════════════════════════════════════════════════════════════════
+
+        // ── DataDeletion: Meta ────────────────────────────────────────────
+        'dataDeletion.meta.title': 'Demande de suppression de donn\u00E9es - Sovrium',
+        'dataDeletion.meta.description':
+          'Instructions pour demander la suppression de vos donn\u00E9es li\u00E9es au logiciel et aux services Sovrium par ESSENTIAL SERVICES.',
+        'dataDeletion.meta.og.title': 'Demande de suppression de donn\u00E9es - Sovrium',
+        'dataDeletion.meta.og.description':
+          'Instructions pour demander la suppression de vos donn\u00E9es li\u00E9es au logiciel et aux services Sovrium par ESSENTIAL SERVICES.',
+        'dataDeletion.meta.twitter.title': 'Demande de suppression de donn\u00E9es - Sovrium',
+        'dataDeletion.meta.twitter.description':
+          'Instructions pour demander la suppression de vos donn\u00E9es li\u00E9es au logiciel et aux services Sovrium par ESSENTIAL SERVICES.',
+
+        // ── DataDeletion: Header ──────────────────────────────────────────
+        'dataDeletion.header.title': 'Demande de suppression de donn\u00E9es',
+        'dataDeletion.header.lastUpdated':
+          'Derni\u00E8re mise \u00E0 jour\u00A0: 20 f\u00E9vrier 2026',
+
+        // ── DataDeletion: Intro ───────────────────────────────────────────
+        'dataDeletion.intro.p1':
+          'Cette page explique comment demander la suppression de vos donn\u00E9es personnelles en lien avec le logiciel et les services Sovrium exploit\u00E9s par ESSENTIAL SERVICES. Selon la mani\u00E8re dont vous interagissez avec Sovrium, le processus peut diff\u00E9rer.',
+
+        // ── DataDeletion: 1. Self-Hosted ──────────────────────────────────
+        'dataDeletion.s1.title': '1. Logiciel Sovrium (installations auto-h\u00E9berg\u00E9es)',
+        'dataDeletion.s1.p1':
+          'Sovrium est une plateforme applicative auto-h\u00E9berg\u00E9e et pilot\u00E9e par la configuration. Lorsqu\u2019une organisation d\u00E9ploie Sovrium sur sa propre infrastructure, elle est le responsable du traitement de toutes les donn\u00E9es utilisateur trait\u00E9es par cette installation. ESSENTIAL SERVICES n\u2019a pas acc\u00E8s aux donn\u00E9es stock\u00E9es dans les instances Sovrium auto-h\u00E9berg\u00E9es.',
+        'dataDeletion.s1.p2': 'Si vous \u00EAtes utilisateur d\u2019une application Sovrium\u00A0:',
+        'dataDeletion.s1.item1':
+          '\u2022 Contactez l\u2019administrateur de l\u2019organisation qui exploite l\u2019application',
+        'dataDeletion.s1.item2':
+          '\u2022 L\u2019organisation est responsable du traitement de votre demande de suppression de donn\u00E9es conform\u00E9ment aux lois applicables en mati\u00E8re de protection des donn\u00E9es (ex.\u00A0: RGPD)',
+        'dataDeletion.s1.item3':
+          '\u2022 ESSENTIAL SERVICES ne peut pas supprimer les donn\u00E9es des installations auto-h\u00E9berg\u00E9es car nous n\u2019y avons pas acc\u00E8s',
+
+        // ── DataDeletion: 2. Facebook Login ───────────────────────────────
+        'dataDeletion.s2.title': '2. Facebook Login et authentification sociale',
+        'dataDeletion.s2.p1':
+          'Les applications pilot\u00E9es par Sovrium peuvent int\u00E9grer Facebook Login comme m\u00E9thode d\u2019authentification. Lorsque vous utilisez Facebook Login pour vous connecter \u00E0 une application Sovrium, certaines donn\u00E9es de votre profil Facebook peuvent \u00EAtre partag\u00E9es avec cette application.',
+        'dataDeletion.s2.p2':
+          'Les types de donn\u00E9es suivants peuvent \u00EAtre stock\u00E9s et sont soumis \u00E0 suppression sur demande\u00A0:',
+        'dataDeletion.s2.item1': '\u2022 Votre nom (tel que fourni par Facebook)',
+        'dataDeletion.s2.item2': '\u2022 Votre adresse e-mail',
+        'dataDeletion.s2.item3': '\u2022 L\u2019URL de votre photo de profil',
+        'dataDeletion.s2.item4': '\u2022 Votre identifiant utilisateur Facebook',
+        'dataDeletion.s2.item5':
+          '\u2022 Toute donn\u00E9e sp\u00E9cifique \u00E0 l\u2019application cr\u00E9\u00E9e lors de votre utilisation de l\u2019application Sovrium',
+        'dataDeletion.s2.deleteIntro':
+          'Pour supprimer vos donn\u00E9es associ\u00E9es \u00E0 Facebook Login\u00A0:',
+        'dataDeletion.s2.step1.title':
+          '\u00C9tape 1\u00A0: Supprimer l\u2019application de Facebook',
+        'dataDeletion.s2.step1.item1': '\u2022 Acc\u00E9dez \u00E0 vos Param\u00E8tres Facebook',
+        'dataDeletion.s2.step1.item2':
+          '\u2022 Naviguez vers Param\u00E8tres et confidentialit\u00E9 > Param\u00E8tres > Apps et sites web',
+        'dataDeletion.s2.step1.item3':
+          '\u2022 Trouvez l\u2019application Sovrium et cliquez sur \u00AB\u00A0Supprimer\u00A0\u00BB pour r\u00E9voquer l\u2019acc\u00E8s',
+        'dataDeletion.s2.step1.item4':
+          '\u2022 Cochez la case pour supprimer toute donn\u00E9e que l\u2019application a pu recevoir de Facebook',
+        'dataDeletion.s2.step2.title':
+          '\u00C9tape 2\u00A0: Contacter l\u2019administrateur de l\u2019application',
+        'dataDeletion.s2.step2.item1':
+          '\u2022 Contactez l\u2019organisation qui exploite l\u2019application Sovrium',
+        'dataDeletion.s2.step2.item2':
+          '\u2022 Demandez la suppression de toutes les donn\u00E9es personnelles stock\u00E9es dans leur installation Sovrium, y compris les donn\u00E9es re\u00E7ues via Facebook Login',
+        'dataDeletion.s2.step3.title':
+          '\u00C9tape 3\u00A0: Pour les applications exploit\u00E9es par ESSENTIAL SERVICES',
+        'dataDeletion.s2.step3.p1':
+          'Si l\u2019application est directement exploit\u00E9e par ESSENTIAL SERVICES, vous pouvez demander la suppression de vos donn\u00E9es en envoyant un e-mail \u00E0 privacy@sovrium.com avec l\u2019objet \u00AB\u00A0Demande de suppression de donn\u00E9es\u00A0\u00BB. Veuillez inclure l\u2019adresse e-mail associ\u00E9e \u00E0 votre compte.',
+
+        // ── DataDeletion: 3. Website ──────────────────────────────────────
+        'dataDeletion.s3.title': '3. Site web sovrium.com',
+        'dataDeletion.s3.p1':
+          'Le site sovrium.com collecte un minimum de donn\u00E9es. Nous n\u2019utilisons pas de cookies, ne demandons pas de comptes utilisateurs et ne collectons pas d\u2019informations personnelles via notre site. Si vous pensez que nous d\u00E9tenons des donn\u00E9es personnelles vous concernant suite \u00E0 vos interactions avec notre site, vous pouvez nous contacter \u00E0 privacy@sovrium.com pour en demander la suppression.',
+
+        // ── DataDeletion: 4. Confirmation ─────────────────────────────────
+        'dataDeletion.s4.title': '4. Confirmation de suppression des donn\u00E9es',
+        'dataDeletion.s4.p1':
+          'Lorsque nous recevons une demande de suppression de donn\u00E9es valide pour les services exploit\u00E9s par ESSENTIAL SERVICES\u00A0:',
+        'dataDeletion.s4.item1':
+          '\u2022 Nous traiterons votre demande dans un d\u00E9lai de 30 jours \u00E0 compter de la r\u00E9ception',
+        'dataDeletion.s4.item2':
+          '\u2022 Nous vous enverrons une confirmation une fois vos donn\u00E9es supprim\u00E9es',
+        'dataDeletion.s4.item3':
+          '\u2022 Certaines donn\u00E9es peuvent \u00EAtre conserv\u00E9es si la loi ou des obligations l\u00E9gales l\u00E9gitimes l\u2019exigent',
+        'dataDeletion.s4.item4':
+          '\u2022 Vous recevrez un code de confirmation par e-mail que vous pourrez utiliser pour v\u00E9rifier le statut de votre demande de suppression',
+
+        // ── DataDeletion: 5. Contact ──────────────────────────────────────
+        'dataDeletion.s5.title': '5. Contact',
+        'dataDeletion.s5.intro':
+          'Pour les demandes de suppression de donn\u00E9es ou les questions concernant vos donn\u00E9es\u00A0:',
+        'dataDeletion.s5.item1': '\u2022 E-mail\u00A0: privacy@sovrium.com',
+        'dataDeletion.s5.item2':
+          '\u2022 Soci\u00E9t\u00E9\u00A0: ESSENTIAL SERVICES, SAS au capital de 10\u00A0000\u00A0\u20AC',
+        'dataDeletion.s5.item3': '\u2022 RCS Paris \u2014 SIREN\u00A0: 834 241 481',
+        'dataDeletion.s5.item4': '\u2022 SIRET\u00A0: 834 241 481 00029',
+        'dataDeletion.s5.item5': '\u2022 TVA\u00A0: FR04834241481',
+        'dataDeletion.s5.item6':
+          '\u2022 Adresse\u00A0: 128 Rue La Bo\u00E9tie, 75008 Paris, France',
+        'dataDeletion.s5.item7': '\u2022 Pr\u00E9sident\u00A0: Thomas Jeanneau',
       },
     },
   },

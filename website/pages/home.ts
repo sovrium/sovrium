@@ -36,13 +36,58 @@ export const home: Page = {
       description: '$t:home.meta.twitter.description',
       image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
     },
+    schema: {
+      organization: {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'Sovrium',
+        url: 'https://sovrium.com',
+        logo: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
+        sameAs: [
+          'https://github.com/sovrium/sovrium',
+          'https://www.linkedin.com/company/sovrium/',
+        ],
+      },
+      webSite: {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'Sovrium',
+        url: 'https://sovrium.com',
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: 'https://sovrium.com/?q={search_term_string}',
+          'query-input': 'required name=search_term_string',
+        },
+      },
+      softwareApplication: {
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'Sovrium',
+        applicationCategory: 'DeveloperApplication',
+        operatingSystem: 'Linux, macOS, Windows',
+        offers: {
+          '@type': 'Offer',
+          price: '0',
+          priceCurrency: 'USD',
+        },
+        description:
+          'Open-source, configuration-driven application platform. Build complete business apps with a single config file.',
+      },
+    },
     customElements: [
       {
         type: 'link',
         attrs: {
-          rel: 'stylesheet',
+          rel: 'preload',
           href: 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css',
+          as: 'style',
+          onload: "this.onload=null;this.rel='stylesheet'",
         },
+      },
+      {
+        type: 'noscript',
+        content:
+          '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">',
       },
       {
         type: 'style',

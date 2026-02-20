@@ -6,7 +6,7 @@
  */
 
 import { favicons } from './favicons'
-import { footer } from './footer'
+import { footerI18n } from './footer'
 import { langSwitchScript, navbar } from './navbar'
 import type { Page } from '@/index'
 
@@ -14,14 +14,12 @@ export const dataDeletion: Page = {
   name: 'data-deletion',
   path: '/data-deletion',
   meta: {
-    title: 'Data Deletion Request - Sovrium',
-    description:
-      'Instructions for requesting deletion of your data related to Sovrium software and services by ESSENTIAL SERVICES.',
+    title: '$t:dataDeletion.meta.title',
+    description: '$t:dataDeletion.meta.description',
     canonical: 'https://sovrium.com/data-deletion',
     openGraph: {
-      title: 'Data Deletion Request - Sovrium',
-      description:
-        'Instructions for requesting deletion of your data related to Sovrium software and services by ESSENTIAL SERVICES.',
+      title: '$t:dataDeletion.meta.title',
+      description: '$t:dataDeletion.meta.description',
       url: 'https://sovrium.com/data-deletion',
       image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
       siteName: 'Sovrium',
@@ -29,9 +27,8 @@ export const dataDeletion: Page = {
     },
     twitter: {
       card: 'summary',
-      title: 'Data Deletion Request - Sovrium',
-      description:
-        'Instructions for requesting deletion of your data related to Sovrium software and services by ESSENTIAL SERVICES.',
+      title: '$t:dataDeletion.meta.title',
+      description: '$t:dataDeletion.meta.description',
       image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
     },
     favicons,
@@ -57,12 +54,12 @@ export const dataDeletion: Page = {
           children: [
             {
               type: 'h1',
-              content: 'Data Deletion Request',
+              content: '$t:dataDeletion.header.title',
               props: { className: 'text-3xl sm:text-4xl md:text-5xl font-bold mb-4' },
             },
             {
               type: 'paragraph',
-              content: 'Last Updated: February 20, 2026',
+              content: '$t:dataDeletion.header.lastUpdated',
               props: { className: 'text-sovereignty-gray-400' },
             },
           ],
@@ -88,8 +85,7 @@ export const dataDeletion: Page = {
               children: [
                 {
                   type: 'paragraph',
-                  content:
-                    'This page explains how to request the deletion of your personal data in connection with Sovrium software and services operated by ESSENTIAL SERVICES. Depending on how you interact with Sovrium, the process may differ.',
+                  content: '$t:dataDeletion.intro.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
@@ -102,20 +98,19 @@ export const dataDeletion: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: '1. Sovrium Software (Self-Hosted Installations)',
+                  content: '$t:dataDeletion.s1.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'Sovrium is a self-hosted, configuration-driven application platform. When an organization deploys Sovrium on their own infrastructure, they are the data controller for all user data processed by that installation. ESSENTIAL SERVICES does not have access to data stored in self-hosted Sovrium instances.',
+                  content: '$t:dataDeletion.s1.p1',
                   props: { className: 'text-sovereignty-light mb-4' },
                 },
                 {
                   type: 'paragraph',
-                  content: 'If you are a user of a Sovrium-powered application:',
+                  content: '$t:dataDeletion.s1.p2',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -124,20 +119,17 @@ export const dataDeletion: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content:
-                        '• Contact the administrator of the organization that operates the application',
+                      content: '$t:dataDeletion.s1.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        '• The organization is responsible for handling your data deletion request under applicable data protection laws (e.g., GDPR)',
+                      content: '$t:dataDeletion.s1.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        '• ESSENTIAL SERVICES cannot delete data from self-hosted installations as we do not have access to them',
+                      content: '$t:dataDeletion.s1.li3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -152,21 +144,19 @@ export const dataDeletion: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: '2. Facebook Login and Social Authentication',
+                  content: '$t:dataDeletion.s2.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'Sovrium-powered applications may integrate Facebook Login as an authentication method. When you use Facebook Login to sign in to a Sovrium-powered application, certain data from your Facebook profile may be shared with that application.',
+                  content: '$t:dataDeletion.s2.p1',
                   props: { className: 'text-sovereignty-light mb-4' },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'The following data types may be stored and are subject to deletion upon request:',
+                  content: '$t:dataDeletion.s2.p2',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -175,41 +165,40 @@ export const dataDeletion: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '\u2022 Your name (as provided by Facebook)',
+                      content: '$t:dataDeletion.s2.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '\u2022 Your email address',
+                      content: '$t:dataDeletion.s2.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '\u2022 Your profile picture URL',
+                      content: '$t:dataDeletion.s2.li3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '\u2022 Your Facebook user ID',
+                      content: '$t:dataDeletion.s2.li4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        '\u2022 Any application-specific data created during your use of the Sovrium-powered application',
+                      content: '$t:dataDeletion.s2.li5',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
                 },
                 {
                   type: 'paragraph',
-                  content: 'To delete your data associated with Facebook Login:',
+                  content: '$t:dataDeletion.s2.p3',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
 
                 {
                   type: 'h3',
-                  content: 'Step 1: Remove the app from Facebook',
+                  content: '$t:dataDeletion.s2.step1.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 text-sovereignty-teal',
                   },
@@ -220,24 +209,22 @@ export const dataDeletion: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '• Go to your Facebook Settings',
+                      content: '$t:dataDeletion.s2.step1.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Navigate to Settings & Privacy > Settings > Apps and Websites',
+                      content: '$t:dataDeletion.s2.step1.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        '• Find the Sovrium-powered application and click "Remove" to revoke access',
+                      content: '$t:dataDeletion.s2.step1.li3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        '• Check the box to delete any data the app may have received from Facebook',
+                      content: '$t:dataDeletion.s2.step1.li4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -245,7 +232,7 @@ export const dataDeletion: Page = {
 
                 {
                   type: 'h3',
-                  content: 'Step 2: Contact the application administrator',
+                  content: '$t:dataDeletion.s2.step2.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 text-sovereignty-teal',
                   },
@@ -256,14 +243,12 @@ export const dataDeletion: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content:
-                        '• Contact the organization that operates the Sovrium-powered application',
+                      content: '$t:dataDeletion.s2.step2.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        '• Request deletion of all personal data stored in their Sovrium installation, including data received via Facebook Login',
+                      content: '$t:dataDeletion.s2.step2.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -271,15 +256,14 @@ export const dataDeletion: Page = {
 
                 {
                   type: 'h3',
-                  content: 'Step 3: For applications operated by ESSENTIAL SERVICES',
+                  content: '$t:dataDeletion.s2.step3.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'If the application is directly operated by ESSENTIAL SERVICES, you can request data deletion by emailing privacy@sovrium.com with the subject line "Data Deletion Request". Please include the email address associated with your account.',
+                  content: '$t:dataDeletion.s2.step3.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
@@ -292,15 +276,14 @@ export const dataDeletion: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: '3. sovrium.com Website',
+                  content: '$t:dataDeletion.s3.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'The sovrium.com website collects minimal data. We do not use cookies, do not require user accounts, and do not collect personal information through our website. If you believe we hold any personal data about you from your interactions with our website, you may contact us at privacy@sovrium.com to request its deletion.',
+                  content: '$t:dataDeletion.s3.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
@@ -313,15 +296,14 @@ export const dataDeletion: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: '4. Data Deletion Confirmation',
+                  content: '$t:dataDeletion.s4.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'When we receive a valid data deletion request for services operated by ESSENTIAL SERVICES:',
+                  content: '$t:dataDeletion.s4.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -330,24 +312,22 @@ export const dataDeletion: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '• We will process your request within 30 days of receipt',
+                      content: '$t:dataDeletion.s4.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• We will send you a confirmation once your data has been deleted',
+                      content: '$t:dataDeletion.s4.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        '• Some data may be retained if required by law or legitimate legal obligations',
+                      content: '$t:dataDeletion.s4.li3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        '• You will receive a confirmation code via email that you can use to verify the status of your deletion request',
+                      content: '$t:dataDeletion.s4.li4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -362,14 +342,14 @@ export const dataDeletion: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: '5. Contact',
+                  content: '$t:dataDeletion.s5.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: 'For data deletion requests or questions about your data:',
+                  content: '$t:dataDeletion.s5.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -378,37 +358,37 @@ export const dataDeletion: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '• Email: privacy@sovrium.com',
+                      content: '$t:dataDeletion.s5.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Company: ESSENTIAL SERVICES, SAS au capital de 10 000 \u20AC',
+                      content: '$t:dataDeletion.s5.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• RCS Paris \u2014 SIREN: 834 241 481',
+                      content: '$t:dataDeletion.s5.li3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• SIRET: 834 241 481 00029',
+                      content: '$t:dataDeletion.s5.li4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• TVA: FR04834241481',
+                      content: '$t:dataDeletion.s5.li5',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Address: 128 Rue La Bo\u00E9tie, 75008 Paris, France',
+                      content: '$t:dataDeletion.s5.li6',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• President: Thomas Jeanneau',
+                      content: '$t:dataDeletion.s5.li7',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -421,6 +401,6 @@ export const dataDeletion: Page = {
     },
 
     // Footer
-    footer,
+    footerI18n,
   ],
 }

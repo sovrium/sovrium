@@ -6,7 +6,7 @@
  */
 
 import { favicons } from './favicons'
-import { footer } from './footer'
+import { footerI18n } from './footer'
 import { langSwitchScript, navbar } from './navbar'
 import type { Page } from '@/index'
 
@@ -14,14 +14,12 @@ export const termsOfService: Page = {
   name: 'terms-of-service',
   path: '/terms-of-service',
   meta: {
-    title: 'Terms of Service - Sovrium',
-    description:
-      'Terms of service and license information for Sovrium, the self-hosted configuration-driven platform',
+    title: '$t:terms.meta.title',
+    description: '$t:terms.meta.description',
     canonical: 'https://sovrium.com/terms-of-service',
     openGraph: {
-      title: 'Terms of Service - Sovrium',
-      description:
-        'Terms of service and license information for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+      title: '$t:terms.meta.og.title',
+      description: '$t:terms.meta.og.description',
       url: 'https://sovrium.com/terms-of-service',
       image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
       siteName: 'Sovrium',
@@ -29,9 +27,8 @@ export const termsOfService: Page = {
     },
     twitter: {
       card: 'summary',
-      title: 'Terms of Service - Sovrium',
-      description:
-        'Terms of service and license information for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+      title: '$t:terms.meta.twitter.title',
+      description: '$t:terms.meta.twitter.description',
       image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
     },
     favicons,
@@ -57,12 +54,12 @@ export const termsOfService: Page = {
           children: [
             {
               type: 'h1',
-              content: 'Terms of Service',
+              content: '$t:terms.header.title',
               props: { className: 'text-3xl sm:text-4xl md:text-5xl font-bold mb-4' },
             },
             {
               type: 'paragraph',
-              content: 'Last Updated: February 20, 2026',
+              content: '$t:terms.header.lastUpdated',
               props: { className: 'text-sovereignty-gray-400' },
             },
           ],
@@ -81,56 +78,54 @@ export const termsOfService: Page = {
           type: 'container',
           props: { className: 'max-w-4xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
-            // Agreement
+            // Section 1 - Agreement
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '1. Agreement to Terms',
+                  content: '$t:terms.s1.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'By accessing or using the Sovrium software, website, or any related services (collectively, the "Services"), you agree to be bound by these Terms of Service ("Terms") and all applicable laws and regulations. If you do not agree with these Terms, you may not use our Services.',
+                  content: '$t:terms.s1.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
 
-            // License
+            // Section 2 - License
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '2. Software License',
+                  content: '$t:terms.s2.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'Sovrium is licensed under the Business Source License 1.1 (BSL 1.1). The full license terms are available in the LICENSE.md file in the source repository.',
+                  content: '$t:terms.s2.p1',
                   props: { className: 'text-sovereignty-light mb-4' },
                 },
 
                 {
                   type: 'h3',
-                  content: '2.1 Permitted Uses',
+                  content: '$t:terms.s2.permitted.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: 'You may use Sovrium for:',
+                  content: '$t:terms.s2.permitted.intro',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -139,27 +134,27 @@ export const termsOfService: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '✓ Internal business use within your organization',
+                      content: '$t:terms.s2.permitted.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '✓ Personal projects and development',
+                      content: '$t:terms.s2.permitted.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '✓ Educational and academic purposes',
+                      content: '$t:terms.s2.permitted.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '✓ Non-competing client deployments',
+                      content: '$t:terms.s2.permitted.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '✓ Creating applications for your own use or your direct clients',
+                      content: '$t:terms.s2.permitted.item5',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -167,14 +162,14 @@ export const termsOfService: Page = {
 
                 {
                   type: 'h3',
-                  content: '2.2 Prohibited Uses',
+                  content: '$t:terms.s2.prohibited.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: 'Without a commercial license, you may NOT:',
+                  content: '$t:terms.s2.prohibited.intro',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -183,24 +178,22 @@ export const termsOfService: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content:
-                        '❌ Offer Sovrium as a commercial hosted or managed service to third parties',
+                      content: '$t:terms.s2.prohibited.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '❌ Create a competitive SaaS offering based on Sovrium',
+                      content: '$t:terms.s2.prohibited.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        '❌ Resell, sublicense, or distribute Sovrium as a commercial product',
+                      content: '$t:terms.s2.prohibited.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '❌ Remove or modify copyright notices or license terms',
+                      content: '$t:terms.s2.prohibited.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -208,56 +201,52 @@ export const termsOfService: Page = {
 
                 {
                   type: 'h3',
-                  content: '2.3 Change Date',
+                  content: '$t:terms.s2.changeDate.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'On January 1, 2029, the BSL 1.1 license will automatically convert to Apache License 2.0, making Sovrium fully open source.',
+                  content: '$t:terms.s2.changeDate.p1',
                   props: { className: 'text-sovereignty-light font-semibold' },
                 },
 
                 {
                   type: 'h3',
-                  content: '2.4 Commercial Licensing',
+                  content: '$t:terms.s2.commercial.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'For commercial hosting, managed services, or competitive use cases, please contact license@sovrium.com to obtain a commercial license.',
+                  content: '$t:terms.s2.commercial.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
 
-            // Trademark
+            // Section 3 - Trademark
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '3. Trademark and Branding',
+                  content: '$t:terms.s3.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'Sovrium\u00AE is a registered trademark of ESSENTIAL SERVICES, registered with the Institut National de la Propri\u00E9t\u00E9 Industrielle (INPI) in France under registration number FR5200287.',
+                  content: '$t:terms.s3.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'The trademark registration can be verified on the INPI public registry:',
+                  content: '$t:terms.s3.p2',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -279,7 +268,7 @@ export const termsOfService: Page = {
                 },
                 {
                   type: 'paragraph',
-                  content: 'You may:',
+                  content: '$t:terms.s3.mayIntro',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -288,24 +277,24 @@ export const termsOfService: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '✓ State that your application is "Powered by Sovrium"',
+                      content: '$t:terms.s3.may1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '✓ Use the Sovrium name in factual statements about the software',
+                      content: '$t:terms.s3.may2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '✓ Include Sovrium in technical documentation',
+                      content: '$t:terms.s3.may3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
                 },
                 {
                   type: 'paragraph',
-                  content: 'You may NOT:',
+                  content: '$t:terms.s3.mayNotIntro',
                   props: { className: 'text-sovereignty-light mb-3 mt-4' },
                 },
                 {
@@ -314,51 +303,49 @@ export const termsOfService: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '❌ Use Sovrium in your product name without permission',
+                      content: '$t:terms.s3.mayNot1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '❌ Imply endorsement by ESSENTIAL SERVICES',
+                      content: '$t:terms.s3.mayNot2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '❌ Modify the Sovrium logo without authorization',
+                      content: '$t:terms.s3.mayNot3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'For detailed trademark guidelines, see TRADEMARK.md in the source repository.',
+                  content: '$t:terms.s3.guidelinesNote',
                   props: { className: 'text-sovereignty-light mt-4' },
                 },
               ],
             },
 
-            // Warranty Disclaimer
+            // Section 4 - Warranty Disclaimer
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '4. Warranty Disclaimer',
+                  content: '$t:terms.s4.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.',
+                  content: '$t:terms.s4.p1',
                   props: { className: 'text-sovereignty-light uppercase mb-4' },
                 },
                 {
                   type: 'paragraph',
-                  content: 'ESSENTIAL SERVICES does not warrant that:',
+                  content: '$t:terms.s4.p2',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -367,22 +354,22 @@ export const termsOfService: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '• The software will meet your requirements',
+                      content: '$t:terms.s4.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• The software will be uninterrupted or error-free',
+                      content: '$t:terms.s4.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Any defects will be corrected',
+                      content: '$t:terms.s4.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• The software is free of vulnerabilities',
+                      content: '$t:terms.s4.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -390,49 +377,46 @@ export const termsOfService: Page = {
               ],
             },
 
-            // Limitation of Liability
+            // Section 5 - Limitation of Liability
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '5. Limitation of Liability',
+                  content: '$t:terms.s5.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'IN NO EVENT SHALL ESSENTIAL SERVICES, ITS OFFICERS, DIRECTORS, EMPLOYEES, OR AGENTS BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING WITHOUT LIMITATION, LOSS OF PROFITS, DATA, USE, OR OTHER INTANGIBLE LOSSES.',
+                  content: '$t:terms.s5.p1',
                   props: { className: 'text-sovereignty-light uppercase mb-4' },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'This limitation applies even if ESSENTIAL SERVICES has been advised of the possibility of such damages.',
+                  content: '$t:terms.s5.p2',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
 
-            // Indemnification
+            // Section 6 - Indemnification
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '6. Indemnification',
+                  content: '$t:terms.s6.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'You agree to indemnify and hold harmless ESSENTIAL SERVICES from any claims, damages, losses, liabilities, and expenses (including legal fees) arising from:',
+                  content: '$t:terms.s6.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -441,22 +425,22 @@ export const termsOfService: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '• Your use of the software',
+                      content: '$t:terms.s6.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Your violation of these Terms',
+                      content: '$t:terms.s6.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Your violation of any third-party rights',
+                      content: '$t:terms.s6.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Your applications built with Sovrium',
+                      content: '$t:terms.s6.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -464,43 +448,41 @@ export const termsOfService: Page = {
               ],
             },
 
-            // Modifications
+            // Section 7 - Modifications
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '7. Modifications to Terms',
+                  content: '$t:terms.s7.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'We reserve the right to modify these Terms at any time. Changes will be effective immediately upon posting to the website. Your continued use of the Services after changes constitutes acceptance of the modified Terms.',
+                  content: '$t:terms.s7.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
 
-            // Termination
+            // Section 8 - Termination
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '8. Termination',
+                  content: '$t:terms.s8.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'We may terminate or suspend your access to the Services immediately, without prior notice, for any reason, including:',
+                  content: '$t:terms.s8.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -509,22 +491,22 @@ export const termsOfService: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '• Breach of these Terms',
+                      content: '$t:terms.s8.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Violation of the BSL 1.1 license',
+                      content: '$t:terms.s8.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Unauthorized commercial use',
+                      content: '$t:terms.s8.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Harmful or malicious use',
+                      content: '$t:terms.s8.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -532,117 +514,111 @@ export const termsOfService: Page = {
               ],
             },
 
-            // Governing Law
+            // Section 9 - Governing Law
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '9. Governing Law',
+                  content: '$t:terms.s9.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'These Terms shall be governed by and construed in accordance with the laws of France, without regard to its conflict of law provisions. Any disputes shall be resolved in the courts of France.',
+                  content: '$t:terms.s9.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
 
-            // Severability
+            // Section 10 - Severability
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '10. Severability',
+                  content: '$t:terms.s10.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'If any provision of these Terms is held to be invalid or unenforceable, the remaining provisions shall continue in full force and effect.',
+                  content: '$t:terms.s10.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
 
-            // Entire Agreement
+            // Section 11 - Entire Agreement
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '11. Entire Agreement',
+                  content: '$t:terms.s11.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'These Terms, together with the BSL 1.1 license and any commercial license agreements, constitute the entire agreement between you and ESSENTIAL SERVICES regarding the use of Sovrium.',
+                  content: '$t:terms.s11.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
 
-            // User Data and Privacy
+            // Section 12 - User Data and Privacy
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '12. User Data and Privacy',
+                  content: '$t:terms.s12.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'Your use of Sovrium may involve the collection, processing, and storage of personal data. Our handling of personal data is governed by our Privacy Policy, available at sovrium.com/privacy-policy.',
+                  content: '$t:terms.s12.p1',
                   props: { className: 'text-sovereignty-light mb-4' },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'For self-hosted installations, the organization operating the Sovrium instance is the data controller and is responsible for compliance with applicable data protection laws (e.g., GDPR). ESSENTIAL SERVICES does not access, process, or store data from self-hosted installations.',
+                  content: '$t:terms.s12.p2',
                   props: { className: 'text-sovereignty-light mb-4' },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'You may request the deletion of your personal data in accordance with our Data Deletion policy at sovrium.com/data-deletion.',
+                  content: '$t:terms.s12.p3',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
 
-            // Contact Information
+            // Section 13 - Contact
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '13. Contact Information',
+                  content: '$t:terms.s13.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: 'For questions about these Terms or licensing:',
+                  content: '$t:terms.s13.intro',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -651,47 +627,47 @@ export const termsOfService: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '• License inquiries: license@sovrium.com',
+                      content: '$t:terms.s13.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• General questions: GitHub Issues',
+                      content: '$t:terms.s13.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Company: ESSENTIAL SERVICES, SAS au capital de 10 000 \u20AC',
+                      content: '$t:terms.s13.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• RCS Paris \u2014 SIREN: 834 241 481',
+                      content: '$t:terms.s13.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• SIRET: 834 241 481 00029',
+                      content: '$t:terms.s13.item5',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• TVA: FR04834241481',
+                      content: '$t:terms.s13.item6',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Address: 128 Rue La Bo\u00E9tie, 75008 Paris, France',
+                      content: '$t:terms.s13.item7',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• President: Thomas Jeanneau',
+                      content: '$t:terms.s13.item8',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Website: sovrium.com',
+                      content: '$t:terms.s13.item9',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -699,7 +675,7 @@ export const termsOfService: Page = {
               ],
             },
 
-            // Acceptance
+            // Notice
             {
               type: 'div',
               props: {
@@ -709,15 +685,14 @@ export const termsOfService: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: '⚠️ Important Notice',
+                  content: '$t:terms.notice.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'By downloading, installing, or using Sovrium, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service and the Business Source License 1.1.',
+                  content: '$t:terms.notice.p1',
                   props: { className: 'text-sovereignty-light font-semibold' },
                 },
               ],
@@ -728,6 +703,6 @@ export const termsOfService: Page = {
     },
 
     // Footer
-    footer,
+    footerI18n,
   ],
 }

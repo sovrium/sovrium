@@ -6,7 +6,7 @@
  */
 
 import { favicons } from './favicons'
-import { footer } from './footer'
+import { footerI18n } from './footer'
 import { langSwitchScript, navbar } from './navbar'
 import type { Page } from '@/index'
 
@@ -14,14 +14,12 @@ export const privacyPolicy: Page = {
   name: 'privacy-policy',
   path: '/privacy-policy',
   meta: {
-    title: 'Privacy Policy - Sovrium',
-    description:
-      'Privacy policy for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+    title: '$t:privacy.meta.title',
+    description: '$t:privacy.meta.description',
     canonical: 'https://sovrium.com/privacy-policy',
     openGraph: {
-      title: 'Privacy Policy - Sovrium',
-      description:
-        'Privacy policy for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+      title: '$t:privacy.meta.title',
+      description: '$t:privacy.meta.description',
       url: 'https://sovrium.com/privacy-policy',
       image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
       siteName: 'Sovrium',
@@ -29,9 +27,8 @@ export const privacyPolicy: Page = {
     },
     twitter: {
       card: 'summary',
-      title: 'Privacy Policy - Sovrium',
-      description:
-        'Privacy policy for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+      title: '$t:privacy.meta.title',
+      description: '$t:privacy.meta.description',
       image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
     },
     favicons,
@@ -57,12 +54,12 @@ export const privacyPolicy: Page = {
           children: [
             {
               type: 'h1',
-              content: 'Privacy Policy',
+              content: '$t:privacy.header.title',
               props: { className: 'text-3xl sm:text-4xl md:text-5xl font-bold mb-4' },
             },
             {
               type: 'paragraph',
-              content: 'Last Updated: February 20, 2026',
+              content: '$t:privacy.header.lastUpdated',
               props: { className: 'text-sovereignty-gray-400' },
             },
           ],
@@ -81,41 +78,39 @@ export const privacyPolicy: Page = {
           type: 'container',
           props: { className: 'max-w-4xl mx-auto px-4 sm:px-6 md:px-8' },
           children: [
-            // Introduction
+            // Section 1 - Introduction
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '1. Introduction',
+                  content: '$t:privacy.s1.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'ESSENTIAL SERVICES ("we", "us", "our") respects your privacy. This Privacy Policy explains how we collect, use, and protect information related to sovrium.com (the "Website") and the Sovrium software (the "Software").',
+                  content: '$t:privacy.s1.p1',
                   props: { className: 'text-sovereignty-light mb-4' },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'Sovrium is designed with digital sovereignty in mind. As a self-hosted platform, we believe your data should remain under your control.',
+                  content: '$t:privacy.s1.p2',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
 
-            // Data Collection
+            // Section 2 - Data Collection
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '2. Data Collection',
+                  content: '$t:privacy.s2.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
@@ -123,15 +118,14 @@ export const privacyPolicy: Page = {
 
                 {
                   type: 'h3',
-                  content: '2.1 Website Analytics',
+                  content: '$t:privacy.s2.sub1.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'We may use privacy-respecting analytics services (such as Plausible Analytics) to understand website traffic and usage patterns. These services:',
+                  content: '$t:privacy.s2.sub1.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -140,22 +134,22 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '• Do not use cookies',
+                      content: '$t:privacy.s2.sub1.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Do not collect personal data',
+                      content: '$t:privacy.s2.sub1.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Do not track users across sites',
+                      content: '$t:privacy.s2.sub1.li3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Are fully GDPR compliant',
+                      content: '$t:privacy.s2.sub1.li4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -163,29 +157,27 @@ export const privacyPolicy: Page = {
 
                 {
                   type: 'h3',
-                  content: '2.2 Cookies',
+                  content: '$t:privacy.s2.sub2.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'The sovrium.com website does not use cookies. We do not set any first-party or third-party cookies. No cookie consent banner is necessary because no cookies are used.',
+                  content: '$t:privacy.s2.sub2.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
 
                 {
                   type: 'h3',
-                  content: '2.3 Self-Hosted Software',
+                  content: '$t:privacy.s2.sub3.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'Sovrium is self-hosted software that runs on your infrastructure. We do not:',
+                  content: '$t:privacy.s2.sub3.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -194,58 +186,55 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '• Collect data from your Sovrium installations',
+                      content: '$t:privacy.s2.sub3.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Store or process your application data',
+                      content: '$t:privacy.s2.sub3.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Have access to your configurations',
+                      content: '$t:privacy.s2.sub3.li3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Monitor your usage or deployments',
+                      content: '$t:privacy.s2.sub3.li4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'You are the data controller for all data processed by your Sovrium installation.',
+                  content: '$t:privacy.s2.sub3.p2',
                   props: { className: 'text-sovereignty-light mt-3 font-semibold' },
                 },
 
                 {
                   type: 'h3',
-                  content: '2.4 GitHub and Open Source',
+                  content: '$t:privacy.s2.sub4.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'When you interact with our GitHub repository (issues, pull requests, discussions), GitHub collects data according to their privacy policy. We may see public information you share on GitHub.',
+                  content: '$t:privacy.s2.sub4.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
 
                 {
                   type: 'h3',
-                  content: '2.5 Facebook and Social Login',
+                  content: '$t:privacy.s2.sub5.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'Sovrium-powered applications may integrate Facebook Login (or other social authentication providers) as an optional sign-in method. When a user authenticates via Facebook Login, the following data may be received by the Sovrium application:',
+                  content: '$t:privacy.s2.sub5.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -254,57 +243,54 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '\u2022 Name and profile picture',
+                      content: '$t:privacy.s2.sub5.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '\u2022 Email address',
+                      content: '$t:privacy.s2.sub5.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '\u2022 Facebook user ID',
+                      content: '$t:privacy.s2.sub5.li3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'Legal basis: This data is processed under GDPR Art. 6(1)(b) (performance of a contract) when you choose to sign in via Facebook Login, and Art. 6(1)(a) (consent) as you explicitly authorize the data sharing through Facebook\u2019s authorization dialog.',
+                  content: '$t:privacy.s2.sub5.p2',
                   props: { className: 'text-sovereignty-light mt-3 mb-3' },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'This data is used solely for the purpose of authenticating your identity and creating your user account within the Sovrium-powered application. For self-hosted installations, this data is stored on the infrastructure controlled by the organization operating the application. ESSENTIAL SERVICES does not have access to this data unless it directly operates the application.',
+                  content: '$t:privacy.s2.sub5.p3',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'You may request deletion of your data at any time. See our Data Deletion page at sovrium.com/data-deletion for detailed instructions.',
+                  content: '$t:privacy.s2.sub5.p4',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
 
-            // Use of Information
+            // Section 3 - Use of Information
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '3. Use of Information',
+                  content: '$t:privacy.s3.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: 'Any analytics data we collect is used solely to:',
+                  content: '$t:privacy.s3.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -313,22 +299,22 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '• Improve our website and documentation',
+                      content: '$t:privacy.s3.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Understand which features interest users',
+                      content: '$t:privacy.s3.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Fix technical issues with the website',
+                      content: '$t:privacy.s3.li3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Plan development priorities',
+                      content: '$t:privacy.s3.li4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -336,7 +322,7 @@ export const privacyPolicy: Page = {
 
                 {
                   type: 'h3',
-                  content: '3.1 Data Retention',
+                  content: '$t:privacy.s3.sub1.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
@@ -347,20 +333,17 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content:
-                        '\u2022 Website analytics: Aggregated and anonymized. No personal data is retained.',
+                      content: '$t:privacy.s3.sub1.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        '\u2022 Facebook Login data (for ESSENTIAL SERVICES-operated applications): Retained as long as your user account is active. Deleted within 30 days of a valid deletion request.',
+                      content: '$t:privacy.s3.sub1.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        '\u2022 Self-hosted installations: Data retention is determined by the organization operating the Sovrium instance.',
+                      content: '$t:privacy.s3.sub1.li3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -368,21 +351,21 @@ export const privacyPolicy: Page = {
               ],
             },
 
-            // Third-Party Services
+            // Section 4 - Third-Party Services
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '4. Third-Party Services',
+                  content: '$t:privacy.s4.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: 'Our website may link to or interact with third-party services:',
+                  content: '$t:privacy.s4.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -391,45 +374,42 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '• GitHub (for source code and issues)',
+                      content: '$t:privacy.s4.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Google Fonts (for typography)',
+                      content: '$t:privacy.s4.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        '• Facebook/Meta (for social authentication in Sovrium-powered applications)',
+                      content: '$t:privacy.s4.li3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• CDN services (for faster content delivery)',
+                      content: '$t:privacy.s4.li4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'These services have their own privacy policies and data practices. We encourage you to review their policies, in particular the Meta Privacy Policy at https://www.facebook.com/privacy/policy/.',
+                  content: '$t:privacy.s4.p2',
                   props: { className: 'text-sovereignty-light mt-3' },
                 },
 
                 {
                   type: 'h3',
-                  content: '4.1 Data Sharing',
+                  content: '$t:privacy.s4.sub1.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'ESSENTIAL SERVICES does not sell, rent, or trade your personal data to third parties. We do not share your personal data with third parties for their marketing purposes. Data may only be shared with third parties in the following limited circumstances:',
+                  content: '$t:privacy.s4.sub1.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -438,20 +418,17 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content:
-                        '\u2022 With your explicit consent (e.g., when you authorize a social login)',
+                      content: '$t:privacy.s4.sub1.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        '\u2022 To comply with legal obligations or respond to lawful government requests',
+                      content: '$t:privacy.s4.sub1.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        '\u2022 To protect the rights, property, or safety of ESSENTIAL SERVICES, our users, or the public',
+                      content: '$t:privacy.s4.sub1.li3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -459,54 +436,51 @@ export const privacyPolicy: Page = {
               ],
             },
 
-            // International Data Transfers
+            // Section 5 - International Data Transfers
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '5. International Data Transfers',
+                  content: '$t:privacy.s5.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'When you use Facebook Login or other social authentication providers, your data may be transferred to and processed in countries outside the European Economic Area (EEA), including the United States. These transfers are necessary for the performance of the authentication service and are conducted in accordance with applicable data protection laws.',
+                  content: '$t:privacy.s5.p1',
                   props: { className: 'text-sovereignty-light mb-4' },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'Where data is transferred outside the EEA, we rely on appropriate safeguards such as the EU-US Data Privacy Framework, Standard Contractual Clauses (SCCs), or other lawful transfer mechanisms to ensure your data is adequately protected.',
+                  content: '$t:privacy.s5.p2',
                   props: { className: 'text-sovereignty-light mb-4' },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'For self-hosted Sovrium installations, data transfers are determined by the organization operating the instance. ESSENTIAL SERVICES has no involvement in those transfers.',
+                  content: '$t:privacy.s5.p3',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
 
-            // Your Rights
+            // Section 6 - Your Rights
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '6. Your Rights',
+                  content: '$t:privacy.s6.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: 'Under GDPR and other privacy laws, you have the right to:',
+                  content: '$t:privacy.s6.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -515,117 +489,114 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '• Access any personal data we hold about you',
+                      content: '$t:privacy.s6.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Request correction of inaccurate data',
+                      content: '$t:privacy.s6.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Request deletion of your data',
+                      content: '$t:privacy.s6.li3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Object to data processing',
+                      content: '$t:privacy.s6.li4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Request data portability',
+                      content: '$t:privacy.s6.li5',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
                 },
                 {
                   type: 'paragraph',
-                  content: 'To exercise these rights, contact us at privacy@sovrium.com.',
+                  content: '$t:privacy.s6.p2',
                   props: { className: 'text-sovereignty-light mt-3' },
                 },
               ],
             },
 
-            // Security
+            // Section 7 - Security
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '7. Security',
+                  content: '$t:privacy.s7.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'We take reasonable measures to protect any information we collect. However, as we collect minimal data and the Sovrium software is self-hosted, your primary security responsibility lies with your own infrastructure and deployment practices.',
+                  content: '$t:privacy.s7.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
 
-            // Children\'s Privacy
+            // Section 8 - Children's Privacy
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: "8. Children's Privacy",
+                  content: '$t:privacy.s8.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'Our website and software are not directed to children under 13. We do not knowingly collect personal information from children under 13.',
+                  content: '$t:privacy.s8.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
 
-            // Changes to This Policy
+            // Section 9 - Changes to This Policy
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '9. Changes to This Policy',
+                  content: '$t:privacy.s9.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated "Last Updated" date. Your continued use of the website after changes constitutes acceptance of the updated policy.',
+                  content: '$t:privacy.s9.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
 
-            // Contact Information
+            // Section 10 - Contact Information
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '10. Contact Information',
+                  content: '$t:privacy.s10.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: 'For privacy-related inquiries:',
+                  content: '$t:privacy.s10.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -634,47 +605,47 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '• Email: privacy@sovrium.com',
+                      content: '$t:privacy.s10.li1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• GitHub Issues: https://github.com/sovrium/sovrium/issues',
+                      content: '$t:privacy.s10.li2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Company: ESSENTIAL SERVICES, SAS au capital de 10 000 \u20AC',
+                      content: '$t:privacy.s10.li3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• RCS Paris \u2014 SIREN: 834 241 481',
+                      content: '$t:privacy.s10.li4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• SIRET: 834 241 481 00029',
+                      content: '$t:privacy.s10.li5',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• TVA: FR04834241481',
+                      content: '$t:privacy.s10.li6',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Address: 128 Rue La Bo\u00E9tie, 75008 Paris, France',
+                      content: '$t:privacy.s10.li7',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• President: Thomas Jeanneau',
+                      content: '$t:privacy.s10.li8',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• Data Deletion: sovrium.com/data-deletion',
+                      content: '$t:privacy.s10.li9',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -682,22 +653,21 @@ export const privacyPolicy: Page = {
               ],
             },
 
-            // Data Protection Officer
+            // Section 11 - Data Protection
             {
               type: 'div',
               props: { className: 'mb-8' },
               children: [
                 {
                   type: 'h2',
-                  content: '11. Data Protection',
+                  content: '$t:privacy.s11.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'As a company committed to digital sovereignty, we practice data minimization. We collect the absolute minimum data necessary and encourage you to maintain control of your own data through self-hosting.',
+                  content: '$t:privacy.s11.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
@@ -708,6 +678,6 @@ export const privacyPolicy: Page = {
     },
 
     // Footer
-    footer,
+    footerI18n,
   ],
 }
