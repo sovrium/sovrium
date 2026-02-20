@@ -7,7 +7,7 @@
 
 import { favicons } from './favicons'
 import { footer } from './footer'
-import { navbar } from './navbar'
+import { langSwitchScript, navbar } from './navbar'
 import type { Page } from '@/index'
 
 export const termsOfService: Page = {
@@ -35,6 +35,9 @@ export const termsOfService: Page = {
       image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
     },
     favicons,
+  },
+  scripts: {
+    inlineScripts: [langSwitchScript],
   },
   sections: [
     // Navigation Bar
