@@ -10,6 +10,8 @@ import {
   generateSitemapContent,
   generateRobotsContent,
   generateClientHydrationScript,
+  generateHreflangLinks,
+  type HreflangConfig,
 } from './static-content-generators'
 import type { Page } from '@/domain/models/app'
 
@@ -84,24 +86,108 @@ describe('generateSitemapContent', () => {
   describe('When generating multi-language sitemap', () => {
     test('Then creates entries for each language', () => {
       const pages: readonly Page[] = [createPage('/')]
-      const result = generateSitemapContent(pages, 'https://example.com', '', ['en', 'fr'])
+      const result = generateSitemapContent(pages, 'https://example.com', '', {
+        languages: ['en', 'fr'],
+      })
       expect(result).toContain('<loc>https://example.com/en/</loc>')
       expect(result).toContain('<loc>https://example.com/fr/</loc>')
     })
 
     test('Then creates language-prefixed paths for non-root pages', () => {
       const pages: readonly Page[] = [createPage('/about')]
-      const result = generateSitemapContent(pages, 'https://example.com', '', ['en', 'fr'])
+      const result = generateSitemapContent(pages, 'https://example.com', '', {
+        languages: ['en', 'fr'],
+      })
       expect(result).toContain('<loc>https://example.com/en/about</loc>')
       expect(result).toContain('<loc>https://example.com/fr/about</loc>')
     })
 
     test('Then handles multiple pages with multiple languages', () => {
       const pages: readonly Page[] = [createPage('/'), createPage('/about')]
-      const result = generateSitemapContent(pages, 'https://example.com', '', ['en', 'fr', 'de'])
+      const result = generateSitemapContent(pages, 'https://example.com', '', {
+        languages: ['en', 'fr', 'de'],
+      })
       // 2 pages * 3 languages = 6 URLs
       expect((result.match(/<url>/g) || []).length).toBe(6)
     })
+  })
+
+  describe('When generating sitemap with hreflang config', () => {
+    const hreflangConfig: HreflangConfig = {
+      localeMap: { en: 'en-US', fr: 'fr-FR' },
+      defaultLanguage: 'en',
+    }
+
+    test('Then includes xmlns:xhtml namespace', () => {
+      const pages: readonly Page[] = [createPage('/')]
+      const result = generateSitemapContent(pages, 'https://example.com', '', {
+        languages: ['en', 'fr'],
+        hreflangConfig,
+      })
+      expect(result).toContain('xmlns:xhtml="http://www.w3.org/1999/xhtml"')
+    })
+
+    test('Then includes hreflang links in URL entries', () => {
+      const pages: readonly Page[] = [createPage('/')]
+      const result = generateSitemapContent(pages, 'https://example.com', '', {
+        languages: ['en', 'fr'],
+        hreflangConfig,
+      })
+      expect(result).toContain('hreflang="en-US"')
+      expect(result).toContain('hreflang="fr-FR"')
+      expect(result).toContain('hreflang="x-default"')
+    })
+
+    test('Then does not include xmlns:xhtml without hreflang config', () => {
+      const pages: readonly Page[] = [createPage('/')]
+      const result = generateSitemapContent(pages, 'https://example.com', '', {
+        languages: ['en', 'fr'],
+      })
+      expect(result).not.toContain('xmlns:xhtml')
+    })
+  })
+})
+
+describe('generateHreflangLinks', () => {
+  const hreflangConfig: HreflangConfig = {
+    localeMap: { en: 'en-US', fr: 'fr-FR' },
+    defaultLanguage: 'en',
+  }
+
+  test('Then generates one link per language plus x-default', () => {
+    const links = generateHreflangLinks('https://example.com', '/', ['en', 'fr'], hreflangConfig)
+    expect(links).toHaveLength(3) // en + fr + x-default
+  })
+
+  test('Then uses locale from localeMap', () => {
+    const links = generateHreflangLinks('https://example.com', '/', ['en', 'fr'], hreflangConfig)
+    expect(links[0]).toContain('hreflang="en-US"')
+    expect(links[1]).toContain('hreflang="fr-FR"')
+  })
+
+  test('Then includes x-default pointing to default language', () => {
+    const links = generateHreflangLinks('https://example.com', '/', ['en', 'fr'], hreflangConfig)
+    const xDefault = links.find((l) => l.includes('x-default'))
+    expect(xDefault).toBeDefined()
+    expect(xDefault).toContain('href="https://example.com/en/"')
+  })
+
+  test('Then builds correct URLs for non-root pages', () => {
+    const links = generateHreflangLinks(
+      'https://example.com',
+      '/company',
+      ['en', 'fr'],
+      hreflangConfig
+    )
+    expect(links[0]).toContain('href="https://example.com/en/company"')
+    expect(links[1]).toContain('href="https://example.com/fr/company"')
+  })
+
+  test('Then falls back to language code when locale not in map', () => {
+    const config: HreflangConfig = { localeMap: { en: 'en-US' }, defaultLanguage: 'en' }
+    const links = generateHreflangLinks('https://example.com', '/', ['en', 'de'], config)
+    expect(links[0]).toContain('hreflang="en-US"')
+    expect(links[1]).toContain('hreflang="de"')
   })
 })
 

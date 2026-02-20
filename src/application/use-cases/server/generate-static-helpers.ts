@@ -15,6 +15,7 @@ import {
   generateClientHydrationScript,
   generateRobotsContent,
   generateSitemapContent,
+  type HreflangConfig,
 } from './static-content-generators'
 import {
   injectHydrationScript,
@@ -224,13 +225,23 @@ export function applyHtmlOptimizations(config: {
 }
 
 /**
+ * Build HreflangConfig from app languages when multi-language mode is active
+ */
+const buildHreflangConfig = (
+  app: App,
+  options: GenerateStaticOptions
+): HreflangConfig | undefined => {
+  if (!app.languages || !options.languages) return undefined
+  return {
+    localeMap: Object.fromEntries(
+      app.languages.supported.map((lang) => [lang.code, lang.locale ?? lang.code])
+    ),
+    defaultLanguage: options.defaultLanguage ?? app.languages.default,
+  }
+}
+
+/**
  * Generate sitemap.xml if enabled
- *
- * @param app - Application configuration
- * @param outputDir - Output directory path
- * @param options - Static generation options
- * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
- *            Typed as `any` for runtime-agnostic compatibility across Node.js and Bun.
  */
 export function generateSitemapFile(
   app: App,
@@ -244,15 +255,14 @@ export function generateSitemapFile(
       Effect.gen(function* () {
         yield* Console.log('🗺️  Generating sitemap.xml...')
         const pages = app.pages || []
-        const isMultiLanguage = app.languages !== undefined && options.languages !== undefined
-        const languages = isMultiLanguage ? options.languages : undefined
-        const basePath = options.basePath || ''
+        const languages = app.languages && options.languages ? options.languages : undefined
+        const hreflangConfig = buildHreflangConfig(app, options)
 
         const sitemap = generateSitemapContent(
           pages,
           options.baseUrl || 'https://example.com',
-          basePath,
-          languages
+          options.basePath || '',
+          languages || hreflangConfig ? { languages, hreflangConfig } : undefined
         )
         yield* Effect.tryPromise({
           try: () => fs.writeFile(`${outputDir}/sitemap.xml`, sitemap, 'utf-8'),

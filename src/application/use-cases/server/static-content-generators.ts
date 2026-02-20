@@ -8,6 +8,16 @@
 import type { Page } from '@/domain/models/app'
 
 /**
+ * Hreflang configuration for multilingual sitemaps
+ */
+export interface HreflangConfig {
+  /** Maps language codes to full locales (e.g., { en: 'en-US', fr: 'fr-FR' }) */
+  readonly localeMap: Readonly<Record<string, string>>
+  /** Default language code for x-default hreflang (e.g., 'en') */
+  readonly defaultLanguage: string
+}
+
+/**
  * Format HTML with Prettier for professional formatting
  * Loads Prettier config and formats HTML using the HTML parser
  */
@@ -22,57 +32,94 @@ export const formatHtmlWithPrettier = async (html: string): Promise<string> => {
 }
 
 /**
+ * Build the full URL for a page in a specific language
+ */
+const buildLanguageUrl = (baseUrl: string, lang: string, pagePath: string): string => {
+  const normalizedPath = pagePath === '/' ? '' : pagePath
+  return `${baseUrl}/${lang}${normalizedPath}${normalizedPath === '' ? '/' : ''}`
+}
+
+/**
+ * Generate hreflang <xhtml:link> elements for a single URL entry
+ */
+export const generateHreflangLinks = (
+  baseUrl: string,
+  pagePath: string,
+  languages: readonly string[],
+  hreflangConfig: HreflangConfig
+): readonly string[] => {
+  const languageLinks = languages.map((lang) => {
+    const locale = hreflangConfig.localeMap[lang] ?? lang
+    const url = buildLanguageUrl(baseUrl, lang, pagePath)
+    return `<xhtml:link rel="alternate" hreflang="${locale}" href="${url}" />`
+  })
+
+  const defaultUrl = buildLanguageUrl(baseUrl, hreflangConfig.defaultLanguage, pagePath)
+  const xDefaultLink = `<xhtml:link rel="alternate" hreflang="x-default" href="${defaultUrl}" />`
+
+  return [...languageLinks, xDefaultLink]
+}
+
+/**
+ * Build a single <url> entry for the sitemap
+ */
+const buildUrlEntry = (
+  loc: string,
+  lastmod: string,
+  page: Page,
+  hreflangSection: string
+): string => {
+  const priority = page.meta?.priority ?? 0.5
+  const changefreq = page.meta?.changefreq ?? 'monthly'
+  return `  <url>
+    <loc>${loc}</loc>${hreflangSection}
+    <lastmod>${lastmod}</lastmod>
+    <priority>${priority.toFixed(1)}</priority>
+    <changefreq>${changefreq}</changefreq>
+  </url>`
+}
+
+/**
  * Generate sitemap.xml content
  */
 export const generateSitemapContent = (
   pages: readonly Page[],
   baseUrl: string,
   _basePath: string = '',
-  languages?: readonly string[]
+  options?: { readonly languages?: readonly string[]; readonly hreflangConfig?: HreflangConfig }
 ): string => {
-  // Filter out pages with noindex AND underscore-prefixed pages
   const indexablePages = pages.filter((page) => !page.meta?.noindex && !page.path.startsWith('/_'))
+  const lastmod = new Date().toISOString().split('T')[0] ?? ''
+  const languages = options?.languages
+  const hreflangConfig = options?.hreflangConfig
+  const hasHreflang = languages && languages.length > 0 && hreflangConfig !== undefined
 
-  // Generate lastmod date (current date in ISO format)
-  const lastmod = new Date().toISOString().split('T')[0]
-
-  // Generate sitemap entries using immutable patterns
   const entries: readonly string[] =
     languages && languages.length > 0
-      ? // Multi-language mode: Generate entries for each language
-        languages.flatMap((lang) =>
+      ? languages.flatMap((lang) =>
           indexablePages.map((page) => {
-            const priority = page.meta?.priority ?? 0.5
-            const changefreq = page.meta?.changefreq ?? 'monthly'
-            // Multi-language URLs: /{lang}/ or /{lang}{path}
-            // Add trailing slash for root path (/) within language
-            const pagePath = page.path === '/' ? '' : page.path
-            const fullPath = `/${lang}${pagePath}${pagePath === '' ? '/' : ''}`
-
-            return `  <url>
-    <loc>${baseUrl}${fullPath}</loc>
-    <lastmod>${lastmod}</lastmod>
-    <priority>${priority.toFixed(1)}</priority>
-    <changefreq>${changefreq}</changefreq>
-  </url>`
+            const hreflangLinks = hasHreflang
+              ? generateHreflangLinks(baseUrl, page.path, languages, hreflangConfig).map(
+                  (link) => `    ${link}`
+                )
+              : []
+            const hreflangSection = hreflangLinks.length > 0 ? `\n${hreflangLinks.join('\n')}` : ''
+            return buildUrlEntry(
+              buildLanguageUrl(baseUrl, lang, page.path),
+              lastmod,
+              page,
+              hreflangSection
+            )
           })
         )
-      : // Single language mode: Generate entries without language prefix
-        indexablePages.map((page) => {
-          const priority = page.meta?.priority ?? 0.5
-          const changefreq = page.meta?.changefreq ?? 'monthly'
-          const fullPath = page.path
+      : indexablePages.map((page) => buildUrlEntry(`${baseUrl}${page.path}`, lastmod, page, ''))
 
-          return `  <url>
-    <loc>${baseUrl}${fullPath}</loc>
-    <lastmod>${lastmod}</lastmod>
-    <priority>${priority.toFixed(1)}</priority>
-    <changefreq>${changefreq}</changefreq>
-  </url>`
-        })
+  const xmlnsAttr = hasHreflang
+    ? ' xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"\n        xmlns:xhtml="http://www.w3.org/1999/xhtml"'
+    : ' xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"'
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset${xmlnsAttr}>
 ${entries.join('\n')}
 </urlset>`
 }
