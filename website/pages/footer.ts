@@ -221,16 +221,16 @@ export const footer = {
 
             // Company column
             footerColumn('Company', [
-              footerLink('About', '/company'),
-              footerLink('Our Partner Service', '/partners'),
+              footerLink('About', '/en/company'),
+              footerLink('Our Partner Service', '/en/partners'),
               footerLink('Trademark', 'https://github.com/sovrium/sovrium/blob/main/TRADEMARK.md'),
             ]),
 
             // Legal column
             footerColumn('Legal', [
-              footerLink('Privacy Policy', '/privacy-policy'),
-              footerLink('Terms of Service', '/terms-of-service'),
-              footerLink('Data Deletion', '/data-deletion'),
+              footerLink('Privacy Policy', '/en/privacy-policy'),
+              footerLink('Terms of Service', '/en/terms-of-service'),
+              footerLink('Data Deletion', '/en/data-deletion'),
             ]),
           ],
         },

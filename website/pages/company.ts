@@ -472,7 +472,7 @@ export const company: Page = {
                           type: 'link',
                           content: 'GitHub',
                           props: {
-                            href: 'https://github.com/music-mash',
+                            href: 'https://github.com/thomas-jeanneau',
                             className:
                               'text-sovereignty-gray-400 hover:text-sovereignty-accent transition-colors duration-150 text-sm',
                             target: '_blank',
@@ -483,7 +483,7 @@ export const company: Page = {
                           type: 'link',
                           content: 'LinkedIn',
                           props: {
-                            href: 'https://www.linkedin.com/in/music-mash/',
+                            href: 'https://www.linkedin.com/in/thomasjeanneauentrepreneur/',
                             className:
                               'text-sovereignty-gray-400 hover:text-sovereignty-accent transition-colors duration-150 text-sm',
                             target: '_blank',
