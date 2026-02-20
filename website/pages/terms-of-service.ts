@@ -23,6 +23,7 @@ export const termsOfService: Page = {
       description:
         'Terms of service and license information for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
       url: 'https://sovrium.com/terms-of-service',
+      image: 'https://sovrium.com/favicon/android-chrome-512x512.png',
       siteName: 'Sovrium',
       type: 'website',
     },
@@ -31,6 +32,7 @@ export const termsOfService: Page = {
       title: 'Terms of Service - Sovrium',
       description:
         'Terms of service and license information for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+      image: 'https://sovrium.com/favicon/android-chrome-512x512.png',
     },
     favicons,
   },

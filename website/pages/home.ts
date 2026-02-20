@@ -26,15 +26,53 @@ export const home: Page = {
       description: '$t:home.meta.og.description',
       type: 'website',
       url: 'https://sovrium.com',
-      image: 'https://sovrium.com/og-image.png',
+      image: 'https://sovrium.com/favicon/android-chrome-512x512.png',
       siteName: 'Sovrium',
     },
     twitter: {
       card: 'summary_large_image',
       title: '$t:home.meta.twitter.title',
       description: '$t:home.meta.twitter.description',
-      image: 'https://sovrium.com/twitter-card.png',
+      image: 'https://sovrium.com/favicon/android-chrome-512x512.png',
     },
+    customElements: [
+      {
+        type: 'link',
+        attrs: {
+          rel: 'stylesheet',
+          href: 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css',
+        },
+      },
+      {
+        type: 'style',
+        content: [
+          'code[class*="language-"],pre[class*="language-"]{background:transparent;text-shadow:none}',
+          'pre[class*="language-"]{padding:1rem 1.5rem}',
+          '@media(min-width:640px){pre[class*="language-"]{padding:1.5rem}}',
+          '@media(min-width:768px){pre[class*="language-"]{padding:2rem}}',
+        ].join(''),
+      },
+    ],
+  },
+  scripts: {
+    externalScripts: [
+      {
+        src: 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js',
+        defer: true,
+        position: 'body-end' as const,
+      },
+      {
+        src: 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js',
+        defer: true,
+        position: 'body-end' as const,
+      },
+    ],
+    inlineScripts: [
+      {
+        code: 'document.addEventListener("DOMContentLoaded",function(){if(typeof Prism!=="undefined"){Prism.highlightAll()}})',
+        position: 'body-end' as const,
+      },
+    ],
   },
   sections: [
     // Navigation Bar
@@ -426,468 +464,33 @@ export const home: Page = {
                     },
                   ],
                 },
-                // Syntax-highlighted code block
+                // Syntax-highlighted code block (Prism.js)
                 {
                   type: 'pre',
                   props: {
-                    className: 'overflow-x-auto p-4 sm:p-6 md:p-8',
+                    className: 'overflow-x-auto !m-0 !rounded-none !border-0',
                   },
                   children: [
                     {
                       type: 'code',
                       props: {
-                        className: 'font-mono text-xs sm:text-sm leading-relaxed',
+                        className: 'language-typescript !text-xs sm:!text-sm !leading-relaxed',
                       },
-                      children: [
-                        // Line 1: comment
-                        {
-                          type: 'span',
-                          content: '// app.ts \u2014 Type-safe, with IDE completion',
-                          props: { className: 'text-sovereignty-gray-500 italic' },
-                        },
-                        { type: 'span', content: '\n' },
-                        // Line 2: import statement
-                        {
-                          type: 'span',
-                          content: 'import',
-                          props: { className: 'text-purple-400' },
-                        },
-                        {
-                          type: 'span',
-                          content: ' { ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'start',
-                          props: { className: 'text-sovereignty-light' },
-                        },
-                        {
-                          type: 'span',
-                          content: ' } ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        { type: 'span', content: 'from', props: { className: 'text-purple-400' } },
-                        {
-                          type: 'span',
-                          content: ' ',
-                          props: { className: 'text-sovereignty-light' },
-                        },
-                        {
-                          type: 'span',
-                          content: "'sovrium'",
-                          props: { className: 'text-sovereignty-teal' },
-                        },
-                        { type: 'span', content: '\n\n' },
-                        // Line 4: await start({
-                        { type: 'span', content: 'await', props: { className: 'text-purple-400' } },
-                        {
-                          type: 'span',
-                          content: ' ',
-                          props: { className: 'text-sovereignty-light' },
-                        },
-                        { type: 'span', content: 'start', props: { className: 'text-yellow-300' } },
-                        {
-                          type: 'span',
-                          content: '({',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        { type: 'span', content: '\n' },
-                        // Line 5: name: 'Company CRM',
-                        {
-                          type: 'span',
-                          content: '  ',
-                          props: { className: 'text-sovereignty-light' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'name',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: "'Company CRM'",
-                          props: { className: 'text-sovereignty-teal' },
-                        },
-                        {
-                          type: 'span',
-                          content: ',',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        { type: 'span', content: '\n' },
-                        // Line 6: tables: [{ name: 'contacts', fields: [
-                        {
-                          type: 'span',
-                          content: '  ',
-                          props: { className: 'text-sovereignty-light' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'tables',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': [{ ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'name',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: "'contacts'",
-                          props: { className: 'text-sovereignty-teal' },
-                        },
-                        {
-                          type: 'span',
-                          content: ', ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'fields',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': [',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        { type: 'span', content: '\n' },
-                        // Line 7: { name: 'name', type: 'single-line-text' },
-                        {
-                          type: 'span',
-                          content: '    { ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'name',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: "'name'",
-                          props: { className: 'text-sovereignty-teal' },
-                        },
-                        {
-                          type: 'span',
-                          content: ', ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'type',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: "'single-line-text'",
-                          props: { className: 'text-sovereignty-teal' },
-                        },
-                        {
-                          type: 'span',
-                          content: ' },',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        { type: 'span', content: '\n' },
-                        // Line 8: { name: 'email', type: 'email', required: true },
-                        {
-                          type: 'span',
-                          content: '    { ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'name',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: "'email'",
-                          props: { className: 'text-sovereignty-teal' },
-                        },
-                        {
-                          type: 'span',
-                          content: ', ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'type',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: "'email'",
-                          props: { className: 'text-sovereignty-teal' },
-                        },
-                        {
-                          type: 'span',
-                          content: ', ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'required',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        { type: 'span', content: 'true', props: { className: 'text-orange-400' } },
-                        {
-                          type: 'span',
-                          content: ' },',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        { type: 'span', content: '\n' },
-                        // Line 9: { name: 'status', type: 'single-select', options: [...] },
-                        {
-                          type: 'span',
-                          content: '    { ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'name',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: "'status'",
-                          props: { className: 'text-sovereignty-teal' },
-                        },
-                        {
-                          type: 'span',
-                          content: ', ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'type',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: "'single-select'",
-                          props: { className: 'text-sovereignty-teal' },
-                        },
-                        {
-                          type: 'span',
-                          content: ', ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'options',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': [',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: "'Lead'",
-                          props: { className: 'text-sovereignty-teal' },
-                        },
-                        {
-                          type: 'span',
-                          content: ', ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: "'Customer'",
-                          props: { className: 'text-sovereignty-teal' },
-                        },
-                        {
-                          type: 'span',
-                          content: '] },',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        { type: 'span', content: '\n' },
-                        // Line 10: ]}],
-                        {
-                          type: 'span',
-                          content: '  ]}],',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        { type: 'span', content: '\n' },
-                        // Line 11: pages: [{ path: '/', name: 'Dashboard' }],
-                        {
-                          type: 'span',
-                          content: '  ',
-                          props: { className: 'text-sovereignty-light' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'pages',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': [{ ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'path',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: "'/'",
-                          props: { className: 'text-sovereignty-teal' },
-                        },
-                        {
-                          type: 'span',
-                          content: ', ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'name',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: "'Dashboard'",
-                          props: { className: 'text-sovereignty-teal' },
-                        },
-                        {
-                          type: 'span',
-                          content: ' }],',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        { type: 'span', content: '\n' },
-                        // Line 12: auth: { strategies: [...], admin: { enabled: true } },
-                        {
-                          type: 'span',
-                          content: '  ',
-                          props: { className: 'text-sovereignty-light' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'auth',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': { ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'strategies',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': [',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: "'email-password'",
-                          props: { className: 'text-sovereignty-teal' },
-                        },
-                        {
-                          type: 'span',
-                          content: '], ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'admin',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': { ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        {
-                          type: 'span',
-                          content: 'enabled',
-                          props: { className: 'text-sovereignty-accent' },
-                        },
-                        {
-                          type: 'span',
-                          content: ': ',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        { type: 'span', content: 'true', props: { className: 'text-orange-400' } },
-                        {
-                          type: 'span',
-                          content: ' } },',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                        { type: 'span', content: '\n' },
-                        // Line 13: })
-                        {
-                          type: 'span',
-                          content: '})',
-                          props: { className: 'text-sovereignty-gray-300' },
-                        },
-                      ],
+                      content: [
+                        '// app.ts \u2014 Type-safe, with IDE completion',
+                        "import { start } from 'sovrium'",
+                        '',
+                        'await start({',
+                        "  name: 'Company CRM',",
+                        "  tables: [{ name: 'contacts', fields: [",
+                        "    { name: 'name', type: 'single-line-text' },",
+                        "    { name: 'email', type: 'email', required: true },",
+                        "    { name: 'status', type: 'single-select', options: ['Lead', 'Customer'] },",
+                        '  ]}],',
+                        "  pages: [{ path: '/', name: 'Dashboard' }],",
+                        "  auth: { strategies: ['email-password'] },",
+                        '})',
+                      ].join('\n'),
                     },
                   ],
                 },
