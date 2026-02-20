@@ -115,9 +115,9 @@ export const app: App = {
         // ════════════════════════════════════════════════════════════════════
         //  GLOBAL NAVIGATION
         // ════════════════════════════════════════════════════════════════════
-        'nav.partners': 'Partners',
+        'nav.partners': 'Our Partner Service',
         'nav.partners.href': '/en/partners',
-        'nav.company': 'Company',
+        'nav.company': 'About',
         'nav.company.href': '/en/company',
 
         // ════════════════════════════════════════════════════════════════════
@@ -132,7 +132,7 @@ export const app: App = {
         'footer.col.company': 'Company',
         'footer.col.company.about': 'About',
         'footer.col.company.about.href': '/en/company',
-        'footer.col.company.partners': 'Partners',
+        'footer.col.company.partners': 'Our Partner Service',
         'footer.col.company.partners.href': '/en/partners',
         'footer.col.company.trademark': 'Trademark',
         'footer.col.legal': 'Legal',
@@ -631,9 +631,9 @@ export const app: App = {
         // ════════════════════════════════════════════════════════════════════
         //  GLOBAL NAVIGATION
         // ════════════════════════════════════════════════════════════════════
-        'nav.partners': 'Partenaires',
+        'nav.partners': 'Notre service partenaire',
         'nav.partners.href': '/fr/partners',
-        'nav.company': 'Entreprise',
+        'nav.company': '\u00C0 propos',
         'nav.company.href': '/fr/company',
 
         // ════════════════════════════════════════════════════════════════════
@@ -646,9 +646,9 @@ export const app: App = {
         'footer.col.product.github': 'GitHub',
         'footer.col.product.license': 'Licence',
         'footer.col.company': 'Entreprise',
-        'footer.col.company.about': '\u00C0 propos',
+        'footer.col.company.about': 'À propos',
         'footer.col.company.about.href': '/fr/company',
-        'footer.col.company.partners': 'Partenaires',
+        'footer.col.company.partners': 'Notre service partenaire',
         'footer.col.company.partners.href': '/fr/partners',
         'footer.col.company.trademark': 'Marque d\u00E9pos\u00E9e',
         'footer.col.legal': 'L\u00E9gal',
@@ -1137,7 +1137,7 @@ export const app: App = {
         'company.team.founder.name': 'Thomas Jeanneau',
         'company.team.founder.role': 'Fondateur & CEO',
         'company.team.founder.bio':
-          'Ing\u00E9nieur logiciel et entrepreneur avec 8 ans d\u2019expertise, passionn\u00E9 par la cr\u00E9ation d\u2019outils qui autonomisent les organisations. A pr\u00E9c\u00E9demment construit des outils d\u2019automatisation pour plus de 50 clients en France et en Europe.',
+          'Ing\u00E9nieur logiciel et entrepreneur avec 8 ans d\u2019expérience, passionn\u00E9 par la cr\u00E9ation d\u2019outils qui autonomisent les organisations. A pr\u00E9c\u00E9demment construit des outils d\u2019automatisation pour plus de 50 clients en France et en Europe.',
 
         // ── Company: CTA ───────────────────────────────────────────────────
         'company.cta.title': 'Rejoignez le mouvement',

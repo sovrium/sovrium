@@ -86,7 +86,7 @@ export const home: Page = {
                   props: {
                     href: '#getting-started',
                     className:
-                      'inline-block bg-sovereignty-accent hover:bg-sovereignty-accent-hover text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-semibold transition-all transform hover:-translate-y-1 text-center',
+                      'inline-block bg-sovereignty-accent hover:bg-sovereignty-accent-hover text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-semibold transition-all duration-200 transform hover:-translate-y-1 text-center',
                   },
                 },
                 {
@@ -95,7 +95,7 @@ export const home: Page = {
                   props: {
                     href: 'https://github.com/sovrium/sovrium',
                     className:
-                      'inline-block border-2 border-sovereignty-accent text-sovereignty-accent px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-semibold hover:bg-sovereignty-accent hover:text-white transition-all text-center',
+                      'inline-block border-2 border-sovereignty-accent text-sovereignty-accent px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-semibold hover:bg-sovereignty-accent hover:text-white transition-all duration-200 text-center',
                   },
                 },
               ],
@@ -121,7 +121,7 @@ export const home: Page = {
               type: 'h2',
               content: '$t:home.problem.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-12 md:mb-16',
               },
             },
 
@@ -134,7 +134,7 @@ export const home: Page = {
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -155,7 +155,7 @@ export const home: Page = {
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -176,7 +176,7 @@ export const home: Page = {
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -365,7 +365,7 @@ export const home: Page = {
               type: 'h2',
               content: '$t:home.solution.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-6 md:mb-8',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6 md:mb-8',
               },
             },
             {
@@ -382,35 +382,522 @@ export const home: Page = {
               type: 'card',
               props: {
                 className:
-                  'bg-sovereignty-darker border border-sovereignty-gray-800 p-4 sm:p-6 md:p-8 rounded-lg mb-12 md:mb-16',
+                  'bg-sovereignty-darker border border-sovereignty-gray-800 rounded-lg mb-12 md:mb-16 overflow-hidden',
               },
               children: [
+                // Window chrome header bar
                 {
-                  type: 'pre',
-                  props: { className: 'overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0' },
+                  type: 'div',
+                  props: {
+                    className:
+                      'flex items-center gap-2 px-4 py-3 bg-sovereignty-gray-900 border-b border-sovereignty-gray-800',
+                  },
                   children: [
                     {
-                      type: 'code',
-                      content: `// app.ts \u2014 Type-safe, with IDE completion
-import { start } from 'sovrium'
-
-await start({
-  name: 'Company CRM',
-  tables: [{ name: 'contacts', fields: [
-    { name: 'name', type: 'single-line-text' },
-    { name: 'email', type: 'email', required: true },
-    { name: 'status', type: 'single-select', options: ['Lead', 'Customer'] },
-  ]}],
-  pages: [{ path: '/', name: 'Dashboard' }],
-  auth: { strategies: ['email-password'], admin: { enabled: true } },
-})`,
-                      props: { className: 'text-sovereignty-light font-mono text-xs sm:text-sm' },
+                      type: 'div',
+                      props: { className: 'flex items-center gap-1.5' },
+                      children: [
+                        {
+                          type: 'div',
+                          props: {
+                            className: 'w-3 h-3 rounded-full bg-red-500/80',
+                          },
+                        },
+                        {
+                          type: 'div',
+                          props: {
+                            className: 'w-3 h-3 rounded-full bg-yellow-500/80',
+                          },
+                        },
+                        {
+                          type: 'div',
+                          props: {
+                            className: 'w-3 h-3 rounded-full bg-green-500/80',
+                          },
+                        },
+                      ],
+                    },
+                    {
+                      type: 'span',
+                      content: 'app.ts',
+                      props: {
+                        className: 'text-sovereignty-gray-400 text-xs font-mono ml-2',
+                      },
                     },
                   ],
                 },
+                // Syntax-highlighted code block
+                {
+                  type: 'pre',
+                  props: {
+                    className: 'overflow-x-auto p-4 sm:p-6 md:p-8',
+                  },
+                  children: [
+                    {
+                      type: 'code',
+                      props: {
+                        className: 'font-mono text-xs sm:text-sm leading-relaxed',
+                      },
+                      children: [
+                        // Line 1: comment
+                        {
+                          type: 'span',
+                          content: '// app.ts \u2014 Type-safe, with IDE completion',
+                          props: { className: 'text-sovereignty-gray-500 italic' },
+                        },
+                        { type: 'span', content: '\n' },
+                        // Line 2: import statement
+                        {
+                          type: 'span',
+                          content: 'import',
+                          props: { className: 'text-purple-400' },
+                        },
+                        {
+                          type: 'span',
+                          content: ' { ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'start',
+                          props: { className: 'text-sovereignty-light' },
+                        },
+                        {
+                          type: 'span',
+                          content: ' } ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        { type: 'span', content: 'from', props: { className: 'text-purple-400' } },
+                        {
+                          type: 'span',
+                          content: ' ',
+                          props: { className: 'text-sovereignty-light' },
+                        },
+                        {
+                          type: 'span',
+                          content: "'sovrium'",
+                          props: { className: 'text-sovereignty-teal' },
+                        },
+                        { type: 'span', content: '\n\n' },
+                        // Line 4: await start({
+                        { type: 'span', content: 'await', props: { className: 'text-purple-400' } },
+                        {
+                          type: 'span',
+                          content: ' ',
+                          props: { className: 'text-sovereignty-light' },
+                        },
+                        { type: 'span', content: 'start', props: { className: 'text-yellow-300' } },
+                        {
+                          type: 'span',
+                          content: '({',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        { type: 'span', content: '\n' },
+                        // Line 5: name: 'Company CRM',
+                        {
+                          type: 'span',
+                          content: '  ',
+                          props: { className: 'text-sovereignty-light' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'name',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: "'Company CRM'",
+                          props: { className: 'text-sovereignty-teal' },
+                        },
+                        {
+                          type: 'span',
+                          content: ',',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        { type: 'span', content: '\n' },
+                        // Line 6: tables: [{ name: 'contacts', fields: [
+                        {
+                          type: 'span',
+                          content: '  ',
+                          props: { className: 'text-sovereignty-light' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'tables',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': [{ ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'name',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: "'contacts'",
+                          props: { className: 'text-sovereignty-teal' },
+                        },
+                        {
+                          type: 'span',
+                          content: ', ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'fields',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': [',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        { type: 'span', content: '\n' },
+                        // Line 7: { name: 'name', type: 'single-line-text' },
+                        {
+                          type: 'span',
+                          content: '    { ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'name',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: "'name'",
+                          props: { className: 'text-sovereignty-teal' },
+                        },
+                        {
+                          type: 'span',
+                          content: ', ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'type',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: "'single-line-text'",
+                          props: { className: 'text-sovereignty-teal' },
+                        },
+                        {
+                          type: 'span',
+                          content: ' },',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        { type: 'span', content: '\n' },
+                        // Line 8: { name: 'email', type: 'email', required: true },
+                        {
+                          type: 'span',
+                          content: '    { ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'name',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: "'email'",
+                          props: { className: 'text-sovereignty-teal' },
+                        },
+                        {
+                          type: 'span',
+                          content: ', ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'type',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: "'email'",
+                          props: { className: 'text-sovereignty-teal' },
+                        },
+                        {
+                          type: 'span',
+                          content: ', ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'required',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        { type: 'span', content: 'true', props: { className: 'text-orange-400' } },
+                        {
+                          type: 'span',
+                          content: ' },',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        { type: 'span', content: '\n' },
+                        // Line 9: { name: 'status', type: 'single-select', options: [...] },
+                        {
+                          type: 'span',
+                          content: '    { ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'name',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: "'status'",
+                          props: { className: 'text-sovereignty-teal' },
+                        },
+                        {
+                          type: 'span',
+                          content: ', ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'type',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: "'single-select'",
+                          props: { className: 'text-sovereignty-teal' },
+                        },
+                        {
+                          type: 'span',
+                          content: ', ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'options',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': [',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: "'Lead'",
+                          props: { className: 'text-sovereignty-teal' },
+                        },
+                        {
+                          type: 'span',
+                          content: ', ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: "'Customer'",
+                          props: { className: 'text-sovereignty-teal' },
+                        },
+                        {
+                          type: 'span',
+                          content: '] },',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        { type: 'span', content: '\n' },
+                        // Line 10: ]}],
+                        {
+                          type: 'span',
+                          content: '  ]}],',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        { type: 'span', content: '\n' },
+                        // Line 11: pages: [{ path: '/', name: 'Dashboard' }],
+                        {
+                          type: 'span',
+                          content: '  ',
+                          props: { className: 'text-sovereignty-light' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'pages',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': [{ ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'path',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: "'/'",
+                          props: { className: 'text-sovereignty-teal' },
+                        },
+                        {
+                          type: 'span',
+                          content: ', ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'name',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: "'Dashboard'",
+                          props: { className: 'text-sovereignty-teal' },
+                        },
+                        {
+                          type: 'span',
+                          content: ' }],',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        { type: 'span', content: '\n' },
+                        // Line 12: auth: { strategies: [...], admin: { enabled: true } },
+                        {
+                          type: 'span',
+                          content: '  ',
+                          props: { className: 'text-sovereignty-light' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'auth',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': { ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'strategies',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': [',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: "'email-password'",
+                          props: { className: 'text-sovereignty-teal' },
+                        },
+                        {
+                          type: 'span',
+                          content: '], ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'admin',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': { ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        {
+                          type: 'span',
+                          content: 'enabled',
+                          props: { className: 'text-sovereignty-accent' },
+                        },
+                        {
+                          type: 'span',
+                          content: ': ',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        { type: 'span', content: 'true', props: { className: 'text-orange-400' } },
+                        {
+                          type: 'span',
+                          content: ' } },',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                        { type: 'span', content: '\n' },
+                        // Line 13: })
+                        {
+                          type: 'span',
+                          content: '})',
+                          props: { className: 'text-sovereignty-gray-300' },
+                        },
+                      ],
+                    },
+                  ],
+                },
+                // "Also works with" section
                 {
                   type: 'div',
-                  props: { className: 'mt-6 pt-6 border-t border-sovereignty-gray-800' },
+                  props: {
+                    className:
+                      'mx-4 sm:mx-6 md:mx-8 pt-6 pb-4 sm:pb-6 md:pb-8 border-t border-sovereignty-gray-800',
+                  },
                   children: [
                     {
                       type: 'paragraph',
@@ -422,11 +909,32 @@ await start({
                       children: [
                         {
                           type: 'code',
-                          content:
-                            'sovrium start app.yaml      # or app.json\nbun run app.ts               # TypeScript with type safety',
                           props: {
-                            className: 'text-sovereignty-teal font-mono text-xs sm:text-sm',
+                            className: 'font-mono text-xs sm:text-sm',
                           },
+                          children: [
+                            {
+                              type: 'span',
+                              content: 'sovrium start app.yaml      ',
+                              props: { className: 'text-sovereignty-teal' },
+                            },
+                            {
+                              type: 'span',
+                              content: '# or app.json',
+                              props: { className: 'text-sovereignty-gray-500 italic' },
+                            },
+                            { type: 'span', content: '\n' },
+                            {
+                              type: 'span',
+                              content: 'bun run app.ts               ',
+                              props: { className: 'text-sovereignty-teal' },
+                            },
+                            {
+                              type: 'span',
+                              content: '# TypeScript with type safety',
+                              props: { className: 'text-sovereignty-gray-500 italic' },
+                            },
+                          ],
                         },
                       ],
                     },
@@ -574,7 +1082,7 @@ await start({
               type: 'h2',
               content: '$t:home.principles.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-12 md:mb-16',
               },
             },
             {
@@ -586,7 +1094,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 md:p-8 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 md:p-8 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -629,7 +1137,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 md:p-8 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 md:p-8 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -672,7 +1180,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 md:p-8 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 md:p-8 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -715,7 +1223,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 md:p-8 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 md:p-8 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -763,7 +1271,7 @@ await start({
               type: 'h2',
               content: '$t:home.comparison.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-12 md:mb-16',
               },
             },
 
@@ -964,7 +1472,7 @@ await start({
               type: 'h2',
               content: '$t:home.useCases.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-12 md:mb-16',
               },
             },
             {
@@ -975,7 +1483,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -994,7 +1502,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -1013,7 +1521,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -1032,7 +1540,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -1051,7 +1559,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -1070,7 +1578,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -1108,7 +1616,7 @@ await start({
               type: 'h2',
               content: '$t:home.features.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-6 md:mb-8',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6 md:mb-8',
               },
             },
             {
@@ -1130,7 +1638,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -1158,7 +1666,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -1186,7 +1694,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -1214,7 +1722,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -1242,7 +1750,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -1270,7 +1778,7 @@ await start({
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
@@ -1315,7 +1823,7 @@ await start({
               type: 'h2',
               content: '$t:home.techStack.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-6 md:mb-8',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6 md:mb-8',
               },
             },
             {
@@ -1335,7 +1843,7 @@ await start({
                   content: 'Bun 1.3+',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                 },
                 {
@@ -1343,7 +1851,7 @@ await start({
                   content: 'PostgreSQL',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                 },
                 {
@@ -1351,7 +1859,7 @@ await start({
                   content: 'React 19',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                 },
                 {
@@ -1359,7 +1867,7 @@ await start({
                   content: 'TypeScript',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                 },
                 {
@@ -1367,7 +1875,7 @@ await start({
                   content: 'Effect.ts',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                 },
                 {
@@ -1375,7 +1883,7 @@ await start({
                   content: 'Hono',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                 },
                 {
@@ -1383,7 +1891,7 @@ await start({
                   content: 'Drizzle ORM',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                 },
                 {
@@ -1391,7 +1899,7 @@ await start({
                   content: 'Better Auth',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                 },
                 {
@@ -1399,7 +1907,7 @@ await start({
                   content: 'Tailwind CSS',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                 },
               ],
@@ -1425,7 +1933,7 @@ await start({
               type: 'h2',
               content: '$t:home.gettingStarted.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-12 md:mb-16',
               },
             },
 
@@ -1566,7 +2074,7 @@ await start({
                   props: {
                     href: 'https://github.com/sovrium/sovrium',
                     className:
-                      'inline-block bg-sovereignty-accent hover:bg-sovereignty-accent-hover text-white px-6 py-3 rounded-lg font-semibold transition-all',
+                      'inline-block bg-sovereignty-accent hover:bg-sovereignty-accent-hover text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200',
                   },
                 },
               ],
@@ -1637,7 +2145,7 @@ await start({
           props: {
             href: 'https://github.com/sovrium/sovrium',
             className:
-              'flex items-center gap-2 bg-sovereignty-gray-900 hover:bg-sovereignty-gray-800 border border-sovereignty-gray-700 hover:border-sovereignty-accent text-sovereignty-gray-400 hover:text-sovereignty-accent px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-lg',
+              'flex items-center gap-2 bg-sovereignty-gray-900 hover:bg-sovereignty-gray-800 border border-sovereignty-gray-700 hover:border-sovereignty-accent text-sovereignty-gray-400 hover:text-sovereignty-accent px-3 py-2 rounded-lg text-xs font-medium transition-all duration-300 shadow-lg',
             target: '_blank',
             rel: 'noopener noreferrer',
           },

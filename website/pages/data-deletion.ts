@@ -69,7 +69,7 @@ export const dataDeletion: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-12 md:py-16 bg-sovereignty-darker text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
       },
       children: [
         {

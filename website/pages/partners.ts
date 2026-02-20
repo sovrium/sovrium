@@ -16,7 +16,7 @@ const testimonialCard = (index: number) => ({
   type: 'card' as const,
   props: {
     className:
-      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg hover:border-sovereignty-accent transition-colors',
+      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
   },
   children: [
     {
@@ -86,7 +86,7 @@ const methodologyCard = (num: number) => ({
   type: 'card' as const,
   props: {
     className:
-      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
   },
   children: [
     {
@@ -106,7 +106,7 @@ const statCard = (key: string) => ({
   type: 'card' as const,
   props: {
     className:
-      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors',
+      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors duration-300',
   },
   children: [
     {
@@ -230,7 +230,7 @@ export const partners: Page = {
                   props: {
                     href: '#waitlist',
                     className:
-                      'inline-block bg-sovereignty-accent hover:bg-sovereignty-accent-hover text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-semibold transition-all transform hover:-translate-y-1 text-center',
+                      'inline-block bg-sovereignty-accent hover:bg-sovereignty-accent-hover text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-semibold transition-all duration-200 transform hover:-translate-y-1 text-center',
                   },
                 },
                 {
@@ -239,7 +239,7 @@ export const partners: Page = {
                   props: {
                     href: '#methodology',
                     className:
-                      'inline-block border-2 border-sovereignty-accent text-sovereignty-accent px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-semibold hover:bg-sovereignty-accent hover:text-white transition-all text-center',
+                      'inline-block border-2 border-sovereignty-accent text-sovereignty-accent px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-semibold hover:bg-sovereignty-accent hover:text-white transition-all duration-200 text-center',
                   },
                 },
               ],
@@ -253,7 +253,7 @@ export const partners: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-12 md:py-16 bg-sovereignty-darker text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
         id: 'trust',
       },
       children: [
@@ -309,7 +309,7 @@ export const partners: Page = {
               type: 'h2',
               content: '$t:partners.stats.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-12 md:mb-16',
               },
             },
             {
@@ -338,7 +338,7 @@ export const partners: Page = {
               type: 'h2',
               content: '$t:partners.process.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-6',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {
@@ -383,7 +383,7 @@ export const partners: Page = {
               type: 'h2',
               content: '$t:partners.methodology.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-6',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {
@@ -433,7 +433,7 @@ export const partners: Page = {
               type: 'h2',
               content: '$t:partners.testimonials.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-12 md:mb-16',
               },
             },
             {
@@ -455,7 +455,7 @@ export const partners: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-16 md:py-20 bg-sovereignty-darker text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
         id: 'waitlist',
       },
       children: [
@@ -490,7 +490,7 @@ export const partners: Page = {
                   props: {
                     href: 'https://latechforce.notion.site/1609911026ec807e9a17d1610e198511',
                     className:
-                      'inline-block bg-white text-sovereignty-accent px-8 py-3 rounded-lg font-semibold hover:bg-sovereignty-gray-100 transition-all transform hover:-translate-y-1',
+                      'inline-block bg-white text-sovereignty-accent px-8 py-3 rounded-lg font-semibold hover:bg-sovereignty-gray-100 transition-all duration-200 transform hover:-translate-y-1',
                     target: '_blank',
                     rel: 'noopener noreferrer',
                   },
@@ -517,7 +517,7 @@ export const partners: Page = {
           props: {
             href: 'https://github.com/sovrium/sovrium',
             className:
-              'flex items-center gap-2 bg-sovereignty-gray-900 hover:bg-sovereignty-gray-800 border border-sovereignty-gray-700 hover:border-sovereignty-accent text-sovereignty-gray-400 hover:text-sovereignty-accent px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-lg',
+              'flex items-center gap-2 bg-sovereignty-gray-900 hover:bg-sovereignty-gray-800 border border-sovereignty-gray-700 hover:border-sovereignty-accent text-sovereignty-gray-400 hover:text-sovereignty-accent px-3 py-2 rounded-lg text-xs font-medium transition-all duration-300 shadow-lg',
             target: '_blank',
             rel: 'noopener noreferrer',
           },

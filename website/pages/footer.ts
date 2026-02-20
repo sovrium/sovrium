@@ -222,7 +222,7 @@ export const footer = {
             // Company column
             footerColumn('Company', [
               footerLink('About', '/company'),
-              footerLink('Partners', '/partners'),
+              footerLink('Our Partner Service', '/partners'),
               footerLink('Trademark', 'https://github.com/sovrium/sovrium/blob/main/TRADEMARK.md'),
             ]),
 

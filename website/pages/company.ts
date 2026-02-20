@@ -16,7 +16,7 @@ const valueCard = (key: string) => ({
   type: 'card' as const,
   props: {
     className:
-      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg hover:border-sovereignty-accent transition-colors',
+      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
   },
   children: [
     {
@@ -41,7 +41,7 @@ const principleItem = (key: string) => ({
   type: 'div' as const,
   props: {
     className:
-      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-teal transition-colors',
+      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
   },
   children: [
     {
@@ -154,7 +154,7 @@ export const company: Page = {
               type: 'h2',
               content: '$t:company.mission.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-8',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-8',
               },
             },
             {
@@ -203,7 +203,7 @@ export const company: Page = {
               type: 'h2',
               content: '$t:company.problem.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-6',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {
@@ -325,7 +325,7 @@ export const company: Page = {
               type: 'h2',
               content: '$t:company.values.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-6',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {
@@ -369,7 +369,7 @@ export const company: Page = {
               type: 'h2',
               content: '$t:company.principles.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-6',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {
@@ -411,7 +411,7 @@ export const company: Page = {
               type: 'h2',
               content: '$t:company.team.title',
               props: {
-                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-6',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {
@@ -430,7 +430,7 @@ export const company: Page = {
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 sm:p-10 rounded-lg max-w-md w-full text-center hover:border-sovereignty-accent transition-colors',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 sm:p-10 rounded-lg max-w-md w-full text-center hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     // Founder photo
@@ -474,7 +474,7 @@ export const company: Page = {
                           props: {
                             href: 'https://github.com/music-mash',
                             className:
-                              'text-sovereignty-gray-400 hover:text-sovereignty-accent transition-colors text-sm',
+                              'text-sovereignty-gray-400 hover:text-sovereignty-accent transition-colors duration-150 text-sm',
                             target: '_blank',
                             rel: 'noopener noreferrer',
                           },
@@ -485,7 +485,7 @@ export const company: Page = {
                           props: {
                             href: 'https://www.linkedin.com/in/music-mash/',
                             className:
-                              'text-sovereignty-gray-400 hover:text-sovereignty-accent transition-colors text-sm',
+                              'text-sovereignty-gray-400 hover:text-sovereignty-accent transition-colors duration-150 text-sm',
                             target: '_blank',
                             rel: 'noopener noreferrer',
                           },
@@ -505,7 +505,7 @@ export const company: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-16 md:py-20 bg-sovereignty-dark text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
         id: 'open-source',
       },
       children: [
@@ -544,7 +544,7 @@ export const company: Page = {
                       props: {
                         href: 'https://github.com/sovrium/sovrium',
                         className:
-                          'inline-block bg-white text-sovereignty-accent px-8 py-3 rounded-lg font-semibold hover:bg-sovereignty-gray-100 transition-all transform hover:-translate-y-1 text-center',
+                          'inline-block bg-white text-sovereignty-accent px-8 py-3 rounded-lg font-semibold hover:bg-sovereignty-gray-100 transition-all duration-200 transform hover:-translate-y-1 text-center',
                         target: '_blank',
                         rel: 'noopener noreferrer',
                       },
@@ -555,7 +555,7 @@ export const company: Page = {
                       props: {
                         href: '$t:company.cta.partners.href',
                         className:
-                          'inline-block border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-sovereignty-accent transition-all text-center',
+                          'inline-block border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-sovereignty-accent transition-all duration-200 text-center',
                       },
                     },
                   ],
@@ -582,7 +582,7 @@ export const company: Page = {
           props: {
             href: 'https://github.com/sovrium/sovrium',
             className:
-              'flex items-center gap-2 bg-sovereignty-gray-900 hover:bg-sovereignty-gray-800 border border-sovereignty-gray-700 hover:border-sovereignty-accent text-sovereignty-gray-400 hover:text-sovereignty-accent px-3 py-2 rounded-lg text-xs font-medium transition-all shadow-lg',
+              'flex items-center gap-2 bg-sovereignty-gray-900 hover:bg-sovereignty-gray-800 border border-sovereignty-gray-700 hover:border-sovereignty-accent text-sovereignty-gray-400 hover:text-sovereignty-accent px-3 py-2 rounded-lg text-xs font-medium transition-all duration-300 shadow-lg',
             target: '_blank',
             rel: 'noopener noreferrer',
           },

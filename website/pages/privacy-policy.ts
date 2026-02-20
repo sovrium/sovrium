@@ -69,7 +69,7 @@ export const privacyPolicy: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-12 md:py-16 bg-sovereignty-darker text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
       },
       children: [
         {
@@ -371,7 +371,9 @@ export const privacyPolicy: Page = {
                 {
                   type: 'h2',
                   content: '4. Third-Party Services',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -493,7 +495,9 @@ export const privacyPolicy: Page = {
                 {
                   type: 'h2',
                   content: '6. Your Rights',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -547,7 +551,9 @@ export const privacyPolicy: Page = {
                 {
                   type: 'h2',
                   content: '7. Security',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -566,7 +572,9 @@ export const privacyPolicy: Page = {
                 {
                   type: 'h2',
                   content: "8. Children's Privacy",
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -585,7 +593,9 @@ export const privacyPolicy: Page = {
                 {
                   type: 'h2',
                   content: '9. Changes to This Policy',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -604,7 +614,9 @@ export const privacyPolicy: Page = {
                 {
                   type: 'h2',
                   content: '10. Contact Information',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -673,7 +685,9 @@ export const privacyPolicy: Page = {
                 {
                   type: 'h2',
                   content: '11. Data Protection',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',

@@ -69,7 +69,7 @@ export const termsOfService: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-12 md:py-16 bg-sovereignty-darker text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
       },
       children: [
         {
@@ -163,7 +163,9 @@ export const termsOfService: Page = {
                 {
                   type: 'h3',
                   content: '2.2 Prohibited Uses',
-                  props: { className: 'text-xl font-semibold mb-3 mt-6 text-sovereignty-teal' },
+                  props: {
+                    className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -202,7 +204,9 @@ export const termsOfService: Page = {
                 {
                   type: 'h3',
                   content: '2.3 Change Date',
-                  props: { className: 'text-xl font-semibold mb-3 mt-6 text-sovereignty-teal' },
+                  props: {
+                    className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -214,7 +218,9 @@ export const termsOfService: Page = {
                 {
                   type: 'h3',
                   content: '2.4 Commercial Licensing',
-                  props: { className: 'text-xl font-semibold mb-3 mt-6 text-sovereignty-teal' },
+                  props: {
+                    className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -233,7 +239,9 @@ export const termsOfService: Page = {
                 {
                   type: 'h2',
                   content: '3. Trademark and Branding',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -257,7 +265,7 @@ export const termsOfService: Page = {
                       props: {
                         href: 'https://data.inpi.fr/marques/FR5200287',
                         className:
-                          'text-sovereignty-accent hover:text-sovereignty-accent-hover transition-colors underline',
+                          'text-sovereignty-accent hover:text-sovereignty-accent-hover transition-colors duration-150 underline',
                         target: '_blank',
                         rel: 'noopener noreferrer',
                       },
@@ -333,7 +341,9 @@ export const termsOfService: Page = {
                 {
                   type: 'h2',
                   content: '4. Warranty Disclaimer',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -383,7 +393,9 @@ export const termsOfService: Page = {
                 {
                   type: 'h2',
                   content: '5. Limitation of Liability',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -408,7 +420,9 @@ export const termsOfService: Page = {
                 {
                   type: 'h2',
                   content: '6. Indemnification',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -453,7 +467,9 @@ export const termsOfService: Page = {
                 {
                   type: 'h2',
                   content: '7. Modifications to Terms',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -472,7 +488,9 @@ export const termsOfService: Page = {
                 {
                   type: 'h2',
                   content: '8. Termination',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -517,7 +535,9 @@ export const termsOfService: Page = {
                 {
                   type: 'h2',
                   content: '9. Governing Law',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -536,7 +556,9 @@ export const termsOfService: Page = {
                 {
                   type: 'h2',
                   content: '10. Severability',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -555,7 +577,9 @@ export const termsOfService: Page = {
                 {
                   type: 'h2',
                   content: '11. Entire Agreement',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -574,7 +598,9 @@ export const termsOfService: Page = {
                 {
                   type: 'h2',
                   content: '12. User Data and Privacy',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
@@ -605,7 +631,9 @@ export const termsOfService: Page = {
                 {
                   type: 'h2',
                   content: '13. Contact Information',
-                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
                 },
                 {
                   type: 'paragraph',
