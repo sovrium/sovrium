@@ -119,17 +119,17 @@ export const dataDeletion: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s1.li1',
+                      content: '$t:dataDeletion.s1.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s1.li2',
+                      content: '$t:dataDeletion.s1.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s1.li3',
+                      content: '$t:dataDeletion.s1.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -165,27 +165,27 @@ export const dataDeletion: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s2.li1',
+                      content: '$t:dataDeletion.s2.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s2.li2',
+                      content: '$t:dataDeletion.s2.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s2.li3',
+                      content: '$t:dataDeletion.s2.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s2.li4',
+                      content: '$t:dataDeletion.s2.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s2.li5',
+                      content: '$t:dataDeletion.s2.item5',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -209,22 +209,22 @@ export const dataDeletion: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s2.step1.li1',
+                      content: '$t:dataDeletion.s2.step1.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s2.step1.li2',
+                      content: '$t:dataDeletion.s2.step1.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s2.step1.li3',
+                      content: '$t:dataDeletion.s2.step1.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s2.step1.li4',
+                      content: '$t:dataDeletion.s2.step1.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -243,12 +243,12 @@ export const dataDeletion: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s2.step2.li1',
+                      content: '$t:dataDeletion.s2.step2.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s2.step2.li2',
+                      content: '$t:dataDeletion.s2.step2.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -312,22 +312,22 @@ export const dataDeletion: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s4.li1',
+                      content: '$t:dataDeletion.s4.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s4.li2',
+                      content: '$t:dataDeletion.s4.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s4.li3',
+                      content: '$t:dataDeletion.s4.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s4.li4',
+                      content: '$t:dataDeletion.s4.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -358,37 +358,37 @@ export const dataDeletion: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s5.li1',
+                      content: '$t:dataDeletion.s5.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s5.li2',
+                      content: '$t:dataDeletion.s5.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s5.li3',
+                      content: '$t:dataDeletion.s5.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s5.li4',
+                      content: '$t:dataDeletion.s5.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s5.li5',
+                      content: '$t:dataDeletion.s5.item5',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s5.li6',
+                      content: '$t:dataDeletion.s5.item6',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:dataDeletion.s5.li7',
+                      content: '$t:dataDeletion.s5.item7',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],

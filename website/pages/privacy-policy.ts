@@ -118,14 +118,14 @@ export const privacyPolicy: Page = {
 
                 {
                   type: 'h3',
-                  content: '$t:privacy.s2.sub1.title',
+                  content: '$t:privacy.s2.analytics.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:privacy.s2.sub1.p1',
+                  content: '$t:privacy.s2.analytics.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -134,22 +134,22 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s2.sub1.li1',
+                      content: '$t:privacy.s2.analytics.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s2.sub1.li2',
+                      content: '$t:privacy.s2.analytics.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s2.sub1.li3',
+                      content: '$t:privacy.s2.analytics.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s2.sub1.li4',
+                      content: '$t:privacy.s2.analytics.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -157,27 +157,27 @@ export const privacyPolicy: Page = {
 
                 {
                   type: 'h3',
-                  content: '$t:privacy.s2.sub2.title',
+                  content: '$t:privacy.s2.cookies.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:privacy.s2.sub2.p1',
+                  content: '$t:privacy.s2.cookies.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
 
                 {
                   type: 'h3',
-                  content: '$t:privacy.s2.sub3.title',
+                  content: '$t:privacy.s2.selfHosted.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:privacy.s2.sub3.p1',
+                  content: '$t:privacy.s2.selfHosted.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -186,55 +186,55 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s2.sub3.li1',
+                      content: '$t:privacy.s2.selfHosted.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s2.sub3.li2',
+                      content: '$t:privacy.s2.selfHosted.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s2.sub3.li3',
+                      content: '$t:privacy.s2.selfHosted.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s2.sub3.li4',
+                      content: '$t:privacy.s2.selfHosted.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:privacy.s2.sub3.p2',
+                  content: '$t:privacy.s2.selfHosted.note',
                   props: { className: 'text-sovereignty-light mt-3 font-semibold' },
                 },
 
                 {
                   type: 'h3',
-                  content: '$t:privacy.s2.sub4.title',
+                  content: '$t:privacy.s2.github.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:privacy.s2.sub4.p1',
+                  content: '$t:privacy.s2.github.p1',
                   props: { className: 'text-sovereignty-light' },
                 },
 
                 {
                   type: 'h3',
-                  content: '$t:privacy.s2.sub5.title',
+                  content: '$t:privacy.s2.facebook.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:privacy.s2.sub5.p1',
+                  content: '$t:privacy.s2.facebook.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -243,34 +243,34 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s2.sub5.li1',
+                      content: '$t:privacy.s2.facebook.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s2.sub5.li2',
+                      content: '$t:privacy.s2.facebook.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s2.sub5.li3',
+                      content: '$t:privacy.s2.facebook.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:privacy.s2.sub5.p2',
+                  content: '$t:privacy.s2.facebook.legal',
                   props: { className: 'text-sovereignty-light mt-3 mb-3' },
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:privacy.s2.sub5.p3',
+                  content: '$t:privacy.s2.facebook.purpose',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:privacy.s2.sub5.p4',
+                  content: '$t:privacy.s2.facebook.deletion',
                   props: { className: 'text-sovereignty-light' },
                 },
               ],
@@ -299,22 +299,22 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s3.li1',
+                      content: '$t:privacy.s3.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s3.li2',
+                      content: '$t:privacy.s3.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s3.li3',
+                      content: '$t:privacy.s3.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s3.li4',
+                      content: '$t:privacy.s3.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -322,7 +322,7 @@ export const privacyPolicy: Page = {
 
                 {
                   type: 'h3',
-                  content: '$t:privacy.s3.sub1.title',
+                  content: '$t:privacy.s3.retention.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
@@ -333,17 +333,17 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s3.sub1.li1',
+                      content: '$t:privacy.s3.retention.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s3.sub1.li2',
+                      content: '$t:privacy.s3.retention.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s3.sub1.li3',
+                      content: '$t:privacy.s3.retention.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -374,42 +374,42 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s4.li1',
+                      content: '$t:privacy.s4.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s4.li2',
+                      content: '$t:privacy.s4.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s4.li3',
+                      content: '$t:privacy.s4.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s4.li4',
+                      content: '$t:privacy.s4.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:privacy.s4.p2',
+                  content: '$t:privacy.s4.note',
                   props: { className: 'text-sovereignty-light mt-3' },
                 },
 
                 {
                   type: 'h3',
-                  content: '$t:privacy.s4.sub1.title',
+                  content: '$t:privacy.s4.sharing.title',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:privacy.s4.sub1.p1',
+                  content: '$t:privacy.s4.sharing.p1',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -418,17 +418,17 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s4.sub1.li1',
+                      content: '$t:privacy.s4.sharing.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s4.sub1.li2',
+                      content: '$t:privacy.s4.sharing.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s4.sub1.li3',
+                      content: '$t:privacy.s4.sharing.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -489,34 +489,34 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s6.li1',
+                      content: '$t:privacy.s6.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s6.li2',
+                      content: '$t:privacy.s6.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s6.li3',
+                      content: '$t:privacy.s6.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s6.li4',
+                      content: '$t:privacy.s6.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s6.li5',
+                      content: '$t:privacy.s6.item5',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:privacy.s6.p2',
+                  content: '$t:privacy.s6.contact',
                   props: { className: 'text-sovereignty-light mt-3' },
                 },
               ],
@@ -596,7 +596,7 @@ export const privacyPolicy: Page = {
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:privacy.s10.p1',
+                  content: '$t:privacy.s10.intro',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -605,47 +605,47 @@ export const privacyPolicy: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s10.li1',
+                      content: '$t:privacy.s10.item1',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s10.li2',
+                      content: '$t:privacy.s10.item2',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s10.li3',
+                      content: '$t:privacy.s10.item3',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s10.li4',
+                      content: '$t:privacy.s10.item4',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s10.li5',
+                      content: '$t:privacy.s10.item5',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s10.li6',
+                      content: '$t:privacy.s10.item6',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s10.li7',
+                      content: '$t:privacy.s10.item7',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s10.li8',
+                      content: '$t:privacy.s10.item8',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:privacy.s10.li9',
+                      content: '$t:privacy.s10.item9',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
