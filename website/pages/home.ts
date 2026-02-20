@@ -43,10 +43,7 @@ export const home: Page = {
         name: 'Sovrium',
         url: 'https://sovrium.com',
         logo: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
-        sameAs: [
-          'https://github.com/sovrium/sovrium',
-          'https://www.linkedin.com/company/sovrium/',
-        ],
+        sameAs: ['https://github.com/sovrium/sovrium', 'https://www.linkedin.com/company/sovrium/'],
       },
       webSite: {
         '@context': 'https://schema.org',
@@ -76,20 +73,6 @@ export const home: Page = {
     },
     customElements: [
       {
-        type: 'link',
-        attrs: {
-          rel: 'preload',
-          href: 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css',
-          as: 'style',
-          onload: "this.onload=null;this.rel='stylesheet'",
-        },
-      },
-      {
-        type: 'noscript',
-        content:
-          '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">',
-      },
-      {
         type: 'style',
         content: [
           'code[class*="language-"],pre[class*="language-"]{background:transparent;text-shadow:none}',
@@ -115,7 +98,7 @@ export const home: Page = {
     ],
     inlineScripts: [
       {
-        code: 'document.addEventListener("DOMContentLoaded",function(){if(typeof Prism!=="undefined"){Prism.highlightAll()}})',
+        code: '(function(){var l=document.createElement("link");l.rel="stylesheet";l.href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css";document.head.appendChild(l)})();document.addEventListener("DOMContentLoaded",function(){if(typeof Prism!=="undefined"){Prism.highlightAll()}})',
         position: 'body-end' as const,
       },
       langSwitchScript,

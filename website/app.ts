@@ -983,7 +983,8 @@ export const app: App = {
         'home.meta.og.title': 'Sovrium \u2014 Cr\u00E9ez des apps par configuration, sans code',
         'home.meta.og.description':
           'Plateforme applicative open-source pilot\u00E9e par la configuration. L\u0027alternative SaaS auto-h\u00E9berg\u00E9e, sans d\u00E9pendance fournisseur.',
-        'home.meta.twitter.title': 'Sovrium \u2014 Cr\u00E9ez des apps par configuration, sans code',
+        'home.meta.twitter.title':
+          'Sovrium \u2014 Cr\u00E9ez des apps par configuration, sans code',
         'home.meta.twitter.description':
           'Plateforme applicative open-source pilot\u00E9e par la configuration. L\u0027alternative SaaS auto-h\u00E9berg\u00E9e, sans d\u00E9pendance fournisseur.',
 
