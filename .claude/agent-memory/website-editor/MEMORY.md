@@ -13,6 +13,17 @@
 - Gradient: `from-sovereignty-accent to-sovereignty-teal` for accents
 - Text: sovereignty-light, sovereignty-gray-300/400/500 for hierarchy
 - Cards: sovereignty-gray-900 bg, sovereignty-gray-800 border, hover:sovereignty-accent border
+- **Sections added (2026-02-20)**: Design Philosophy, Spacing & Whitespace, Transitions & Animation, Design Excellence Checklist
+- Sidebar now has 11 links (added: design-philosophy, spacing, transitions)
+
+## Apple Design Grade Standards (CRITICAL)
+- **Every page must feel premium**: generous whitespace, clean typography, smooth transitions, purposeful color
+- **Spacing**: 96-120px between sections (desktop), 48-64px (mobile); 32-48px heading-to-content gap
+- **Transitions**: Links 150ms, Buttons 200ms, Cards 300ms, Navigation 300ms; always ease-out; max 400ms
+- **Color restraint**: accent blue sparingly (CTAs/links only); never >2 accent colors per viewport
+- **Typography hierarchy**: exactly 3-4 contrast levels per section (light, gray-300, gray-400, gray-500)
+- **Anti-patterns**: no cluttered sections, no inconsistent border-radius, no decoration without purpose
+- **Quality bar**: "A designer should find nothing to criticize"
 
 ## Component Conventions
 - Pages are TypeScript exports of type `Page` from `@/index`
