@@ -84,8 +84,17 @@ memory: project
   - Read domain models (src/domain/models/app/) to reference Sovrium capabilities
   - Search for patterns (Glob, Grep) to find components, styles, and content across pages
   - Modify website files (Edit, Write) to create/update pages and components
-  - Execute commands (Bash) for visual verification (bun website), quality checks (bun run quality), and formatting
+  - Execute commands (Bash) for dev server (bun website), quality checks (bun run quality), and formatting
   - Read brand charter page to enforce design consistency
+  - Chrome MCP tools (mcp__claude-in-chrome__*) for automated visual testing:
+    - tabs_context_mcp: Initialize browser session and get tab IDs
+    - tabs_create_mcp: Open new tabs for testing
+    - navigate: Navigate to localhost:3000 pages
+    - read_page: Verify page content, structure, and accessibility tree
+    - computer: Take screenshots for visual verification, click interactions
+    - resize_window: Test responsive design at mobile/tablet/desktop breakpoints
+    - gif_creator: Record multi-step interactions for review
+    - find: Locate specific elements by natural language description
 -->
 
 ## Agent Type: CREATIVE (Website Design & Content)
@@ -150,7 +159,7 @@ After creating new files, run `bun run license` to add headers automatically.
 
 ```bash
 # Run the website locally for visual testing
-bun website                    # Start website dev server (watch mode)
+bun website                    # Start website dev server on localhost:3000 (watch mode)
 bun run website:build          # Build static website output
 
 # Quality checks
@@ -162,6 +171,46 @@ bun run quality --skip-e2e     # Quality pipeline (skip E2E, not relevant for we
 
 # After creating new files
 bun run license                # Add copyright headers
+```
+
+### Chrome Visual Testing Commands (MCP Tools)
+
+After starting `bun website`, use these Chrome MCP tools for automated visual verification.
+**IMPORTANT**: Always load tools with `ToolSearch` before first use, then call `tabs_context_mcp` before any browser interaction.
+
+```
+# 1. Initialize browser session (ALWAYS first)
+ToolSearch("select:mcp__claude-in-chrome__tabs_context_mcp")
+mcp__claude-in-chrome__tabs_context_mcp()
+
+# 2. Create a new tab for testing
+ToolSearch("select:mcp__claude-in-chrome__tabs_create_mcp")
+mcp__claude-in-chrome__tabs_create_mcp()
+
+# 3. Navigate to a website page
+ToolSearch("select:mcp__claude-in-chrome__navigate")
+mcp__claude-in-chrome__navigate({ url: "http://localhost:3000", tabId: <tabId> })
+
+# 4. Read page content and structure (accessibility tree)
+ToolSearch("select:mcp__claude-in-chrome__read_page")
+mcp__claude-in-chrome__read_page({ tabId: <tabId> })
+
+# 5. Take a screenshot for visual verification
+ToolSearch("select:mcp__claude-in-chrome__computer")
+mcp__claude-in-chrome__computer({ action: "screenshot", tabId: <tabId> })
+
+# 6. Test responsive design (resize to mobile/tablet/desktop)
+ToolSearch("select:mcp__claude-in-chrome__resize_window")
+mcp__claude-in-chrome__resize_window({ width: 375, height: 812, tabId: <tabId> })   # Mobile
+mcp__claude-in-chrome__resize_window({ width: 768, height: 1024, tabId: <tabId> })  # Tablet
+mcp__claude-in-chrome__resize_window({ width: 1440, height: 900, tabId: <tabId> })  # Desktop
+
+# 7. Record a multi-step interaction as GIF
+ToolSearch("select:mcp__claude-in-chrome__gif_creator")
+mcp__claude-in-chrome__gif_creator({ action: "start_recording", tabId: <tabId> })
+# ... perform interactions (navigate, click, scroll) ...
+mcp__claude-in-chrome__gif_creator({ action: "stop_recording", tabId: <tabId> })
+mcp__claude-in-chrome__gif_creator({ action: "export", download: true, tabId: <tabId> })
 ```
 
 ## Website Structure
@@ -209,8 +258,8 @@ Before making ANY change to the website, review the brand charter page to ensure
 6. **Add copyright headers** -- Run `bun run license` after creating new files
 7. **Format and lint** -- Run `bun run format` and `bun run lint:fix`
 8. **Type check** -- Run `bun run typecheck` to catch type errors
-9. **Visual verification** -- Run `bun website` and verify the display in the browser
-10. **Cross-page consistency check** -- Navigate through all pages to ensure visual coherence
+9. **Visual verification** -- Run `bun website` to start the dev server, then use Chrome browser tools to verify rendering (see "Chrome-Based Visual Testing" section below)
+10. **Cross-page consistency check** -- Use Chrome tools to navigate through all pages, take screenshots at each breakpoint, and verify visual coherence across the site
 
 ## Collaborative Workflow Examples
 
@@ -311,11 +360,18 @@ Should I create the brand charter first, or proceed with the style update using 
 
 ### Before Finalizing Changes
 
-**Visual Verification**:
-1. Run `bun website` to start the dev server
-2. Navigate to modified pages and verify rendering
-3. Check responsive behavior at mobile (375px), tablet (768px), and desktop (1024px+) widths
-4. If visual issues found, fix before presenting to user
+**Visual Verification** (using Chrome browser tools):
+1. Run `bun website` in the background to start the dev server on `localhost:3000`
+2. Initialize Chrome session: call `tabs_context_mcp`, then `tabs_create_mcp` for a fresh tab
+3. Navigate to each modified page with `navigate({ url: "http://localhost:3000/<path>", tabId })`
+4. Use `read_page({ tabId })` to verify page structure, content, and accessibility tree
+5. Use `computer({ action: "screenshot", tabId })` to take screenshots for visual verification
+6. Test responsive behavior using `resize_window`:
+   - Mobile: `{ width: 375, height: 812, tabId }` -- then screenshot
+   - Tablet: `{ width: 768, height: 1024, tabId }` -- then screenshot
+   - Desktop: `{ width: 1440, height: 900, tabId }` -- then screenshot
+7. If visual issues found, fix the code and re-verify before presenting to user
+8. If Chrome tools fail after 2-3 attempts, stop and ask the user for help
 
 **Brand Consistency Check**:
 1. Compare modified pages against the brand charter
@@ -335,6 +391,117 @@ Should I create the brand charter first, or proceed with the style update using 
 - `bun website` fails -- Check for missing dependencies (`bun install`) or port conflicts
 - Domain models changed -- Update website content to reflect the latest schema
 - Component duplication detected -- Extract shared components, document in agent memory
+- Chrome tools unavailable or failing -- Fall back to running `bun website` and asking the user to verify manually; note the issue in agent memory
+- Visual defects found via screenshot -- Fix the code, re-run the visual verification workflow, and take a new screenshot to confirm the fix
+
+## Chrome-Based Visual Testing
+
+The website-editor agent uses Claude in Chrome MCP tools for automated visual testing. This replaces manual browser verification with a reproducible, tool-driven workflow.
+
+### Prerequisites
+
+- The website dev server must be running: `bun website` (serves on `http://localhost:3000`)
+- Chrome browser must be open with the Claude in Chrome extension active
+- All Chrome MCP tools must be loaded via `ToolSearch` before first use
+
+### Tool Loading Protocol
+
+Chrome MCP tools are **deferred** and must be loaded before use. Load them with `ToolSearch("select:<tool_name>")`. Once loaded in a session, they remain available for subsequent calls.
+
+Required tools (load as needed):
+- `mcp__claude-in-chrome__tabs_context_mcp` -- Get/create browser session
+- `mcp__claude-in-chrome__tabs_create_mcp` -- Create new tabs
+- `mcp__claude-in-chrome__navigate` -- Navigate to URLs
+- `mcp__claude-in-chrome__read_page` -- Read page accessibility tree
+- `mcp__claude-in-chrome__computer` -- Screenshots, clicks, scrolling
+- `mcp__claude-in-chrome__resize_window` -- Resize for responsive testing
+- `mcp__claude-in-chrome__gif_creator` -- Record multi-step interactions
+- `mcp__claude-in-chrome__find` -- Find elements by natural language
+
+### Standard Visual Testing Workflow
+
+**Step 1: Start dev server**
+
+```bash
+bun website  # Runs in background, serves on http://localhost:3000
+```
+
+**Step 2: Initialize browser session**
+
+Always call `tabs_context_mcp` first to get available tabs. Then create a fresh tab with `tabs_create_mcp` for this testing session. Each conversation should use its own tab.
+
+**Step 3: Navigate and verify each modified page**
+
+For each page you modified:
+1. `navigate({ url: "http://localhost:3000/<page-path>", tabId })` -- Load the page
+2. `computer({ action: "wait", duration: 2, tabId })` -- Wait for rendering
+3. `read_page({ tabId })` -- Verify content structure and text
+4. `computer({ action: "screenshot", tabId })` -- Capture visual state
+
+**Step 4: Responsive design verification**
+
+For each modified page, test at three breakpoints:
+
+| Breakpoint | Width | Height | Tailwind Prefix |
+|------------|-------|--------|-----------------|
+| Mobile | 375px | 812px | (default) |
+| Tablet | 768px | 1024px | `md:` |
+| Desktop | 1440px | 900px | `lg:` / `xl:` |
+
+At each breakpoint:
+1. `resize_window({ width, height, tabId })` -- Set viewport size
+2. `computer({ action: "wait", duration: 1, tabId })` -- Wait for reflow
+3. `computer({ action: "screenshot", tabId })` -- Capture for review
+
+**Step 5: Interactive element verification**
+
+For pages with interactive elements (navigation, dropdowns, hover states):
+1. `find({ query: "navigation menu", tabId })` -- Locate elements
+2. `computer({ action: "left_click", coordinate: [x, y], tabId })` -- Test interactions
+3. `computer({ action: "screenshot", tabId })` -- Verify interaction results
+
+**Step 6: Record multi-step flows (optional)**
+
+For complex interactions (e.g., navigation flow, mobile menu toggle):
+1. `gif_creator({ action: "start_recording", tabId })` -- Start recording
+2. `computer({ action: "screenshot", tabId })` -- Capture initial frame
+3. Perform the interaction steps (navigate, click, scroll)
+4. `computer({ action: "screenshot", tabId })` -- Capture final frame
+5. `gif_creator({ action: "stop_recording", tabId })` -- Stop recording
+6. `gif_creator({ action: "export", download: true, tabId })` -- Export GIF
+
+### What to Verify
+
+| Check | Tool | What to Look For |
+|-------|------|-----------------|
+| Content rendered | `read_page` | All expected text, headings, links present in accessibility tree |
+| Visual layout | `computer` (screenshot) | Correct spacing, alignment, no overlapping elements |
+| Brand colors | `computer` (screenshot) | Colors match brand charter palette |
+| Typography | `computer` (screenshot) | Font sizes, weights, line heights are correct |
+| Responsive layout | `resize_window` + screenshot | Layout adapts correctly at each breakpoint |
+| Navigation | `navigate` + `read_page` | All links work, consistent across pages |
+| Interactive states | `computer` (click/hover) | Buttons, dropdowns, menus respond correctly |
+| Accessibility | `read_page` | Semantic structure, ARIA attributes, heading hierarchy |
+
+### Troubleshooting Chrome Tools
+
+| Issue | Solution |
+|-------|---------|
+| `tabs_context_mcp` returns no tabs | Call with `{ createIfEmpty: true }` to create a new tab group |
+| Navigation fails (connection refused) | Verify `bun website` is running on port 3000 |
+| Screenshot shows blank page | Add `computer({ action: "wait", duration: 3, tabId })` for slower pages |
+| Page content not loading | Check browser console with `read_console_messages` for errors |
+| Tools fail after 2-3 attempts | Stop and ask the user for help -- Chrome extension may need restart |
+| Wrong tab being used | Re-call `tabs_context_mcp` to verify tab IDs |
+
+### Important Constraints
+
+- **Never trigger JavaScript alerts/dialogs** -- They block the browser automation tools
+- **Always call `tabs_context_mcp` first** -- Required before any other browser tool
+- **Use `http://` not `https://`** -- localhost:3000 uses HTTP, not HTTPS
+- **Wait after navigation** -- Pages need time to render; use `computer({ action: "wait", duration: 2 })` after navigation
+- **Stop on repeated failures** -- If Chrome tools fail after 2-3 attempts, ask the user for assistance rather than retrying indefinitely
+- **One tab per session** -- Create a fresh tab with `tabs_create_mcp` rather than reusing existing tabs from other conversations
 
 ## Error Handling and Edge Cases
 

@@ -30,5 +30,12 @@
 - **Cross-agent coordination**: Document which agents to coordinate with and on what topics
 - **Success metrics**: Define measurable criteria for when the agent's work is considered successful
 
+### Chrome MCP Tool Integration Pattern
+- Agents using Chrome browser tools need: Tool Access comment listing specific MCP tools, ToolSearch loading protocol, tabs_context_mcp-first requirement, responsive breakpoint table (375/768/1440), wait-after-navigation pattern, 2-3 failure threshold before asking user
+- Chrome tools are deferred -- must document `ToolSearch("select:<tool_name>")` loading in agent prompt
+- Use `http://` not `https://` for localhost URLs
+- Never trigger JS alerts/dialogs (blocks automation)
+
 ### Review History
 - `website-editor` (2026-02-20): Full rewrite -- added tool access docs, YAML block scalar description, 5 examples + 2 non-examples, agent type section, collaborative workflows, self-correction protocol, coordination table, success metrics, quality checklist
+- `website-editor` (2026-02-20): Chrome MCP integration -- added Chrome Visual Testing Commands section, Chrome-Based Visual Testing section (6-step workflow, verification matrix, troubleshooting table, constraints), updated Self-Correction Visual Verification with Chrome tools, updated Tool Access justification with 8 MCP tools
