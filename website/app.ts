@@ -119,6 +119,8 @@ export const app: App = {
         'nav.partners.href': '/en/partners',
         'nav.company': 'About',
         'nav.company.href': '/en/company',
+        'nav.lang.label': 'FR',
+        'nav.lang.code': 'fr',
 
         // ════════════════════════════════════════════════════════════════════
         //  GLOBAL FOOTER
@@ -210,30 +212,6 @@ export const app: App = {
         'home.solution.howItWorks.step4.title': 'Evolve',
         'home.solution.howItWorks.step4.description':
           'Add features by updating your config. No migration pain.',
-
-        // ── Home: Core Principles ───────────────────────────────────────────
-        'home.principles.title': 'Core Principles',
-        'home.principles.sovereignty.title': 'Digital Sovereignty',
-        'home.principles.sovereignty.point1': '\u2705 Self-hosted on your infrastructure',
-        'home.principles.sovereignty.point2': '\u2705 Full data ownership and portability',
-        'home.principles.sovereignty.point3': '\u2705 Source-available with open-source roadmap',
-        'home.principles.sovereignty.point4':
-          '\u2705 No telemetry, no tracking, no data harvesting',
-        'home.principles.configuration.title': 'Configuration Over Coding',
-        'home.principles.configuration.point1': '\u2705 TypeScript, YAML, or JSON configuration',
-        'home.principles.configuration.point2': '\u2705 Type-safe with full IDE completion',
-        'home.principles.configuration.point3': '\u2705 No boilerplate, no scaffolding',
-        'home.principles.configuration.point4': '\u2705 From config to running app in seconds',
-        'home.principles.dependencies.title': 'Minimal Dependencies',
-        'home.principles.dependencies.point1': '\u2705 Single binary, single dependency: Bun',
-        'home.principles.dependencies.point2': '\u2705 No Docker required for development',
-        'home.principles.dependencies.point3': '\u2705 PostgreSQL for production data',
-        'home.principles.dependencies.point4': '\u2705 No vendor SDKs, no cloud lock-in',
-        'home.principles.business.title': 'Business Focus',
-        'home.principles.business.point1': '\u2705 Built for real business workflows',
-        'home.principles.business.point2': '\u2705 Authentication, roles, and permissions included',
-        'home.principles.business.point3': '\u2705 API-first: every table gets a REST API',
-        'home.principles.business.point4': '\u2705 Multi-language and theming out of the box',
 
         // ── Home: Comparison ────────────────────────────────────────────────
         'home.comparison.title': 'Why Not Just Use SaaS?',
@@ -348,23 +326,6 @@ export const app: App = {
         'home.gettingStarted.status.description':
           'Sovrium is in active development. Star the repo and follow along as we build the future of self-hosted applications.',
         'home.gettingStarted.status.cta': 'Star on GitHub',
-
-        // ── Home: Footer ────────────────────────────────────────────────────
-        'home.footer.cta.title': 'Ready to Own Your Software?',
-        'home.footer.cta.docs': 'Read the Docs',
-        'home.footer.cta.github': 'View on GitHub',
-        'home.footer.privacy': 'Privacy Policy',
-        'home.footer.privacy.href': '/en/privacy-policy',
-        'home.footer.terms': 'Terms of Service',
-        'home.footer.terms.href': '/en/terms-of-service',
-        'home.footer.license': 'License',
-        'home.footer.trademark': 'Trademark',
-        'home.footer.partners': 'Partners',
-        'home.footer.partners.href': '/en/partners',
-        'home.footer.dataDeletion': 'Data Deletion',
-        'home.footer.dataDeletion.href': '/en/data-deletion',
-        'home.footer.copyright':
-          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE is a registered trademark of ESSENTIAL SERVICES.',
 
         // ════════════════════════════════════════════════════════════════════
         //  PARTNERS PAGE
@@ -490,19 +451,6 @@ export const app: App = {
           'We work with a limited number of clients to ensure quality. Join our waitlist to be the first to know when a spot opens.',
         'partners.waitlist.cta': 'Join the Waitlist',
 
-        // ── Partners: Footer ────────────────────────────────────────────────
-        'partners.footer.privacy': 'Privacy Policy',
-        'partners.footer.privacy.href': '/en/privacy-policy',
-        'partners.footer.terms': 'Terms of Service',
-        'partners.footer.terms.href': '/en/terms-of-service',
-        'partners.footer.license': 'License',
-        'partners.footer.trademark': 'Trademark',
-        'partners.footer.dataDeletion': 'Data Deletion',
-        'partners.footer.dataDeletion.href': '/en/data-deletion',
-        'partners.footer.sovrium.href': 'https://sovrium.com/en/',
-        'partners.footer.copyright':
-          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE is a registered trademark of ESSENTIAL SERVICES.',
-
         // ════════════════════════════════════════════════════════════════════
         //  COMPANY PAGE
         // ════════════════════════════════════════════════════════════════════
@@ -531,23 +479,6 @@ export const app: App = {
           'Modern organizations are drowning in SaaS dependencies \u2014 paying monthly fees, losing data control, and adapting their business to vendor limitations. We are building the alternative.',
         'company.mission.statement':
           'To make every organization sovereign in their information systems \u2014 free from SaaS lock-in, in complete control of their data, and empowered to build business applications through configuration-as-code.',
-
-        // ── Company: Problem ───────────────────────────────────────────────
-        'company.problem.title': 'The Problem We Solve',
-        'company.problem.subtitle':
-          'The SaaS model created a new form of dependency. Organizations traded coding complexity for vendor complexity.',
-        'company.problem.cost1.title': 'Loss of Sovereignty',
-        'company.problem.cost1.description':
-          'Your business logic lives in someone else\u2019s platform. Your data is stored on servers you don\u2019t control, in jurisdictions you didn\u2019t choose.',
-        'company.problem.cost2.title': 'Compounding Expenses',
-        'company.problem.cost2.description':
-          'Per-user pricing scales exponentially with growth. Mid-sized teams spend $10,000+ per month on SaaS subscriptions alone.',
-        'company.problem.cost3.title': 'Feature Dependency',
-        'company.problem.cost3.description':
-          'You can\u2019t build what you need \u2014 only what vendors provide. Critical features are locked behind enterprise paywalls.',
-        'company.problem.cost4.title': 'Integration Tax',
-        'company.problem.cost4.description':
-          'Connecting scattered SaaS tools requires middleware, custom APIs, and constant maintenance. Data is fragmented across 20+ platforms.',
 
         // ── Company: Values ────────────────────────────────────────────────
         'company.values.title': 'Our Values',
@@ -611,21 +542,6 @@ export const app: App = {
         'company.cta.github': 'View on GitHub',
         'company.cta.partners': 'Work With Us',
         'company.cta.partners.href': '/en/partners',
-
-        // ── Company: Footer ────────────────────────────────────────────────
-        'company.footer.privacy': 'Privacy Policy',
-        'company.footer.privacy.href': '/en/privacy-policy',
-        'company.footer.terms': 'Terms of Service',
-        'company.footer.terms.href': '/en/terms-of-service',
-        'company.footer.license': 'License',
-        'company.footer.trademark': 'Trademark',
-        'company.footer.partners': 'Partners',
-        'company.footer.partners.href': '/en/partners',
-        'company.footer.dataDeletion': 'Data Deletion',
-        'company.footer.dataDeletion.href': '/en/data-deletion',
-        'company.footer.sovrium.href': 'https://sovrium.com/en/',
-        'company.footer.copyright':
-          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE is a registered trademark of ESSENTIAL SERVICES.',
       },
       fr: {
         // ════════════════════════════════════════════════════════════════════
@@ -635,6 +551,8 @@ export const app: App = {
         'nav.partners.href': '/fr/partners',
         'nav.company': '\u00C0 propos',
         'nav.company.href': '/fr/company',
+        'nav.lang.label': 'EN',
+        'nav.lang.code': 'en',
 
         // ════════════════════════════════════════════════════════════════════
         //  GLOBAL FOOTER
@@ -729,41 +647,6 @@ export const app: App = {
         'home.solution.howItWorks.step4.title': '\u00C9voluer',
         'home.solution.howItWorks.step4.description':
           'Ajoutez des fonctionnalit\u00E9s en mettant \u00E0 jour votre config. Sans douleur de migration.',
-
-        // ── Home: Core Principles ───────────────────────────────────────────
-        'home.principles.title': 'Principes fondateurs',
-        'home.principles.sovereignty.title': 'Souverainet\u00E9 num\u00E9rique',
-        'home.principles.sovereignty.point1':
-          '\u2705 Auto-h\u00E9berg\u00E9 sur votre infrastructure',
-        'home.principles.sovereignty.point2':
-          '\u2705 Propri\u00E9t\u00E9 et portabilit\u00E9 totale des donn\u00E9es',
-        'home.principles.sovereignty.point3':
-          '\u2705 Source disponible avec feuille de route open-source',
-        'home.principles.sovereignty.point4':
-          '\u2705 Pas de t\u00E9l\u00E9m\u00E9trie, pas de tracking, pas de collecte de donn\u00E9es',
-        'home.principles.configuration.title': 'La configuration plut\u00F4t que le code',
-        'home.principles.configuration.point1': '\u2705 Configuration en TypeScript, YAML ou JSON',
-        'home.principles.configuration.point2':
-          '\u2705 Typage s\u00FBr avec compl\u00E9tion IDE compl\u00E8te',
-        'home.principles.configuration.point3': '\u2705 Pas de boilerplate, pas de scaffolding',
-        'home.principles.configuration.point4':
-          '\u2705 De la config \u00E0 l\u2019app en quelques secondes',
-        'home.principles.dependencies.title': 'D\u00E9pendances minimales',
-        'home.principles.dependencies.point1':
-          '\u2705 Un seul binaire, une seule d\u00E9pendance : Bun',
-        'home.principles.dependencies.point2':
-          '\u2705 Pas de Docker requis pour le d\u00E9veloppement',
-        'home.principles.dependencies.point3':
-          '\u2705 PostgreSQL pour les donn\u00E9es de production',
-        'home.principles.dependencies.point4':
-          '\u2705 Pas de SDKs fournisseur, pas de d\u00E9pendance cloud',
-        'home.principles.business.title': 'Orient\u00E9 m\u00E9tier',
-        'home.principles.business.point1': '\u2705 Con\u00E7u pour les vrais workflows m\u00E9tier',
-        'home.principles.business.point2':
-          '\u2705 Authentification, r\u00F4les et permissions inclus',
-        'home.principles.business.point3': '\u2705 API-first : chaque table obtient une API REST',
-        'home.principles.business.point4':
-          '\u2705 Multi-langue et th\u00E8mes pr\u00EAts \u00E0 l\u2019emploi',
 
         // ── Home: Comparison ────────────────────────────────────────────────
         'home.comparison.title': 'Pourquoi ne pas simplement utiliser du SaaS ?',
@@ -880,23 +763,6 @@ export const app: App = {
         'home.gettingStarted.status.description':
           'Sovrium est en d\u00E9veloppement actif. Mettez une \u00E9toile au repo et suivez la construction de l\u2019avenir des applications auto-h\u00E9berg\u00E9es.',
         'home.gettingStarted.status.cta': '\u00C9toiler sur GitHub',
-
-        // ── Home: Footer ────────────────────────────────────────────────────
-        'home.footer.cta.title': 'Pr\u00EAt \u00E0 ma\u00EEtriser votre logiciel ?',
-        'home.footer.cta.docs': 'Lire la doc',
-        'home.footer.cta.github': 'Voir sur GitHub',
-        'home.footer.privacy': 'Politique de confidentialit\u00E9',
-        'home.footer.privacy.href': '/fr/privacy-policy',
-        'home.footer.terms': 'Conditions d\u2019utilisation',
-        'home.footer.terms.href': '/fr/terms-of-service',
-        'home.footer.license': 'Licence',
-        'home.footer.trademark': 'Marque d\u00E9pos\u00E9e',
-        'home.footer.partners': 'Partenaires',
-        'home.footer.partners.href': '/fr/partners',
-        'home.footer.dataDeletion': 'Suppression des donn\u00E9es',
-        'home.footer.dataDeletion.href': '/fr/data-deletion',
-        'home.footer.copyright':
-          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE est une marque enregistr\u00E9e d\u2019ESSENTIAL SERVICES.',
 
         // ════════════════════════════════════════════════════════════════════
         //  PARTNERS PAGE
@@ -1025,19 +891,6 @@ export const app: App = {
           'Nous travaillons avec un nombre limit\u00E9 de clients pour garantir la qualit\u00E9. Rejoignez notre liste d\u2019attente pour \u00EAtre inform\u00E9 d\u00E8s qu\u2019une place se lib\u00E8re.',
         'partners.waitlist.cta': 'Rejoindre la liste d\u2019attente',
 
-        // ── Partners: Footer ────────────────────────────────────────────────
-        'partners.footer.privacy': 'Politique de confidentialit\u00E9',
-        'partners.footer.privacy.href': '/fr/privacy-policy',
-        'partners.footer.terms': 'Conditions d\u2019utilisation',
-        'partners.footer.terms.href': '/fr/terms-of-service',
-        'partners.footer.license': 'Licence',
-        'partners.footer.trademark': 'Marque d\u00E9pos\u00E9e',
-        'partners.footer.dataDeletion': 'Suppression des donn\u00E9es',
-        'partners.footer.dataDeletion.href': '/fr/data-deletion',
-        'partners.footer.sovrium.href': 'https://sovrium.com/fr/',
-        'partners.footer.copyright':
-          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE est une marque enregistr\u00E9e d\u2019ESSENTIAL SERVICES.',
-
         // ════════════════════════════════════════════════════════════════════
         //  COMPANY PAGE
         // ════════════════════════════════════════════════════════════════════
@@ -1066,23 +919,6 @@ export const app: App = {
           'Les organisations modernes sont submerg\u00E9es par les d\u00E9pendances SaaS \u2014 payant des frais mensuels, perdant le contr\u00F4le de leurs donn\u00E9es et adaptant leur activit\u00E9 aux limitations des fournisseurs. Nous construisons l\u2019alternative.',
         'company.mission.statement':
           'Rendre chaque organisation souveraine dans ses syst\u00E8mes d\u2019information \u2014 libre de toute d\u00E9pendance SaaS, en contr\u00F4le total de ses donn\u00E9es, et capable de construire des applications m\u00E9tier par la configuration-as-code.',
-
-        // ── Company: Problem ───────────────────────────────────────────────
-        'company.problem.title': 'Le probl\u00E8me que nous r\u00E9solvons',
-        'company.problem.subtitle':
-          'Le mod\u00E8le SaaS a cr\u00E9\u00E9 une nouvelle forme de d\u00E9pendance. Les organisations ont troqu\u00E9 la complexit\u00E9 du code contre la complexit\u00E9 fournisseur.',
-        'company.problem.cost1.title': 'Perte de souverainet\u00E9',
-        'company.problem.cost1.description':
-          'Votre logique m\u00E9tier vit sur la plateforme d\u2019un autre. Vos donn\u00E9es sont stock\u00E9es sur des serveurs que vous ne contr\u00F4lez pas, dans des juridictions que vous n\u2019avez pas choisies.',
-        'company.problem.cost2.title': 'Co\u00FBts croissants',
-        'company.problem.cost2.description':
-          'La tarification par utilisateur augmente de mani\u00E8re exponentielle avec la croissance. Les \u00E9quipes de taille moyenne d\u00E9pensent plus de 10 000 \u20AC par mois en abonnements SaaS.',
-        'company.problem.cost3.title': 'D\u00E9pendance fonctionnelle',
-        'company.problem.cost3.description':
-          'Vous ne pouvez pas construire ce dont vous avez besoin \u2014 seulement ce que les fournisseurs proposent. Les fonctionnalit\u00E9s critiques sont derri\u00E8re des offres enterprise.',
-        'company.problem.cost4.title': 'Taxe d\u2019int\u00E9gration',
-        'company.problem.cost4.description':
-          'Connecter des outils SaaS \u00E9parpill\u00E9s n\u00E9cessite des middlewares, des APIs personnalis\u00E9es et une maintenance constante. Les donn\u00E9es sont fragment\u00E9es sur plus de 20 plateformes.',
 
         // ── Company: Values ────────────────────────────────────────────────
         'company.values.title': 'Nos Valeurs',
@@ -1146,21 +982,6 @@ export const app: App = {
         'company.cta.github': 'Voir sur GitHub',
         'company.cta.partners': 'Travailler avec nous',
         'company.cta.partners.href': '/fr/partners',
-
-        // ── Company: Footer ────────────────────────────────────────────────
-        'company.footer.privacy': 'Politique de confidentialit\u00E9',
-        'company.footer.privacy.href': '/fr/privacy-policy',
-        'company.footer.terms': 'Conditions d\u2019utilisation',
-        'company.footer.terms.href': '/fr/terms-of-service',
-        'company.footer.license': 'Licence',
-        'company.footer.trademark': 'Marque d\u00E9pos\u00E9e',
-        'company.footer.partners': 'Partenaires',
-        'company.footer.partners.href': '/fr/partners',
-        'company.footer.dataDeletion': 'Suppression des donn\u00E9es',
-        'company.footer.dataDeletion.href': '/fr/data-deletion',
-        'company.footer.sovrium.href': 'https://sovrium.com/fr/',
-        'company.footer.copyright':
-          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE est une marque enregistr\u00E9e d\u2019ESSENTIAL SERVICES.',
       },
     },
   },

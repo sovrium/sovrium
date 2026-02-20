@@ -5,9 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { builtWithSovriumBadge } from './badge'
 import { favicons } from './favicons'
 import { footerI18n } from './footer'
-import { navbar } from './navbar'
+import { langSwitchScript, navbar } from './navbar'
 import type { Page } from '@/index'
 
 // --- Helpers ----------------------------------------------------------------
@@ -84,6 +85,9 @@ export const company: Page = {
       description: '$t:company.meta.twitter.description',
       image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
     },
+  },
+  scripts: {
+    inlineScripts: [langSwitchScript],
   },
   sections: [
     // Navigation Bar
@@ -187,129 +191,7 @@ export const company: Page = {
       ],
     },
 
-    // --- Section 3: The Problem We Solve -----------------------------------
-    {
-      type: 'section',
-      props: {
-        className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
-        id: 'problem',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
-          children: [
-            {
-              type: 'h2',
-              content: '$t:company.problem.title',
-              props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
-              },
-            },
-            {
-              type: 'paragraph',
-              content: '$t:company.problem.subtitle',
-              props: {
-                className:
-                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center max-w-3xl mx-auto mb-12',
-              },
-            },
-            {
-              type: 'grid',
-              props: { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
-              children: [
-                {
-                  type: 'div' as const,
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg',
-                  },
-                  children: [
-                    {
-                      type: 'h4' as const,
-                      content: '$t:company.problem.cost1.title',
-                      props: {
-                        className: 'text-lg font-semibold mb-2 text-sovereignty-light',
-                      },
-                    },
-                    {
-                      type: 'paragraph' as const,
-                      content: '$t:company.problem.cost1.description',
-                      props: { className: 'text-sm text-sovereignty-gray-400' },
-                    },
-                  ],
-                },
-                {
-                  type: 'div' as const,
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg',
-                  },
-                  children: [
-                    {
-                      type: 'h4' as const,
-                      content: '$t:company.problem.cost2.title',
-                      props: {
-                        className: 'text-lg font-semibold mb-2 text-sovereignty-light',
-                      },
-                    },
-                    {
-                      type: 'paragraph' as const,
-                      content: '$t:company.problem.cost2.description',
-                      props: { className: 'text-sm text-sovereignty-gray-400' },
-                    },
-                  ],
-                },
-                {
-                  type: 'div' as const,
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg',
-                  },
-                  children: [
-                    {
-                      type: 'h4' as const,
-                      content: '$t:company.problem.cost3.title',
-                      props: {
-                        className: 'text-lg font-semibold mb-2 text-sovereignty-light',
-                      },
-                    },
-                    {
-                      type: 'paragraph' as const,
-                      content: '$t:company.problem.cost3.description',
-                      props: { className: 'text-sm text-sovereignty-gray-400' },
-                    },
-                  ],
-                },
-                {
-                  type: 'div' as const,
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg',
-                  },
-                  children: [
-                    {
-                      type: 'h4' as const,
-                      content: '$t:company.problem.cost4.title',
-                      props: {
-                        className: 'text-lg font-semibold mb-2 text-sovereignty-light',
-                      },
-                    },
-                    {
-                      type: 'paragraph' as const,
-                      content: '$t:company.problem.cost4.description',
-                      props: { className: 'text-sm text-sovereignty-gray-400' },
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-
-    // --- Section 4: Our Values ---------------------------------------------
+    // --- Section 3: Our Values ---------------------------------------------
     {
       type: 'section',
       props: {
@@ -570,35 +452,6 @@ export const company: Page = {
     // --- Section 8: Footer -------------------------------------------------
     footerI18n,
 
-    // --- Built with Sovrium Badge (Fixed bottom-right) ---------------------
-    {
-      type: 'div',
-      props: {
-        className: 'fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 hidden sm:block',
-      },
-      children: [
-        {
-          type: 'link',
-          props: {
-            href: 'https://github.com/sovrium/sovrium',
-            className:
-              'flex items-center gap-2 bg-sovereignty-gray-900 hover:bg-sovereignty-gray-800 border border-sovereignty-gray-700 hover:border-sovereignty-accent text-sovereignty-gray-400 hover:text-sovereignty-accent px-3 py-2 rounded-lg text-xs font-medium transition-all duration-300 shadow-lg',
-            target: '_blank',
-            rel: 'noopener noreferrer',
-          },
-          children: [
-            {
-              type: 'span',
-              content: '\u26A1',
-              props: { className: 'text-sm' },
-            },
-            {
-              type: 'span',
-              content: 'Built with Sovrium',
-            },
-          ],
-        },
-      ],
-    },
+    builtWithSovriumBadge,
   ],
 }
