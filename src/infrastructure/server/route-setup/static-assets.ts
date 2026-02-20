@@ -118,7 +118,7 @@ export function setupJavaScriptRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
  */
 export function setupPublicDirRoute(honoApp: Readonly<Hono>, publicDir: string): Readonly<Hono> {
   return honoApp.get('/*', async (c, next) => {
-    const path = c.req.path
+    const { path } = c.req
     const filePath = `${publicDir}${path}`
     const file = Bun.file(filePath)
 

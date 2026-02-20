@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { navbar } from './navbar'
 import type { Page } from '@/index'
 
 export const privacyPolicy: Page = {
@@ -16,6 +17,9 @@ export const privacyPolicy: Page = {
     canonical: 'https://sovrium.com/privacy-policy',
   },
   sections: [
+    // Navigation Bar
+    navbar,
+
     // Header
     {
       type: 'section',

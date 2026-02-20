@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="48" viewBox="0 0 240 48" fill="none">
+  <!-- Sovereign Shield + SOVRIUM wordmark - Light variant (for dark backgrounds) -->
+
+  <!-- Shield mark (scaled to fit 48px height) -->
+  <g transform="translate(0, 2) scale(0.54)">
+    <path d="M4 4 H68 V48 L36 76 L4 48 Z" fill="#fff"/>
+    <path d="M16 22 L36 40 L56 22 L56 28 L36 46 L16 28 Z" fill="#0a0a0a"/>
+    <path d="M16 36 L36 54 L56 36 L56 42 L36 60 L16 42 Z" fill="#0a0a0a"/>
+  </g>
+
+  <!-- SOVRIUM wordmark -->
+  <text
+    x="52"
+    y="32"
+    font-family="'DM Sans', 'Inter', system-ui, -apple-system, sans-serif"
+    font-weight="700"
+    font-size="22"
+    letter-spacing="0.08em"
+    fill="#ffffff"
+  >SOVRIUM</text>
+</svg>

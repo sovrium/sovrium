@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { navbar } from './navbar'
 import type { Page } from '@/index'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -126,34 +127,39 @@ const statCard = (key: string) => ({
   ],
 })
 
-const clientLogos: Record<string, string> = {
-  'ESCP Business School': '/logos/escp.png',
-  TH1: '/logos/th1.jpeg',
-  'Agora Store': '/logos/agorastore.png',
-  'Capital PV': '/logos/capitalpv.svg',
-}
+const allClientLogos: ReadonlyArray<{ readonly name: string; readonly src: string }> = [
+  { name: 'ESCP Business School', src: '/logos/escp.png' },
+  { name: 'La Table de Cana', src: '/logos/tablecana.png' },
+  { name: 'TH1', src: '/logos/th1.jpeg' },
+  { name: 'Maitres Cuisiniers de France', src: '/logos/maitrescuisiniers.png' },
+  { name: 'Agora Store', src: '/logos/agorastore.png' },
+  { name: "D'un Seul Geste", src: '/logos/dunseulgeste.png' },
+  { name: 'Capital PV', src: '/logos/capitalpv.svg' },
+  { name: 'Le Beau Sourire', src: '/logos/lebeausourire.png' },
+  { name: '1492 Company', src: '/logos/1492.png' },
+  { name: 'EDL Energies de Loire', src: '/logos/edl.png' },
+]
 
-const clientLogo = (label: string) => {
-  const src = clientLogos[label]
-  if (src) {
-    return {
+const marqueeLogoItem = (logo: { readonly name: string; readonly src: string }) => ({
+  type: 'div' as const,
+  props: {
+    className:
+      'flex-shrink-0 flex items-center justify-center h-16 w-40 mx-6 grayscale opacity-50 hover:grayscale-0 hover:opacity-100 transition-all duration-300',
+  },
+  children: [
+    {
       type: 'image' as const,
       props: {
-        src,
-        alt: label,
-        className: 'h-10 w-auto object-contain opacity-60 hover:opacity-100 transition-opacity',
+        src: logo.src,
+        alt: logo.name,
+        className: 'h-full w-full object-contain',
       },
-    }
-  }
-  return {
-    type: 'span' as const,
-    content: label,
-    props: {
-      className:
-        'text-sovereignty-gray-400 text-lg font-bold tracking-wider uppercase hover:text-sovereignty-light transition-colors',
     },
-  }
-}
+  ],
+})
+
+// Duplicate logos for seamless infinite scroll
+const marqueeLogos = [...allClientLogos, ...allClientLogos].map(marqueeLogoItem)
 
 // ─── Page ───────────────────────────────────────────────────────────────────────
 
@@ -183,6 +189,9 @@ export const partners: Page = {
     },
   },
   sections: [
+    // Navigation Bar
+    navbar,
+
     // ─── Section 1: Hero ────────────────────────────────────────────────────
     {
       type: 'section',
@@ -240,7 +249,7 @@ export const partners: Page = {
       ],
     },
 
-    // ─── Section 2: Trusted By ──────────────────────────────────────────────
+    // ─── Section 2: Trusted By (Marquee) ──────────────────────────────────
     {
       type: 'section',
       props: {
@@ -260,19 +269,24 @@ export const partners: Page = {
                   'text-sm uppercase tracking-widest text-sovereignty-gray-500 font-medium mb-8',
               },
             },
+          ],
+        },
+        // Marquee container with gradient fade edges and overflow hidden
+        {
+          type: 'div',
+          props: {
+            className: 'relative overflow-hidden',
+            style:
+              'mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent); -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);',
+          },
+          children: [
             {
-              type: 'flex',
+              type: 'div',
               props: {
-                className: 'flex-wrap justify-center items-center gap-8 md:gap-12',
+                className: 'flex items-center py-4',
+                style: 'animation: marqueescroll 35s linear infinite; width: max-content;',
               },
-              children: [
-                clientLogo('ESCP Business School'),
-                clientLogo('TH1'),
-                clientLogo('Agora Store'),
-                clientLogo('Capital PV'),
-                clientLogo('Activpreneur'),
-                clientLogo('Lintendance'),
-              ],
+              children: marqueeLogos,
             },
           ],
         },

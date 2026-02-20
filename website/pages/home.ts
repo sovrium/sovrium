@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { navbar } from './navbar'
 import type { Page } from '@/index'
 
 export const home: Page = {
@@ -33,6 +34,9 @@ export const home: Page = {
     },
   },
   sections: [
+    // Navigation Bar
+    navbar,
+
     // Hero Section
     {
       type: 'section',

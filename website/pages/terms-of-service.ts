@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { navbar } from './navbar'
 import type { Page } from '@/index'
 
 export const termsOfService: Page = {
@@ -17,6 +18,9 @@ export const termsOfService: Page = {
     canonical: 'https://sovrium.com/terms-of-service',
   },
   sections: [
+    // Navigation Bar
+    navbar,
+
     // Header
     {
       type: 'section',

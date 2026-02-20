@@ -7,6 +7,7 @@
 
 import { type App } from '@/index'
 import { brandCharter } from './pages/brand-charter'
+import { company } from './pages/company'
 import { dataDeletion } from './pages/data-deletion'
 import { home } from './pages/home'
 import { partners } from './pages/partners'
@@ -93,6 +94,15 @@ export const app: App = {
       'padding-small': 'p-4',
       'padding-large': 'p-8',
     },
+    animations: {
+      marqueescroll: {
+        enabled: false,
+        keyframes: {
+          '0%': { transform: 'translateX(0)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
+      },
+    },
   },
   languages: {
     default: 'en',
@@ -102,6 +112,14 @@ export const app: App = {
     ],
     translations: {
       en: {
+        // ════════════════════════════════════════════════════════════════════
+        //  GLOBAL NAVIGATION
+        // ════════════════════════════════════════════════════════════════════
+        'nav.partners': 'Partners',
+        'nav.partners.href': '/en/partners',
+        'nav.company': 'Company',
+        'nav.company.href': '/en/company',
+
         // ════════════════════════════════════════════════════════════════════
         //  HOME PAGE
         // ════════════════════════════════════════════════════════════════════
@@ -460,8 +478,140 @@ export const app: App = {
         'partners.footer.sovrium.href': 'https://sovrium.com/en/',
         'partners.footer.copyright':
           '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
+
+        // ════════════════════════════════════════════════════════════════════
+        //  COMPANY PAGE
+        // ════════════════════════════════════════════════════════════════════
+
+        // ── Company: Meta ──────────────────────────────────────────────────
+        'company.meta.title': 'Sovrium \u2014 Company',
+        'company.meta.description':
+          'Learn about the vision, values, and team behind Sovrium. Building digital sovereignty for every organization.',
+        'company.meta.og.title': 'Sovrium \u2014 Company',
+        'company.meta.og.description':
+          'The vision, values, and team behind Sovrium. Digital sovereignty for every organization.',
+        'company.meta.twitter.title': 'Sovrium \u2014 Company',
+        'company.meta.twitter.description':
+          'The vision, values, and team behind Sovrium. Digital sovereignty for every organization.',
+
+        // ── Company: Hero ──────────────────────────────────────────────────
+        'company.hero.eyebrow': 'ESSENTIAL SERVICES',
+        'company.hero.title': 'Building digital sovereignty',
+        'company.hero.subtitle':
+          'We believe every organization deserves to own its software, its data, and its future. Sovrium is the platform that makes it possible.',
+        'company.hero.tagline': '\u201COwn your data. Own your tools. Own your future.\u201D',
+
+        // ── Company: Mission ───────────────────────────────────────────────
+        'company.mission.title': 'Our Mission',
+        'company.mission.description':
+          'Modern organizations are drowning in SaaS dependencies \u2014 paying monthly fees, losing data control, and adapting their business to vendor limitations. We are building the alternative.',
+        'company.mission.statement':
+          'To make every organization sovereign in their information systems \u2014 free from SaaS lock-in, in complete control of their data, and empowered to build business applications through configuration-as-code.',
+
+        // ── Company: Problem ───────────────────────────────────────────────
+        'company.problem.title': 'The Problem We Solve',
+        'company.problem.subtitle':
+          'The SaaS model created a new form of dependency. Organizations traded coding complexity for vendor complexity.',
+        'company.problem.cost1.title': 'Loss of Sovereignty',
+        'company.problem.cost1.description':
+          'Your business logic lives in someone else\u2019s platform. Your data is stored on servers you don\u2019t control, in jurisdictions you didn\u2019t choose.',
+        'company.problem.cost2.title': 'Compounding Expenses',
+        'company.problem.cost2.description':
+          'Per-user pricing scales exponentially with growth. Mid-sized teams spend $10,000+ per month on SaaS subscriptions alone.',
+        'company.problem.cost3.title': 'Feature Dependency',
+        'company.problem.cost3.description':
+          'You can\u2019t build what you need \u2014 only what vendors provide. Critical features are locked behind enterprise paywalls.',
+        'company.problem.cost4.title': 'Integration Tax',
+        'company.problem.cost4.description':
+          'Connecting scattered SaaS tools requires middleware, custom APIs, and constant maintenance. Data is fragmented across 20+ platforms.',
+
+        // ── Company: Values ────────────────────────────────────────────────
+        'company.values.title': 'Our Values',
+        'company.values.subtitle':
+          'The principles that guide every decision we make, from code architecture to community engagement.',
+        'company.values.sovereignty.icon': '\uD83D\uDEE1\uFE0F',
+        'company.values.sovereignty.title': 'Digital Sovereignty',
+        'company.values.sovereignty.description':
+          'Organizations should own their information systems, not rent them. Your data, your infrastructure, your rules.',
+        'company.values.transparency.icon': '\uD83D\uDD0D',
+        'company.values.transparency.title': 'Radical Transparency',
+        'company.values.transparency.description':
+          'Source-available code, open roadmap, honest communication. No hidden agendas, no surprise pricing, no vendor lock-in.',
+        'company.values.openSource.icon': '\uD83C\uDF10',
+        'company.values.openSource.title': 'Open Source Spirit',
+        'company.values.openSource.description':
+          'Built on open standards and open-source technologies. Contributing back to the ecosystem that enables us.',
+        'company.values.simplicity.icon': '\u2728',
+        'company.values.simplicity.title': 'Elegant Simplicity',
+        'company.values.simplicity.description':
+          'Complex problems deserve simple solutions. One config file, one command, one platform \u2014 no unnecessary complexity.',
+        'company.values.ownership.icon': '\uD83C\uDFE1',
+        'company.values.ownership.title': 'True Ownership',
+        'company.values.ownership.description':
+          'Everything we build for you belongs to you. Full source access, full data portability, zero lock-in.',
+        'company.values.longTerm.icon': '\uD83C\uDF31',
+        'company.values.longTerm.title': 'Long-Term Thinking',
+        'company.values.longTerm.description':
+          'We build for sustainability, not hype cycles. Sovrium is designed to grow with your organization for years to come.',
+
+        // ── Company: Principles ────────────────────────────────────────────
+        'company.principles.title': 'How We Build',
+        'company.principles.subtitle':
+          'Five core principles shape the technical decisions behind Sovrium.',
+        'company.principles.configOverCode.title': 'Configuration Over Coding',
+        'company.principles.configOverCode.description':
+          'Business applications should be configured, not programmed. TypeScript, YAML, or JSON \u2014 choose your format, get a complete app in seconds.',
+        'company.principles.minimalDeps.title': 'Minimal Dependencies',
+        'company.principles.minimalDeps.description':
+          'One runtime (Bun), one database (PostgreSQL), zero vendor SDKs. Reduce your dependency surface to only essential infrastructure.',
+        'company.principles.businessFocus.title': 'Business Focus',
+        'company.principles.businessFocus.description':
+          'Engineers should focus on business logic, not infrastructure. Sovrium handles auth, database, API, and UI out of the box.',
+        'company.principles.configReuse.title': 'Configuration Reusability',
+        'company.principles.configReuse.description':
+          'Configuration templates become organizational assets. Build CRM, project tools, and portals from composable, version-controlled configs.',
+
+        // ── Company: Team ──────────────────────────────────────────────────
+        'company.team.title': 'The Team',
+        'company.team.subtitle':
+          'Sovrium is built by ESSENTIAL SERVICES, a company dedicated to giving organizations control over their software.',
+        'company.team.founder.name': 'Thomas Jeanneau',
+        'company.team.founder.role': 'Founder & CEO',
+        'company.team.founder.bio':
+          'Software engineer and entrepreneur with a passion for building tools that empower organizations. Previously built automation tools serving 50+ clients across France and Europe.',
+
+        // ── Company: CTA ───────────────────────────────────────────────────
+        'company.cta.title': 'Join the Movement',
+        'company.cta.description':
+          'Sovrium is open source and actively developed. Star the repo, contribute code, or build with us.',
+        'company.cta.github': 'View on GitHub',
+        'company.cta.partners': 'Work With Us',
+        'company.cta.partners.href': '/en/partners',
+
+        // ── Company: Footer ────────────────────────────────────────────────
+        'company.footer.privacy': 'Privacy Policy',
+        'company.footer.privacy.href': '/en/privacy-policy',
+        'company.footer.terms': 'Terms of Service',
+        'company.footer.terms.href': '/en/terms-of-service',
+        'company.footer.license': 'License',
+        'company.footer.trademark': 'Trademark',
+        'company.footer.partners': 'Partners',
+        'company.footer.partners.href': '/en/partners',
+        'company.footer.dataDeletion': 'Data Deletion',
+        'company.footer.dataDeletion.href': '/en/data-deletion',
+        'company.footer.sovrium.href': 'https://sovrium.com/en/',
+        'company.footer.copyright':
+          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
       },
       fr: {
+        // ════════════════════════════════════════════════════════════════════
+        //  GLOBAL NAVIGATION
+        // ════════════════════════════════════════════════════════════════════
+        'nav.partners': 'Partenaires',
+        'nav.partners.href': '/fr/partners',
+        'nav.company': 'Entreprise',
+        'nav.company.href': '/fr/company',
+
         // ════════════════════════════════════════════════════════════════════
         //  HOME PAGE
         // ════════════════════════════════════════════════════════════════════
@@ -838,9 +988,133 @@ export const app: App = {
         'partners.footer.sovrium.href': 'https://sovrium.com/fr/',
         'partners.footer.copyright':
           '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium est une marque d\u2019ESSENTIAL SERVICES.',
+
+        // ════════════════════════════════════════════════════════════════════
+        //  COMPANY PAGE
+        // ════════════════════════════════════════════════════════════════════
+
+        // ── Company: Meta ──────────────────────────────────────────────────
+        'company.meta.title': 'Sovrium \u2014 Entreprise',
+        'company.meta.description':
+          'D\u00E9couvrez la vision, les valeurs et l\u2019\u00E9quipe derri\u00E8re Sovrium. Construire la souverainet\u00E9 num\u00E9rique pour chaque organisation.',
+        'company.meta.og.title': 'Sovrium \u2014 Entreprise',
+        'company.meta.og.description':
+          'La vision, les valeurs et l\u2019\u00E9quipe derri\u00E8re Sovrium. La souverainet\u00E9 num\u00E9rique pour chaque organisation.',
+        'company.meta.twitter.title': 'Sovrium \u2014 Entreprise',
+        'company.meta.twitter.description':
+          'La vision, les valeurs et l\u2019\u00E9quipe derri\u00E8re Sovrium. La souverainet\u00E9 num\u00E9rique pour chaque organisation.',
+
+        // ── Company: Hero ──────────────────────────────────────────────────
+        'company.hero.eyebrow': 'ESSENTIAL SERVICES',
+        'company.hero.title': 'Construire la souverainet\u00E9 num\u00E9rique',
+        'company.hero.subtitle':
+          'Nous croyons que chaque organisation m\u00E9rite de poss\u00E9der son logiciel, ses donn\u00E9es et son avenir. Sovrium est la plateforme qui le rend possible.',
+        'company.hero.tagline': '\u00AB Vos donn\u00E9es. Vos outils. Votre avenir. \u00BB',
+
+        // ── Company: Mission ───────────────────────────────────────────────
+        'company.mission.title': 'Notre Mission',
+        'company.mission.description':
+          'Les organisations modernes sont submerg\u00E9es par les d\u00E9pendances SaaS \u2014 payant des frais mensuels, perdant le contr\u00F4le de leurs donn\u00E9es et adaptant leur activit\u00E9 aux limitations des fournisseurs. Nous construisons l\u2019alternative.',
+        'company.mission.statement':
+          'Rendre chaque organisation souveraine dans ses syst\u00E8mes d\u2019information \u2014 libre de toute d\u00E9pendance SaaS, en contr\u00F4le total de ses donn\u00E9es, et capable de construire des applications m\u00E9tier par la configuration-as-code.',
+
+        // ── Company: Problem ───────────────────────────────────────────────
+        'company.problem.title': 'Le probl\u00E8me que nous r\u00E9solvons',
+        'company.problem.subtitle':
+          'Le mod\u00E8le SaaS a cr\u00E9\u00E9 une nouvelle forme de d\u00E9pendance. Les organisations ont troqu\u00E9 la complexit\u00E9 du code contre la complexit\u00E9 fournisseur.',
+        'company.problem.cost1.title': 'Perte de souverainet\u00E9',
+        'company.problem.cost1.description':
+          'Votre logique m\u00E9tier vit sur la plateforme d\u2019un autre. Vos donn\u00E9es sont stock\u00E9es sur des serveurs que vous ne contr\u00F4lez pas, dans des juridictions que vous n\u2019avez pas choisies.',
+        'company.problem.cost2.title': 'Co\u00FBts croissants',
+        'company.problem.cost2.description':
+          'La tarification par utilisateur augmente de mani\u00E8re exponentielle avec la croissance. Les \u00E9quipes de taille moyenne d\u00E9pensent plus de 10 000 \u20AC par mois en abonnements SaaS.',
+        'company.problem.cost3.title': 'D\u00E9pendance fonctionnelle',
+        'company.problem.cost3.description':
+          'Vous ne pouvez pas construire ce dont vous avez besoin \u2014 seulement ce que les fournisseurs proposent. Les fonctionnalit\u00E9s critiques sont derri\u00E8re des offres enterprise.',
+        'company.problem.cost4.title': 'Taxe d\u2019int\u00E9gration',
+        'company.problem.cost4.description':
+          'Connecter des outils SaaS \u00E9parpill\u00E9s n\u00E9cessite des middlewares, des APIs personnalis\u00E9es et une maintenance constante. Les donn\u00E9es sont fragment\u00E9es sur plus de 20 plateformes.',
+
+        // ── Company: Values ────────────────────────────────────────────────
+        'company.values.title': 'Nos Valeurs',
+        'company.values.subtitle':
+          'Les principes qui guident chaque d\u00E9cision que nous prenons, de l\u2019architecture du code \u00E0 l\u2019engagement communautaire.',
+        'company.values.sovereignty.icon': '\uD83D\uDEE1\uFE0F',
+        'company.values.sovereignty.title': 'Souverainet\u00E9 num\u00E9rique',
+        'company.values.sovereignty.description':
+          'Les organisations doivent poss\u00E9der leurs syst\u00E8mes d\u2019information, pas les louer. Vos donn\u00E9es, votre infrastructure, vos r\u00E8gles.',
+        'company.values.transparency.icon': '\uD83D\uDD0D',
+        'company.values.transparency.title': 'Transparence radicale',
+        'company.values.transparency.description':
+          'Code source disponible, feuille de route ouverte, communication honn\u00EAte. Pas d\u2019agendas cach\u00E9s, pas de prix surprise, pas de d\u00E9pendance fournisseur.',
+        'company.values.openSource.icon': '\uD83C\uDF10',
+        'company.values.openSource.title': 'Esprit open source',
+        'company.values.openSource.description':
+          'Construit sur des standards ouverts et des technologies open source. Contribuant \u00E0 l\u2019\u00E9cosyst\u00E8me qui nous permet d\u2019exister.',
+        'company.values.simplicity.icon': '\u2728',
+        'company.values.simplicity.title': 'Simplicit\u00E9 \u00E9l\u00E9gante',
+        'company.values.simplicity.description':
+          'Les probl\u00E8mes complexes m\u00E9ritent des solutions simples. Un fichier de config, une commande, une plateforme \u2014 sans complexit\u00E9 inutile.',
+        'company.values.ownership.icon': '\uD83C\uDFE1',
+        'company.values.ownership.title': 'V\u00E9ritable propri\u00E9t\u00E9',
+        'company.values.ownership.description':
+          'Tout ce que nous construisons pour vous vous appartient. Acc\u00E8s complet au source, portabilit\u00E9 totale des donn\u00E9es, z\u00E9ro d\u00E9pendance.',
+        'company.values.longTerm.icon': '\uD83C\uDF31',
+        'company.values.longTerm.title': 'Vision long terme',
+        'company.values.longTerm.description':
+          'Nous construisons pour la durabilit\u00E9, pas pour les tendances. Sovrium est con\u00E7u pour grandir avec votre organisation pendant des ann\u00E9es.',
+
+        // ── Company: Principles ────────────────────────────────────────────
+        'company.principles.title': 'Comment nous construisons',
+        'company.principles.subtitle':
+          'Cinq principes fondamentaux fa\u00E7onnent les d\u00E9cisions techniques derri\u00E8re Sovrium.',
+        'company.principles.configOverCode.title': 'La configuration plut\u00F4t que le code',
+        'company.principles.configOverCode.description':
+          'Les applications m\u00E9tier doivent \u00EAtre configur\u00E9es, pas programm\u00E9es. TypeScript, YAML ou JSON \u2014 choisissez votre format, obtenez une app compl\u00E8te en secondes.',
+        'company.principles.minimalDeps.title': 'D\u00E9pendances minimales',
+        'company.principles.minimalDeps.description':
+          'Un runtime (Bun), une base de donn\u00E9es (PostgreSQL), z\u00E9ro SDK fournisseur. R\u00E9duisez votre surface de d\u00E9pendance \u00E0 l\u2019infrastructure essentielle.',
+        'company.principles.businessFocus.title': 'Orient\u00E9 m\u00E9tier',
+        'company.principles.businessFocus.description':
+          'Les ing\u00E9nieurs doivent se concentrer sur la logique m\u00E9tier, pas l\u2019infrastructure. Sovrium g\u00E8re l\u2019auth, la base de donn\u00E9es, l\u2019API et l\u2019UI nativement.',
+        'company.principles.configReuse.title': 'R\u00E9utilisabilit\u00E9 des configurations',
+        'company.principles.configReuse.description':
+          'Les templates de configuration deviennent des actifs organisationnels. Construisez CRM, outils projet et portails \u00E0 partir de configs composables et versionn\u00E9es.',
+
+        // ── Company: Team ──────────────────────────────────────────────────
+        'company.team.title': 'L\u2019\u00E9quipe',
+        'company.team.subtitle':
+          'Sovrium est construit par ESSENTIAL SERVICES, une entreprise d\u00E9di\u00E9e \u00E0 donner aux organisations le contr\u00F4le de leur logiciel.',
+        'company.team.founder.name': 'Thomas Jeanneau',
+        'company.team.founder.role': 'Fondateur & CEO',
+        'company.team.founder.bio':
+          'Ing\u00E9nieur logiciel et entrepreneur passionn\u00E9 par la cr\u00E9ation d\u2019outils qui autonomisent les organisations. A pr\u00E9c\u00E9demment construit des outils d\u2019automatisation pour plus de 50 clients en France et en Europe.',
+
+        // ── Company: CTA ───────────────────────────────────────────────────
+        'company.cta.title': 'Rejoignez le mouvement',
+        'company.cta.description':
+          'Sovrium est open source et en d\u00E9veloppement actif. Mettez une \u00E9toile au repo, contribuez du code, ou construisez avec nous.',
+        'company.cta.github': 'Voir sur GitHub',
+        'company.cta.partners': 'Travailler avec nous',
+        'company.cta.partners.href': '/fr/partners',
+
+        // ── Company: Footer ────────────────────────────────────────────────
+        'company.footer.privacy': 'Politique de confidentialit\u00E9',
+        'company.footer.privacy.href': '/fr/privacy-policy',
+        'company.footer.terms': 'Conditions d\u2019utilisation',
+        'company.footer.terms.href': '/fr/terms-of-service',
+        'company.footer.license': 'Licence',
+        'company.footer.trademark': 'Marque d\u00E9pos\u00E9e',
+        'company.footer.partners': 'Partenaires',
+        'company.footer.partners.href': '/fr/partners',
+        'company.footer.dataDeletion': 'Suppression des donn\u00E9es',
+        'company.footer.dataDeletion.href': '/fr/data-deletion',
+        'company.footer.sovrium.href': 'https://sovrium.com/fr/',
+        'company.footer.copyright':
+          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium est une marque d\u2019ESSENTIAL SERVICES.',
       },
     },
   },
   blocks: [],
-  pages: [home, termsOfService, privacyPolicy, dataDeletion, partners, brandCharter],
+  pages: [home, termsOfService, privacyPolicy, dataDeletion, partners, company, brandCharter],
 }
