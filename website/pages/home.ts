@@ -11,17 +11,15 @@ export const home: Page = {
   name: 'home',
   path: '/',
   meta: {
-    title: 'Sovrium - Own Your Data, Own Your Tools, Own Your Future',
-    description:
-      'Self-hosted platform for building business applications. Configuration-driven development with complete data sovereignty.',
+    title: '$t:home.meta.title',
+    description: '$t:home.meta.description',
     keywords:
       'digital sovereignty, self-hosted platform, no-code alternative, configuration-driven, airtable alternative, retool alternative, SaaS replacement',
     author: 'ESSENTIAL SERVICES',
     canonical: 'https://sovrium.com',
     openGraph: {
-      title: 'Sovrium - Digital Sovereignty Platform',
-      description:
-        'Self-hosted platform for business applications without vendor lock-in. Configuration-driven development.',
+      title: '$t:home.meta.og.title',
+      description: '$t:home.meta.og.description',
       type: 'website',
       url: 'https://sovrium.com',
       image: 'https://sovrium.com/og-image.png',
@@ -29,8 +27,8 @@ export const home: Page = {
     },
     twitter: {
       card: 'summary_large_image',
-      title: 'Sovrium - Own Your Digital Infrastructure',
-      description: 'Build business applications through JSON configuration. No vendor lock-in.',
+      title: '$t:home.meta.twitter.title',
+      description: '$t:home.meta.twitter.description',
       image: 'https://sovrium.com/twitter-card.png',
     },
   },
@@ -49,7 +47,7 @@ export const home: Page = {
           children: [
             {
               type: 'h1',
-              content: 'Sovrium, the sovereignty element',
+              content: '$t:home.hero.title',
               props: {
                 className:
                   'text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight bg-gradient-to-r from-sovereignty-accent to-sovereignty-teal bg-clip-text text-transparent overflow-visible',
@@ -57,7 +55,7 @@ export const home: Page = {
             },
             {
               type: 'h2',
-              content: 'Own your data. Own your tools. Own your future.',
+              content: '$t:home.hero.subtitle',
               props: {
                 className:
                   'text-xl sm:text-2xl md:text-3xl font-semibold text-sovereignty-teal mb-8',
@@ -65,8 +63,7 @@ export const home: Page = {
             },
             {
               type: 'paragraph',
-              content:
-                'Break free from SaaS dependency with a self-hosted, configuration-driven platform that puts you back in control.',
+              content: '$t:home.hero.description',
               props: {
                 className:
                   'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 max-w-3xl mx-auto mb-12',
@@ -78,7 +75,7 @@ export const home: Page = {
               children: [
                 {
                   type: 'link',
-                  content: 'Get Started',
+                  content: '$t:home.hero.cta.primary',
                   props: {
                     href: '#getting-started',
                     className:
@@ -87,7 +84,7 @@ export const home: Page = {
                 },
                 {
                   type: 'link',
-                  content: 'View on GitHub',
+                  content: '$t:home.hero.cta.secondary',
                   props: {
                     href: 'https://github.com/sovrium/sovrium',
                     className:
@@ -115,7 +112,7 @@ export const home: Page = {
           children: [
             {
               type: 'h2',
-              content: 'The SaaS Dependency Crisis',
+              content: '$t:home.problem.title',
               props: {
                 className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
               },
@@ -135,14 +132,14 @@ export const home: Page = {
                   children: [
                     {
                       type: 'h3',
-                      content: '20+',
+                      content: '$t:home.problem.stat1.value',
                       props: {
                         className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
                       },
                     },
                     {
                       type: 'paragraph',
-                      content: 'SaaS subscriptions per company',
+                      content: '$t:home.problem.stat1.label',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -156,14 +153,14 @@ export const home: Page = {
                   children: [
                     {
                       type: 'h3',
-                      content: '$10,000+',
+                      content: '$t:home.problem.stat2.value',
                       props: {
                         className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
                       },
                     },
                     {
                       type: 'paragraph',
-                      content: 'Monthly fees for mid-sized teams',
+                      content: '$t:home.problem.stat2.label',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -177,14 +174,14 @@ export const home: Page = {
                   children: [
                     {
                       type: 'h3',
-                      content: '100%',
+                      content: '$t:home.problem.stat3.value',
                       props: {
                         className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
                       },
                     },
                     {
                       type: 'paragraph',
-                      content: 'Vendor lock-in with no-code tools',
+                      content: '$t:home.problem.stat3.label',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -199,7 +196,7 @@ export const home: Page = {
               children: [
                 {
                   type: 'h3',
-                  content: 'The Hidden Costs',
+                  content: '$t:home.problem.hidden.title',
                   props: { className: 'text-xl sm:text-2xl font-semibold mb-6 md:mb-8' },
                 },
                 {
@@ -212,7 +209,7 @@ export const home: Page = {
                       children: [
                         {
                           type: 'span',
-                          content: '❌',
+                          content: '\u274C',
                           props: { className: 'mr-3 text-xl' },
                         },
                         {
@@ -220,12 +217,12 @@ export const home: Page = {
                           children: [
                             {
                               type: 'span',
-                              content: 'Loss of Sovereignty: ',
+                              content: '$t:home.problem.hidden.cost1.title',
                               props: { className: 'font-semibold text-sovereignty-light' },
                             },
                             {
                               type: 'span',
-                              content: "Your business logic lives on someone else's platform",
+                              content: '$t:home.problem.hidden.cost1.description',
                               props: { className: 'text-sovereignty-gray-400' },
                             },
                           ],
@@ -238,7 +235,7 @@ export const home: Page = {
                       children: [
                         {
                           type: 'span',
-                          content: '❌',
+                          content: '\u274C',
                           props: { className: 'mr-3 text-xl' },
                         },
                         {
@@ -246,12 +243,12 @@ export const home: Page = {
                           children: [
                             {
                               type: 'span',
-                              content: 'Compounding Expenses: ',
+                              content: '$t:home.problem.hidden.cost2.title',
                               props: { className: 'font-semibold text-sovereignty-light' },
                             },
                             {
                               type: 'span',
-                              content: 'Per-user pricing scales exponentially with growth',
+                              content: '$t:home.problem.hidden.cost2.description',
                               props: { className: 'text-sovereignty-gray-400' },
                             },
                           ],
@@ -264,7 +261,7 @@ export const home: Page = {
                       children: [
                         {
                           type: 'span',
-                          content: '❌',
+                          content: '\u274C',
                           props: { className: 'mr-3 text-xl' },
                         },
                         {
@@ -272,12 +269,12 @@ export const home: Page = {
                           children: [
                             {
                               type: 'span',
-                              content: 'Feature Dependency: ',
+                              content: '$t:home.problem.hidden.cost3.title',
                               props: { className: 'font-semibold text-sovereignty-light' },
                             },
                             {
                               type: 'span',
-                              content: "Can't build what you need—only what vendors provide",
+                              content: '$t:home.problem.hidden.cost3.description',
                               props: { className: 'text-sovereignty-gray-400' },
                             },
                           ],
@@ -290,7 +287,7 @@ export const home: Page = {
                       children: [
                         {
                           type: 'span',
-                          content: '❌',
+                          content: '\u274C',
                           props: { className: 'mr-3 text-xl' },
                         },
                         {
@@ -298,12 +295,12 @@ export const home: Page = {
                           children: [
                             {
                               type: 'span',
-                              content: 'Engineering Distraction: ',
+                              content: '$t:home.problem.hidden.cost4.title',
                               props: { className: 'font-semibold text-sovereignty-light' },
                             },
                             {
                               type: 'span',
-                              content: 'Teams waste time integrating incompatible tools',
+                              content: '$t:home.problem.hidden.cost4.description',
                               props: { className: 'text-sovereignty-gray-400' },
                             },
                           ],
@@ -316,7 +313,7 @@ export const home: Page = {
                       children: [
                         {
                           type: 'span',
-                          content: '❌',
+                          content: '\u274C',
                           props: { className: 'mr-3 text-xl' },
                         },
                         {
@@ -324,12 +321,12 @@ export const home: Page = {
                           children: [
                             {
                               type: 'span',
-                              content: 'Strategic Risk: ',
+                              content: '$t:home.problem.hidden.cost5.title',
                               props: { className: 'font-semibold text-sovereignty-light' },
                             },
                             {
                               type: 'span',
-                              content: 'Business continuity depends on external companies',
+                              content: '$t:home.problem.hidden.cost5.description',
                               props: { className: 'text-sovereignty-gray-400' },
                             },
                           ],
@@ -359,22 +356,21 @@ export const home: Page = {
           children: [
             {
               type: 'h2',
-              content: 'The Solution: Sovrium',
+              content: '$t:home.solution.title',
               props: {
                 className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-6 md:mb-8',
               },
             },
             {
               type: 'paragraph',
-              content:
-                'A self-hosted, configuration-driven platform that interprets JSON to build full-featured web applications—without code generation, without vendor lock-in, without loss of control.',
+              content: '$t:home.solution.description',
               props: {
                 className:
                   'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center max-w-4xl mx-auto mb-12 md:mb-16',
               },
             },
 
-            // Code Example
+            // Code Example (kept as-is — code is not translatable)
             {
               type: 'card',
               props: {
@@ -388,13 +384,19 @@ export const home: Page = {
                   children: [
                     {
                       type: 'code',
-                      content: `{
-  "name": "Company CRM",
-  "tables": [ /* your data structures */ ],
-  "pages": [ /* your web interfaces */ ],
-  "automations": [ /* your workflows */ ],
-  "connections": [ /* your integrations */ ]
-}`,
+                      content: `// app.ts \u2014 Type-safe, with IDE completion
+import { start } from 'sovrium'
+
+await start({
+  name: 'Company CRM',
+  tables: [{ name: 'contacts', fields: [
+    { name: 'name', type: 'single-line-text' },
+    { name: 'email', type: 'email', required: true },
+    { name: 'status', type: 'single-select', options: ['Lead', 'Customer'] },
+  ]}],
+  pages: [{ path: '/', name: 'Dashboard' }],
+  auth: { strategies: ['email-password'], admin: { enabled: true } },
+})`,
                       props: { className: 'text-sovereignty-light font-mono text-xs sm:text-sm' },
                     },
                   ],
@@ -405,7 +407,7 @@ export const home: Page = {
                   children: [
                     {
                       type: 'paragraph',
-                      content: 'One command to run:',
+                      content: '$t:home.solution.code.alsoWorks',
                       props: { className: 'text-sovereignty-gray-400 mb-2' },
                     },
                     {
@@ -413,8 +415,11 @@ export const home: Page = {
                       children: [
                         {
                           type: 'code',
-                          content: 'bun run sovrium start config.json',
-                          props: { className: 'text-sovereignty-teal font-mono' },
+                          content:
+                            'sovrium start app.yaml      # or app.json\nbun run app.ts               # TypeScript with type safety',
+                          props: {
+                            className: 'text-sovereignty-teal font-mono text-xs sm:text-sm',
+                          },
                         },
                       ],
                     },
@@ -430,7 +435,7 @@ export const home: Page = {
               children: [
                 {
                   type: 'h3',
-                  content: 'How It Works',
+                  content: '$t:home.solution.howItWorks.title',
                   props: {
                     className: 'text-xl sm:text-2xl font-semibold mb-6 md:mb-8 text-center',
                   },
@@ -455,12 +460,12 @@ export const home: Page = {
                         },
                         {
                           type: 'h4',
-                          content: 'You write',
+                          content: '$t:home.solution.howItWorks.step1.title',
                           props: { className: 'font-semibold mb-2' },
                         },
                         {
                           type: 'paragraph',
-                          content: 'JSON configuration describing your business needs',
+                          content: '$t:home.solution.howItWorks.step1.description',
                           props: { className: 'text-sm text-sovereignty-gray-400' },
                         },
                       ],
@@ -479,12 +484,12 @@ export const home: Page = {
                         },
                         {
                           type: 'h4',
-                          content: 'Sovrium interprets',
+                          content: '$t:home.solution.howItWorks.step2.title',
                           props: { className: 'font-semibold mb-2' },
                         },
                         {
                           type: 'paragraph',
-                          content: 'Configuration at runtime (no code generation)',
+                          content: '$t:home.solution.howItWorks.step2.description',
                           props: { className: 'text-sm text-sovereignty-gray-400' },
                         },
                       ],
@@ -503,12 +508,12 @@ export const home: Page = {
                         },
                         {
                           type: 'h4',
-                          content: 'You own',
+                          content: '$t:home.solution.howItWorks.step3.title',
                           props: { className: 'font-semibold mb-2' },
                         },
                         {
                           type: 'paragraph',
-                          content: 'Full application running on your servers',
+                          content: '$t:home.solution.howItWorks.step3.description',
                           props: { className: 'text-sm text-sovereignty-gray-400' },
                         },
                       ],
@@ -527,12 +532,12 @@ export const home: Page = {
                         },
                         {
                           type: 'h4',
-                          content: 'You control',
+                          content: '$t:home.solution.howItWorks.step4.title',
                           props: { className: 'font-semibold mb-2' },
                         },
                         {
                           type: 'paragraph',
-                          content: 'Data, features, deployment, everything',
+                          content: '$t:home.solution.howItWorks.step4.description',
                           props: { className: 'text-sm text-sovereignty-gray-400' },
                         },
                       ],
@@ -560,7 +565,7 @@ export const home: Page = {
           children: [
             {
               type: 'h2',
-              content: 'Core Principles',
+              content: '$t:home.principles.title',
               props: {
                 className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
               },
@@ -580,21 +585,33 @@ export const home: Page = {
                     {
                       type: 'div',
                       props: { className: 'text-sovereignty-accent text-2xl sm:text-3xl mb-4' },
-                      content: '🛡️',
+                      content: '\uD83D\uDEE1\uFE0F',
                     },
                     {
                       type: 'h3',
-                      content: 'Digital Sovereignty',
+                      content: '$t:home.principles.sovereignty.title',
                       props: { className: 'text-xl sm:text-2xl font-semibold mb-4' },
                     },
                     {
                       type: 'div',
                       props: { className: 'space-y-2 text-sovereignty-gray-400' },
                       children: [
-                        { type: 'paragraph', content: '✓ Your data on your infrastructure' },
-                        { type: 'paragraph', content: '✓ Your features, your business needs' },
-                        { type: 'paragraph', content: '✓ Your control over deployment & security' },
-                        { type: 'paragraph', content: '✓ Your independence from vendor decisions' },
+                        {
+                          type: 'paragraph',
+                          content: '$t:home.principles.sovereignty.point1',
+                        },
+                        {
+                          type: 'paragraph',
+                          content: '$t:home.principles.sovereignty.point2',
+                        },
+                        {
+                          type: 'paragraph',
+                          content: '$t:home.principles.sovereignty.point3',
+                        },
+                        {
+                          type: 'paragraph',
+                          content: '$t:home.principles.sovereignty.point4',
+                        },
                       ],
                     },
                   ],
@@ -611,11 +628,11 @@ export const home: Page = {
                     {
                       type: 'div',
                       props: { className: 'text-sovereignty-accent text-2xl sm:text-3xl mb-4' },
-                      content: '⚙️',
+                      content: '\u2699\uFE0F',
                     },
                     {
                       type: 'h3',
-                      content: 'Configuration Over Coding',
+                      content: '$t:home.principles.configuration.title',
                       props: { className: 'text-xl sm:text-2xl font-semibold mb-4' },
                     },
                     {
@@ -624,19 +641,19 @@ export const home: Page = {
                       children: [
                         {
                           type: 'paragraph',
-                          content: '✓ JSON/TypeScript instead of drag-and-drop',
+                          content: '$t:home.principles.configuration.point1',
                         },
                         {
                           type: 'paragraph',
-                          content: '✓ Version control (Git) for all configuration',
+                          content: '$t:home.principles.configuration.point2',
                         },
                         {
                           type: 'paragraph',
-                          content: '✓ Type safety with compile-time validation',
+                          content: '$t:home.principles.configuration.point3',
                         },
                         {
                           type: 'paragraph',
-                          content: '✓ Reusable templates as organizational knowledge',
+                          content: '$t:home.principles.configuration.point4',
                         },
                       ],
                     },
@@ -654,11 +671,11 @@ export const home: Page = {
                     {
                       type: 'div',
                       props: { className: 'text-sovereignty-accent text-2xl sm:text-3xl mb-4' },
-                      content: '📦',
+                      content: '\uD83D\uDCE6',
                     },
                     {
                       type: 'h3',
-                      content: 'Minimal Dependencies',
+                      content: '$t:home.principles.dependencies.title',
                       props: { className: 'text-xl sm:text-2xl font-semibold mb-4' },
                     },
                     {
@@ -667,14 +684,20 @@ export const home: Page = {
                       children: [
                         {
                           type: 'paragraph',
-                          content: '✓ Depend only on commodity compute & storage',
+                          content: '$t:home.principles.dependencies.point1',
                         },
-                        { type: 'paragraph', content: '✓ No proprietary SaaS platforms' },
                         {
                           type: 'paragraph',
-                          content: '✓ Source-available for auditing & extending',
+                          content: '$t:home.principles.dependencies.point2',
                         },
-                        { type: 'paragraph', content: '✓ Self-hosted, no external service calls' },
+                        {
+                          type: 'paragraph',
+                          content: '$t:home.principles.dependencies.point3',
+                        },
+                        {
+                          type: 'paragraph',
+                          content: '$t:home.principles.dependencies.point4',
+                        },
                       ],
                     },
                   ],
@@ -691,21 +714,21 @@ export const home: Page = {
                     {
                       type: 'div',
                       props: { className: 'text-sovereignty-accent text-2xl sm:text-3xl mb-4' },
-                      content: '🎯',
+                      content: '\uD83C\uDFAF',
                     },
                     {
                       type: 'h3',
-                      content: 'Business Focus',
+                      content: '$t:home.principles.business.title',
                       props: { className: 'text-xl sm:text-2xl font-semibold mb-4' },
                     },
                     {
                       type: 'div',
                       props: { className: 'space-y-2 text-sovereignty-gray-400' },
                       children: [
-                        { type: 'paragraph', content: '✓ No DevOps overhead (included)' },
-                        { type: 'paragraph', content: '✓ No integration hell (one platform)' },
-                        { type: 'paragraph', content: '✓ No vendor research needed' },
-                        { type: 'paragraph', content: '✓ Instant iteration (config → refresh)' },
+                        { type: 'paragraph', content: '$t:home.principles.business.point1' },
+                        { type: 'paragraph', content: '$t:home.principles.business.point2' },
+                        { type: 'paragraph', content: '$t:home.principles.business.point3' },
+                        { type: 'paragraph', content: '$t:home.principles.business.point4' },
                       ],
                     },
                   ],
@@ -731,7 +754,7 @@ export const home: Page = {
           children: [
             {
               type: 'h2',
-              content: 'The Sovrium Advantage',
+              content: '$t:home.comparison.title',
               props: {
                 className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
               },
@@ -747,12 +770,12 @@ export const home: Page = {
               children: [
                 {
                   type: 'h3',
-                  content: '80% faster than custom development',
+                  content: '$t:home.comparison.stat1',
                   props: { className: 'text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2' },
                 },
                 {
                   type: 'h3',
-                  content: '100% more control than SaaS',
+                  content: '$t:home.comparison.stat2',
                   props: { className: 'text-xl sm:text-2xl md:text-3xl font-bold text-white' },
                 },
               ],
@@ -765,7 +788,7 @@ export const home: Page = {
               children: [
                 {
                   type: 'h3',
-                  content: 'vs. Traditional No-Code SaaS',
+                  content: '$t:home.comparison.table.title',
                   props: { className: 'text-xl sm:text-2xl font-semibold mb-6' },
                 },
                 {
@@ -788,7 +811,7 @@ export const home: Page = {
                             {
                               type: 'div',
                               props: { className: 'font-semibold' },
-                              content: 'Aspect',
+                              content: '$t:home.comparison.table.header.aspect',
                             },
                             {
                               type: 'div',
@@ -803,107 +826,107 @@ export const home: Page = {
                             // Data Ownership
                             {
                               type: 'div',
-                              content: 'Data Ownership',
+                              content: '$t:home.comparison.table.row1.aspect',
                             },
                             {
                               type: 'div',
                               props: { className: 'text-green-400' },
-                              content: '✅ Your servers',
+                              content: '$t:home.comparison.table.row1.sovrium',
                             },
                             {
                               type: 'div',
                               props: { className: 'text-red-400' },
-                              content: '❌ Vendor cloud',
+                              content: '$t:home.comparison.table.row1.saas',
                             },
                             // Source Code
                             {
                               type: 'div',
-                              content: 'Source Code',
+                              content: '$t:home.comparison.table.row2.aspect',
                             },
                             {
                               type: 'div',
                               props: { className: 'text-green-400' },
-                              content: '✅ Available (fair-code)',
+                              content: '$t:home.comparison.table.row2.sovrium',
                             },
                             {
                               type: 'div',
                               props: { className: 'text-red-400' },
-                              content: '❌ Proprietary',
+                              content: '$t:home.comparison.table.row2.saas',
                             },
                             // Monthly Cost
                             {
                               type: 'div',
-                              content: 'Monthly Cost',
+                              content: '$t:home.comparison.table.row3.aspect',
                             },
                             {
                               type: 'div',
                               props: { className: 'text-green-400' },
-                              content: '$0 (infra only)',
+                              content: '$t:home.comparison.table.row3.sovrium',
                             },
                             {
                               type: 'div',
                               props: { className: 'text-red-400' },
-                              content: '$20-50/user/month',
+                              content: '$t:home.comparison.table.row3.saas',
                             },
                             // Vendor Lock-in
                             {
                               type: 'div',
-                              content: 'Vendor Lock-in',
+                              content: '$t:home.comparison.table.row4.aspect',
                             },
                             {
                               type: 'div',
                               props: { className: 'text-green-400' },
-                              content: '✅ None',
+                              content: '$t:home.comparison.table.row4.sovrium',
                             },
                             {
                               type: 'div',
                               props: { className: 'text-red-400' },
-                              content: '❌ Complete',
+                              content: '$t:home.comparison.table.row4.saas',
                             },
                             // Customization
                             {
                               type: 'div',
-                              content: 'Customization',
+                              content: '$t:home.comparison.table.row5.aspect',
                             },
                             {
                               type: 'div',
                               props: { className: 'text-green-400' },
-                              content: '✅ Unlimited',
+                              content: '$t:home.comparison.table.row5.sovrium',
                             },
                             {
                               type: 'div',
                               props: { className: 'text-yellow-400' },
-                              content: '⚠️ Limited',
+                              content: '$t:home.comparison.table.row5.saas',
                             },
                             // Version Control
                             {
                               type: 'div',
-                              content: 'Version Control',
+                              content: '$t:home.comparison.table.row6.aspect',
                             },
                             {
                               type: 'div',
                               props: { className: 'text-green-400' },
-                              content: '✅ Git-native',
+                              content: '$t:home.comparison.table.row6.sovrium',
                             },
                             {
                               type: 'div',
                               props: { className: 'text-yellow-400' },
-                              content: '⚠️ Limited',
+                              content: '$t:home.comparison.table.row6.saas',
                             },
                             // Privacy
                             {
                               type: 'div',
-                              content: 'Privacy',
+                              content: '$t:home.comparison.table.row7.aspect',
                             },
                             {
                               type: 'div',
                               props: { className: 'text-green-400' },
-                              content: '✅ 100% your control',
+                              content: '$t:home.comparison.table.row7.sovrium',
                             },
                             {
                               type: 'div',
                               props: { className: 'text-red-400' },
-                              content: '❌ Third-party servers',
+                              content: '$t:home.comparison.table.row7.saas',
                             },
                           ],
                         },
@@ -932,7 +955,7 @@ export const home: Page = {
           children: [
             {
               type: 'h2',
-              content: 'Built For',
+              content: '$t:home.useCases.title',
               props: {
                 className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
               },
@@ -950,13 +973,12 @@ export const home: Page = {
                   children: [
                     {
                       type: 'h3',
-                      content: '📊 Internal Tools',
+                      content: '$t:home.useCases.internal.title',
                       props: { className: 'text-xl font-semibold mb-3' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        'Admin dashboards, employee portals, data management systems—build exactly what your team needs without per-user SaaS fees.',
+                      content: '$t:home.useCases.internal.description',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -970,13 +992,12 @@ export const home: Page = {
                   children: [
                     {
                       type: 'h3',
-                      content: '👥 Customer Portals',
+                      content: '$t:home.useCases.portals.title',
                       props: { className: 'text-xl font-semibold mb-3' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        'Self-service interfaces, account management, support systems—give customers control while keeping data on your servers.',
+                      content: '$t:home.useCases.portals.description',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -990,13 +1011,12 @@ export const home: Page = {
                   children: [
                     {
                       type: 'h3',
-                      content: '🏢 Business Applications',
+                      content: '$t:home.useCases.business.title',
                       props: { className: 'text-xl font-semibold mb-3' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        'CRM, inventory management, project tracking—configure complex workflows without vendor limitations.',
+                      content: '$t:home.useCases.business.description',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -1010,13 +1030,12 @@ export const home: Page = {
                   children: [
                     {
                       type: 'h3',
-                      content: '🔌 API Platforms',
+                      content: '$t:home.useCases.api.title',
                       props: { className: 'text-xl font-semibold mb-3' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        'REST endpoints, webhooks, third-party integrations—expose your data securely on your terms.',
+                      content: '$t:home.useCases.api.description',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -1030,13 +1049,12 @@ export const home: Page = {
                   children: [
                     {
                       type: 'h3',
-                      content: '🌐 Static Websites',
+                      content: '$t:home.useCases.static.title',
                       props: { className: 'text-xl font-semibold mb-3' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        'Marketing sites, landing pages, documentation—generate static assets from JSON configuration.',
+                      content: '$t:home.useCases.static.description',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                   ],
@@ -1050,14 +1068,220 @@ export const home: Page = {
                   children: [
                     {
                       type: 'h3',
-                      content: '🚀 MVP Development',
+                      content: '$t:home.useCases.mvp.title',
                       props: { className: 'text-xl font-semibold mb-3' },
                     },
                     {
                       type: 'paragraph',
-                      content:
-                        'Rapid prototyping, startup MVPs, proof of concepts—launch faster without technical debt.',
+                      content: '$t:home.useCases.mvp.description',
                       props: { className: 'text-sovereignty-gray-400' },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+
+    // Platform Features Section
+    {
+      type: 'section',
+      props: {
+        className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
+        id: 'features',
+      },
+      children: [
+        {
+          type: 'container',
+          props: { className: 'max-w-6xl mx-auto px-4' },
+          children: [
+            {
+              type: 'h2',
+              content: '$t:home.features.title',
+              props: {
+                className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-6 md:mb-8',
+              },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:home.features.subtitle',
+              props: {
+                className:
+                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center mb-12 md:mb-16',
+              },
+            },
+
+            // Feature Categories Grid
+            {
+              type: 'grid',
+              props: { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8' },
+              children: [
+                // Authentication
+                {
+                  type: 'card',
+                  props: {
+                    className:
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                  },
+                  children: [
+                    {
+                      type: 'h3',
+                      content: '$t:home.features.auth.title',
+                      props: { className: 'text-xl font-semibold mb-3' },
+                    },
+                    {
+                      type: 'div',
+                      props: { className: 'space-y-1 text-sm text-sovereignty-gray-400' },
+                      children: [
+                        { type: 'paragraph', content: '$t:home.features.auth.point1' },
+                        { type: 'paragraph', content: '$t:home.features.auth.point2' },
+                        { type: 'paragraph', content: '$t:home.features.auth.point3' },
+                        { type: 'paragraph', content: '$t:home.features.auth.point4' },
+                        { type: 'paragraph', content: '$t:home.features.auth.point5' },
+                        { type: 'paragraph', content: '$t:home.features.auth.point6' },
+                      ],
+                    },
+                  ],
+                },
+
+                // Tables & Data
+                {
+                  type: 'card',
+                  props: {
+                    className:
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                  },
+                  children: [
+                    {
+                      type: 'h3',
+                      content: '$t:home.features.tables.title',
+                      props: { className: 'text-xl font-semibold mb-3' },
+                    },
+                    {
+                      type: 'div',
+                      props: { className: 'space-y-1 text-sm text-sovereignty-gray-400' },
+                      children: [
+                        { type: 'paragraph', content: '$t:home.features.tables.point1' },
+                        { type: 'paragraph', content: '$t:home.features.tables.point2' },
+                        { type: 'paragraph', content: '$t:home.features.tables.point3' },
+                        { type: 'paragraph', content: '$t:home.features.tables.point4' },
+                        { type: 'paragraph', content: '$t:home.features.tables.point5' },
+                        { type: 'paragraph', content: '$t:home.features.tables.point6' },
+                      ],
+                    },
+                  ],
+                },
+
+                // Records API
+                {
+                  type: 'card',
+                  props: {
+                    className:
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                  },
+                  children: [
+                    {
+                      type: 'h3',
+                      content: '$t:home.features.api.title',
+                      props: { className: 'text-xl font-semibold mb-3' },
+                    },
+                    {
+                      type: 'div',
+                      props: { className: 'space-y-1 text-sm text-sovereignty-gray-400' },
+                      children: [
+                        { type: 'paragraph', content: '$t:home.features.api.point1' },
+                        { type: 'paragraph', content: '$t:home.features.api.point2' },
+                        { type: 'paragraph', content: '$t:home.features.api.point3' },
+                        { type: 'paragraph', content: '$t:home.features.api.point4' },
+                        { type: 'paragraph', content: '$t:home.features.api.point5' },
+                        { type: 'paragraph', content: '$t:home.features.api.point6' },
+                      ],
+                    },
+                  ],
+                },
+
+                // Pages & UI
+                {
+                  type: 'card',
+                  props: {
+                    className:
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                  },
+                  children: [
+                    {
+                      type: 'h3',
+                      content: '$t:home.features.pages.title',
+                      props: { className: 'text-xl font-semibold mb-3' },
+                    },
+                    {
+                      type: 'div',
+                      props: { className: 'space-y-1 text-sm text-sovereignty-gray-400' },
+                      children: [
+                        { type: 'paragraph', content: '$t:home.features.pages.point1' },
+                        { type: 'paragraph', content: '$t:home.features.pages.point2' },
+                        { type: 'paragraph', content: '$t:home.features.pages.point3' },
+                        { type: 'paragraph', content: '$t:home.features.pages.point4' },
+                        { type: 'paragraph', content: '$t:home.features.pages.point5' },
+                        { type: 'paragraph', content: '$t:home.features.pages.point6' },
+                      ],
+                    },
+                  ],
+                },
+
+                // Theming & i18n
+                {
+                  type: 'card',
+                  props: {
+                    className:
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                  },
+                  children: [
+                    {
+                      type: 'h3',
+                      content: '$t:home.features.theming.title',
+                      props: { className: 'text-xl font-semibold mb-3' },
+                    },
+                    {
+                      type: 'div',
+                      props: { className: 'space-y-1 text-sm text-sovereignty-gray-400' },
+                      children: [
+                        { type: 'paragraph', content: '$t:home.features.theming.point1' },
+                        { type: 'paragraph', content: '$t:home.features.theming.point2' },
+                        { type: 'paragraph', content: '$t:home.features.theming.point3' },
+                        { type: 'paragraph', content: '$t:home.features.theming.point4' },
+                        { type: 'paragraph', content: '$t:home.features.theming.point5' },
+                        { type: 'paragraph', content: '$t:home.features.theming.point6' },
+                      ],
+                    },
+                  ],
+                },
+
+                // Admin & Operations
+                {
+                  type: 'card',
+                  props: {
+                    className:
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors',
+                  },
+                  children: [
+                    {
+                      type: 'h3',
+                      content: '$t:home.features.admin.title',
+                      props: { className: 'text-xl font-semibold mb-3' },
+                    },
+                    {
+                      type: 'div',
+                      props: { className: 'space-y-1 text-sm text-sovereignty-gray-400' },
+                      children: [
+                        { type: 'paragraph', content: '$t:home.features.admin.point1' },
+                        { type: 'paragraph', content: '$t:home.features.admin.point2' },
+                        { type: 'paragraph', content: '$t:home.features.admin.point3' },
+                        { type: 'paragraph', content: '$t:home.features.admin.point4' },
+                        { type: 'paragraph', content: '$t:home.features.admin.point5' },
+                        { type: 'paragraph', content: '$t:home.features.admin.point6' },
+                      ],
                     },
                   ],
                 },
@@ -1072,7 +1296,7 @@ export const home: Page = {
     {
       type: 'section',
       props: {
-        className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
         id: 'tech-stack',
       },
       children: [
@@ -1082,14 +1306,14 @@ export const home: Page = {
           children: [
             {
               type: 'h2',
-              content: 'Technical Architecture',
+              content: '$t:home.techStack.title',
               props: {
                 className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-6 md:mb-8',
               },
             },
             {
               type: 'paragraph',
-              content: 'Built on modern, proven technologies',
+              content: '$t:home.techStack.subtitle',
               props: {
                 className:
                   'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center mb-12 md:mb-16',
@@ -1157,6 +1381,14 @@ export const home: Page = {
                 },
                 {
                   type: 'badge',
+                  content: 'Better Auth',
+                  props: {
+                    className:
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors',
+                  },
+                },
+                {
+                  type: 'badge',
                   content: 'Tailwind CSS',
                   props: {
                     className:
@@ -1184,7 +1416,7 @@ export const home: Page = {
           children: [
             {
               type: 'h2',
-              content: 'Get Started',
+              content: '$t:home.gettingStarted.title',
               props: {
                 className: 'text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-12 md:mb-16',
               },
@@ -1212,7 +1444,7 @@ export const home: Page = {
                     },
                     {
                       type: 'h3',
-                      content: 'Install',
+                      content: '$t:home.gettingStarted.step1.title',
                       props: { className: 'text-xl font-semibold mb-2' },
                     },
                     {
@@ -1239,12 +1471,12 @@ export const home: Page = {
                     },
                     {
                       type: 'h3',
-                      content: 'Configure',
+                      content: '$t:home.gettingStarted.step2.title',
                       props: { className: 'text-xl font-semibold mb-2' },
                     },
                     {
                       type: 'paragraph',
-                      content: 'Create config.json with tables, pages, workflows',
+                      content: '$t:home.gettingStarted.step2.description',
                       props: { className: 'text-sm text-sovereignty-gray-400' },
                     },
                   ],
@@ -1263,7 +1495,7 @@ export const home: Page = {
                     },
                     {
                       type: 'h3',
-                      content: 'Run',
+                      content: '$t:home.gettingStarted.step3.title',
                       props: { className: 'text-xl font-semibold mb-2' },
                     },
                     {
@@ -1290,12 +1522,12 @@ export const home: Page = {
                     },
                     {
                       type: 'h3',
-                      content: 'Deploy',
+                      content: '$t:home.gettingStarted.step4.title',
                       props: { className: 'text-xl font-semibold mb-2' },
                     },
                     {
                       type: 'paragraph',
-                      content: 'Host on AWS, Vercel, Docker, or bare metal',
+                      content: '$t:home.gettingStarted.step4.description',
                       props: { className: 'text-sm text-sovereignty-gray-400' },
                     },
                   ],
@@ -1313,18 +1545,17 @@ export const home: Page = {
               children: [
                 {
                   type: 'h3',
-                  content: '🚧 Phase 0 - Foundation',
+                  content: '$t:home.gettingStarted.status.title',
                   props: { className: 'text-xl sm:text-2xl font-semibold mb-4' },
                 },
                 {
                   type: 'paragraph',
-                  content:
-                    'Currently in early development. Static website generation available now. Core features coming in 2025-2026.',
+                  content: '$t:home.gettingStarted.status.description',
                   props: { className: 'text-sovereignty-gray-400 mb-6' },
                 },
                 {
                   type: 'link',
-                  content: '⭐ Star on GitHub to Follow Progress',
+                  content: '$t:home.gettingStarted.status.cta',
                   props: {
                     href: 'https://github.com/sovrium/sovrium',
                     className:
@@ -1352,7 +1583,7 @@ export const home: Page = {
           children: [
             {
               type: 'h2',
-              content: 'Ready to break free from SaaS dependency?',
+              content: '$t:home.footer.cta.title',
               props: { className: 'text-2xl sm:text-3xl font-bold mb-6 md:mb-8' },
             },
             {
@@ -1361,7 +1592,7 @@ export const home: Page = {
               children: [
                 {
                   type: 'link',
-                  content: 'View Documentation',
+                  content: '$t:home.footer.cta.docs',
                   props: {
                     href: 'https://github.com/sovrium/sovrium/blob/main/README.md',
                     className:
@@ -1370,7 +1601,7 @@ export const home: Page = {
                 },
                 {
                   type: 'link',
-                  content: 'GitHub Repository',
+                  content: '$t:home.footer.cta.github',
                   props: {
                     href: 'https://github.com/sovrium/sovrium',
                     className:
@@ -1390,23 +1621,23 @@ export const home: Page = {
               children: [
                 {
                   type: 'link',
-                  content: 'Privacy Policy',
+                  content: '$t:home.footer.privacy',
                   props: {
-                    href: '/privacy-policy',
+                    href: '$t:home.footer.privacy.href',
                     className: 'hover:text-sovereignty-accent transition-colors',
                   },
                 },
                 {
                   type: 'link',
-                  content: 'Terms of Service',
+                  content: '$t:home.footer.terms',
                   props: {
-                    href: '/terms-of-service',
+                    href: '$t:home.footer.terms.href',
                     className: 'hover:text-sovereignty-accent transition-colors',
                   },
                 },
                 {
                   type: 'link',
-                  content: 'License',
+                  content: '$t:home.footer.license',
                   props: {
                     href: 'https://github.com/sovrium/sovrium/blob/main/LICENSE.md',
                     className: 'hover:text-sovereignty-accent transition-colors',
@@ -1414,9 +1645,17 @@ export const home: Page = {
                 },
                 {
                   type: 'link',
-                  content: 'Trademark',
+                  content: '$t:home.footer.trademark',
                   props: {
                     href: 'https://github.com/sovrium/sovrium/blob/main/TRADEMARK.md',
+                    className: 'hover:text-sovereignty-accent transition-colors',
+                  },
+                },
+                {
+                  type: 'link',
+                  content: '$t:home.footer.partners',
+                  props: {
+                    href: '$t:home.footer.partners.href',
                     className: 'hover:text-sovereignty-accent transition-colors',
                   },
                 },
@@ -1425,7 +1664,7 @@ export const home: Page = {
 
             {
               type: 'paragraph',
-              content: '© 2025 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
+              content: '$t:home.footer.copyright',
               props: { className: 'text-sovereignty-gray-500 text-sm' },
             },
           ],
@@ -1452,7 +1691,7 @@ export const home: Page = {
           children: [
             {
               type: 'span',
-              content: '⚡',
+              content: '\u26A1',
               props: { className: 'text-sm' },
             },
             {
