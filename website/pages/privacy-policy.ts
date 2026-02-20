@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { favicons } from './favicons'
+import { footer } from './footer'
 import { navbar } from './navbar'
 import type { Page } from '@/index'
 
@@ -13,11 +15,24 @@ export const privacyPolicy: Page = {
   path: '/privacy-policy',
   meta: {
     title: 'Privacy Policy - Sovrium',
-    description: 'Privacy policy for Sovrium, the self-hosted configuration-driven platform',
+    description:
+      'Privacy policy for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
     canonical: 'https://sovrium.com/privacy-policy',
-    favicons: {
-      icon: './favicon.svg',
+    openGraph: {
+      title: 'Privacy Policy - Sovrium',
+      description:
+        'Privacy policy for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+      url: 'https://sovrium.com/privacy-policy',
+      siteName: 'Sovrium',
+      type: 'website',
     },
+    twitter: {
+      card: 'summary',
+      title: 'Privacy Policy - Sovrium',
+      description:
+        'Privacy policy for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+    },
+    favicons,
   },
   sections: [
     // Navigation Bar
@@ -143,7 +158,21 @@ export const privacyPolicy: Page = {
 
                 {
                   type: 'h3',
-                  content: '2.2 Self-Hosted Software',
+                  content: '2.2 Cookies',
+                  props: {
+                    className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
+                  },
+                },
+                {
+                  type: 'paragraph',
+                  content:
+                    'The sovrium.com website does not use cookies. We do not set any first-party or third-party cookies. No cookie consent banner is necessary because no cookies are used.',
+                  props: { className: 'text-sovereignty-light' },
+                },
+
+                {
+                  type: 'h3',
+                  content: '2.3 Self-Hosted Software',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
@@ -189,7 +218,7 @@ export const privacyPolicy: Page = {
 
                 {
                   type: 'h3',
-                  content: '2.3 GitHub and Open Source',
+                  content: '2.4 GitHub and Open Source',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
@@ -203,7 +232,7 @@ export const privacyPolicy: Page = {
 
                 {
                   type: 'h3',
-                  content: '2.4 Facebook and Social Login',
+                  content: '2.5 Facebook and Social Login',
                   props: {
                     className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
                   },
@@ -379,8 +408,79 @@ export const privacyPolicy: Page = {
                 {
                   type: 'paragraph',
                   content:
-                    'These services have their own privacy policies and data practices. We encourage you to review their policies.',
+                    'These services have their own privacy policies and data practices. We encourage you to review their policies, in particular the Meta Privacy Policy at https://www.facebook.com/privacy/policy/.',
                   props: { className: 'text-sovereignty-light mt-3' },
+                },
+
+                {
+                  type: 'h3',
+                  content: '4.1 Data Sharing',
+                  props: {
+                    className: 'text-lg sm:text-xl font-semibold mb-3 mt-6 text-sovereignty-teal',
+                  },
+                },
+                {
+                  type: 'paragraph',
+                  content:
+                    'ESSENTIAL SERVICES does not sell, rent, or trade your personal data to third parties. We do not share your personal data with third parties for their marketing purposes. Data may only be shared with third parties in the following limited circumstances:',
+                  props: { className: 'text-sovereignty-light mb-3' },
+                },
+                {
+                  type: 'div',
+                  props: { className: 'ml-4 sm:ml-6 space-y-2' },
+                  children: [
+                    {
+                      type: 'paragraph',
+                      content:
+                        '\u2022 With your explicit consent (e.g., when you authorize a social login)',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content:
+                        '\u2022 To comply with legal obligations or respond to lawful government requests',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content:
+                        '\u2022 To protect the rights, property, or safety of ESSENTIAL SERVICES, our users, or the public',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                  ],
+                },
+              ],
+            },
+
+            // International Data Transfers
+            {
+              type: 'div',
+              props: { className: 'mb-8' },
+              children: [
+                {
+                  type: 'h2',
+                  content: '5. International Data Transfers',
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-4 text-sovereignty-accent',
+                  },
+                },
+                {
+                  type: 'paragraph',
+                  content:
+                    'When you use Facebook Login or other social authentication providers, your data may be transferred to and processed in countries outside the European Economic Area (EEA), including the United States. These transfers are necessary for the performance of the authentication service and are conducted in accordance with applicable data protection laws.',
+                  props: { className: 'text-sovereignty-light mb-4' },
+                },
+                {
+                  type: 'paragraph',
+                  content:
+                    'Where data is transferred outside the EEA, we rely on appropriate safeguards such as the EU-US Data Privacy Framework, Standard Contractual Clauses (SCCs), or other lawful transfer mechanisms to ensure your data is adequately protected.',
+                  props: { className: 'text-sovereignty-light mb-4' },
+                },
+                {
+                  type: 'paragraph',
+                  content:
+                    'For self-hosted Sovrium installations, data transfers are determined by the organization operating the instance. ESSENTIAL SERVICES has no involvement in those transfers.',
+                  props: { className: 'text-sovereignty-light' },
                 },
               ],
             },
@@ -392,7 +492,7 @@ export const privacyPolicy: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: '5. Your Rights',
+                  content: '6. Your Rights',
                   props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
                 },
                 {
@@ -446,7 +546,7 @@ export const privacyPolicy: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: '6. Security',
+                  content: '7. Security',
                   props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
                 },
                 {
@@ -465,7 +565,7 @@ export const privacyPolicy: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: "7. Children's Privacy",
+                  content: "8. Children's Privacy",
                   props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
                 },
                 {
@@ -484,7 +584,7 @@ export const privacyPolicy: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: '8. Changes to This Policy',
+                  content: '9. Changes to This Policy',
                   props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
                 },
                 {
@@ -503,7 +603,7 @@ export const privacyPolicy: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: '9. Contact Information',
+                  content: '10. Contact Information',
                   props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
                 },
                 {
@@ -572,7 +672,7 @@ export const privacyPolicy: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: '10. Data Protection',
+                  content: '11. Data Protection',
                   props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
                 },
                 {
@@ -589,59 +689,6 @@ export const privacyPolicy: Page = {
     },
 
     // Footer
-    {
-      type: 'section',
-      props: {
-        className:
-          'py-8 bg-sovereignty-darker border-t border-sovereignty-gray-800 text-sovereignty-light',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'max-w-4xl mx-auto px-4 text-center' },
-          children: [
-            {
-              type: 'flex',
-              props: {
-                className:
-                  'flex-col sm:flex-row justify-center gap-4 sm:gap-6 md:gap-8 text-sovereignty-gray-400 mb-4 text-center sm:text-left',
-              },
-              children: [
-                {
-                  type: 'link',
-                  content: 'Back to Home',
-                  props: {
-                    href: '/',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: 'Terms of Service',
-                  props: {
-                    href: '/terms-of-service',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: 'GitHub',
-                  props: {
-                    href: 'https://github.com/sovrium/sovrium',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-              ],
-            },
-            {
-              type: 'paragraph',
-              content:
-                '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
-              props: { className: 'text-sovereignty-gray-500 text-sm' },
-            },
-          ],
-        },
-      ],
-    },
+    footer,
   ],
 }

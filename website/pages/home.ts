@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { favicons } from './favicons'
 import { navbar } from './navbar'
 import type { Page } from '@/index'
 
@@ -18,9 +19,7 @@ export const home: Page = {
       'digital sovereignty, self-hosted platform, no-code alternative, configuration-driven, airtable alternative, retool alternative, SaaS replacement',
     author: 'ESSENTIAL SERVICES',
     canonical: 'https://sovrium.com',
-    favicons: {
-      icon: './favicon.svg',
-    },
+    favicons,
     openGraph: {
       title: '$t:home.meta.og.title',
       description: '$t:home.meta.og.description',
@@ -1639,6 +1638,14 @@ await start({
                   content: '$t:home.footer.terms',
                   props: {
                     href: '$t:home.footer.terms.href',
+                    className: 'hover:text-sovereignty-accent transition-colors',
+                  },
+                },
+                {
+                  type: 'link',
+                  content: '$t:home.footer.dataDeletion',
+                  props: {
+                    href: '$t:home.footer.dataDeletion.href',
                     className: 'hover:text-sovereignty-accent transition-colors',
                   },
                 },

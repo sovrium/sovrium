@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { favicons } from './favicons'
 import { navbar } from './navbar'
 import type { Page } from '@/index'
 
@@ -67,9 +68,7 @@ export const company: Page = {
       'sovrium, company, vision, team, ESSENTIAL SERVICES, digital sovereignty, open source',
     author: 'ESSENTIAL SERVICES',
     canonical: 'https://sovrium.com/company',
-    favicons: {
-      icon: './favicon.svg',
-    },
+    favicons,
     openGraph: {
       title: '$t:company.meta.og.title',
       description: '$t:company.meta.og.description',
@@ -599,6 +598,14 @@ export const company: Page = {
                   content: '$t:company.footer.terms',
                   props: {
                     href: '$t:company.footer.terms.href',
+                    className: 'hover:text-sovereignty-accent transition-colors',
+                  },
+                },
+                {
+                  type: 'link',
+                  content: '$t:company.footer.dataDeletion',
+                  props: {
+                    href: '$t:company.footer.dataDeletion.href',
                     className: 'hover:text-sovereignty-accent transition-colors',
                   },
                 },

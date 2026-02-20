@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { favicons } from './favicons'
+import { footer } from './footer'
 import { navbar } from './navbar'
 import type { Page } from '@/index'
 
@@ -16,9 +18,21 @@ export const dataDeletion: Page = {
     description:
       'Instructions for requesting deletion of your data related to Sovrium software and services by ESSENTIAL SERVICES.',
     canonical: 'https://sovrium.com/data-deletion',
-    favicons: {
-      icon: './favicon.svg',
+    openGraph: {
+      title: 'Data Deletion Request - Sovrium',
+      description:
+        'Instructions for requesting deletion of your data related to Sovrium software and services by ESSENTIAL SERVICES.',
+      url: 'https://sovrium.com/data-deletion',
+      siteName: 'Sovrium',
+      type: 'website',
     },
+    twitter: {
+      card: 'summary',
+      title: 'Data Deletion Request - Sovrium',
+      description:
+        'Instructions for requesting deletion of your data related to Sovrium software and services by ESSENTIAL SERVICES.',
+    },
+    favicons,
   },
   sections: [
     // Navigation Bar
@@ -141,8 +155,46 @@ export const dataDeletion: Page = {
                 {
                   type: 'paragraph',
                   content:
-                    'Sovrium-powered applications may integrate Facebook Login as an authentication method. When you use Facebook Login to sign in to a Sovrium-powered application, certain data from your Facebook profile (such as your name, email address, and profile picture) may be shared with that application.',
+                    'Sovrium-powered applications may integrate Facebook Login as an authentication method. When you use Facebook Login to sign in to a Sovrium-powered application, certain data from your Facebook profile may be shared with that application.',
                   props: { className: 'text-sovereignty-light mb-4' },
+                },
+                {
+                  type: 'paragraph',
+                  content:
+                    'The following data types may be stored and are subject to deletion upon request:',
+                  props: { className: 'text-sovereignty-light mb-3' },
+                },
+                {
+                  type: 'div',
+                  props: { className: 'ml-4 sm:ml-6 space-y-2 mb-4' },
+                  children: [
+                    {
+                      type: 'paragraph',
+                      content: '\u2022 Your name (as provided by Facebook)',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content: '\u2022 Your email address',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content: '\u2022 Your profile picture URL',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content: '\u2022 Your Facebook user ID',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content:
+                        '\u2022 Any application-specific data created during your use of the Sovrium-powered application',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                  ],
                 },
                 {
                   type: 'paragraph',
@@ -287,6 +339,12 @@ export const dataDeletion: Page = {
                         '• Some data may be retained if required by law or legitimate legal obligations',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
+                    {
+                      type: 'paragraph',
+                      content:
+                        '• You will receive a confirmation code via email that you can use to verify the status of your deletion request',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
                   ],
                 },
               ],
@@ -358,67 +416,6 @@ export const dataDeletion: Page = {
     },
 
     // Footer
-    {
-      type: 'section',
-      props: {
-        className:
-          'py-8 bg-sovereignty-darker border-t border-sovereignty-gray-800 text-sovereignty-light',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'max-w-4xl mx-auto px-4 text-center' },
-          children: [
-            {
-              type: 'flex',
-              props: {
-                className:
-                  'flex-col sm:flex-row justify-center gap-4 sm:gap-6 md:gap-8 text-sovereignty-gray-400 mb-4 text-center sm:text-left',
-              },
-              children: [
-                {
-                  type: 'link',
-                  content: 'Back to Home',
-                  props: {
-                    href: '/',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: 'Privacy Policy',
-                  props: {
-                    href: '/privacy-policy',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: 'Terms of Service',
-                  props: {
-                    href: '/terms-of-service',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: 'GitHub',
-                  props: {
-                    href: 'https://github.com/sovrium/sovrium',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-              ],
-            },
-            {
-              type: 'paragraph',
-              content:
-                '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
-              props: { className: 'text-sovereignty-gray-500 text-sm' },
-            },
-          ],
-        },
-      ],
-    },
+    footer,
   ],
 }

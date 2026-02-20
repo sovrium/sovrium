@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { favicons } from './favicons'
 import { navbar } from './navbar'
 import type { Page } from '@/index'
 
@@ -170,9 +171,7 @@ export const partners: Page = {
       'sovrium partner, consulting, implementation, internal tools, process optimization, digital transformation',
     author: 'ESSENTIAL SERVICES',
     canonical: 'https://sovrium.com/partners',
-    favicons: {
-      icon: './favicon.svg',
-    },
+    favicons,
     openGraph: {
       title: '$t:partners.meta.og.title',
       description: '$t:partners.meta.og.description',
@@ -534,6 +533,14 @@ export const partners: Page = {
                   content: '$t:partners.footer.terms',
                   props: {
                     href: '$t:partners.footer.terms.href',
+                    className: 'hover:text-sovereignty-accent transition-colors',
+                  },
+                },
+                {
+                  type: 'link',
+                  content: '$t:partners.footer.dataDeletion',
+                  props: {
+                    href: '$t:partners.footer.dataDeletion.href',
                     className: 'hover:text-sovereignty-accent transition-colors',
                   },
                 },

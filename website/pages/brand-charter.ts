@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { favicons } from './favicons'
 import type { Page } from '@/index'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -156,9 +157,7 @@ export const brandCharter: Page = {
     description:
       'Sovrium brand guidelines: logo, colors, typography, tone of voice, and visual identity.',
     noindex: true, // Exclude from sitemap and search engines
-    favicons: {
-      icon: './favicon.svg',
-    },
+    favicons,
   },
   sections: [
     // ─── Header ─────────────────────────────────────────────────────────────
@@ -1999,7 +1998,7 @@ export const brandCharter: Page = {
             {
               type: 'paragraph',
               content:
-                '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
+                '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE is a registered trademark of ESSENTIAL SERVICES.',
               props: { className: 'text-xs text-sovereignty-gray-600 mt-4' },
             },
           ],

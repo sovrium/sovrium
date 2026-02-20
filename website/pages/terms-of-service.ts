@@ -5,6 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { favicons } from './favicons'
+import { footer } from './footer'
 import { navbar } from './navbar'
 import type { Page } from '@/index'
 
@@ -16,9 +18,21 @@ export const termsOfService: Page = {
     description:
       'Terms of service and license information for Sovrium, the self-hosted configuration-driven platform',
     canonical: 'https://sovrium.com/terms-of-service',
-    favicons: {
-      icon: './favicon.svg',
+    openGraph: {
+      title: 'Terms of Service - Sovrium',
+      description:
+        'Terms of service and license information for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+      url: 'https://sovrium.com/terms-of-service',
+      siteName: 'Sovrium',
+      type: 'website',
     },
+    twitter: {
+      card: 'summary',
+      title: 'Terms of Service - Sovrium',
+      description:
+        'Terms of service and license information for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
+    },
+    favicons,
   },
   sections: [
     // Navigation Bar
@@ -43,7 +57,7 @@ export const termsOfService: Page = {
             },
             {
               type: 'paragraph',
-              content: 'Last Updated: January 1, 2025',
+              content: 'Last Updated: February 20, 2026',
               props: { className: 'text-sovereignty-gray-400' },
             },
           ],
@@ -223,7 +237,36 @@ export const termsOfService: Page = {
                 },
                 {
                   type: 'paragraph',
-                  content: 'Sovrium is a registered trademark of ESSENTIAL SERVICES. You may:',
+                  content:
+                    'Sovrium\u00AE is a registered trademark of ESSENTIAL SERVICES, registered with the Institut National de la Propri\u00E9t\u00E9 Industrielle (INPI) in France under registration number FR5200287.',
+                  props: { className: 'text-sovereignty-light mb-3' },
+                },
+                {
+                  type: 'paragraph',
+                  content:
+                    'The trademark registration can be verified on the INPI public registry:',
+                  props: { className: 'text-sovereignty-light mb-3' },
+                },
+                {
+                  type: 'div',
+                  props: { className: 'ml-4 sm:ml-6 mb-4' },
+                  children: [
+                    {
+                      type: 'link',
+                      content: 'https://data.inpi.fr/marques/FR5200287',
+                      props: {
+                        href: 'https://data.inpi.fr/marques/FR5200287',
+                        className:
+                          'text-sovereignty-accent hover:text-sovereignty-accent-hover transition-colors underline',
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                      },
+                    },
+                  ],
+                },
+                {
+                  type: 'paragraph',
+                  content: 'You may:',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
@@ -523,6 +566,37 @@ export const termsOfService: Page = {
               ],
             },
 
+            // User Data and Privacy
+            {
+              type: 'div',
+              props: { className: 'mb-8' },
+              children: [
+                {
+                  type: 'h2',
+                  content: '12. User Data and Privacy',
+                  props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
+                },
+                {
+                  type: 'paragraph',
+                  content:
+                    'Your use of Sovrium may involve the collection, processing, and storage of personal data. Our handling of personal data is governed by our Privacy Policy, available at sovrium.com/privacy-policy.',
+                  props: { className: 'text-sovereignty-light mb-4' },
+                },
+                {
+                  type: 'paragraph',
+                  content:
+                    'For self-hosted installations, the organization operating the Sovrium instance is the data controller and is responsible for compliance with applicable data protection laws (e.g., GDPR). ESSENTIAL SERVICES does not access, process, or store data from self-hosted installations.',
+                  props: { className: 'text-sovereignty-light mb-4' },
+                },
+                {
+                  type: 'paragraph',
+                  content:
+                    'You may request the deletion of your personal data in accordance with our Data Deletion policy at sovrium.com/data-deletion.',
+                  props: { className: 'text-sovereignty-light' },
+                },
+              ],
+            },
+
             // Contact Information
             {
               type: 'div',
@@ -530,7 +604,7 @@ export const termsOfService: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: '12. Contact Information',
+                  content: '13. Contact Information',
                   props: { className: 'text-2xl font-semibold mb-4 text-sovereignty-accent' },
                 },
                 {
@@ -621,58 +695,6 @@ export const termsOfService: Page = {
     },
 
     // Footer
-    {
-      type: 'section',
-      props: {
-        className:
-          'py-8 bg-sovereignty-darker border-t border-sovereignty-gray-800 text-sovereignty-light',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'max-w-4xl mx-auto px-4 text-center' },
-          children: [
-            {
-              type: 'flex',
-              props: {
-                className:
-                  'flex-col sm:flex-row justify-center gap-4 sm:gap-6 md:gap-8 text-sovereignty-gray-400 mb-4 text-center sm:text-left',
-              },
-              children: [
-                {
-                  type: 'link',
-                  content: 'Back to Home',
-                  props: {
-                    href: '/',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: 'Privacy Policy',
-                  props: {
-                    href: '/privacy-policy',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-                {
-                  type: 'link',
-                  content: 'View License',
-                  props: {
-                    href: 'https://github.com/sovrium/sovrium/blob/main/LICENSE.md',
-                    className: 'hover:text-sovereignty-accent transition-colors',
-                  },
-                },
-              ],
-            },
-            {
-              type: 'paragraph',
-              content: '© 2025 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
-              props: { className: 'text-sovereignty-gray-500 text-sm' },
-            },
-          ],
-        },
-      ],
-    },
+    footer,
   ],
 }

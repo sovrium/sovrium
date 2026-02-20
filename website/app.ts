@@ -339,7 +339,7 @@ export const app: App = {
         'home.footer.dataDeletion': 'Data Deletion',
         'home.footer.dataDeletion.href': '/en/data-deletion',
         'home.footer.copyright':
-          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
+          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE is a registered trademark of ESSENTIAL SERVICES.',
 
         // ════════════════════════════════════════════════════════════════════
         //  PARTNERS PAGE
@@ -477,7 +477,7 @@ export const app: App = {
         'partners.footer.dataDeletion.href': '/en/data-deletion',
         'partners.footer.sovrium.href': 'https://sovrium.com/en/',
         'partners.footer.copyright':
-          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
+          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE is a registered trademark of ESSENTIAL SERVICES.',
 
         // ════════════════════════════════════════════════════════════════════
         //  COMPANY PAGE
@@ -601,7 +601,7 @@ export const app: App = {
         'company.footer.dataDeletion.href': '/en/data-deletion',
         'company.footer.sovrium.href': 'https://sovrium.com/en/',
         'company.footer.copyright':
-          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium is a trademark of ESSENTIAL SERVICES.',
+          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE is a registered trademark of ESSENTIAL SERVICES.',
       },
       fr: {
         // ════════════════════════════════════════════════════════════════════
@@ -847,7 +847,7 @@ export const app: App = {
         'home.footer.dataDeletion': 'Suppression des donn\u00E9es',
         'home.footer.dataDeletion.href': '/fr/data-deletion',
         'home.footer.copyright':
-          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium est une marque d\u2019ESSENTIAL SERVICES.',
+          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE est une marque enregistr\u00E9e d\u2019ESSENTIAL SERVICES.',
 
         // ════════════════════════════════════════════════════════════════════
         //  PARTNERS PAGE
@@ -987,7 +987,7 @@ export const app: App = {
         'partners.footer.dataDeletion.href': '/fr/data-deletion',
         'partners.footer.sovrium.href': 'https://sovrium.com/fr/',
         'partners.footer.copyright':
-          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium est une marque d\u2019ESSENTIAL SERVICES.',
+          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE est une marque enregistr\u00E9e d\u2019ESSENTIAL SERVICES.',
 
         // ════════════════════════════════════════════════════════════════════
         //  COMPANY PAGE
@@ -1111,7 +1111,7 @@ export const app: App = {
         'company.footer.dataDeletion.href': '/fr/data-deletion',
         'company.footer.sovrium.href': 'https://sovrium.com/fr/',
         'company.footer.copyright':
-          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium est une marque d\u2019ESSENTIAL SERVICES.',
+          '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE est une marque enregistr\u00E9e d\u2019ESSENTIAL SERVICES.',
       },
     },
   },
