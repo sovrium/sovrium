@@ -19,7 +19,7 @@
 export const navbar = {
   type: 'section' as const,
   props: {
-    className: 'bg-sovereignty-darker border-b border-sovereignty-gray-800',
+    className: 'bg-sovereignty-darker border-b border-sovereignty-gray-800 sticky top-0 z-50',
   },
   children: [
     {
@@ -45,7 +45,7 @@ export const navbar = {
                   props: {
                     src: '/logos/sovrium-horizontal-light.svg',
                     alt: 'Sovrium',
-                    className: 'h-7 w-auto',
+                    className: 'h-8 w-auto',
                   },
                 },
               ],
@@ -64,7 +64,7 @@ export const navbar = {
                   props: {
                     href: '$t:nav.partners.href',
                     className:
-                      'text-sovereignty-gray-400 hover:text-sovereignty-light transition-colors text-sm font-medium',
+                      'text-sovereignty-gray-400 hover:text-sovereignty-light transition-colors duration-150 text-sm font-medium',
                   },
                 },
                 {
@@ -73,7 +73,7 @@ export const navbar = {
                   props: {
                     href: '$t:nav.company.href',
                     className:
-                      'text-sovereignty-gray-400 hover:text-sovereignty-light transition-colors text-sm font-medium',
+                      'text-sovereignty-gray-400 hover:text-sovereignty-light transition-colors duration-150 text-sm font-medium',
                   },
                 },
               ],

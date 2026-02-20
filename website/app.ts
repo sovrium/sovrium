@@ -578,7 +578,7 @@ export const app: App = {
         'company.team.founder.name': 'Thomas Jeanneau',
         'company.team.founder.role': 'Founder & CEO',
         'company.team.founder.bio':
-          'Software engineer and entrepreneur with a passion for building tools that empower organizations. Previously built automation tools serving 50+ clients across France and Europe.',
+          'Software engineer and entrepreneur with 8 years of expertise, passionate about building tools that empower organizations. Previously built automation tools serving 50+ clients across France and Europe.',
 
         // ── Company: CTA ───────────────────────────────────────────────────
         'company.cta.title': 'Join the Movement',
@@ -1088,7 +1088,7 @@ export const app: App = {
         'company.team.founder.name': 'Thomas Jeanneau',
         'company.team.founder.role': 'Fondateur & CEO',
         'company.team.founder.bio':
-          'Ing\u00E9nieur logiciel et entrepreneur passionn\u00E9 par la cr\u00E9ation d\u2019outils qui autonomisent les organisations. A pr\u00E9c\u00E9demment construit des outils d\u2019automatisation pour plus de 50 clients en France et en Europe.',
+          'Ing\u00E9nieur logiciel et entrepreneur avec 8 ans d\u2019expertise, passionn\u00E9 par la cr\u00E9ation d\u2019outils qui autonomisent les organisations. A pr\u00E9c\u00E9demment construit des outils d\u2019automatisation pour plus de 50 clients en France et en Europe.',
 
         // ── Company: CTA ───────────────────────────────────────────────────
         'company.cta.title': 'Rejoignez le mouvement',
