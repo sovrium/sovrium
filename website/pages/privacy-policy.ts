@@ -23,7 +23,7 @@ export const privacyPolicy: Page = {
       description:
         'Privacy policy for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
       url: 'https://sovrium.com/privacy-policy',
-      image: 'https://sovrium.com/favicon/android-chrome-512x512.png',
+      image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
       siteName: 'Sovrium',
       type: 'website',
     },
@@ -32,7 +32,7 @@ export const privacyPolicy: Page = {
       title: 'Privacy Policy - Sovrium',
       description:
         'Privacy policy for Sovrium, the self-hosted configuration-driven platform by ESSENTIAL SERVICES.',
-      image: 'https://sovrium.com/favicon/android-chrome-512x512.png',
+      image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
     },
     favicons,
   },

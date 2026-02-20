@@ -9,4 +9,6 @@ await build(app, {
   generateRobotsTxt: true,
   deployment: 'github-pages',
   publicDir: './website/assets',
+  languages: ['en', 'fr'],
+  defaultLanguage: 'en',
 })

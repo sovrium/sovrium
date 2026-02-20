@@ -23,7 +23,7 @@ export const dataDeletion: Page = {
       description:
         'Instructions for requesting deletion of your data related to Sovrium software and services by ESSENTIAL SERVICES.',
       url: 'https://sovrium.com/data-deletion',
-      image: 'https://sovrium.com/favicon/android-chrome-512x512.png',
+      image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
       siteName: 'Sovrium',
       type: 'website',
     },
@@ -32,7 +32,7 @@ export const dataDeletion: Page = {
       title: 'Data Deletion Request - Sovrium',
       description:
         'Instructions for requesting deletion of your data related to Sovrium software and services by ESSENTIAL SERVICES.',
-      image: 'https://sovrium.com/favicon/android-chrome-512x512.png',
+      image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
     },
     favicons,
   },

@@ -75,14 +75,14 @@ export const company: Page = {
       description: '$t:company.meta.og.description',
       type: 'website',
       url: 'https://sovrium.com/company',
-      image: 'https://sovrium.com/favicon/android-chrome-512x512.png',
+      image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
       siteName: 'Sovrium',
     },
     twitter: {
       card: 'summary_large_image',
       title: '$t:company.meta.twitter.title',
       description: '$t:company.meta.twitter.description',
-      image: 'https://sovrium.com/favicon/android-chrome-512x512.png',
+      image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
     },
   },
   sections: [
