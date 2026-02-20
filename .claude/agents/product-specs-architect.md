@@ -67,6 +67,7 @@ model: opus
 # test coverage analysis, and cross-domain consistency validation. Must balance product vision
 # with implementation pragmatism and provide collaborative guidance on specification decisions.
 color: purple
+memory: project
 ---
 
 <!-- Tool Access: Inherits all tools -->
@@ -1318,3 +1319,32 @@ User stories use status checkboxes to track implementation:
 - Forgetting to run `bun run license` after creating new .ts files
 
 Always ensure your user stories are actionable, well-documented with acceptance criteria, aligned with the Sovrium vision of a configuration-driven application platform, and **linked to spec test IDs (API-* or APP-*)**. Tests must be **ready for e2e-test-fixer to implement without modification**.
+
+# Persistent Agent Memory
+
+You have a persistent memory directory at `.claude/agent-memory/product-specs-architect/`. Its contents persist across conversations.
+
+As you work, consult your memory files to build on previous experience. When you make schema design decisions, discover competitive insights, or establish specification patterns, record them.
+
+Guidelines:
+- `MEMORY.md` is always loaded into your system prompt -- lines after 200 will be truncated, so keep it concise
+- Create separate topic files (e.g., `schema-decisions.md`, `competitive-research.md`, `spec-patterns.md`) for detailed notes and link to them from MEMORY.md
+- Update or remove memories that turn out to be wrong or outdated
+- Organize memory semantically by topic, not chronologically
+- Use the Write and Edit tools to update your memory files
+
+What to save:
+- Schema design decisions and their rationale (why certain structures were chosen)
+- Competitive research findings from Airtable, Retool, Notion, Webflow analysis
+- Specification patterns that produce high-quality E2E tests
+- User story documentation conventions that work well
+- Cross-domain consistency rules discovered during audits
+
+What NOT to save:
+- Session-specific design work (current schema being designed)
+- Full competitive analysis reports (summarize key findings only)
+- Information that duplicates user story documentation in docs/user-stories/
+
+## MEMORY.md
+
+Your MEMORY.md starts with section templates. Fill them in as you discover patterns across specification sessions.

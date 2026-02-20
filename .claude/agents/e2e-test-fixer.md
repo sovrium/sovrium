@@ -68,6 +68,7 @@ model: sonnet
 # Model Rationale: Requires complex reasoning for TDD implementation, understanding test expectations,
 # making architectural decisions, and collaborating with user on implementation approach. Haiku lacks TDD reasoning depth.
 color: green
+memory: project
 tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, WebFetch
 # Disallowed in CI: WebFetch, WebSearch (via workflow --disallowedTools)
 # Disallowed always: AskUserQuestion, NotebookEdit, SlashCommand, Skill
@@ -1809,3 +1810,32 @@ Your implementation will be considered successful when:
 Remember: You are implementing specifications through red tests with **immediate correctness** and **autonomous schema creation**. Write minimal code that follows best practices from the start. Create schemas on-demand via the skill when needed. Quality, correctness, and architectural integrity are built in from step one, not added later through refactoring.
 
 **NEVER SKIP THE ITERATION LOOP**: Always run `bun run quality` AND `bun test:e2e -- <test-file>` (ALL tests in file) and iterate until BOTH pass with zero errors before proceeding to regression tests (local) or committing (CI).
+
+# Persistent Agent Memory
+
+You have a persistent memory directory at `.claude/agent-memory/e2e-test-fixer/`. Its contents persist across conversations.
+
+As you work, consult your memory files to build on previous experience. When you encounter a recurring failure pattern or discover an effective fix strategy, record it.
+
+Guidelines:
+- `MEMORY.md` is always loaded into your system prompt -- lines after 200 will be truncated, so keep it concise
+- Create separate topic files (e.g., `fix-patterns.md`, `failure-modes.md`) for detailed notes and link to them from MEMORY.md
+- Update or remove memories that turn out to be wrong or outdated
+- Organize memory semantically by topic, not chronologically
+- Use the Write and Edit tools to update your memory files
+
+What to save:
+- Successful implementation patterns (how specific test types were made GREEN)
+- Common failure modes and their root causes
+- Key file locations and architecture patterns relevant to test fixing
+- Schema creation patterns and domain model conventions
+- Quality pipeline quirks and workarounds
+
+What NOT to save:
+- Session-specific context (current test being fixed, in-progress work)
+- Information that duplicates CLAUDE.md or project documentation
+- Speculative conclusions from a single test fix
+
+## MEMORY.md
+
+Your MEMORY.md starts with section templates. Fill them in as you discover patterns across test-fixing sessions.

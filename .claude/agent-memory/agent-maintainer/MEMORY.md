@@ -18,4 +18,17 @@
 - `tracking-dependencies`, `validating-json-schemas`, `scanning-security`
 
 ## Review Patterns Learned
-<!-- Record patterns discovered during agent reviews here -->
+
+### Common Issues Found Across Agent Reviews
+- **Missing Tool Access documentation**: Agents need `<!-- Tool Access -->` HTML comment block after YAML frontmatter
+- **Description format**: Use YAML block scalar (`|-`) not double-quoted strings with `\n` escapes
+- **Example XML structure**: Descriptions need `<example>` with `<commentary>` AND `<non-example>` blocks
+- **Model Rationale**: Add `# Model Rationale:` comment before `color:` explaining why the model was chosen
+- **Agent Type declaration**: System prompt should start with `## Agent Type:` section defining authority boundaries
+- **Collaborative patterns**: CREATIVE agents need workflow examples showing clarifying questions and trade-off presentation
+- **Self-correction protocol**: All agents need verification steps before presenting work to user
+- **Cross-agent coordination**: Document which agents to coordinate with and on what topics
+- **Success metrics**: Define measurable criteria for when the agent's work is considered successful
+
+### Review History
+- `website-editor` (2026-02-20): Full rewrite -- added tool access docs, YAML block scalar description, 5 examples + 2 non-examples, agent type section, collaborative workflows, self-correction protocol, coordination table, success metrics, quality checklist

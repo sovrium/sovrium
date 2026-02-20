@@ -221,6 +221,55 @@ When reviewing agents, be aware of documented architectural exceptions:
 
 Agents that reference these exceptions (e.g., `codebase-refactor-auditor` auditing Zod usage) should be aware of the enforcement mechanism.
 
+## Agent Memory Standard
+
+Every agent MUST have persistent memory enabled. This allows agents to build institutional knowledge across sessions.
+
+### Required Components
+
+1. **YAML frontmatter**: `memory: project` -- tells Claude Code to use `.claude/agent-memory/{agent-name}/` as a persistent memory directory
+2. **System prompt section**: A "Persistent Agent Memory" section at the end of the system prompt with:
+   - Memory directory path (relative: `.claude/agent-memory/{agent-name}/`)
+   - Guidelines for what to save and what not to save (domain-specific)
+   - Instructions to read MEMORY.md at session start
+   - Instructions to update MEMORY.md when learning something new
+3. **Memory file**: `.claude/agent-memory/{agent-name}/MEMORY.md` must exist with domain-specific section templates
+
+### Memory Protocol Template
+
+```markdown
+# Persistent Agent Memory
+
+You have a persistent memory directory at `.claude/agent-memory/{agent-name}/`. Its contents persist across conversations.
+
+Guidelines:
+- `MEMORY.md` is always loaded into your system prompt -- lines after 200 will be truncated, so keep it concise
+- Create separate topic files for detailed notes and link to them from MEMORY.md
+- Update or remove memories that turn out to be wrong or outdated
+- Organize memory semantically by topic, not chronologically
+
+What to save:
+- [Domain-specific items relevant to this agent's role]
+
+What NOT to save:
+- Session-specific context (current task, in-progress work)
+- Information that duplicates CLAUDE.md or project docs
+- Speculative conclusions from a single interaction
+```
+
+### Current Memory Status
+
+| Agent | `memory: project` | Memory Section | MEMORY.md |
+|-------|-------------------|----------------|-----------|
+| `agent-maintainer` | Yes | Yes | Yes |
+| `e2e-test-fixer` | Yes | Yes | Yes |
+| `codebase-refactor-auditor` | Yes | Yes | Yes |
+| `architecture-docs-maintainer` | Yes | Yes | Yes |
+| `infrastructure-docs-maintainer` | Yes | Yes | Yes |
+| `product-specs-architect` | Yes | Yes | Yes |
+| `tdd-pipeline-maintainer` | Yes | Yes | Yes |
+| `website-editor` | Yes | Yes | Yes |
+
 ## Command/Skill Optimization Framework
 
 When reviewing agents, evaluate if the role should be delegated to a different mechanism:
@@ -274,6 +323,9 @@ When reviewing agents and skills, verify these items (marked by type: 🟦 All, 
 - Includes examples of collaborative interactions (user dialogue)
 - Multi-file coordination or complex workflow orchestration
 - Tool access documentation explaining which tools and why
+- Has `memory: project` in YAML frontmatter
+- Has "Persistent Agent Memory" section at end of system prompt
+- Memory directory exists at `.claude/agent-memory/{agent-name}/MEMORY.md`
 
 ## Output Format
 
