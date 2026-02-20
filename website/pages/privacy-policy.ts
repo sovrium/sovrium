@@ -527,17 +527,32 @@ export const privacyPolicy: Page = {
                     },
                     {
                       type: 'paragraph',
-                      content: '• Company: ESSENTIAL SERVICES',
+                      content: '• Company: ESSENTIAL SERVICES, SAS au capital de 10 000 \u20AC',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
-                      content: '• SIRET: 91313578400014',
+                      content: '• RCS Paris \u2014 SIREN: 834 241 481',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content: '• SIRET: 834 241 481 00029',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content: '• TVA: FR04834241481',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
                       type: 'paragraph',
                       content: '• Address: 128 Rue La Bo\u00E9tie, 75008 Paris, France',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                    {
+                      type: 'paragraph',
+                      content: '• President: Thomas Jeanneau',
                       props: { className: 'text-sovereignty-gray-400' },
                     },
                     {
