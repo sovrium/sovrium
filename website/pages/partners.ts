@@ -131,12 +131,9 @@ const allClientLogos: ReadonlyArray<{ readonly name: string; readonly src: strin
   { name: 'ESCP Business School', src: '/logos/escp.png' },
   { name: 'La Table de Cana', src: '/logos/tablecana.png' },
   { name: 'TH1', src: '/logos/th1.png' },
-  { name: 'Maitres Cuisiniers de France', src: '/logos/maitrescuisiniers.png' },
   { name: 'Agora Store', src: '/logos/agorastore.png' },
-  { name: "D'un Seul Geste", src: '/logos/dunseulgeste.png' },
   { name: 'Capital PV', src: '/logos/capitalpv.svg' },
   { name: 'Le Beau Sourire', src: '/logos/lebeausourire.png' },
-  { name: '1492 Company', src: '/logos/1492.png' },
   { name: 'EDL Energies de Loire', src: '/logos/edl.png' },
 ]
 
