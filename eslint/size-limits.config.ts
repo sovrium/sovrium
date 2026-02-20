@@ -73,6 +73,16 @@ export default [
     },
   },
 
+  // Website i18n translation files - Flat key-value data dictionaries
+  {
+    files: ['website/i18n/**/*.ts'],
+    rules: {
+      'max-lines': 'off', // Translation dictionaries are pure data, not logic
+      'max-lines-per-function': 'off',
+      'max-statements': 'off',
+    },
+  },
+
   // Strict limits for React components - Should be modular
   {
     files: ['src/presentation/components/**/*.tsx'],
