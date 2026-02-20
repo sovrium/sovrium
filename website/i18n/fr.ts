@@ -48,7 +48,7 @@ export const fr: Record<string, string> = {
   // ── Home: Meta ──────────────────────────────────────────────────────
   'home.meta.title': 'Sovrium \u2014 Cr\u00E9ez des apps par configuration, sans code',
   'home.meta.description':
-    'Construisez des applications m\u00E9tier compl\u00E8tes avec un simple fichier de configuration. L\u0027alternative SaaS open-source et auto-h\u00E9berg\u00E9e \u2014 sans d\u00E9pendance fournisseur.',
+    "Créez des apps métier complètes avec un fichier de configuration. L'alternative SaaS open-source et auto-hébergée — sans vendor lock-in.",
   'home.meta.og.title': 'Sovrium \u2014 Cr\u00E9ez des apps par configuration, sans code',
   'home.meta.og.description':
     'Plateforme applicative open-source pilot\u00E9e par la configuration. L\u0027alternative SaaS auto-h\u00E9berg\u00E9e, sans d\u00E9pendance fournisseur.',
