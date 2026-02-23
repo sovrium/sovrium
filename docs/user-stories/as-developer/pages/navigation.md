@@ -91,19 +91,15 @@ pages:
             content: Get Started Today
           - type: paragraph
             content: Join thousands of users building amazing apps
-          - type: flex
+          - type: button
             props:
-              className: gap-4 justify-center
-            children:
-              - type: button
-                props:
-                  className: bg-primary text-white px-6 py-3
-                content: Sign Up Free
-              - type: link
-                props:
-                  href: /features
-                  className: border px-6 py-3
-                content: Learn More
+              className: bg-primary text-white px-6 py-3
+            content: Sign Up Free
+          - type: link
+            props:
+              href: /features
+              className: border px-6 py-3
+            content: Learn More
 ```
 
 ### Acceptance Criteria

@@ -50,18 +50,20 @@ pages:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                          | E2E Spec               | Status |
-| ------ | -------------------------------------------------- | ---------------------- | ------ |
-| AC-001 | Pages array must contain at least one page         | `APP-PAGES-001`        | ✅     |
-| AC-002 | Each page must have unique id within array         | `APP-PAGES-002`        | ✅     |
-| AC-003 | Each page must have unique name within array       | `APP-PAGES-003`        | ✅     |
-| AC-004 | Each page must have unique path within array       | `APP-PAGES-004`        | ✅     |
-| AC-005 | Pages are rendered at their specified paths        | `APP-PAGES-005`        | ✅     |
-| AC-006 | Empty pages array returns validation error         | `APP-PAGES-006`        | ✅     |
-| AC-007 | Duplicate page IDs return validation error         | `APP-PAGES-007`        | ✅     |
-| AC-008 | Duplicate page names return validation error       | `APP-PAGES-NAME-002`   | ✅     |
-| AC-009 | Duplicate page paths return validation error       | `APP-PAGES-009`        | ✅     |
-| AC-010 | User can complete full pages workflow (regression) | `APP-PAGES-REGRESSION` | ✅     |
+| ID     | Criterion                                            | E2E Spec               | Status |
+| ------ | ---------------------------------------------------- | ---------------------- | ------ |
+| AC-001 | Pages array must contain at least one page           | `APP-PAGES-001`        | ✅     |
+| AC-002 | Each page must have unique id within array           | `APP-PAGES-002`        | ✅     |
+| AC-003 | Each page must have unique name within array         | `APP-PAGES-003`        | ✅     |
+| AC-004 | Each page must have unique path within array         | `APP-PAGES-004`        | ✅     |
+| AC-005 | Pages are rendered at their specified paths          | `APP-PAGES-005`        | ✅     |
+| AC-006 | Empty pages array returns validation error           | `APP-PAGES-006`        | ✅     |
+| AC-007 | Duplicate page IDs return validation error           | `APP-PAGES-007`        | ✅     |
+| AC-008 | Duplicate page names return validation error         | `APP-PAGES-NAME-002`   | ✅     |
+| AC-009 | Duplicate page paths return validation error         | `APP-PAGES-009`        | ✅     |
+| AC-010 | Multiple page configurations render at correct paths | `APP-PAGES-010`        | ✅     |
+| AC-011 | Components are reusable across pages via $ref        | `APP-PAGES-011`        | ✅     |
+| AC-012 | User can complete full pages workflow (regression)   | `APP-PAGES-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -317,10 +319,10 @@ pages:
 
 | User Story              | Title                | Spec Count            | Status   |
 | ----------------------- | -------------------- | --------------------- | -------- |
-| US-PAGES-DEFINITION-001 | Define Pages Array   | 9                     | Complete |
+| US-PAGES-DEFINITION-001 | Define Pages Array   | 11                    | Complete |
 | US-PAGES-DEFINITION-002 | Page Identifiers     | 6                     | Complete |
 | US-PAGES-DEFINITION-003 | Page Names           | 8                     | Complete |
 | US-PAGES-DEFINITION-004 | Page Paths (Routing) | 19                    | Complete |
 | US-PAGES-DEFINITION-005 | Page Sections        | 13                    | Complete |
 | US-PAGES-DEFINITION-006 | Page Scripts         | 6                     | Complete |
-| **Total**               |                      | **61 + 5 regression** |          |
+| **Total**               |                      | **63 + 5 regression** |          |

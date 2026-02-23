@@ -14,19 +14,19 @@
 
 ## Feature Areas
 
-| Area                                                | Description                                                | Stories |
-| --------------------------------------------------- | ---------------------------------------------------------- | ------- |
-| [**Authentication**](./authentication/)             | User sign-up, sign-in, 2FA, sessions, security enforcement | 5 files |
-| [**Tables**](./tables/)                             | Table definitions, field types, relationships, permissions | 7 files |
-| [**Records API**](./records-api/)                   | CRUD operations, batch processing, filtering, soft-delete  | 7 files |
-| [**Pages**](./pages/)                               | Routes, sections, scripts, common schemas, SEO metadata    | 7 files |
-| [**Theming**](./theming/)                           | Design tokens, responsive design, animations               | 3 files |
-| [**Internationalization**](./internationalization/) | Multi-language application support                         | 1 file  |
-| [**CLI**](./cli/)                                   | Server commands, static site generation                    | 2 files |
-| [**Migrations**](./migrations/)                     | Schema evolution, migration versioning                     | 2 files |
-| [**App Schema**](./app-schema/)                     | Application metadata configuration                         | 1 file  |
-| [**API**](./api/)                                   | Health check endpoint                                      | 1 file  |
-| [**Templates**](./templates/)                       | Landing page templates                                     | 1 file  |
+| Area                                                | Description                                                    | Stories |
+| --------------------------------------------------- | -------------------------------------------------------------- | ------- |
+| [**Authentication**](./authentication/)             | User sign-up, sign-in, 2FA, sessions, security enforcement     | 5 files |
+| [**Tables**](./tables/)                             | Table definitions, field types, relationships, permissions     | 7 files |
+| [**Records API**](./records-api/)                   | CRUD operations, batch processing, filtering, soft-delete      | 7 files |
+| [**Pages**](./pages/)                               | Routes, sections, scripts, common schemas, SEO metadata, icons | 8 files |
+| [**Theming**](./theming/)                           | Design tokens, responsive design, animations                   | 3 files |
+| [**Internationalization**](./internationalization/) | Multi-language application support                             | 1 file  |
+| [**CLI**](./cli/)                                   | Server commands, static site generation                        | 2 files |
+| [**Migrations**](./migrations/)                     | Schema evolution, migration versioning                         | 2 files |
+| [**App Schema**](./app-schema/)                     | Application metadata configuration                             | 1 file  |
+| [**API**](./api/)                                   | Health check endpoint                                          | 1 file  |
+| [**Templates**](./templates/)                       | Landing page templates                                         | 1 file  |
 
 ## Quick Links
 
@@ -70,6 +70,7 @@
 - [Client-Side Scripts](./pages/scripts.md) - Feature flags, external/inline scripts
 - [Common Schemas](./pages/common-schemas.md) - Primitive definitions, props, responsive, variables
 - [Interactions](./pages/interactions.md) - Page interactions
+- [Icons](./pages/icons.md) - Lucide icon rendering, sizing, coloring, accessibility
 
 ### Theming
 
