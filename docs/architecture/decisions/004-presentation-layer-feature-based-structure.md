@@ -121,8 +121,6 @@ src/presentation/
 ├── utilities/          # Generic low-level utilities
 ├── scripts/            # Client-side script utilities
 ├── components/
-│   ├── ui/             # shadcn/ui components (unchanged)
-│   ├── layout/         # Layout components (unchanged)
 │   ├── languages/      # Language switcher (unchanged)
 │   ├── metadata/       # Metadata builders (utils promoted)
 │   ├── pages/          # Page components (utils promoted)

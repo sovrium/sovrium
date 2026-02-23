@@ -184,14 +184,7 @@ sovrium/
 │       │       ├── cors.ts               # CORS handling
 │       │       └── error.ts              # Error handling middleware
 │       │
-│       ├── ui/                           # ✅ EXISTING - React UI components
-│       │   ├── button.tsx
-│       │   ├── input.tsx
-│       │   ├── card.tsx
-│       │   └── ... (all shadcn components)
-│       │
 │       └── utils/                        # Presentation Utilities
-│           ├── cn.ts                     # ✅ EXISTING - className merger
 │           ├── variant-classes.ts        # ✅ EXISTING - Variant utilities
 │           └── render-homepage.tsx       # ✅ EXISTING - SSR homepage
 │
@@ -231,7 +224,7 @@ sovrium/
         └── ui/
             ├── react.md                  # ✅ EXISTING
             ├── tailwind.md               # ✅ EXISTING
-            └── shadcn.md                 # ✅ EXISTING
+            └── tanstack-table.md          # ✅ EXISTING
 ```
 
 ## Legend

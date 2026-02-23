@@ -336,7 +336,7 @@ await page.request.post('/api/auth/sign-up/email', {
 | **Components** | Notion, Webflow, Gutenberg (WordPress) | Reusable components, embeds, custom components, composition patterns |
 | **Auth** | Retool, Budibase, enterprise tools | SSO, roles, permissions, teams, audit logs |
 | **Automations** | Zapier, N8n, Make (Integromat) | Triggers, actions, webhooks, schedules, error handling |
-| **Theme** | Tailwind, Webflow, shadcn/ui | Design systems, CSS variables, responsive, dark mode |
+| **Theme** | Tailwind, Webflow, Radix UI | Design systems, CSS variables, responsive, dark mode |
 | **Languages** | WordPress WPML, Weglot, Phrase | i18n, localization, content translation, fallbacks |
 | **API** | Retool, Hasura, Supabase, PostgREST | REST, GraphQL, webhooks, rate limiting, authentication |
 

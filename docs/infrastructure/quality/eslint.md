@@ -135,7 +135,6 @@ export default [
   ...drizzleConfig, // Database safety (WHERE clause required)
   ...sizeLimitsConfig, // Code size/complexity limits
   ...testingConfig, // Test file patterns, Bun Test vs Playwright
-  ...uiComponentsConfig, // shadcn/ui patterns
   ...infrastructureConfig, // Infrastructure file patterns
   ...scriptsConfig, // Scripts directory rules
   ...playwrightConfig, // E2E test rules
@@ -227,18 +226,6 @@ ESLint enforces file size and function complexity limits to maintain readable, t
 ```
 
 **Rationale**: UI components should be modular. Large components indicate poor separation of concerns.
-
-### Third-Party Components (Exempted)
-
-```typescript
-// Files: src/presentation/ui/ui/**/*.tsx (shadcn/ui)
-{
-  'max-lines-per-function': 'off',   // Follow library patterns
-  'complexity': 'off'                // Complex UI patterns acceptable
-}
-```
-
-**Rationale**: shadcn/ui components are copied from library. Their patterns are pre-validated.
 
 ### SSR/Page Generation Components (Exempted)
 

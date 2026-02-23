@@ -13,7 +13,7 @@ TanStack Table (formerly React Table) is a headless UI library for building feat
 
 ### Perfect Fit for Our Stack
 
-- **Headless Architecture**: Integrates seamlessly with Tailwind CSS and shadcn/ui's design philosophy
+- **Headless Architecture**: Integrates seamlessly with Tailwind CSS utility-first styling
 - **TypeScript First**: Fully typed API with excellent inference and autocomplete
 - **React 19 Compatible**: Works perfectly with modern React patterns and hooks
 - **Composable**: Build complex tables from simple, reusable pieces
@@ -28,7 +28,7 @@ TanStack Table (formerly React Table) is a headless UI library for building feat
 | **React 19**       | Full support for modern hooks and patterns           |
 | **TypeScript**     | Complete type inference for columns, rows, and state |
 | **Tailwind CSS**   | 100% control over styling with utility classes       |
-| **shadcn/ui**      | Follows same headless philosophy, perfect synergy    |
+| **Tailwind CSS**   | Full control over styling with utility classes       |
 | **TanStack Query** | Server-side data fetching, caching, and mutations    |
 | **Effect.ts**      | Type-safe business logic in table actions            |
 | **Better Auth**    | Permission-based row selection and actions           |
@@ -573,7 +573,7 @@ function TableWithEffectActions() {
 }
 ```
 
-## Reusable Data Table Component (shadcn/ui Pattern)
+## Reusable Data Table Component
 
 ```typescript
 // src/components/ui/data-table.tsx
@@ -589,7 +589,6 @@ import {
   SortingState,
 } from '@tanstack/react-table'
 import { useState } from 'react'
-import { cn } from '@/lib/utils'
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -677,14 +676,14 @@ export function DataTable<TData, TValue>({
             <button
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
-              className={cn('rounded border px-3 py-1', !table.getCanPreviousPage() && 'opacity-50')}
+              className={`rounded border px-3 py-1 ${!table.getCanPreviousPage() ? 'opacity-50' : ''}`}
             >
               Previous
             </button>
             <button
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
-              className={cn('rounded border px-3 py-1', !table.getCanNextPage() && 'opacity-50')}
+              className={`rounded border px-3 py-1 ${!table.getCanNextPage() ? 'opacity-50' : ''}`}
             >
               Next
             </button>

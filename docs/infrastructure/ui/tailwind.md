@@ -68,7 +68,6 @@ Tailwind CSS v4 is already installed in Sovrium:
 **Additional Dependencies**:
 
 - `tw-animate-css`: Pre-built animation library for Tailwind CSS
-- `tailwind-merge`: Utility for merging Tailwind classes (version ^3.4.0)
 
 No additional installation needed.
 

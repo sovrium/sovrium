@@ -6,28 +6,36 @@
  */
 
 import { Hero } from '@/presentation/ui/sections/hero'
-import { CardWithHeader, CardHeader, CardBody, CardFooter } from '@/presentation/ui/ui/card'
-import { SpeechBubble } from '@/presentation/ui/ui/speech-bubble'
 import * as Renderers from '../../renderers/element-renderers'
 import { parseHTMLContent } from '../component-registry-helpers'
 import type { ComponentRenderer } from '../component-dispatch-config'
 import type { Component } from '@/domain/models/app/page/sections'
 import type { ReactElement } from 'react'
 
+/** Inline class maps for card sub-components */
+const CARD_CLASSES = {
+  'card-with-header': 'bg-white border border-gray-200 overflow-hidden rounded-lg',
+  'card-header': 'bg-gray-50 px-4 py-3 border-b border-gray-200 rounded-t-lg',
+  'card-body': 'px-4 py-3',
+  'card-footer': 'bg-gray-50 px-4 py-3 border-t border-gray-200 rounded-b-lg',
+} as const
+
 /**
- * Creates a renderer for card components
+ * Creates a renderer for card components using inline div elements
  */
-function createCardRenderer(
-  Component: typeof CardWithHeader | typeof CardHeader | typeof CardBody | typeof CardFooter
-): ComponentRenderer {
-  return ({ elementProps, content, renderedChildren }) => (
-    <Component
-      data-testid={elementProps['data-testid'] as string | undefined}
-      className={elementProps.className as string | undefined}
-    >
-      {content || renderedChildren}
-    </Component>
-  )
+function createCardRenderer(baseClasses: string): ComponentRenderer {
+  return ({ elementProps, content, renderedChildren }) => {
+    const extra = elementProps.className as string | undefined
+    const className = extra ? `${baseClasses} ${extra}` : baseClasses
+    return (
+      <div
+        data-testid={elementProps['data-testid'] as string | undefined}
+        className={className}
+      >
+        {content || renderedChildren}
+      </div>
+    )
+  }
 }
 
 /**
@@ -66,19 +74,25 @@ const renderHeroSection: ComponentRenderer = ({
  * These components have complex rendering logic or use custom UI components.
  */
 export const specialComponents: Partial<Record<Component['type'], ComponentRenderer>> = {
-  'speech-bubble': ({ elementProps, content, renderedChildren }) => (
-    <SpeechBubble
-      data-testid={elementProps['data-testid'] as string | undefined}
-      className={elementProps.className as string | undefined}
-    >
-      {content || renderedChildren}
-    </SpeechBubble>
-  ),
+  'speech-bubble': ({ elementProps, content, renderedChildren }) => {
+    const base =
+      'bg-blue-100 border border-blue-300 px-4 py-3 text-sm rounded-tl-md rounded-tr-md rounded-br-md rounded-bl-none'
+    const extra = elementProps.className as string | undefined
+    const className = extra ? `${base} ${extra}` : base
+    return (
+      <div
+        data-testid={elementProps['data-testid'] as string | undefined}
+        className={className}
+      >
+        {content || renderedChildren}
+      </div>
+    )
+  },
 
-  'card-with-header': createCardRenderer(CardWithHeader),
-  'card-header': createCardRenderer(CardHeader),
-  'card-body': createCardRenderer(CardBody),
-  'card-footer': createCardRenderer(CardFooter),
+  'card-with-header': createCardRenderer(CARD_CLASSES['card-with-header']),
+  'card-header': createCardRenderer(CARD_CLASSES['card-header']),
+  'card-body': createCardRenderer(CARD_CLASSES['card-body']),
+  'card-footer': createCardRenderer(CARD_CLASSES['card-footer']),
 
   hero: renderHeroSection,
 

@@ -6,7 +6,6 @@
  */
 
 // Utility functions
-export { cn } from './cn'
 export { parseStyle, normalizeStyleAnimations } from './parse-style'
 export { isCssValue, isTailwindClass } from './style-utils'
 

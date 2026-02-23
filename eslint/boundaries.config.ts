@@ -164,11 +164,6 @@ export default [
           pattern: 'src/presentation/api/middleware/**/*',
           mode: 'file',
         },
-        {
-          type: 'presentation-component-ui',
-          pattern: 'src/presentation/ui/ui/**/*',
-          mode: 'file',
-        },
         { type: 'presentation-util', pattern: 'src/presentation/utils/**/*', mode: 'file' },
         {
           type: 'presentation-api-util',
@@ -590,32 +585,6 @@ export default [
               ],
               message:
                 'API middleware violation: Can import domain models/errors, application ports/errors/use-cases, logging, and other middleware.',
-            },
-
-            // React components - Can import domain, use cases, other components
-            {
-              from: ['presentation-component-ui'],
-              allow: [
-                'domain-model-app',
-                'domain-model-table',
-                'domain-model-page',
-                'domain-model-automation',
-                'domain-validator',
-                'domain-model-api',
-                'domain-util',
-                'application-use-case-server',
-                'application-use-case-config',
-                'application-use-case-database',
-                'application-use-case-auth',
-                'application-use-case-routing',
-                'application-use-case-automation',
-                'application-use-case',
-                'application-error',
-                'presentation-component-ui',
-                'presentation-util',
-              ],
-              message:
-                'Component violation: Can import domain and application use cases. FORBIDDEN: Access infrastructure through use cases, not directly.',
             },
 
             // Presentation utils - Can import domain only

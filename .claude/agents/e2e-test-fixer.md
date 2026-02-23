@@ -585,7 +585,6 @@ Handoff notification (posted as issue comment):
    - Hono for API routes
    - Better Auth for authentication
    - Drizzle ORM for database operations
-   - shadcn/ui component patterns
    - TanStack Query for server state
 
 6. **Code Quality Standards**: Follow all coding standards from CLAUDE.md:
@@ -1217,7 +1216,7 @@ WRONG ACTION: Change API to return both `userId` AND `user.id` (breaks consisten
   - React 19: No manual memoization, proper hooks
   - Hono: Correct middleware patterns
   - Drizzle: Type-safe queries, Effect integration
-  - shadcn/ui: Component composition with cn()
+  - Tailwind CSS: Utility-first styling patterns
 - Follow all coding standards (Prettier, ESLint, TypeScript strict mode)
 - **Do NOT refactor after test passes** - that's for `codebase-refactor-auditor`
 
@@ -1360,7 +1359,7 @@ Agent: "The test expects a 'theme-badge' element to show 'Dark Mode', but doesn'
 specify whether this should be a button, badge, or text element. I have three options:
 
 1. Simple text span (fastest, minimal styling)
-2. shadcn/ui Badge component (consistent with design system)
+2. Styled badge element (consistent with design system)
 3. Interactive button (allows theme switching on click)
 
 Which approach aligns with your vision for this feature?"

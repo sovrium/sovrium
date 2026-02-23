@@ -129,17 +129,13 @@ Knip can be configured via:
     "**/*.spec.ts",
     "scripts/**",
     "tests/**",
-    "src/presentation/ui/ui/**",
     "src/presentation/hooks/use-mobile.ts",
     "src/hooks/**"
   ],
   "entry": ["src/index.ts", "src/cli.ts"],
   "ignoreDependencies": [
-    "class-variance-authority",
-    "lucide-react",
     "tailwindcss",
     "tw-animate-css",
-    "@radix-ui/*",
     "@hookform/resolvers",
     "@tanstack/react-query",
     "@tanstack/react-query-devtools",
@@ -147,18 +143,7 @@ Knip can be configured via:
     "better-auth",
     "drizzle-orm",
     "zod",
-    "cmdk",
-    "embla-carousel-react",
-    "input-otp",
-    "next-themes",
-    "react-day-picker",
     "react-hook-form",
-    "react-resizable-panels",
-    "recharts",
-    "sonner",
-    "tailwind-merge",
-    "vaul",
-    "clsx",
     "@eslint/compat",
     "drizzle-kit"
   ],
@@ -176,56 +161,18 @@ Knip can be configured via:
   - `**/*.spec.ts` - E2E test files (Playwright)
   - `scripts/**` - Utility scripts (e.g., update-license-date.js)
   - `tests/**` - E2E test directory
-  - `src/presentation/ui/ui/**` - shadcn/ui components (kept for future use)
   - `src/presentation/hooks/use-mobile.ts` - Mobile detection hook
   - `src/hooks/**` - Custom React hooks directory
 - **ignoreDependencies**: Dependencies that are part of the stack but may not be directly imported:
-  - **UI Libraries**: All Radix UI packages (`@radix-ui/*`) - Primitives for shadcn/ui components
   - **Form Handling**: `react-hook-form`, `@hookform/resolvers` - Form management
   - **State Management**: `@tanstack/react-query`, `@tanstack/react-query-devtools` - Server state
   - **Data Table**: `@tanstack/react-table` - Data table functionality
   - **Database**: `drizzle-orm`, `drizzle-kit` - ORM and migrations
   - **Auth**: `better-auth` - Authentication system
   - **Validation**: `zod` - Schema validation
-  - **UI Components**: Various UI component libraries used by shadcn/ui:
-    - `cmdk` - Command palette
-    - `embla-carousel-react` - Carousel component
-    - `input-otp` - OTP input component
-    - `next-themes` - Theme management
-    - `react-day-picker` - Date picker
-    - `react-resizable-panels` - Resizable panels
-    - `recharts` - Charting library
-    - `sonner` - Toast notifications
-    - `vaul` - Drawer component
-  - **CSS Utilities**:
-    - `class-variance-authority` - CVA for component variants
-    - `lucide-react` - Icon library
-    - `tailwindcss` - CSS framework
-    - `tw-animate-css` - Animation utilities
-    - `tailwind-merge` - Merge Tailwind classes
-    - `clsx` - Class name utility
+  - **CSS**: `tailwindcss`, `tw-animate-css` - CSS framework and animations
   - **Build Tools**: `@eslint/compat` - ESLint compatibility
 - **ignoreExportsUsedInFile**: `true` - Ignore exports used in the same file
-
-### Why shadcn/ui Components Are Excluded
-
-**shadcn/ui Components** (`src/presentation/ui/ui/**`):
-
-- shadcn/ui provides a comprehensive library of copy-paste components
-- Not all components are used immediately but kept for future use
-- Components are intentionally copied into the project for customization
-- Removing "unused" components would defeat the purpose of having them available
-- Components may be used dynamically or conditionally in the future
-- Provides a consistent design system ready to use
-
-**Related Dependencies**:
-
-All shadcn/ui related packages are kept in `ignoreDependencies` because:
-
-- They support components that may not be in use yet
-- Removing them would break components when they're needed
-- They're part of the complete shadcn/ui ecosystem
-- Better to have them available than to reinstall later
 
 ### Why Test Files and Scripts Are Excluded
 

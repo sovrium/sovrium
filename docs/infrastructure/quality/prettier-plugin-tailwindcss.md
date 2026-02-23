@@ -134,7 +134,7 @@ If using custom Tailwind CSS configuration:
 {
   "plugins": ["prettier-plugin-tailwindcss"],
   "tailwindConfig": "./tailwind.config.ts",
-  "tailwindFunctions": ["classnames", "clsx", "cn"]
+  "tailwindFunctions": ["classnames"]
 }
 ```
 

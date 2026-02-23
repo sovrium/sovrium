@@ -364,10 +364,10 @@ Sovrium uses multiple layers of enforcement to ensure architectural principles a
 
 Sovrium uses different validation libraries depending on the context:
 
-| Context         | Library           | Use Case                                    | Architecture Document      |
-| --------------- | ----------------- | ------------------------------------------- | -------------------------- |
-| **Client-side** | **Zod**           | React Hook Form validation, shadcn/ui forms | security-best-practices.md |
-| **Server-side** | **Effect Schema** | API input validation, business logic        | security-best-practices.md |
+| Context         | Library           | Use Case                                 | Architecture Document      |
+| --------------- | ----------------- | ---------------------------------------- | -------------------------- |
+| **Client-side** | **Zod**           | React Hook Form validation, client forms | security-best-practices.md |
+| **Server-side** | **Effect Schema** | API input validation, business logic     | security-best-practices.md |
 
 **Why Split?**
 

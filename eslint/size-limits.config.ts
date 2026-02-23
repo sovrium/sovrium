@@ -107,16 +107,6 @@ export default [
     },
   },
 
-  // Third-party UI components (shadcn/ui) - Follow library patterns
-  {
-    files: ['src/presentation/ui/ui/**/*.tsx'],
-    ignores: ['src/presentation/ui/ui/**/*.test.tsx'],
-    rules: {
-      'max-lines-per-function': 'off', // shadcn/ui components follow their own patterns
-      complexity: 'off', // Complex UI patterns acceptable in third-party components
-    },
-  },
-
   // SSR/Page generation components - Declarative configuration rendering
   {
     files: ['src/presentation/ui/pages/utils/**/*.tsx'],

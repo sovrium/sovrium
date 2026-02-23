@@ -796,16 +796,16 @@ src/presentation/utils/
 
 ```typescript
 // ✅ CORRECT
-src / presentation / styling / cn.ts
-export function cn(...inputs) {
-  /* ... */
-}
-
 src / presentation / styling / variant - classes.ts
 export const COMMON_INTERACTIVE_CLASSES = '...'
 
+src / presentation / styling / theme - utils.ts
+export function getThemeClass(variant: string) {
+  /* ... */
+}
+
 // ❌ INCORRECT
-src / presentation / styling / CN.ts // Use lowercase
+src / presentation / styling / VariantClasses.ts // Use kebab-case
 src / presentation / styling / classNameMerger.ts // Use kebab-case
 ```
 
@@ -1442,7 +1442,7 @@ Sovrium's file naming conventions prioritize **simplicity** and **consistency**:
 ✅ **File name ≠ export name** - `start-server.ts` can export `startServer` function
 ✅ **One case style** - kebab-case for 95% of files (minimal decision fatigue)
 ✅ **Clear exception** - PascalCase only for full-page components
-✅ **Ecosystem aligned** - Matches web URLs, CLI tools, React hooks, shadcn/ui
+✅ **Ecosystem aligned** - Matches web URLs, CLI tools, React hooks, npm packages
 ✅ **TypeScript-friendly** - Auto-import and refactoring support
 
 ### Quick Decision Tree

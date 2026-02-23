@@ -12,7 +12,7 @@
 - **Developer Experience**: Simple API with minimal boilerplate
 - **TypeScript Support**: Full type safety with inferred form types
 - **Validation Integration**: Works seamlessly with Zod for client-side validation
-- **shadcn/ui Integration**: Official form component from shadcn/ui uses React Hook Form
+- **Zod Integration**: Seamless validation with Zod resolver for client-side forms
 - **Small Bundle Size**: ~9KB minified + gzipped
 
 ## Core Concepts
@@ -79,7 +79,7 @@ bun add @hookform/resolvers  # Zod integration
 bun add zod  # ^4.1.13
 ```
 
-## Basic Usage with shadcn/ui Form Component
+## Basic Usage with Zod Validation
 
 ### 1. Define Zod Schema
 
@@ -327,7 +327,7 @@ const schema = z
 ### Display Field Errors
 
 ```typescript
-// Automatic via shadcn/ui FormMessage
+// Display field errors via FormMessage
 <FormField
   name="email"
   render={({ field }) => (
@@ -549,7 +549,7 @@ console.log('Form errors:', form.formState.errors)
 1. **Always use Zod resolver** for validation (never manual validation)
 2. **Set default values** to avoid undefined fields
 3. **Use TypeScript** with `z.infer<typeof schema>` for type safety
-4. **Use shadcn/ui Form components** for consistent UI
+4. **Use reusable Form components** for consistent UI
 5. **Mode: onSubmit** for best UX (validate on submit, then onChange)
 6. **Handle server errors** with `setError()` for field-specific errors
 7. **Reset form** after successful submission with `form.reset()`
@@ -600,12 +600,10 @@ const [email, setEmail] = useState('')
 
 - `@docs/infrastructure/api/zod-hono-openapi.md` - Zod usage for server API models and OpenAPI
 - `@docs/infrastructure/framework/effect.md` - Effect Schema for server-side validation
-- `@docs/infrastructure/ui/shadcn.md` - shadcn/ui components (Form component)
 - `@docs/architecture/layer-based-architecture.md` - Layer separation and where to use Zod
 
 ## References
 
 - React Hook Form docs: https://react-hook-form.com/
 - Zod documentation: https://zod.dev/
-- shadcn/ui Form component: https://ui.shadcn.com/docs/components/form
 - @hookform/resolvers: https://github.com/react-hook-form/resolvers

@@ -30,7 +30,7 @@ You will maintain this modular documentation approach:
   - `language/`: TypeScript
   - `framework/`: Effect, Hono, Better Auth
   - `database/`: Drizzle ORM, PostgreSQL (via bun:sql)
-  - `ui/`: React, Tailwind, shadcn/ui, TanStack Query/Table
+  - `ui/`: React, Tailwind, TanStack Query/Table
   - `quality/`: ESLint, Prettier, Knip
   - `testing/`: Bun Test, Playwright
   - `cicd/`: GitHub Actions

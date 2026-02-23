@@ -489,7 +489,7 @@ The agent respects pipeline configuration:
    **Key Categories to Check**:
    - **Effect.ts & Web Framework** (@docs/infrastructure/framework/effect.md, hono.md, better-auth.md): Effect.gen patterns, error handling, service injection, cache usage, Hono middleware/routing, Better Auth session management and CSRF protection
    - **Database** (@docs/infrastructure/database/drizzle.md): Drizzle schema patterns, query optimization, transaction handling with Effect, migration management
-   - **UI Frameworks** (@docs/infrastructure/ui/*.md): React 19 (no manual memoization), TanStack Query/Table integration, shadcn/ui composition, Tailwind utility-first patterns, React Hook Form with Zod
+   - **UI Frameworks** (@docs/infrastructure/ui/*.md): React 19 (no manual memoization), TanStack Query/Table integration, Tailwind utility-first patterns, React Hook Form with Zod
    - **Language & Runtime** (@docs/infrastructure/language/typescript.md, runtime/bun.md): TypeScript strict mode, type inference, branded types, Bun-specific APIs, static imports preferred over dynamic imports (see Code Reduction responsibility)
    - **Code Quality** (@docs/infrastructure/quality/*.md): ESLint functional programming rules (modular config in `eslint/*.config.ts`), code size/complexity limits (`eslint/size-limits.config.ts`), Prettier formatting (no semicolons, single quotes), Knip dead code detection
    - **Testing** (@docs/infrastructure/testing/*.md): F.I.R.S.T principles (Bun Test), Playwright test tags (@spec, @regression, @spec)
@@ -527,7 +527,6 @@ The agent respects pipeline configuration:
      - **Default limits**: 400 lines/file, 50 lines/function, complexity 10, max depth 4, max params 4, max statements 20
      - **React components** (`src/presentation/ui/**/*.tsx`): Stricter 300 lines (ERROR level), 60 lines/function
      - **Config/schemas** (`**/*.config.ts`, `src/domain/models/**/*.ts`, `**/schemas/**/*.ts`, `**/types/**/*.ts`): Relaxed 800 lines, complexity off
-     - **shadcn/ui components** (`src/presentation/ui/shadcn/**/*.tsx`): Exempted (follow library patterns)
      - **SSR components** (`src/presentation/ui/pages/utils/**/*.tsx`): Exempted (declarative config)
      - **Temporary overrides** requiring refactoring: `src/presentation/ui/pages/DynamicPage.tsx`, `src/presentation/ui/sections/component-renderer.tsx`
      - **Violation handling**: Extract functions, split modules, break into smaller components (see `@docs/infrastructure/quality/eslint.md` for guidance)
@@ -672,8 +671,7 @@ The agent respects pipeline configuration:
      - `src/application/ports/services/` → `{capability}-service.ts` or `{capability}.ts`
      - `src/infrastructure/database/repositories/` → `{entity}-repository-live.ts`
      - `src/presentation/hooks/` → `use-{name}.ts`
-     - `src/presentation/ui/shadcn/` → `{component}.tsx`
-   - **Sibling consistency**: Files within the same directory should follow identical patterns (e.g., if one repository is `table-repository.ts`, another shouldn't be `UserRepo.ts`)
+    - **Sibling consistency**: Files within the same directory should follow identical patterns (e.g., if one repository is `table-repository.ts`, another shouldn't be `UserRepo.ts`)
    - **Detection**: Compare naming patterns within each directory, flag outliers
 
    **Audit Protocol**:
@@ -1484,7 +1482,7 @@ Before finalizing recommendations:
 6. **Best Practices Verification**: Cross-check code against ALL relevant infrastructure docs:
    - **Framework-specific** (@docs/infrastructure/framework/): Effect.ts, Hono, Better Auth patterns
    - **Database** (@docs/infrastructure/database/): Drizzle ORM best practices
-   - **UI Libraries** (@docs/infrastructure/ui/): React 19, TanStack Query/Table, shadcn/ui, Tailwind
+   - **UI Libraries** (@docs/infrastructure/ui/): React 19, TanStack Query/Table, Tailwind
    - **Language/Runtime** (@docs/infrastructure/language/, runtime/): TypeScript strict mode, Bun APIs
    - **Code Quality** (@docs/infrastructure/quality/): ESLint, Prettier compliance
    - **Testing** (@docs/infrastructure/testing/): Bun Test, Playwright patterns
@@ -1747,9 +1745,6 @@ When auditing `src/infrastructure/` and `src/presentation/`, actively detect and
 [Same pattern]
 
 ##### Tailwind CSS Violations
-[Same pattern]
-
-##### shadcn/ui Violations
 [Same pattern]
 
 #### Language/Runtime Best Practices

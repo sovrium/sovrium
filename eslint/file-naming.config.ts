@@ -48,9 +48,7 @@ export default [
           // Specific patterns for file types
           'src/infrastructure/database/repositories/*.ts': '*-repository-live',
           'src/infrastructure/layers/*.ts': '*-layer',
-          'src/presentation/ui/ui/*-variants.ts': '*-variants',
           'src/presentation/hooks/*.{ts,tsx}': 'use-*',
-          'src/presentation/ui/ui/*-hook.ts': '*-hook',
 
           // DEFAULT: All other files use kebab-case (must be last)
           '**/*.{ts,tsx,js,jsx}': 'KEBAB_CASE',

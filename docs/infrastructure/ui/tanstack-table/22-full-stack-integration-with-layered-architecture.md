@@ -267,7 +267,6 @@ import {
   flexRender,
 } from '@tanstack/react-table'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { cn } from '@/lib/utils'
 interface UserListItem {
   id: number
   name: string
@@ -361,10 +360,9 @@ export function UsersTable() {
           const role = info.getValue<'admin' | 'user'>()
           return (
             <span
-              className={cn(
-                'rounded-full px-2 py-1 text-xs font-medium',
+              className={`rounded-full px-2 py-1 text-xs font-medium ${
                 role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-              )}
+              }`}
             >
               {role}
             </span>
@@ -378,10 +376,9 @@ export function UsersTable() {
           const status = info.getValue<string>()
           return (
             <span
-              className={cn(
-                'rounded-full px-2 py-1 text-xs font-medium',
+              className={`rounded-full px-2 py-1 text-xs font-medium ${
                 status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-              )}
+              }`}
             >
               {status}
             </span>
@@ -397,10 +394,9 @@ export function UsersTable() {
             <button
               onClick={() => deleteUserMutation.mutate(user.id)}
               disabled={!user.canDelete || deleteUserMutation.isLoading}
-              className={cn(
-                'text-red-600 hover:text-red-700',
-                (!user.canDelete || deleteUserMutation.isLoading) && 'cursor-not-allowed opacity-50'
-              )}
+              className={`text-red-600 hover:text-red-700 ${
+                (!user.canDelete || deleteUserMutation.isLoading) ? 'cursor-not-allowed opacity-50' : ''
+              }`}
             >
               {deleteUserMutation.isLoading ? 'Deleting...' : 'Delete'}
             </button>
@@ -535,4 +531,4 @@ export function UsersTable() {
 
 [← Part 21](./21-when-to-use-tanstack-table.md) | [Part 23 →](./23-references.md)
 
-**Parts**: [Part 1](./01-start.md) | [Part 2](./02-overview.md) | [Part 3](./03-why-tanstack-table-for-sovrium.md) | [Part 4](./04-core-concepts.md) | [Part 5](./05-installation.md) | [Part 6](./06-basic-table-setup.md) | [Part 7](./07-column-definitions.md) | [Part 8](./08-sorting.md) | [Part 9](./09-filtering.md) | [Part 10](./10-pagination.md) | [Part 11](./11-row-selection.md) | [Part 12](./12-column-visibility.md) | [Part 13](./13-integration-with-tanstack-query.md) | [Part 14](./14-integration-with-effectts.md) | [Part 15](./15-styling-with-tailwind-css.md) | [Part 16](./16-reusable-data-table-component-shadcnui-pattern.md) | [Part 17](./17-performance-optimization.md) | [Part 18](./18-testing.md) | [Part 19](./19-best-practices.md) | [Part 20](./20-common-pitfalls.md) | [Part 21](./21-when-to-use-tanstack-table.md) | **Part 22** | [Part 23](./23-references.md)
+**Parts**: [Part 1](./01-start.md) | [Part 2](./02-overview.md) | [Part 3](./03-why-tanstack-table-for-sovrium.md) | [Part 4](./04-core-concepts.md) | [Part 5](./05-installation.md) | [Part 6](./06-basic-table-setup.md) | [Part 7](./07-column-definitions.md) | [Part 8](./08-sorting.md) | [Part 9](./09-filtering.md) | [Part 10](./10-pagination.md) | [Part 11](./11-row-selection.md) | [Part 12](./12-column-visibility.md) | [Part 13](./13-integration-with-tanstack-query.md) | [Part 14](./14-integration-with-effectts.md) | [Part 15](./15-styling-with-tailwind-css.md) | [Part 16](./16-reusable-data-table-component.md) | [Part 17](./17-performance-optimization.md) | [Part 18](./18-testing.md) | [Part 19](./19-best-practices.md) | [Part 20](./20-common-pitfalls.md) | [Part 21](./21-when-to-use-tanstack-table.md) | **Part 22** | [Part 23](./23-references.md)
