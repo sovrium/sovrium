@@ -28,7 +28,7 @@ export const sovriumBadge: ComponentTemplate = {
       },
       children: [
         { type: 'span', content: '\u26A1', props: { className: 'text-sm' } },
-        { type: 'span', content: 'Built with Sovrium' },
+        { type: 'span', content: '$t:badge.text' },
       ],
     },
   ],
