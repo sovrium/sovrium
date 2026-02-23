@@ -7,7 +7,7 @@
 
 import { favicons } from './favicons'
 import { footerI18n } from './footer'
-import { langSwitchScript, navbar } from './navbar'
+import { langSwitchScript, mobileMenuScript, navbar } from './navbar'
 import type { Page } from '@/index'
 
 export const privacyPolicy: Page = {
@@ -34,7 +34,7 @@ export const privacyPolicy: Page = {
     favicons,
   },
   scripts: {
-    inlineScripts: [langSwitchScript],
+    inlineScripts: [langSwitchScript, mobileMenuScript],
   },
   sections: [
     // Navigation Bar

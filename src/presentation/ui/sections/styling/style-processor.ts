@@ -86,10 +86,19 @@ export function parseComponentStyle(
 }
 
 /**
- * Component types that have corresponding CSS classes in @layer components
- * These classes are automatically added to the element when rendering
+ * Maps component types to their corresponding CSS class names in @layer components.
+ * These classes are automatically added to the element when rendering.
+ *
+ * Most types map directly (e.g. 'card' -> 'card'), but 'button' maps to 'btn'
+ * because the CSS components layer uses `.btn` (not a `button` type selector)
+ * to avoid applying default button styles to all `<button>` elements globally.
  */
-const COMPONENT_TYPE_CLASSES = new Set(['card', 'badge', 'btn'])
+const COMPONENT_TYPE_CLASS_MAP: Partial<Record<string, string>> = {
+  card: 'card',
+  badge: 'badge',
+  btn: 'btn',
+  button: 'btn',
+}
 
 /**
  * Build entrance animation class from interactions
@@ -120,7 +129,7 @@ export function buildFinalClassName(config: BuildClassNameConfig): string | unde
   const { type, className, substitutedProps, interactions } = config
 
   // Build classes array immutably
-  const typeClass = COMPONENT_TYPE_CLASSES.has(type) ? type : undefined
+  const typeClass = COMPONENT_TYPE_CLASS_MAP[type]
   const flexClass = type === 'flex' ? buildFlexClasses(substitutedProps) : undefined
   const gridClass = type === 'grid' ? buildGridClasses(substitutedProps) : undefined
   const customClass = className as string | undefined

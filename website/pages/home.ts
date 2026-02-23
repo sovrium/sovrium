@@ -7,7 +7,7 @@
 
 import { favicons } from './favicons'
 import { footerI18n } from './footer'
-import { langSwitchScript, navbar } from './navbar'
+import { langSwitchScript, mobileMenuScript, navbar } from './navbar'
 import type { Page } from '@/index'
 
 export const home: Page = {
@@ -101,6 +101,7 @@ export const home: Page = {
         position: 'body-end' as const,
       },
       langSwitchScript,
+      mobileMenuScript,
     ],
   },
   sections: [
@@ -1259,14 +1260,6 @@ export const home: Page = {
                 {
                   type: 'badge',
                   content: 'React 19',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                },
-                {
-                  type: 'badge',
-                  content: 'TypeScript',
                   props: {
                     className:
                       'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',

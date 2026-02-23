@@ -111,9 +111,17 @@ describe('Component Layer Generators', () => {
       expect(result).toContain('.container-page')
       expect(result).toContain('.card')
       expect(result).toContain('.badge')
-      expect(result).toContain('button {')
       expect(result).toContain('.btn {')
       expect(result).toContain('.btn-primary')
+    })
+
+    test('does not include a bare button type selector', () => {
+      const result = generateComponentsLayer(undefined)
+
+      // The button type selector was removed to avoid applying default
+      // blue styles to all <button> elements globally. Only .btn class
+      // should carry the button styling.
+      expect(result).not.toContain('button {')
     })
 
     test('includes container-page utility class', () => {
@@ -218,8 +226,8 @@ describe('Component Layer Generators', () => {
       // Badge with theme border-radius
       expect(result).toContain('border-radius: var(--radius-full);')
 
-      // Buttons with theme colors
-      expect(result).toContain('button {')
+      // Buttons with theme colors (class-based, not type selector)
+      expect(result).not.toContain('button {')
       expect(result).toContain('.btn {')
       expect(result).toContain('.btn-primary')
       expect(result).toContain('bg-primary')

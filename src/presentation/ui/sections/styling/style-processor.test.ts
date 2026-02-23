@@ -86,7 +86,7 @@ describe('Style Processor', () => {
       expect(result).toBeUndefined()
     })
 
-    test('adds type class for component types in COMPONENT_TYPE_CLASSES', () => {
+    test('adds type class for component types in COMPONENT_TYPE_CLASS_MAP', () => {
       expect(
         buildFinalClassName({
           type: 'card',
@@ -111,6 +111,28 @@ describe('Style Processor', () => {
           interactions: undefined,
         })
       ).toBe('btn')
+    })
+
+    test('maps button type to btn class', () => {
+      expect(
+        buildFinalClassName({
+          type: 'button',
+          className: undefined,
+          substitutedProps: undefined,
+          interactions: undefined,
+        })
+      ).toBe('btn')
+    })
+
+    test('button type with custom className includes btn and custom class', () => {
+      expect(
+        buildFinalClassName({
+          type: 'button',
+          className: 'bg-transparent p-0',
+          substitutedProps: undefined,
+          interactions: undefined,
+        })
+      ).toBe('btn bg-transparent p-0')
     })
 
     test('does not add type class for other component types', () => {

@@ -104,10 +104,6 @@ export function generateComponentsLayer(theme?: Theme): string {
         ${badgeBorderRadius}
       }
 
-      button {
-        @apply ${btnClasses.join(' ')};
-      }
-
       .btn {
         @apply ${btnClasses.join(' ')};
       }

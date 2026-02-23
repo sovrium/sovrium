@@ -209,7 +209,7 @@ export const en: Record<string, string> = {
   // ── Home: Tech Stack ────────────────────────────────────────────────
   'home.techStack.title': 'Modern Stack. No Compromises.',
   'home.techStack.subtitle':
-    'Built on battle-tested technologies chosen for performance, reliability, and developer experience.',
+    'Written in TypeScript, built on battle-tested technologies chosen for performance, reliability, and developer experience.',
 
   // ── Home: Getting Started ───────────────────────────────────────────
   'home.gettingStarted.title': 'Get Started in Minutes',
@@ -223,7 +223,7 @@ export const en: Record<string, string> = {
   'home.gettingStarted.status.title': 'Early Access',
   'home.gettingStarted.status.description':
     'Sovrium is in active development. Star the repo and follow along as we build the future of self-hosted applications.',
-  'home.gettingStarted.status.cta': 'Star on GitHub',
+  'home.gettingStarted.status.cta': '⭐ Star on GitHub',
 
   // ════════════════════════════════════════════════════════════════════
   //  PARTNERS PAGE

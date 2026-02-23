@@ -214,7 +214,7 @@ export const fr: Record<string, string> = {
   // ── Home: Tech Stack ────────────────────────────────────────────────
   'home.techStack.title': 'Stack moderne. Sans compromis.',
   'home.techStack.subtitle':
-    'Construit sur des technologies \u00E9prouv\u00E9es choisies pour la performance, la fiabilit\u00E9 et l\u2019exp\u00E9rience d\u00E9veloppeur.',
+    '\u00C9crit en TypeScript, construit sur des technologies \u00E9prouv\u00E9es choisies pour la performance, la fiabilit\u00E9 et l\u2019exp\u00E9rience d\u00E9veloppeur.',
 
   // ── Home: Getting Started ───────────────────────────────────────────
   'home.gettingStarted.title': 'D\u00E9marrez en quelques minutes',
@@ -229,7 +229,7 @@ export const fr: Record<string, string> = {
   'home.gettingStarted.status.title': 'Acc\u00E8s anticipé',
   'home.gettingStarted.status.description':
     'Sovrium est en d\u00E9veloppement actif. Mettez une \u00E9toile au repo et suivez la construction de l\u2019avenir des applications auto-h\u00E9berg\u00E9es.',
-  'home.gettingStarted.status.cta': '\u00C9toiler sur GitHub',
+  'home.gettingStarted.status.cta': '⭐ \u00C9toiler sur GitHub',
 
   // ════════════════════════════════════════════════════════════════════
   //  PARTNERS PAGE
