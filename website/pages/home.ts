@@ -5,7 +5,6 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { builtWithSovriumBadge } from './badge'
 import { favicons } from './favicons'
 import { footerI18n } from './footer'
 import { langSwitchScript, navbar } from './navbar'
@@ -1490,6 +1489,6 @@ export const home: Page = {
     // Footer
     footerI18n,
 
-    builtWithSovriumBadge,
+    { component: 'sovrium-badge' },
   ],
 }

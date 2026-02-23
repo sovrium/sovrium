@@ -6,6 +6,7 @@
  */
 
 import { type App } from '@/index'
+import { components } from './components'
 import { en } from './i18n/en'
 import { fr } from './i18n/fr'
 import { brandCharter } from './pages/brand-charter'
@@ -114,6 +115,6 @@ export const app: App = {
     ],
     translations: { en, fr },
   },
-  components: [],
+  components,
   pages: [home, termsOfService, privacyPolicy, dataDeletion, partners, company, brandCharter],
 }

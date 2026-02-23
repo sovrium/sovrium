@@ -5,60 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { builtWithSovriumBadge } from './badge'
 import { favicons } from './favicons'
 import { footerI18n } from './footer'
 import { langSwitchScript, navbar } from './navbar'
 import type { Page } from '@/index'
-
-// --- Helpers ----------------------------------------------------------------
-
-const valueCard = (key: string) => ({
-  type: 'card' as const,
-  props: {
-    className:
-      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-  },
-  children: [
-    {
-      type: 'div' as const,
-      props: { className: 'text-3xl mb-4' },
-      content: `$t:company.values.${key}.icon`,
-    },
-    {
-      type: 'h3' as const,
-      content: `$t:company.values.${key}.title`,
-      props: { className: 'text-xl font-semibold mb-3 text-sovereignty-light' },
-    },
-    {
-      type: 'paragraph' as const,
-      content: `$t:company.values.${key}.description`,
-      props: { className: 'text-sovereignty-gray-400 leading-relaxed' },
-    },
-  ],
-})
-
-const principleItem = (key: string) => ({
-  type: 'div' as const,
-  props: {
-    className:
-      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-  },
-  children: [
-    {
-      type: 'h4' as const,
-      content: `$t:company.principles.${key}.title`,
-      props: { className: 'text-lg font-semibold mb-2 text-sovereignty-light' },
-    },
-    {
-      type: 'paragraph' as const,
-      content: `$t:company.principles.${key}.description`,
-      props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed' },
-    },
-  ],
-})
-
-// --- Page -------------------------------------------------------------------
 
 export const company: Page = {
   name: 'company',
@@ -242,12 +192,12 @@ export const company: Page = {
               type: 'grid',
               props: { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' },
               children: [
-                valueCard('sovereignty'),
-                valueCard('transparency'),
-                valueCard('openSource'),
-                valueCard('simplicity'),
-                valueCard('ownership'),
-                valueCard('longTerm'),
+                { $ref: 'value-card', vars: { key: 'sovereignty' } },
+                { $ref: 'value-card', vars: { key: 'transparency' } },
+                { $ref: 'value-card', vars: { key: 'openSource' } },
+                { $ref: 'value-card', vars: { key: 'simplicity' } },
+                { $ref: 'value-card', vars: { key: 'ownership' } },
+                { $ref: 'value-card', vars: { key: 'longTerm' } },
               ],
             },
           ],
@@ -286,10 +236,10 @@ export const company: Page = {
               type: 'grid',
               props: { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
               children: [
-                principleItem('configOverCode'),
-                principleItem('minimalDeps'),
-                principleItem('businessFocus'),
-                principleItem('configReuse'),
+                { $ref: 'principle-item', vars: { key: 'configOverCode' } },
+                { $ref: 'principle-item', vars: { key: 'minimalDeps' } },
+                { $ref: 'principle-item', vars: { key: 'businessFocus' } },
+                { $ref: 'principle-item', vars: { key: 'configReuse' } },
               ],
             },
           ],
@@ -472,6 +422,6 @@ export const company: Page = {
     // --- Section 8: Footer -------------------------------------------------
     footerI18n,
 
-    builtWithSovriumBadge,
+    { component: 'sovrium-badge' },
   ],
 }

@@ -5,130 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { builtWithSovriumBadge } from './badge'
 import { favicons } from './favicons'
 import { footerI18n } from './footer'
 import { langSwitchScript, navbar } from './navbar'
 import type { Page } from '@/index'
 
-// ─── Helpers ────────────────────────────────────────────────────────────────────
-
-const testimonialCard = (index: number) => ({
-  type: 'card' as const,
-  props: {
-    className:
-      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-  },
-  children: [
-    {
-      type: 'div' as const,
-      props: { className: 'text-sovereignty-accent text-4xl mb-4' },
-      content: '\u201C',
-    },
-    {
-      type: 'paragraph' as const,
-      content: `$t:partners.testimonials.${index}.quote`,
-      props: {
-        className: 'text-sovereignty-gray-300 italic mb-6 leading-relaxed',
-      },
-    },
-    {
-      type: 'div' as const,
-      props: {
-        className: 'border-t border-sovereignty-gray-800 pt-4 flex items-center gap-3',
-      },
-      children: [
-        {
-          type: 'div' as const,
-          children: [
-            {
-              type: 'paragraph' as const,
-              content: `$t:partners.testimonials.${index}.author`,
-              props: { className: 'font-semibold text-sovereignty-light' },
-            },
-            {
-              type: 'paragraph' as const,
-              content: `$t:partners.testimonials.${index}.role`,
-              props: { className: 'text-sm text-sovereignty-gray-400' },
-            },
-          ],
-        },
-      ],
-    },
-  ],
-})
-
-const processStep = (num: number) => ({
-  type: 'div' as const,
-  props: { className: 'text-center' },
-  children: [
-    {
-      type: 'div' as const,
-      props: {
-        className:
-          'bg-sovereignty-accent text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl',
-      },
-      content: `${num}`,
-    },
-    {
-      type: 'h4' as const,
-      content: `$t:partners.process.step${num}.title`,
-      props: { className: 'font-semibold mb-2' },
-    },
-    {
-      type: 'paragraph' as const,
-      content: `$t:partners.process.step${num}.description`,
-      props: { className: 'text-sm text-sovereignty-gray-400' },
-    },
-  ],
-})
-
-const methodologyCard = (num: number) => ({
-  type: 'card' as const,
-  props: {
-    className:
-      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-  },
-  children: [
-    {
-      type: 'h4' as const,
-      content: `$t:partners.methodology.${num}.title`,
-      props: { className: 'text-lg font-semibold mb-2 text-sovereignty-light' },
-    },
-    {
-      type: 'paragraph' as const,
-      content: `$t:partners.methodology.${num}.description`,
-      props: { className: 'text-sm text-sovereignty-gray-400' },
-    },
-  ],
-})
-
-const statCard = (key: string) => ({
-  type: 'card' as const,
-  props: {
-    className:
-      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors duration-300',
-  },
-  children: [
-    {
-      type: 'h3' as const,
-      content: `$t:partners.stats.${key}.stat`,
-      props: {
-        className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
-      },
-    },
-    {
-      type: 'h4' as const,
-      content: `$t:partners.stats.${key}.title`,
-      props: { className: 'text-xl font-semibold mb-3' },
-    },
-    {
-      type: 'paragraph' as const,
-      content: `$t:partners.stats.${key}.description`,
-      props: { className: 'text-sovereignty-gray-400' },
-    },
-  ],
-})
+// ─── Static data for marquee logos (duplicated for infinite scroll effect) ─────
 
 const allClientLogos: ReadonlyArray<{ readonly name: string; readonly src: string }> = [
   { name: 'ESCP Business School', src: '/logos/escp.png' },
@@ -140,26 +22,10 @@ const allClientLogos: ReadonlyArray<{ readonly name: string; readonly src: strin
   { name: 'EDL Energies de Loire', src: '/logos/edl.png' },
 ]
 
-const marqueeLogoItem = (logo: { readonly name: string; readonly src: string }) => ({
-  type: 'div' as const,
-  props: {
-    className:
-      'flex-shrink-0 flex items-center justify-center h-16 w-40 mx-6 opacity-60 hover:opacity-100 transition-all duration-300',
-  },
-  children: [
-    {
-      type: 'image' as const,
-      props: {
-        src: logo.src,
-        alt: logo.name,
-        className: 'h-full w-full object-contain brightness-0 invert',
-      },
-    },
-  ],
-})
-
-// Duplicate logos for seamless infinite scroll
-const marqueeLogos = [...allClientLogos, ...allClientLogos].map(marqueeLogoItem)
+const marqueeLogos = [...allClientLogos, ...allClientLogos].map((logo) => ({
+  $ref: 'marquee-logo-item' as const,
+  vars: { src: logo.src, name: logo.name },
+}))
 
 // ─── Page ───────────────────────────────────────────────────────────────────────
 
@@ -319,7 +185,11 @@ export const partners: Page = {
             {
               type: 'grid',
               props: { className: 'grid grid-cols-1 md:grid-cols-3 gap-8' },
-              children: [statCard('clients'), statCard('tools'), statCard('hours')],
+              children: [
+                { $ref: 'stat-card', vars: { key: 'clients' } },
+                { $ref: 'stat-card', vars: { key: 'tools' } },
+                { $ref: 'stat-card', vars: { key: 'hours' } },
+              ],
             },
           ],
         },
@@ -359,11 +229,11 @@ export const partners: Page = {
                 className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 md:gap-4',
               },
               children: [
-                processStep(1),
-                processStep(2),
-                processStep(3),
-                processStep(4),
-                processStep(5),
+                { $ref: 'process-step', vars: { num: 1 } },
+                { $ref: 'process-step', vars: { num: 2 } },
+                { $ref: 'process-step', vars: { num: 3 } },
+                { $ref: 'process-step', vars: { num: 4 } },
+                { $ref: 'process-step', vars: { num: 5 } },
               ],
             },
           ],
@@ -404,16 +274,16 @@ export const partners: Page = {
                 className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6',
               },
               children: [
-                methodologyCard(1),
-                methodologyCard(2),
-                methodologyCard(3),
-                methodologyCard(4),
-                methodologyCard(5),
-                methodologyCard(6),
-                methodologyCard(7),
-                methodologyCard(8),
-                methodologyCard(9),
-                methodologyCard(10),
+                { $ref: 'methodology-card', vars: { num: 1 } },
+                { $ref: 'methodology-card', vars: { num: 2 } },
+                { $ref: 'methodology-card', vars: { num: 3 } },
+                { $ref: 'methodology-card', vars: { num: 4 } },
+                { $ref: 'methodology-card', vars: { num: 5 } },
+                { $ref: 'methodology-card', vars: { num: 6 } },
+                { $ref: 'methodology-card', vars: { num: 7 } },
+                { $ref: 'methodology-card', vars: { num: 8 } },
+                { $ref: 'methodology-card', vars: { num: 9 } },
+                { $ref: 'methodology-card', vars: { num: 10 } },
               ],
             },
           ],
@@ -444,10 +314,10 @@ export const partners: Page = {
               type: 'grid',
               props: { className: 'grid grid-cols-1 md:grid-cols-2 gap-8' },
               children: [
-                testimonialCard(1),
-                testimonialCard(2),
-                testimonialCard(3),
-                testimonialCard(4),
+                { $ref: 'testimonial-card', vars: { index: 1 } },
+                { $ref: 'testimonial-card', vars: { index: 2 } },
+                { $ref: 'testimonial-card', vars: { index: 3 } },
+                { $ref: 'testimonial-card', vars: { index: 4 } },
               ],
             },
           ],
@@ -509,6 +379,6 @@ export const partners: Page = {
     // ─── Section 8: Footer ───────────────────────────────────────────────────
     footerI18n,
 
-    builtWithSovriumBadge,
+    { component: 'sovrium-badge' },
   ],
 }
