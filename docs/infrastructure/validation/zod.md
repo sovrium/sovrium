@@ -106,7 +106,7 @@ app.openapi(route, async (c) => {
 ### 3. Form Validation
 
 ```typescript
-// src/presentation/components/forms/UserForm.tsx
+// src/presentation/ui/forms/UserForm.tsx
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'

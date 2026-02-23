@@ -234,7 +234,7 @@ Restoring a parent record can optionally restore children:
    - Show "deleted_at" metadata if record is in trash
    - Show "Restore" action button
 
-**React Components** (`src/presentation/components/`):
+**React Components** (`src/presentation/ui/`):
 
 - `DeleteRecordDialog.tsx` - Confirmation with permanent option
 - `TrashView.tsx` - Dedicated trash view component
@@ -490,8 +490,8 @@ For GDPR "right to be forgotten" requests, permanent delete can be triggered by:
 | `src/infrastructure/database/view-generators.ts`    | Handle trash views                   | **P1**   |
 | `src/presentation/api/routes/tables/records.ts`     | Add restore endpoint                 | **P0**   |
 | `src/presentation/api/routes/tables/trash.ts`       | Add trash endpoint                   | **P1**   |
-| `src/presentation/components/DeleteDialog.tsx`      | Add permanent option                 | **P1**   |
-| `src/presentation/components/TrashView.tsx`         | Create trash view                    | **P1**   |
+| `src/presentation/ui/DeleteDialog.tsx`              | Add permanent option                 | **P1**   |
+| `src/presentation/ui/TrashView.tsx`                 | Create trash view                    | **P1**   |
 
 ### Test Files to Create
 

@@ -256,7 +256,7 @@ export default app
 #### 5. Presentation Layer - React Component (TanStack Table)
 
 ```typescript
-// src/presentation/components/UsersTable.tsx
+// src/presentation/ui/UsersTable.tsx
 import { useState, useMemo } from 'react'
 import {
   useReactTable,

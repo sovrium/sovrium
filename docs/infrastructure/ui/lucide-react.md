@@ -37,7 +37,7 @@ Lucide React is already installed in Sovrium:
 
 Lucide icons are used via a centralized Icon component:
 
-**Location**: `src/presentation/components/ui/icon.tsx`
+**Location**: `src/presentation/ui/ui/icon.tsx`
 
 ```typescript
 import { Download, ArrowRight, Rocket, ExternalLink, Package, type LucideProps } from 'lucide-react'
@@ -74,7 +74,7 @@ export function Icon({ name, ...props }: Readonly<IconProps>): Readonly<ReactEle
 ### Using the Icon Component
 
 ```typescript
-import { Icon } from '@/presentation/components/ui/icon'
+import { Icon } from '@/presentation/ui/ui/icon'
 
 // Basic usage
 <Icon name="download" />
@@ -151,7 +151,7 @@ import { Settings, User, Mail } from 'lucide-react'
 When you need a new icon, add it to the icon map:
 
 ```typescript
-// src/presentation/components/ui/icon.tsx
+// src/presentation/ui/ui/icon.tsx
 import {
   Download,
   ArrowRight,

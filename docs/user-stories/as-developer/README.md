@@ -19,7 +19,7 @@
 | [**Authentication**](./authentication/)             | User sign-up, sign-in, 2FA, sessions, security enforcement | 5 files |
 | [**Tables**](./tables/)                             | Table definitions, field types, relationships, permissions | 7 files |
 | [**Records API**](./records-api/)                   | CRUD operations, batch processing, filtering, soft-delete  | 7 files |
-| [**Pages**](./pages/)                               | Routes, layouts, scripts, common schemas, SEO metadata     | 7 files |
+| [**Pages**](./pages/)                               | Routes, sections, scripts, common schemas, SEO metadata    | 7 files |
 | [**Theming**](./theming/)                           | Design tokens, responsive design, animations               | 3 files |
 | [**Internationalization**](./internationalization/) | Multi-language application support                         | 1 file  |
 | [**CLI**](./cli/)                                   | Server commands, static site generation                    | 2 files |
@@ -63,7 +63,7 @@
 
 ### Pages
 
-- [Creating Pages](./pages/creating-pages.md) - Routes, layouts, layout components (sidebar, footer, banner)
+- [Creating Pages](./pages/creating-pages.md) - Routes, sections, scripts, page identifiers
 - [Page Components](./pages/page-components.md) - Content components
 - [Navigation](./pages/navigation.md) - Menus, links, routing
 - [SEO Meta](./pages/seo-meta.md) - Title, description, OpenGraph, structured data types

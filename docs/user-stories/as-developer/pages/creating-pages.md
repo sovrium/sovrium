@@ -8,7 +8,7 @@
 
 ## Overview
 
-Pages in Sovrium are defined declaratively in the app schema. Each page has a unique ID, name, path (URL route), and sections containing content components. Pages support layouts, scripts, and configurable SEO metadata.
+Pages in Sovrium are defined declaratively in the app schema. Each page has a unique ID, name, path (URL route), and sections containing content components. Pages support scripts and configurable SEO metadata.
 
 ---
 
@@ -59,7 +59,7 @@ pages:
 | AC-005 | Pages are rendered at their specified paths        | `APP-PAGES-005`        | ✅     |
 | AC-006 | Empty pages array returns validation error         | `APP-PAGES-006`        | ✅     |
 | AC-007 | Duplicate page IDs return validation error         | `APP-PAGES-007`        | ✅     |
-| AC-008 | Duplicate page names return validation error       | `APP-PAGES-008`        | ✅     |
+| AC-008 | Duplicate page names return validation error       | `APP-PAGES-NAME-002`   | ✅     |
 | AC-009 | Duplicate page paths return validation error       | `APP-PAGES-009`        | ✅     |
 | AC-010 | User can complete full pages workflow (regression) | `APP-PAGES-REGRESSION` | ✅     |
 
@@ -262,11 +262,11 @@ pages:
 
 ---
 
-## US-PAGES-DEFINITION-006: Page Layout and Scripts
+## US-PAGES-DEFINITION-006: Page Scripts
 
 **As a** developer,
-**I want to** configure layouts and custom scripts for pages,
-**so that** I can share common structures and add page-specific functionality.
+**I want to** configure custom scripts for pages,
+**so that** I can add page-specific functionality.
 
 ### Configuration
 
@@ -286,250 +286,18 @@ pages:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                         | E2E Spec        | Status |
-| ------ | ------------------------------------------------- | --------------- | ------ |
-| AC-001 | Layout reference applies shared wrapper           | `APP-PAGES-010` | ✅     |
-| AC-002 | Invalid layout reference returns validation error | `APP-PAGES-011` | ✅     |
-| AC-003 | Scripts are injected into page HTML               | `APP-PAGES-012` | ✅     |
-| AC-004 | Script async attribute is respected               | `APP-PAGES-013` | ✅     |
-| AC-005 | Script defer attribute is respected               | `APP-PAGES-014` | ✅     |
-| AC-006 | Scripts load in specified order                   | `APP-PAGES-015` | ✅     |
-| AC-007 | External script URLs are validated                | `APP-PAGES-016` | ✅     |
-| AC-008 | Inline scripts are supported                      | `APP-PAGES-017` | ✅     |
+| ID     | Criterion                           | E2E Spec        | Status |
+| ------ | ----------------------------------- | --------------- | ------ |
+| AC-001 | Scripts are injected into page HTML | `APP-PAGES-012` | ✅     |
+| AC-002 | Script async attribute is respected | `APP-PAGES-013` | ✅     |
+| AC-003 | Script defer attribute is respected | `APP-PAGES-014` | ✅     |
+| AC-004 | Scripts load in specified order     | `APP-PAGES-015` | ✅     |
+| AC-005 | External script URLs are validated  | `APP-PAGES-016` | ✅     |
+| AC-006 | Inline scripts are supported        | `APP-PAGES-017` | ✅     |
 
 ### Implementation References
 
 - **E2E Spec**: `specs/app/pages/pages.spec.ts`
-
----
-
-## US-PAGES-DEFINITION-007: Page Layout Orchestration
-
-**As a** developer,
-**I want to** orchestrate global page layouts with navigation, header, footer, sidebar, and banner,
-**so that** my application has consistent structure across all pages.
-
-### Configuration
-
-```yaml
-pages:
-  - id: 1
-    name: home
-    path: /
-    layout:
-      navigation:
-        sticky: true
-      footer:
-        enabled: true
-      sidebar:
-        position: left
-        width: 280
-        collapsible: true
-      banner:
-        enabled: true
-        text: 'Welcome to our new site!'
-    sections: []
-```
-
-### Acceptance Criteria
-
-| ID     | Criterion                                           | E2E Spec                      | Status |
-| ------ | --------------------------------------------------- | ----------------------------- | ------ |
-| AC-001 | Orchestrate global page layout                      | `APP-PAGES-LAYOUT-001`        | ✅     |
-| AC-002 | Support minimal layout with navigation only         | `APP-PAGES-LAYOUT-002`        | ✅     |
-| AC-003 | Provide header and footer structure                 | `APP-PAGES-LAYOUT-003`        | ✅     |
-| AC-004 | Support sidebar-based layouts                       | `APP-PAGES-LAYOUT-004`        | ✅     |
-| AC-005 | Display top banner above navigation                 | `APP-PAGES-LAYOUT-005`        | ✅     |
-| AC-006 | Allow pages without global layout (blank page)      | `APP-PAGES-LAYOUT-006`        | ✅     |
-| AC-007 | Enable cohesive visual design across layout         | `APP-PAGES-LAYOUT-007`        | ✅     |
-| AC-008 | Override or extend default layout per page          | `APP-PAGES-LAYOUT-008`        | ✅     |
-| AC-009 | User can complete full layout workflow (regression) | `APP-PAGES-LAYOUT-REGRESSION` | ✅     |
-
-### Implementation References
-
-- **E2E Spec**: `specs/app/pages/layout/layout.spec.ts`
-
----
-
-## US-PAGES-DEFINITION-008: Sidebar Navigation
-
-**As a** developer,
-**I want to** configure sidebar navigation with collapsible groups and nested items,
-**so that** my application supports documentation and admin-style layouts.
-
-### Configuration
-
-```yaml
-pages:
-  - id: 1
-    name: dashboard
-    path: /dashboard
-    layout:
-      sidebar:
-        position: left # left | right
-        width: 280
-        collapsible: true
-        defaultCollapsed: false
-        sticky: true
-        items:
-          - type: link
-            label: Dashboard
-            href: /dashboard
-          - type: group
-            label: Settings
-            children:
-              - type: link
-                label: Profile
-                href: /settings/profile
-          - type: divider
-    sections: []
-```
-
-### Acceptance Criteria
-
-| ID     | Criterion                                            | E2E Spec                       | Status |
-| ------ | ---------------------------------------------------- | ------------------------------ | ------ |
-| AC-001 | Display sidebar navigation                           | `APP-PAGES-SIDEBAR-001`        | ✅     |
-| AC-002 | Render sidebar on left side                          | `APP-PAGES-SIDEBAR-002`        | ✅     |
-| AC-003 | Render sidebar on right side                         | `APP-PAGES-SIDEBAR-003`        | ✅     |
-| AC-004 | Apply custom sidebar width                           | `APP-PAGES-SIDEBAR-004`        | ✅     |
-| AC-005 | Allow users to collapse/expand sidebar               | `APP-PAGES-SIDEBAR-005`        | ✅     |
-| AC-006 | Start in collapsed state                             | `APP-PAGES-SIDEBAR-006`        | ✅     |
-| AC-007 | Stick during page scroll                             | `APP-PAGES-SIDEBAR-007`        | ✅     |
-| AC-008 | Render clickable sidebar link                        | `APP-PAGES-SIDEBAR-008`        | ✅     |
-| AC-009 | Render collapsible group with nested items           | `APP-PAGES-SIDEBAR-009`        | ✅     |
-| AC-010 | Render visual separator between sections             | `APP-PAGES-SIDEBAR-010`        | ✅     |
-| AC-011 | Support unlimited nesting for sidebar hierarchy      | `APP-PAGES-SIDEBAR-011`        | ✅     |
-| AC-012 | Enable documentation and admin-style layouts         | `APP-PAGES-SIDEBAR-012`        | ✅     |
-| AC-013 | User can complete full sidebar workflow (regression) | `APP-PAGES-SIDEBAR-REGRESSION` | ✅     |
-
-### Implementation References
-
-- **Schema**: `src/domain/models/app/page/layout/sidebar.ts`
-- **E2E Spec**: `specs/app/pages/layout/sidebar.spec.ts`
-
----
-
-## US-PAGES-DEFINITION-009: Page Footer
-
-**As a** developer,
-**I want to** configure a comprehensive footer with logo, links, social icons, and newsletter form,
-**so that** my application has professional footer with all essential elements.
-
-### Configuration
-
-```yaml
-pages:
-  - id: 1
-    name: home
-    path: /
-    layout:
-      footer:
-        enabled: true
-        logo: /logo.svg
-        description: 'Building amazing products since 2020'
-        columns:
-          - title: Company
-            links:
-              - label: About
-                href: /about
-              - label: Careers
-                href: /careers
-        social:
-          title: Follow Us
-          links:
-            - platform: twitter
-              url: https://twitter.com/company
-            - platform: github
-              url: https://github.com/company
-        newsletter:
-          enabled: true
-          title: Subscribe
-          placeholder: Enter your email
-          buttonText: Subscribe
-        copyright: '© 2025 Company. All rights reserved.'
-        legal:
-          - label: Privacy
-            href: /privacy
-          - label: Terms
-            href: /terms
-    sections: []
-```
-
-### Acceptance Criteria
-
-| ID     | Criterion                                           | E2E Spec                      | Status |
-| ------ | --------------------------------------------------- | ----------------------------- | ------ |
-| AC-001 | Display footer at bottom of page                    | `APP-PAGES-FOOTER-001`        | ✅     |
-| AC-002 | Display footer logo                                 | `APP-PAGES-FOOTER-002`        | ✅     |
-| AC-003 | Render company description                          | `APP-PAGES-FOOTER-003`        | ✅     |
-| AC-004 | Render multi-column link layout                     | `APP-PAGES-FOOTER-004`        | ✅     |
-| AC-005 | Render column heading and link list                 | `APP-PAGES-FOOTER-005`        | ✅     |
-| AC-006 | Support external link targets                       | `APP-PAGES-FOOTER-006`        | ✅     |
-| AC-007 | Render social media icons                           | `APP-PAGES-FOOTER-007`        | ✅     |
-| AC-008 | Support 7 social platforms with auto icons          | `APP-PAGES-FOOTER-008`        | ✅     |
-| AC-009 | Render email subscription form                      | `APP-PAGES-FOOTER-009`        | ✅     |
-| AC-010 | Display copyright notice                            | `APP-PAGES-FOOTER-010`        | ✅     |
-| AC-011 | Render legal link list                              | `APP-PAGES-FOOTER-011`        | ✅     |
-| AC-012 | Not render footer when disabled                     | `APP-PAGES-FOOTER-012`        | ✅     |
-| AC-013 | Render comprehensive footer layout                  | `APP-PAGES-FOOTER-013`        | ✅     |
-| AC-014 | Override default platform icon                      | `APP-PAGES-FOOTER-014`        | ✅     |
-| AC-015 | User can complete full footer workflow (regression) | `APP-PAGES-FOOTER-REGRESSION` | ✅     |
-
-### Implementation References
-
-- **Schema**: `src/domain/models/app/page/layout/footer.ts`
-- **E2E Spec**: `specs/app/pages/layout/footer.spec.ts`
-
----
-
-## US-PAGES-DEFINITION-010: Top Banner
-
-**As a** developer,
-**I want to** configure a dismissible announcement banner at the top of the page,
-**so that** I can display important messages to users.
-
-### Configuration
-
-```yaml
-pages:
-  - id: 1
-    name: home
-    path: /
-    layout:
-      banner:
-        enabled: true
-        text: 'New feature released!'
-        link:
-          href: /blog/new-feature
-          label: Learn more
-        gradient: 'linear-gradient(90deg, #4f46e5, #7c3aed)'
-        textColor: '#ffffff'
-        dismissible: true
-        sticky: true
-    sections: []
-```
-
-### Acceptance Criteria
-
-| ID     | Criterion                                           | E2E Spec                      | Status |
-| ------ | --------------------------------------------------- | ----------------------------- | ------ |
-| AC-001 | Display banner at top of page                       | `APP-PAGES-BANNER-001`        | ✅     |
-| AC-002 | Render announcement text                            | `APP-PAGES-BANNER-002`        | ✅     |
-| AC-003 | Add clickable link to banner                        | `APP-PAGES-BANNER-003`        | ✅     |
-| AC-004 | Apply CSS gradient as background                    | `APP-PAGES-BANNER-004`        | ✅     |
-| AC-005 | Apply solid background color                        | `APP-PAGES-BANNER-005`        | ✅     |
-| AC-006 | Apply text color for contrast                       | `APP-PAGES-BANNER-006`        | ✅     |
-| AC-007 | Allow users to close banner permanently             | `APP-PAGES-BANNER-007`        | ✅     |
-| AC-008 | Remain at top during page scroll                    | `APP-PAGES-BANNER-008`        | ✅     |
-| AC-009 | Not render banner when disabled                     | `APP-PAGES-BANNER-009`        | ✅     |
-| AC-010 | Render emojis correctly                             | `APP-PAGES-BANNER-010`        | ✅     |
-| AC-011 | User can complete full banner workflow (regression) | `APP-PAGES-BANNER-REGRESSION` | ✅     |
-
-### Implementation References
-
-- **Schema**: `src/domain/models/app/page/layout/banner.ts`
-- **E2E Spec**: `specs/app/pages/layout/banner.spec.ts`
 
 ---
 
@@ -542,25 +310,17 @@ pages:
 | `APP-PAGES-NAME-REGRESSION`     | Page name validation works correctly       | `[x]`  |
 | `APP-PAGES-PATH-REGRESSION`     | Page routing works correctly               | `[x]`  |
 | `APP-PAGES-SECTIONS-REGRESSION` | Page sections render correctly             | `[x]`  |
-| `APP-PAGES-LAYOUT-REGRESSION`   | Layout orchestration works correctly       | ⏳     |
-| `APP-PAGES-SIDEBAR-REGRESSION`  | Sidebar navigation works correctly         | ⏳     |
-| `APP-PAGES-FOOTER-REGRESSION`   | Footer renders correctly                   | ⏳     |
-| `APP-PAGES-BANNER-REGRESSION`   | Banner renders correctly                   | ⏳     |
 
 ---
 
 ## Coverage Summary
 
-| User Story              | Title                     | Spec Count             | Status   |
-| ----------------------- | ------------------------- | ---------------------- | -------- |
-| US-PAGES-DEFINITION-001 | Define Pages Array        | 9                      | Complete |
-| US-PAGES-DEFINITION-002 | Page Identifiers          | 6                      | Complete |
-| US-PAGES-DEFINITION-003 | Page Names                | 8                      | Complete |
-| US-PAGES-DEFINITION-004 | Page Paths (Routing)      | 19                     | Complete |
-| US-PAGES-DEFINITION-005 | Page Sections             | 13                     | Complete |
-| US-PAGES-DEFINITION-006 | Page Layout and Scripts   | 8                      | Complete |
-| US-PAGES-DEFINITION-007 | Page Layout Orchestration | 8                      | Pending  |
-| US-PAGES-DEFINITION-008 | Sidebar Navigation        | 12                     | Pending  |
-| US-PAGES-DEFINITION-009 | Page Footer               | 14                     | Pending  |
-| US-PAGES-DEFINITION-010 | Top Banner                | 10                     | Pending  |
-| **Total**               |                           | **107 + 9 regression** |          |
+| User Story              | Title                | Spec Count            | Status   |
+| ----------------------- | -------------------- | --------------------- | -------- |
+| US-PAGES-DEFINITION-001 | Define Pages Array   | 9                     | Complete |
+| US-PAGES-DEFINITION-002 | Page Identifiers     | 6                     | Complete |
+| US-PAGES-DEFINITION-003 | Page Names           | 8                     | Complete |
+| US-PAGES-DEFINITION-004 | Page Paths (Routing) | 19                    | Complete |
+| US-PAGES-DEFINITION-005 | Page Sections        | 13                    | Complete |
+| US-PAGES-DEFINITION-006 | Page Scripts         | 6                     | Complete |
+| **Total**               |                      | **61 + 5 regression** |          |

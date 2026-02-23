@@ -33,7 +33,7 @@ test.fixme('should display version badge when app has version', async ({ page })
 **Step 2: Implement feature (GREEN phase)**
 
 ```typescript
-// src/presentation/components/DefaultHomePage.tsx
+// src/presentation/ui/DefaultHomePage.tsx
 export function DefaultHomePage({ app }: { readonly app: App }) {
   return (
     <html>

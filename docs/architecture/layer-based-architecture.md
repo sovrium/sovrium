@@ -447,13 +447,13 @@ The **eslint-plugin-boundaries** plugin automatically enforces both layer depend
 
 ```typescript
 // ❌ BLOCKED: Presentation → Infrastructure (bypassing Application)
-// src/presentation/components/UserList.tsx
+// src/presentation/ui/UserList.tsx
 import { UserRepository } from '@/infrastructure/repositories/UserRepository'
 // ERROR: "Presentation layer violation: Can only import from Application and Domain layers"
 // FIX: Use Application layer use case instead
 
 // ✅ CORRECT: Presentation → Application → Infrastructure
-// src/presentation/components/UserList.tsx
+// src/presentation/ui/UserList.tsx
 import { GetUsers } from '@/application/use-cases/GetUsers'
 
 // ❌ BLOCKED: Domain → Any Layer
@@ -498,7 +498,7 @@ To verify that layer boundaries are properly enforced:
    bun run lint
 
    # Example output when violations are found:
-   # src/presentation/components/UserList.tsx
+   # src/presentation/ui/UserList.tsx
    #   10:23  error  Presentation layer violation: Can only import from Application and Domain layers  boundaries/element-types
    ```
 
@@ -729,7 +729,7 @@ export default app
 **React Component Example** (Presentation Layer):
 
 ```typescript
-// src/presentation/components/UserProfile.tsx
+// src/presentation/ui/UserProfile.tsx
 import { useState, useEffect } from 'react'
 import { Effect } from 'effect'
 import { GetUserProfile } from '@/application/use-cases/GetUserProfile'

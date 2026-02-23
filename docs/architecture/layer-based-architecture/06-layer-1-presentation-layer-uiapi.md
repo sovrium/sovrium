@@ -44,7 +44,7 @@ Handle user interactions, render UI, route HTTP requests, and present data to us
 #### React Component (Presentation Layer)
 
 ```typescript
-// src/presentation/components/UserProfile.tsx
+// src/presentation/ui/UserProfile.tsx
 import { useState, useEffect } from 'react'
 import { Effect } from 'effect'
 import type { User } from '@/domain/models/User'

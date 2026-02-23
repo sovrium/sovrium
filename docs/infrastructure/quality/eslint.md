@@ -219,7 +219,7 @@ ESLint enforces file size and function complexity limits to maintain readable, t
 ### React Components (Strict)
 
 ```typescript
-// Files: src/presentation/components/**/*.tsx
+// Files: src/presentation/ui/**/*.tsx
 {
   'max-lines': 300,                  // ERROR if exceeded
   'max-lines-per-function': 60       // WARN if exceeded
@@ -231,7 +231,7 @@ ESLint enforces file size and function complexity limits to maintain readable, t
 ### Third-Party Components (Exempted)
 
 ```typescript
-// Files: src/presentation/components/ui/**/*.tsx (shadcn/ui)
+// Files: src/presentation/ui/ui/**/*.tsx (shadcn/ui)
 {
   'max-lines-per-function': 'off',   // Follow library patterns
   'complexity': 'off'                // Complex UI patterns acceptable
@@ -243,7 +243,7 @@ ESLint enforces file size and function complexity limits to maintain readable, t
 ### SSR/Page Generation Components (Exempted)
 
 ```typescript
-// Files: src/presentation/components/pages/utils/**/*.tsx
+// Files: src/presentation/ui/pages/utils/**/*.tsx
 {
   'max-lines-per-function': 'off',   // Declarative rendering
   'complexity': 'off'                // Conditional configuration OK
@@ -317,12 +317,12 @@ Infrastructure → Domain
 
 ```typescript
 // ✅ CORRECT: Presentation → Application → Infrastructure
-// src/presentation/components/UserList.tsx
+// src/presentation/ui/UserList.tsx
 import { createUser } from '@/application/usecases/createUser' // OK: Presentation → Application
 import type { User } from '@/domain/models/User' // OK: Presentation → Domain
 
 // ❌ INCORRECT: Presentation → Infrastructure (bypassing Application)
-// src/presentation/components/UserList.tsx
+// src/presentation/ui/UserList.tsx
 import { UserRepository } from '@/infrastructure/repositories/UserRepository' // ERROR!
 // Fix: Access UserRepository through Application layer use case
 

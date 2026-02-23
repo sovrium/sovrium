@@ -12,7 +12,7 @@ import { User } from '@/domain/models/User' // Presentation → Domain
 import { GetUserProfile } from '@/application/use-cases/GetUserProfile' // Presentation → Application
 import { UserRepository } from '@/application/ports/UserRepository' // Application → Application Port
 // ❌ INCORRECT: Inner layers depending on outer layers
-import { UserProfile } from '@/presentation/components/UserProfile' // Domain → Presentation (NEVER!)
+import { UserProfile } from '@/presentation/ui/UserProfile' // Domain → Presentation (NEVER!)
 ```
 
 ### 2. Keep Domain Layer Pure

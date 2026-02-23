@@ -36,10 +36,10 @@ DOMPurify is already installed in Sovrium:
 
 DOMPurify is used in the presentation layer for rendering custom HTML elements:
 
-**Primary Usage**: `src/presentation/components/sections/renderers/`
+**Primary Usage**: `src/presentation/ui/sections/renderers/`
 
 ```typescript
-// src/presentation/components/sections/renderers/specialized-renderers.tsx
+// src/presentation/ui/sections/renderers/specialized-renderers.tsx
 import DOMPurify from 'dompurify'
 
 export function RichTextRenderer({ content }: { content: string }) {
@@ -54,7 +54,7 @@ export function RichTextRenderer({ content }: { content: string }) {
 ```
 
 ```typescript
-// src/presentation/components/sections/renderers/element-renderers/interactive-renderers.tsx
+// src/presentation/ui/sections/renderers/element-renderers/interactive-renderers.tsx
 import DOMPurify from 'dompurify'
 
 export function CustomHTMLRenderer(props: ElementRendererProps) {

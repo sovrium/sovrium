@@ -129,7 +129,7 @@ Knip can be configured via:
     "**/*.spec.ts",
     "scripts/**",
     "tests/**",
-    "src/presentation/components/ui/**",
+    "src/presentation/ui/ui/**",
     "src/presentation/hooks/use-mobile.ts",
     "src/hooks/**"
   ],
@@ -176,7 +176,7 @@ Knip can be configured via:
   - `**/*.spec.ts` - E2E test files (Playwright)
   - `scripts/**` - Utility scripts (e.g., update-license-date.js)
   - `tests/**` - E2E test directory
-  - `src/presentation/components/ui/**` - shadcn/ui components (kept for future use)
+  - `src/presentation/ui/ui/**` - shadcn/ui components (kept for future use)
   - `src/presentation/hooks/use-mobile.ts` - Mobile detection hook
   - `src/hooks/**` - Custom React hooks directory
 - **ignoreDependencies**: Dependencies that are part of the stack but may not be directly imported:
@@ -209,7 +209,7 @@ Knip can be configured via:
 
 ### Why shadcn/ui Components Are Excluded
 
-**shadcn/ui Components** (`src/presentation/components/ui/**`):
+**shadcn/ui Components** (`src/presentation/ui/ui/**`):
 
 - shadcn/ui provides a comprehensive library of copy-paste components
 - Not all components are used immediately but kept for future use

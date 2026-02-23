@@ -394,7 +394,7 @@ Sovrium uses different validation libraries depending on the context:
 3. Zod (`ui/react-hook-form.md`) - Client-side validation
 4. Tailwind CSS (`ui/tailwind.md`) - Styling with utility classes
 
-**Example Location**: Presentation Layer (aspirational: `src/presentation/components/`)
+**Example Location**: Presentation Layer (aspirational: `src/presentation/ui/`)
 
 ---
 

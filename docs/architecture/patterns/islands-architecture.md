@@ -113,7 +113,7 @@ Islands Architecture aligns perfectly:
 
 ### Server-Side: Island Markers
 
-**Component Wrapper** (`src/presentation/components/Island.tsx`):
+**Component Wrapper** (`src/presentation/ui/Island.tsx`):
 
 ```typescript
 import type { ReactNode } from 'react'
@@ -142,9 +142,9 @@ export function Island({ name, props, children }: IslandProps) {
 
 ```typescript
 // src/presentation/pages/HomePage.tsx
-import { Island } from '@/presentation/components/Island'
-import { DataTable } from '@/presentation/components/DataTable'
-import { Hero } from '@/presentation/components/Hero'
+import { Island } from '@/presentation/ui/Island'
+import { DataTable } from '@/presentation/ui/DataTable'
+import { Hero } from '@/presentation/ui/Hero'
 
 export function HomePage({ tableData, heroContent }) {
   return (
@@ -356,7 +356,7 @@ export type ComponentTemplate = Schema.Schema.Type<typeof ComponentTemplateSchem
 **Static Components** (no `interactive` flag or `interactive: false`):
 
 ```typescript
-// src/presentation/components/Hero.tsx
+// src/presentation/ui/Hero.tsx
 interface HeroProps {
   readonly title: string
   readonly subtitle: string
@@ -401,7 +401,7 @@ export function DataTable({ tableId, enableSort, enableFilter }: DataTableProps)
 
 **Naming Convention**:
 
-- Static: `ComponentName.tsx` (anywhere in `src/presentation/components/`)
+- Static: `ComponentName.tsx` (anywhere in `src/presentation/ui/`)
 - Islands: `ComponentName.island.tsx` (in `src/presentation/islands/`)
 
 **File Structure**:

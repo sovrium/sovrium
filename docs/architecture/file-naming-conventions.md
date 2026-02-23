@@ -70,14 +70,14 @@ Naming patterns match ecosystem conventions:
 ```
 src/application/use-cases/server/start-server.ts
 src/domain/errors/invalid-config-error.ts
-src/presentation/components/ui/button.tsx
+src/presentation/ui/ui/button.tsx
 ```
 
 **5% of files: PascalCase** (page-level components only)
 
 ```
-src/presentation/components/pages/DefaultHomePage.tsx
-src/presentation/components/pages/LoginPage.tsx
+src/presentation/ui/pages/DefaultHomePage.tsx
+src/presentation/ui/pages/LoginPage.tsx
 ```
 
 ### File Naming Format
@@ -124,7 +124,7 @@ src/domain/services/
 ├── permissions.ts            # Core: Basic RBAC (free)
 └── field-permissions.ee.ts   # Enterprise: Field-level permissions (paid)
 
-src/presentation/components/ui/
+src/presentation/ui/ui/
 ├── audit-log.tsx             # Core: Basic audit display (free)
 └── compliance-report.ee.tsx  # Enterprise: SOC2/HIPAA reports (paid)
 ```
@@ -153,7 +153,7 @@ src/infrastructure/auth.ee/
 └── active-directory.ts
 
 // ✅ CORRECT - Enterprise component (React component)
-src/presentation/components/ui/compliance-report.ee.tsx
+src/presentation/ui/ui/compliance-report.ee.tsx
 export function ComplianceReport({ type }) { /* ... */ }
 
 // ❌ INCORRECT - Missing .ee. marker
@@ -666,12 +666,12 @@ The presentation layer separates **API routes** (Hono) from **React components**
 - **UI primitives**: `{component}.tsx` (kebab-case)
 - **Page components**: `{Component}.tsx` (PascalCase)
 
-**Location**: `src/presentation/components/ui/` or `src/presentation/components/pages/`
+**Location**: `src/presentation/ui/ui/` or `src/presentation/ui/pages/`
 
 **Purpose**: React component definitions
 
 ```
-src/presentation/components/
+src/presentation/ui/
 ├── pages/
 │   ├── DefaultHomePage.tsx    # Page component (PascalCase)
 │   └── LoginPage.tsx          # Page component (PascalCase)
@@ -686,19 +686,19 @@ src/presentation/components/
 
 ```typescript
 // ✅ CORRECT - Page components (PascalCase)
-// File: src/presentation/components/pages/DefaultHomePage.tsx
+// File: src/presentation/ui/pages/DefaultHomePage.tsx
 export function DefaultHomePage({ app }) { /* ... */ }
 
 // ✅ CORRECT - Reusable components (kebab-case)
-// File: src/presentation/components/common/button.tsx
+// File: src/presentation/ui/common/button.tsx
 export function Button({ children }) { /* ... */ }
 
-// File: src/presentation/components/common/alert-dialog.tsx
+// File: src/presentation/ui/common/alert-dialog.tsx
 export function AlertDialog({ children }) { /* ... */ }
 
 // ❌ INCORRECT
-src/presentation/components/pages/default-home-page.tsx  // Page components use PascalCase
-src/presentation/components/common/Button.tsx            // Reusable components use kebab-case
+src/presentation/ui/pages/default-home-page.tsx  // Page components use PascalCase
+src/presentation/ui/common/Button.tsx            // Reusable components use kebab-case
 ```
 
 **Why this dual convention:**
@@ -716,7 +716,7 @@ src/presentation/components/common/Button.tsx            // Reusable components 
 
 **Pattern**: `{component}-variants.ts`
 
-**Location**: `src/presentation/components/common/` or `src/presentation/styling/`
+**Location**: `src/presentation/ui/common/` or `src/presentation/styling/`
 
 **Purpose**: Class Variance Authority (CVA) variant definitions for components with multiple visual variants
 
@@ -1128,7 +1128,7 @@ Sovrium uses `eslint-plugin-check-file` to automatically enforce file and folder
 // This rule MUST come BEFORE the general kebab-case rule
 // ==========================================
 {
-  files: ['src/presentation/components/pages/**/*.{ts,tsx}'],
+  files: ['src/presentation/ui/pages/**/*.{ts,tsx}'],
   plugins: { 'check-file': checkFilePlugin },
   rules: {
     'check-file/filename-naming-convention': [
@@ -1144,7 +1144,7 @@ Sovrium uses `eslint-plugin-check-file` to automatically enforce file and folder
 // ==========================================
 {
   files: ['src/**/*.{ts,tsx,js,jsx}'],
-  ignores: ['src/presentation/components/pages/**/*.{ts,tsx}'], // Already handled above
+  ignores: ['src/presentation/ui/pages/**/*.{ts,tsx}'], // Already handled above
   plugins: { 'check-file': checkFilePlugin },
   rules: {
     // File naming - Specific patterns checked BEFORE default
@@ -1155,9 +1155,9 @@ Sovrium uses `eslint-plugin-check-file` to automatically enforce file and folder
         'src/**/errors/*-error.ts': '*-error',                              // Error classes
         'src/infrastructure/database/repositories/*.ts': '*-repository',    // Repositories
         'src/infrastructure/layers/*.ts': '*-layer',                        // Effect Layers
-        'src/presentation/components/ui/*-variants.ts': '*-variants',       // CVA variants
+        'src/presentation/ui/ui/*-variants.ts': '*-variants',       // CVA variants
         'src/presentation/hooks/*.{ts,tsx}': 'use-*',                       // React hooks (standalone)
-        'src/presentation/components/ui/*-hook.ts': '*-hook',               // React hooks (component-specific)
+        'src/presentation/ui/ui/*-hook.ts': '*-hook',               // React hooks (component-specific)
 
         // DEFAULT (must be last)
         '**/*.{ts,tsx,js,jsx}': 'KEBAB_CASE'
@@ -1204,7 +1204,7 @@ src/domain/models/app/AppName.ts
 src/application/use-cases/StartServer.ts
   → Fix: Rename to start-server.ts (default kebab-case)
 
-src/presentation/components/ui/Button.tsx
+src/presentation/ui/ui/Button.tsx
   → Fix: Rename to button.tsx (default kebab-case)
 
 src/domain/errors/InvalidConfig.ts
@@ -1216,7 +1216,7 @@ src/infrastructure/database/repositories/User.ts
 src/infrastructure/layers/App.ts
   → Fix: Rename to app-layer.ts (requires *-layer suffix)
 
-src/presentation/components/ui/button-styles.ts
+src/presentation/ui/ui/button-styles.ts
   → Fix: Rename to button-variants.ts (variants require *-variants suffix)
 
 src/presentation/hooks/mobile.ts
@@ -1225,14 +1225,14 @@ src/presentation/hooks/mobile.ts
 # ✅ CORRECT (ESLint will pass)
 src/domain/models/app/name.ts                           # kebab-case ✓
 src/application/use-cases/start-server.ts               # kebab-case ✓
-src/presentation/components/ui/button.tsx               # kebab-case ✓
+src/presentation/ui/ui/button.tsx               # kebab-case ✓
 src/domain/errors/invalid-config-error.ts               # *-error pattern ✓
 src/infrastructure/database/repositories/user-repository.ts  # *-repository pattern ✓
 src/infrastructure/layers/app-layer.ts                  # *-layer pattern ✓
-src/presentation/components/ui/button-variants.ts       # *-variants pattern ✓
+src/presentation/ui/ui/button-variants.ts       # *-variants pattern ✓
 src/presentation/hooks/use-mobile.ts                    # use-* pattern ✓
-src/presentation/components/ui/sidebar-hook.ts          # *-hook pattern ✓
-src/presentation/components/pages/DefaultHomePage.tsx   # PascalCase exception ✓
+src/presentation/ui/ui/sidebar-hook.ts          # *-hook pattern ✓
+src/presentation/ui/pages/DefaultHomePage.tsx   # PascalCase exception ✓
 ```
 
 **Running Lint Checks:**
@@ -1280,9 +1280,9 @@ The check-file plugin evaluates patterns in the order they appear in the configu
 1. ✓ Check if file is in `src/**/errors/` AND ends with `-error.ts`
 2. ✓ Check if file is in `src/infrastructure/database/repositories/` AND ends with `-repository.ts`
 3. ✓ Check if file is in `src/infrastructure/layers/` AND ends with `-layer.ts`
-4. ✓ Check if file is in `src/presentation/components/ui/` AND ends with `-variants.ts`
+4. ✓ Check if file is in `src/presentation/ui/ui/` AND ends with `-variants.ts`
 5. ✓ Check if file is in `src/presentation/hooks/` AND starts with `use-`
-6. ✓ Check if file is in `src/presentation/components/ui/` AND ends with `-hook.ts`
+6. ✓ Check if file is in `src/presentation/ui/ui/` AND ends with `-hook.ts`
 7. ✓ **DEFAULT**: All other files must use `KEBAB_CASE`
 
 **Example**: File `src/domain/errors/invalid-config-error.ts`

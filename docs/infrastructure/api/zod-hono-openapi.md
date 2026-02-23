@@ -97,12 +97,12 @@ bun add @hookform/resolvers    # 5.2.2 - React Hook Form + Zod integration
 
 ### ✅ Allowed Locations
 
-| Location                               | Purpose                        | Imports Allowed                     |
-| -------------------------------------- | ------------------------------ | ----------------------------------- |
-| `src/domain/models/api/*.ts`           | OpenAPI API contracts          | `zod`, `@hono/zod-openapi`          |
-| `src/presentation/api/routes/*.ts`     | API route request validation   | `@hono/zod-validator`               |
-| `src/presentation/components/**/*.tsx` | Client-side form validation    | `zod`, `@hookform/resolvers`        |
-| `src/presentation/hooks/*.ts`          | Form hooks with Zod validation | `zod`, `react-hook-form`, resolvers |
+| Location                           | Purpose                        | Imports Allowed                     |
+| ---------------------------------- | ------------------------------ | ----------------------------------- |
+| `src/domain/models/api/*.ts`       | OpenAPI API contracts          | `zod`, `@hono/zod-openapi`          |
+| `src/presentation/api/routes/*.ts` | API route request validation   | `@hono/zod-validator`               |
+| `src/presentation/ui/**/*.tsx`     | Client-side form validation    | `zod`, `@hookform/resolvers`        |
+| `src/presentation/hooks/*.ts`      | Form hooks with Zod validation | `zod`, `react-hook-form`, resolvers |
 
 ### ❌ Forbidden Locations
 
@@ -252,7 +252,7 @@ See `@docs/infrastructure/ui/react-hook-form.md` for complete React Hook Form + 
 **Quick Example**:
 
 ```typescript
-// src/presentation/components/CreateUserForm.tsx
+// src/presentation/ui/CreateUserForm.tsx
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -580,15 +580,15 @@ export const createTablesRoute = () => {
 
 **Quick Decision Guide**:
 
-| Scenario                       | Use                   | Location                            | Why                         |
-| ------------------------------ | --------------------- | ----------------------------------- | --------------------------- |
-| Domain model validation        | Effect Schema         | `src/domain/models/*.ts`            | Project standard            |
-| Business logic validation      | Effect Schema         | `src/domain/validators/*.ts`        | Type safety + DI            |
-| API request/response contracts | Zod                   | `src/domain/models/api/*.ts`        | OpenAPI tooling requirement |
-| API route validation           | `@hono/zod-validator` | `src/presentation/api/routes/*.ts`  | OpenAPI integration         |
-| Client-side forms              | Zod                   | `src/presentation/components/*.tsx` | React Hook Form integration |
-| Database models                | Drizzle Schema        | `src/infrastructure/database/*.ts`  | ORM requirement             |
-| Configuration                  | Effect Schema         | `src/infrastructure/config/*.ts`    | Effect ecosystem            |
+| Scenario                       | Use                   | Location                           | Why                         |
+| ------------------------------ | --------------------- | ---------------------------------- | --------------------------- |
+| Domain model validation        | Effect Schema         | `src/domain/models/*.ts`           | Project standard            |
+| Business logic validation      | Effect Schema         | `src/domain/validators/*.ts`       | Type safety + DI            |
+| API request/response contracts | Zod                   | `src/domain/models/api/*.ts`       | OpenAPI tooling requirement |
+| API route validation           | `@hono/zod-validator` | `src/presentation/api/routes/*.ts` | OpenAPI integration         |
+| Client-side forms              | Zod                   | `src/presentation/ui/*.tsx`        | React Hook Form integration |
+| Database models                | Drizzle Schema        | `src/infrastructure/database/*.ts` | ORM requirement             |
+| Configuration                  | Effect Schema         | `src/infrastructure/config/*.ts`   | Effect ecosystem            |
 
 ## Best Practices
 

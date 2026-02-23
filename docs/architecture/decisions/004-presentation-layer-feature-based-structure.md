@@ -12,9 +12,9 @@
 After completing a major ESLint refactoring that reduced complexity from 41 warnings to 0, the `src/presentation/` directory contained 52 utility files scattered across 4 different `utils/` directories:
 
 - `src/presentation/utils/` (20 files, 1,398 lines) - Mixed concerns
-- `src/presentation/components/sections/utils/` (20 files, 2,042 lines) - Largest concentration
-- `src/presentation/components/pages/utils/` (10 files, 875 lines) - Page building blocks
-- `src/presentation/components/metadata/utils/` (2 files, ~150 lines) - Too small for separate directory
+- `src/presentation/ui/sections/utils/` (20 files, 2,042 lines) - Largest concentration
+- `src/presentation/ui/pages/utils/` (10 files, 875 lines) - Page building blocks
+- `src/presentation/ui/metadata/utils/` (2 files, ~150 lines) - Too small for separate directory
 
 **Issues identified**:
 

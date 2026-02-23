@@ -74,8 +74,8 @@ This decoupling allows optimal naming for each context.
 ```
 ✅ src/application/use-cases/server/start-server.ts
 ✅ src/domain/errors/invalid-config-error.ts
-✅ src/presentation/components/ui/button.tsx
-✅ src/presentation/components/pages/DefaultHomePage.tsx  (exception)
+✅ src/presentation/ui/ui/button.tsx
+✅ src/presentation/ui/pages/DefaultHomePage.tsx  (exception)
 ```
 
 ---

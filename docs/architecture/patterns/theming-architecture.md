@@ -239,7 +239,7 @@ function getThemeCacheKey(theme?: Theme): string {
 **Component Usage**:
 
 ```tsx
-// src/presentation/components/ui/hero-section.tsx
+// src/presentation/ui/ui/hero-section.tsx
 export function HeroSection() {
   return (
     <section className="p-section bg-primary">
@@ -501,7 +501,7 @@ const updatedTheme = {
 **❌ PITFALL**:
 
 ```typescript
-// src/presentation/components/ui/button.tsx
+// src/presentation/ui/ui/button.tsx
 import { compileCSS } from '@/infrastructure/css/compiler' // ❌ Layer violation
 ```
 
