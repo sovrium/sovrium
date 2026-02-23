@@ -332,8 +332,8 @@ await page.request.post('/api/auth/sign-up/email', {
 | Schema Section | Research Targets | Focus Areas |
 |----------------|------------------|-------------|
 | **Tables** | Airtable, Baserow, NocoDB, Notion databases | Field types, formulas, views, linked records, filtering, sorting |
-| **Pages** | Webflow, Notion, WordPress, Bubble | Page builder, blocks, templates, routing, responsive design |
-| **Blocks** | Notion, Webflow, Gutenberg (WordPress) | Content blocks, embeds, custom blocks, composition patterns |
+| **Pages** | Webflow, Notion, WordPress, Bubble | Page builder, components, templates, routing, responsive design |
+| **Components** | Notion, Webflow, Gutenberg (WordPress) | Reusable components, embeds, custom components, composition patterns |
 | **Auth** | Retool, Budibase, enterprise tools | SSO, roles, permissions, teams, audit logs |
 | **Automations** | Zapier, N8n, Make (Integromat) | Triggers, actions, webhooks, schedules, error handling |
 | **Theme** | Tailwind, Webflow, shadcn/ui | Design systems, CSS variables, responsive, dark mode |

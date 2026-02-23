@@ -32,8 +32,7 @@ sovrium/
 │   │   │   ├── page/                     # 📋 Page Configuration Schema (Phase 4)
 │   │   │   │   ├── index.ts              # PageSchema (Effect Schema)
 │   │   │   │   ├── route.ts              # Route path validation
-│   │   │   │   ├── component-types.ts    # Page component types
-│   │   │   │   └── layout.ts             # Layout configuration
+│   │   │   │   └── component-types.ts    # Page component types
 │   │   │   │
 │   │   │   └── automation/               # 📋 Automation Configuration Schema (Phase 5)
 │   │   │       ├── index.ts              # AutomationSchema (Effect Schema)
@@ -185,7 +184,7 @@ sovrium/
 │       │       ├── cors.ts               # CORS handling
 │       │       └── error.ts              # Error handling middleware
 │       │
-│       ├── components/ui/                # ✅ EXISTING - shadcn/ui components
+│       ├── ui/                           # ✅ EXISTING - React UI components
 │       │   ├── button.tsx
 │       │   ├── input.tsx
 │       │   ├── card.tsx

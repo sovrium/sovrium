@@ -416,7 +416,7 @@ const report = {
 
 ### 1. Unnecessary useMemo
 - **Severity**: 🟡 MEDIUM
-- **File**: src/presentation/components/expensive-list.tsx:24
+- **File**: src/presentation/ui/expensive-list.tsx:24
 - **Pattern**: React 19 Compiler auto-optimizes, no manual memoization needed
 - **Current**:
   ```typescript

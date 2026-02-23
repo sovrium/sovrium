@@ -771,7 +771,7 @@ Based on your analysis, create a specific fix plan:
 - Example:
   ```
   Files to Create:
-  - src/presentation/components/theme-badge.tsx (React component)
+  - src/presentation/ui/theme-badge.tsx (React component)
   - src/application/use-cases/GetTheme.ts (Effect program)
 
   Dependencies:

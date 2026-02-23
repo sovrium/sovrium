@@ -16,6 +16,6 @@
  * - interactive-components.ts
  * - special-components.tsx
  *
- * @see src/presentation/components/sections/rendering/component-registry/
+ * @see src/presentation/ui/sections/rendering/component-registry/
  */
 export { COMPONENT_REGISTRY } from './component-registry/'

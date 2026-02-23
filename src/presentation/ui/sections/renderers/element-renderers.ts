@@ -15,7 +15,7 @@
  * - media-renderers.tsx (renderImage, renderVideo, renderAudio, etc.)
  * - interactive-renderers.tsx (renderButton, renderLink, renderForm, etc.)
  *
- * @see src/presentation/components/sections/renderers/element-renderers/
+ * @see src/presentation/ui/sections/renderers/element-renderers/
  */
 export {
   // Types

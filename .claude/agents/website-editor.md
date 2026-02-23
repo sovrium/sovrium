@@ -55,7 +55,7 @@ description: |-
 
   <non-example>
   Context: User wants to modify application source code (not website).
-  user: "Can you update the table component in src/presentation/components?"
+  user: "Can you update the table component in src/presentation/ui?"
   assistant: *Handles directly or uses appropriate agent*
   <commentary>
   Application source code in src/ is NOT the website. website-editor only works on the website/ folder.
@@ -286,13 +286,12 @@ The Sovrium app schema is defined in `src/domain/models/app/`. This is the **pri
 
 | Directory | Purpose | Key Concepts |
 |-----------|---------|--------------|
-| `src/domain/models/app/` | Root app schema (`AppSchema`) | name, version, description, tables, theme, languages, auth, blocks, defaultLayout, pages |
-| `src/domain/models/app/page/` | Page configuration | Page name, path, meta (SEO/OG), layout overrides, sections (block-based), scripts, vars |
-| `src/domain/models/app/page/layout/` | Layout components | banner, navigation, footer, sidebar -- 4 layout components with flexible patterns |
+| `src/domain/models/app/` | Root app schema (`AppSchema`) | name, version, description, tables, theme, languages, auth, components, pages |
+| `src/domain/models/app/page/` | Page configuration | Page name, path, meta (SEO/OG), sections (component-based), scripts, vars |
 | `src/domain/models/app/page/meta/` | Page metadata | SEO title/description, Open Graph, Twitter Card, structured data, performance hints |
 | `src/domain/models/app/page/scripts/` | Client-side scripts | Feature flags, external scripts, inline scripts |
-| `src/domain/models/app/block/` | Reusable UI blocks | Block templates with name, type, props, children, content -- variable substitution via `$ref`/`$vars` |
-| `src/domain/models/app/block/common/` | Block primitives | Block children, props, reference patterns |
+| `src/domain/models/app/component/` | Reusable UI components | Component templates with name, type, props, children, content -- variable substitution via `$ref`/`$vars` |
+| `src/domain/models/app/component/common/` | Component primitives | Component children, props, reference patterns |
 | `src/domain/models/app/theme/` | Design tokens | colors, fonts, spacing, animations, breakpoints, shadows, borderRadius |
 | `src/domain/models/app/table/` | Data tables | Fields, field types, indexes, views, permissions, foreign keys, constraints |
 | `src/domain/models/app/auth/` | Authentication | Strategies (email/password, magic link, OAuth), roles, plugins (admin, organization) |
@@ -313,10 +312,10 @@ Always consult user stories before building website content that describes a Sov
 
 ### Key Schema Concepts for Website Content
 
-- **Block-Based Pages**: Pages use a section/block architecture. Sections can be direct components or `$ref` references to reusable blocks defined at app level. This is Sovrium's core compositional model.
-- **Layout System**: 4-component layout (banner, navigation, footer, sidebar) with `defaultLayout` at app level and per-page overrides. Supports patterns from minimal (nav only) to full enterprise (all 4 components).
+- **Component-Based Pages**: Pages use a section/component architecture. Sections can be direct components or `$ref` references to reusable component templates defined at app level. This is Sovrium's core compositional model.
+- **Navigation via Sections**: Navigation is built using section components (`type: navigation`, `type: link`, etc.) rather than a dedicated layout configuration. This allows mixing navigation with any other section content.
 - **Theme Tokens**: 7 design token categories (colors, fonts, spacing, animations, breakpoints, shadows, borderRadius). Theme is defined once at app level and consumed by all pages via className utilities and CSS variables.
-- **Variable Substitution**: Blocks use `$variable` placeholders, pages use `$ref`/`$vars` for instantiation. This enables DRY content patterns.
+- **Variable Substitution**: Component templates use `$variable` placeholders, pages use `$ref`/`$vars` for instantiation. This enables DRY content patterns.
 - **Translation References**: `$t:key.path` syntax for i18n content, resolved from `app.languages` configuration.
 
 ## Schema-First Development
@@ -328,9 +327,9 @@ Always consult user stories before building website content that describes a Sov
 1. **Always check existing schema models before creating custom implementations.** Before building any website feature, read the relevant files in `src/domain/models/app/` to see if the feature maps to an existing schema concept. The website should showcase Sovrium's actual capabilities, not invent parallel systems.
 
 2. **Prefer schema-native patterns over ad-hoc implementations:**
-   - **Navigation**: Use the layout system from `src/domain/models/app/page/layout/` (navigation, banner, footer, sidebar) rather than creating custom navbar components from scratch
-   - **Reusable components**: Use the block configuration system (`src/domain/models/app/blocks.ts`, `src/domain/models/app/block/`) as the mental model for component reuse -- the website's component architecture should mirror how blocks work in the schema
-   - **Pages**: Reference `src/domain/models/app/pages.ts` and `src/domain/models/app/page/` for page configuration patterns (meta, sections, layout, scripts)
+   - **Navigation**: Use the section-based approach (`type: navigation`, `type: link` in page sections) rather than creating custom navbar components from scratch
+   - **Reusable components**: Use the component template system (`src/domain/models/app/components.ts`, `src/domain/models/app/component/`) as the mental model for component reuse -- the website's component architecture should mirror how component templates work in the schema
+   - **Pages**: Reference `src/domain/models/app/pages.ts` and `src/domain/models/app/page/` for page configuration patterns (meta, sections, scripts)
    - **Theming**: Reference `src/domain/models/app/theme.ts` and `src/domain/models/app/theme/` for styling decisions -- color tokens, font selections, spacing scales, animation patterns should align with what the schema supports
    - **Data models**: When describing tables/fields on the website, reference `src/domain/models/app/table/` for accurate field types, constraints, and capabilities
    - **Auth features**: When describing authentication on the website, reference `src/domain/models/app/auth/` for supported strategies, roles, and plugins
@@ -344,7 +343,7 @@ Always consult user stories before building website content that describes a Sov
 Before building or updating any website content that describes Sovrium features:
 
 ```
-1. Identify which schema domain the feature belongs to (tables? pages? theme? auth? blocks?)
+1. Identify which schema domain the feature belongs to (tables? pages? theme? auth? components?)
 2. Read the corresponding files in src/domain/models/app/<domain>/
 3. Read the corresponding user story in docs/user-stories/ (if it exists)
 4. Build website content that accurately reflects the schema's actual capabilities
@@ -371,7 +370,7 @@ Before making ANY change to the website, review the brand charter page to ensure
 3. **Review brand charter** -- Check the brand charter page for relevant design guidelines
 4. **Review existing pages** -- Ensure your changes will be consistent with the rest of the site
 5. **Reference domain models** -- Cross-reference with `src/domain/models/app/` to verify feature descriptions, component patterns, and terminology match the actual schema
-6. **Implement changes** -- Write clean, well-structured React components with Tailwind CSS. When creating components that mirror schema concepts (navigation, blocks, sections), use consistent naming from the schema
+6. **Implement changes** -- Write clean, well-structured React components with Tailwind CSS. When creating components that mirror schema concepts (navigation, sections, component templates), use consistent naming from the schema
 7. **Add copyright headers** -- Run `bun run license` after creating new files
 8. **Format and lint** -- Run `bun run format` and `bun run lint:fix`
 9. **Type check** -- Run `bun run typecheck` to catch type errors
@@ -470,7 +469,7 @@ Should I create the brand charter first, or proceed with the style update using 
 
 ### Schema Accuracy
 - [ ] Feature descriptions match what actually exists in `src/domain/models/app/`
-- [ ] Terminology is consistent with schema naming (e.g., "sections" not "panels", "blocks" not "widgets")
+- [ ] Terminology is consistent with schema naming (e.g., "sections" not "panels", "components" not "widgets")
 - [ ] No invented features that do not exist in the schema
 - [ ] Layout patterns shown match the layout system (banner, navigation, footer, sidebar)
 - [ ] Theme tokens referenced are ones the schema actually supports (colors, fonts, spacing, animations, breakpoints, shadows, borderRadius)

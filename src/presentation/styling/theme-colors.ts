@@ -17,7 +17,7 @@
  * Future enhancement: Integrate with theme context to support custom colors.
  *
  * @see src/domain/models/app/theme/colors.ts - For proper theme color configuration
- * @see src/presentation/components/sections/utils/theme-tokens.ts - For theme token substitution
+ * @see src/presentation/ui/sections/utils/theme-tokens.ts - For theme token substitution
  */
 export const DEFAULT_THEME_COLORS = {
   orange: '#F97316',

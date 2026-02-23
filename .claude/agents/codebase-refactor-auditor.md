@@ -525,11 +525,11 @@ The agent respects pipeline configuration:
      - **Common anti-pattern**: Using `const { something } = await import('module')` inside a function when the module is always imported regardless of conditions — replace with a top-level `import { something } from 'module'`
    - **Enforcing ESLint size/complexity limits** (`eslint/size-limits.config.ts`):
      - **Default limits**: 400 lines/file, 50 lines/function, complexity 10, max depth 4, max params 4, max statements 20
-     - **React components** (`src/presentation/components/**/*.tsx`): Stricter 300 lines (ERROR level), 60 lines/function
+     - **React components** (`src/presentation/ui/**/*.tsx`): Stricter 300 lines (ERROR level), 60 lines/function
      - **Config/schemas** (`**/*.config.ts`, `src/domain/models/**/*.ts`, `**/schemas/**/*.ts`, `**/types/**/*.ts`): Relaxed 800 lines, complexity off
-     - **shadcn/ui components** (`src/presentation/components/ui/**/*.tsx`): Exempted (follow library patterns)
-     - **SSR components** (`src/presentation/components/pages/utils/**/*.tsx`): Exempted (declarative config)
-     - **Temporary overrides** requiring refactoring: `src/presentation/components/pages/DynamicPage.tsx`, `src/presentation/components/sections/component-renderer.tsx`
+     - **shadcn/ui components** (`src/presentation/ui/shadcn/**/*.tsx`): Exempted (follow library patterns)
+     - **SSR components** (`src/presentation/ui/pages/utils/**/*.tsx`): Exempted (declarative config)
+     - **Temporary overrides** requiring refactoring: `src/presentation/ui/pages/DynamicPage.tsx`, `src/presentation/ui/sections/component-renderer.tsx`
      - **Violation handling**: Extract functions, split modules, break into smaller components (see `@docs/infrastructure/quality/eslint.md` for guidance)
 
 5. **Security Issue Detection**: Identify security vulnerabilities in `src/` that should be covered by E2E tests:
@@ -672,7 +672,7 @@ The agent respects pipeline configuration:
      - `src/application/ports/services/` → `{capability}-service.ts` or `{capability}.ts`
      - `src/infrastructure/database/repositories/` → `{entity}-repository-live.ts`
      - `src/presentation/hooks/` → `use-{name}.ts`
-     - `src/presentation/components/ui/` → `{component}.tsx`
+     - `src/presentation/ui/shadcn/` → `{component}.tsx`
    - **Sibling consistency**: Files within the same directory should follow identical patterns (e.g., if one repository is `table-repository.ts`, another shouldn't be `UserRepo.ts`)
    - **Detection**: Compare naming patterns within each directory, flag outliers
 
@@ -682,7 +682,7 @@ The agent respects pipeline configuration:
    3. **Grep for anti-patterns**:
       ```bash
       # Find files with wrong casing (non-kebab-case outside pages/)
-      find src/ -name "*.ts" -o -name "*.tsx" | grep -v node_modules | grep '[A-Z]' | grep -v 'src/presentation/components/pages/'
+      find src/ -name "*.ts" -o -name "*.tsx" | grep -v node_modules | grep '[A-Z]' | grep -v 'src/presentation/ui/pages/'
       # Find potential I-prefixed interfaces
       grep -r "interface I[A-Z]" src/ --include="*.ts" --include="*.tsx"
       # Find snake_case functions
@@ -1775,7 +1775,7 @@ When auditing `src/infrastructure/` and `src/presentation/`, actively detect and
 
 **Example - Size Limit Violation**:
 **Issue**: React component exceeds 300-line limit (current: 425 lines)
-**Location**: `src/presentation/components/forms/UserForm.tsx`
+**Location**: `src/presentation/ui/forms/UserForm.tsx`
 **Violates**: @docs/infrastructure/quality/eslint.md - Size Limits + `eslint/size-limits.config.ts` (max-lines: 300 for React components)
 **Current Code**: Single 425-line component with form logic, validation, and submission
 **Recommended Fix**: Split into 3 files:
