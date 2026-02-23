@@ -6,8 +6,8 @@
  */
 
 import { renderToString } from 'react-dom/server'
-import { ErrorPage } from '@/presentation/components/pages/ErrorPage'
-import { NotFoundPage } from '@/presentation/components/pages/NotFoundPage'
+import { ErrorPage } from '@/presentation/ui/pages/ErrorPage'
+import { NotFoundPage } from '@/presentation/ui/pages/NotFoundPage'
 import { renderPageByPath } from './render-homepage'
 import type { App } from '@/domain/models/app'
 

@@ -45,7 +45,7 @@ export const PagesSchema = Schema.Array(PageSchema).pipe(
     identifier: 'Pages',
     title: 'Pages',
     description:
-      'Marketing and content pages with server-side rendering support. Pages use a block-based layout system with reusable components for building landing pages, about pages, pricing pages, and other public-facing content. Supports comprehensive metadata, theming, and structured data for SEO optimization.',
+      'Marketing and content pages with server-side rendering support. Pages use a component-based layout system with reusable component templates for building landing pages, about pages, pricing pages, and other public-facing content. Supports comprehensive metadata, theming, and structured data for SEO optimization.',
   })
 )
 

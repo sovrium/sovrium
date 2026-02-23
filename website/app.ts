@@ -114,6 +114,6 @@ export const app: App = {
     ],
     translations: { en, fr },
   },
-  blocks: [],
+  components: [],
   pages: [home, termsOfService, privacyPolicy, dataDeletion, partners, company, brandCharter],
 }

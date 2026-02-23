@@ -8,11 +8,10 @@
 import { Schema } from 'effect'
 import { AuthSchema } from './auth'
 import { BUILT_IN_ROLES } from './auth/roles'
-import { BlocksSchema } from './blocks'
+import { ComponentsSchema } from './components'
 import { DescriptionSchema } from './description'
 import { LanguagesSchema } from './languages'
 import { NameSchema } from './name'
-import { LayoutSchema } from './page/layout'
 import { PagesSchema } from './pages'
 import { TablesSchema } from './tables'
 import { ThemeSchema } from './theme'
@@ -120,32 +119,19 @@ export const AppSchema = Schema.Struct({
   auth: Schema.optional(AuthSchema),
 
   /**
-   * Reusable UI component blocks (optional).
+   * Reusable UI components (optional).
    *
-   * Array of reusable component templates with variable substitution. Blocks are
+   * Array of reusable component templates with variable substitution. Components are
    * defined once at app level and referenced across pages using $ref syntax with
    * $vars for dynamic content.
    */
-  blocks: Schema.optional(BlocksSchema),
-
-  /**
-   * Default layout configuration for all pages (optional).
-   *
-   * Defines the default layout components (banner, navigation, footer, sidebar) that
-   * apply to all pages. Individual pages can:
-   * - Override: Provide their own layout configuration
-   * - Extend: Add components (e.g., sidebar) to the default layout
-   * - Disable: Set layout to null to render without any layout components
-   *
-   * This enables consistent layout across pages with per-page customization flexibility.
-   */
-  defaultLayout: Schema.optional(LayoutSchema),
+  components: Schema.optional(ComponentsSchema),
 
   /**
    * Marketing and content pages (optional).
    *
    * Array of page configurations with server-side rendering support. Pages use a
-   * block-based layout system with comprehensive metadata, theming, and i18n support.
+   * component-based system with comprehensive metadata, theming, and i18n support.
    * Minimum of 1 page required when pages property is present.
    */
   pages: Schema.optional(PagesSchema),
@@ -257,5 +243,5 @@ export * from './tables'
 export * from './theme'
 export * from './languages'
 export * from './auth'
-export * from './blocks'
+export * from './components'
 export * from './pages'

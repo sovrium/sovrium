@@ -122,49 +122,13 @@ export function replacePageTokens(page: Page, context: TokenReplacementContext):
 }
 
 /**
- * Replace translation tokens ($t:key) in a value, preserving {{currentPath}} placeholders
- *
- * This is used for defaultLayout where {{currentPath}} needs to be resolved per-page,
- * not at the app level.
- */
-function replaceTokensPreservingCurrentPath(
-  value: unknown,
-  context: Omit<TokenReplacementContext, 'currentPath'>
-): unknown {
-  if (typeof value === 'string') {
-    // Only replace $t: patterns, keep {{currentPath}} as-is
-    if (value.startsWith('$t:')) {
-      const key = value.slice(3)
-      return resolveTranslation(key, context.langCode, context.languages)
-    }
-    return value
-  }
-
-  if (Array.isArray(value)) {
-    return value.map((item) => replaceTokensPreservingCurrentPath(item, context))
-  }
-
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, val]) => [
-        key,
-        replaceTokensPreservingCurrentPath(val, context),
-      ])
-    )
-  }
-
-  return value
-}
-
-/**
  * Replace translation tokens in app configuration for a specific language
  *
  * Resolves all $t:key patterns throughout the app for static site generation.
- * For defaultLayout, preserves {{currentPath}} placeholders to be resolved per-page.
  * This is a pure function that performs token replacement without throwing exceptions.
  * Callers should validate language codes before calling this function.
  *
- * @param app - App configuration (may contain $t:key tokens in pages and defaultLayout)
+ * @param app - App configuration (may contain $t:key tokens in pages)
  * @param langCode - Language code to generate for (e.g., 'en', 'fr')
  * @returns App with all $t: patterns resolved for the language
  * @internal This function assumes langCode exists in supported languages
@@ -192,15 +156,9 @@ export function replaceAppTokens(app: App, langCode: string): App {
   // Replace tokens in pages (with currentPath resolution)
   const pages = app.pages?.map((page) => replacePageTokens(page, context))
 
-  // Replace tokens in defaultLayout (preserving {{currentPath}} for per-page resolution)
-  const defaultLayout = app.defaultLayout
-    ? (replaceTokensPreservingCurrentPath(app.defaultLayout, context) as App['defaultLayout'])
-    : app.defaultLayout
-
-  // Return app with replaced pages and defaultLayout
+  // Return app with replaced pages
   return {
     ...app,
     pages,
-    defaultLayout,
   }
 }

@@ -194,7 +194,7 @@ git push origin main               # Triggers release ONLY with "release:" type
 - **Use path aliases** for components (`@/components/ui/button`)
 
 ### UI Components
-- **Location**: `src/presentation/components/` (organized by feature)
+- **Location**: `src/presentation/ui/` (organized by feature)
 - **Props**: Extend native HTML element props
 - **Styling**: Plain Tailwind CSS classes
 - **Exports**: Export both component and props interface
@@ -370,7 +370,7 @@ gh workflow run tdd-pr-creator.yml
 - ❌ **NOT manual memoization** - React 19 Compiler handles it
 - ✅ **DO use TypeScript directly** - Bun executes .ts files natively
 - ✅ **DO use Effect.gen** - Application layer workflows
-- ✅ **DO use path aliases** - `@/presentation/components/pages/HomePage`
+- ✅ **DO use path aliases** - `@/presentation/ui/pages/HomePage`
 - ✅ **DO validate inputs** - Client: Zod (React Hook Form), Server: Effect Schema
 - ✅ **DO use Effect.DateTime** - For all date handling (client and server)
 

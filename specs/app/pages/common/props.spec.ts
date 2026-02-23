@@ -170,7 +170,7 @@ test.describe('Component Props', () => {
       // GIVEN: props with variable reference
       await startServerWithSchema({
         name: 'test-app',
-        blocks: [
+        components: [
           { name: 'welcome', type: 'div', props: { text: 'Welcome to $siteName' }, children: [] },
         ],
         pages: [
@@ -178,7 +178,7 @@ test.describe('Component Props', () => {
             name: 'Test',
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
-            sections: [{ block: 'welcome', vars: { siteName: 'My Site' } }],
+            sections: [{ component: 'welcome', vars: { siteName: 'My Site' } }],
           },
         ],
       })
@@ -266,7 +266,7 @@ test.describe('Component Props', () => {
       // GIVEN: props object referencing theme tokens
       await startServerWithSchema({
         name: 'test-app',
-        blocks: [
+        components: [
           {
             name: 'greeting',
             type: 'div',
@@ -279,7 +279,7 @@ test.describe('Component Props', () => {
             name: 'Test',
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
-            sections: [{ block: 'greeting', vars: { primaryColor: 'blue', userName: 'John' } }],
+            sections: [{ component: 'greeting', vars: { primaryColor: 'blue', userName: 'John' } }],
           },
         ],
       })
@@ -288,7 +288,7 @@ test.describe('Component Props', () => {
       await page.goto('/')
 
       // THEN: it should support multiple variable references across properties
-      const div = page.locator('div[data-testid="block-greeting"]')
+      const div = page.locator('div[data-testid="component-greeting"]')
       await expect(div).toHaveAttribute('data-color', 'blue')
       await expect(div).toHaveAttribute('data-text', 'Hello John')
     }
@@ -425,7 +425,7 @@ test.describe('Component Props', () => {
       await test.step('APP-PAGES-PROPS-006: Accept string with $variable syntax', async () => {
         await startServerWithSchema({
           name: 'test-app',
-          blocks: [
+          components: [
             { name: 'welcome', type: 'div', props: { text: 'Welcome to $siteName' }, children: [] },
           ],
           pages: [
@@ -433,7 +433,7 @@ test.describe('Component Props', () => {
               name: 'Test',
               path: '/',
               meta: { lang: 'en-US', title: 'Test' },
-              sections: [{ block: 'welcome', vars: { siteName: 'My Site' } }],
+              sections: [{ component: 'welcome', vars: { siteName: 'My Site' } }],
             },
           ],
         })
@@ -494,7 +494,7 @@ test.describe('Component Props', () => {
       await test.step('APP-PAGES-PROPS-009: Support multiple variable references', async () => {
         await startServerWithSchema({
           name: 'test-app',
-          blocks: [
+          components: [
             {
               name: 'greeting',
               type: 'div',
@@ -507,12 +507,14 @@ test.describe('Component Props', () => {
               name: 'Test',
               path: '/',
               meta: { lang: 'en-US', title: 'Test' },
-              sections: [{ block: 'greeting', vars: { primaryColor: 'blue', userName: 'John' } }],
+              sections: [
+                { component: 'greeting', vars: { primaryColor: 'blue', userName: 'John' } },
+              ],
             },
           ],
         })
         await page.goto('/')
-        const div = page.locator('div[data-testid="block-greeting"]')
+        const div = page.locator('div[data-testid="component-greeting"]')
         await expect(div).toHaveAttribute('data-color', 'blue')
         await expect(div).toHaveAttribute('data-text', 'Hello John')
       })

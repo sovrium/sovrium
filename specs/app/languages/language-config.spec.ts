@@ -41,7 +41,7 @@ test.describe('Language Configuration', () => {
             },
           ],
         },
-        blocks: [
+        components: [
           {
             name: 'language-switcher',
             type: 'language-switcher',
@@ -52,7 +52,7 @@ test.describe('Language Configuration', () => {
             name: 'home',
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [{ block: 'language-switcher' }],
+            sections: [{ component: 'language-switcher' }],
           },
         ],
       })
@@ -84,7 +84,7 @@ test.describe('Language Configuration', () => {
             },
           ],
         },
-        blocks: [
+        components: [
           {
             name: 'language-switcher',
             type: 'language-switcher',
@@ -95,7 +95,7 @@ test.describe('Language Configuration', () => {
             name: 'home',
             path: '/',
             meta: { lang: 'ar-SA', title: 'Test', description: 'Test page' },
-            sections: [{ block: 'language-switcher' }],
+            sections: [{ component: 'language-switcher' }],
           },
         ],
       })
@@ -126,7 +126,7 @@ test.describe('Language Configuration', () => {
             },
           ],
         },
-        blocks: [
+        components: [
           {
             name: 'language-switcher',
             type: 'language-switcher',
@@ -137,7 +137,7 @@ test.describe('Language Configuration', () => {
             name: 'home',
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [{ block: 'language-switcher' }],
+            sections: [{ component: 'language-switcher' }],
           },
         ],
       })
@@ -168,7 +168,7 @@ test.describe('Language Configuration', () => {
             },
           ],
         },
-        blocks: [
+        components: [
           {
             name: 'language-switcher',
             type: 'language-switcher',
@@ -179,7 +179,7 @@ test.describe('Language Configuration', () => {
             name: 'home',
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [{ block: 'language-switcher' }],
+            sections: [{ component: 'language-switcher' }],
           },
         ],
       })
@@ -212,7 +212,7 @@ test.describe('Language Configuration', () => {
             },
           ],
         },
-        blocks: [
+        components: [
           {
             name: 'language-switcher',
             type: 'language-switcher',
@@ -223,7 +223,7 @@ test.describe('Language Configuration', () => {
             name: 'home',
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [{ block: 'language-switcher' }],
+            sections: [{ component: 'language-switcher' }],
           },
         ],
       })
@@ -257,7 +257,7 @@ test.describe('Language Configuration', () => {
             },
           ],
         },
-        blocks: [
+        components: [
           {
             name: 'language-switcher',
             type: 'language-switcher',
@@ -268,7 +268,7 @@ test.describe('Language Configuration', () => {
             name: 'home',
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [{ block: 'language-switcher' }],
+            sections: [{ component: 'language-switcher' }],
           },
         ],
       })
@@ -305,7 +305,7 @@ test.describe('Language Configuration', () => {
             { code: 'ja', locale: 'ja-JP', label: '日本語' },
           ],
         },
-        blocks: [
+        components: [
           {
             name: 'language-switcher',
             type: 'language-switcher',
@@ -316,7 +316,7 @@ test.describe('Language Configuration', () => {
             name: 'home',
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [{ block: 'language-switcher' }],
+            sections: [{ component: 'language-switcher' }],
           },
         ],
       })
@@ -351,7 +351,7 @@ test.describe('Language Configuration', () => {
             },
           ],
         },
-        blocks: [
+        components: [
           {
             name: 'language-switcher',
             type: 'language-switcher',
@@ -362,7 +362,7 @@ test.describe('Language Configuration', () => {
             name: 'home',
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [{ block: 'language-switcher' }],
+            sections: [{ component: 'language-switcher' }],
           },
         ],
       })
@@ -401,7 +401,7 @@ test.describe('Language Configuration', () => {
               },
             ],
           },
-          blocks: [
+          components: [
             {
               name: 'language-switcher',
               type: 'language-switcher',
@@ -412,7 +412,7 @@ test.describe('Language Configuration', () => {
               name: 'home',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [{ block: 'language-switcher' }],
+              sections: [{ component: 'language-switcher' }],
             },
           ],
         })
@@ -435,7 +435,7 @@ test.describe('Language Configuration', () => {
               },
             ],
           },
-          blocks: [
+          components: [
             {
               name: 'language-switcher',
               type: 'language-switcher',
@@ -446,7 +446,7 @@ test.describe('Language Configuration', () => {
               name: 'home',
               path: '/',
               meta: { lang: 'ar-SA', title: 'Test', description: 'Test page' },
-              sections: [{ block: 'language-switcher' }],
+              sections: [{ component: 'language-switcher' }],
             },
           ],
         })
@@ -468,7 +468,7 @@ test.describe('Language Configuration', () => {
               },
             ],
           },
-          blocks: [
+          components: [
             {
               name: 'language-switcher',
               type: 'language-switcher',
@@ -479,7 +479,7 @@ test.describe('Language Configuration', () => {
               name: 'home',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [{ block: 'language-switcher' }],
+              sections: [{ component: 'language-switcher' }],
             },
           ],
         })
@@ -501,7 +501,7 @@ test.describe('Language Configuration', () => {
               },
             ],
           },
-          blocks: [
+          components: [
             {
               name: 'language-switcher',
               type: 'language-switcher',
@@ -512,7 +512,7 @@ test.describe('Language Configuration', () => {
               name: 'home',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [{ block: 'language-switcher' }],
+              sections: [{ component: 'language-switcher' }],
             },
           ],
         })
@@ -536,7 +536,7 @@ test.describe('Language Configuration', () => {
               },
             ],
           },
-          blocks: [
+          components: [
             {
               name: 'language-switcher',
               type: 'language-switcher',
@@ -547,7 +547,7 @@ test.describe('Language Configuration', () => {
               name: 'home',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [{ block: 'language-switcher' }],
+              sections: [{ component: 'language-switcher' }],
             },
           ],
         })
@@ -572,7 +572,7 @@ test.describe('Language Configuration', () => {
               },
             ],
           },
-          blocks: [
+          components: [
             {
               name: 'language-switcher',
               type: 'language-switcher',
@@ -583,7 +583,7 @@ test.describe('Language Configuration', () => {
               name: 'home',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [{ block: 'language-switcher' }],
+              sections: [{ component: 'language-switcher' }],
             },
           ],
         })
@@ -610,7 +610,7 @@ test.describe('Language Configuration', () => {
               { code: 'ja', locale: 'ja-JP', label: '日本語' },
             ],
           },
-          blocks: [
+          components: [
             {
               name: 'language-switcher',
               type: 'language-switcher',
@@ -621,7 +621,7 @@ test.describe('Language Configuration', () => {
               name: 'home',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [{ block: 'language-switcher' }],
+              sections: [{ component: 'language-switcher' }],
             },
           ],
         })
@@ -649,7 +649,7 @@ test.describe('Language Configuration', () => {
               },
             ],
           },
-          blocks: [
+          components: [
             {
               name: 'language-switcher',
               type: 'language-switcher',
@@ -660,7 +660,7 @@ test.describe('Language Configuration', () => {
               name: 'home',
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-              sections: [{ block: 'language-switcher' }],
+              sections: [{ component: 'language-switcher' }],
             },
           ],
         })

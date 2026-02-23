@@ -8,7 +8,7 @@
 
 ## Overview
 
-Pages in Sovrium are defined declaratively in the app schema. Each page has a unique ID, name, path (URL route), and sections containing content blocks. Pages support layouts, scripts, and configurable SEO metadata.
+Pages in Sovrium are defined declaratively in the app schema. Each page has a unique ID, name, path (URL route), and sections containing content components. Pages support layouts, scripts, and configurable SEO metadata.
 
 ---
 

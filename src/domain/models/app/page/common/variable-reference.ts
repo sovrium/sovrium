@@ -11,7 +11,7 @@ import { Schema } from 'effect'
  * Variable reference pattern for template substitution
  *
  * Matches strings containing $variableName syntax for runtime substitution.
- * Variables are replaced with values from the 'vars' object when blocks are instantiated.
+ * Variables are replaced with values from the 'vars' object when component templates are instantiated.
  *
  * Variable naming rules:
  * - Must start with $ followed by a letter
@@ -38,7 +38,8 @@ export const VariableReferenceSchema = Schema.String.pipe(
   }),
   Schema.annotations({
     title: 'Variable Reference',
-    description: 'Pattern for referencing variables in block templates using $variableName syntax',
+    description:
+      'Pattern for referencing variables in component templates using $variableName syntax',
     examples: [
       '$color',
       '$primaryText',

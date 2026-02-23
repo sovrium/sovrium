@@ -144,32 +144,32 @@ export const WorkspaceIdSchema = Schema.String.pipe(
 export type WorkspaceId = Schema.Schema.Type<typeof WorkspaceIdSchema>
 
 /**
- * Block ID - Branded type for block identifiers
+ * Component Template ID - Branded type for component template identifiers
  *
- * Unique identifier for reusable blocks/components.
- * Blocks are referenced in page sections via $ref.
+ * Unique identifier for reusable component templates.
+ * Component templates are referenced in page sections via $ref.
  *
  * @example
  * ```typescript
- * const blockId: BlockId = 'hero-section' as BlockId
+ * const componentId: ComponentTemplateId = 'hero-section' as ComponentTemplateId
  * ```
  */
-export const BlockIdSchema = Schema.String.pipe(
+export const ComponentTemplateIdSchema = Schema.String.pipe(
   Schema.minLength(1),
   Schema.pattern(/^[a-z][a-z0-9-]*$/, {
     message: () =>
-      'Block ID must start with a letter and contain only lowercase letters, numbers, and hyphens',
+      'Component template ID must start with a letter and contain only lowercase letters, numbers, and hyphens',
   }),
-  Schema.brand('BlockId'),
+  Schema.brand('ComponentTemplateId'),
   Schema.annotations({
-    identifier: 'BlockId',
-    title: 'Block ID',
+    identifier: 'ComponentTemplateId',
+    title: 'Component Template ID',
     description:
-      'Unique identifier for a reusable block (branded type). Examples: hero-section, feature-grid, cta-banner',
+      'Unique identifier for a reusable component template (branded type). Examples: hero-section, feature-grid, cta-banner',
   })
 )
 
-export type BlockId = Schema.Schema.Type<typeof BlockIdSchema>
+export type ComponentTemplateId = Schema.Schema.Type<typeof ComponentTemplateIdSchema>
 
 /**
  * View ID - Branded type for view identifiers

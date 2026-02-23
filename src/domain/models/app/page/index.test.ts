@@ -36,7 +36,7 @@ describe('PageSchema', () => {
   })
 
   test('should accept page with all optional properties', () => {
-    // GIVEN: Complete page with id, layout, and scripts
+    // GIVEN: Complete page with id and scripts
     const page = {
       id: 'home-page',
       name: 'home',
@@ -45,19 +45,6 @@ describe('PageSchema', () => {
         lang: 'en-US',
         title: 'Welcome',
         description: 'Welcome to our platform',
-      },
-      layout: {
-        navigation: {
-          logo: '/logo.svg',
-          links: {
-            desktop: [
-              {
-                label: 'Home',
-                href: '/',
-              },
-            ],
-          },
-        },
       },
       sections: [],
       scripts: {
@@ -72,7 +59,6 @@ describe('PageSchema', () => {
 
     // THEN: Complete page should be accepted
     expect(result.id).toBe('home-page')
-    expect(result.layout.navigation.logo).toBe('/logo.svg')
     expect(result.scripts.features.analytics).toBe(true)
   })
 
@@ -142,57 +128,6 @@ describe('PageSchema', () => {
     // THEN: Direct component sections should be accepted
     expect(result.sections).toHaveLength(1)
     expect(result.sections[0].type).toBe('section')
-  })
-
-  test('should accept page with layout configuration', () => {
-    // GIVEN: Page with complete layout
-    const page = {
-      name: 'full_layout',
-      path: '/full',
-      meta: {
-        lang: 'en-US',
-        title: 'Full Layout',
-        description: 'Full layout page',
-      },
-      layout: {
-        banner: {
-          enabled: true,
-          message: 'New feature available!',
-          variant: 'info',
-        },
-        navigation: {
-          logo: './logo.svg',
-          links: {
-            desktop: [
-              {
-                label: 'Home',
-                href: '/',
-              },
-            ],
-          },
-        },
-        footer: {
-          enabled: true,
-          copyright: '© 2025 Company',
-        },
-        sidebar: {
-          enabled: true,
-          collapsible: true,
-          defaultCollapsed: false,
-          position: 'left',
-        },
-      },
-      sections: [],
-    }
-
-    // WHEN: Schema validation is performed
-    const result = Schema.decodeUnknownSync(PageSchema)(page)
-
-    // THEN: Layout configuration should be accepted
-    expect(result.layout?.banner?.enabled).toBe(true)
-    expect(result.layout?.navigation?.logo).toBe('./logo.svg')
-    expect(result.layout?.footer?.enabled).toBe(true)
-    expect(result.layout?.sidebar?.position).toBe('left')
   })
 
   test('should accept page with scripts configuration', () => {

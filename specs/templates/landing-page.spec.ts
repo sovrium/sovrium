@@ -33,9 +33,9 @@ async function loadLandingPageSchema(): Promise<App> {
  *
  * Covered Features:
  * - Navigation rendering with branding and menu items
- * - Hero section with blocks and variable substitution
- * - Features section with reusable feature-card blocks
- * - CTA section with cta-button block
+ * - Hero section with components and variable substitution
+ * - Features section with reusable feature-card components
+ * - CTA section with cta-button component
  * - Footer with copyright text
  * - Multi-language support (English/French) with switching
  * - Theme colors and fonts application
@@ -79,10 +79,10 @@ test.describe('Landing Page Template', () => {
       })
 
       // ========================================================================
-      // STEP 2: Hero Section with Block Variable Substitution
+      // STEP 2: Hero Section with Component Variable Substitution
       // ========================================================================
       await test.step('2: Hero section renders with substituted variables', async () => {
-        // Hero title and subtitle render from hero-section block
+        // Hero title and subtitle render from hero-section component
         await expect(page.locator('h1')).toHaveText('Build Your Next App with Sovrium')
         await expect(
           page.locator('p:has-text("A modern, configuration-driven platform")')
@@ -92,8 +92,8 @@ test.describe('Landing Page Template', () => {
         await expect(page.locator('button:has-text("Get Started")')).toBeVisible()
         await expect(page.locator('button:has-text("Learn More")')).toBeVisible()
 
-        // hero-section block has no unsubstituted variables
-        const heroSection = page.locator('[data-block="hero-section"]')
+        // hero-section component has no unsubstituted variables
+        const heroSection = page.locator('[data-component="hero-section"]')
         await expect(heroSection).toBeVisible()
         const heroHtml = await heroSection.innerHTML()
         expect(heroHtml).not.toContain('$title')
@@ -103,7 +103,7 @@ test.describe('Landing Page Template', () => {
       })
 
       // ========================================================================
-      // STEP 3: Features Section with Reusable Blocks
+      // STEP 3: Features Section with Reusable Components
       // ========================================================================
       await test.step('3: Features section renders with three feature cards', async () => {
         // Section title and subtitle
@@ -112,8 +112,8 @@ test.describe('Landing Page Template', () => {
           page.locator('p:has-text("Everything you need to build modern applications")')
         ).toBeVisible()
 
-        // Three feature-card blocks render
-        const featureCards = page.locator('[data-block="feature-card"]')
+        // Three feature-card components render
+        const featureCards = page.locator('[data-component="feature-card"]')
         await expect(featureCards).toHaveCount(3)
 
         // Each card has correct content
@@ -130,16 +130,16 @@ test.describe('Landing Page Template', () => {
       })
 
       // ========================================================================
-      // STEP 4: CTA Section with Block
+      // STEP 4: CTA Section with Component
       // ========================================================================
-      await test.step('4: CTA section renders with cta-button block', async () => {
+      await test.step('4: CTA section renders with cta-button component', async () => {
         await expect(page.locator('h2:has-text("Ready to get started?")')).toBeVisible()
         await expect(
           page.locator('p:has-text("Join thousands of developers building with Sovrium")')
         ).toBeVisible()
 
-        // cta-button block renders with substituted label
-        const ctaButton = page.locator('[data-block="cta-button"]')
+        // cta-button component renders with substituted label
+        const ctaButton = page.locator('[data-component="cta-button"]')
         await expect(ctaButton).toBeVisible()
         await expect(ctaButton).toHaveText('Start Building Now')
 
@@ -292,7 +292,7 @@ test.describe('Landing Page Template', () => {
         await page.setViewportSize({ width: 375, height: 667 })
         await page.reload()
 
-        const featureCards = page.locator('[data-block="feature-card"]')
+        const featureCards = page.locator('[data-component="feature-card"]')
         await expect(featureCards).toHaveCount(3)
 
         // Cards are stacked vertically (second card below first)
@@ -311,7 +311,7 @@ test.describe('Landing Page Template', () => {
         await page.setViewportSize({ width: 1280, height: 800 })
         await page.reload()
 
-        const featureCards = page.locator('[data-block="feature-card"]')
+        const featureCards = page.locator('[data-component="feature-card"]')
 
         // Cards are in same row (similar y positions)
         const firstBox = await featureCards.nth(0).boundingBox()

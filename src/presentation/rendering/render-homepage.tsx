@@ -7,8 +7,8 @@
 
 import { renderToString } from 'react-dom/server'
 import { findMatchingRoute } from '@/domain/utils/route-matcher'
-import { DefaultHomePage } from '@/presentation/components/pages/DefaultHomePage'
-import { DynamicPage } from '@/presentation/components/pages/DynamicPage'
+import { DefaultHomePage } from '@/presentation/ui/pages/DefaultHomePage'
+import { DynamicPage } from '@/presentation/ui/pages/DynamicPage'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -48,10 +48,9 @@ export function renderPageByPath(
   const html = renderToString(
     <DynamicPage
       page={page}
-      blocks={app.blocks}
+      components={app.components}
       theme={app.theme}
       languages={app.languages}
-      defaultLayout={app.defaultLayout}
       detectedLanguage={detectedLanguage}
       routeParams={match.params}
     />

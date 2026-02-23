@@ -13,7 +13,7 @@ import {
   RecordIdSchema,
   UserIdSchema,
   WorkspaceIdSchema,
-  BlockIdSchema,
+  ComponentTemplateIdSchema,
   BrandedViewIdSchema,
 } from './branded-ids'
 
@@ -91,31 +91,31 @@ describe('Branded IDs', () => {
     })
   })
 
-  describe('BlockIdSchema', () => {
-    test('should accept valid block ID', () => {
-      const result = Schema.decodeUnknownSync(BlockIdSchema)('hero-section')
+  describe('ComponentTemplateIdSchema', () => {
+    test('should accept valid component template ID', () => {
+      const result = Schema.decodeUnknownSync(ComponentTemplateIdSchema)('hero-section')
       expect(result as string).toBe('hero-section')
     })
 
-    test('should accept simple block ID', () => {
-      const result = Schema.decodeUnknownSync(BlockIdSchema)('hero')
+    test('should accept simple component template ID', () => {
+      const result = Schema.decodeUnknownSync(ComponentTemplateIdSchema)('hero')
       expect(result as string).toBe('hero')
     })
 
-    test('should reject block ID starting with number', () => {
-      expect(() => Schema.decodeUnknownSync(BlockIdSchema)('123-section')).toThrow()
+    test('should reject component template ID starting with number', () => {
+      expect(() => Schema.decodeUnknownSync(ComponentTemplateIdSchema)('123-section')).toThrow()
     })
 
-    test('should reject block ID with uppercase', () => {
-      expect(() => Schema.decodeUnknownSync(BlockIdSchema)('Hero-Section')).toThrow()
+    test('should reject component template ID with uppercase', () => {
+      expect(() => Schema.decodeUnknownSync(ComponentTemplateIdSchema)('Hero-Section')).toThrow()
     })
 
-    test('should reject block ID with underscores', () => {
-      expect(() => Schema.decodeUnknownSync(BlockIdSchema)('hero_section')).toThrow()
+    test('should reject component template ID with underscores', () => {
+      expect(() => Schema.decodeUnknownSync(ComponentTemplateIdSchema)('hero_section')).toThrow()
     })
 
     test('should reject empty string', () => {
-      expect(() => Schema.decodeUnknownSync(BlockIdSchema)('')).toThrow()
+      expect(() => Schema.decodeUnknownSync(ComponentTemplateIdSchema)('')).toThrow()
     })
   })
 

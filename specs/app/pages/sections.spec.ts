@@ -294,13 +294,13 @@ test.describe('Page Sections', () => {
   )
 
   test(
-    'APP-PAGES-SECTIONS-008: should reference and instantiate reusable block with variables',
+    'APP-PAGES-SECTIONS-008: should reference and instantiate reusable component with variables',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: a block reference in sections
+      // GIVEN: a component reference in sections
       await startServerWithSchema({
         name: 'test-app',
-        blocks: [
+        components: [
           {
             name: 'section-header',
             type: 'section',
@@ -317,7 +317,7 @@ test.describe('Page Sections', () => {
             meta: { lang: 'en-US', title: 'Test', description: 'Test' },
             sections: [
               {
-                block: 'section-header',
+                component: 'section-header',
                 vars: { title: 'Our Features', subtitle: 'Everything you need to succeed' },
               },
             ],
@@ -328,7 +328,7 @@ test.describe('Page Sections', () => {
       // WHEN: section uses $ref with vars for variable substitution
       await page.goto('/')
 
-      // THEN: it should reference and instantiate reusable block with variables
+      // THEN: it should reference and instantiate reusable component with variables
       await expect(page.locator('h2:has-text("Our Features")')).toBeVisible()
       await expect(page.locator('p:has-text("Everything you need to succeed")')).toBeVisible()
     }
@@ -338,10 +338,10 @@ test.describe('Page Sections', () => {
     'APP-PAGES-SECTIONS-009: should support hybrid section composition',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: sections with mixed direct components and block references
+      // GIVEN: sections with mixed direct components and component references
       await startServerWithSchema({
         name: 'test-app',
-        blocks: [
+        components: [
           {
             name: 'cta-section',
             type: 'section',
@@ -359,14 +359,14 @@ test.describe('Page Sections', () => {
                 props: { id: 'hero' },
                 children: [{ type: 'single-line-text', content: 'Welcome' }],
               },
-              { block: 'cta-section', vars: { buttonLabel: 'Get Started' } },
+              { component: 'cta-section', vars: { buttonLabel: 'Get Started' } },
               { type: 'container', children: [{ type: 'single-line-text', content: 'Features' }] },
             ],
           },
         ],
       })
 
-      // WHEN: array contains both direct definitions and block references
+      // WHEN: array contains both direct definitions and component references
       await page.goto('/')
 
       // THEN: it should support hybrid section composition
@@ -565,8 +565,8 @@ test.describe('Page Sections', () => {
       // ============================================================================
       // OPTIMIZED: Consolidated from 13 startServerWithSchema calls to 2
       // Groups organized by schema requirements:
-      // - Group 1: Tests 001-007, 010-013 - Direct component tests (no blocks)
-      // - Group 2: Tests 008-009 - Tests requiring blocks definition
+      // - Group 1: Tests 001-007, 010-013 - Direct component tests (no components)
+      // - Group 2: Tests 008-009 - Tests requiring components definition
       // ============================================================================
 
       // Group 1: Comprehensive setup with all direct component sections
@@ -780,12 +780,12 @@ test.describe('Page Sections', () => {
         await expect(page.locator('iframe[src*="youtube.com"]')).toBeVisible()
       })
 
-      // Group 2: Tests requiring blocks definition (conflicting schema - need separate setup)
-      await test.step('Setup: Start server with blocks configuration', async () => {
+      // Group 2: Tests requiring components definition (conflicting schema - need separate setup)
+      await test.step('Setup: Start server with components configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
-          blocks: [
-            // Block for test 008
+          components: [
+            // Component for test 008
             {
               name: 'section-header',
               type: 'section',
@@ -794,7 +794,7 @@ test.describe('Page Sections', () => {
                 { type: 'p', content: '$subtitle' },
               ],
             },
-            // Block for test 009
+            // Component for test 009
             {
               name: 'cta-section',
               type: 'section',
@@ -807,18 +807,18 @@ test.describe('Page Sections', () => {
               path: '/',
               meta: { lang: 'en-US', title: 'Test', description: 'Test' },
               sections: [
-                // 008: Block reference with variable substitution
+                // 008: Component reference with variable substitution
                 {
-                  block: 'section-header',
+                  component: 'section-header',
                   vars: { title: 'Our Features', subtitle: 'Everything you need to succeed' },
                 },
-                // 009: Hybrid composition (direct + block references)
+                // 009: Hybrid composition (direct + component references)
                 {
                   type: 'section',
                   props: { id: 'hybrid-hero' },
                   children: [{ type: 'single-line-text', content: 'Welcome Hybrid' }],
                 },
-                { block: 'cta-section', vars: { buttonLabel: 'Get Started' } },
+                { component: 'cta-section', vars: { buttonLabel: 'Get Started' } },
                 {
                   type: 'container',
                   children: [{ type: 'single-line-text', content: 'Features Hybrid' }],
@@ -830,7 +830,7 @@ test.describe('Page Sections', () => {
         await page.goto('/')
       })
 
-      await test.step('APP-PAGES-SECTIONS-008: Reference and instantiate reusable block', async () => {
+      await test.step('APP-PAGES-SECTIONS-008: Reference and instantiate reusable component', async () => {
         await expect(page.locator('h2:has-text("Our Features")')).toBeVisible()
         await expect(page.locator('p:has-text("Everything you need to succeed")')).toBeVisible()
       })

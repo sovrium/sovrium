@@ -288,9 +288,16 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
     'CLI-BUILD-I18N-004: should create language switcher links',
     { tag: '@spec' },
     async ({ generateStaticSite }) => {
-      // GIVEN: app with language switcher in layout
+      // GIVEN: app with language switcher component
       const outputDir = await generateStaticSite({
         name: 'test-app',
+        components: [
+          {
+            name: 'language-switcher',
+            type: 'language-switcher',
+            props: { style: 'dropdown' },
+          },
+        ],
         languages: {
           default: 'en',
           supported: [
@@ -325,37 +332,27 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
             },
           },
         },
-        defaultLayout: {
-          navigation: {
-            logo: './logo.svg',
-            links: {
-              desktop: [
-                { label: '$t:nav.home', href: '/' },
-                { label: '$t:nav.about', href: '/about' },
-              ],
-            },
-            languageSwitcher: {
-              label: '$t:lang.switch',
-              items: [
-                { lang: 'en', label: '$t:lang.en', href: '/en{{currentPath}}' },
-                { lang: 'fr', label: '$t:lang.fr', href: '/fr{{currentPath}}' },
-                { lang: 'es', label: '$t:lang.es', href: '/es{{currentPath}}' },
-              ],
-            },
-          },
-        },
         pages: [
           {
             name: 'home',
             path: '/',
             meta: { title: '$t:nav.home' },
-            sections: [],
+            sections: [
+              {
+                type: 'navigation',
+                items: [
+                  { label: '$t:nav.home', href: '/' },
+                  { label: '$t:nav.about', href: '/about' },
+                ],
+              },
+              { component: 'language-switcher' },
+            ],
           },
           {
             name: 'about',
             path: '/about',
             meta: { title: '$t:nav.about' },
-            sections: [],
+            sections: [{ component: 'language-switcher' }],
           },
         ],
       })
@@ -365,38 +362,31 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
       const frHome = await readFile(join(outputDir, 'fr/index.html'), 'utf-8')
       const esAbout = await readFile(join(outputDir, 'es/about.html'), 'utf-8')
 
-      // THEN: should create language switcher links
-      // English home page should have language switcher
-      expect(enHome).toContain('Language') // Label
+      // THEN: language switcher component should be rendered on all pages
+      expect(enHome).toContain('data-testid="language-switcher"')
+      expect(frHome).toContain('data-testid="language-switcher"')
+      expect(esAbout).toContain('data-testid="language-switcher"')
+
+      // THEN: supported languages JSON should be embedded for client-side rendering
+      expect(enHome).toContain('"code":"en"')
+      expect(enHome).toContain('"code":"fr"')
+      expect(enHome).toContain('"code":"es"')
+
+      // THEN: translation data should be embedded for language switching
+      expect(enHome).toContain('Language') // $t:lang.switch in English
+      expect(frHome).toContain('Langue') // $t:lang.switch in French
+      expect(esAbout).toContain('Idioma') // $t:lang.switch in Spanish
+
+      // THEN: hreflang links provide language alternate URLs
       expect(enHome).toContain('href="/en/"')
-      expect(enHome).toMatch(/>\s*English\s*<\/a/s)
       expect(enHome).toContain('href="/fr/"')
-      expect(enHome).toMatch(/>\s*Français\s*<\/a/s)
       expect(enHome).toContain('href="/es/"')
-      expect(enHome).toMatch(/>\s*Español\s*<\/a/s)
 
-      // French home page
-      // THEN: assertion
-      expect(frHome).toContain('Langue') // Label in French
-      expect(frHome).toContain('href="/en/"')
-      expect(frHome).toMatch(/>\s*English\s*<\/a/s)
-      expect(frHome).toContain('href="/fr/"')
-      expect(frHome).toMatch(/>\s*Français\s*<\/a/s)
-      expect(frHome).toContain('href="/es/"')
-      expect(frHome).toMatch(/>\s*Español\s*<\/a/s)
+      expect(esAbout).toContain('href="/en/about/"')
+      expect(esAbout).toContain('href="/fr/about/"')
+      expect(esAbout).toContain('href="/es/about/"')
 
-      // Spanish about page - should link to about page in other languages
-      // THEN: assertion
-      expect(esAbout).toContain('Idioma') // Label in Spanish
-      expect(esAbout).toContain('href="/en/about"')
-      expect(esAbout).toMatch(/>\s*English\s*<\/a/s)
-      expect(esAbout).toContain('href="/fr/about"')
-      expect(esAbout).toMatch(/>\s*Français\s*<\/a/s)
-      expect(esAbout).toContain('href="/es/about"')
-      expect(esAbout).toMatch(/>\s*Español\s*<\/a/s)
-
-      // Navigation should be translated
-      // THEN: assertion
+      // THEN: navigation text is translated
       expect(enHome).toContain('Home')
       expect(enHome).toContain('About')
       expect(frHome).toContain('Accueil')
@@ -422,6 +412,13 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
       await test.step('Setup: Generate multi-language static site with comprehensive configuration', async () => {
         outputDir = await generateStaticSite({
           name: 'test-app',
+          components: [
+            {
+              name: 'language-switcher',
+              type: 'language-switcher',
+              props: { style: 'dropdown' },
+            },
+          ],
           languages: {
             default: 'en',
             supported: [
@@ -471,25 +468,6 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
               },
             },
           },
-          defaultLayout: {
-            navigation: {
-              logo: './logo.svg',
-              links: {
-                desktop: [
-                  { label: '$t:nav.home', href: '/' },
-                  { label: '$t:nav.about', href: '/about' },
-                ],
-              },
-              languageSwitcher: {
-                label: '$t:lang.switch',
-                items: [
-                  { lang: 'en', label: '$t:lang.en', href: '/en{{currentPath}}' },
-                  { lang: 'fr', label: '$t:lang.fr', href: '/fr{{currentPath}}' },
-                  { lang: 'es', label: '$t:lang.es', href: '/es{{currentPath}}' },
-                ],
-              },
-            },
-          },
           pages: [
             {
               name: 'home',
@@ -499,6 +477,14 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
                 description: '$t:home.content',
               },
               sections: [
+                {
+                  type: 'navigation',
+                  items: [
+                    { label: '$t:nav.home', href: '/' },
+                    { label: '$t:nav.about', href: '/about' },
+                  ],
+                },
+                { component: 'language-switcher' },
                 {
                   type: 'main',
                   props: { className: 'container' },
@@ -517,6 +503,14 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
                 description: '$t:about.description',
               },
               sections: [
+                {
+                  type: 'navigation',
+                  items: [
+                    { label: '$t:nav.home', href: '/' },
+                    { label: '$t:nav.about', href: '/about' },
+                  ],
+                },
+                { component: 'language-switcher' },
                 { type: 'h1', children: ['$t:about.title'] },
                 { type: 'p', children: ['$t:about.description'] },
               ],
@@ -597,26 +591,31 @@ test.describe('Static Site Generation - Multi-Language Support', () => {
         expect(enAbout).toContain('href="/fr/about/"')
       })
 
-      await test.step('CLI-BUILD-I18N-004: creates language switcher links', async () => {
+      await test.step('CLI-BUILD-I18N-004: creates language switcher and navigation', async () => {
         const enHome = await readFile(join(outputDir, 'en/index.html'), 'utf-8')
         const frHome = await readFile(join(outputDir, 'fr/index.html'), 'utf-8')
         const esAbout = await readFile(join(outputDir, 'es/about.html'), 'utf-8')
 
+        // Language switcher component is rendered with embedded config
+        expect(enHome).toContain('data-testid="language-switcher"')
+        expect(frHome).toContain('data-testid="language-switcher"')
+        expect(esAbout).toContain('data-testid="language-switcher"')
+
+        // Translation data is embedded for client-side language switching
         expect(enHome).toContain('Language')
+        expect(frHome).toContain('Langue')
+        expect(esAbout).toContain('Idioma')
+
+        // Hreflang links provide language navigation (SEO + crawlers)
         expect(enHome).toContain('href="/en/"')
         expect(enHome).toContain('href="/fr/"')
         expect(enHome).toContain('href="/es/"')
 
-        expect(frHome).toContain('Langue')
-        expect(frHome).toContain('href="/en/"')
-        expect(frHome).toContain('href="/fr/"')
-        expect(frHome).toContain('href="/es/"')
+        expect(esAbout).toContain('href="/en/about/"')
+        expect(esAbout).toContain('href="/fr/about/"')
+        expect(esAbout).toContain('href="/es/about/"')
 
-        expect(esAbout).toContain('Idioma')
-        expect(esAbout).toContain('href="/en/about"')
-        expect(esAbout).toContain('href="/fr/about"')
-        expect(esAbout).toContain('href="/es/about"')
-
+        // Navigation text is available in translated form
         expect(enHome).toContain('Home')
         expect(enHome).toContain('About')
         expect(frHome).toContain('Accueil')

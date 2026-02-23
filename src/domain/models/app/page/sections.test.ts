@@ -313,8 +313,8 @@ describe('SectionItemSchema', () => {
     expect(result.type).toBe('section')
   })
 
-  test('should accept block reference', () => {
-    // GIVEN: Block reference
+  test('should accept component reference', () => {
+    // GIVEN: Component reference
     const sectionItem = {
       $ref: 'section-header',
       vars: {
@@ -326,7 +326,7 @@ describe('SectionItemSchema', () => {
     // WHEN: Schema validation is performed
     const result = Schema.decodeUnknownSync(SectionItemSchema)(sectionItem)
 
-    // THEN: Block reference should be accepted
+    // THEN: Component reference should be accepted
     expect(result.$ref).toBe('section-header')
     expect(result.vars?.title).toBe('Our Features')
   })
@@ -365,8 +365,8 @@ describe('SectionsSchema', () => {
     expect(result[1]?.type).toBe('section')
   })
 
-  test('should accept array of block references', () => {
-    // GIVEN: Array of block references
+  test('should accept array of component references', () => {
+    // GIVEN: Array of component references
     const sections = [
       {
         $ref: 'section-header',
@@ -385,13 +385,13 @@ describe('SectionsSchema', () => {
     // WHEN: Schema validation is performed
     const result = Schema.decodeUnknownSync(SectionsSchema)(sections)
 
-    // THEN: Array of block references should be accepted
+    // THEN: Array of component references should be accepted
     expect(result.length).toBe(2)
     expect(result[0]?.$ref).toBe('section-header')
     expect(result[1]?.$ref).toBe('section-features')
   })
 
-  test('should accept mixed array of components and block references', () => {
+  test('should accept mixed array of components and component references', () => {
     // GIVEN: Mixed array
     const sections = [
       {

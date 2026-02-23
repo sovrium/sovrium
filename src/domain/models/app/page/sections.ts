@@ -6,8 +6,8 @@
  */
 
 import { Schema } from 'effect'
-import { BlockPropsSchema } from '../block/common/block-props'
-import { BlockReferenceSchema } from '../block/common/block-reference'
+import { ComponentPropsSchema } from '../component/common/component-props'
+import { ComponentReferenceSchema } from '../component/common/component-reference'
 import { InteractionsSchema } from './common/interactions/interactions'
 import { ResponsiveSchema } from './common/responsive'
 
@@ -94,8 +94,8 @@ export const ComponentTypeSchema = Schema.Literal(
 /**
  * Direct component definition for page sections
  *
- * A component can be either inline (direct definition) or referenced (block).
- * Direct components allow full customization without creating a reusable block.
+ * A component can be either inline (direct definition) or referenced (component template).
+ * Direct components allow full customization without creating a reusable component template.
  *
  * Required properties:
  * - type: Component type (17 options)
@@ -138,7 +138,7 @@ export const ComponentTypeSchema = Schema.Literal(
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Recursive schema with suspended types requires any for circular reference resolution
 export const ComponentSchema: Schema.Schema<any, any, never> = Schema.Struct({
   type: ComponentTypeSchema,
-  props: Schema.optional(BlockPropsSchema),
+  props: Schema.optional(ComponentPropsSchema),
   children: Schema.optional(
     Schema.Array(
       Schema.Union(
@@ -180,7 +180,7 @@ export const ComponentSchema: Schema.Schema<any, any, never> = Schema.Struct({
             description: 'Translated content text',
           })
         ),
-        props: Schema.optional(BlockPropsSchema),
+        props: Schema.optional(ComponentPropsSchema),
       }),
     }).annotations({
       description: 'Localized translations per language for this component',
@@ -191,16 +191,16 @@ export const ComponentSchema: Schema.Schema<any, any, never> = Schema.Struct({
 })
 
 /**
- * Section item - either a direct component or a block reference
+ * Section item - either a direct component or a component reference
  *
  * Sections support three patterns:
  * 1. Direct component: Inline definition with type, props, children, etc.
- * 2. Simple block reference: Reference by name with { block: 'name' }
- * 3. Block reference with vars: Reference with variable substitution { $ref: 'name', vars: {} }
+ * 2. Simple component reference: Reference by name with { component: 'name' }
+ * 3. Component reference with vars: Reference with variable substitution { $ref: 'name', vars: {} }
  *
  * This hybrid approach enables:
  * - Quick prototyping with inline components
- * - Reusability through block references
+ * - Reusability through component references
  * - Flexibility to mix all patterns
  *
  * @example
@@ -214,11 +214,11 @@ export const ComponentSchema: Schema.Schema<any, any, never> = Schema.Struct({
  *       { type: 'text', content: 'Welcome' }
  *     ]
  *   },
- *   // Simple block reference
+ *   // Simple component reference
  *   {
- *     block: 'shared-block'
+ *     component: 'shared-component'
  *   },
- *   // Block reference with variables
+ *   // Component reference with variables
  *   {
  *     $ref: 'section-header',
  *     vars: {
@@ -229,9 +229,12 @@ export const ComponentSchema: Schema.Schema<any, any, never> = Schema.Struct({
  * ]
  * ```
  */
-export const SectionItemSchema = Schema.Union(ComponentSchema, BlockReferenceSchema).annotations({
+export const SectionItemSchema = Schema.Union(
+  ComponentSchema,
+  ComponentReferenceSchema
+).annotations({
   description:
-    'A page section that can be either a component or block reference (with optional variables)',
+    'A page section that can be either a component or component reference (with optional variables)',
 })
 
 /**
@@ -242,7 +245,7 @@ export const SectionItemSchema = Schema.Union(ComponentSchema, BlockReferenceSch
  *
  * Sections enable:
  * - Component composition (nest components to build layouts)
- * - Reusability (reference blocks with $ref)
+ * - Reusability (reference components with $ref)
  * - Responsive design (override props per breakpoint)
  * - Interactivity (add hover, click, scroll, entrance behaviors)
  *

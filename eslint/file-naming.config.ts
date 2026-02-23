@@ -12,7 +12,7 @@ export default [
   // File Naming Conventions - Page Components (PascalCase exception)
   // Must come before the general kebab-case rule
   {
-    files: ['src/presentation/components/pages/**/*.{ts,tsx}'],
+    files: ['src/presentation/ui/pages/**/*.{ts,tsx}'],
     plugins: {
       'check-file': checkFilePlugin,
     },
@@ -33,7 +33,7 @@ export default [
   // Comprehensive enforcement of naming patterns from docs/architecture/file-naming-conventions.md
   {
     files: ['src/**/*.{ts,tsx,js,jsx}'],
-    ignores: ['src/presentation/components/pages/**/*.{ts,tsx}'], // Already handled above
+    ignores: ['src/presentation/ui/pages/**/*.{ts,tsx}'], // Already handled above
     plugins: {
       'check-file': checkFilePlugin,
     },
@@ -48,9 +48,9 @@ export default [
           // Specific patterns for file types
           'src/infrastructure/database/repositories/*.ts': '*-repository-live',
           'src/infrastructure/layers/*.ts': '*-layer',
-          'src/presentation/components/ui/*-variants.ts': '*-variants',
+          'src/presentation/ui/ui/*-variants.ts': '*-variants',
           'src/presentation/hooks/*.{ts,tsx}': 'use-*',
-          'src/presentation/components/ui/*-hook.ts': '*-hook',
+          'src/presentation/ui/ui/*-hook.ts': '*-hook',
 
           // DEFAULT: All other files use kebab-case (must be last)
           '**/*.{ts,tsx,js,jsx}': 'KEBAB_CASE',

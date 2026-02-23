@@ -19,8 +19,8 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Routing Behavior (APP-PAGES-PATH-011 to APP-PAGES-PATH-015):
  * DefaultHomePage.tsx should ONLY be rendered when NO page exists at '/' path.
- * It should NOT render blocks - only app name, version, and description.
- * Bug: Lines 68-79 in DefaultHomePage.tsx incorrectly render app.blocks.
+ * It should NOT render components - only app name, version, and description.
+ * Bug: Lines 68-79 in DefaultHomePage.tsx incorrectly render app.components.
  *
  * Error Page Override Behavior (APP-PAGES-PATH-016 to APP-PAGES-PATH-019):
  * Users can override default error pages (404, 500) by defining pages at '/404' and '/500' paths.
@@ -342,7 +342,7 @@ test.describe('URL Path', () => {
   )
 
   test(
-    'APP-PAGES-PATH-011: DefaultHomePage displays app name, version, description (NO blocks)',
+    'APP-PAGES-PATH-011: DefaultHomePage displays app name, version, description (NO components)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
       // GIVEN: app with NO pages array
@@ -350,11 +350,11 @@ test.describe('URL Path', () => {
         name: 'my-app',
         version: '1.0.0',
         description: 'My app description',
-        blocks: [
+        components: [
           {
             name: 'hero',
             type: 'section',
-            children: [{ type: 'h1', content: 'Hero Block' }],
+            children: [{ type: 'h1', content: 'Hero Component' }],
           },
         ],
       })
@@ -362,14 +362,14 @@ test.describe('URL Path', () => {
       // WHEN: user navigates to '/'
       await page.goto('/')
 
-      // THEN: DefaultHomePage displays app name, version, description (NO blocks)
+      // THEN: DefaultHomePage displays app name, version, description (NO components)
       await expect(page.locator('[data-testid="app-name-heading"]')).toHaveText('my-app')
       await expect(page.locator('[data-testid="app-version-badge"]')).toHaveText('1.0.0')
       await expect(page.locator('[data-testid="app-description"]')).toHaveText('My app description')
 
-      // CRITICAL: Blocks should NOT be rendered (bug fix verification)
+      // CRITICAL: Components should NOT be rendered (bug fix verification)
       // THEN: assertion
-      await expect(page.locator('[data-block="hero"]')).toBeHidden()
+      await expect(page.locator('[data-component="hero"]')).toBeHidden()
     }
   )
 
@@ -443,19 +443,19 @@ test.describe('URL Path', () => {
   )
 
   test(
-    'APP-PAGES-PATH-014: DefaultHomePage does NOT render blocks',
+    'APP-PAGES-PATH-014: DefaultHomePage does NOT render components',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app with blocks=[...] and NO '/' page
+      // GIVEN: app with components=[...] and NO '/' page
       await startServerWithSchema({
         name: 'my-app',
         version: '1.0.0',
-        description: 'App with blocks',
-        blocks: [
+        description: 'App with components',
+        components: [
           {
             name: 'hero',
             type: 'section',
-            children: [{ type: 'h1', content: 'Hero Block' }],
+            children: [{ type: 'h1', content: 'Hero Component' }],
           },
           {
             name: 'cta',
@@ -468,28 +468,30 @@ test.describe('URL Path', () => {
       // WHEN: DefaultHomePage is rendered
       await page.goto('/')
 
-      // THEN: blocks are NOT rendered (only name/version/description shown)
+      // THEN: components are NOT rendered (only name/version/description shown)
       await expect(page.locator('[data-testid="app-name-heading"]')).toHaveText('my-app')
       await expect(page.locator('[data-testid="app-version-badge"]')).toHaveText('1.0.0')
-      await expect(page.locator('[data-testid="app-description"]')).toHaveText('App with blocks')
+      await expect(page.locator('[data-testid="app-description"]')).toHaveText(
+        'App with components'
+      )
 
-      // CRITICAL: Verify blocks are NOT rendered (bug fix)
+      // CRITICAL: Verify components are NOT rendered (bug fix)
       // THEN: assertion
-      await expect(page.locator('[data-block="hero"]')).toBeHidden()
-      await expect(page.locator('[data-block="cta"]')).toBeHidden()
-      await expect(page.locator('h1').filter({ hasText: 'Hero Block' })).toBeHidden()
+      await expect(page.locator('[data-component="hero"]')).toBeHidden()
+      await expect(page.locator('[data-component="cta"]')).toBeHidden()
+      await expect(page.locator('h1').filter({ hasText: 'Hero Component' })).toBeHidden()
       await expect(page.locator('button').filter({ hasText: 'CTA Button' })).toBeHidden()
     }
   )
 
   test(
-    'APP-PAGES-PATH-015: Custom "/" page renders blocks from sections',
+    'APP-PAGES-PATH-015: Custom "/" page renders components from sections',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
-      // GIVEN: app with pages=[{path: '/', sections: [{block: 'hero'}]}]
+      // GIVEN: app with pages=[{path: '/', sections: [{component: 'hero'}]}]
       await startServerWithSchema({
         name: 'my-app',
-        blocks: [
+        components: [
           {
             name: 'hero',
             type: 'section',
@@ -501,7 +503,7 @@ test.describe('URL Path', () => {
             name: 'custom_home',
             path: '/',
             meta: { lang: 'en-US', title: 'Home', description: 'Home page' },
-            sections: [{ block: 'hero', vars: { title: 'Welcome Home' } }],
+            sections: [{ component: 'hero', vars: { title: 'Welcome Home' } }],
           },
         ],
       })
@@ -509,7 +511,7 @@ test.describe('URL Path', () => {
       // WHEN: user navigates to '/'
       await page.goto('/')
 
-      // THEN: custom page renders blocks from sections
+      // THEN: custom page renders components from sections
       await expect(page).toHaveTitle('Home')
       await expect(page.locator('[data-testid="page-custom-home"]')).toBeVisible()
       await expect(page.locator('h1')).toHaveText('Welcome Home')
@@ -518,9 +520,9 @@ test.describe('URL Path', () => {
       // THEN: assertion
       await expect(page.locator('[data-testid="app-name-heading"]')).toBeHidden()
 
-      // Verify block rendered via sections (NOT from DefaultHomePage)
+      // Verify component rendered via sections (NOT from DefaultHomePage)
       // THEN: assertion
-      await expect(page.locator('[data-block="hero"]')).toBeVisible()
+      await expect(page.locator('[data-component="hero"]')).toBeVisible()
     }
   )
 
@@ -633,9 +635,9 @@ test.describe('URL Path', () => {
   // - Group 1: Tests 001, 003, 006, 008 - Standard pages with '/' homepage
   // - Group 2: Tests 002, 004, 005, 009, 010 - Various path patterns (multi-level, kebab, dynamic)
   // - Group 3: Test 007 - Validation error (expects throw, no server needed)
-  // - Group 4: Tests 011, 014 - DefaultHomePage with blocks, NO pages (conflicting)
+  // - Group 4: Tests 011, 014 - DefaultHomePage with components, NO pages (conflicting)
   // - Group 5: Test 012 - DefaultHomePage with pages but no '/' (conflicting)
-  // - Group 6: Tests 013, 015 - Custom '/' page with sections/blocks (conflicting)
+  // - Group 6: Tests 013, 015 - Custom '/' page with sections/components (conflicting)
   // - Group 7: Tests 016, 018 - Custom error pages (404, 500)
   // - Group 8: Tests 017, 019 - Default error pages (no custom 404/500)
   // ============================================================================
@@ -814,18 +816,18 @@ test.describe('URL Path', () => {
       })
 
       // ========================================================================
-      // Group 4: DefaultHomePage with blocks, NO pages (011, 014) - CONFLICTING
+      // Group 4: DefaultHomePage with components, NO pages (011, 014) - CONFLICTING
       // ========================================================================
-      await test.step('Setup: Start server with blocks but NO pages (DefaultHomePage)', async () => {
+      await test.step('Setup: Start server with components but NO pages (DefaultHomePage)', async () => {
         await startServerWithSchema({
           name: 'my-app',
           version: '1.0.0',
           description: 'My app description',
-          blocks: [
+          components: [
             {
               name: 'hero',
               type: 'section',
-              children: [{ type: 'h1', content: 'Hero Block' }],
+              children: [{ type: 'h1', content: 'Hero Component' }],
             },
             {
               name: 'cta',
@@ -843,19 +845,19 @@ test.describe('URL Path', () => {
         await expect(page.locator('[data-testid="app-description"]')).toHaveText(
           'My app description'
         )
-        await expect(page.locator('[data-block="hero"]')).toBeHidden()
+        await expect(page.locator('[data-component="hero"]')).toBeHidden()
       })
 
-      await test.step('APP-PAGES-PATH-014: DefaultHomePage does NOT render blocks', async () => {
+      await test.step('APP-PAGES-PATH-014: DefaultHomePage does NOT render components', async () => {
         await page.goto('/')
         await expect(page.locator('[data-testid="app-name-heading"]')).toHaveText('my-app')
         await expect(page.locator('[data-testid="app-version-badge"]')).toHaveText('1.0.0')
         await expect(page.locator('[data-testid="app-description"]')).toHaveText(
           'My app description'
         )
-        await expect(page.locator('[data-block="hero"]')).toBeHidden()
-        await expect(page.locator('[data-block="cta"]')).toBeHidden()
-        await expect(page.locator('h1').filter({ hasText: 'Hero Block' })).toBeHidden()
+        await expect(page.locator('[data-component="hero"]')).toBeHidden()
+        await expect(page.locator('[data-component="cta"]')).toBeHidden()
+        await expect(page.locator('h1').filter({ hasText: 'Hero Component' })).toBeHidden()
         await expect(page.locator('button').filter({ hasText: 'CTA Button' })).toBeHidden()
       })
 
@@ -885,12 +887,12 @@ test.describe('URL Path', () => {
       })
 
       // ========================================================================
-      // Group 6: Custom '/' page with sections and blocks (013, 015) - CONFLICTING
+      // Group 6: Custom '/' page with sections and components (013, 015) - CONFLICTING
       // ========================================================================
-      await test.step('Setup: Start server with custom "/" page and blocks', async () => {
+      await test.step('Setup: Start server with custom "/" page and components', async () => {
         await startServerWithSchema({
           name: 'my-app',
-          blocks: [
+          components: [
             {
               name: 'hero',
               type: 'section',
@@ -908,7 +910,7 @@ test.describe('URL Path', () => {
                   props: { id: 'hero-section' },
                   children: [{ type: 'heading', content: 'Custom Homepage' }],
                 },
-                { block: 'hero', vars: { title: 'Welcome Home' } },
+                { component: 'hero', vars: { title: 'Welcome Home' } },
               ],
             },
           ],
@@ -923,13 +925,13 @@ test.describe('URL Path', () => {
         await expect(page.locator('[data-testid="app-name-heading"]')).toBeHidden()
       })
 
-      await test.step('APP-PAGES-PATH-015: Custom "/" page renders blocks from sections', async () => {
+      await test.step('APP-PAGES-PATH-015: Custom "/" page renders components from sections', async () => {
         await page.goto('/')
         await expect(page).toHaveTitle('Custom Home')
         await expect(page.locator('[data-testid="page-custom-home"]')).toBeVisible()
-        await expect(page.locator('[data-block="hero"] h1')).toHaveText('Welcome Home')
+        await expect(page.locator('[data-component="hero"] h1')).toHaveText('Welcome Home')
         await expect(page.locator('[data-testid="app-name-heading"]')).toBeHidden()
-        await expect(page.locator('[data-block="hero"]')).toBeVisible()
+        await expect(page.locator('[data-component="hero"]')).toBeVisible()
       })
 
       // ========================================================================

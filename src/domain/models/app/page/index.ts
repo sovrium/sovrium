@@ -7,7 +7,6 @@
 
 import { Schema } from 'effect'
 import { PageIdSchema } from './id'
-import { LayoutSchema } from './layout'
 import { MetaSchema } from './meta'
 import { PageNameSchema } from './name'
 import { PagePathSchema } from './path'
@@ -19,13 +18,13 @@ import { SectionsSchema } from './sections'
  *
  * Represents a complete page configuration with metadata, layout, sections, and scripts.
  *
- * Marketing and content pages with server-side rendering support. Pages use a block-based
- * layout system with reusable components for building landing pages, about pages, pricing
+ * Marketing and content pages with server-side rendering support. Pages use a component-based
+ * layout system with reusable component templates for building landing pages, about pages, pricing
  * pages, and other public-facing content.
  *
  * ## Key Features
  *
- * - **Block-Based Layout**: Compose pages from reusable blocks defined at app level
+ * - **Component-Based Layout**: Compose pages from reusable component templates defined at app level
  * - **Theme Integration**: Pages use app.theme{} tokens via className utilities
  * - **i18n Support**: Multi-language pages with $t: translation references
  * - **Responsive Design**: Single page adapts to all viewports (mobile, tablet, desktop)
@@ -34,19 +33,19 @@ import { SectionsSchema } from './sections'
  * ## Architecture Notes
  *
  * - **Theme**: Defined at app level (app.theme{}), NOT in individual pages
- * - **Blocks**: Defined at app level (app.blocks[]), NOT in individual pages
- * - **Sections**: Reference blocks using $ref syntax with $vars substitution
+ * - **Components**: Defined at app level (app.components[]), NOT in individual pages
+ * - **Sections**: Reference component templates using $ref syntax with $vars substitution
  * - **Styling**: Pages use className with theme tokens, not page-level theme
  *
- * ## Block References
+ * ## Component References
  *
- * Sections can reference blocks defined at app level using $ref syntax:
+ * Sections can reference component templates defined at app level using $ref syntax:
  *
  * ```typescript
  * {
  *   sections: [
  *     {
- *       $ref: '#/blocks/hero',
+ *       : '#/components/hero',
  *       $vars: {
  *         title: 'Welcome to Our Platform',
  *         ctaLabel: 'Get Started'
@@ -56,7 +55,7 @@ import { SectionsSchema } from './sections'
  * }
  * ```
  *
- * The block structure is resolved and variables ($title, $ctaLabel) are substituted
+ * The component template is resolved and variables ($title, $ctaLabel) are substituted
  * at runtime.
  *
  * ## Translation References
@@ -125,20 +124,9 @@ import { SectionsSchema } from './sections'
  *       image: 'https://example.com/og-image.jpg'
  *     }
  *   },
- *   layout: {
- *     navigation: {
- *       logo: '/logo.svg',
- *       links: {
- *         desktop: [
- *           { label: 'Home', href: '/' },
- *           { label: 'About', href: '/about' }
- *         ]
- *       }
- *     }
- *   },
  *   sections: [
  *     {
- *       $ref: '#/blocks/hero',
+ *       : '#/components/hero',
  *       $vars: {
  *         title: 'Welcome',
  *         ctaLabel: 'Get Started'
@@ -155,7 +143,6 @@ import { SectionsSchema } from './sections'
  *
  * @see {@link https://schema.org Schema.org} for structured data
  * @see {@link MetaSchema} for metadata configuration
- * @see {@link LayoutSchema} for layout configuration
  * @see {@link SectionsSchema} for sections configuration
  * @see {@link ScriptsSchema} for scripts configuration
  */
@@ -205,31 +192,13 @@ export const PageSchema = Schema.Struct({
   meta: Schema.optional(MetaSchema),
 
   /**
-   * Optional layout configuration
-   *
-   * Orchestrates global layout components:
-   * - Banner (announcements, alerts)
-   * - Navigation (header, logo, links)
-   * - Footer (copyright, links, social)
-   * - Sidebar (collapsible, responsive)
-   *
-   * Layout components wrap the main content area.
-   *
-   * Special values:
-   * - undefined: Use defaultLayout from app configuration (if available)
-   * - null: Disable all layout components (blank page)
-   * - object: Override or extend defaultLayout with custom configuration
-   */
-  layout: Schema.optional(Schema.NullOr(LayoutSchema)),
-
-  /**
-   * Page sections containing content blocks
+   * Page sections containing content
    *
    * Sections can be:
    * - Direct components: { type, props, children }
-   * - Block references: { $ref, $vars }
+   * - Component references: { $ref, $vars }
    *
-   * Block references resolve to app.blocks[] with variable substitution
+   * Component references resolve to app.components[] with variable substitution
    */
   sections: SectionsSchema,
 
@@ -250,8 +219,8 @@ export const PageSchema = Schema.Struct({
    * Variables can be referenced in section content, props, and children using
    * $variableName syntax. These variables are substituted at runtime.
    *
-   * Page-level variables provide values for sections without block references.
-   * They complement block-level vars (from $ref with $vars) for direct sections.
+   * Page-level variables provide values for sections without component references.
+   * They complement component-level vars (from $ref with $vars) for direct sections.
    *
    * @example
    * ```typescript
@@ -286,7 +255,7 @@ export const PageSchema = Schema.Struct({
     identifier: 'Page',
     title: 'Page',
     description:
-      'Complete page configuration with metadata, layout, sections, and scripts. Pages use a block-based layout system with reusable components.',
+      'Complete page configuration with metadata, layout, sections, and scripts. Pages use a component-based layout system with reusable component templates.',
   })
 )
 

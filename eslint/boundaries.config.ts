@@ -166,7 +166,7 @@ export default [
         },
         {
           type: 'presentation-component-ui',
-          pattern: 'src/presentation/components/ui/**/*',
+          pattern: 'src/presentation/ui/ui/**/*',
           mode: 'file',
         },
         { type: 'presentation-util', pattern: 'src/presentation/utils/**/*', mode: 'file' },

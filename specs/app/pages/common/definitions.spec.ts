@@ -56,13 +56,13 @@ test.describe('Common Definitions', () => {
       // GIVEN: a kebab-case string
       await startServerWithSchema({
         name: 'test-app',
-        blocks: [{ name: 'my-component-name', type: 'div' }],
+        components: [{ name: 'my-component-name', type: 'div' }],
         pages: [
           {
             name: 'test',
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
-            sections: [{ block: 'my-component-name', vars: {} }],
+            sections: [{ component: 'my-component-name', vars: {} }],
           },
         ],
       })
@@ -71,7 +71,7 @@ test.describe('Common Definitions', () => {
       await page.goto('/')
 
       // THEN: it should validate as kebabCase pattern
-      await expect(page.locator('[data-testid="block-my-component-name"]')).toBeVisible()
+      await expect(page.locator('[data-testid="component-my-component-name"]')).toBeVisible()
     }
   )
 
@@ -82,13 +82,13 @@ test.describe('Common Definitions', () => {
       // GIVEN: a variable name
       await startServerWithSchema({
         name: 'test-app',
-        blocks: [{ name: 'test-block', type: 'div', content: '$myVariable123' }],
+        components: [{ name: 'test-component', type: 'div', content: '$myVariable123' }],
         pages: [
           {
             name: 'Test',
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
-            sections: [{ block: 'test-block', vars: { myVariable123: 'Hello' } }],
+            sections: [{ component: 'test-component', vars: { myVariable123: 'Hello' } }],
           },
         ],
       })
@@ -97,7 +97,7 @@ test.describe('Common Definitions', () => {
       await page.goto('/')
 
       // THEN: it should validate as variableName pattern
-      await expect(page.locator('[data-testid="block-test-block"]')).toHaveText('Hello')
+      await expect(page.locator('[data-testid="component-test-component"]')).toHaveText('Hello')
     }
   )
 
@@ -108,13 +108,13 @@ test.describe('Common Definitions', () => {
       // GIVEN: a string with variable reference
       await startServerWithSchema({
         name: 'test-app',
-        blocks: [{ name: 'welcome', type: 'div', content: 'Welcome to $siteName' }],
+        components: [{ name: 'welcome', type: 'div', content: 'Welcome to $siteName' }],
         pages: [
           {
             name: 'test',
             path: '/',
             meta: { lang: 'en-US', title: 'Test', description: 'Test page' },
-            sections: [{ block: 'welcome', vars: { siteName: 'My Site' } }],
+            sections: [{ component: 'welcome', vars: { siteName: 'My Site' } }],
           },
         ],
       })
@@ -123,7 +123,9 @@ test.describe('Common Definitions', () => {
       await page.goto('/')
 
       // THEN: it should validate as variableReference pattern
-      await expect(page.locator('[data-testid="block-welcome"]')).toHaveText('Welcome to My Site')
+      await expect(page.locator('[data-testid="component-welcome"]')).toHaveText(
+        'Welcome to My Site'
+      )
     }
   )
 
@@ -198,8 +200,7 @@ test.describe('Common Definitions', () => {
             name: 'Test',
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
-            layout: { navigation: { logo: './public/logo.svg' } },
-            sections: [],
+            sections: [{ type: 'img', props: { src: './public/logo.svg', alt: 'Logo' } }],
           },
         ],
       })
@@ -224,8 +225,9 @@ test.describe('Common Definitions', () => {
             name: 'Test',
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
-            layout: { footer: { email: 'user@example.com' } },
-            sections: [],
+            sections: [
+              { type: 'a', props: { href: 'mailto:user@example.com' }, children: ['Contact'] },
+            ],
           },
         ],
       })
@@ -279,9 +281,9 @@ test.describe('Common Definitions', () => {
       // GIVEN: an icon from the icon library
       await startServerWithSchema({
         name: 'test-app',
-        blocks: [
+        components: [
           {
-            name: 'icon-block',
+            name: 'icon-component',
             type: 'div',
             children: [{ type: 'icon', props: { name: 'arrow-right' } }],
           },
@@ -291,7 +293,7 @@ test.describe('Common Definitions', () => {
             name: 'Test',
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
-            sections: [{ block: 'icon-block', vars: {} }],
+            sections: [{ component: 'icon-component', vars: {} }],
           },
         ],
       })
@@ -344,7 +346,7 @@ test.describe('Common Definitions', () => {
       // GIVEN: multiple icon names in the library
       await startServerWithSchema({
         name: 'test-app',
-        blocks: [
+        components: [
           {
             name: 'icons',
             type: 'div',
@@ -362,7 +364,7 @@ test.describe('Common Definitions', () => {
             name: 'Test',
             path: '/',
             meta: { lang: 'en-US', title: 'Test' },
-            sections: [{ block: 'icons', vars: {} }],
+            sections: [{ component: 'icons', vars: {} }],
           },
         ],
       })
@@ -389,25 +391,25 @@ test.describe('Common Definitions', () => {
     'APP-PAGES-DEFINITIONS-REGRESSION: user can complete full definitions workflow',
     { tag: '@regression' },
     async ({ page, startServerWithSchema }) => {
-      // Group 1: Block-based tests with variable substitution (002, 003, 004, 010, 012)
-      // All blocks can coexist in a single schema
-      await test.step('Setup: Start server with block-based configuration', async () => {
+      // Group 1: Component-based tests with variable substitution (002, 003, 004, 010, 012)
+      // All components can coexist in a single schema
+      await test.step('Setup: Start server with component-based configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
-          blocks: [
-            // 002: kebabCase block
+          components: [
+            // 002: kebabCase component
             { name: 'my-component-name', type: 'div' },
-            // 003: variableName block
-            { name: 'test-block', type: 'div', content: '$myVariable123' },
-            // 004: variableReference block
+            // 003: variableName component
+            { name: 'test-component', type: 'div', content: '$myVariable123' },
+            // 004: variableReference component
             { name: 'welcome', type: 'div', content: 'Welcome to $siteName' },
-            // 010: single icon block
+            // 010: single icon component
             {
-              name: 'icon-block',
+              name: 'icon-component',
               type: 'div',
               children: [{ type: 'icon', props: { name: 'arrow-right' } }],
             },
-            // 012: comprehensive icons block
+            // 012: comprehensive icons component
             {
               name: 'icons',
               type: 'div',
@@ -426,11 +428,11 @@ test.describe('Common Definitions', () => {
               path: '/',
               meta: { lang: 'en-US', title: 'Test' },
               sections: [
-                { block: 'my-component-name', vars: {} },
-                { block: 'test-block', vars: { myVariable123: 'Hello' } },
-                { block: 'welcome', vars: { siteName: 'My Site' } },
-                { block: 'icon-block', vars: {} },
-                { block: 'icons', vars: {} },
+                { component: 'my-component-name', vars: {} },
+                { component: 'test-component', vars: { myVariable123: 'Hello' } },
+                { component: 'welcome', vars: { siteName: 'My Site' } },
+                { component: 'icon-component', vars: {} },
+                { component: 'icons', vars: {} },
               ],
             },
           ],
@@ -439,15 +441,17 @@ test.describe('Common Definitions', () => {
       })
 
       await test.step('APP-PAGES-DEFINITIONS-002: Validate as kebabCase pattern', async () => {
-        await expect(page.locator('[data-testid="block-my-component-name"]')).toBeVisible()
+        await expect(page.locator('[data-testid="component-my-component-name"]')).toBeVisible()
       })
 
       await test.step('APP-PAGES-DEFINITIONS-003: Validate as variableName pattern', async () => {
-        await expect(page.locator('[data-testid="block-test-block"]')).toHaveText('Hello')
+        await expect(page.locator('[data-testid="component-test-component"]')).toHaveText('Hello')
       })
 
       await test.step('APP-PAGES-DEFINITIONS-004: Validate as variableReference pattern', async () => {
-        await expect(page.locator('[data-testid="block-welcome"]')).toHaveText('Welcome to My Site')
+        await expect(page.locator('[data-testid="component-welcome"]')).toHaveText(
+          'Welcome to My Site'
+        )
       })
 
       await test.step('APP-PAGES-DEFINITIONS-010: Validate as iconName enum', async () => {
@@ -462,9 +466,9 @@ test.describe('Common Definitions', () => {
         await expect(page.locator('[data-testid="icon-heart"]')).toBeVisible()
       })
 
-      // Group 2: Layout and meta-based tests (001, 005, 006, 007, 008, 009, 011)
+      // Group 2: Meta-based and sections tests (001, 005, 006, 007, 008, 009, 011)
       // All use different page properties that can coexist
-      await test.step('Setup: Start server with layout/meta configuration', async () => {
+      await test.step('Setup: Start server with meta/sections configuration', async () => {
         await startServerWithSchema({
           name: 'test-app',
           theme: { colors: { custom: '#FF5733' } }, // 005: hexColor
@@ -478,11 +482,11 @@ test.describe('Common Definitions', () => {
                 description: 'Test page',
                 openGraph: { image: 'https://example.com/image.jpg' }, // 006: url
               },
-              layout: {
-                navigation: { logo: './public/logo.svg' }, // 007: relativePath
-                footer: { email: 'user@example.com' }, // 008: emailAddress
-              },
               sections: [
+                // 007: relativePath
+                { type: 'img', props: { src: './public/logo.svg', alt: 'Logo' } },
+                // 008: emailAddress
+                { type: 'a', props: { href: 'mailto:user@example.com' }, children: ['Contact'] },
                 // 005: hexColor bg
                 { type: 'div', props: { className: 'bg-custom' }, children: ['Test'] },
                 // 009: className

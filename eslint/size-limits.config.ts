@@ -85,8 +85,8 @@ export default [
 
   // Strict limits for React components - Should be modular
   {
-    files: ['src/presentation/components/**/*.tsx'],
-    ignores: ['src/presentation/components/**/*.test.tsx'],
+    files: ['src/presentation/ui/**/*.tsx'],
+    ignores: ['src/presentation/ui/**/*.test.tsx'],
     rules: {
       'max-lines': [
         'error',
@@ -109,8 +109,8 @@ export default [
 
   // Third-party UI components (shadcn/ui) - Follow library patterns
   {
-    files: ['src/presentation/components/ui/**/*.tsx'],
-    ignores: ['src/presentation/components/ui/**/*.test.tsx'],
+    files: ['src/presentation/ui/ui/**/*.tsx'],
+    ignores: ['src/presentation/ui/ui/**/*.test.tsx'],
     rules: {
       'max-lines-per-function': 'off', // shadcn/ui components follow their own patterns
       complexity: 'off', // Complex UI patterns acceptable in third-party components
@@ -119,8 +119,8 @@ export default [
 
   // SSR/Page generation components - Declarative configuration rendering
   {
-    files: ['src/presentation/components/pages/utils/**/*.tsx'],
-    ignores: ['src/presentation/components/pages/utils/**/*.test.tsx'],
+    files: ['src/presentation/ui/pages/utils/**/*.tsx'],
+    ignores: ['src/presentation/ui/pages/utils/**/*.test.tsx'],
     rules: {
       'max-lines-per-function': 'off', // SSR metadata/script rendering is declarative
       complexity: 'off', // Conditional configuration is acceptable
@@ -175,8 +175,8 @@ export default [
   // Temporary overrides for files exceeding limits - should be refactored into smaller modules
   {
     files: [
-      'src/presentation/components/pages/DynamicPage.tsx',
-      'src/presentation/components/sections/component-renderer.tsx',
+      'src/presentation/ui/pages/DynamicPage.tsx',
+      'src/presentation/ui/sections/component-renderer.tsx',
     ],
     rules: {
       'max-lines': 'warn', // Downgrade from error to warning temporarily

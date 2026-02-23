@@ -189,11 +189,11 @@ theme:
     lg: 0 10px 15px -3px rgb(0 0 0 / 0.1)
     xl: 0 20px 25px -5px rgb(0 0 0 / 0.1)
 
-blocks:
+components:
   - name: hero-section
     type: div
     props:
-      data-block: hero-section
+      data-component: hero-section
       className: text-center max-w-4xl mx-auto
     children:
       - type: h1
@@ -232,7 +232,7 @@ blocks:
   - name: feature-card
     type: div
     props:
-      data-block: feature-card
+      data-component: feature-card
       className: p-6 border rounded-xl bg-white hover:shadow-lg transition-shadow
     children:
       - type: div
@@ -251,7 +251,7 @@ blocks:
   - name: step-card
     type: div
     props:
-      data-block: step-card
+      data-component: step-card
       className: text-center
     children:
       - type: div
@@ -279,7 +279,7 @@ blocks:
   - name: cta-button
     type: button
     props:
-      data-block: cta-button
+      data-component: cta-button
       className: px-8 py-4 bg-white text-primary rounded-xl font-semibold hover:bg-gray-50 transition-colors shadow-lg
       style:
         backgroundColor: '#ffffff'
@@ -350,7 +350,7 @@ pages:
                       style:
                         color: '#0f172a'
                     content: '$t:nav.contact'
-                  - block: language-switcher
+                  - component: language-switcher
 
       # Hero Section
       - type: section
@@ -366,7 +366,7 @@ pages:
             children:
               - type: div
                 props:
-                  data-block: hero-section
+                  data-component: hero-section
                   className: text-center
                 children:
                   - type: span
@@ -510,17 +510,17 @@ pages:
                     gridTemplateColumns: repeat(auto-fit, minmax(280px, 1fr))
                     gap: 1.5rem
                 children:
-                  - block: feature-card
+                  - component: feature-card
                     vars:
                       icon: '$t:feature.1.icon'
                       title: '$t:feature.1.title'
                       description: '$t:feature.1.description'
-                  - block: feature-card
+                  - component: feature-card
                     vars:
                       icon: '$t:feature.2.icon'
                       title: '$t:feature.2.title'
                       description: '$t:feature.2.description'
-                  - block: feature-card
+                  - component: feature-card
                     vars:
                       icon: '$t:feature.3.icon'
                       title: '$t:feature.3.title'
@@ -568,17 +568,17 @@ pages:
                     gridTemplateColumns: repeat(auto-fit, minmax(280px, 1fr))
                     gap: 3rem
                 children:
-                  - block: step-card
+                  - component: step-card
                     vars:
                       number: '$t:step.1.number'
                       title: '$t:step.1.title'
                       description: '$t:step.1.description'
-                  - block: step-card
+                  - component: step-card
                     vars:
                       number: '$t:step.2.number'
                       title: '$t:step.2.title'
                       description: '$t:step.2.description'
-                  - block: step-card
+                  - component: step-card
                     vars:
                       number: '$t:step.3.number'
                       title: '$t:step.3.title'
@@ -613,7 +613,7 @@ pages:
                 props:
                   className: flex flex-col items-center gap-4
                 children:
-                  - block: cta-button
+                  - component: cta-button
                     vars:
                       label: '$t:cta.button'
                   - type: p

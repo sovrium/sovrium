@@ -49,7 +49,7 @@ Islands Architecture aligns perfectly:
   "pages": [
     {
       "path": "/",
-      "blocks": [
+      "components": [
         {
           "type": "hero",
           "interactive": false  // Static HTML (no JS)
@@ -285,19 +285,19 @@ dist/client/
 
 ### App Schema Configuration
 
-**Domain Model** (`src/domain/models/app/page/block.ts`):
+**Domain Model** (`src/domain/models/app/component/component.ts`):
 
 ```typescript
 import { Schema } from 'effect/Schema'
 
-export const BlockSchema = Schema.Struct({
+export const ComponentTemplateSchema = Schema.Struct({
   id: Schema.Number,
   type: Schema.Literal('hero', 'data-table', 'chart', 'form'),
-  interactive: Schema.Boolean, // Declares if block needs client-side JS
+  interactive: Schema.Boolean, // Declares if component needs client-side JS
   props: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
 })
 
-export type Block = Schema.Schema.Type<typeof BlockSchema>
+export type ComponentTemplate = Schema.Schema.Type<typeof ComponentTemplateSchema>
 ```
 
 **App Configuration** (JSON):
@@ -309,7 +309,7 @@ export type Block = Schema.Schema.Type<typeof BlockSchema>
     {
       "id": 1,
       "path": "/",
-      "blocks": [
+      "components": [
         {
           "id": 1,
           "type": "hero",
@@ -346,7 +346,7 @@ export type Block = Schema.Schema.Type<typeof BlockSchema>
 
 **Result**:
 
-- **Hero block** (`interactive: false`) → Static HTML, 0KB JS
+- **Hero component** (`interactive: false`) → Static HTML, 0KB JS
 - **Data table** (`interactive: true`) → Island, 15KB chunk
 - **Chart** (`interactive: true`) → Island, 20KB chunk
 - **Total JS**: 2KB bootstrap + 15KB + 20KB = 37KB (vs 60KB+ full hydration)
@@ -450,9 +450,9 @@ function extractIslandComponents(app: App): ReadonlyArray<string> {
   const islands: string[] = []
 
   for (const page of app.pages) {
-    for (const block of page.blocks) {
-      if (block.interactive) {
-        islands.push(block.type) // e.g., "data-table"
+    for (const component of page.components) {
+      if (component.interactive) {
+        islands.push(component.type) // e.g., "data-table"
       }
     }
   }
@@ -813,14 +813,14 @@ export function DataTable({ tableId }: { tableId: number }) {
 ```typescript
 // ❌ BAD: Entire page is one giant island
 {
-  "blocks": [
+  "components": [
     { "type": "page", "interactive": true }
   ]
 }
 
 // ✅ GOOD: Only interactive components are islands
 {
-  "blocks": [
+  "components": [
     { "type": "hero", "interactive": false },
     { "type": "data-table", "interactive": true },
     { "type": "footer", "interactive": false }

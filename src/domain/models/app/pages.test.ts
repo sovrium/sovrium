@@ -167,15 +167,12 @@ describe('PagesSchema', () => {
           title: 'About',
           description: 'About us',
         },
-        layout: {
-          navigation: {
-            logo: './logo.svg',
-            links: {
-              desktop: [],
-            },
+        sections: [
+          {
+            type: 'section',
+            props: { id: 'about-content' },
           },
-        },
-        sections: [],
+        ],
       },
       {
         name: 'contact',
@@ -201,7 +198,7 @@ describe('PagesSchema', () => {
     expect(result).toHaveLength(3)
     expect(result[0].id).toBeUndefined()
     expect(result[1].id).toBe('about-page')
-    expect(result[1].layout).toBeDefined()
+    expect(result[1].sections).toHaveLength(1)
     expect(result[2].scripts).toBeDefined()
   })
 })

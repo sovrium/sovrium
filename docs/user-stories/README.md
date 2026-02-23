@@ -17,7 +17,7 @@ docs/user-stories/
 │   ├── authentication/     # Sign-up, sign-in, 2FA, sessions, security
 │   ├── tables/             # Table definitions, field types, permissions
 │   ├── records-api/        # CRUD operations, batch, filtering
-│   ├── pages/              # Routes, layouts, blocks, SEO
+│   ├── pages/              # Routes, layouts, components, SEO
 │   ├── theming/            # Design tokens, responsive, animations
 │   ├── internationalization/  # Multi-language support
 │   ├── cli/                # Server start, static build

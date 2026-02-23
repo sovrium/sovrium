@@ -66,7 +66,7 @@ theme:
 | AC-001 | Page loads with navigation and branding visible                       | `TEMPLATES-LANDING-PAGE-REGRESSION` | ✅     |
 | AC-002 | Hero section renders with variable substitution for title/subtitle    | `TEMPLATES-LANDING-PAGE-REGRESSION` | ✅     |
 | AC-003 | Features section renders three feature cards with substituted content | `TEMPLATES-LANDING-PAGE-REGRESSION` | ✅     |
-| AC-004 | CTA section renders with cta-button block and substituted label       | `TEMPLATES-LANDING-PAGE-REGRESSION` | ✅     |
+| AC-004 | CTA section renders with cta-button component and substituted label   | `TEMPLATES-LANDING-PAGE-REGRESSION` | ✅     |
 | AC-005 | Footer renders with copyright text                                    | `TEMPLATES-LANDING-PAGE-REGRESSION` | ✅     |
 | AC-006 | Theme colors are applied to buttons, navigation, and sections         | `TEMPLATES-LANDING-PAGE-REGRESSION` | ✅     |
 | AC-007 | Theme fonts are applied to headings and body text                     | `TEMPLATES-LANDING-PAGE-REGRESSION` | ✅     |

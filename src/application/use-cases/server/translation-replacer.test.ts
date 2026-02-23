@@ -173,30 +173,6 @@ describe('replaceAppTokens', () => {
     expect(result.pages?.[0]!.meta?.title).toBe('$t:title') // Unchanged
   })
 
-  test('should preserve {{currentPath}} in defaultLayout', () => {
-    const appWithLayout: App = {
-      ...mockApp,
-      defaultLayout: {
-        navigation: {
-          logo: './logo.svg',
-          links: {
-            desktop: [{ href: '/en{{currentPath}}', label: '$t:welcome' }],
-          },
-        },
-      },
-    }
-
-    const result = replaceAppTokens(appWithLayout, 'fr')
-
-    const layout = result.defaultLayout as unknown as {
-      navigation: { links: { desktop: ReadonlyArray<{ href: string; label: string }> } }
-    }
-    // Translation should be replaced
-    expect(layout.navigation.links.desktop[0]!.label).toBe('Bienvenue')
-    // {{currentPath}} should be preserved for per-page resolution
-    expect(layout.navigation.links.desktop[0]!.href).toBe('/en{{currentPath}}')
-  })
-
   test('should handle app without pages', () => {
     const appWithoutPages: App = {
       name: 'test-app',

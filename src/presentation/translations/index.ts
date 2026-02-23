@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// Block utilities
-export { getBlockInfo } from './block-utils'
+// Component utilities
+export { getComponentInfo } from './component-utils'
 
 // Translation resolution
 export {

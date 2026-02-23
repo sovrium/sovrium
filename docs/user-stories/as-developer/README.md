@@ -64,7 +64,7 @@
 ### Pages
 
 - [Creating Pages](./pages/creating-pages.md) - Routes, layouts, layout components (sidebar, footer, banner)
-- [Page Blocks](./pages/page-blocks.md) - Content blocks
+- [Page Components](./pages/page-components.md) - Content components
 - [Navigation](./pages/navigation.md) - Menus, links, routing
 - [SEO Meta](./pages/seo-meta.md) - Title, description, OpenGraph, structured data types
 - [Client-Side Scripts](./pages/scripts.md) - Feature flags, external/inline scripts
