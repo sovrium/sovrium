@@ -32,10 +32,10 @@ components:
 
 | ID     | Criterion                                                  | E2E Spec              | Status |
 | ------ | ---------------------------------------------------------- | --------------------- | ------ |
-| AC-001 | Icon renders as inline SVG with correct Lucide path data   | `APP-ICON-001`        | [ ]    |
-| AC-002 | Icon name maps to the matching Lucide icon                 | `APP-ICON-002`        | [ ]    |
-| AC-003 | Icon has data-testid="icon-{name}" for test selection      | `APP-ICON-003`        | [ ]    |
-| AC-004 | User can use icons across various UI contexts (regression) | `APP-ICON-REGRESSION` | [ ]    |
+| AC-001 | Icon renders as inline SVG with correct Lucide path data   | `APP-ICON-001`        | ✅     |
+| AC-002 | Icon name maps to the matching Lucide icon                 | `APP-ICON-002`        | ✅     |
+| AC-003 | Icon has data-testid="icon-{name}" for test selection      | `APP-ICON-003`        | ✅     |
+| AC-004 | User can use icons across various UI contexts (regression) | `APP-ICON-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -69,8 +69,8 @@ components:
 
 | ID     | Criterion                                      | E2E Spec       | Status |
 | ------ | ---------------------------------------------- | -------------- | ------ |
-| AC-001 | Icon respects size prop for width and height   | `APP-ICON-004` | [ ]    |
-| AC-002 | Default size is 24px when size prop is omitted | `APP-ICON-005` | [ ]    |
+| AC-001 | Icon respects size prop for width and height   | `APP-ICON-004` | ✅     |
+| AC-002 | Default size is 24px when size prop is omitted | `APP-ICON-005` | ✅     |
 
 ### Implementation References
 
@@ -104,9 +104,9 @@ components:
 
 | ID     | Criterion                                                  | E2E Spec       | Status |
 | ------ | ---------------------------------------------------------- | -------------- | ------ |
-| AC-001 | Icon color prop sets the SVG stroke color                  | `APP-ICON-006` | [ ]    |
-| AC-002 | Icon inherits currentColor when no color prop is specified | `APP-ICON-007` | [ ]    |
-| AC-003 | Tailwind color classes applied via className prop work     | `APP-ICON-008` | [ ]    |
+| AC-001 | Icon color prop sets the SVG stroke color                  | `APP-ICON-006` | ✅     |
+| AC-002 | Icon inherits currentColor when no color prop is specified | `APP-ICON-007` | ✅     |
+| AC-003 | Tailwind color classes applied via className prop work     | `APP-ICON-008` | ✅     |
 
 ### Implementation References
 
@@ -140,8 +140,8 @@ components:
 
 | ID     | Criterion                                            | E2E Spec       | Status |
 | ------ | ---------------------------------------------------- | -------------- | ------ |
-| AC-001 | strokeWidth prop controls SVG stroke-width attribute | `APP-ICON-009` | [ ]    |
-| AC-002 | Default stroke width is 2 when omitted               | `APP-ICON-010` | [ ]    |
+| AC-001 | strokeWidth prop controls SVG stroke-width attribute | `APP-ICON-009` | ✅     |
+| AC-002 | Default stroke width is 2 when omitted               | `APP-ICON-010` | ✅     |
 
 ### Implementation References
 
@@ -177,8 +177,8 @@ components:
 
 | ID     | Criterion                                                    | E2E Spec       | Status |
 | ------ | ------------------------------------------------------------ | -------------- | ------ |
-| AC-001 | Icon without ariaLabel gets aria-hidden="true"               | `APP-ICON-011` | [ ]    |
-| AC-002 | Icon with ariaLabel gets role="img" and aria-label attribute | `APP-ICON-012` | [ ]    |
+| AC-001 | Icon without ariaLabel gets aria-hidden="true"               | `APP-ICON-011` | ✅     |
+| AC-002 | Icon with ariaLabel gets role="img" and aria-label attribute | `APP-ICON-012` | ✅     |
 
 ### Implementation References
 
@@ -213,8 +213,8 @@ components:
 
 | ID     | Criterion                                           | E2E Spec       | Status |
 | ------ | --------------------------------------------------- | -------------- | ------ |
-| AC-001 | Icon renders correctly as child of button component | `APP-ICON-013` | [ ]    |
-| AC-002 | Icon renders correctly as child of link component   | `APP-ICON-014` | [ ]    |
+| AC-001 | Icon renders correctly as child of button component | `APP-ICON-013` | ✅     |
+| AC-002 | Icon renders correctly as child of link component   | `APP-ICON-014` | ✅     |
 
 ### Implementation References
 
@@ -265,8 +265,8 @@ pages:
 
 | ID     | Criterion                                                | E2E Spec       | Status |
 | ------ | -------------------------------------------------------- | -------------- | ------ |
-| AC-001 | Icon name resolves from $variable in component template  | `APP-ICON-015` | [ ]    |
-| AC-002 | Icon color resolves from $variable in component template | `APP-ICON-016` | [ ]    |
+| AC-001 | Icon name resolves from $variable in component template  | `APP-ICON-015` | ✅     |
+| AC-002 | Icon color resolves from $variable in component template | `APP-ICON-016` | ✅     |
 
 ### Implementation References
 
@@ -294,8 +294,8 @@ components:
 
 | ID     | Criterion                                              | E2E Spec       | Status |
 | ------ | ------------------------------------------------------ | -------------- | ------ |
-| AC-001 | Unknown icon name does not crash the page              | `APP-ICON-017` | [ ]    |
-| AC-002 | Unknown icon renders a fallback indicator or empty SVG | `APP-ICON-018` | [ ]    |
+| AC-001 | Unknown icon name does not crash the page              | `APP-ICON-017` | ✅     |
+| AC-002 | Unknown icon renders a fallback indicator or empty SVG | `APP-ICON-018` | ✅     |
 
 ### Implementation References
 
