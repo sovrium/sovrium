@@ -167,7 +167,8 @@ export function renderIcon(
     ...restProps
   } = props as Record<string, unknown>
 
-  const testId = iconName ? `icon-${iconName}` : undefined
+  const testId = iconName ? `icon-${iconName}` : 'icon'
+  const colorProps = iconColor !== undefined ? { 'data-color': iconColor } : {}
   const a11yProps = ariaLabel
     ? { role: 'img' as const, 'aria-label': ariaLabel }
     : { 'aria-hidden': 'true' as const }
@@ -179,6 +180,7 @@ export function renderIcon(
       <LucideIcon
         {...restProps}
         {...a11yProps}
+        {...colorProps}
         size={iconSize ?? 24}
         color={iconColor ?? 'currentColor'}
         strokeWidth={iconStrokeWidth ?? 2}
@@ -192,6 +194,7 @@ export function renderIcon(
     <svg
       {...(restProps as React.SVGProps<SVGSVGElement>)}
       {...a11yProps}
+      {...colorProps}
       data-testid={testId}
       xmlns="http://www.w3.org/2000/svg"
       width={iconSize ?? 24}
