@@ -192,7 +192,7 @@ export const dataDeletion: Page = {
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:dataDeletion.s2.p3',
+                  content: '$t:dataDeletion.s2.deleteIntro',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
 
@@ -349,7 +349,7 @@ export const dataDeletion: Page = {
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:dataDeletion.s5.p1',
+                  content: '$t:dataDeletion.s5.intro',
                   props: { className: 'text-sovereignty-light mb-3' },
                 },
                 {
