@@ -20,9 +20,21 @@ import type { App } from '@/domain/models/app'
  *
  * @param props - Component props
  * @param props.app - Validated application data from AppSchema
+ * @param props.builtInAnalyticsEnabled - Whether built-in analytics should be enabled
  * @returns React element with app information
  */
-export function DefaultHomePage({ app }: { readonly app: App }): Readonly<ReactElement> {
+export function DefaultHomePage({
+  app,
+  builtInAnalyticsEnabled,
+}: {
+  readonly app: App
+  readonly builtInAnalyticsEnabled?: boolean
+}): Readonly<ReactElement> {
   const pageConfig = createDefaultHomePageConfig(app)
-  return <DynamicPage page={pageConfig} />
+  return (
+    <DynamicPage
+      page={pageConfig}
+      builtInAnalyticsEnabled={builtInAnalyticsEnabled}
+    />
+  )
 }

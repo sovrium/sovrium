@@ -84,6 +84,30 @@ function DynamicPageHead({
   scripts,
   builtInAnalyticsEnabled,
 }: DynamicPageHeadProps): Readonly<ReactElement> {
+  // Inline analytics script if enabled (contains /api/analytics/collect endpoint)
+  const analyticsScript = builtInAnalyticsEnabled
+    ? `(function(){
+"use strict";
+var E="/api/analytics/collect",A="${mergedPage.name || 'app'}",D=true;
+if(D&&navigator.doNotTrack==="1")return;
+var u=function(){
+try{var s=new URLSearchParams(location.search);
+var d={p:location.pathname,t:document.title,r:document.referrer||void 0,
+sw:screen.width,sh:screen.height,
+us:s.get("utm_source")||void 0,um:s.get("utm_medium")||void 0,
+uc:s.get("utm_campaign")||void 0,ux:s.get("utm_content")||void 0,
+ut:s.get("utm_term")||void 0};
+var b=JSON.stringify(d);
+if(navigator.sendBeacon){navigator.sendBeacon(E,new Blob([b],{type:"application/json"}))}
+else{var x=new XMLHttpRequest();x.open("POST",E,true);x.setRequestHeader("Content-Type","application/json");x.send(b)}
+}catch(e){}};
+u();
+var op=history.pushState;
+history.pushState=function(){op.apply(this,arguments);u()};
+window.addEventListener("popstate",u);
+})();`
+    : undefined
+
   return (
     <head>
       <PageHead
@@ -98,12 +122,7 @@ function DynamicPageHead({
         languages={languages}
         scripts={scripts}
       />
-      {builtInAnalyticsEnabled && (
-        <script
-          defer
-          src="/assets/analytics.js"
-        />
-      )}
+      {analyticsScript && <script dangerouslySetInnerHTML={{ __html: analyticsScript }} />}
     </head>
   )
 }
