@@ -272,7 +272,7 @@ test.describe('Analytics Configuration', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-CONFIG-REGRESSION: analytics configuration validates and app starts',
     { tag: '@regression' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
