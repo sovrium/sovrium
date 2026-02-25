@@ -6,16 +6,8 @@
  */
 
 import { Context, Data } from 'effect'
+import type { UserMetadata } from '@/application/ports/models/user-metadata'
 import type { Effect } from 'effect'
-
-/**
- * User metadata embedded in activity log records
- */
-export interface ActivityLogUser {
-  readonly id: string
-  readonly name: string
-  readonly email: string
-}
 
 /**
  * Activity Log record type (port-level definition)
@@ -38,7 +30,7 @@ export interface ActivityLog {
   } | null
   readonly ipAddress: string | null
   readonly userAgent: string | null
-  readonly user?: ActivityLogUser | null | undefined
+  readonly user?: UserMetadata | null | undefined
 }
 
 /**

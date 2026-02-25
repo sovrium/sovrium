@@ -5,42 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { sql, eq } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { Effect } from 'effect'
-import { users, type Session } from '@/infrastructure/auth/better-auth/schema'
-import {
-  db,
-  SessionContextError,
-  ForbiddenError,
-  type DrizzleTransaction,
-} from '@/infrastructure/database'
+import { db, SessionContextError, type DrizzleTransaction } from '@/infrastructure/database'
 import { logActivity } from '../query-helpers/activity-log-helpers'
 import { wrapDatabaseError } from '../shared/error-handling'
 import { validateTableName } from '../shared/validation'
 import { runEffectInTx } from './batch-helpers'
-
-/**
- * Check if user has permission to restore records
- * Looks up user role from the database (application-layer enforcement)
- */
-function checkRestorePermission(
-  session: Readonly<Session>
-): Effect.Effect<void, ForbiddenError | SessionContextError> {
-  return Effect.gen(function* () {
-    const result = yield* Effect.tryPromise({
-      try: () =>
-        db.select({ role: users.role }).from(users).where(eq(users.id, session.userId)).limit(1),
-      catch: (error) => new SessionContextError('Failed to check user role', error),
-    })
-
-    const userRole = result[0]?.role
-    if (userRole === 'viewer') {
-      return yield* Effect.fail(
-        new ForbiddenError('You do not have permission to restore records in this table')
-      )
-    }
-  })
-}
+import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
  * Validate records exist and filter to only soft-deleted ones
@@ -145,7 +117,7 @@ function logRestoreActivities(
  * Restores multiple soft-deleted records in a transaction.
  * Validates all records exist and are soft-deleted before restoring any.
  * Rolls back if any record fails validation.
- * Permissions applied via application layer.
+ * Permissions enforced at the presentation layer (route handler).
  *
  * @param session - Better Auth session
  * @param tableName - Name of the table
@@ -156,10 +128,8 @@ export function batchRestoreRecords(
   session: Readonly<Session>,
   tableName: string,
   recordIds: readonly string[]
-): Effect.Effect<number, SessionContextError | ForbiddenError> {
+): Effect.Effect<number, SessionContextError> {
   return Effect.gen(function* () {
-    yield* checkRestorePermission(session)
-
     const restoredRecords = yield* Effect.tryPromise({
       try: () =>
         db.transaction(async (tx) => {

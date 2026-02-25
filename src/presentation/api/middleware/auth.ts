@@ -10,6 +10,21 @@ import type { Session } from '@/application/ports/models/user-session'
 import type { Context, Next } from 'hono'
 
 /**
+ * Minimal Better Auth instance interface
+ *
+ * Typed to the subset of the Better Auth API actually used by the middleware.
+ * Better Auth's full type varies by configuration (plugins, providers)
+ * and uses optional fields (ipAddress?) that conflict with our Session type
+ * (ipAddress: string | null), so getSession returns Promise<unknown>.
+ * The middleware handles extraction with runtime checks and explicit casts.
+ */
+interface BetterAuthLike {
+  readonly api: {
+    readonly getSession: (options: { readonly headers: Headers }) => Promise<unknown>
+  }
+}
+
+/**
  * Hono context with session attached
  *
  * Used by auth middleware to store extracted session for route handlers
@@ -147,22 +162,21 @@ function processSessionResult(
  * @param auth - Better Auth instance with api.getSession method
  * @returns Hono middleware function
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Better Auth instance type varies by configuration, using any avoids complex type assertions
-export function authMiddleware(auth: any) {
+export function authMiddleware(auth: BetterAuthLike) {
   return async (c: Context, next: Next) => {
     try {
       const authHeader = c.req.header('authorization')
 
       if (authHeader?.toLowerCase().startsWith('bearer ')) {
         const apiKey = authHeader.slice(7)
-        const result = await auth.api.getSession({
+        const result = (await auth.api.getSession({
           headers: new Headers({ authorization: apiKey }),
-        })
+        })) as { readonly session?: Session } | null
         processSessionResult(c, result)
       } else {
-        const result = await auth.api.getSession({
+        const result = (await auth.api.getSession({
           headers: c.req.raw.headers,
-        })
+        })) as { readonly session?: Session } | null
         processSessionResult(c, result)
       }
     } catch (error) {

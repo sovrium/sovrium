@@ -9,8 +9,7 @@
 
 import { Effect, Console } from 'effect'
 import { StaticGenerationError } from '@/application/errors/static-generation-error'
-import type * as fs from 'node:fs/promises'
-import type * as path from 'node:path'
+import type { FileSystemLike, PathModuleLike } from './generate-static-helpers'
 
 /**
  * Check if a URL is a GitHub Pages URL
@@ -111,8 +110,7 @@ export const rewriteBasePathInHtml = (
   outputDir: string,
   basePath: string,
   baseUrl: string | undefined,
-  // eslint-disable-next-line functional/prefer-immutable-types -- Module import type
-  fsModule: typeof fs
+  fsModule: FileSystemLike
 ): Effect.Effect<void, StaticGenerationError, never> =>
   Effect.gen(function* () {
     yield* Console.log(`🔗 Rewriting URLs with base path: ${basePath}...`)
@@ -194,10 +192,8 @@ export const injectHydrationScript = (
   generatedFiles: readonly string[],
   outputDir: string,
   basePath: string,
-  // eslint-disable-next-line functional/prefer-immutable-types -- Module import type
-  fsModule: typeof fs,
-  // eslint-disable-next-line functional/prefer-immutable-types -- Module import type
-  pathModule: typeof path
+  fsModule: FileSystemLike,
+  pathModule: PathModuleLike
 ): Effect.Effect<void, StaticGenerationError, never> =>
   Effect.gen(function* () {
     yield* Console.log('💧 Injecting hydration script into HTML files...')

@@ -117,6 +117,7 @@ function extractActualError(error: unknown): ErrorObject {
 function mapTaggedError(errorTag: string, actualError: ErrorObject): SanitizedError | undefined {
   switch (errorTag) {
     case 'ForbiddenError':
+    case 'ActivityLogForbiddenError':
       return {
         error: 'Forbidden',
         code: 'FORBIDDEN',
