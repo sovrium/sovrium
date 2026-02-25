@@ -66,7 +66,7 @@ analytics:
 | AC-009 | excludedPaths accepts glob patterns                            | `APP-ANALYTICS-CONFIG-009`        | ⏳     |
 | AC-010 | respectDoNotTrack defaults to true when not specified          | `APP-ANALYTICS-CONFIG-010`        | ⏳     |
 | AC-011 | App starts successfully without analytics property             | `APP-ANALYTICS-CONFIG-011`        | ⏳     |
-| AC-012 | Analytics configuration validates and app starts (regression)  | `APP-ANALYTICS-CONFIG-REGRESSION` | ⏳     |
+| AC-012 | Analytics configuration validates and app starts (regression)  | `APP-ANALYTICS-CONFIG-REGRESSION` | ✅     |
 
 ### Implementation References
 
