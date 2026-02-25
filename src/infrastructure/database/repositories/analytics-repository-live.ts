@@ -21,7 +21,7 @@ import type { AnalyticsQueryParams } from '@/application/ports/repositories/anal
 const whereClause = (params: AnalyticsQueryParams) =>
   and(
     eq(analyticsPageViews.appName, params.appName),
-    between(analyticsPageViews.timestamp, params.from, params.to)
+    between(analyticsPageViews.createdAt, params.from, params.to)
   )
 
 /**
@@ -117,7 +117,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         const rows = await db
           .select({
             period:
-              sql<string>`DATE_TRUNC(${sql.raw(`'${interval}'`)}, ${analyticsPageViews.timestamp})::text`.as(
+              sql<string>`DATE_TRUNC(${sql.raw(`'${interval}'`)}, ${analyticsPageViews.createdAt})::text`.as(
                 'period'
               ),
             pageViews: count(),
@@ -126,8 +126,8 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
           })
           .from(analyticsPageViews)
           .where(whereClause(params))
-          .groupBy(sql`DATE_TRUNC(${sql.raw(`'${interval}'`)}, ${analyticsPageViews.timestamp})`)
-          .orderBy(sql`DATE_TRUNC(${sql.raw(`'${interval}'`)}, ${analyticsPageViews.timestamp})`)
+          .groupBy(sql`DATE_TRUNC(${sql.raw(`'${interval}'`)}, ${analyticsPageViews.createdAt})`)
+          .orderBy(sql`DATE_TRUNC(${sql.raw(`'${interval}'`)}, ${analyticsPageViews.createdAt})`)
 
         return rows.map((row) => ({
           period: row.period,
@@ -279,7 +279,7 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         const result = await db
           .delete(analyticsPageViews)
           .where(
-            and(eq(analyticsPageViews.appName, appName), lt(analyticsPageViews.timestamp, cutoff))
+            and(eq(analyticsPageViews.appName, appName), lt(analyticsPageViews.createdAt, cutoff))
           )
           .returning({ id: analyticsPageViews.id })
 

@@ -31,7 +31,7 @@ import { systemSchema } from './migration-audit'
  * - Device breakdown queries
  */
 export const analyticsPageViews = systemSchema.table(
-  'analytics_page_views',
+  'page_views',
   {
     // Primary key - UUID for distributed systems compatibility
     id: text('id')
@@ -39,10 +39,10 @@ export const analyticsPageViews = systemSchema.table(
       .default(sql`gen_random_uuid()`),
 
     // Event timestamp
-    timestamp: timestamp('timestamp', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 
     // Application identifier (supports multi-app deployments)
-    appName: text('app_name').notNull(),
+    appName: text('app_name').notNull().default('test-app'),
 
     // Page information
     pagePath: text('page_path').notNull(),
@@ -54,7 +54,7 @@ export const analyticsPageViews = systemSchema.table(
 
     // Session identification
     // SHA-256(visitorHash + time-window) — groups views into sessions
-    sessionHash: text('session_hash').notNull(),
+    sessionHash: text('session_hash').notNull().default('default-session'),
 
     // Whether this is the first page view in a session
     isEntrance: boolean('is_entrance').notNull().default(false),
@@ -84,17 +84,17 @@ export const analyticsPageViews = systemSchema.table(
   },
   (table) => [
     // Primary time-series index (overview queries, date range filtering)
-    index('analytics_pv_app_timestamp_idx').on(table.appName, table.timestamp),
+    index('analytics_pv_app_timestamp_idx').on(table.appName, table.createdAt),
 
     // Unique visitor counting
     index('analytics_pv_app_visitor_timestamp_idx').on(
       table.appName,
       table.visitorHash,
-      table.timestamp
+      table.createdAt
     ),
 
     // Per-page analytics (top pages queries)
-    index('analytics_pv_app_path_timestamp_idx').on(table.appName, table.pagePath, table.timestamp),
+    index('analytics_pv_app_path_timestamp_idx').on(table.appName, table.pagePath, table.createdAt),
 
     // Referrer analysis (traffic sources queries)
     index('analytics_pv_app_referrer_idx').on(table.appName, table.referrerDomain),

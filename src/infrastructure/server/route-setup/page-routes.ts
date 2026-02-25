@@ -12,6 +12,8 @@ import {
   validateLanguageSubdirectory,
 } from '@/infrastructure/server/language-detection'
 import type { App } from '@/domain/models/app'
+import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
+import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics-repository-live'
 
 /**
  * Hono app configuration for route setup
@@ -23,6 +25,31 @@ export interface HonoAppConfig {
   readonly renderPage: (app: App, path: string, detectedLanguage?: string) => string | undefined
   readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string
   readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string
+}
+
+/**
+ * Trigger analytics retention cleanup (fire-and-forget)
+ *
+ * Purges analytics data older than the configured retention period.
+ * Runs asynchronously without blocking the response.
+ *
+ * @param app - Application configuration
+ */
+function triggerAnalyticsRetentionCleanup(app: App): void {
+  if (!app.analytics) {
+    return
+  }
+
+  const retentionDays = typeof app.analytics === 'object' ? app.analytics.retentionDays : undefined
+
+  // Fire-and-forget: purge old data asynchronously (non-blocking)
+  // eslint-disable-next-line functional/no-expression-statements
+  void Effect.runPromise(
+    purgeOldAnalyticsData(app.name, retentionDays).pipe(
+      Effect.provide(AnalyticsRepositoryLive),
+      Effect.catchAll(() => Effect.void)
+    )
+  )
 }
 
 /**
@@ -42,6 +69,9 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
 
   return honoApp.get('/', (c) => {
     try {
+      // Trigger analytics retention cleanup on page visit
+      triggerAnalyticsRetentionCleanup(app)
+
       // If no languages configured, render with default (en-US)
       if (!app.languages) {
         const html = renderHomePage(app, undefined)
@@ -80,6 +110,9 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
   const { app, renderHomePage, renderPage, renderNotFoundPage, renderErrorPage } = config
   return (c: Readonly<Context>) => {
     try {
+      // Trigger analytics retention cleanup on page visit
+      triggerAnalyticsRetentionCleanup(app)
+
       const { path } = c.req
       const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
       const exactPageMatch = renderPage(app, path, detectedLanguage)
@@ -110,6 +143,9 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
     const { path } = c.req
     const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
     try {
+      // Trigger analytics retention cleanup on page visit
+      triggerAnalyticsRetentionCleanup(app)
+
       const exactPageMatch = renderPage(app, path, detectedLanguage)
       if (exactPageMatch) {
         return c.html(exactPageMatch)
@@ -167,6 +203,9 @@ export function setupDynamicPageRoutes(
   const { app, renderPage, renderNotFoundPage } = config
 
   return honoApp.get('*', (c) => {
+    // Trigger analytics retention cleanup on page visit
+    triggerAnalyticsRetentionCleanup(app)
+
     const { path } = c.req
     const detectedLanguage = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
     const html = renderPage(app, path, detectedLanguage)
