@@ -63,7 +63,7 @@ Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 1/5
 
 - Created with Attempt 1/Y by PR Creator
 - Incremented to Attempt X+1/Y by test.yml on each test failure
-- Read by tdd-tdd-claude-code.yml for model escalation (Sonnet attempts 1-3, Opus attempts 4-5)
+- Read by tdd-tdd-claude-code.yml for attempt tracking (all attempts use Opus 4.6)
 - Max attempts default is 5 (configurable per spec)
 ```
 
@@ -139,14 +139,11 @@ Example: [TDD] Implement API-TABLES-CREATE-001 | Attempt 1/5
 
 ### Agent Configurations
 
-Both agents use **model escalation** to balance cost and success rate. The agents are configured for **fully autonomous operation** in the TDD pipeline.
+Both agents use **Claude Opus 4.6** (`claude-opus-4-6`) for all attempts. The agents are configured for **fully autonomous operation** in the TDD pipeline.
 
-**Model Escalation Strategy**:
+**Model Strategy**: Opus 4.6 for all attempts with $20 budget per run.
 
-- **Attempts 1-3**: Claude Sonnet 4.5 (`claude-sonnet-4-5`) — Fast, cost-effective baseline for most specs
-- **Attempts 4-5**: Claude Opus 4.6 (`claude-opus-4-6`) — Stronger reasoning for specs that proved difficult
-
-**Rationale**: Most specs pass with Sonnet's efficient reasoning. Only hard specs that failed 3 times get escalated to Opus, maximizing success rate while minimizing costs.
+**Rationale**: Using the strongest model from the first attempt maximizes first-attempt success rate, reducing total retries and overall pipeline cost.
 
 #### e2e-test-fixer Agent Configuration
 
@@ -154,12 +151,12 @@ Both agents use **model escalation** to balance cost and success rate. The agent
 
 **Configuration:** See `.github/workflows/tdd-tdd-claude-code.yml` for `claude_args` parameter values.
 
-| Parameter           | Value                                              | Rationale                                                                                   |
-| ------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `--max-turns`       | `50`                                               | Complex TDD cycles require multiple iterations (quality check → fix → test → repeat)        |
-| `--model`           | Sonnet 4.5 (attempts 1-3), Opus 4.6 (attempts 4-5) | Escalate to stronger reasoning only when Sonnet fails 3 times                               |
-| `--allowedTools`    | Core tools + Skill                                 | Read/Write/Edit for code, Bash for tests, Glob/Grep for search, Skill for schema generation |
-| `--disallowedTools` | Web + Interactive                                  | WebFetch/WebSearch blocked for CI reproducibility, AskUserQuestion blocked for autonomy     |
+| Parameter           | Value                   | Rationale                                                                                   |
+| ------------------- | ----------------------- | ------------------------------------------------------------------------------------------- |
+| `--max-turns`       | `50`                    | Complex TDD cycles require multiple iterations (quality check → fix → test → repeat)        |
+| `--model`           | Opus 4.6 (all attempts) | Maximum reasoning capability from first attempt                                             |
+| `--allowedTools`    | Core tools + Skill      | Read/Write/Edit for code, Bash for tests, Glob/Grep for search, Skill for schema generation |
+| `--disallowedTools` | Web + Interactive       | WebFetch/WebSearch blocked for CI reproducibility, AskUserQuestion blocked for autonomy     |
 
 **Autonomous Behaviors:**
 
@@ -176,12 +173,12 @@ Both agents use **model escalation** to balance cost and success rate. The agent
 
 **Configuration:** See `.github/workflows/tdd-tdd-claude-code.yml` for `claude_args` parameter values.
 
-| Parameter           | Value                                              | Rationale                                                          |
-| ------------------- | -------------------------------------------------- | ------------------------------------------------------------------ |
-| `--max-turns`       | `40`                                               | Refactoring is bounded; fewer iterations than implementation       |
-| `--model`           | Sonnet 4.5 (attempts 1-3), Opus 4.6 (attempts 4-5) | Escalate to stronger reasoning only when Sonnet fails 3 times      |
-| `--allowedTools`    | Core tools (no Skill)                              | Same base tools, but Skill excluded (schema creation not its job)  |
-| `--disallowedTools` | Web + Skill + Interactive                          | Skill blocked (schema creation is e2e-test-fixer's responsibility) |
+| Parameter           | Value                     | Rationale                                                          |
+| ------------------- | ------------------------- | ------------------------------------------------------------------ |
+| `--max-turns`       | `40`                      | Refactoring is bounded; fewer iterations than implementation       |
+| `--model`           | Opus 4.6 (all attempts)   | Maximum reasoning capability from first attempt                    |
+| `--allowedTools`    | Core tools (no Skill)     | Same base tools, but Skill excluded (schema creation not its job)  |
+| `--disallowedTools` | Web + Skill + Interactive | Skill blocked (schema creation is e2e-test-fixer's responsibility) |
 
 **Autonomous Behaviors:**
 
@@ -771,7 +768,7 @@ This section provides a **complete, unabridged view** of the TDD automation pipe
 ║                   │  │                      │          │ auditor             │                        ║
 ║                   │  │ --max-turns 50       │          │ --max-turns 40      │                        ║
 ║                   │  │ --model claude-      │          │ --model claude-     │                        ║
-║                   │  │ sonnet-4-5           │          │ sonnet-4-5          │                        ║
+║                   │  │ opus-4-6             │          │ opus-4-6            │                        ║
 ║                   │  └──────────┬───────────┘          └─────────┬───────────┘                        ║
 ║                   │             │                                │                                    ║
 ║                   │             └────────────────┬───────────────┘                                    ║
@@ -1850,11 +1847,10 @@ Without timeouts, `gh` commands can hang indefinitely when GitHub API is slow or
 
 #### Cost Protection
 
-- **Per-run limit**: $15 for Sonnet (attempts 1-3), $20 for Opus (attempts 4-5) — enforced by `--max-budget-usd`
+- **Per-run limit**: $20 (Opus 4.6, all attempts) — enforced by `--max-budget-usd`
 - **Daily limit**: $200 (checked before execution, blocks workflow if exceeded)
 - **Weekly limit**: $1000 (checked before execution, blocks workflow if exceeded)
 - **Cost tracking**: Actual Claude Code costs extracted from workflow logs and displayed in credit usage comments
-- **Model escalation**: Higher budget for Opus attempts reflects stronger model capabilities
 
 #### Credit Exhaustion Detection (Probe)
 
@@ -2139,10 +2135,7 @@ _Automated closure by TDD pipeline error handling_
 
 ### Per-Run Budget Protection
 
-**Budget Limits**: Model-based escalation:
-
-- **Attempts 1-3 (Sonnet 4.5)**: $15 per execution
-- **Attempts 4-5 (Opus 4.6)**: $20 per execution
+**Budget Limits**: $20 per execution (Opus 4.6, all attempts)
 
 **Configuration**: Dynamically set in `.github/workflows/tdd-tdd-claude-code.yml` based on attempt number:
 
@@ -2161,7 +2154,6 @@ claude_args: ${{ steps.agent-config.outputs.claude-args }} --max-budget-usd ${{ 
 **Rationale**:
 
 - Prevents runaway costs from single spec
-- Higher Opus budget (33% increase) reflects stronger model capabilities and rarity (only attempts 4-5)
 - Complements daily ($200) and weekly ($1000) limits
 - Conservative limits encourage efficient spec design
 
@@ -2245,19 +2237,17 @@ All TDD errors now follow a single, simplified recovery flow:
 
 #### Scenario 5: Budget Limit Hit, Need to Increase or Simplify
 
-**Symptom**: Claude Code failed with `error_max_budget_usd` (hit $15 limit for Sonnet attempts or $20 limit for Opus attempts). Spec might be legitimately complex and need higher budget, or might need simplification.
+**Symptom**: Claude Code failed with `error_max_budget_usd` (hit $20 limit). Spec might be legitimately complex and need higher budget, or might need simplification.
 
 **Analysis Steps**:
 
-1. **Check attempt number**: Was it Sonnet (1-3, $15 budget) or Opus (4-5, $20 budget)?
-2. Review spec complexity - is it testing too many behaviors at once?
-3. Check turn count - did it use 40+ turns? (indicates max_turns would have been hit anyway)
-4. Evaluate if spec can be broken down into smaller tests
+1. Review spec complexity - is it testing too many behaviors at once?
+2. Check turn count - did it use 40+ turns? (indicates max_turns would have been hit anyway)
+3. Evaluate if spec can be broken down into smaller tests
 
 **Action Options**:
 
-- **If on Sonnet attempt (1-3) and budget hit**: Wait for model escalation to Opus (attempt 4+) with higher $20 budget
-- **If on Opus attempt (4-5) and budget hit**: Spec is genuinely expensive — increase Opus budget in tdd-claude-code.yml or simplify spec
+- **If budget hit**: Spec is genuinely expensive — increase budget in tdd-claude-code.yml or simplify spec
 - **If spec is too complex**: Use `mark-for-spec-review` to simplify spec
 - **If uncertain**: Manual implementation, then adjust budget/spec based on learnings
 
@@ -2364,21 +2354,20 @@ Next Spec Processed
 
 **Three-Layer Defense**:
 
-1. **Per-Run Budget** (Model-Based)
-   - **Sonnet attempts (1-3)**: $15 per execution (cost-effective baseline)
-   - **Opus attempts (4-5)**: $20 per execution (33% higher for stronger reasoning)
+1. **Per-Run Budget**
+   - **All attempts (Opus 4.6)**: $20 per execution
    - Immediate protection against runaway costs
    - Prevents single spec from consuming entire daily budget
    - Enforced by Claude Code CLI (`--max-budget-usd`)
 
 2. **Daily Limit** ($200)
    - Aggregate limit across all executions
-   - ~10-13 executions depending on Sonnet/Opus mix (realistic)
+   - ~10 executions at $20 each (realistic)
    - Enforced by validation job (blocks execution)
 
 3. **Weekly Limit** ($1000)
    - Rolling 7-day window
-   - ~50-67 executions depending on Sonnet/Opus mix
+   - ~50 executions at $20 each
    - Enforced by validation job (blocks execution)
 
 **Monitoring**:
@@ -2387,7 +2376,7 @@ Next Spec Processed
 - Shows actual costs (not estimates)
 - Displays remaining budget and reset timers
 - 80% warning thresholds ($160 daily, $800 weekly)
-- Model escalation transparent in cost tracking
+- Uniform $20 per-run budget simplifies cost tracking
 
 ---
 
@@ -2420,28 +2409,28 @@ Next Spec Processed
 
 ## Design Decisions
 
-| Decision                 | Choice                                          | Rationale                                                 |
-| ------------------------ | ----------------------------------------------- | --------------------------------------------------------- |
-| **PR Creator job order** | check-active-pr → check-credits → create-pr     | Free GitHub API check first, skip costly probe if active  |
-| **Stale branch cleanup** | Delete remote if no open PRs, then push fresh   | Prevents non-fast-forward errors on spec retries          |
-| Cron frequency           | Hourly (backup only)                            | Chain reaction via `workflow_run` handles most cases      |
-| Max attempts             | 5 (default, configurable)                       | Increased from 3 for 230-spec reliability                 |
-| Label names              | `tdd-automation`, `:manual-intervention`        | Simplified to 2 labels (2026-01-28)                       |
-| Branch naming            | `tdd/<spec-id>`                                 | Simple, serves as backup identifier                       |
-| @claude comment format   | Agent-specific with file paths                  | Enables correct agent selection                           |
-| Credit limits            | $200/day, $1000/week (+ per-run)                | Three-layer defense: per-run, daily, weekly               |
-| Per-run budget limit     | $15 (Sonnet), $20 (Opus)                        | Model escalation: Opus only for hard specs (attempts 4-5) |
-| Model escalation         | Sonnet (1-3), Opus (4-5)                        | Cost-effective baseline, escalate only when needed        |
-| Cost tracking            | Actual costs from Claude Code result JSON       | Accurate tracking vs. $15 estimates                       |
-| Cost parsing             | JSON result + multi-pattern fallback            | Handles format changes gracefully                         |
-| Sync strategy            | Merge (not rebase)                              | Safer, no force-push, better for automation               |
-| Conflict counting        | Not counted as attempt                          | Infrastructure issue, not code failure                    |
-| Error handling           | Pattern matching (conservative)                 | Distinguish transient vs. persistent errors               |
-| Retry strategy           | Transient errors retry, persistent errors close | Avoid infinite loops, clear failure path                  |
-| Unknown errors           | Retry once, then manual intervention            | Conservative approach for unexpected failures             |
-| Recovery actions         | Manual workflow_dispatch triggers               | Flexible recovery without pipeline re-runs                |
-| Commit detection         | SHA comparison (not commit counting)            | Accurate push verification, handles divergence            |
-| Terminal state cleanup   | Dedicated `tdd-cleanup.yml` workflow            | Centralized, event-driven, covers all terminal sources    |
+| Decision                 | Choice                                          | Rationale                                                |
+| ------------------------ | ----------------------------------------------- | -------------------------------------------------------- |
+| **PR Creator job order** | check-active-pr → check-credits → create-pr     | Free GitHub API check first, skip costly probe if active |
+| **Stale branch cleanup** | Delete remote if no open PRs, then push fresh   | Prevents non-fast-forward errors on spec retries         |
+| Cron frequency           | Hourly (backup only)                            | Chain reaction via `workflow_run` handles most cases     |
+| Max attempts             | 5 (default, configurable)                       | Increased from 3 for 230-spec reliability                |
+| Label names              | `tdd-automation`, `:manual-intervention`        | Simplified to 2 labels (2026-01-28)                      |
+| Branch naming            | `tdd/<spec-id>`                                 | Simple, serves as backup identifier                      |
+| @claude comment format   | Agent-specific with file paths                  | Enables correct agent selection                          |
+| Credit limits            | $200/day, $1000/week (+ per-run)                | Three-layer defense: per-run, daily, weekly              |
+| Per-run budget limit     | $20 (Opus 4.6, all attempts)                    | Uniform budget, strongest model from first attempt       |
+| Model strategy           | Opus 4.6 for all attempts                       | Maximize first-attempt success, reduce total retries     |
+| Cost tracking            | Actual costs from Claude Code result JSON       | Accurate tracking vs. $15 estimates                      |
+| Cost parsing             | JSON result + multi-pattern fallback            | Handles format changes gracefully                        |
+| Sync strategy            | Merge (not rebase)                              | Safer, no force-push, better for automation              |
+| Conflict counting        | Not counted as attempt                          | Infrastructure issue, not code failure                   |
+| Error handling           | Pattern matching (conservative)                 | Distinguish transient vs. persistent errors              |
+| Retry strategy           | Transient errors retry, persistent errors close | Avoid infinite loops, clear failure path                 |
+| Unknown errors           | Retry once, then manual intervention            | Conservative approach for unexpected failures            |
+| Recovery actions         | Manual workflow_dispatch triggers               | Flexible recovery without pipeline re-runs               |
+| Commit detection         | SHA comparison (not commit counting)            | Accurate push verification, handles divergence           |
+| Terminal state cleanup   | Dedicated `tdd-cleanup.yml` workflow            | Centralized, event-driven, covers all terminal sources   |
 
 ### PR Creator Job Ordering (Cost Optimization)
 

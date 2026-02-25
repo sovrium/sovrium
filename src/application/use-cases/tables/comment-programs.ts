@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import { CommentRepository } from '@/application/ports/repositories/comment-repository'
 import { SessionContextError } from '@/domain/errors'
+import type { UserMetadataWithOptionalImage } from '@/application/ports/models/user-metadata'
 import type { UserSession } from '@/application/ports/models/user-session'
 
 /**
@@ -32,14 +33,7 @@ function formatCommentResponse(comment: {
   readonly content: string
   readonly createdAt: Date
   readonly updatedAt?: Date
-  readonly user?:
-    | {
-        readonly id: string
-        readonly name: string
-        readonly email: string
-        readonly image: string | undefined
-      }
-    | undefined
+  readonly user?: UserMetadataWithOptionalImage | undefined
 }) {
   return {
     comment: {
@@ -65,14 +59,7 @@ export function createCommentProgram(config: CreateCommentConfig): Effect.Effect
       readonly content: string
       readonly createdAt: string
       readonly updatedAt: string
-      readonly user?:
-        | {
-            readonly id: string
-            readonly name: string
-            readonly email: string
-            readonly image: string | undefined
-          }
-        | undefined
+      readonly user?: UserMetadataWithOptionalImage | undefined
     }
   },
   SessionContextError,
@@ -186,14 +173,7 @@ export function getCommentProgram(config: GetCommentConfig): Effect.Effect<
       readonly content: string
       readonly createdAt: string
       readonly updatedAt: string
-      readonly user?:
-        | {
-            readonly id: string
-            readonly name: string
-            readonly email: string
-            readonly image: string | undefined
-          }
-        | undefined
+      readonly user?: UserMetadataWithOptionalImage | undefined
     }
   },
   SessionContextError,
@@ -251,14 +231,7 @@ function formatCommentsList(
     readonly content: string
     readonly createdAt: Date
     readonly updatedAt: Date
-    readonly user?:
-      | {
-          readonly id: string
-          readonly name: string
-          readonly email: string
-          readonly image: string | undefined
-        }
-      | undefined
+    readonly user?: UserMetadataWithOptionalImage | undefined
   }[]
 ): readonly {
   readonly id: string
@@ -268,14 +241,7 @@ function formatCommentsList(
   readonly content: string
   readonly createdAt: string
   readonly updatedAt: string
-  readonly user?:
-    | {
-        readonly id: string
-        readonly name: string
-        readonly email: string
-        readonly image: string | undefined
-      }
-    | undefined
+  readonly user?: UserMetadataWithOptionalImage | undefined
 }[] {
   return comments.map((comment) => ({
     id: comment.id,
@@ -364,14 +330,7 @@ export function updateCommentProgram(config: UpdateCommentConfig): Effect.Effect
       readonly content: string
       readonly createdAt: string
       readonly updatedAt: string
-      readonly user?:
-        | {
-            readonly id: string
-            readonly name: string
-            readonly email: string
-            readonly image: string | undefined
-          }
-        | undefined
+      readonly user?: UserMetadataWithOptionalImage | undefined
     }
   },
   SessionContextError,
@@ -436,14 +395,7 @@ export function listCommentsProgram(config: ListCommentsConfig): Effect.Effect<
       readonly content: string
       readonly createdAt: string
       readonly updatedAt: string
-      readonly user?:
-        | {
-            readonly id: string
-            readonly name: string
-            readonly email: string
-            readonly image: string | undefined
-          }
-        | undefined
+      readonly user?: UserMetadataWithOptionalImage | undefined
     }[]
     readonly pagination?: {
       readonly total: number

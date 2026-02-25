@@ -6,6 +6,7 @@
  */
 
 import { Context } from 'effect'
+import type { UserMetadataWithImage } from '@/application/ports/models/user-metadata'
 import type { UserSession } from '@/application/ports/models/user-session'
 import type { SessionContextError } from '@/domain/errors'
 import type { Effect } from 'effect'
@@ -17,14 +18,7 @@ export interface ActivityHistoryEntry {
   readonly action: string
   readonly createdAt: Date
   readonly changes: unknown
-  readonly user:
-    | {
-        readonly id: string
-        readonly name: string
-        readonly email: string
-        readonly image: string | null
-      }
-    | undefined
+  readonly user: UserMetadataWithImage | undefined
 }
 
 /**

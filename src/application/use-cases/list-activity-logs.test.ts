@@ -11,7 +11,7 @@ import { ActivityLogRepository } from '@/application/ports/repositories/activity
 import { AuthRepository } from '@/application/ports/repositories/auth-repository'
 import {
   ListActivityLogs,
-  ForbiddenError,
+  ActivityLogForbiddenError,
   type ListActivityLogsInput,
   type ActivityLogOutput,
 } from './list-activity-logs'
@@ -208,7 +208,7 @@ describe('ListActivityLogs', () => {
   /**
    * Test viewer role is denied access
    *
-   * Verifies that viewer users receive ForbiddenError.
+   * Verifies that viewer users receive ActivityLogForbiddenError.
    */
   test('should deny access for viewer user', async () => {
     const input: ListActivityLogsInput = {
@@ -223,7 +223,7 @@ describe('ListActivityLogs', () => {
 
     expect(result._tag).toBe('Left')
     if (result._tag === 'Left') {
-      expect(result.left).toBeInstanceOf(ForbiddenError)
+      expect(result.left).toBeInstanceOf(ActivityLogForbiddenError)
       expect(result.left.message).toContain('permission')
     }
   })
@@ -231,7 +231,7 @@ describe('ListActivityLogs', () => {
   /**
    * Test user with no role is denied access
    *
-   * Verifies that users without a role receive ForbiddenError.
+   * Verifies that users without a role receive ActivityLogForbiddenError.
    */
   test('should deny access for user with no role', async () => {
     const input: ListActivityLogsInput = {
@@ -246,7 +246,7 @@ describe('ListActivityLogs', () => {
 
     expect(result._tag).toBe('Left')
     if (result._tag === 'Left') {
-      expect(result.left).toBeInstanceOf(ForbiddenError)
+      expect(result.left).toBeInstanceOf(ActivityLogForbiddenError)
       expect(result.left.message).toContain('permission')
     }
   })
@@ -335,16 +335,16 @@ describe('ListActivityLogs', () => {
   })
 
   /**
-   * Test ForbiddenError structure
+   * Test ActivityLogForbiddenError structure
    *
-   * Verifies that ForbiddenError has correct tag and message.
+   * Verifies that ActivityLogForbiddenError has correct tag and message.
    */
-  test('should define correct ForbiddenError structure', () => {
-    const error = new ForbiddenError({
+  test('should define correct ActivityLogForbiddenError structure', () => {
+    const error = new ActivityLogForbiddenError({
       message: 'You do not have permission to access activity logs',
     })
 
-    expect(error._tag).toBe('ForbiddenError')
+    expect(error._tag).toBe('ActivityLogForbiddenError')
     expect(error.message).toContain('permission')
   })
 })
@@ -370,9 +370,9 @@ describe('ListActivityLogs - type exports', () => {
     expect(check).toBe(true)
   })
 
-  test('should export ForbiddenError type', () => {
+  test('should export ActivityLogForbiddenError type', () => {
     // Type-level check - this test exists to ensure the type is exported
-    const error = new ForbiddenError({ message: 'test' })
-    expect(error._tag).toBe('ForbiddenError')
+    const error = new ActivityLogForbiddenError({ message: 'test' })
+    expect(error._tag).toBe('ActivityLogForbiddenError')
   })
 })

@@ -18,11 +18,12 @@ import {
 } from '@/application/ports/repositories/auth-repository'
 import { ActivityLogRepositoryLive } from '@/infrastructure/database/repositories/activity-log-repository-live'
 import { AuthRepositoryLive } from '@/infrastructure/database/repositories/auth-repository-live'
+import type { UserMetadata } from '@/application/ports/models/user-metadata'
 
 /**
  * Forbidden error when user lacks permission to access activity logs
  */
-export class ForbiddenError extends Data.TaggedError('ForbiddenError')<{
+export class ActivityLogForbiddenError extends Data.TaggedError('ActivityLogForbiddenError')<{
   readonly message: string
 }> {}
 
@@ -31,15 +32,6 @@ export class ForbiddenError extends Data.TaggedError('ForbiddenError')<{
  */
 export interface ListActivityLogsInput {
   readonly userId: string
-}
-
-/**
- * User metadata in activity log output
- */
-export interface ActivityLogOutputUser {
-  readonly id: string
-  readonly name: string
-  readonly email: string
 }
 
 /**
@@ -55,7 +47,7 @@ export interface ActivityLogOutput {
   readonly action: 'create' | 'update' | 'delete' | 'restore'
   readonly tableName: string
   readonly recordId: string
-  readonly user: ActivityLogOutputUser | null
+  readonly user: UserMetadata | null
 }
 
 /**
@@ -92,7 +84,7 @@ export const ListActivityLogs = (
   input: ListActivityLogsInput
 ): Effect.Effect<
   readonly ActivityLogOutput[],
-  ForbiddenError | ActivityLogDatabaseError | AuthDatabaseError,
+  ActivityLogForbiddenError | ActivityLogDatabaseError | AuthDatabaseError,
   ActivityLogRepository | AuthRepository
 > =>
   Effect.gen(function* () {
@@ -104,14 +96,14 @@ export const ListActivityLogs = (
 
     // If user has no role, deny access
     if (!role) {
-      return yield* new ForbiddenError({
+      return yield* new ActivityLogForbiddenError({
         message: 'You do not have permission to access activity logs',
       })
     }
 
     // Domain rule: Viewers cannot access activity logs
     if (role === 'viewer') {
-      return yield* new ForbiddenError({
+      return yield* new ActivityLogForbiddenError({
         message: 'You do not have permission to access activity logs',
       })
     }

@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import { ActivityRepository } from '@/application/ports/repositories/activity-repository'
 import { SessionContextError } from '@/domain/errors'
+import type { UserMetadataWithImage } from '@/application/ports/models/user-metadata'
 import type { UserSession } from '@/application/ports/models/user-session'
 import type { ActivityHistoryEntry } from '@/application/ports/repositories/activity-repository'
 
@@ -43,14 +44,7 @@ export function getRecordHistoryProgram(config: GetRecordHistoryConfig): Effect.
       readonly action: string
       readonly createdAt: string
       readonly changes: unknown
-      readonly user:
-        | {
-            readonly id: string
-            readonly name: string
-            readonly email: string
-            readonly image: string | null
-          }
-        | undefined
+      readonly user: UserMetadataWithImage | undefined
     }[]
     readonly pagination: {
       readonly limit: number

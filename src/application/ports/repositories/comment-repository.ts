@@ -6,6 +6,7 @@
  */
 
 import { Context } from 'effect'
+import type { UserMetadataWithOptionalImage } from '@/application/ports/models/user-metadata'
 import type { UserSession } from '@/application/ports/models/user-session'
 import type { SessionContextError } from '@/domain/errors'
 import type { Effect } from 'effect'
@@ -21,14 +22,7 @@ export interface CommentWithUser {
   readonly content: string
   readonly createdAt: Date
   readonly updatedAt: Date
-  readonly user:
-    | {
-        readonly id: string
-        readonly name: string
-        readonly email: string
-        readonly image: string | undefined
-      }
-    | undefined
+  readonly user: UserMetadataWithOptionalImage | undefined
 }
 
 /**
@@ -60,14 +54,7 @@ export interface ListedComment {
   readonly content: string
   readonly createdAt: Date
   readonly updatedAt: Date
-  readonly user?:
-    | {
-        readonly id: string
-        readonly name: string
-        readonly email: string
-        readonly image: string | undefined
-      }
-    | undefined
+  readonly user?: UserMetadataWithOptionalImage | undefined
 }
 
 /**

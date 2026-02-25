@@ -12,7 +12,7 @@ import {
 } from '@/application/ports/repositories/batch-repository'
 import { transformRecords, type TransformedRecord } from './utils/record-transformer'
 import type { UserSession } from '@/application/ports/models/user-session'
-import type { ForbiddenError, SessionContextError, ValidationError } from '@/domain/errors'
+import type { SessionContextError, ValidationError } from '@/domain/errors'
 import type { BatchRestoreRecordsResponse } from '@/domain/models/api/tables'
 import type { App } from '@/domain/models/app'
 
@@ -108,11 +108,7 @@ export function batchRestoreProgram(
   session: Readonly<UserSession>,
   tableName: string,
   ids: readonly string[]
-): Effect.Effect<
-  BatchRestoreRecordsResponse,
-  SessionContextError | ForbiddenError,
-  BatchRepository
-> {
+): Effect.Effect<BatchRestoreRecordsResponse, SessionContextError, BatchRepository> {
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
     const restored = yield* batch.batchRestore(session, tableName, ids)

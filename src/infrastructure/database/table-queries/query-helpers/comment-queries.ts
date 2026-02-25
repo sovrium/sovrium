@@ -14,6 +14,8 @@ import { SessionContextError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import { recordComments } from '@/infrastructure/database/drizzle/schema/record-comments'
 import { wrapDatabaseError } from '../shared/error-handling'
+import { extractUserFromRow } from '../shared/user-join-helpers'
+import type { UserMetadataWithOptionalImage } from '@/application/ports/models/user-metadata'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
 /**
@@ -92,14 +94,7 @@ function transformCommentRow(row: {
   readonly content: string
   readonly createdAt: Date
   readonly updatedAt: Date
-  readonly user:
-    | {
-        readonly id: string
-        readonly name: string
-        readonly email: string
-        readonly image: string | undefined
-      }
-    | undefined
+  readonly user: UserMetadataWithOptionalImage | undefined
 } {
   return {
     id: row.id,
@@ -109,10 +104,7 @@ function transformCommentRow(row: {
     content: row.content,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
-    user:
-      row.userName && row.userEmail
-        ? { id: row.userId, name: row.userName, email: row.userEmail, image: row.userImage }
-        : undefined,
+    user: extractUserFromRow(row),
   }
 }
 
@@ -175,14 +167,7 @@ export function getCommentWithUser(config: {
       readonly content: string
       readonly createdAt: Date
       readonly updatedAt: Date
-      readonly user:
-        | {
-            readonly id: string
-            readonly name: string
-            readonly email: string
-            readonly image: string | undefined
-          }
-        | undefined
+      readonly user: UserMetadataWithOptionalImage | undefined
     }
   | undefined,
   SessionContextError
@@ -446,14 +431,7 @@ export function listComments(config: {
     readonly content: string
     readonly createdAt: Date
     readonly updatedAt: Date
-    readonly user:
-      | {
-          readonly id: string
-          readonly name: string
-          readonly email: string
-          readonly image: string | undefined
-        }
-      | undefined
+    readonly user: UserMetadataWithOptionalImage | undefined
   }[],
   SessionContextError
 > {

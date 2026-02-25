@@ -30,6 +30,7 @@ import {
   generateSitemapFile,
   generateRobotsFile,
   generateGitHubPagesFiles,
+  type FileSystemLike,
 } from './generate-static-helpers'
 import {
   generateMultiLanguageFiles,
@@ -150,17 +151,14 @@ function generateHtmlFiles(
  * @param outputDir - Output directory path
  * @param app - Application configuration
  * @param cssCompiler - CSS compiler service from Effect Context
- *                     Typed as `any` because Effect Context services are runtime-resolved via Layer.
  * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
- *            Typed as `any` for runtime-agnostic compatibility across Node.js and Bun.
  */
 function generateCssFile(
   outputDir: string,
   app: App,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service (runtime-resolved via Layer) - see JSDoc
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service (runtime-resolved via Layer)
   cssCompiler: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
-  fs: any
+  fs: FileSystemLike
 ) {
   return Effect.gen(function* () {
     yield* Console.log('🎨 Getting compiled CSS...')
@@ -175,15 +173,13 @@ function generateCssFile(
  * @param generatedFiles - List of generated file paths
  * @param outputDir - Output directory path
  * @param options - Static generation options
- * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
- *            Typed as `any` for runtime-agnostic compatibility across Node.js and Bun.
+ * @param fsModule - Filesystem module (Node.js fs/promises or Bun's equivalent)
  */
 function optimizeHtmlFiles(
   generatedFiles: readonly string[],
   outputDir: string,
   options: GenerateStaticOptions,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
-  fsModule: any
+  fsModule: FileSystemLike
 ) {
   return Effect.gen(function* () {
     yield* formatHtmlFiles(generatedFiles, outputDir, fsModule, path)
@@ -204,8 +200,7 @@ function generateSupportingFiles(
   app: App,
   outputDir: string,
   options: GenerateStaticOptions,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import
-  fs: any
+  fs: FileSystemLike
 ) {
   return Effect.gen(function* () {
     const sitemapFiles = yield* generateSitemapFile(app, outputDir, options, fs)

@@ -13,7 +13,9 @@ describe('generate-static-helpers', () => {
   describe('generateHydrationFiles', () => {
     test('should generate hydration file when enabled', async () => {
       const mockFs = {
+        mkdir: async () => undefined,
         writeFile: async () => {},
+        readFile: async () => '',
       }
 
       const program = generateHydrationFiles('/output', true, mockFs)
@@ -24,7 +26,9 @@ describe('generate-static-helpers', () => {
 
     test('should return empty array when disabled', async () => {
       const mockFs = {
+        mkdir: async () => undefined,
         writeFile: async () => {},
+        readFile: async () => '',
       }
 
       const program = generateHydrationFiles('/output', false, mockFs)

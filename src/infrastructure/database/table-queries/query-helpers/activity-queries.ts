@@ -11,6 +11,7 @@ import { users } from '@/infrastructure/auth/better-auth/schema'
 import { SessionContextError } from '@/infrastructure/database'
 import { db } from '@/infrastructure/database/drizzle'
 import { activityLogs } from '@/infrastructure/database/drizzle/schema/activity-log'
+import { extractUserFromRow } from '../shared/user-join-helpers'
 import type { ActivityHistoryEntry } from '@/application/ports/repositories/activity-repository'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 
@@ -43,10 +44,7 @@ function transformActivityRow(row: {
     action: row.action,
     createdAt: row.createdAt,
     changes: row.changes,
-    user:
-      row.userId && row.userName && row.userEmail
-        ? { id: row.userId, name: row.userName, email: row.userEmail, image: row.userImage }
-        : undefined,
+    user: extractUserFromRow(row),
   }
 }
 

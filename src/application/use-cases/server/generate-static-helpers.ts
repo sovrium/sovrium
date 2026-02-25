@@ -30,22 +30,37 @@ import type { App } from '@/domain/models/app'
 export { fs, path, translationReplacer }
 
 /**
+ * Minimal filesystem interface for static generation
+ *
+ * Compatible with Node.js fs/promises, Bun's filesystem APIs, and test mocks.
+ * Only includes methods actually used by static generation functions.
+ */
+export interface FileSystemLike {
+  readonly mkdir: (
+    path: string,
+    options?: { readonly recursive?: boolean }
+  ) => Promise<string | undefined>
+  readonly writeFile: (path: string, data: string, encoding?: BufferEncoding) => Promise<void>
+  readonly readFile: (path: string, encoding: BufferEncoding) => Promise<string>
+}
+
+/**
+ * Minimal path module interface for static generation
+ *
+ * Compatible with Node.js path module, Bun's path APIs, and test mocks.
+ */
+export interface PathModuleLike {
+  readonly join: (...paths: readonly string[]) => string
+}
+
+/**
  * Write CSS file to output directory
  *
  * @param outputDir - Output directory path
  * @param css - Compiled CSS content
  * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
- *            Typed as `any` because this function is runtime-agnostic and works with
- *            dynamically imported fs modules that have compatible APIs but different types.
- *            This enables static site generation to work across Node.js and Bun runtimes
- *            without duplicating code.
  */
-export function writeCssFile(
-  outputDir: string,
-  css: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
-  fs: any
-) {
+export function writeCssFile(outputDir: string, css: string, fs: FileSystemLike) {
   return Effect.gen(function* () {
     yield* Console.log('🎨 Writing compiled CSS...')
 
@@ -77,14 +92,8 @@ export function writeCssFile(
  * @param outputDir - Output directory path
  * @param enabled - Whether hydration is enabled
  * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
- *            Typed as `any` for runtime-agnostic compatibility across Node.js and Bun.
  */
-export function generateHydrationFiles(
-  outputDir: string,
-  enabled: boolean,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
-  fs: any
-) {
+export function generateHydrationFiles(outputDir: string, enabled: boolean, fs: FileSystemLike) {
   return Effect.if(enabled, {
     onTrue: () =>
       Effect.gen(function* () {
@@ -124,17 +133,13 @@ export function copyPublicAssets(publicDir: string | undefined, outputDir: strin
  * @param generatedFiles - List of generated file paths
  * @param outputDir - Output directory path
  * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
- *            Typed as `any` for runtime-agnostic compatibility.
  * @param path - Path module (Node.js path or Bun's equivalent)
- *             Typed as `any` for runtime-agnostic path operations across Node.js and Bun.
  */
 export function formatHtmlFiles(
   generatedFiles: readonly string[],
   outputDir: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
-  fs: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic path module import (Node.js path or Bun) - see JSDoc
-  path: any
+  fs: FileSystemLike,
+  path: PathModuleLike
 ) {
   return Effect.gen(function* () {
     yield* Console.log('📝 Formatting HTML files with Prettier...')
@@ -182,18 +187,14 @@ export function formatHtmlFiles(
  * @param config.outputDir - Output directory path
  * @param config.options - Static generation options
  * @param config.fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
- *                    Typed as `any` for runtime-agnostic compatibility.
  * @param config.path - Path module (Node.js path or Bun's equivalent)
- *                     Typed as `any` for runtime-agnostic path operations.
  */
 export function applyHtmlOptimizations(config: {
   readonly generatedFiles: readonly string[]
   readonly outputDir: string
   readonly options: GenerateStaticOptions
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
-  readonly fs: any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic path module import (Node.js path or Bun) - see JSDoc
-  readonly path: any
+  readonly fs: FileSystemLike
+  readonly path: PathModuleLike
 }) {
   return Effect.gen(function* () {
     // Step 1: Apply base path rewriting if basePath is configured
@@ -247,8 +248,7 @@ export function generateSitemapFile(
   app: App,
   outputDir: string,
   options: GenerateStaticOptions,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
-  fs: any
+  fs: FileSystemLike
 ) {
   return Effect.if(options.generateSitemap ?? false, {
     onTrue: () =>
@@ -285,14 +285,12 @@ export function generateSitemapFile(
  * @param outputDir - Output directory path
  * @param options - Static generation options
  * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
- *            Typed as `any` for runtime-agnostic compatibility across Node.js and Bun.
  */
 export function generateRobotsFile(
   app: App,
   outputDir: string,
   options: GenerateStaticOptions,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import (Node.js fs/promises or Bun) - see JSDoc
-  fs: any
+  fs: FileSystemLike
 ) {
   return Effect.if(options.generateRobotsTxt ?? false, {
     onTrue: () =>
@@ -326,8 +324,7 @@ export function generateRobotsFile(
 export function generateGitHubPagesFiles(
   outputDir: string,
   options: GenerateStaticOptions,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Dynamic fs module import
-  fs: any
+  fs: FileSystemLike
 ) {
   return Effect.gen(function* () {
     // Create .nojekyll file

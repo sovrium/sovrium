@@ -7,7 +7,7 @@
 
 import { Context } from 'effect'
 import type { UserSession } from '@/application/ports/models/user-session'
-import type { ForbiddenError, SessionContextError, ValidationError } from '@/domain/errors'
+import type { SessionContextError, ValidationError } from '@/domain/errors'
 import type { Effect } from 'effect'
 
 /**
@@ -74,7 +74,7 @@ export class BatchRepository extends Context.Tag('BatchRepository')<
       session: Readonly<UserSession>,
       tableName: string,
       recordIds: readonly string[]
-    ) => Effect.Effect<number, SessionContextError | ForbiddenError>
+    ) => Effect.Effect<number, SessionContextError>
 
     readonly upsert: (
       session: Readonly<UserSession>,

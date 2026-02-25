@@ -15,11 +15,21 @@ import {
 import { validateColumnName } from '../shared/validation'
 
 /**
+ * Shape of PostgreSQL driver error objects that may contain unique constraint info.
+ * Compatible with bun:sql, postgres.js, and pg error objects.
+ */
+interface PostgresErrorLike {
+  readonly code?: string
+  readonly constraint?: string
+  readonly message?: string
+  readonly cause?: PostgresErrorLike
+}
+
+/**
  * Check if an object has PostgreSQL unique constraint violation markers
  * (code 23505, constraint name, or 'unique constraint' in message)
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Error cause structure is dynamic
-function hasUniqueViolationMarkers(obj: any): boolean {
+function hasUniqueViolationMarkers(obj: PostgresErrorLike | null | undefined): boolean {
   return obj?.code === '23505' || !!obj?.constraint || !!obj?.message?.includes('unique constraint')
 }
 
@@ -28,8 +38,8 @@ function hasUniqueViolationMarkers(obj: any): boolean {
  * Checks the error itself and its cause for violation markers.
  */
 export function isUniqueConstraintViolation(error: unknown): boolean {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Error cause structure is dynamic
-  return hasUniqueViolationMarkers(error) || hasUniqueViolationMarkers((error as any)?.cause)
+  const err = error as PostgresErrorLike | null | undefined
+  return hasUniqueViolationMarkers(err) || hasUniqueViolationMarkers(err?.cause)
 }
 
 /**
