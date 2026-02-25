@@ -7,13 +7,13 @@
 
 import { Console, Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
+import { AnalyticsRepository } from '@/application/ports/repositories/analytics-repository'
+import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics-repository-live'
 import {
   detectLanguageIfEnabled,
   validateLanguageSubdirectory,
 } from '@/infrastructure/server/language-detection'
 import type { App } from '@/domain/models/app'
-import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
-import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics-repository-live'
 
 /**
  * Hono app configuration for route setup
@@ -26,6 +26,11 @@ export interface HonoAppConfig {
   readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string
   readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string
 }
+
+/**
+ * Default retention period in days when not configured
+ */
+const DEFAULT_RETENTION_DAYS = 365
 
 /**
  * Trigger analytics retention cleanup (fire-and-forget)
@@ -43,9 +48,20 @@ function triggerAnalyticsRetentionCleanup(app: App): void {
   const retentionDays = typeof app.analytics === 'object' ? app.analytics.retentionDays : undefined
 
   // Fire-and-forget: purge old data asynchronously (non-blocking)
-  // eslint-disable-next-line functional/no-expression-statements
+  const program = Effect.gen(function* () {
+    const repo = yield* AnalyticsRepository
+
+    const days = retentionDays ?? DEFAULT_RETENTION_DAYS
+    const cutoff = new Date()
+    // eslint-disable-next-line functional/no-expression-statements -- Intentional mutation for date calculation
+    cutoff.setDate(cutoff.getDate() - days)
+
+    return yield* repo.deleteOlderThan(app.name, cutoff)
+  })
+
+  // eslint-disable-next-line functional/no-expression-statements -- Fire-and-forget async operation
   void Effect.runPromise(
-    purgeOldAnalyticsData(app.name, retentionDays).pipe(
+    program.pipe(
       Effect.provide(AnalyticsRepositoryLive),
       Effect.catchAll(() => Effect.void)
     )
