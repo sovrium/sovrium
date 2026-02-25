@@ -28,7 +28,7 @@ test.describe('Analytics Data Retention', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-RETENTION-001: should purge records older than retentionDays on server startup',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
