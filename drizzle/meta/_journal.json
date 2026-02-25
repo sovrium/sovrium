@@ -22,6 +22,13 @@
       "when": 1772027990991,
       "tag": "0002_conscious_madame_hydra",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772114400000,
+      "tag": "0003_create_page_views_view",
+      "breakpoints": true
     }
   ]
 }
