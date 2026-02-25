@@ -100,7 +100,14 @@ export function renderHomePage(app: App, detectedLanguage?: string): string {
   }
 
   // Fallback to default homepage
-  const html = renderToString(<DefaultHomePage app={app} />)
+  // Check if analytics should be enabled for homepage (path '/')
+  const injectAnalytics = shouldInjectAnalytics(app.analytics, '/')
+  const html = renderToString(
+    <DefaultHomePage
+      app={app}
+      builtInAnalyticsEnabled={injectAnalytics}
+    />
+  )
   return `<!DOCTYPE html>\n${html}`
 }
 
