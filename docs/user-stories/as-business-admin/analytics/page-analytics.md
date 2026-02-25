@@ -55,7 +55,7 @@ analytics:
 
 | ID     | Criterion                                                      | E2E Spec                          | Status |
 | ------ | -------------------------------------------------------------- | --------------------------------- | ------ |
-| AC-001 | Analytics is enabled by default when analytics property exists | `APP-ANALYTICS-CONFIG-001`        | ⏳     |
+| AC-001 | Analytics is enabled by default when analytics property exists | `APP-ANALYTICS-CONFIG-001`        | ✅     |
 | AC-002 | Analytics can be explicitly disabled with enabled: false       | `APP-ANALYTICS-CONFIG-002`        | ⏳     |
 | AC-003 | Default retentionDays is 365 when not specified                | `APP-ANALYTICS-CONFIG-003`        | ⏳     |
 | AC-004 | retentionDays rejects values below 1                           | `APP-ANALYTICS-CONFIG-004`        | ⏳     |
