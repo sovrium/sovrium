@@ -46,7 +46,7 @@ test.describe('Analytics Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-CONFIG-002: should disable analytics when set to false',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
