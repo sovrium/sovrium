@@ -8,4 +8,5 @@
 export * from '../../auth/better-auth/schema'
 export * from './schema/migration-audit'
 export * from './schema/activity-log'
+export * from './schema/analytics-page-views'
 export * from './schema/record-comments'

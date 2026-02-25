@@ -7,6 +7,7 @@
 
 import { Console, Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
+import { generateTrackingScript } from '@/infrastructure/analytics/tracking-script'
 import { compileCSS } from '@/infrastructure/css/compiler'
 import type { App } from '@/domain/models/app'
 
@@ -71,6 +72,38 @@ export function createJavaScriptHandler(scriptName: string, scriptPath: string) 
       })
     }
   }
+}
+
+/**
+ * Setup built-in analytics tracking script route
+ *
+ * Serves dynamically generated analytics tracking script at /assets/analytics.js
+ * Template variables are replaced at serve time with app-specific values.
+ * Only serves the script when built-in analytics is enabled.
+ *
+ * @param honoApp - Hono application instance
+ * @param app - Application configuration
+ * @returns Hono app with analytics script route configured
+ */
+export function setupAnalyticsScriptRoute(honoApp: Readonly<Hono>, app: App): Readonly<Hono> {
+  const analyticsEnabled = app.analytics !== undefined && app.analytics !== false
+
+  if (!analyticsEnabled) return honoApp
+
+  const respectDoNotTrack =
+    typeof app.analytics === 'object' ? app.analytics.respectDoNotTrack !== false : true
+  const scriptContent = generateTrackingScript(
+    '/api/analytics/collect',
+    app.name,
+    respectDoNotTrack
+  )
+
+  return honoApp.get('/assets/analytics.js', (c) => {
+    return c.text(scriptContent, 200, {
+      'Content-Type': 'application/javascript',
+      'Cache-Control': `public, max-age=${STATIC_ASSET_CACHE_DURATION_SECONDS}`,
+    })
+  })
 }
 
 /**
@@ -150,6 +183,9 @@ export function setupStaticAssets(
   app: App,
   publicDir?: string
 ): Readonly<Hono> {
-  const withAssets = setupJavaScriptRoutes(setupCSSRoute(honoApp, app))
+  const withAssets = setupAnalyticsScriptRoute(
+    setupJavaScriptRoutes(setupCSSRoute(honoApp, app)),
+    app
+  )
   return publicDir ? setupPublicDirRoute(withAssets, publicDir) : withAssets
 }

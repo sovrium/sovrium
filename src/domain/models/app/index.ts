@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { BuiltInAnalyticsSchema } from './analytics'
 import { AuthSchema } from './auth'
 import { BUILT_IN_ROLES } from './auth/roles'
 import { ComponentsSchema } from './components'
@@ -117,6 +118,15 @@ export const AppSchema = Schema.Struct({
    * and optional plugins (admin, organization) based on application requirements.
    */
   auth: Schema.optional(AuthSchema),
+
+  /**
+   * Built-in analytics configuration (optional).
+   *
+   * Enables first-party, privacy-friendly analytics tracking without cookies
+   * or external dependencies. Configure data retention, excluded paths,
+   * session timeout, and Do Not Track behavior.
+   */
+  analytics: Schema.optional(BuiltInAnalyticsSchema),
 
   /**
    * Reusable UI components (optional).
@@ -236,6 +246,7 @@ export type App = Schema.Schema.Type<typeof AppSchema>
 export type AppEncoded = Schema.Schema.Encoded<typeof AppSchema>
 
 // Re-export all domain model schemas and types for convenient imports
+export * from './analytics'
 export * from './name'
 export * from './version'
 export * from './description'

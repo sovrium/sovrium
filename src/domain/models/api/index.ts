@@ -20,6 +20,9 @@
  * - request: Request input validation
  */
 
+// Analytics schemas
+export * from './analytics'
+
 // Common schemas
 export * from './common'
 

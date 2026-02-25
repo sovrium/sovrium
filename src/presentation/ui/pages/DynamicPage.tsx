@@ -26,6 +26,7 @@ type DynamicPageProps = {
   readonly languages?: Languages
   readonly detectedLanguage?: string
   readonly routeParams?: RouteParams
+  readonly builtInAnalyticsEnabled?: boolean
 }
 
 type DynamicPageHeadProps = {
@@ -39,6 +40,7 @@ type DynamicPageHeadProps = {
   readonly lang: string
   readonly languages?: Languages
   readonly scripts: ReturnType<typeof groupScriptsByPosition>
+  readonly builtInAnalyticsEnabled?: boolean
 }
 
 /**
@@ -80,6 +82,7 @@ function DynamicPageHead({
   lang,
   languages,
   scripts,
+  builtInAnalyticsEnabled,
 }: DynamicPageHeadProps): Readonly<ReactElement> {
   return (
     <head>
@@ -95,6 +98,12 @@ function DynamicPageHead({
         languages={languages}
         scripts={scripts}
       />
+      {builtInAnalyticsEnabled && (
+        <script
+          defer
+          src="/assets/analytics.js"
+        />
+      )}
     </head>
   )
 }
@@ -231,6 +240,7 @@ export function DynamicPage({
   languages,
   detectedLanguage,
   routeParams,
+  builtInAnalyticsEnabled,
 }: DynamicPageProps): Readonly<ReactElement> {
   const metadata = extractPageMetadata(page, theme, languages, detectedLanguage)
   const langConfig = resolvePageLanguage(page, languages, detectedLanguage)
@@ -254,6 +264,7 @@ export function DynamicPage({
         lang={langConfig.lang}
         languages={languages}
         scripts={scripts}
+        builtInAnalyticsEnabled={builtInAnalyticsEnabled}
       />
       <DynamicPageBody
         page={page}

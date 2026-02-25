@@ -10,6 +10,25 @@ import { findMatchingRoute } from '@/domain/utils/route-matcher'
 import { DefaultHomePage } from '@/presentation/ui/pages/DefaultHomePage'
 import { DynamicPage } from '@/presentation/ui/pages/DynamicPage'
 import type { App } from '@/domain/models/app'
+import type { BuiltInAnalytics } from '@/domain/models/app/analytics'
+
+/**
+ * Check if built-in analytics tracking should be injected for a given page path
+ *
+ * Returns true when analytics is configured and enabled, and the page path
+ * is not in the excludedPaths list.
+ */
+function shouldInjectAnalytics(analytics: BuiltInAnalytics | undefined, pagePath: string): boolean {
+  if (analytics === undefined || analytics === false) return false
+  if (analytics === true) return true
+  const { excludedPaths } = analytics
+  if (!excludedPaths || excludedPaths.length === 0) return true
+  return !excludedPaths.some((pattern: string) => {
+    // Support simple glob patterns: * matches any segment, ** matches anything
+    const regex = new RegExp('^' + pattern.replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*') + '$')
+    return regex.test(pagePath)
+  })
+}
 
 /**
  * Renders a page by path to HTML string for server-side rendering
@@ -45,6 +64,8 @@ export function renderPageByPath(
     return undefined
   }
 
+  const injectAnalytics = shouldInjectAnalytics(app.analytics, page.path)
+
   const html = renderToString(
     <DynamicPage
       page={page}
@@ -53,6 +74,7 @@ export function renderPageByPath(
       languages={app.languages}
       detectedLanguage={detectedLanguage}
       routeParams={match.params}
+      builtInAnalyticsEnabled={injectAnalytics}
     />
   )
 

@@ -9,7 +9,12 @@ import { Effect, Data } from 'effect'
 import { healthResponseSchema, type HealthResponse } from '@/domain/models/api/health'
 import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
 import { authMiddleware, requireAuth } from '@/presentation/api/middleware/auth'
-import { chainTableRoutes, chainAuthRoutes, chainActivityRoutes } from '@/presentation/api/routes'
+import {
+  chainTableRoutes,
+  chainAuthRoutes,
+  chainActivityRoutes,
+  chainAnalyticsRoutes,
+} from '@/presentation/api/routes'
 import {
   extractClientIp,
   isTablesRateLimitExceeded,
@@ -228,6 +233,7 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   // This extracts session from Better Auth and attaches to context
   // Activity endpoints ALWAYS require authentication (even when app.auth is not configured)
   // Table endpoints only require authentication if auth is configured
+  // Analytics query endpoints require authentication; collect endpoint is public
   const honoWithAuth = app.auth
     ? honoWithActivityRateLimit
         .use('/api/tables', authMiddleware(auth))
@@ -238,9 +244,24 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/activity', requireAuth())
         .use('/api/activity/*', authMiddleware(auth))
         .use('/api/activity/*', requireAuth())
+        .use('/api/analytics/overview', authMiddleware(auth))
+        .use('/api/analytics/overview', requireAuth())
+        .use('/api/analytics/pages', authMiddleware(auth))
+        .use('/api/analytics/pages', requireAuth())
+        .use('/api/analytics/referrers', authMiddleware(auth))
+        .use('/api/analytics/referrers', requireAuth())
+        .use('/api/analytics/devices', authMiddleware(auth))
+        .use('/api/analytics/devices', requireAuth())
+        .use('/api/analytics/campaigns', authMiddleware(auth))
+        .use('/api/analytics/campaigns', requireAuth())
     : honoWithActivityRateLimit
         .use('/api/activity', requireAuth())
         .use('/api/activity/*', requireAuth())
+        .use('/api/analytics/overview', requireAuth())
+        .use('/api/analytics/pages', requireAuth())
+        .use('/api/analytics/referrers', requireAuth())
+        .use('/api/analytics/devices', requireAuth())
+        .use('/api/analytics/campaigns', requireAuth())
 
   // Chain table routes (always register, returns empty array if no tables configured)
   // Routes now have access to session via c.var.session
@@ -250,8 +271,11 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   // Chain activity routes (activity log access)
   const honoWithActivity = chainActivityRoutes(honoWithTables)
 
+  // Chain analytics routes (page view collection + query endpoints)
+  const honoWithAnalytics = chainAnalyticsRoutes(honoWithActivity, app.name)
+
   // Chain auth routes (role manipulation prevention)
-  return chainAuthRoutes(honoWithActivity, auth)
+  return chainAuthRoutes(honoWithAnalytics, auth)
 }
 
 /**

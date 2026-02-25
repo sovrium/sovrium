@@ -15,6 +15,13 @@
       "when": 1771294380601,
       "tag": "0001_sticky_emma_frost",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772027990991,
+      "tag": "0002_conscious_madame_hydra",
+      "breakpoints": true
     }
   ]
 }

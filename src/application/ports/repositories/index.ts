@@ -10,6 +10,19 @@ export {
   ActivityLogDatabaseError,
   type ActivityLog,
 } from './activity-log-repository'
+export {
+  AnalyticsRepository,
+  AnalyticsDatabaseError,
+  type PageViewInput,
+  type AnalyticsQueryParams,
+  type TimeSeriesPoint,
+  type AnalyticsSummary,
+  type TopPage,
+  type TopReferrer,
+  type BreakdownEntry,
+  type DeviceBreakdown,
+  type CampaignEntry,
+} from './analytics-repository'
 export { ActivityRepository, type ActivityHistoryEntry } from './activity-repository'
 export { AuthRepository, AuthDatabaseError } from './auth-repository'
 export { BatchRepository, type BatchValidationError, type UpsertResult } from './batch-repository'

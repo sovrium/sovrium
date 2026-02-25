@@ -8,3 +8,4 @@
 export { chainTableRoutes } from './tables'
 export { chainAuthRoutes } from './auth'
 export { chainActivityRoutes } from './activity'
+export { chainAnalyticsRoutes } from './analytics'
