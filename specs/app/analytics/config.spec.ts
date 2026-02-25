@@ -27,7 +27,7 @@ test.describe('Analytics Configuration', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-CONFIG-001: should enable analytics by default when analytics property exists',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
