@@ -61,10 +61,10 @@ analytics:
 | AC-004 | retentionDays rejects values below 1                           | `APP-ANALYTICS-CONFIG-004`        | ✅     |
 | AC-005 | retentionDays rejects values above 730                         | `APP-ANALYTICS-CONFIG-005`        | ✅     |
 | AC-006 | Default sessionTimeout is 30 minutes when not specified        | `APP-ANALYTICS-CONFIG-006`        | ✅     |
-| AC-007 | sessionTimeout rejects values below 1                          | `APP-ANALYTICS-CONFIG-007`        | ⏳     |
-| AC-008 | sessionTimeout rejects values above 120                        | `APP-ANALYTICS-CONFIG-008`        | ⏳     |
-| AC-009 | excludedPaths accepts glob patterns                            | `APP-ANALYTICS-CONFIG-009`        | ⏳     |
-| AC-010 | respectDoNotTrack defaults to true when not specified          | `APP-ANALYTICS-CONFIG-010`        | ⏳     |
+| AC-007 | sessionTimeout rejects values below 1                          | `APP-ANALYTICS-CONFIG-007`        | ✅     |
+| AC-008 | sessionTimeout rejects values above 120                        | `APP-ANALYTICS-CONFIG-008`        | ✅     |
+| AC-009 | excludedPaths accepts glob patterns                            | `APP-ANALYTICS-CONFIG-009`        | ✅     |
+| AC-010 | respectDoNotTrack defaults to true when not specified          | `APP-ANALYTICS-CONFIG-010`        | ✅     |
 | AC-011 | App starts successfully without analytics property             | `APP-ANALYTICS-CONFIG-011`        | ⏳     |
 | AC-012 | Analytics configuration validates and app starts (regression)  | `APP-ANALYTICS-CONFIG-REGRESSION` | ✅     |
 

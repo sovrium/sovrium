@@ -162,7 +162,7 @@ test.describe('Analytics Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-CONFIG-007: should reject sessionTimeout below 1',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -178,7 +178,7 @@ test.describe('Analytics Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-CONFIG-008: should reject sessionTimeout above 120',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
@@ -194,7 +194,7 @@ test.describe('Analytics Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-CONFIG-009: should accept excludedPaths with glob patterns',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -227,7 +227,7 @@ test.describe('Analytics Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-CONFIG-010: should default respectDoNotTrack to true when not specified',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
