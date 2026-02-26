@@ -162,7 +162,7 @@ test.describe('Analytics Data Retention', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-RETENTION-004: should run purge without error when no expired records exist',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
