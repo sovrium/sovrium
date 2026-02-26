@@ -261,7 +261,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-OVERVIEW-007: should respect granularity=month in time series',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
