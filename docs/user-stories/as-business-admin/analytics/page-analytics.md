@@ -182,7 +182,7 @@ GET /api/analytics/overview?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z&gr
 
 | ID     | Criterion                                              | E2E Spec                            | Status |
 | ------ | ------------------------------------------------------ | ----------------------------------- | ------ |
-| AC-001 | Returns 200 with summary and time series data          | `API-ANALYTICS-OVERVIEW-001`        | ⏳     |
+| AC-001 | Returns 200 with summary and time series data          | `API-ANALYTICS-OVERVIEW-001`        | ✅     |
 | AC-002 | Returns 401 when user is not authenticated             | `API-ANALYTICS-OVERVIEW-002`        | ✅     |
 | AC-003 | Summary includes pageViews, uniqueVisitors, sessions   | `API-ANALYTICS-OVERVIEW-003`        | ⏳     |
 | AC-004 | Time series respects granularity=hour                  | `API-ANALYTICS-OVERVIEW-004`        | ⏳     |
