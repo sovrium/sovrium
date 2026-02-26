@@ -47,7 +47,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
   // NOTE: COLLECT-002 and COLLECT-003 overlap with APP-ANALYTICS-CONFIG-001 and
   // APP-ANALYTICS-CONFIG-002 (same script-injection checks). Kept here for API-domain
   // completeness; the app/ tests validate schema-level behavior independently.
-  test.fixme(
+  test(
     'API-ANALYTICS-COLLECT-002: should inject tracking script into pages when analytics enabled',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
