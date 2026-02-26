@@ -67,7 +67,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-COLLECT-003: should NOT inject tracking script when analytics disabled',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
