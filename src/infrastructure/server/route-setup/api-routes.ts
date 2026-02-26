@@ -271,19 +271,18 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   // Chain activity routes (activity log access)
   const honoWithActivity = chainActivityRoutes(honoWithTables)
 
-  // Chain analytics routes (page view collection + query endpoints)
-  // Extract retentionDays, excludedPaths, and respectDoNotTrack from analytics config
-  const retentionDays = typeof app.analytics === 'object' ? app.analytics.retentionDays : undefined
-  const excludedPaths = typeof app.analytics === 'object' ? app.analytics.excludedPaths : undefined
-  const respectDoNotTrack =
-    typeof app.analytics === 'object' ? app.analytics.respectDoNotTrack : undefined
-  const honoWithAnalytics = chainAnalyticsRoutes(
-    honoWithActivity,
-    app.name,
-    retentionDays,
-    excludedPaths,
-    respectDoNotTrack
-  )
+  // Chain analytics routes only when analytics is enabled (not undefined, not false)
+  // When analytics is not configured, all /api/analytics/* endpoints return 404 (no routes registered)
+  const analyticsEnabled = app.analytics !== undefined && app.analytics !== false
+  const honoWithAnalytics = analyticsEnabled
+    ? chainAnalyticsRoutes(
+        honoWithActivity,
+        app.name,
+        typeof app.analytics === 'object' ? app.analytics.retentionDays : undefined,
+        typeof app.analytics === 'object' ? app.analytics.excludedPaths : undefined,
+        typeof app.analytics === 'object' ? app.analytics.respectDoNotTrack : undefined
+      )
+    : honoWithActivity
 
   // Chain auth routes (role manipulation prevention)
   return chainAuthRoutes(honoWithAnalytics, auth)
