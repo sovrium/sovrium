@@ -24,7 +24,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ANALYTICS-OVERVIEW-001: should return 200 with summary and time series data',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
