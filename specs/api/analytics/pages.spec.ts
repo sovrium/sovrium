@@ -72,7 +72,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-PAGES-002: should return 401 when user is not authenticated',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
@@ -181,7 +181,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-PAGES-005: should return 400 when from parameter is missing',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -203,7 +203,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-PAGES-006: should return empty array when no page views exist',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
