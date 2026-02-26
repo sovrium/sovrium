@@ -272,14 +272,17 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
   const honoWithActivity = chainActivityRoutes(honoWithTables)
 
   // Chain analytics routes (page view collection + query endpoints)
-  // Extract retentionDays and excludedPaths from analytics config
+  // Extract retentionDays, excludedPaths, and respectDoNotTrack from analytics config
   const retentionDays = typeof app.analytics === 'object' ? app.analytics.retentionDays : undefined
   const excludedPaths = typeof app.analytics === 'object' ? app.analytics.excludedPaths : undefined
+  const respectDoNotTrack =
+    typeof app.analytics === 'object' ? app.analytics.respectDoNotTrack : undefined
   const honoWithAnalytics = chainAnalyticsRoutes(
     honoWithActivity,
     app.name,
     retentionDays,
-    excludedPaths
+    excludedPaths,
+    respectDoNotTrack
   )
 
   // Chain auth routes (role manipulation prevention)

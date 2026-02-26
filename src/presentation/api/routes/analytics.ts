@@ -76,13 +76,21 @@ async function handleCollect(
   c: Context,
   appName: string,
   retentionDays?: number,
-  excludedPaths?: readonly string[]
+  excludedPaths?: readonly string[],
+  respectDoNotTrack?: boolean
 ): Promise<Response> {
   const body = c.req.valid('json' as never)
   const pagePath = (body as { readonly p: string }).p
 
   // Check if path is excluded - return 204 without recording
   if (matchesAnyGlobPattern(excludedPaths, pagePath)) {
+    // eslint-disable-next-line unicorn/no-null
+    return c.body(null, 204)
+  }
+
+  // Check Do Not Track header when respectDoNotTrack is enabled
+  const dntHeader = c.req.header('DNT')
+  if (respectDoNotTrack && dntHeader === '1') {
     // eslint-disable-next-line unicorn/no-null
     return c.body(null, 204)
   }
@@ -286,17 +294,19 @@ async function handleCampaigns(c: Context): Promise<Response> {
  * @param appName - Application name for multi-tenant analytics
  * @param retentionDays - Number of days to retain analytics data (triggers cleanup on collect)
  * @param excludedPaths - Glob patterns for paths excluded from tracking
+ * @param respectDoNotTrack - Whether to honor Do Not Track (DNT:1) header
  * @returns Hono app with analytics routes chained
  */
 export function chainAnalyticsRoutes<T extends Hono>(
   honoApp: T,
   appName: string,
   retentionDays?: number,
-  excludedPaths?: readonly string[]
+  excludedPaths?: readonly string[],
+  respectDoNotTrack?: boolean
 ): T {
   return honoApp
     .post('/api/analytics/collect', zValidator('json', analyticsCollectSchema), (c) =>
-      handleCollect(c, appName, retentionDays, excludedPaths)
+      handleCollect(c, appName, retentionDays, excludedPaths, respectDoNotTrack)
     )
     .get('/api/analytics/overview', handleOverview)
     .get('/api/analytics/pages', handlePages)
