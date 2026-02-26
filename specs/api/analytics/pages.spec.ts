@@ -135,7 +135,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-PAGES-004: should sort pages by pageViews descending',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
