@@ -1,2 +1,0 @@
-ALTER TABLE "system"."analytics_page_views" ALTER COLUMN "app_name" SET DEFAULT 'default';--> statement-breakpoint
-ALTER TABLE "system"."analytics_page_views" ALTER COLUMN "session_hash" SET DEFAULT gen_random_uuid();

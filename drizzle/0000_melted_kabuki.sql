@@ -90,17 +90,41 @@ CREATE TABLE "system"."schema_checksum" (
 );
 --> statement-breakpoint
 CREATE TABLE "system"."activity_logs" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text,
 	"session_id" text,
 	"action" text NOT NULL,
 	"table_name" text NOT NULL,
-	"table_id" text NOT NULL,
+	"table_id" text,
 	"record_id" text NOT NULL,
 	"changes" jsonb,
 	"ip_address" text,
 	"user_agent" text
+);
+--> statement-breakpoint
+CREATE TABLE "system"."analytics_page_views" (
+	"id" text PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"timestamp" timestamp with time zone DEFAULT now() NOT NULL,
+	"app_name" text DEFAULT 'default' NOT NULL,
+	"page_path" text NOT NULL,
+	"page_title" text,
+	"visitor_hash" text NOT NULL,
+	"session_hash" text DEFAULT gen_random_uuid() NOT NULL,
+	"is_entrance" boolean DEFAULT false NOT NULL,
+	"referrer_url" text,
+	"referrer_domain" text,
+	"utm_source" text,
+	"utm_medium" text,
+	"utm_campaign" text,
+	"utm_content" text,
+	"utm_term" text,
+	"device_type" text,
+	"browser_name" text,
+	"os_name" text,
+	"language" text,
+	"screen_width" smallint,
+	"screen_height" smallint
 );
 --> statement-breakpoint
 CREATE TABLE "system"."record_comments" (
@@ -128,6 +152,12 @@ CREATE INDEX "activity_logs_created_at_idx" ON "system"."activity_logs" USING bt
 CREATE INDEX "activity_logs_user_created_at_idx" ON "system"."activity_logs" USING btree ("user_id","created_at");--> statement-breakpoint
 CREATE INDEX "activity_logs_table_record_idx" ON "system"."activity_logs" USING btree ("table_name","record_id");--> statement-breakpoint
 CREATE INDEX "activity_logs_action_idx" ON "system"."activity_logs" USING btree ("action");--> statement-breakpoint
+CREATE INDEX "analytics_pv_app_timestamp_idx" ON "system"."analytics_page_views" USING btree ("app_name","timestamp");--> statement-breakpoint
+CREATE INDEX "analytics_pv_app_visitor_timestamp_idx" ON "system"."analytics_page_views" USING btree ("app_name","visitor_hash","timestamp");--> statement-breakpoint
+CREATE INDEX "analytics_pv_app_path_timestamp_idx" ON "system"."analytics_page_views" USING btree ("app_name","page_path","timestamp");--> statement-breakpoint
+CREATE INDEX "analytics_pv_app_referrer_idx" ON "system"."analytics_page_views" USING btree ("app_name","referrer_domain");--> statement-breakpoint
+CREATE INDEX "analytics_pv_app_utm_source_idx" ON "system"."analytics_page_views" USING btree ("app_name","utm_source");--> statement-breakpoint
+CREATE INDEX "analytics_pv_app_device_idx" ON "system"."analytics_page_views" USING btree ("app_name","device_type");--> statement-breakpoint
 CREATE INDEX "record_comments_record_created_idx" ON "system"."record_comments" USING btree ("table_id","record_id","created_at");--> statement-breakpoint
 CREATE INDEX "record_comments_user_created_idx" ON "system"."record_comments" USING btree ("user_id","created_at");--> statement-breakpoint
 CREATE INDEX "record_comments_deleted_at_idx" ON "system"."record_comments" USING btree ("deleted_at");
