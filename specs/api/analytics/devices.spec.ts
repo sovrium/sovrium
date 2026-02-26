@@ -226,7 +226,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-DEVICES-006: should include percentage calculation in each breakdown',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
