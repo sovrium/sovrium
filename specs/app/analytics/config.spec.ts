@@ -139,7 +139,7 @@ test.describe('Analytics Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-CONFIG-006: should default sessionTimeout to 30 minutes when not specified',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
