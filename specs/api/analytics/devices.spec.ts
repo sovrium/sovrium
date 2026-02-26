@@ -24,7 +24,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ANALYTICS-DEVICES-001: should return 200 with device type breakdown',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
