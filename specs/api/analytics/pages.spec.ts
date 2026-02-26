@@ -24,7 +24,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ANALYTICS-PAGES-001: should return 200 with pages ranked by page views',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
