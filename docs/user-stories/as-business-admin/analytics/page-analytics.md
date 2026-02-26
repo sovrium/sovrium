@@ -127,7 +127,7 @@ Content-Type: application/json
 | AC-009 | Referrer domain is extracted from full referrer URL           | `API-ANALYTICS-COLLECT-009`        | ✅     |
 | AC-010 | UTM parameters are captured from tracking payload             | `API-ANALYTICS-COLLECT-010`        | ✅     |
 | AC-011 | Excluded paths are not tracked                                | `API-ANALYTICS-COLLECT-011`        | ✅     |
-| AC-012 | Do Not Track is honored when respectDoNotTrack is true        | `API-ANALYTICS-COLLECT-012`        | ⏳     |
+| AC-012 | Do Not Track is honored when respectDoNotTrack is true        | `API-ANALYTICS-COLLECT-012`        | ✅     |
 | AC-013 | Returns 400 when page path is missing                         | `API-ANALYTICS-COLLECT-013`        | ✅     |
 | AC-014 | Returns 404 when analytics is not configured                  | `API-ANALYTICS-COLLECT-014`        | ⏳     |
 | AC-015 | Page view collection works end-to-end (regression)            | `API-ANALYTICS-COLLECT-REGRESSION` | ⏳     |
