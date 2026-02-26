@@ -356,7 +356,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ANALYTICS-DEVICES-REGRESSION: device breakdown query works end-to-end',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
