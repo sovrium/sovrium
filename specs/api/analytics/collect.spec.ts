@@ -220,7 +220,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-COLLECT-007: should extract OS name from UA string',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -250,7 +250,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-COLLECT-008: should extract language from Accept-Language header',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -278,7 +278,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-COLLECT-009: should extract referrer domain from full referrer URL',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -309,7 +309,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-COLLECT-010: should capture UTM parameters from tracking payload',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -405,7 +405,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-COLLECT-013: should return 400 when page path is missing',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
