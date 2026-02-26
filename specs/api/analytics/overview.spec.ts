@@ -176,7 +176,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-OVERVIEW-005: should respect granularity=day in time series',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
