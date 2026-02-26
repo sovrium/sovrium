@@ -246,7 +246,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-SOURCES-007: should include source medium campaign fields in campaigns',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
