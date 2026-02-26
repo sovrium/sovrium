@@ -396,7 +396,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-COLLECT-011: should not track excluded paths',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
