@@ -348,7 +348,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ANALYTICS-SOURCES-REGRESSION: traffic sources query works end-to-end',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
