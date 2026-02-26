@@ -473,7 +473,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-COLLECT-014: should return 404 when analytics is not configured',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
