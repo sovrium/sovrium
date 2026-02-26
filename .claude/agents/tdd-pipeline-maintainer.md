@@ -137,9 +137,11 @@ YOUR PRIMARY RESPONSIBILITIES:
      * If a recent commit correlates with the failure onset, use `git diff <commit>~1 <commit>` to pinpoint the change
 
    - **THEN**: If history and recent changes do not explain the issue, perform DEEP investigation:
-     * Use `gh run view <run-id> --log` to read full GitHub Actions logs
-     * Use `gh api` to fetch additional run metadata if needed
-     * Check workflow run history with `gh run list --workflow=<workflow>` to identify recurring vs. new failures
+     * **For PR/issue operations**: Prefer GitHub MCP tools over `gh` CLI (see CLAUDE.md "GitHub Operations" section for full mapping). Use `mcp__github__pull_request_read`, `mcp__github__list_pull_requests`, `mcp__github__add_issue_comment`, etc.
+     * **For GitHub Actions runs** (no MCP equivalent — must use `gh` CLI):
+       - Use `gh run view <run-id> --log` to read full GitHub Actions logs
+       - Use `gh api` to fetch additional run metadata if needed
+       - Check workflow run history with `gh run list --workflow=<workflow>` to identify recurring vs. new failures
      * Distinguish failure types: workflow config error, Claude Code runtime crash, SDK crash (e.g., AJV validation), network timeout, cost limit hit
      * **Never assume the cause** -- always verify by reading actual logs
 
@@ -236,7 +238,7 @@ You: "I've investigated the Claude Code Action crash reported in run #12345.
 3. Conclusion: This is a NEW issue, proceeding to deep investigation
 
 **Deep Investigation Steps**:
-1. Fetched full logs: `gh run view 12345 --log`
+1. Fetched full logs: `gh run view 12345 --log` (Actions runs — no MCP equivalent)
 2. Error pattern identified: 'AJV validation failed: maxLength exceeded in sdk.mjs'
 3. Searched anthropics/claude-code-action issues: Found #892 (SDK v0.0.46 bug)
 4. Checked workflow run history: This started after SDK auto-update to v0.0.46 (3 days ago)

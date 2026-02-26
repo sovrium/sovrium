@@ -221,6 +221,12 @@ When reviewing agents, be aware of documented architectural exceptions:
 
 Agents that reference these exceptions (e.g., `codebase-refactor-auditor` auditing Zod usage) should be aware of the enforcement mechanism.
 
+### GitHub MCP Tool Preference
+
+When reviewing agents that interact with GitHub, verify they prefer **GitHub MCP tools** (`mcp__github__*`) over `gh` CLI for PR and issue operations. See CLAUDE.md "GitHub Operations" section for the full mapping.
+
+**Key rule**: MCP tools for PR/issue operations, `gh` CLI only for GitHub Actions run management (`gh run view/list/cancel`, `gh workflow run`, `gh api` for Actions endpoints) where no MCP equivalent exists.
+
 ## Agent Memory Standard
 
 Every agent MUST have persistent memory enabled. This allows agents to build institutional knowledge across sessions.

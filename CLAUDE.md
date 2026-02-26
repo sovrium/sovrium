@@ -344,13 +344,13 @@ sovrium/
 
 **Quick Commands**:
 ```bash
-# View active TDD PRs
+# View active TDD PRs (prefer GitHub MCP: mcp__github__search_pull_requests with label filter)
 gh pr list --label "tdd-automation"
 
-# View PRs needing manual intervention
+# View PRs needing manual intervention (prefer GitHub MCP: mcp__github__search_pull_requests)
 gh pr list --label "tdd-automation:manual-intervention"
 
-# Manually trigger PR creator
+# Manually trigger PR creator (no MCP equivalent — must use gh CLI)
 gh workflow run tdd-pr-creator.yml
 ```
 
@@ -361,6 +361,32 @@ gh workflow run tdd-pr-creator.yml
 **Cost Protection**: $20 per run (Opus 4.6, all attempts), $200/day, $1000/week limits with 80% warnings
 
 **Full Documentation**: `@docs/development/tdd-automation-pipeline.md`
+
+## GitHub Operations (MCP vs gh CLI)
+
+**Prefer GitHub MCP tools** over `gh` CLI for all PR and issue operations. MCP tools provide structured, type-safe access without shell escaping or output parsing.
+
+| Operation | MCP Tool (Preferred) | `gh` CLI (Fallback) |
+|-----------|---------------------|---------------------|
+| List/search PRs | `mcp__github__list_pull_requests`, `search_pull_requests` | `gh pr list` |
+| View PR details | `mcp__github__pull_request_read` (method: `get`) | `gh pr view` |
+| View PR diff | `mcp__github__pull_request_read` (method: `get_diff`) | `gh pr diff` |
+| View PR status | `mcp__github__pull_request_read` (method: `get_status`) | `gh pr checks` |
+| View PR comments | `mcp__github__pull_request_read` (method: `get_comments`) | `gh pr view --json comments` |
+| Create PR | `mcp__github__create_pull_request` | `gh pr create` |
+| Update PR | `mcp__github__update_pull_request` | `gh pr edit` |
+| Merge PR | `mcp__github__merge_pull_request` | `gh pr merge` |
+| Comment on PR/issue | `mcp__github__add_issue_comment` | `gh pr comment` / `gh issue comment` |
+| List issues | `mcp__github__list_issues`, `search_issues` | `gh issue list` |
+| View issue | `mcp__github__issue_read` | `gh issue view` |
+| Create/update issue | `mcp__github__issue_write` | `gh issue create` / `gh issue edit` |
+| Create branch | `mcp__github__create_branch` | `gh api` / `git` |
+
+**Must use `gh` CLI** (no MCP equivalent):
+- `gh run view/list/cancel` — GitHub Actions run management
+- `gh workflow run` — Trigger workflows
+- `gh api repos/.../actions/...` — Custom Actions API calls
+- `gh run download` — Download workflow artifacts
 
 ## Key Differences from Typical Stacks
 
