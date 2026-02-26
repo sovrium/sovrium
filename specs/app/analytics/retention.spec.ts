@@ -248,7 +248,7 @@ test.describe('Analytics Data Retention', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-RETENTION-REGRESSION: data retention purge works correctly',
     { tag: '@regression' },
     async ({ startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
