@@ -111,7 +111,7 @@ test.describe('Analytics Data Retention', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-RETENTION-003: should preserve records within retention period',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
