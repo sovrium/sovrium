@@ -192,7 +192,7 @@ GET /api/analytics/overview?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z&gr
 | AC-008 | Returns 400 when from parameter is missing             | `API-ANALYTICS-OVERVIEW-008`        | ✅     |
 | AC-009 | Returns 400 when to parameter is missing               | `API-ANALYTICS-OVERVIEW-009`        | ✅     |
 | AC-010 | Returns empty data for periods with no traffic         | `API-ANALYTICS-OVERVIEW-010`        | ✅     |
-| AC-011 | Analytics overview query works end-to-end (regression) | `API-ANALYTICS-OVERVIEW-REGRESSION` | ⏳     |
+| AC-011 | Analytics overview query works end-to-end (regression) | `API-ANALYTICS-OVERVIEW-REGRESSION` | ✅     |
 
 ### Implementation References
 
