@@ -8,6 +8,7 @@
 import { zValidator } from '@hono/zod-validator'
 import { Effect } from 'effect'
 import { collectPageView } from '@/application/use-cases/analytics/collect-page-view'
+import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
 import { queryCampaigns } from '@/application/use-cases/analytics/query-campaigns'
 import { queryDevices } from '@/application/use-cases/analytics/query-devices'
 import { queryOverview } from '@/application/use-cases/analytics/query-overview'
@@ -67,33 +68,44 @@ function parseAnalyticsQuery(c: Context):
  * Handle POST /api/analytics/collect — public endpoint, no auth required
  *
  * Records a page view with privacy-safe visitor hashing.
+ * Also triggers retention cleanup (fire-and-forget) to purge stale records.
  * Returns 204 No Content for fastest response.
  */
-async function handleCollect(c: Context, appName: string): Promise<Response> {
+async function handleCollect(
+  c: Context,
+  appName: string,
+  retentionDays?: number
+): Promise<Response> {
   const body = c.req.valid('json' as never)
   const ip = extractClientIp(c.req.header('x-forwarded-for'))
   const userAgent = c.req.header('user-agent') ?? ''
   const acceptLanguage = c.req.header('accept-language') ?? ''
 
-  // Fire-and-forget: record page view asynchronously (non-blocking response)
+  // Fire-and-forget: record page view and purge stale data asynchronously
   // eslint-disable-next-line functional/no-expression-statements
   void Effect.runPromise(
-    collectPageView({
-      appName,
-      pagePath: (body as { readonly p: string }).p,
-      pageTitle: (body as { readonly t?: string }).t,
-      referrerUrl: (body as { readonly r?: string }).r,
-      ip,
-      userAgent,
-      acceptLanguage,
-      screenWidth: (body as { readonly sw?: number }).sw,
-      screenHeight: (body as { readonly sh?: number }).sh,
-      utmSource: (body as { readonly us?: string }).us,
-      utmMedium: (body as { readonly um?: string }).um,
-      utmCampaign: (body as { readonly uc?: string }).uc,
-      utmContent: (body as { readonly ux?: string }).ux,
-      utmTerm: (body as { readonly ut?: string }).ut,
-    }).pipe(
+    Effect.all(
+      [
+        collectPageView({
+          appName,
+          pagePath: (body as { readonly p: string }).p,
+          pageTitle: (body as { readonly t?: string }).t,
+          referrerUrl: (body as { readonly r?: string }).r,
+          ip,
+          userAgent,
+          acceptLanguage,
+          screenWidth: (body as { readonly sw?: number }).sw,
+          screenHeight: (body as { readonly sh?: number }).sh,
+          utmSource: (body as { readonly us?: string }).us,
+          utmMedium: (body as { readonly um?: string }).um,
+          utmCampaign: (body as { readonly uc?: string }).uc,
+          utmContent: (body as { readonly ux?: string }).ux,
+          utmTerm: (body as { readonly ut?: string }).ut,
+        }),
+        purgeOldAnalyticsData(appName, retentionDays),
+      ],
+      { concurrency: 'unbounded' }
+    ).pipe(
       Effect.provide(AnalyticsRepositoryLive),
       Effect.catchAll(() => Effect.void)
     )
@@ -262,12 +274,17 @@ async function handleCampaigns(c: Context): Promise<Response> {
  *
  * @param honoApp - Hono instance to chain routes onto
  * @param appName - Application name for multi-tenant analytics
+ * @param retentionDays - Number of days to retain analytics data (triggers cleanup on collect)
  * @returns Hono app with analytics routes chained
  */
-export function chainAnalyticsRoutes<T extends Hono>(honoApp: T, appName: string): T {
+export function chainAnalyticsRoutes<T extends Hono>(
+  honoApp: T,
+  appName: string,
+  retentionDays?: number
+): T {
   return honoApp
     .post('/api/analytics/collect', zValidator('json', analyticsCollectSchema), (c) =>
-      handleCollect(c, appName)
+      handleCollect(c, appName, retentionDays)
     )
     .get('/api/analytics/overview', handleOverview)
     .get('/api/analytics/pages', handlePages)

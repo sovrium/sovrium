@@ -7,8 +7,10 @@
 
 import { Console, Effect, Config } from 'effect'
 import { Hono } from 'hono'
+import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
 import { compileCSS } from '@/infrastructure/css/compiler'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
+import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics-repository-live'
 import {
   initializeSchema,
   type AuthConfigRequiredForUserFields,
@@ -69,13 +71,34 @@ export interface ServerConfig {
 export function createHonoApp(config: HonoAppConfig): Readonly<Hono> {
   const { app, renderNotFoundPage, renderErrorPage } = config
 
+  const honoApp = new Hono()
+
+  // Analytics retention cleanup middleware — purges stale page view records.
+  // Runs awaited on page requests to guarantee old data is removed before response.
+  const analyticsEnabled = app.analytics !== undefined && app.analytics !== false
+  if (analyticsEnabled) {
+    const retentionDays =
+      typeof app.analytics === 'object' ? app.analytics.retentionDays : undefined
+
+    honoApp.use('*', async (_c, next) => {
+      await Effect.runPromise(
+        purgeOldAnalyticsData(app.name, retentionDays).pipe(
+          Effect.provide(AnalyticsRepositoryLive),
+          Effect.catchAll(() => Effect.void)
+        )
+      )
+      // eslint-disable-next-line functional/no-expression-statements
+      await next()
+    })
+  }
+
   // Create base Hono app and chain API routes directly
   // This pattern is required for Hono RPC type inference to work correctly
   // Setup all routes by chaining the setup functions
   const honoWithRoutes = setupPageRoutes(
     setupStaticAssets(
       setupAuthRoutes(
-        setupAuthMiddleware(setupOpenApiRoutes(createApiRoutes(app, new Hono())), app),
+        setupAuthMiddleware(setupOpenApiRoutes(createApiRoutes(app, honoApp)), app),
         app
       ),
       app,

@@ -107,7 +107,7 @@ test.describe('Analytics Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-CONFIG-004: should reject retentionDays below 1',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {

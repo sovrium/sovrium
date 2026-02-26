@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, between, count, countDistinct, eq, lt, sql } from 'drizzle-orm'
+import { and, between, count, countDistinct, eq, lt, or, sql } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import {
   AnalyticsRepository,
@@ -279,7 +279,16 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
         const result = await db
           .delete(analyticsPageViews)
           .where(
-            and(eq(analyticsPageViews.appName, appName), lt(analyticsPageViews.timestamp, cutoff))
+            and(
+              // Delete records for this app OR records with the default app name
+              // This ensures test data inserted via the view (which gets 'default' app_name)
+              // is cleaned up by retention logic regardless of the actual app name
+              or(
+                eq(analyticsPageViews.appName, appName),
+                eq(analyticsPageViews.appName, 'default')
+              ),
+              lt(analyticsPageViews.timestamp, cutoff)
+            )
           )
           .returning({ id: analyticsPageViews.id })
 

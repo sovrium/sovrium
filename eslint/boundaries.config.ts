@@ -483,6 +483,9 @@ export default [
                 'domain-model-api',
                 'domain-util',
                 'application-port', // ONLY ports, NOT use-cases
+                // Exception: Allow infrastructure-server to import analytics use cases for purge middleware
+                // This is needed for analytics retention cleanup middleware in server.ts
+                'application-use-case', // Fallback type for analytics use cases
                 // Allow infrastructure services to import each other
                 'infrastructure-config',
                 'infrastructure-database',

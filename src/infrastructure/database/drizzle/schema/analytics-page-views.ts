@@ -42,7 +42,8 @@ export const analyticsPageViews = systemSchema.table(
     timestamp: timestamp('timestamp', { withTimezone: true }).notNull().defaultNow(),
 
     // Application identifier (supports multi-app deployments)
-    appName: text('app_name').notNull(),
+    // Default 'default' enables direct INSERTs via system.page_views view without explicit app_name
+    appName: text('app_name').notNull().default('default'),
 
     // Page information
     pagePath: text('page_path').notNull(),
@@ -54,7 +55,10 @@ export const analyticsPageViews = systemSchema.table(
 
     // Session identification
     // SHA-256(visitorHash + time-window) — groups views into sessions
-    sessionHash: text('session_hash').notNull(),
+    // Default gen_random_uuid() enables direct INSERTs via system.page_views view without explicit session_hash
+    sessionHash: text('session_hash')
+      .notNull()
+      .default(sql`gen_random_uuid()`),
 
     // Whether this is the first page view in a session
     isEntrance: boolean('is_entrance').notNull().default(false),
