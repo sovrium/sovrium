@@ -89,7 +89,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-OVERVIEW-003: should include pageViews uniqueVisitors sessions in summary',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
