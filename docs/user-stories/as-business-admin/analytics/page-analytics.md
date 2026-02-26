@@ -124,11 +124,11 @@ Content-Type: application/json
 | AC-006 | Browser name is extracted from UA string                      | `API-ANALYTICS-COLLECT-006`        | ✅     |
 | AC-007 | OS name is extracted from UA string                           | `API-ANALYTICS-COLLECT-007`        | ✅     |
 | AC-008 | Language is extracted from Accept-Language header             | `API-ANALYTICS-COLLECT-008`        | ✅     |
-| AC-009 | Referrer domain is extracted from full referrer URL           | `API-ANALYTICS-COLLECT-009`        | ⏳     |
-| AC-010 | UTM parameters are captured from tracking payload             | `API-ANALYTICS-COLLECT-010`        | ⏳     |
+| AC-009 | Referrer domain is extracted from full referrer URL           | `API-ANALYTICS-COLLECT-009`        | ✅     |
+| AC-010 | UTM parameters are captured from tracking payload             | `API-ANALYTICS-COLLECT-010`        | ✅     |
 | AC-011 | Excluded paths are not tracked                                | `API-ANALYTICS-COLLECT-011`        | ⏳     |
 | AC-012 | Do Not Track is honored when respectDoNotTrack is true        | `API-ANALYTICS-COLLECT-012`        | ⏳     |
-| AC-013 | Returns 400 when page path is missing                         | `API-ANALYTICS-COLLECT-013`        | ⏳     |
+| AC-013 | Returns 400 when page path is missing                         | `API-ANALYTICS-COLLECT-013`        | ✅     |
 | AC-014 | Returns 404 when analytics is not configured                  | `API-ANALYTICS-COLLECT-014`        | ⏳     |
 | AC-015 | Page view collection works end-to-end (regression)            | `API-ANALYTICS-COLLECT-REGRESSION` | ⏳     |
 
@@ -183,15 +183,15 @@ GET /api/analytics/overview?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z&gr
 | ID     | Criterion                                              | E2E Spec                            | Status |
 | ------ | ------------------------------------------------------ | ----------------------------------- | ------ |
 | AC-001 | Returns 200 with summary and time series data          | `API-ANALYTICS-OVERVIEW-001`        | ⏳     |
-| AC-002 | Returns 401 when user is not authenticated             | `API-ANALYTICS-OVERVIEW-002`        | ⏳     |
+| AC-002 | Returns 401 when user is not authenticated             | `API-ANALYTICS-OVERVIEW-002`        | ✅     |
 | AC-003 | Summary includes pageViews, uniqueVisitors, sessions   | `API-ANALYTICS-OVERVIEW-003`        | ⏳     |
 | AC-004 | Time series respects granularity=hour                  | `API-ANALYTICS-OVERVIEW-004`        | ⏳     |
 | AC-005 | Time series respects granularity=day                   | `API-ANALYTICS-OVERVIEW-005`        | ⏳     |
 | AC-006 | Time series respects granularity=week                  | `API-ANALYTICS-OVERVIEW-006`        | ⏳     |
 | AC-007 | Time series respects granularity=month                 | `API-ANALYTICS-OVERVIEW-007`        | ⏳     |
-| AC-008 | Returns 400 when from parameter is missing             | `API-ANALYTICS-OVERVIEW-008`        | ⏳     |
-| AC-009 | Returns 400 when to parameter is missing               | `API-ANALYTICS-OVERVIEW-009`        | ⏳     |
-| AC-010 | Returns empty data for periods with no traffic         | `API-ANALYTICS-OVERVIEW-010`        | ⏳     |
+| AC-008 | Returns 400 when from parameter is missing             | `API-ANALYTICS-OVERVIEW-008`        | ✅     |
+| AC-009 | Returns 400 when to parameter is missing               | `API-ANALYTICS-OVERVIEW-009`        | ✅     |
+| AC-010 | Returns empty data for periods with no traffic         | `API-ANALYTICS-OVERVIEW-010`        | ✅     |
 | AC-011 | Analytics overview query works end-to-end (regression) | `API-ANALYTICS-OVERVIEW-REGRESSION` | ⏳     |
 
 ### Implementation References
@@ -249,11 +249,11 @@ GET /api/analytics/pages?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z
 | ID     | Criterion                                          | E2E Spec                         | Status |
 | ------ | -------------------------------------------------- | -------------------------------- | ------ |
 | AC-001 | Returns 200 with pages ranked by page views        | `API-ANALYTICS-PAGES-001`        | ⏳     |
-| AC-002 | Returns 401 when user is not authenticated         | `API-ANALYTICS-PAGES-002`        | ⏳     |
+| AC-002 | Returns 401 when user is not authenticated         | `API-ANALYTICS-PAGES-002`        | ✅     |
 | AC-003 | Each page includes path, pageViews, uniqueVisitors | `API-ANALYTICS-PAGES-003`        | ⏳     |
 | AC-004 | Pages are sorted by pageViews descending           | `API-ANALYTICS-PAGES-004`        | ⏳     |
-| AC-005 | Returns 400 when from parameter is missing         | `API-ANALYTICS-PAGES-005`        | ⏳     |
-| AC-006 | Returns empty array when no page views exist       | `API-ANALYTICS-PAGES-006`        | ⏳     |
+| AC-005 | Returns 400 when from parameter is missing         | `API-ANALYTICS-PAGES-005`        | ✅     |
+| AC-006 | Returns empty array when no page views exist       | `API-ANALYTICS-PAGES-006`        | ✅     |
 | AC-007 | Supports filtering by date range                   | `API-ANALYTICS-PAGES-007`        | ⏳     |
 | AC-008 | Top pages query works end-to-end (regression)      | `API-ANALYTICS-PAGES-REGRESSION` | ⏳     |
 
@@ -324,14 +324,14 @@ GET /api/analytics/campaigns?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z
 | ID     | Criterion                                                   | E2E Spec                           | Status |
 | ------ | ----------------------------------------------------------- | ---------------------------------- | ------ |
 | AC-001 | GET /api/analytics/referrers returns top referrer domains   | `API-ANALYTICS-SOURCES-001`        | ⏳     |
-| AC-002 | Returns 401 when user is not authenticated (referrers)      | `API-ANALYTICS-SOURCES-002`        | ⏳     |
+| AC-002 | Returns 401 when user is not authenticated (referrers)      | `API-ANALYTICS-SOURCES-002`        | ✅     |
 | AC-003 | Referrers include null domain for direct traffic            | `API-ANALYTICS-SOURCES-003`        | ⏳     |
 | AC-004 | Referrers are sorted by pageViews descending                | `API-ANALYTICS-SOURCES-004`        | ⏳     |
 | AC-005 | GET /api/analytics/campaigns returns UTM campaign breakdown | `API-ANALYTICS-SOURCES-005`        | ⏳     |
-| AC-006 | Returns 401 when user is not authenticated (campaigns)      | `API-ANALYTICS-SOURCES-006`        | ⏳     |
+| AC-006 | Returns 401 when user is not authenticated (campaigns)      | `API-ANALYTICS-SOURCES-006`        | ✅     |
 | AC-007 | Campaigns include source, medium, campaign fields           | `API-ANALYTICS-SOURCES-007`        | ⏳     |
-| AC-008 | Returns 400 when from parameter is missing                  | `API-ANALYTICS-SOURCES-008`        | ⏳     |
-| AC-009 | Returns empty array when no referrer data exists            | `API-ANALYTICS-SOURCES-009`        | ⏳     |
+| AC-008 | Returns 400 when from parameter is missing                  | `API-ANALYTICS-SOURCES-008`        | ✅     |
+| AC-009 | Returns empty array when no referrer data exists            | `API-ANALYTICS-SOURCES-009`        | ✅     |
 | AC-010 | Traffic sources query works end-to-end (regression)         | `API-ANALYTICS-SOURCES-REGRESSION` | ⏳     |
 
 ### Implementation References
@@ -382,13 +382,13 @@ GET /api/analytics/devices?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z
 | ID     | Criterion                                            | E2E Spec                           | Status |
 | ------ | ---------------------------------------------------- | ---------------------------------- | ------ |
 | AC-001 | Returns 200 with device type breakdown               | `API-ANALYTICS-DEVICES-001`        | ⏳     |
-| AC-002 | Returns 401 when user is not authenticated           | `API-ANALYTICS-DEVICES-002`        | ⏳     |
+| AC-002 | Returns 401 when user is not authenticated           | `API-ANALYTICS-DEVICES-002`        | ✅     |
 | AC-003 | Device types include desktop, mobile, tablet         | `API-ANALYTICS-DEVICES-003`        | ⏳     |
 | AC-004 | Returns browser name breakdown                       | `API-ANALYTICS-DEVICES-004`        | ⏳     |
 | AC-005 | Returns OS name breakdown                            | `API-ANALYTICS-DEVICES-005`        | ⏳     |
 | AC-006 | Each breakdown includes percentage calculation       | `API-ANALYTICS-DEVICES-006`        | ⏳     |
-| AC-007 | Returns 400 when from parameter is missing           | `API-ANALYTICS-DEVICES-007`        | ⏳     |
-| AC-008 | Returns empty breakdowns when no data exists         | `API-ANALYTICS-DEVICES-008`        | ⏳     |
+| AC-007 | Returns 400 when from parameter is missing           | `API-ANALYTICS-DEVICES-007`        | ✅     |
+| AC-008 | Returns empty breakdowns when no data exists         | `API-ANALYTICS-DEVICES-008`        | ✅     |
 | AC-009 | Device breakdown query works end-to-end (regression) | `API-ANALYTICS-DEVICES-REGRESSION` | ⏳     |
 
 ### Implementation References
