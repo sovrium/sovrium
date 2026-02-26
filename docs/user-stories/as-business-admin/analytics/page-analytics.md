@@ -329,7 +329,7 @@ GET /api/analytics/campaigns?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z
 | AC-004 | Referrers are sorted by pageViews descending                | `API-ANALYTICS-SOURCES-004`        | ✅     |
 | AC-005 | GET /api/analytics/campaigns returns UTM campaign breakdown | `API-ANALYTICS-SOURCES-005`        | ✅     |
 | AC-006 | Returns 401 when user is not authenticated (campaigns)      | `API-ANALYTICS-SOURCES-006`        | ✅     |
-| AC-007 | Campaigns include source, medium, campaign fields           | `API-ANALYTICS-SOURCES-007`        | ⏳     |
+| AC-007 | Campaigns include source, medium, campaign fields           | `API-ANALYTICS-SOURCES-007`        | ✅     |
 | AC-008 | Returns 400 when from parameter is missing                  | `API-ANALYTICS-SOURCES-008`        | ✅     |
 | AC-009 | Returns empty array when no referrer data exists            | `API-ANALYTICS-SOURCES-009`        | ✅     |
 | AC-010 | Traffic sources query works end-to-end (regression)         | `API-ANALYTICS-SOURCES-REGRESSION` | ⏳     |
