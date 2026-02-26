@@ -184,7 +184,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-COLLECT-007: should extract OS name from UA string',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
