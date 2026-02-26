@@ -116,7 +116,7 @@ Content-Type: application/json
 
 | ID     | Criterion                                                     | E2E Spec                           | Status |
 | ------ | ------------------------------------------------------------- | ---------------------------------- | ------ |
-| AC-001 | POST /api/analytics/collect returns 204 No Content            | `API-ANALYTICS-COLLECT-001`        | ⏳     |
+| AC-001 | POST /api/analytics/collect returns 204 No Content            | `API-ANALYTICS-COLLECT-001`        | ✅     |
 | AC-002 | Tracking script is injected into pages when analytics enabled | `API-ANALYTICS-COLLECT-002`        | ⏳     |
 | AC-003 | Tracking script is NOT injected when analytics disabled       | `API-ANALYTICS-COLLECT-003`        | ⏳     |
 | AC-004 | Visitor hash uses SHA-256 of date + IP + UA (no cookies)      | `API-ANALYTICS-COLLECT-004`        | ⏳     |
