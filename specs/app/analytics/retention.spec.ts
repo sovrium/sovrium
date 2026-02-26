@@ -70,7 +70,7 @@ test.describe('Analytics Data Retention', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-RETENTION-002: should respect the configured retentionDays value',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
