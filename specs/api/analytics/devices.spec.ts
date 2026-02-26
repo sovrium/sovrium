@@ -39,7 +39,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
 
       // Insert page views with device type data: 4 desktop, 2 mobile, 1 tablet
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '4 hours'),
           ('hash_b', '/about', 'About', 'desktop', 'Firefox', 'macOS', NOW() - INTERVAL '3 hours'),
@@ -106,7 +106,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
       await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '3 hours'),
           ('hash_b', '/', 'Home', 'mobile', 'Safari', 'iOS', NOW() - INTERVAL '2 hours'),
@@ -144,7 +144,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
       await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '4 hours'),
           ('hash_b', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '3 hours'),
@@ -192,7 +192,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
       await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '4 hours'),
           ('hash_b', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '3 hours'),
@@ -241,7 +241,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
 
       // Insert 10 page views: 5 desktop, 3 mobile, 2 tablet (50%, 30%, 20%)
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('h1', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '10 hours'),
           ('h2', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '9 hours'),
@@ -390,7 +390,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
 
       // Insert diverse device data: 4 desktop, 2 mobile, 1 tablet
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '5 hours'),
           ('hash_b', '/about', 'About', 'desktop', 'Firefox', 'macOS', NOW() - INTERVAL '4 hours'),

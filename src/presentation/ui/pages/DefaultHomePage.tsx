@@ -26,15 +26,18 @@ import type { App } from '@/domain/models/app'
 export function DefaultHomePage({
   app,
   builtInAnalyticsEnabled,
+  builtInAnalyticsSessionTimeout,
 }: {
   readonly app: App
   readonly builtInAnalyticsEnabled?: boolean
+  readonly builtInAnalyticsSessionTimeout?: number
 }): Readonly<ReactElement> {
   const pageConfig = createDefaultHomePageConfig(app)
   return (
     <DynamicPage
       page={pageConfig}
       builtInAnalyticsEnabled={builtInAnalyticsEnabled}
+      builtInAnalyticsSessionTimeout={builtInAnalyticsSessionTimeout}
     />
   )
 }

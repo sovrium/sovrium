@@ -27,6 +27,7 @@ type DynamicPageProps = {
   readonly detectedLanguage?: string
   readonly routeParams?: RouteParams
   readonly builtInAnalyticsEnabled?: boolean
+  readonly builtInAnalyticsSessionTimeout?: number
 }
 
 type DynamicPageHeadProps = {
@@ -41,6 +42,7 @@ type DynamicPageHeadProps = {
   readonly languages?: Languages
   readonly scripts: ReturnType<typeof groupScriptsByPosition>
   readonly builtInAnalyticsEnabled?: boolean
+  readonly builtInAnalyticsSessionTimeout?: number
 }
 
 /**
@@ -83,12 +85,14 @@ function DynamicPageHead({
   languages,
   scripts,
   builtInAnalyticsEnabled,
+  builtInAnalyticsSessionTimeout,
 }: DynamicPageHeadProps): Readonly<ReactElement> {
+  const sessionTimeout = builtInAnalyticsSessionTimeout ?? 30
   // Inline analytics script if enabled (contains /api/analytics/collect endpoint)
   const analyticsScript = builtInAnalyticsEnabled
     ? `(function(){
 "use strict";
-var E="/api/analytics/collect",A="${mergedPage.name || 'app'}",D=true;
+var E="/api/analytics/collect",A="${mergedPage.name || 'app'}",D=true,sessionTimeout=${sessionTimeout};
 if(D&&navigator.doNotTrack==="1")return;
 var u=function(){
 try{var s=new URLSearchParams(location.search);
@@ -260,6 +264,7 @@ export function DynamicPage({
   detectedLanguage,
   routeParams,
   builtInAnalyticsEnabled,
+  builtInAnalyticsSessionTimeout,
 }: DynamicPageProps): Readonly<ReactElement> {
   const metadata = extractPageMetadata(page, theme, languages, detectedLanguage)
   const langConfig = resolvePageLanguage(page, languages, detectedLanguage)
@@ -284,6 +289,7 @@ export function DynamicPage({
         languages={languages}
         scripts={scripts}
         builtInAnalyticsEnabled={builtInAnalyticsEnabled}
+        builtInAnalyticsSessionTimeout={builtInAnalyticsSessionTimeout}
       />
       <DynamicPageBody
         page={page}

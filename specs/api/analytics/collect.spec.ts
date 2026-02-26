@@ -115,7 +115,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
 
       // AND: Page view record has visitorHash in the database
       const result = await executeQuery(`
-        SELECT visitor_hash FROM system.page_views WHERE page_path = '/test-page'
+        SELECT visitor_hash FROM system.analytics_page_views WHERE page_path = '/test-page'
       `)
       expect(result.rows.length).toBeGreaterThanOrEqual(1)
       expect(result.rows[0].visitor_hash).toBeTruthy()
@@ -147,7 +147,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
 
       // THEN: Page view record has deviceType = 'mobile'
       const result = await executeQuery(`
-        SELECT device_type FROM system.page_views WHERE page_path = '/mobile-test'
+        SELECT device_type FROM system.analytics_page_views WHERE page_path = '/mobile-test'
       `)
       expect(result.rows.length).toBeGreaterThanOrEqual(1)
       expect(result.rows[0].device_type).toBe('mobile')
@@ -177,7 +177,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
 
       // THEN: Page view record has browserName = 'Chrome'
       const result = await executeQuery(`
-        SELECT browser_name FROM system.page_views WHERE page_path = '/chrome-test'
+        SELECT browser_name FROM system.analytics_page_views WHERE page_path = '/chrome-test'
       `)
       expect(result.rows.length).toBeGreaterThanOrEqual(1)
       expect(result.rows[0].browser_name).toBe('Chrome')
@@ -207,7 +207,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
 
       // THEN: Page view record has osName = 'macOS'
       const result = await executeQuery(`
-        SELECT os_name FROM system.page_views WHERE page_path = '/mac-test'
+        SELECT os_name FROM system.analytics_page_views WHERE page_path = '/mac-test'
       `)
       expect(result.rows.length).toBeGreaterThanOrEqual(1)
       expect(result.rows[0].os_name).toBe('macOS')
@@ -235,7 +235,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
 
       // THEN: Page view record has language = 'en-US'
       const result = await executeQuery(`
-        SELECT language FROM system.page_views WHERE page_path = '/language-test'
+        SELECT language FROM system.analytics_page_views WHERE page_path = '/language-test'
       `)
       expect(result.rows.length).toBeGreaterThanOrEqual(1)
       expect(result.rows[0].language).toBe('en-US')
@@ -265,7 +265,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
 
       // THEN: Page view record has referrerDomain = 'google.com'
       const result = await executeQuery(`
-        SELECT referrer_domain, referrer_url FROM system.page_views WHERE page_path = '/referred-page'
+        SELECT referrer_domain, referrer_url FROM system.analytics_page_views WHERE page_path = '/referred-page'
       `)
       expect(result.rows.length).toBeGreaterThanOrEqual(1)
       expect(result.rows[0].referrer_domain).toBe('google.com')
@@ -301,7 +301,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
       // THEN: Page view record has utmSource, utmMedium, utmCampaign populated
       const result = await executeQuery(`
         SELECT utm_source, utm_medium, utm_campaign, utm_content, utm_term
-        FROM system.page_views WHERE page_path = '/utm-page'
+        FROM system.analytics_page_views WHERE page_path = '/utm-page'
       `)
       expect(result.rows.length).toBeGreaterThanOrEqual(1)
       expect(result.rows[0].utm_source).toBe('newsletter')
@@ -334,7 +334,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
       expect(response.status()).toBe(204)
 
       const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM system.page_views WHERE page_path = '/admin/dashboard'
+        SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path = '/admin/dashboard'
       `)
       expect(Number(result.rows[0].count)).toBe(0)
     }
@@ -363,7 +363,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
       expect(response.status()).toBe(204)
 
       const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM system.page_views WHERE page_path = '/dnt-test'
+        SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path = '/dnt-test'
       `)
       expect(Number(result.rows[0].count)).toBe(0)
     }
@@ -449,7 +449,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
         expect(setCookieHeader).not.toContain('analytics')
 
         const result = await executeQuery(`
-          SELECT visitor_hash FROM system.page_views WHERE page_path = '/hash-check'
+          SELECT visitor_hash FROM system.analytics_page_views WHERE page_path = '/hash-check'
         `)
         expect(result.rows.length).toBeGreaterThanOrEqual(1)
         expect(result.rows[0].visitor_hash).toMatch(/^[a-f0-9]{64}$/)
@@ -464,7 +464,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
         })
 
         const result = await executeQuery(`
-          SELECT device_type FROM system.page_views WHERE page_path = '/mobile-regression'
+          SELECT device_type FROM system.analytics_page_views WHERE page_path = '/mobile-regression'
         `)
         expect(result.rows.length).toBeGreaterThanOrEqual(1)
         expect(result.rows[0].device_type).toBe('mobile')
@@ -479,7 +479,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
         })
 
         const result = await executeQuery(`
-          SELECT referrer_domain FROM system.page_views WHERE page_path = '/referrer-regression'
+          SELECT referrer_domain FROM system.analytics_page_views WHERE page_path = '/referrer-regression'
         `)
         expect(result.rows.length).toBeGreaterThanOrEqual(1)
         expect(result.rows[0].referrer_domain).toBe('google.com')
@@ -499,7 +499,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
         expect(response.status()).toBe(204)
 
         const result = await executeQuery(`
-          SELECT COUNT(*) as count FROM system.page_views WHERE page_path = '/admin/dashboard'
+          SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path = '/admin/dashboard'
         `)
         expect(Number(result.rows[0].count)).toBe(0)
       })

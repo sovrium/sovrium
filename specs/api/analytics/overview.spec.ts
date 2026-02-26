@@ -39,7 +39,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
 
       // Insert page view data across multiple days
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '2 days'),
           ('hash_b', '/about', 'About', 'mobile', 'Safari', 'iOS', NOW() - INTERVAL '1 day'),
@@ -104,7 +104,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
 
       // Insert known data: 5 page views, 3 unique visitors
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('visitor_1', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '1 hour'),
           ('visitor_1', '/about', 'About', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '50 minutes'),
@@ -143,7 +143,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
       await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '3 hours'),
           ('hash_b', '/', 'Home', 'mobile', 'Safari', 'iOS', NOW() - INTERVAL '2 hours'),
@@ -190,7 +190,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
       await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '3 days'),
           ('hash_b', '/', 'Home', 'mobile', 'Safari', 'iOS', NOW() - INTERVAL '2 days'),
@@ -235,7 +235,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
       await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '21 days'),
           ('hash_b', '/', 'Home', 'mobile', 'Safari', 'iOS', NOW() - INTERVAL '14 days'),
@@ -275,7 +275,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
       await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '90 days'),
           ('hash_b', '/', 'Home', 'mobile', 'Safari', 'iOS', NOW() - INTERVAL '60 days'),
@@ -414,7 +414,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
 
       // Insert page view data
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '2 days'),
           ('hash_b', '/about', 'About', 'mobile', 'Safari', 'iOS', NOW() - INTERVAL '1 day'),

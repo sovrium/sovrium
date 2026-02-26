@@ -39,7 +39,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
 
       // Insert page views: / has 4, /about has 2, /pricing has 1
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '3 hours'),
           ('hash_b', '/', 'Home', 'mobile', 'Safari', 'iOS', NOW() - INTERVAL '2 hours'),
@@ -108,7 +108,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
       await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('visitor_1', '/blog', 'Blog', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '1 hour'),
           ('visitor_1', '/blog', 'Blog', 'desktop', 'Chrome', 'Windows', NOW()),
@@ -150,7 +150,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
 
       // Insert varied view counts: /docs=5, /blog=3, /faq=1
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('h1', '/docs', 'Docs', 'desktop', 'Chrome', 'Windows', NOW()),
           ('h2', '/docs', 'Docs', 'desktop', 'Chrome', 'Windows', NOW()),
@@ -245,7 +245,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
       await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_a', '/old-page', 'Old', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '30 days'),
           ('hash_b', '/recent-page', 'Recent', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '2 days'),
@@ -307,7 +307,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
 
       // Insert page view data
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '2 hours'),
           ('hash_b', '/', 'Home', 'mobile', 'Safari', 'iOS', NOW() - INTERVAL '1 hour'),

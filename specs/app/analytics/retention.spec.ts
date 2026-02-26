@@ -44,7 +44,7 @@ test.describe('Analytics Data Retention', () => {
 
       // Insert records: some older than 30 days, some within retention
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_old_1', '/old-page-1', 'Old Page 1', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '45 days'),
           ('hash_old_2', '/old-page-2', 'Old Page 2', 'mobile', 'Safari', 'iOS', NOW() - INTERVAL '60 days'),
@@ -63,7 +63,7 @@ test.describe('Analytics Data Retention', () => {
 
       // THEN: Records older than 30 days are purged from the database
       const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM system.page_views
+        SELECT COUNT(*) as count FROM system.analytics_page_views
       `)
       // Only recent records (within 30 days) should remain: /recent-page and /today-page
       expect(Number(result.rows[0].count)).toBe(2)
@@ -85,7 +85,7 @@ test.describe('Analytics Data Retention', () => {
 
       // Insert records of varying ages
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_1', '/page-1', 'Page 1', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '10 days'),
           ('hash_2', '/page-2', 'Page 2', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '8 days'),
@@ -105,7 +105,7 @@ test.describe('Analytics Data Retention', () => {
 
       // THEN: Only records older than 7 days are purged (10d and 8d old)
       const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM system.page_views
+        SELECT COUNT(*) as count FROM system.analytics_page_views
       `)
       expect(Number(result.rows[0].count)).toBe(3)
     }
@@ -125,7 +125,7 @@ test.describe('Analytics Data Retention', () => {
       await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_old', '/expired', 'Expired', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '100 days'),
           ('hash_within_1', '/within-1', 'Within 1', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '60 days'),
@@ -144,19 +144,19 @@ test.describe('Analytics Data Retention', () => {
 
       // THEN: Records within 90 days are preserved, older ones are purged
       const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM system.page_views
+        SELECT COUNT(*) as count FROM system.analytics_page_views
       `)
       expect(Number(result.rows[0].count)).toBe(3)
 
       // Verify the expired record is gone
       const expiredResult = await executeQuery(`
-        SELECT COUNT(*) as count FROM system.page_views WHERE page_path = '/expired'
+        SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path = '/expired'
       `)
       expect(Number(expiredResult.rows[0].count)).toBe(0)
 
       // Verify a within-period record is still present
       const withinResult = await executeQuery(`
-        SELECT COUNT(*) as count FROM system.page_views WHERE page_path = '/within-1'
+        SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path = '/within-1'
       `)
       expect(Number(withinResult.rows[0].count)).toBe(1)
     }
@@ -176,7 +176,7 @@ test.describe('Analytics Data Retention', () => {
       await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_1', '/page-1', 'Page 1', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '30 days'),
           ('hash_2', '/page-2', 'Page 2', 'mobile', 'Safari', 'iOS', NOW() - INTERVAL '7 days'),
@@ -194,7 +194,7 @@ test.describe('Analytics Data Retention', () => {
 
       // THEN: Purge completes successfully, all records preserved
       const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM system.page_views
+        SELECT COUNT(*) as count FROM system.analytics_page_views
       `)
       expect(Number(result.rows[0].count)).toBe(3)
     }
@@ -214,7 +214,7 @@ test.describe('Analytics Data Retention', () => {
       await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES
           ('hash_very_old', '/very-old', 'Very Old', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '400 days'),
           ('hash_within', '/within', 'Within', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '200 days'),
@@ -232,13 +232,13 @@ test.describe('Analytics Data Retention', () => {
 
       // THEN: Records older than 365 days are purged, recent ones preserved
       const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM system.page_views
+        SELECT COUNT(*) as count FROM system.analytics_page_views
       `)
       expect(Number(result.rows[0].count)).toBe(2)
 
       // Verify the very old record is gone
       const veryOldResult = await executeQuery(`
-        SELECT COUNT(*) as count FROM system.page_views WHERE page_path = '/very-old'
+        SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path = '/very-old'
       `)
       expect(Number(veryOldResult.rows[0].count)).toBe(0)
     }
@@ -263,7 +263,7 @@ test.describe('Analytics Data Retention', () => {
         await createAuthenticatedUser()
 
         await executeQuery(`
-          INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+          INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
           VALUES
             ('hash_expired', '/expired', 'Expired', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '45 days'),
             ('hash_recent', '/recent', 'Recent', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '5 days'),
@@ -280,7 +280,7 @@ test.describe('Analytics Data Retention', () => {
         await createAuthenticatedUser()
 
         const result = await executeQuery(`
-          SELECT COUNT(*) as count FROM system.page_views
+          SELECT COUNT(*) as count FROM system.analytics_page_views
         `)
         expect(Number(result.rows[0].count)).toBe(2)
       })
@@ -288,12 +288,12 @@ test.describe('Analytics Data Retention', () => {
       await test.step('APP-ANALYTICS-RETENTION-003: Preserve records within retention period', async () => {
         // Verify recent records are still present after purge
         const recentResult = await executeQuery(`
-          SELECT COUNT(*) as count FROM system.page_views WHERE page_path = '/recent'
+          SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path = '/recent'
         `)
         expect(Number(recentResult.rows[0].count)).toBe(1)
 
         const todayResult = await executeQuery(`
-          SELECT COUNT(*) as count FROM system.page_views WHERE page_path = '/today'
+          SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path = '/today'
         `)
         expect(Number(todayResult.rows[0].count)).toBe(1)
       })
@@ -309,7 +309,7 @@ test.describe('Analytics Data Retention', () => {
         await createAuthenticatedUser()
 
         const result = await executeQuery(`
-          SELECT COUNT(*) as count FROM system.page_views
+          SELECT COUNT(*) as count FROM system.analytics_page_views
         `)
         // Records from previous step should still be present (within 365 days)
         expect(Number(result.rows[0].count)).toBeGreaterThanOrEqual(1)

@@ -39,7 +39,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
 
       // Insert page views with referrer data: google.com has 3, twitter.com has 2, github.com has 1
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, referrer_url, referrer_domain, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, referrer_url, referrer_domain, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', 'https://www.google.com/search?q=test', 'google.com', NOW() - INTERVAL '3 hours'),
           ('hash_b', '/about', 'About', 'mobile', 'Safari', 'iOS', 'https://www.google.com/search?q=sovrium', 'google.com', NOW() - INTERVAL '2 hours'),
@@ -108,7 +108,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
 
       // Insert page views: some with referrer, some without (direct traffic)
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, referrer_url, referrer_domain, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, referrer_url, referrer_domain, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', NULL, NULL, NOW() - INTERVAL '2 hours'),
           ('hash_b', '/', 'Home', 'mobile', 'Safari', 'iOS', NULL, NULL, NOW() - INTERVAL '1 hour'),
@@ -146,7 +146,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
 
       // Insert varied referrer counts: github=5, google=3, reddit=1
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, referrer_url, referrer_domain, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, referrer_url, referrer_domain, timestamp)
         VALUES
           ('h1', '/', 'Home', 'desktop', 'Chrome', 'Windows', 'https://github.com/a', 'github.com', NOW()),
           ('h2', '/', 'Home', 'desktop', 'Chrome', 'Windows', 'https://github.com/b', 'github.com', NOW()),
@@ -192,7 +192,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
 
       // Insert page views with UTM data
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, utm_source, utm_medium, utm_campaign, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, utm_source, utm_medium, utm_campaign, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', 'google', 'cpc', 'spring-sale', NOW() - INTERVAL '3 hours'),
           ('hash_b', '/', 'Home', 'mobile', 'Safari', 'iOS', 'google', 'cpc', 'spring-sale', NOW() - INTERVAL '2 hours'),
@@ -260,7 +260,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
       await createAuthenticatedUser()
 
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, utm_source, utm_medium, utm_campaign, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, utm_source, utm_medium, utm_campaign, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', 'facebook', 'social', 'product-launch', NOW() - INTERVAL '2 hours'),
           ('hash_b', '/pricing', 'Pricing', 'mobile', 'Safari', 'iOS', 'facebook', 'social', 'product-launch', NOW() - INTERVAL '1 hour'),
@@ -386,7 +386,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
 
       // Insert referrer and campaign data
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, referrer_url, referrer_domain, utm_source, utm_medium, utm_campaign, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, referrer_url, referrer_domain, utm_source, utm_medium, utm_campaign, timestamp)
         VALUES
           ('hash_a', '/', 'Home', 'desktop', 'Chrome', 'Windows', 'https://google.com/', 'google.com', NULL, NULL, NULL, NOW() - INTERVAL '3 hours'),
           ('hash_b', '/', 'Home', 'mobile', 'Safari', 'iOS', 'https://google.com/search', 'google.com', NULL, NULL, NULL, NOW() - INTERVAL '2 hours'),

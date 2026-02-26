@@ -13,6 +13,14 @@ import type { App } from '@/domain/models/app'
 import type { BuiltInAnalytics } from '@/domain/models/app/analytics'
 
 /**
+ * Extract session timeout from analytics config, defaulting to 30 minutes
+ */
+function extractSessionTimeout(analytics: BuiltInAnalytics | undefined): number {
+  if (analytics === undefined || analytics === false || analytics === true) return 30
+  return analytics.sessionTimeout ?? 30
+}
+
+/**
  * Check if built-in analytics tracking should be injected for a given page path
  *
  * Returns true when analytics is configured and enabled, and the page path
@@ -65,6 +73,7 @@ export function renderPageByPath(
   }
 
   const injectAnalytics = shouldInjectAnalytics(app.analytics, page.path)
+  const sessionTimeout = extractSessionTimeout(app.analytics)
 
   const html = renderToString(
     <DynamicPage
@@ -75,6 +84,7 @@ export function renderPageByPath(
       detectedLanguage={detectedLanguage}
       routeParams={match.params}
       builtInAnalyticsEnabled={injectAnalytics}
+      builtInAnalyticsSessionTimeout={sessionTimeout}
     />
   )
 
@@ -102,10 +112,12 @@ export function renderHomePage(app: App, detectedLanguage?: string): string {
   // Fallback to default homepage
   // Check if analytics should be enabled for homepage (path '/')
   const injectAnalytics = shouldInjectAnalytics(app.analytics, '/')
+  const defaultSessionTimeout = extractSessionTimeout(app.analytics)
   const html = renderToString(
     <DefaultHomePage
       app={app}
       builtInAnalyticsEnabled={injectAnalytics}
+      builtInAnalyticsSessionTimeout={defaultSessionTimeout}
     />
   )
   return `<!DOCTYPE html>\n${html}`

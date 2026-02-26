@@ -80,13 +80,13 @@ test.describe('Analytics Configuration', () => {
 
       // Insert a page view from 364 days ago (within default 365-day retention)
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES ('hash_recent', '/within-retention', 'Within Retention', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '364 days')
       `)
 
       // Insert a page view from 366 days ago (beyond default 365-day retention)
       await executeQuery(`
-        INSERT INTO system.page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, created_at)
+        INSERT INTO system.analytics_page_views (visitor_hash, page_path, page_title, device_type, browser_name, os_name, timestamp)
         VALUES ('hash_old', '/beyond-retention', 'Beyond Retention', 'desktop', 'Chrome', 'Windows', NOW() - INTERVAL '366 days')
       `)
 
@@ -95,13 +95,13 @@ test.describe('Analytics Configuration', () => {
 
       // THEN: The 364-day-old record is preserved (within 365-day default retention)
       const recentResult = await executeQuery(`
-        SELECT COUNT(*) as count FROM system.page_views WHERE page_path = '/within-retention'
+        SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path = '/within-retention'
       `)
       expect(Number(recentResult.rows[0].count)).toBe(1)
 
       // AND: The 366-day-old record is purged (beyond 365-day default retention)
       const oldResult = await executeQuery(`
-        SELECT COUNT(*) as count FROM system.page_views WHERE page_path = '/beyond-retention'
+        SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path = '/beyond-retention'
       `)
       expect(Number(oldResult.rows[0].count)).toBe(0)
     }
@@ -214,14 +214,14 @@ test.describe('Analytics Configuration', () => {
 
       // THEN: App starts successfully and non-excluded page view is recorded
       const result = await executeQuery(`
-        SELECT COUNT(*) as count FROM system.page_views WHERE page_path = '/'
+        SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path = '/'
       `)
       expect(Number(result.rows[0].count)).toBeGreaterThanOrEqual(1)
 
       // AND: Excluded paths should not have records in DB
       // (This is verified by the tracking script filtering client-side)
       const excludedResult = await executeQuery(`
-        SELECT COUNT(*) as count FROM system.page_views WHERE page_path LIKE '/admin/%'
+        SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path LIKE '/admin/%'
       `)
       expect(Number(excludedResult.rows[0].count)).toBe(0)
     }
@@ -326,7 +326,7 @@ test.describe('Analytics Configuration', () => {
 
         // Verify page view is recorded in database
         const result = await executeQuery(`
-          SELECT COUNT(*) as count FROM system.page_views WHERE page_path = '/'
+          SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path = '/'
         `)
         expect(Number(result.rows[0].count)).toBeGreaterThanOrEqual(1)
       })
