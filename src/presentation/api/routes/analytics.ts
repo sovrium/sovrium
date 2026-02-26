@@ -16,6 +16,7 @@ import { queryPages } from '@/application/use-cases/analytics/query-pages'
 import { queryReferrers } from '@/application/use-cases/analytics/query-referrers'
 import { analyticsCollectSchema, analyticsQuerySchema } from '@/domain/models/api/analytics'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics-repository-live'
+import { matchesAnyGlobPattern } from '@/infrastructure/utils/glob-matcher'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import type { Context, Hono } from 'hono'
 
@@ -74,9 +75,18 @@ function parseAnalyticsQuery(c: Context):
 async function handleCollect(
   c: Context,
   appName: string,
-  retentionDays?: number
+  retentionDays?: number,
+  excludedPaths?: readonly string[]
 ): Promise<Response> {
   const body = c.req.valid('json' as never)
+  const pagePath = (body as { readonly p: string }).p
+
+  // Check if path is excluded - return 204 without recording
+  if (matchesAnyGlobPattern(excludedPaths, pagePath)) {
+    // eslint-disable-next-line unicorn/no-null
+    return c.body(null, 204)
+  }
+
   const ip = extractClientIp(c.req.header('x-forwarded-for'))
   const userAgent = c.req.header('user-agent') ?? ''
   const acceptLanguage = c.req.header('accept-language') ?? ''
@@ -88,7 +98,7 @@ async function handleCollect(
       [
         collectPageView({
           appName,
-          pagePath: (body as { readonly p: string }).p,
+          pagePath,
           pageTitle: (body as { readonly t?: string }).t,
           referrerUrl: (body as { readonly r?: string }).r,
           ip,
@@ -275,16 +285,18 @@ async function handleCampaigns(c: Context): Promise<Response> {
  * @param honoApp - Hono instance to chain routes onto
  * @param appName - Application name for multi-tenant analytics
  * @param retentionDays - Number of days to retain analytics data (triggers cleanup on collect)
+ * @param excludedPaths - Glob patterns for paths excluded from tracking
  * @returns Hono app with analytics routes chained
  */
 export function chainAnalyticsRoutes<T extends Hono>(
   honoApp: T,
   appName: string,
-  retentionDays?: number
+  retentionDays?: number,
+  excludedPaths?: readonly string[]
 ): T {
   return honoApp
     .post('/api/analytics/collect', zValidator('json', analyticsCollectSchema), (c) =>
-      handleCollect(c, appName, retentionDays)
+      handleCollect(c, appName, retentionDays, excludedPaths)
     )
     .get('/api/analytics/overview', handleOverview)
     .get('/api/analytics/pages', handlePages)
