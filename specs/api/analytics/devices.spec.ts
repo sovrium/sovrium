@@ -130,7 +130,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-DEVICES-004: should return browser name breakdown',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
