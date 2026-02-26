@@ -178,7 +178,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-DEVICES-005: should return OS name breakdown',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
