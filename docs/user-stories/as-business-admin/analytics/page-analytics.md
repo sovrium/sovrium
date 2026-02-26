@@ -123,7 +123,7 @@ Content-Type: application/json
 | AC-005 | UA string is parsed for device type (desktop/mobile/tablet)   | `API-ANALYTICS-COLLECT-005`        | ✅     |
 | AC-006 | Browser name is extracted from UA string                      | `API-ANALYTICS-COLLECT-006`        | ✅     |
 | AC-007 | OS name is extracted from UA string                           | `API-ANALYTICS-COLLECT-007`        | ✅     |
-| AC-008 | Language is extracted from Accept-Language header             | `API-ANALYTICS-COLLECT-008`        | ⏳     |
+| AC-008 | Language is extracted from Accept-Language header             | `API-ANALYTICS-COLLECT-008`        | ✅     |
 | AC-009 | Referrer domain is extracted from full referrer URL           | `API-ANALYTICS-COLLECT-009`        | ⏳     |
 | AC-010 | UTM parameters are captured from tracking payload             | `API-ANALYTICS-COLLECT-010`        | ⏳     |
 | AC-011 | Excluded paths are not tracked                                | `API-ANALYTICS-COLLECT-011`        | ⏳     |
