@@ -325,8 +325,8 @@ GET /api/analytics/campaigns?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z
 | ------ | ----------------------------------------------------------- | ---------------------------------- | ------ |
 | AC-001 | GET /api/analytics/referrers returns top referrer domains   | `API-ANALYTICS-SOURCES-001`        | ✅     |
 | AC-002 | Returns 401 when user is not authenticated (referrers)      | `API-ANALYTICS-SOURCES-002`        | ✅     |
-| AC-003 | Referrers include null domain for direct traffic            | `API-ANALYTICS-SOURCES-003`        | ⏳     |
-| AC-004 | Referrers are sorted by pageViews descending                | `API-ANALYTICS-SOURCES-004`        | ⏳     |
+| AC-003 | Referrers include null domain for direct traffic            | `API-ANALYTICS-SOURCES-003`        | ✅     |
+| AC-004 | Referrers are sorted by pageViews descending                | `API-ANALYTICS-SOURCES-004`        | ✅     |
 | AC-005 | GET /api/analytics/campaigns returns UTM campaign breakdown | `API-ANALYTICS-SOURCES-005`        | ⏳     |
 | AC-006 | Returns 401 when user is not authenticated (campaigns)      | `API-ANALYTICS-SOURCES-006`        | ✅     |
 | AC-007 | Campaigns include source, medium, campaign fields           | `API-ANALYTICS-SOURCES-007`        | ⏳     |
