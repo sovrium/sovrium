@@ -94,7 +94,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-PAGES-003: should include path pageViews uniqueVisitors for each page',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
