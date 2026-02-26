@@ -381,7 +381,7 @@ GET /api/analytics/devices?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z
 
 | ID     | Criterion                                            | E2E Spec                           | Status |
 | ------ | ---------------------------------------------------- | ---------------------------------- | ------ |
-| AC-001 | Returns 200 with device type breakdown               | `API-ANALYTICS-DEVICES-001`        | ⏳     |
+| AC-001 | Returns 200 with device type breakdown               | `API-ANALYTICS-DEVICES-001`        | ✅     |
 | AC-002 | Returns 401 when user is not authenticated           | `API-ANALYTICS-DEVICES-002`        | ✅     |
 | AC-003 | Device types include desktop, mobile, tablet         | `API-ANALYTICS-DEVICES-003`        | ⏳     |
 | AC-004 | Returns browser name breakdown                       | `API-ANALYTICS-DEVICES-004`        | ⏳     |
