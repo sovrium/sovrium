@@ -250,7 +250,7 @@ test.describe('Analytics Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-CONFIG-011: should start successfully without analytics property',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
