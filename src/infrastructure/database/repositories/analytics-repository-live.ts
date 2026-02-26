@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { and, between, count, countDistinct, eq, lt, or, sql } from 'drizzle-orm'
+import { and, between, count, countDistinct, eq, inArray, lt, or, sql } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import {
   AnalyticsRepository,
@@ -17,10 +17,13 @@ import type { AnalyticsQueryParams } from '@/application/ports/repositories/anal
 
 /**
  * Build the common WHERE clause for analytics queries
+ *
+ * Matches both the specified appName AND 'default' to support
+ * direct SQL inserts (which use the schema default 'default').
  */
 const whereClause = (params: AnalyticsQueryParams) =>
   and(
-    eq(analyticsPageViews.appName, params.appName),
+    inArray(analyticsPageViews.appName, [params.appName, 'default']),
     between(analyticsPageViews.timestamp, params.from, params.to)
   )
 

@@ -34,7 +34,10 @@ function extractClientIp(xForwardedFor: string | undefined): string {
 /**
  * Parse and validate analytics query parameters from request
  */
-function parseAnalyticsQuery(c: Context):
+function parseAnalyticsQuery(
+  c: Context,
+  appName: string
+):
   | {
       readonly appName: string
       readonly from: Date
@@ -58,7 +61,7 @@ function parseAnalyticsQuery(c: Context):
   if (!parsed.success) return undefined
 
   return {
-    appName: c.req.query('appName') ?? '',
+    appName,
     from: new Date(parsed.data.from),
     to: new Date(parsed.data.to),
     granularity: parsed.data.granularity,
@@ -136,13 +139,13 @@ async function handleCollect(
 /**
  * Handle GET /api/analytics/overview — requires auth
  */
-async function handleOverview(c: Context): Promise<Response> {
+async function handleOverview(c: Context, appName: string): Promise<Response> {
   const session = getSessionContext(c)
   if (!session) {
     return c.json({ error: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
   }
 
-  const params = parseAnalyticsQuery(c)
+  const params = parseAnalyticsQuery(c, appName)
   if (!params) {
     return c.json({ error: 'Missing or invalid from/to parameters', code: 'VALIDATION_ERROR' }, 400)
   }
@@ -166,13 +169,13 @@ async function handleOverview(c: Context): Promise<Response> {
 /**
  * Handle GET /api/analytics/pages — requires auth
  */
-async function handlePages(c: Context): Promise<Response> {
+async function handlePages(c: Context, appName: string): Promise<Response> {
   const session = getSessionContext(c)
   if (!session) {
     return c.json({ error: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
   }
 
-  const params = parseAnalyticsQuery(c)
+  const params = parseAnalyticsQuery(c, appName)
   if (!params) {
     return c.json({ error: 'Missing or invalid from/to parameters', code: 'VALIDATION_ERROR' }, 400)
   }
@@ -195,13 +198,13 @@ async function handlePages(c: Context): Promise<Response> {
 /**
  * Handle GET /api/analytics/referrers — requires auth
  */
-async function handleReferrers(c: Context): Promise<Response> {
+async function handleReferrers(c: Context, appName: string): Promise<Response> {
   const session = getSessionContext(c)
   if (!session) {
     return c.json({ error: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
   }
 
-  const params = parseAnalyticsQuery(c)
+  const params = parseAnalyticsQuery(c, appName)
   if (!params) {
     return c.json({ error: 'Missing or invalid from/to parameters', code: 'VALIDATION_ERROR' }, 400)
   }
@@ -224,13 +227,13 @@ async function handleReferrers(c: Context): Promise<Response> {
 /**
  * Handle GET /api/analytics/devices — requires auth
  */
-async function handleDevices(c: Context): Promise<Response> {
+async function handleDevices(c: Context, appName: string): Promise<Response> {
   const session = getSessionContext(c)
   if (!session) {
     return c.json({ error: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
   }
 
-  const params = parseAnalyticsQuery(c)
+  const params = parseAnalyticsQuery(c, appName)
   if (!params) {
     return c.json({ error: 'Missing or invalid from/to parameters', code: 'VALIDATION_ERROR' }, 400)
   }
@@ -253,13 +256,13 @@ async function handleDevices(c: Context): Promise<Response> {
 /**
  * Handle GET /api/analytics/campaigns — requires auth
  */
-async function handleCampaigns(c: Context): Promise<Response> {
+async function handleCampaigns(c: Context, appName: string): Promise<Response> {
   const session = getSessionContext(c)
   if (!session) {
     return c.json({ error: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
   }
 
-  const params = parseAnalyticsQuery(c)
+  const params = parseAnalyticsQuery(c, appName)
   if (!params) {
     return c.json({ error: 'Missing or invalid from/to parameters', code: 'VALIDATION_ERROR' }, 400)
   }
@@ -308,9 +311,9 @@ export function chainAnalyticsRoutes<T extends Hono>(
     .post('/api/analytics/collect', zValidator('json', analyticsCollectSchema), (c) =>
       handleCollect(c, appName, retentionDays, excludedPaths, respectDoNotTrack)
     )
-    .get('/api/analytics/overview', handleOverview)
-    .get('/api/analytics/pages', handlePages)
-    .get('/api/analytics/referrers', handleReferrers)
-    .get('/api/analytics/devices', handleDevices)
-    .get('/api/analytics/campaigns', handleCampaigns) as T
+    .get('/api/analytics/overview', (c) => handleOverview(c, appName))
+    .get('/api/analytics/pages', (c) => handlePages(c, appName))
+    .get('/api/analytics/referrers', (c) => handleReferrers(c, appName))
+    .get('/api/analytics/devices', (c) => handleDevices(c, appName))
+    .get('/api/analytics/campaigns', (c) => handleCampaigns(c, appName)) as T
 }
