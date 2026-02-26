@@ -496,7 +496,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ANALYTICS-COLLECT-REGRESSION: page view collection works end-to-end',
     { tag: '@regression' },
     async ({ page, request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
