@@ -200,7 +200,7 @@ test.describe('Analytics Data Retention', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-RETENTION-005: should use default 365 days retention when not configured',
     { tag: '@spec' },
     async ({ startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
