@@ -323,7 +323,7 @@ GET /api/analytics/campaigns?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z
 
 | ID     | Criterion                                                   | E2E Spec                           | Status |
 | ------ | ----------------------------------------------------------- | ---------------------------------- | ------ |
-| AC-001 | GET /api/analytics/referrers returns top referrer domains   | `API-ANALYTICS-SOURCES-001`        | ⏳     |
+| AC-001 | GET /api/analytics/referrers returns top referrer domains   | `API-ANALYTICS-SOURCES-001`        | ✅     |
 | AC-002 | Returns 401 when user is not authenticated (referrers)      | `API-ANALYTICS-SOURCES-002`        | ✅     |
 | AC-003 | Referrers include null domain for direct traffic            | `API-ANALYTICS-SOURCES-003`        | ⏳     |
 | AC-004 | Referrers are sorted by pageViews descending                | `API-ANALYTICS-SOURCES-004`        | ⏳     |
