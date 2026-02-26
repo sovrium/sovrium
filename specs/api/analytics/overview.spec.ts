@@ -67,7 +67,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-OVERVIEW-002: should return 401 when user is not authenticated',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
@@ -301,7 +301,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-OVERVIEW-008: should return 400 when from parameter is missing',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -323,7 +323,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-OVERVIEW-009: should return 400 when to parameter is missing',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -345,7 +345,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-OVERVIEW-010: should return empty data for periods with no traffic',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {

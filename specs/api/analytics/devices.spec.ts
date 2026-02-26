@@ -70,7 +70,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-DEVICES-002: should return 401 when user is not authenticated',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
@@ -301,7 +301,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-DEVICES-007: should return 400 when from parameter is missing',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -323,7 +323,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-DEVICES-008: should return empty breakdowns when no data exists',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {

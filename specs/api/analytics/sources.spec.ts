@@ -71,7 +71,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-SOURCES-002: should return 401 when not authenticated for referrers',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
@@ -224,7 +224,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-SOURCES-006: should return 401 when not authenticated for campaigns',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
@@ -294,7 +294,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-SOURCES-008: should return 400 when from parameter is missing',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
@@ -316,7 +316,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-SOURCES-009: should return empty array when no referrer data exists',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser }) => {
