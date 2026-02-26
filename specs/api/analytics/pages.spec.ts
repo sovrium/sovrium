@@ -231,7 +231,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-PAGES-007: should support filtering by date range',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
