@@ -24,7 +24,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ANALYTICS-SOURCES-001: should return top referrer domains',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
