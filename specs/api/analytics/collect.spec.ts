@@ -242,10 +242,22 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
       })
 
       // THEN: Page view record has osName = 'macOS'
+      // Use poll() to wait for the fire-and-forget DB write to complete
+      await expect
+        .poll(
+          async () => {
+            const result = await executeQuery(`
+              SELECT os_name FROM system.analytics_page_views WHERE page_path = '/mac-test'
+            `)
+            return result.rows.length
+          },
+          { timeout: 5000 }
+        )
+        .toBeGreaterThanOrEqual(1)
+
       const result = await executeQuery(`
         SELECT os_name FROM system.analytics_page_views WHERE page_path = '/mac-test'
       `)
-      expect(result.rows.length).toBeGreaterThanOrEqual(1)
       expect(result.rows[0].os_name).toBe('macOS')
     }
   )
@@ -270,10 +282,22 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
       })
 
       // THEN: Page view record has language = 'en-US'
+      // Use poll() to wait for the fire-and-forget DB write to complete
+      await expect
+        .poll(
+          async () => {
+            const result = await executeQuery(`
+              SELECT language FROM system.analytics_page_views WHERE page_path = '/language-test'
+            `)
+            return result.rows.length
+          },
+          { timeout: 5000 }
+        )
+        .toBeGreaterThanOrEqual(1)
+
       const result = await executeQuery(`
         SELECT language FROM system.analytics_page_views WHERE page_path = '/language-test'
       `)
-      expect(result.rows.length).toBeGreaterThanOrEqual(1)
       expect(result.rows[0].language).toBe('en-US')
     }
   )
@@ -300,10 +324,22 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
       })
 
       // THEN: Page view record has referrerDomain = 'google.com'
+      // Use poll() to wait for the fire-and-forget DB write to complete
+      await expect
+        .poll(
+          async () => {
+            const result = await executeQuery(`
+              SELECT referrer_domain, referrer_url FROM system.analytics_page_views WHERE page_path = '/referred-page'
+            `)
+            return result.rows.length
+          },
+          { timeout: 5000 }
+        )
+        .toBeGreaterThanOrEqual(1)
+
       const result = await executeQuery(`
         SELECT referrer_domain, referrer_url FROM system.analytics_page_views WHERE page_path = '/referred-page'
       `)
-      expect(result.rows.length).toBeGreaterThanOrEqual(1)
       expect(result.rows[0].referrer_domain).toBe('google.com')
       expect(result.rows[0].referrer_url).toBe('https://www.google.com/search?q=test')
     }
@@ -335,11 +371,23 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
       })
 
       // THEN: Page view record has utmSource, utmMedium, utmCampaign populated
+      // Use poll() to wait for the fire-and-forget DB write to complete
+      await expect
+        .poll(
+          async () => {
+            const result = await executeQuery(`
+              SELECT utm_source FROM system.analytics_page_views WHERE page_path = '/utm-page'
+            `)
+            return result.rows.length
+          },
+          { timeout: 5000 }
+        )
+        .toBeGreaterThanOrEqual(1)
+
       const result = await executeQuery(`
         SELECT utm_source, utm_medium, utm_campaign, utm_content, utm_term
         FROM system.analytics_page_views WHERE page_path = '/utm-page'
       `)
-      expect(result.rows.length).toBeGreaterThanOrEqual(1)
       expect(result.rows[0].utm_source).toBe('newsletter')
       expect(result.rows[0].utm_medium).toBe('email')
       expect(result.rows[0].utm_campaign).toBe('spring-sale')
