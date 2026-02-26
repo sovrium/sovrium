@@ -255,7 +255,7 @@ GET /api/analytics/pages?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z
 | AC-005 | Returns 400 when from parameter is missing         | `API-ANALYTICS-PAGES-005`        | ✅     |
 | AC-006 | Returns empty array when no page views exist       | `API-ANALYTICS-PAGES-006`        | ✅     |
 | AC-007 | Supports filtering by date range                   | `API-ANALYTICS-PAGES-007`        | ✅     |
-| AC-008 | Top pages query works end-to-end (regression)      | `API-ANALYTICS-PAGES-REGRESSION` | ⏳     |
+| AC-008 | Top pages query works end-to-end (regression)      | `API-ANALYTICS-PAGES-REGRESSION` | ✅     |
 
 ### Implementation References
 
