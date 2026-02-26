@@ -93,7 +93,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-SOURCES-003: should include null domain for direct traffic',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
