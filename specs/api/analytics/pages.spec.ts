@@ -274,7 +274,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ANALYTICS-PAGES-REGRESSION: top pages query works end-to-end',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
