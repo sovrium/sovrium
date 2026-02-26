@@ -119,9 +119,9 @@ Content-Type: application/json
 | AC-001 | POST /api/analytics/collect returns 204 No Content            | `API-ANALYTICS-COLLECT-001`        | ✅     |
 | AC-002 | Tracking script is injected into pages when analytics enabled | `API-ANALYTICS-COLLECT-002`        | ✅     |
 | AC-003 | Tracking script is NOT injected when analytics disabled       | `API-ANALYTICS-COLLECT-003`        | ✅     |
-| AC-004 | Visitor hash uses SHA-256 of date + IP + UA (no cookies)      | `API-ANALYTICS-COLLECT-004`        | ⏳     |
-| AC-005 | UA string is parsed for device type (desktop/mobile/tablet)   | `API-ANALYTICS-COLLECT-005`        | ⏳     |
-| AC-006 | Browser name is extracted from UA string                      | `API-ANALYTICS-COLLECT-006`        | ⏳     |
+| AC-004 | Visitor hash uses SHA-256 of date + IP + UA (no cookies)      | `API-ANALYTICS-COLLECT-004`        | ✅     |
+| AC-005 | UA string is parsed for device type (desktop/mobile/tablet)   | `API-ANALYTICS-COLLECT-005`        | ✅     |
+| AC-006 | Browser name is extracted from UA string                      | `API-ANALYTICS-COLLECT-006`        | ✅     |
 | AC-007 | OS name is extracted from UA string                           | `API-ANALYTICS-COLLECT-007`        | ⏳     |
 | AC-008 | Language is extracted from Accept-Language header             | `API-ANALYTICS-COLLECT-008`        | ⏳     |
 | AC-009 | Referrer domain is extracted from full referrer URL           | `API-ANALYTICS-COLLECT-009`        | ⏳     |

@@ -124,7 +124,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-COLLECT-005: should parse device type from UA string',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
@@ -154,7 +154,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-COLLECT-006: should extract browser name from UA string',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
