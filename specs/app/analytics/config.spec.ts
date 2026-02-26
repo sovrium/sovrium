@@ -325,10 +325,18 @@ test.describe('Analytics Configuration', () => {
         await page.goto('/')
 
         // Verify page view is recorded in database
-        const result = await executeQuery(`
-          SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path = '/'
-        `)
-        expect(Number(result.rows[0].count)).toBeGreaterThanOrEqual(1)
+        // Use poll() to wait for the fire-and-forget DB write to complete
+        await expect
+          .poll(
+            async () => {
+              const result = await executeQuery(`
+                SELECT COUNT(*) as count FROM system.analytics_page_views WHERE page_path = '/'
+              `)
+              return Number(result.rows[0].count)
+            },
+            { timeout: 5000 }
+          )
+          .toBeGreaterThanOrEqual(1)
       })
 
       await test.step('APP-ANALYTICS-CONFIG-004: Reject invalid retentionDays', async () => {
