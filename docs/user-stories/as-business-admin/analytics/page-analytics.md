@@ -415,7 +415,7 @@ analytics:
 
 | ID     | Criterion                                                     | E2E Spec                             | Status |
 | ------ | ------------------------------------------------------------- | ------------------------------------ | ------ |
-| AC-001 | Records older than retentionDays are purged on server startup | `APP-ANALYTICS-RETENTION-001`        | ⏳     |
+| AC-001 | Records older than retentionDays are purged on server startup | `APP-ANALYTICS-RETENTION-001`        | ✅     |
 | AC-002 | Purge respects the configured retentionDays value             | `APP-ANALYTICS-RETENTION-002`        | ⏳     |
 | AC-003 | Records within retention period are preserved                 | `APP-ANALYTICS-RETENTION-003`        | ⏳     |
 | AC-004 | Purge runs without error when no expired records exist        | `APP-ANALYTICS-RETENTION-004`        | ⏳     |
