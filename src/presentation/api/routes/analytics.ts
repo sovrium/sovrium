@@ -60,10 +60,17 @@ function parseAnalyticsQuery(
   const parsed = analyticsQuerySchema.safeParse({ from: fromStr, to: toStr, granularity })
   if (!parsed.success) return undefined
 
+  // Round `to` up to the end of its second so that the query range captures
+  // all events within the same wall-clock second.  Without this, sub-second
+  // differences between the client timestamp and server-side NOW() can exclude
+  // rows that logically fall within the requested window.
+  const toDate = new Date(parsed.data.to)
+  const toEndOfSecond = new Date(Math.ceil(toDate.getTime() / 1000) * 1000 + 999)
+
   return {
     appName,
     from: new Date(parsed.data.from),
-    to: new Date(parsed.data.to),
+    to: toEndOfSecond,
     granularity: parsed.data.granularity,
   }
 }
@@ -75,6 +82,7 @@ function parseAnalyticsQuery(
  * Also triggers retention cleanup (fire-and-forget) to purge stale records.
  * Returns 204 No Content for fastest response.
  */
+// eslint-disable-next-line max-params -- All parameters are configured per-app and forwarded from route registration
 async function handleCollect(
   c: Context,
   appName: string,
@@ -300,6 +308,7 @@ async function handleCampaigns(c: Context, appName: string): Promise<Response> {
  * @param respectDoNotTrack - Whether to honor Do Not Track (DNT:1) header
  * @returns Hono app with analytics routes chained
  */
+// eslint-disable-next-line max-params -- All parameters are configured per-app and forwarded from route setup
 export function chainAnalyticsRoutes<T extends Hono>(
   honoApp: T,
   appName: string,
