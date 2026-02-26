@@ -131,7 +131,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-SOURCES-004: should sort referrers by pageViews descending',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
