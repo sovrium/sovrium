@@ -92,7 +92,7 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
     }
   )
 
-  test.fixme(
+  test(
     'API-ANALYTICS-DEVICES-003: should include desktop mobile tablet device types',
     { tag: '@spec' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
