@@ -186,7 +186,7 @@ GET /api/analytics/overview?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z&gr
 | AC-002 | Returns 401 when user is not authenticated             | `API-ANALYTICS-OVERVIEW-002`        | ✅     |
 | AC-003 | Summary includes pageViews, uniqueVisitors, sessions   | `API-ANALYTICS-OVERVIEW-003`        | ✅     |
 | AC-004 | Time series respects granularity=hour                  | `API-ANALYTICS-OVERVIEW-004`        | ✅     |
-| AC-005 | Time series respects granularity=day                   | `API-ANALYTICS-OVERVIEW-005`        | ⏳     |
+| AC-005 | Time series respects granularity=day                   | `API-ANALYTICS-OVERVIEW-005`        | ✅     |
 | AC-006 | Time series respects granularity=week                  | `API-ANALYTICS-OVERVIEW-006`        | ⏳     |
 | AC-007 | Time series respects granularity=month                 | `API-ANALYTICS-OVERVIEW-007`        | ⏳     |
 | AC-008 | Returns 400 when from parameter is missing             | `API-ANALYTICS-OVERVIEW-008`        | ✅     |
