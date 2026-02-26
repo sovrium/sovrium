@@ -24,7 +24,7 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
   // @spec tests - EXHAUSTIVE coverage of all acceptance criteria
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ANALYTICS-COLLECT-001: should return 204 No Content on valid page view',
     { tag: '@spec' },
     async ({ request, startServerWithSchema }) => {
