@@ -114,10 +114,22 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
       expect(setCookieHeader).not.toContain('_ga')
 
       // AND: Page view record has visitorHash in the database
+      // Use poll() to wait for the fire-and-forget DB write to complete
+      await expect
+        .poll(
+          async () => {
+            const result = await executeQuery(`
+              SELECT visitor_hash FROM system.analytics_page_views WHERE page_path = '/test-page'
+            `)
+            return result.rows.length
+          },
+          { timeout: 5000 }
+        )
+        .toBeGreaterThanOrEqual(1)
+
       const result = await executeQuery(`
         SELECT visitor_hash FROM system.analytics_page_views WHERE page_path = '/test-page'
       `)
-      expect(result.rows.length).toBeGreaterThanOrEqual(1)
       expect(result.rows[0].visitor_hash).toBeTruthy()
       // SHA-256 produces 64-character hex string
       expect(result.rows[0].visitor_hash).toMatch(/^[a-f0-9]{64}$/)
@@ -146,10 +158,22 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
       })
 
       // THEN: Page view record has deviceType = 'mobile'
+      // Use poll() to wait for the fire-and-forget DB write to complete
+      await expect
+        .poll(
+          async () => {
+            const result = await executeQuery(`
+              SELECT device_type FROM system.analytics_page_views WHERE page_path = '/mobile-test'
+            `)
+            return result.rows.length
+          },
+          { timeout: 5000 }
+        )
+        .toBeGreaterThanOrEqual(1)
+
       const result = await executeQuery(`
         SELECT device_type FROM system.analytics_page_views WHERE page_path = '/mobile-test'
       `)
-      expect(result.rows.length).toBeGreaterThanOrEqual(1)
       expect(result.rows[0].device_type).toBe('mobile')
     }
   )
@@ -176,10 +200,22 @@ test.describe('POST /api/analytics/collect - Page View Collection', () => {
       })
 
       // THEN: Page view record has browserName = 'Chrome'
+      // Use poll() to wait for the fire-and-forget DB write to complete
+      await expect
+        .poll(
+          async () => {
+            const result = await executeQuery(`
+              SELECT browser_name FROM system.analytics_page_views WHERE page_path = '/chrome-test'
+            `)
+            return result.rows.length
+          },
+          { timeout: 5000 }
+        )
+        .toBeGreaterThanOrEqual(1)
+
       const result = await executeQuery(`
         SELECT browser_name FROM system.analytics_page_views WHERE page_path = '/chrome-test'
       `)
-      expect(result.rows.length).toBeGreaterThanOrEqual(1)
       expect(result.rows[0].browser_name).toBe('Chrome')
     }
   )
