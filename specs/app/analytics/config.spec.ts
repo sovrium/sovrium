@@ -178,7 +178,7 @@ test.describe('Analytics Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-CONFIG-008: should reject sessionTimeout above 120',
     { tag: '@spec' },
     async ({ startServerWithSchema }) => {
