@@ -367,11 +367,10 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
         analytics: true,
       })
 
-      const now = new Date()
-      const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-      const to = now.toISOString()
-
       await test.step('API-ANALYTICS-DEVICES-002: Return 401 when not authenticated', async () => {
+        const now = new Date()
+        const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        const to = now.toISOString()
         const response = await request.get(`/api/analytics/devices?from=${from}&to=${to}`)
         expect(response.status()).toBe(401)
       })
@@ -379,6 +378,9 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
       await createAuthenticatedUser()
 
       await test.step('API-ANALYTICS-DEVICES-008: Return empty when no data', async () => {
+        const now = new Date()
+        const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        const to = now.toISOString()
         const response = await request.get(`/api/analytics/devices?from=${from}&to=${to}`)
         expect(response.status()).toBe(200)
 
@@ -400,6 +402,10 @@ test.describe('GET /api/analytics/devices - Device Breakdown', () => {
           ('hash_f', '/about', 'About', 'mobile', 'Chrome', 'Android', NOW() - INTERVAL '30 minutes'),
           ('hash_g', '/', 'Home', 'tablet', 'Safari', 'iPadOS', NOW())
       `)
+
+      const now = new Date()
+      const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      const to = now.toISOString()
 
       await test.step('API-ANALYTICS-DEVICES-001: Return 200 with device type breakdown', async () => {
         const response = await request.get(`/api/analytics/devices?from=${from}&to=${to}`)
