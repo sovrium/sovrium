@@ -227,7 +227,7 @@ test.describe('Analytics Configuration', () => {
     }
   )
 
-  test.fixme(
+  test(
     'APP-ANALYTICS-CONFIG-010: should default respectDoNotTrack to true when not specified',
     { tag: '@spec' },
     async ({ page, startServerWithSchema }) => {
