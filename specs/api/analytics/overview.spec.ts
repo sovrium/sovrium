@@ -379,7 +379,7 @@ test.describe('GET /api/analytics/overview - Analytics Overview', () => {
   // @regression test - OPTIMIZED integration (exactly ONE test)
   // ============================================================================
 
-  test.fixme(
+  test(
     'API-ANALYTICS-OVERVIEW-REGRESSION: analytics overview query works end-to-end',
     { tag: '@regression' },
     async ({ request, startServerWithSchema, createAuthenticatedUser, executeQuery }) => {
