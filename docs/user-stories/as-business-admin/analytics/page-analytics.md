@@ -386,7 +386,7 @@ GET /api/analytics/devices?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z
 | AC-003 | Device types include desktop, mobile, tablet         | `API-ANALYTICS-DEVICES-003`        | ✅     |
 | AC-004 | Returns browser name breakdown                       | `API-ANALYTICS-DEVICES-004`        | ✅     |
 | AC-005 | Returns OS name breakdown                            | `API-ANALYTICS-DEVICES-005`        | ✅     |
-| AC-006 | Each breakdown includes percentage calculation       | `API-ANALYTICS-DEVICES-006`        | ⏳     |
+| AC-006 | Each breakdown includes percentage calculation       | `API-ANALYTICS-DEVICES-006`        | ✅     |
 | AC-007 | Returns 400 when from parameter is missing           | `API-ANALYTICS-DEVICES-007`        | ✅     |
 | AC-008 | Returns empty breakdowns when no data exists         | `API-ANALYTICS-DEVICES-008`        | ✅     |
 | AC-009 | Device breakdown query works end-to-end (regression) | `API-ANALYTICS-DEVICES-REGRESSION` | ⏳     |
