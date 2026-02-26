@@ -420,7 +420,7 @@ analytics:
 | AC-003 | Records within retention period are preserved                 | `APP-ANALYTICS-RETENTION-003`        | ✅     |
 | AC-004 | Purge runs without error when no expired records exist        | `APP-ANALYTICS-RETENTION-004`        | ✅     |
 | AC-005 | Default retention is 365 days when not explicitly configured  | `APP-ANALYTICS-RETENTION-005`        | ✅     |
-| AC-006 | Data retention purge works correctly (regression)             | `APP-ANALYTICS-RETENTION-REGRESSION` | ⏳     |
+| AC-006 | Data retention purge works correctly (regression)             | `APP-ANALYTICS-RETENTION-REGRESSION` | ✅     |
 
 ### Implementation References
 
