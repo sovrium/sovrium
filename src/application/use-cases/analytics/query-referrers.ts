@@ -39,5 +39,7 @@ export const queryReferrers = (
       granularity: 'day',
     })
 
-    return { referrers, total: referrers.length }
+    const total = referrers.reduce((sum, r) => sum + r.pageViews, 0)
+
+    return { referrers, total }
   })

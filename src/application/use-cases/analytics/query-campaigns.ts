@@ -39,5 +39,7 @@ export const queryCampaigns = (
       granularity: 'day',
     })
 
-    return { campaigns, total: campaigns.length }
+    const total = campaigns.reduce((sum, c) => sum + c.pageViews, 0)
+
+    return { campaigns, total }
   })

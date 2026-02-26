@@ -175,7 +175,13 @@ export const AnalyticsRepositoryLive = Layer.succeed(AnalyticsRepository, {
             uniqueVisitors: countDistinct(analyticsPageViews.visitorHash),
           })
           .from(analyticsPageViews)
-          .where(whereClause(params))
+          .where(
+            and(
+              whereClause(params),
+              // Exclude rows with UTM parameters (those are counted in campaigns)
+              sql`(${analyticsPageViews.utmSource} IS NULL AND ${analyticsPageViews.utmMedium} IS NULL AND ${analyticsPageViews.utmCampaign} IS NULL)`
+            )
+          )
           .groupBy(analyticsPageViews.referrerDomain)
           .orderBy(sql`count(*) DESC`)
 
