@@ -250,7 +250,7 @@ GET /api/analytics/pages?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z
 | ------ | -------------------------------------------------- | -------------------------------- | ------ |
 | AC-001 | Returns 200 with pages ranked by page views        | `API-ANALYTICS-PAGES-001`        | ✅     |
 | AC-002 | Returns 401 when user is not authenticated         | `API-ANALYTICS-PAGES-002`        | ✅     |
-| AC-003 | Each page includes path, pageViews, uniqueVisitors | `API-ANALYTICS-PAGES-003`        | ⏳     |
+| AC-003 | Each page includes path, pageViews, uniqueVisitors | `API-ANALYTICS-PAGES-003`        | ✅     |
 | AC-004 | Pages are sorted by pageViews descending           | `API-ANALYTICS-PAGES-004`        | ⏳     |
 | AC-005 | Returns 400 when from parameter is missing         | `API-ANALYTICS-PAGES-005`        | ✅     |
 | AC-006 | Returns empty array when no page views exist       | `API-ANALYTICS-PAGES-006`        | ✅     |
