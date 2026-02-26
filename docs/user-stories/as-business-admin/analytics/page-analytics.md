@@ -248,7 +248,7 @@ GET /api/analytics/pages?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z
 
 | ID     | Criterion                                          | E2E Spec                         | Status |
 | ------ | -------------------------------------------------- | -------------------------------- | ------ |
-| AC-001 | Returns 200 with pages ranked by page views        | `API-ANALYTICS-PAGES-001`        | ⏳     |
+| AC-001 | Returns 200 with pages ranked by page views        | `API-ANALYTICS-PAGES-001`        | ✅     |
 | AC-002 | Returns 401 when user is not authenticated         | `API-ANALYTICS-PAGES-002`        | ✅     |
 | AC-003 | Each page includes path, pageViews, uniqueVisitors | `API-ANALYTICS-PAGES-003`        | ⏳     |
 | AC-004 | Pages are sorted by pageViews descending           | `API-ANALYTICS-PAGES-004`        | ⏳     |
