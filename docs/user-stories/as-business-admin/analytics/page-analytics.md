@@ -332,7 +332,7 @@ GET /api/analytics/campaigns?from=2025-01-01T00:00:00Z&to=2025-01-31T23:59:59Z
 | AC-007 | Campaigns include source, medium, campaign fields           | `API-ANALYTICS-SOURCES-007`        | ✅     |
 | AC-008 | Returns 400 when from parameter is missing                  | `API-ANALYTICS-SOURCES-008`        | ✅     |
 | AC-009 | Returns empty array when no referrer data exists            | `API-ANALYTICS-SOURCES-009`        | ✅     |
-| AC-010 | Traffic sources query works end-to-end (regression)         | `API-ANALYTICS-SOURCES-REGRESSION` | ⏳     |
+| AC-010 | Traffic sources query works end-to-end (regression)         | `API-ANALYTICS-SOURCES-REGRESSION` | ✅     |
 
 ### Implementation References
 
