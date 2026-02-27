@@ -48,8 +48,8 @@ Bun Test supports multiple test file patterns:
 
 ```bash
 bun test:unit                        # Runs ONLY .test.ts and .test.tsx files (project-wide)
-bun test:unit:watch                  # Watch mode for unit tests
 CLAUDECODE=1 bun test:unit           # AI-optimized output (failures only)
+bun test:unit:concurrent             # Run tests concurrently (faster)
 ```
 
 **Why this works**: The command `bun test .test.ts .test.tsx` uses `.test.ts` and `.test.tsx` as **pattern filters** (NOT file paths or directory paths). Bun searches the entire project and ONLY runs files whose names contain these patterns.
@@ -90,9 +90,6 @@ bun test --concurrent .test.ts .test.tsx   # Pattern filters (NOT directory path
 **Additional commands:**
 
 ```bash
-# Coverage (with pattern filters)
-bun test:unit:coverage               # Generate coverage report
-
 # Filtering by test name (with pattern filters)
 bun test --grep "calculator" .test.ts .test.tsx
 
@@ -119,7 +116,7 @@ CLAUDECODE=1 bun test:unit
 bun test:unit
 ```
 
-These commands use a package.json script that automatically runs tests with pattern filters (`bun test .test.ts .test.tsx`) with optimized flags (`--concurrent` for parallel execution).
+These commands use a package.json script that automatically runs tests with pattern filters (`bun test .test.ts .test.tsx`). Use `bun test:unit:concurrent` if you want parallel execution.
 
 **Why use pattern filters instead of directory paths?**
 
@@ -143,14 +140,13 @@ These commands use a package.json script that automatically runs tests with patt
 **Example**:
 
 ```bash
-# Sequential (default) - manual command
-bun test .test.ts .test.tsx              # ~5 seconds for 50 tests
+# Sequential (default)
+bun test:unit                            # ~5 seconds for 50 tests
+bun test .test.ts .test.tsx              # equivalent manual command
 
-# Concurrent - manual command
-bun test --concurrent .test.ts .test.tsx # ~1.5 seconds for 50 tests
-
-# With script (includes --concurrent automatically)
-bun test:unit                            # ~1.5 seconds for 50 tests
+# Concurrent
+bun test:unit:concurrent                 # ~1.5 seconds for 50 tests
+bun test --concurrent .test.ts .test.tsx # equivalent manual command
 ```
 
 **When to Use**:
@@ -229,7 +225,7 @@ CLAUDECODE=1 bun test:unit
 CLAUDECODE=1 bun test --concurrent ./src/calculator.test.ts
 
 # Watch mode with optimization (continuous TDD)
-CLAUDECODE=1 bun test:unit:watch
+CLAUDECODE=1 bun test --watch .test.ts .test.tsx
 ```
 
 **For humans (manual testing)**:
@@ -239,25 +235,26 @@ CLAUDECODE=1 bun test:unit:watch
 bun test:unit
 
 # Run specific file
-bun test --concurrent ./src/calculator.test.ts
+bun test ./src/calculator.test.ts
 
-# Watch mode
-bun test:unit:watch
+# Watch mode (no dedicated script - use raw bun test command)
+bun test --watch .test.ts .test.tsx
 ```
 
-### Required package.json Scripts
+### Package.json Scripts
 
 The project uses **pattern filters** to ensure ONLY unit test files are discovered:
 
 ```json
 {
   "scripts": {
-    "test:unit": "bun test --concurrent .test.ts .test.tsx",
-    "test:unit:watch": "bun test --concurrent --watch .test.ts .test.tsx",
-    "test:unit:coverage": "bun test --concurrent --coverage .test.ts .test.tsx"
+    "test:unit": "bun test .test.ts .test.tsx",
+    "test:unit:concurrent": "bun test --concurrent .test.ts .test.tsx"
   }
 }
 ```
+
+> **Note**: There is no `test:unit:watch` or `test:unit:coverage` script. Use raw `bun test` commands for watch mode and coverage.
 
 **Why pattern filters instead of directory paths or glob patterns?**
 
@@ -761,7 +758,7 @@ bun test scripts/                    # ✅ Safe (specific directory)
 bun test scripts/export-schema.test.ts  # ✅ Safe (specific file)
 
 # Watch mode for script development
-bun test:unit:watch                  # ✅ CORRECT (pattern filters with watch mode)
+bun test --watch .test.ts .test.tsx  # ✅ CORRECT (pattern filters with watch mode)
 bun test --watch scripts/            # ✅ Safe (specific directory)
 ```
 
@@ -836,15 +833,12 @@ describe('build-helpers', () => {
 ## Watch Mode for Continuous Testing
 
 ```bash
-# Watch mode (auto-runs tests on file changes)
-bun test:unit:watch                  # ✅ CORRECT (pattern filters: .test.ts .test.tsx)
-CLAUDECODE=1 bun test:unit:watch     # AI-optimized output (failures only)
-
-# Raw watch command with pattern filters
-bun test --watch --concurrent .test.ts .test.tsx  # ✅ Safe (pattern filters)
+# Watch mode (auto-runs tests on file changes) - no dedicated script, use raw bun test
+bun test --watch .test.ts .test.tsx          # ✅ Safe (pattern filters)
+bun test --watch --concurrent .test.ts .test.tsx  # ✅ Safe (with concurrency)
 ```
 
-**Note**: The `bun test:unit:watch` command uses pattern filters (`.test.ts` and `.test.tsx`) to automatically discover ONLY unit tests, preventing Playwright conflicts.
+**Note**: There is no `test:unit:watch` script. Use `bun test --watch .test.ts .test.tsx` directly. The pattern filters (`.test.ts` and `.test.tsx`) automatically discover ONLY unit tests, preventing Playwright conflicts.
 
 Watch mode is perfect for TDD (Test-Driven Development):
 
@@ -858,11 +852,9 @@ Watch mode is perfect for TDD (Test-Driven Development):
 ## Coverage Reports
 
 ```bash
-# Generate coverage report
-bun test:unit:coverage               # ✅ CORRECT (pattern filters: .test.ts .test.tsx)
-
-# Raw coverage command with pattern filters
-bun test --coverage --concurrent .test.ts .test.tsx  # ✅ Safe (pattern filters)
+# Generate coverage report - no dedicated script, use raw bun test
+bun test --coverage .test.ts .test.tsx           # ✅ Safe (pattern filters)
+bun test --coverage --concurrent .test.ts .test.tsx  # ✅ Safe (with concurrency)
 
 # Coverage output shows:
 # - % of statements covered
@@ -871,7 +863,7 @@ bun test --coverage --concurrent .test.ts .test.tsx  # ✅ Safe (pattern filters
 # - % of lines covered
 ```
 
-**Note**: Coverage reports use pattern filters to ensure ONLY unit tests are included in coverage metrics.
+**Note**: There is no `test:unit:coverage` script. Use `bun test --coverage .test.ts .test.tsx` directly. Pattern filters ensure ONLY unit tests are included in coverage metrics.
 
 ## Performance Benefits
 
@@ -914,8 +906,8 @@ bun test --coverage --concurrent .test.ts .test.tsx  # ✅ Safe (pattern filters
 1. **During Development** (continuous):
 
    ```bash
-   bun test:unit:watch              # Auto-run on file changes (pattern filters)
-   CLAUDECODE=1 bun test:unit:watch # AI-optimized output
+   bun test --watch .test.ts .test.tsx              # Auto-run on file changes (pattern filters)
+   CLAUDECODE=1 bun test --watch .test.ts .test.tsx # AI-optimized output
    ```
 
 2. **Before Committing** (critical):

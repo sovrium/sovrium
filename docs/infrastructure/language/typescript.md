@@ -2,11 +2,10 @@
 
 ## Overview
 
-**TypeScript Compiler**: ^5.9.3 (actual compiler version)
-**tsc Wrapper**: v2.0.4 (CLI wrapper package)
+**TypeScript Compiler**: ^5.9.3
 **Configuration**: Optimized for Bun's bundler mode with strict type safety
 
-**Note**: The `tsc` package (v2.0.4) is a lightweight wrapper that provides the `tsc` command. The actual TypeScript compiler is installed as a peer dependency (^5.9.3).
+**Note**: TypeScript is installed directly as a devDependency (`typescript: ^5.9.3`). The `tsc` command is available via `bunx tsc` or through scripts without any separate wrapper package.
 
 ## Critical Distinction: Execution vs Type Checking
 
@@ -38,7 +37,7 @@
   "compilerOptions": {
     // Environment & Features
     "lib": ["ESNext", "DOM", "DOM.Iterable"], // Latest JavaScript features + DOM types for React
-    "target": ["ESNext"], // No downleveling needed
+    "target": "ESNext", // No downleveling needed
     "module": "Preserve", // Preserves original module syntax
     "moduleDetection": "force", // Treat all files as modules
     "jsx": "react-jsx", // JSX support (if React is added)
@@ -252,13 +251,12 @@ bunx tsc --noEmit --incremental
 # Configure in tsconfig.json for faster rebuilds
 ```
 
-## Why tsc v2.0.4 Package
+## Running tsc in Sovrium
 
-- Provides consistent tsc executable across environments
-- Wrapper around TypeScript peer dependency (^5)
-- Allows `bun tsc` command without global TypeScript installation
-- Respects project's TypeScript version (via peer dependency)
-- Ensures compatibility between tsc wrapper and TypeScript compiler
+TypeScript is installed directly as `typescript: ^5.9.3`. Use these commands to run type checking:
+- `bun run typecheck` — runs `tsc --noEmit --incremental` via the package.json script
+- `bunx tsc --noEmit` — runs tsc directly via Bun's package execution
+- `bun tsc --noEmit` — alternative syntax that works with Bun
 
 ## Type Checking Best Practices
 

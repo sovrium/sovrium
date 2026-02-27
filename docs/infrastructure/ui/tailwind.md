@@ -2,8 +2,8 @@
 
 ## Overview
 
-**Version**: ^4.1.18
-**PostCSS Package**: @tailwindcss/postcss ^4.1.18 (installed as dependency, not actively used)
+**Version**: ^4.2.1
+**PostCSS Package**: @tailwindcss/postcss ^4.2.1 (installed as dependency, not actively used)
 **CSS Compiler**: Custom programmatic compiler (`src/infrastructure/css/compiler.ts`) — Sovrium uses programmatic compilation instead of PostCSS configuration
 **Purpose**: Modern utility-first CSS framework for rapidly building custom user interfaces with exceptional performance
 
@@ -57,9 +57,9 @@ Tailwind CSS v4 is already installed in Sovrium:
 ```json
 {
   "dependencies": {
-    "tailwindcss": "^4.1.18",
+    "tailwindcss": "^4.2.1",
     "postcss": "^8.5.6",
-    "@tailwindcss/postcss": "^4.1.18",
+    "@tailwindcss/postcss": "^4.2.1",
     "tw-animate-css": "^1.4.0"
   }
 }

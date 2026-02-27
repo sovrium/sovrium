@@ -1,4 +1,4 @@
-# ESLint v9.39.1
+# ESLint v9.39.2
 
 ## Overview
 
@@ -158,10 +158,10 @@ export default [
 
 ## Key Dependencies
 
-- **eslint v9.39.1**: Core ESLint linter engine
-- **@eslint/js v9.39.1**: ESLint's recommended JavaScript rules (flat config)
-- **typescript-eslint v8.48.0**: TypeScript-specific rules and parser
-- **globals v16.5.0**: Global variable definitions for different environments (browser, Node.js, Bun)
+- **eslint v9.39.2**: Core ESLint linter engine
+- **@eslint/js v9.39.2**: ESLint's recommended JavaScript rules (flat config)
+- **typescript-eslint ^8.56.1**: TypeScript-specific rules and parser
+- **globals**: Global variable definitions for different environments (browser, Node.js, Bun)
 
 ## typescript-eslint Integration
 

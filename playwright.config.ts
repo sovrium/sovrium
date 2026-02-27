@@ -28,7 +28,7 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
   /* Workers per shard on CI (controlled by CI_WORKERS env var for sharding) */
-  workers: process.env.CI ? parseInt(process.env.CI_WORKERS || '1', 10) : undefined,
+  workers: process.env.CI ? parseInt(process.env.CI_WORKERS || '1', 10) : 6,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: process.env.CI ? 'github' : [['list'], ['html']],
 

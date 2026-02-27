@@ -20,7 +20,7 @@
 - **Enterprise**: Enterprise License (files with `.ee.` in filename/dirname) - Paid features
 - **Change Date**: 2029-01-01 (automatically becomes Apache 2.0)
 - **Current status**: No `.ee.` files exist yet (Phase 0 - all code is BSL-licensed)
-**Runtime**: Bun 1.3.8 (NOT Node.js)
+**Runtime**: Bun 1.3.10 (NOT Node.js)
 **Entry Points**:
 - Library: `src/index.ts` (module import)
 - CLI: `src/cli.ts` (binary executable via `bun run start` or `sovrium` command)
@@ -29,18 +29,18 @@
 
 | Technology | Version | Purpose | Docs |
 |-----------|---------|---------|------|
-| **Bun** | 1.3.9 | Runtime & package manager | @docs/infrastructure/runtime/bun.md |
+| **Bun** | 1.3.10 | Runtime & package manager | @docs/infrastructure/runtime/bun.md |
 | **TypeScript** | ^5.9.3 | Type-safe language | @docs/infrastructure/language/typescript.md |
-| **Effect** | ^3.19.16 | Functional programming, DI, error handling | @docs/infrastructure/framework/effect.md |
-| **Effect Schema** | ^3.19.16 | Server validation (domain/application/infrastructure) | @docs/infrastructure/framework/effect.md |
-| **Hono** | ^4.11.9 | Web framework (API routes, RPC client, OpenAPI) | @docs/infrastructure/framework/hono.md |
+| **Effect** | ^3.19.19 | Functional programming, DI, error handling | @docs/infrastructure/framework/effect.md |
+| **Effect Schema** | ^3.19.19 | Server validation (domain/application/infrastructure) | @docs/infrastructure/framework/effect.md |
+| **Hono** | ^4.12.3 | Web framework (API routes, RPC client, OpenAPI) | @docs/infrastructure/framework/hono.md |
 | **Zod** | ^4.3.6 | OpenAPI integration ONLY (src/domain/models/api/) + client forms | @docs/infrastructure/api/zod-hono-openapi.md |
 | **js-yaml** | ^4.1.1 | YAML parser (CLI config files only) | @docs/infrastructure/parsing/js-yaml.md |
-| **Better Auth** | ^1.4.18 | Authentication | @docs/infrastructure/framework/better-auth.md |
+| **Better Auth** | ^1.4.19 | Authentication | @docs/infrastructure/framework/better-auth.md |
 | **Drizzle ORM** | ^0.45.1 | Database (PostgreSQL via bun:sql) | @docs/infrastructure/database/drizzle.md |
 | **React** | ^19.2.4 | UI library | @docs/infrastructure/ui/react.md |
-| **Tailwind CSS** | ^4.1.18 | Styling (programmatic CSS compiler) | @docs/infrastructure/ui/tailwind.md |
-| **TanStack Query** | ^5.90.20 | Server state management | @docs/infrastructure/ui/tanstack-query.md |
+| **Tailwind CSS** | ^4.2.1 | Styling (programmatic CSS compiler) | @docs/infrastructure/ui/tailwind.md |
+| **TanStack Query** | ^5.90.21 | Server state management | @docs/infrastructure/ui/tanstack-query.md |
 | **TanStack Table** | ^8.21.3 | Data tables | @docs/infrastructure/ui/tanstack-table.md |
 
 ## Authorization & Multi-Tenancy

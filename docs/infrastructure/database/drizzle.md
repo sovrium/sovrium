@@ -76,69 +76,29 @@ export type DrizzleDB = typeof db
 DATABASE_URL=postgres://user:password@localhost:5432/sovrium
 ```
 
-### PostgreSQL with postgres.js (Node.js Compatibility)
+### Database Entry Point
 
-Sovrium uses a **dual-driver architecture** to support both Bun runtime and Node.js environments (e.g., testing with Node.js-based tools):
-
-```typescript
-// src/infrastructure/database/drizzle/db.ts (runtime selection)
-const isBun = typeof Bun !== 'undefined'
-const dbModule = isBun ? './db-bun' : './db-node'
-const { db } = await import(dbModule)
-
-export { db }
-```
-
-**Bun Runtime** (`db-bun.ts`):
+`src/infrastructure/database/drizzle/db.ts` is the entry point that re-exports from `db-bun.ts`:
 
 ```typescript
-import { drizzle } from 'drizzle-orm/bun-sql'
-import * as schema from './schema'
+// src/infrastructure/database/drizzle/db.ts
+export { db } from './db-bun'
+export type { DrizzleDB } from './db-bun'
 
-export const db = drizzle({
-  connection: { url: process.env.DATABASE_URL! },
-  schema,
-})
+// DrizzleTransaction type for transaction callback parameters
+export type DrizzleTransaction = Parameters<Parameters<DrizzleDB['transaction']>[0]>[0]
 ```
 
-**Node.js Runtime** (`db-node.ts`):
-
-```typescript
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
-
-// Use max 1 connection to avoid pool issues in test environments
-const client = postgres(process.env.DATABASE_URL!, { max: 1 })
-export const db = drizzle({ client, schema })
-```
-
-**Why Two Drivers?**
-
-| Driver                    | Package           | Runtime | Use Case                             |
-| ------------------------- | ----------------- | ------- | ------------------------------------ |
-| `drizzle-orm/bun-sql`     | Built-in Bun      | Bun     | Production, development              |
-| `drizzle-orm/postgres-js` | `postgres` ^3.4.8 | Node.js | Testing, CI (when Bun not available) |
-
-**Key Differences**:
-
-1. **Connection Pool**: `postgres.js` uses connection pooling configured via options (`max: 1` for tests)
-2. **Performance**: Bun's native driver has lower latency and better memory efficiency
-3. **Compatibility**: `postgres.js` is the fallback for Node.js-only environments
-
-**When Each Driver is Used**:
-
-- **Bun runtime**: Uses `bun:sql` (native, faster, recommended)
-- **Node.js runtime**: Uses `postgres.js` (Playwright tests, legacy Node.js tools)
-- **Detection**: Automatic via `typeof Bun !== 'undefined'` check
+Sovrium uses only the Bun-native PostgreSQL driver (`drizzle-orm/bun-sql`). All tests run in Bun runtime as well.
 
 ### Effect Layer for Database
 
 Provide database as Effect Context service:
 
 ```typescript
-// src/db/layer.ts
-import { Context, Layer, Effect } from 'effect'
-import { db, type DrizzleDB } from './index'
+// src/infrastructure/database/drizzle/layer.ts
+import { Context, Layer } from 'effect'
+import { db, type DrizzleDB } from './db.js'
 
 export class Database extends Context.Tag('Database')<Database, DrizzleDB>() {}
 
@@ -149,7 +109,7 @@ export const DatabaseLive = Layer.succeed(Database, db)
 
 ```typescript
 import { Effect } from 'effect'
-import { Database } from '@/db/layer'
+import { Database } from '@/infrastructure/database/drizzle/layer'
 
 const program = Effect.gen(function* () {
   const db = yield* Database
@@ -320,8 +280,8 @@ const usersWithPosts = await db.query.users.findMany({
 ```typescript
 // src/repositories/UserRepository.ts
 import { Effect, Context, Layer } from 'effect'
-import { Database } from '@/db/layer'
-import { users, type User, type NewUser } from '@/db/schema'
+import { Database } from '@/infrastructure/database'
+import { users, type User, type NewUser } from '@/infrastructure/database'
 import { eq } from 'drizzle-orm'
 
 class UserNotFoundError {
@@ -474,12 +434,14 @@ if (result._tag === 'Left') {
 import { defineConfig } from 'drizzle-kit'
 
 export default defineConfig({
-  schema: './src/db/schema/*.ts',
+  schema: './src/infrastructure/database/drizzle/schema.ts',
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
     url: process.env.DATABASE_URL!,
   },
+  verbose: true,
+  strict: true,
 })
 ```
 
