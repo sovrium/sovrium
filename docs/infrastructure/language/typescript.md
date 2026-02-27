@@ -254,6 +254,7 @@ bunx tsc --noEmit --incremental
 ## Running tsc in Sovrium
 
 TypeScript is installed directly as `typescript: ^5.9.3`. Use these commands to run type checking:
+
 - `bun run typecheck` — runs `tsc --noEmit --incremental` via the package.json script
 - `bunx tsc --noEmit` — runs tsc directly via Bun's package execution
 - `bun tsc --noEmit` — alternative syntax that works with Bun
