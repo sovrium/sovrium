@@ -9,70 +9,47 @@ This guide provides performance optimization strategies for the Sovrium stack, c
 1. **Measure First**: Use profiling tools before optimizing
 2. **Optimize Bottlenecks**: Focus on areas with the biggest impact
 3. **Maintain Readability**: Don't sacrifice code clarity for micro-optimizations
-4. **Trust the Compiler**: React 19 Compiler handles many optimizations automatically
+4. **Manual Optimization When Measured**: Use `useMemo`, `useCallback`, `React.memo` only when profiling shows a bottleneck (React Compiler automatic memoization is NOT available in Sovrium — see below)
 5. **Leverage the Stack**: Use Bun's speed, Effect's lazy evaluation, and React's virtual DOM
 
 ---
 
 ## React 19 Performance
 
-### React Compiler Automatic Optimizations
+### React Compiler Status in Sovrium
 
-React 19's compiler automatically optimizes your components without manual intervention:
+> **WARNING**: The React 19 Compiler's automatic memoization is **NOT available** in Sovrium. Bun does not yet support `babel-plugin-react-compiler`, which is required for the Compiler to work. See `docs/infrastructure/ui/react.md` for details.
+
+This means **manual performance optimization is still required** when profiling reveals bottlenecks. All React 19 features work (Actions, `use()` hook, Server Components, document metadata, ref as prop) — only the Compiler's automatic memoization is unavailable.
+
+### Manual Optimization (When Measured)
+
+Use `useMemo`, `useCallback`, and `React.memo` when profiling shows a component re-renders excessively or performs expensive computations:
 
 ```tsx
-// ✅ CORRECT: React 19 automatically optimizes this
+// Use useMemo for expensive computations that re-run on every render
 function ExpensiveComponent({ data }: { data: Data }) {
-  // Automatically memoized by React Compiler
-  const processed = processData(data)
+  // Only memoize if processData is measurably slow (profile first!)
+  const processed = useMemo(() => processData(data), [data])
 
-  // Handler automatically stable across renders
-  const handleClick = () => {
-    console.log(processed)
-  }
-
-  return <div onClick={handleClick}>{processed.value}</div>
-}
-
-// ❌ INCORRECT: Manual memoization no longer needed
-const ExpensiveComponent = React.memo(({ data }: { data: Data }) => {
-  const processed = useMemo(() => processData(data), [data]) // Unnecessary
+  // Only memoize handlers passed to memoized children
   const handleClick = useCallback(() => {
     console.log(processed)
-  }, [processed]) // Unnecessary
+  }, [processed])
 
   return <div onClick={handleClick}>{processed.value}</div>
-})
-```
-
-**Key Benefits**:
-
-- No need for `React.memo`, `useMemo`, or `useCallback` in most cases
-- Compiler determines optimal re-render boundaries automatically
-- Zero runtime overhead (optimizations at build time)
-
-### When Manual Optimization is Still Needed
-
-Use manual optimization only for extreme cases:
-
-```tsx
-// Expensive computation that runs on EVERY render (rare)
-function VeryExpensiveComponent() {
-  // If React Compiler can't optimize this (very rare), use useMemo
-  const result = useMemo(() => {
-    return runSuperExpensiveAlgorithm() // 100ms+ computation
-  }, [])
-
-  return <div>{result}</div>
 }
 
-// Component that re-renders frequently with expensive children
-const StableChildComponent = React.memo(ExpensiveChild) // Only if measured benefit
+// Use React.memo for components that re-render with unchanged props
+const StableChild = React.memo(ExpensiveChild) // Only if measured benefit
 ```
 
-**ESLint Enforcement**: Sovrium's ESLint configuration warns when `useMemo`, `useCallback`, or `React.memo` are used, guiding developers to rely on the React 19 Compiler. These are warnings (not errors) to allow manual optimization when measured as necessary.
+**When to optimize**:
 
-**See**: `eslint.config.ts` lines 84-101 for the no-restricted-syntax rules.
+- `useMemo`: Expensive computations (100ms+) that re-run on every render
+- `useCallback`: Handlers passed as props to `React.memo`-wrapped children
+- `React.memo`: Components that receive unchanged props but re-render due to parent updates
+- **Always profile first** — premature memoization adds complexity without measurable benefit
 
 ### Code Splitting
 
@@ -646,4 +623,4 @@ Target metrics for Sovrium applications:
 
 ---
 
-**Remember**: Measure first, optimize second. Trust the React 19 Compiler for automatic optimizations, and focus manual optimization efforts on measured bottlenecks.
+**Remember**: Measure first, optimize second. The React 19 Compiler's automatic memoization is NOT available in Sovrium — use manual `useMemo`/`useCallback`/`React.memo` only when profiling confirms a bottleneck.

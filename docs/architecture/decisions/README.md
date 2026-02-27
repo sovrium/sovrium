@@ -26,13 +26,13 @@ Each ADR follows this structure:
 
 | ADR                                                        | Title                                                 | Status   | Date       | Review Date |
 | ---------------------------------------------------------- | ----------------------------------------------------- | -------- | ---------- | ----------- |
-| [001](./001-validation-library-split.md)                   | Validation Library Split (Effect Schema vs Zod)       | Accepted | 2025-01-29 | 2025-07-01  |
-| [002](./002-domain-feature-isolation.md)                   | Domain Feature Isolation Pattern                      | Accepted | 2025-01-29 | 2025-04-01  |
-| [003](./003-runtime-sql-migrations.md)                     | Runtime SQL Migration Generation                      | Accepted | 2025-01-25 | 2025-07-01  |
-| [004](./004-presentation-layer-feature-based-structure.md) | Presentation Layer Feature-Based Structure            | Accepted | 2025-11-10 | 2025-04-01  |
-| [005](./005-authorization-strategy.md)                     | Authorization Strategy (RBAC + Field Permissions)     | Accepted | 2025-01-25 | 2025-07-01  |
+| [001](./001-validation-library-split.md)                   | Validation Library Split (Effect Schema vs Zod)       | Accepted | 2025-01-29 | 2026-07-01  |
+| [002](./002-domain-feature-isolation.md)                   | Domain Feature Isolation Pattern                      | Accepted | 2025-01-29 | 2026-07-01  |
+| [003](./003-runtime-sql-migrations.md)                     | Runtime SQL Migration Generation                      | Accepted | 2025-01-25 | 2026-07-01  |
+| [004](./004-presentation-layer-feature-based-structure.md) | Presentation Layer Feature-Based Structure            | Accepted | 2025-11-10 | 2026-07-01  |
+| [005](./005-authorization-strategy.md)                     | Authorization Strategy (RBAC + Field Permissions)     | Accepted | 2025-01-25 | 2026-07-01  |
 | [006](./006-table-permission-configuration.md)             | Table Permission Configuration Storage and Management | Proposed | 2025-01-25 | TBD         |
-| [007](./007-soft-delete-by-default.md)                     | Soft Delete by Default for All Tables                 | Accepted | 2025-12-16 | 2025-07-01  |
+| [007](./007-soft-delete-by-default.md)                     | Soft Delete by Default for All Tables                 | Accepted | 2025-12-16 | 2026-07-01  |
 | [008](./008-console-logging-policy.md)                     | Console Logging Policy and Logger Service Usage       | Accepted | 2026-01-29 | 2026-07-29  |
 | [009](./009-effect-schema-in-domain-layer.md)              | Effect Schema as Domain Layer Dependency              | Accepted | 2026-01-29 | 2026-07-29  |
 
@@ -51,7 +51,7 @@ These decisions should be documented in future ADRs:
 To create a new ADR:
 
 1. Copy the template: `cp 001-validation-library-split.md XXX-your-decision.md`
-2. Replace XXX with the next number (e.g., 003)
+2. Replace XXX with the next number (e.g., 010)
 3. Fill in all sections
 4. Update this README with the new ADR
 5. Set a review date (typically 3-6 months)

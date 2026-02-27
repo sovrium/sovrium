@@ -71,40 +71,75 @@ export class StaticGenerationError {
 
 ### Domain Errors (Business Rule Violations)
 
-**Current Practice**: Sovrium does **NOT** have a dedicated `src/domain/errors/` directory.
+Located in `src/domain/errors/`:
 
-**Rationale**: Domain layer in Sovrium is currently **pure validation functions** using Effect Schema. Business rule violations are expressed through:
+Sovrium uses a **hybrid error pattern** with two approaches:
 
-1. **Effect Schema validation failures** - Built-in error types from Schema.decode
-2. **Application layer errors** - Use case-specific failures (see Application Errors section)
-3. **Inline error creation** - Domain functions return typed errors directly
+#### 1. Factory Pattern: `createTaggedError` (Simple Errors)
 
-**If domain errors become necessary** (e.g., complex business rules beyond validation), create `src/domain/errors/` directory with this pattern:
+For simple errors that only need a `_tag` and `cause`:
 
 ```typescript
-// Example domain errors (NOT currently used)
-export class InvalidEmailError {
-  readonly _tag = 'InvalidEmailError'
-  constructor(readonly email: string) {}
+// src/domain/errors/create-tagged-error.ts
+export function createTaggedError<T extends string>(tag: T) {
+  return class {
+    readonly _tag = tag
+    constructor(readonly cause: unknown) {}
+  } as new (cause: unknown) => { readonly _tag: T; readonly cause: unknown }
 }
 
-export class UserNotFoundError {
-  readonly _tag = 'UserNotFoundError'
-  constructor(readonly userId: number) {}
+// Usage:
+export const MyError = createTaggedError('MyError')
+export type MyError = InstanceType<typeof MyError>
+```
+
+#### 2. Class Pattern: `extends Error` (Complex Errors)
+
+For errors that need custom properties (message, details, optional cause):
+
+```typescript
+// src/domain/errors/index.ts
+
+// Authorization failures
+export class ForbiddenError extends Error {
+  readonly _tag = 'ForbiddenError'
+  constructor(message: string) { super(message) }
 }
 
-export class InsufficientPermissionsError {
-  readonly _tag = 'InsufficientPermissionsError'
-  constructor(
-    readonly userId: number,
-    readonly requiredPermission: string
-  ) {}
+// Database session context errors
+export class SessionContextError extends Error {
+  readonly _tag = 'SessionContextError'
+  override readonly cause?: unknown
+  constructor(message: string, cause?: unknown) { super(message); this.cause = cause }
+}
+
+// Unique constraint violations
+export class UniqueConstraintViolationError extends Error {
+  readonly _tag = 'UniqueConstraintViolationError'
+  override readonly cause?: unknown
+  constructor(message: string, cause?: unknown) { super(message); this.cause = cause }
+}
+
+// Input validation errors (with optional structured details)
+export class ValidationError extends Error {
+  readonly _tag = 'ValidationError'
+  readonly details?: readonly { readonly record: number; readonly field: string; readonly error: string }[]
+  constructor(message: string, details?: ...) { super(message); this.details = details }
 }
 ```
 
+#### When to Use Which Pattern
+
+| Pattern                     | Use When                                                       | Examples                                                         |
+| --------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `createTaggedError` factory | Simple `_tag` + `cause` errors                                 | Infrastructure errors (ServerCreationError, CSSCompilationError) |
+| `class extends Error`       | Custom properties, structured details, human-readable messages | Domain errors (ForbiddenError, ValidationError)                  |
+
+Both patterns produce errors with a `readonly _tag` property compatible with `Effect.catchTag`.
+
 **Current Error Locations by Layer**:
 
-- **Domain**: Effect Schema validation errors (no dedicated directory)
+- **Domain**: `src/domain/errors/` (ForbiddenError, SessionContextError, UniqueConstraintViolationError, ValidationError, createTaggedError factory)
 - **Application**: `src/application/errors/` (AppValidationError, StaticGenerationError)
 - **Infrastructure**: `src/infrastructure/errors/` (ServerCreationError, CSSCompilationError, AuthError, etc.)
 - **Presentation**: `src/domain/models/api/error.ts` (Zod schemas for API responses)

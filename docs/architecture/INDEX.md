@@ -10,23 +10,27 @@ This index provides a comprehensive guide to Sovrium's architecture documentatio
 
 ### Core Architecture Patterns
 
-| Document                        | Purpose                                          | Enforcement                        |
-| ------------------------------- | ------------------------------------------------ | ---------------------------------- |
-| **functional-programming.md**   | Pure functions, immutability, Effect.ts patterns | ESLint (eslint-plugin-functional)  |
-| **layer-based-architecture.md** | 4-layer architecture (aspirational)              | ESLint boundaries (not yet active) |
-| **testing-strategy.md**         | F.I.R.S.T principles, test organization          | Bun Test + Playwright              |
-| **performance-optimization.md** | React 19 Compiler, Effect.ts, Bun optimization   | ESLint React warnings              |
-| **security-best-practices.md**  | Authentication, validation, CSRF/XSS protection  | ESLint Drizzle rules               |
+| Document                        | Purpose                                          | Enforcement                                                   |
+| ------------------------------- | ------------------------------------------------ | ------------------------------------------------------------- |
+| **functional-programming.md**   | Pure functions, immutability, Effect.ts patterns | ESLint (eslint-plugin-functional)                             |
+| **layer-based-architecture.md** | 4-layer architecture (fully implemented)         | ESLint boundaries (active, 636 lines in boundaries.config.ts) |
+| **testing-strategy.md**         | F.I.R.S.T principles, test organization          | Bun Test + Playwright                                         |
+| **performance-optimization.md** | Effect.ts, Bun optimization, manual React tuning | Profiling-based (React Compiler NOT available)                |
+| **security-best-practices.md**  | Authentication, validation, CSRF/XSS protection  | ESLint Drizzle rules                                          |
 
 ### Architectural Decision Records (ADRs)
 
-| Document                                          | Purpose                                                         | Date       | Status   |
-| ------------------------------------------------- | --------------------------------------------------------------- | ---------- | -------- |
-| **decisions/001-validation-library-split.md**     | Zod for client validation, Effect Schema for server             | 2025-01-20 | Accepted |
-| **decisions/002-domain-feature-isolation.md**     | Strict feature isolation in domain models                       | 2025-01-22 | Accepted |
-| **decisions/003-runtime-sql-migrations.md**       | Runtime SQL generation from JSON config (not Drizzle .ts files) | 2025-01-25 | Accepted |
-| **decisions/004-presentation-layer-structure.md** | Feature-based component organization                            | 2025-01-18 | Accepted |
-| **decisions/005-authorization-strategy.md**       | RBAC + field-level permissions with Better Auth organizations   | 2025-01-25 | Accepted |
+| Document                                                        | Purpose                                                         | Date       | Status   |
+| --------------------------------------------------------------- | --------------------------------------------------------------- | ---------- | -------- |
+| **decisions/001-validation-library-split.md**                   | Zod for client/OpenAPI, Effect Schema for server                | 2025-01-29 | Accepted |
+| **decisions/002-domain-feature-isolation.md**                   | Strict feature isolation in domain models                       | 2025-01-29 | Accepted |
+| **decisions/003-runtime-sql-migrations.md**                     | Runtime SQL generation from JSON config (not Drizzle .ts files) | 2025-01-25 | Accepted |
+| **decisions/004-presentation-layer-feature-based-structure.md** | Feature-based presentation layer organization                   | 2025-11-10 | Accepted |
+| **decisions/005-authorization-strategy.md**                     | RBAC + field-level permissions with Better Auth                 | 2025-01-25 | Accepted |
+| **decisions/006-table-permission-configuration.md**             | Table permission storage in dedicated PostgreSQL table          | 2025-01-25 | Proposed |
+| **decisions/007-soft-delete-by-default.md**                     | Soft delete via `deleted_at` for all tables                     | 2025-12-16 | Accepted |
+| **decisions/008-console-logging-policy.md**                     | Structured logging policy and Logger service usage              | 2026-01-29 | Accepted |
+| **decisions/009-effect-schema-in-domain-layer.md**              | Effect Schema as only permitted domain layer dependency         | 2026-01-29 | Accepted |
 
 ### Cross-Cutting Architecture Patterns
 
@@ -35,6 +39,7 @@ This index provides a comprehensive guide to Sovrium's architecture documentatio
 | **patterns/config-driven-schema-generation.md** | Runtime database schema generation from JSON config          | ESLint boundaries + TypeScript + Effect Schema |
 | **patterns/theming-architecture.md**            | Domain-driven CSS compilation with Tailwind @theme directive | ESLint boundaries + functional + TypeScript    |
 | **patterns/i18n-centralized-translations.md**   | Centralized translations with config-driven i18n             | Effect Schema validation                       |
+| **patterns/error-handling-strategy.md**         | Effect.ts typed errors, createTaggedError factory            | ESLint no-throw-statements + TypeScript        |
 
 ---
 
@@ -73,7 +78,7 @@ This index provides a comprehensive guide to Sovrium's architecture documentatio
 
 **Related Infrastructure**:
 
-- `@docs/infrastructure/quality/eslint.md#architectural-enforcement` - Boundary enforcement (aspirational)
+- `@docs/infrastructure/quality/eslint.md#architectural-enforcement` - Boundary enforcement (active)
 - `@docs/infrastructure/framework/effect.md` - Layer/Context for dependency injection
 - `@docs/infrastructure/framework/hono.md` - Presentation layer (API routes)
 - `@docs/infrastructure/ui/react.md` - Presentation layer (UI components)
@@ -81,16 +86,16 @@ This index provides a comprehensive guide to Sovrium's architecture documentatio
 
 **Enforcement**:
 
-- ⚠️ **eslint-plugin-boundaries**: Configured but not active (directory structure doesn't match)
-- ⚠️ **Manual review**: Current structure is flat (src/components/, src/lib/, src/services/)
-- ⏳ **Future**: Will be enforced once directory structure matches 4-layer pattern
+- ✅ **eslint-plugin-boundaries**: Active enforcement with 636 lines of configuration across 21+ element types in `eslint/boundaries.config.ts`
+- ✅ **Directory structure**: Fully implemented 4-layer structure (`src/domain/`, `src/application/`, `src/infrastructure/`, `src/presentation/`)
+- ✅ **Dependency direction**: Enforced at lint time — Presentation → Application → Domain ← Infrastructure
 
 **Key Concepts**:
 
-- **Domain** - Business logic, pure functions
-- **Application** - Use cases, Effect programs
-- **Infrastructure** - Database, external APIs
-- **Presentation** - UI components, API routes
+- **Domain** - Business logic, pure functions, Effect Schema models
+- **Application** - Use cases, Effect programs, ports for dependency inversion
+- **Infrastructure** - Database, auth, email, CSS compilation, logging
+- **Presentation** - UI components, API routes, CLI, rendering
 
 ---
 
@@ -126,23 +131,21 @@ This index provides a comprehensive guide to Sovrium's architecture documentatio
 
 **Related Infrastructure**:
 
-- `@docs/infrastructure/ui/react.md#react-19-compiler` - Automatic memoization
+- `@docs/infrastructure/ui/react.md` - React 19 features (Compiler NOT available in Sovrium)
 - `@docs/infrastructure/framework/effect.md` - Lazy evaluation, parallel execution
 - `@docs/infrastructure/runtime/bun.md` - Native TypeScript, fast startup
 - `@docs/infrastructure/database/drizzle.md` - Efficient queries, indexes
 - `@docs/infrastructure/ui/tanstack-query.md` - Caching, prefetching
 - `@docs/infrastructure/ui/tailwind.md` - JIT compilation, purging
-- `@docs/infrastructure/quality/eslint.md#react-19-compiler-guidance` - Warns against manual memoization
 
 **Enforcement**:
 
-- ⚠️ **ESLint warnings**: Warns when using `useMemo`, `useCallback`, `React.memo` (React 19 Compiler handles this)
-- ✅ **Tailwind JIT**: Automatic unused CSS purging in production
 - ⚠️ **Manual profiling**: React DevTools Profiler, Bun performance API
+- ✅ **Tailwind JIT**: Automatic unused CSS purging in production
 
 **Key Concepts**:
 
-- Trust React 19 Compiler (avoid manual memoization)
+- Manual optimization when measured (React Compiler NOT available — Bun lacks `babel-plugin-react-compiler`)
 - Effect.ts lazy evaluation (only executes when run)
 - Bun native performance (4x faster cold starts)
 - TanStack Query stale-while-revalidate
@@ -271,13 +274,13 @@ This index provides a comprehensive guide to Sovrium's architecture documentatio
 
 ### UI
 
-| Document                | Purpose                          | Used By                                              |
-| ----------------------- | -------------------------------- | ---------------------------------------------------- |
-| `ui/react.md`           | React 19, automatic compiler     | Layer-Based Architecture (Presentation), Performance |
-| `ui/tailwind.md`        | Tailwind CSS v4, JIT compilation | Performance Optimization                             |
-| `ui/react-hook-form.md` | Form management with Zod         | Security (client-side validation)                    |
-| `ui/tanstack-query.md`  | Server state management, caching | Performance Optimization                             |
-| `ui/tanstack-table.md`  | Data tables                      | Layer-Based Architecture (Presentation)              |
+| Document                | Purpose                           | Used By                                              |
+| ----------------------- | --------------------------------- | ---------------------------------------------------- |
+| `ui/react.md`           | React 19 (Compiler NOT available) | Layer-Based Architecture (Presentation), Performance |
+| `ui/tailwind.md`        | Tailwind CSS v4, JIT compilation  | Performance Optimization                             |
+| `ui/react-hook-form.md` | Form management with Zod          | Security (client-side validation)                    |
+| `ui/tanstack-query.md`  | Server state management, caching  | Performance Optimization                             |
+| `ui/tanstack-table.md`  | Data tables                       | Layer-Based Architecture (Presentation)              |
 
 ### Quality
 
@@ -309,12 +312,12 @@ Sovrium uses multiple layers of enforcement to ensure architectural principles a
 
 ### 1. ESLint Enforcement (Build-Time)
 
-| Plugin                        | What It Enforces                           | Architecture Document       |
-| ----------------------------- | ------------------------------------------ | --------------------------- |
-| **eslint-plugin-functional**  | Immutability, no mutations, pure functions | functional-programming.md   |
-| **eslint-plugin-boundaries**  | Layer isolation (aspirational)             | layer-based-architecture.md |
-| **eslint-plugin-drizzle**     | WHERE clauses on DELETE/UPDATE             | security-best-practices.md  |
-| **eslint-plugin-react-hooks** | React 19 best practices                    | performance-optimization.md |
+| Plugin                        | What It Enforces                                       | Architecture Document       |
+| ----------------------------- | ------------------------------------------------------ | --------------------------- |
+| **eslint-plugin-functional**  | Immutability, no mutations, pure functions             | functional-programming.md   |
+| **eslint-plugin-boundaries**  | Layer isolation (active, 21+ element types, 636 lines) | layer-based-architecture.md |
+| **eslint-plugin-drizzle**     | WHERE clauses on DELETE/UPDATE                         | security-best-practices.md  |
+| **eslint-plugin-react-hooks** | React hooks best practices                             | performance-optimization.md |
 
 **See**: `@docs/infrastructure/quality/eslint.md` for complete ESLint configuration
 
@@ -394,7 +397,7 @@ Sovrium uses different validation libraries depending on the context:
 3. Zod (`ui/react-hook-form.md`) - Client-side validation
 4. Tailwind CSS (`ui/tailwind.md`) - Styling with utility classes
 
-**Example Location**: Presentation Layer (aspirational: `src/presentation/ui/`)
+**Example Location**: `src/presentation/ui/`
 
 ---
 
@@ -410,7 +413,7 @@ Sovrium uses different validation libraries depending on the context:
 4. Drizzle ORM (`database/drizzle.md`) - Database queries
 5. Better Auth (`framework/better-auth.md`) - Authentication
 
-**Example Location**: Presentation Layer (API) + Application Layer (aspirational: `src/presentation/routes/`, `src/application/usecases/`)
+**Example Location**: `src/presentation/api/routes/`, `src/application/use-cases/`
 
 ---
 
@@ -424,26 +427,25 @@ Sovrium uses different validation libraries depending on the context:
 2. Effect.ts (`framework/effect.md`) - Error handling
 3. ESLint Drizzle plugin (`quality/eslint.md#database-safety-rules`) - WHERE clause enforcement
 
-**Example Location**: Infrastructure Layer (aspirational: `src/infrastructure/repositories/`)
+**Example Location**: `src/infrastructure/database/repositories/`
 
 ---
 
-## Aspirational vs Implemented
+## Implementation Status
 
 ### ✅ Implemented and Enforced
 
 - **Functional Programming**: ESLint enforces immutability, TypeScript enforces types
+- **Layer-Based Architecture**: 4-layer directory structure fully implemented (`src/domain/`, `src/application/`, `src/infrastructure/`, `src/presentation/`)
+- **ESLint Boundaries**: Active enforcement with 636 lines of configuration in `eslint/boundaries.config.ts` (21+ element types)
 - **Effect.ts Patterns**: Effect Schema validates inputs, Effect.gen handles effects
 - **Security**: Better Auth handles authentication, Drizzle prevents SQL injection
 - **Testing**: Bun Test + Playwright run automatically on CI/CD
-- **Performance**: React 19 Compiler auto-optimizes, Tailwind JIT purges CSS
+- **Tailwind CSS**: JIT compilation with programmatic CSS compiler
 
-### ⏳ Aspirational (Documented but Not Yet Implemented)
+### ⚠️ Not Available
 
-- **Layer-Based Architecture**: 4-layer directory structure (domain/, application/, infrastructure/, presentation/)
-- **ESLint Boundaries**: Configured but not active (directory structure doesn't match patterns)
-
-**Note**: See `layer-based-architecture.md#enforcement` for details on aspirational architecture.
+- **React 19 Compiler**: Automatic memoization NOT available (Bun lacks `babel-plugin-react-compiler`). Use manual `useMemo`/`useCallback` when measured performance issues occur.
 
 ---
 
@@ -499,5 +501,5 @@ Sovrium uses different validation libraries depending on the context:
 
 ---
 
-**Last Updated**: 2025-12-16
+**Last Updated**: 2026-02-27
 **Maintained By**: architecture-docs-maintainer agent

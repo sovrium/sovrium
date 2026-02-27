@@ -19,7 +19,7 @@ We will implement a layered authorization strategy:
 
 ### 1. Authentication Layer (Better Auth)
 
-- Use Better Auth 1.3.34 with Organization plugin
+- Use Better Auth (^1.4.19) with Organization plugin
 - Extract user context (id, userId, role) from session
 - Middleware validates all requests require authentication
 
