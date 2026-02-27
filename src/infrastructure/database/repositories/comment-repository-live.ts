@@ -10,14 +10,16 @@ import { CommentRepository } from '@/application/ports/repositories/comment-repo
 import {
   createComment,
   getCommentWithUser,
-  checkRecordExists,
   getCommentForAuth,
-  getUserById,
   deleteComment,
   listComments,
   getCommentsCount,
   updateComment,
 } from '@/infrastructure/database/table-queries/query-helpers/comment-queries'
+import {
+  checkRecordExists,
+  getUserById,
+} from '@/infrastructure/database/table-queries/query-helpers/record-validation-queries'
 
 /**
  * Live implementation of CommentRepository using comment-queries infrastructure

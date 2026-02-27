@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Console, Schema } from 'effect'
+import { Effect, Console, Schema, type Context } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
 import {
   CSSCompiler as CSSCompilerService,
@@ -110,28 +110,14 @@ function getServicesFromContext() {
 
 /**
  * Generate HTML files for single or multi-language apps
- *
- * @param app - Application configuration
- * @param outputDir - Output directory path
- * @param replaceAppTokens - Function to replace app tokens with language-specific values
- * @param serverFactory - Server factory service from Effect Context
- *                       Typed as `any` because Effect Context services are dynamically resolved
- *                       at runtime and don't have static types until provided via Layer.
- * @param pageRenderer - Page renderer service from Effect Context
- *                      Typed as `any` for the same reason as serverFactory.
- * @param staticSiteGenerator - Static site generator service from Effect Context
- *                             Typed as `any` for the same reason as serverFactory.
  */
 function generateHtmlFiles(
   app: App,
   outputDir: string,
   replaceAppTokens: (app: App, lang: string) => App,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service (runtime-resolved via Layer) - see JSDoc
-  serverFactory: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service (runtime-resolved via Layer) - see JSDoc
-  pageRenderer: any,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service (runtime-resolved via Layer) - see JSDoc
-  staticSiteGenerator: any
+  serverFactory: Context.Tag.Service<ServerFactoryService>,
+  pageRenderer: Context.Tag.Service<PageRendererService>,
+  staticSiteGenerator: Context.Tag.Service<StaticSiteGeneratorService>
 ) {
   return app.languages && app.pages
     ? generateMultiLanguageFiles(
@@ -147,17 +133,11 @@ function generateHtmlFiles(
 
 /**
  * Generate and write CSS file
- *
- * @param outputDir - Output directory path
- * @param app - Application configuration
- * @param cssCompiler - CSS compiler service from Effect Context
- * @param fs - Filesystem module (Node.js fs/promises or Bun's equivalent)
  */
 function generateCssFile(
   outputDir: string,
   app: App,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Effect Context service (runtime-resolved via Layer)
-  cssCompiler: any,
+  cssCompiler: Context.Tag.Service<CSSCompilerService>,
   fs: FileSystemLike
 ) {
   return Effect.gen(function* () {

@@ -18,7 +18,6 @@ import {
   batchRestoreProgram,
   upsertProgram,
 } from '@/application/use-cases/tables/programs'
-import { filterReadableFields } from '@/application/use-cases/tables/utils/field-read-filter'
 import {
   batchCreateRecordsRequestSchema,
   batchUpdateRecordsRequestSchema,
@@ -34,8 +33,14 @@ import {
 } from '@/domain/models/api/tables'
 import { runEffect } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
-import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { validateRequest } from '@/presentation/api/utils/validate-request'
+import {
+  checkViewerPermission,
+  checkRecordLimitExceeded,
+  applyBatchReadFiltering,
+  checkBatchFieldPermissions,
+  validateStrippedRecordsNotEmpty,
+} from './batch-permission-helpers'
 import { runTableProgram, provideTableLive } from './effect-runner'
 import {
   validateReadonlyFields,
@@ -44,116 +49,10 @@ import {
   stripUnwritableFields,
 } from './upsert-helpers'
 import { handleBatchRestoreError } from './utils'
-import type {
-  RecordFieldValue,
-  FormattedFieldValue,
-  TransformedRecord,
-} from '@/application/use-cases/tables/utils/record-transformer'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
 /* eslint-disable drizzle/enforce-delete-with-where -- These are Hono route methods, not Drizzle queries */
-
-/**
- * Check if user is viewer and return 403 response if so
- */
-function checkViewerPermission(
-  userRole: string,
-  c: Context,
-  action: string = 'perform this action'
-): Response | undefined {
-  if (userRole === 'viewer') {
-    return c.json(
-      {
-        success: false,
-        message: `You do not have permission to ${action}`,
-        code: 'FORBIDDEN',
-      },
-      403
-    )
-  }
-  return undefined
-}
-
-/**
- * Check if request has more than 1000 records and return 413 if so
- */
-function checkRecordLimitExceeded(records: readonly unknown[], c: Context): Response | undefined {
-  if (records.length > 1000) {
-    return c.json(
-      {
-        success: false,
-        message: 'Batch size exceeds maximum of 1000 records',
-        code: 'PAYLOAD_TOO_LARGE',
-        error: 'PayloadTooLarge',
-      },
-      413
-    )
-  }
-  return undefined
-}
-
-/**
- * Apply read-level filtering to batch update response records
- */
-function applyBatchUpdateReadFiltering(
-  response: { readonly updated: number; readonly records?: readonly TransformedRecord[] },
-  params: {
-    readonly app: App
-    readonly tableName: string
-    readonly userRole: string
-    readonly userId: string
-  }
-): { readonly updated: number; readonly records?: readonly TransformedRecord[] } {
-  if (!response.records) return response
-
-  const filteredRecords: readonly TransformedRecord[] = response.records.map((record) => ({
-    ...record,
-    fields: filterReadableFields({
-      app: params.app,
-      tableName: params.tableName,
-      userRole: params.userRole,
-      userId: params.userId,
-      record: record.fields,
-    }) as Record<string, RecordFieldValue | FormattedFieldValue>,
-  }))
-
-  return {
-    updated: response.updated,
-    records: filteredRecords,
-  }
-}
-
-/**
- * Apply read-level filtering to batch create response records
- */
-function applyBatchCreateReadFiltering(
-  response: { readonly created: number; readonly records?: readonly TransformedRecord[] },
-  params: {
-    readonly app: App
-    readonly tableName: string
-    readonly userRole: string
-    readonly userId: string
-  }
-): { readonly created: number; readonly records?: readonly TransformedRecord[] } {
-  if (!response.records) return response
-
-  const filteredRecords: readonly TransformedRecord[] = response.records.map((record) => ({
-    ...record,
-    fields: filterReadableFields({
-      app: params.app,
-      tableName: params.tableName,
-      userRole: params.userRole,
-      userId: params.userId,
-      record: record.fields,
-    }) as Record<string, RecordFieldValue | FormattedFieldValue>,
-  }))
-
-  return {
-    created: response.created,
-    records: filteredRecords,
-  }
-}
 
 /**
  * Handle batch restore endpoint
@@ -185,37 +84,6 @@ async function handleBatchRestore(c: Context, _app: App) {
   }
 
   return c.json(programResult.right, 200)
-}
-
-/**
- * Check field-level write permissions for batch records
- */
-function checkBatchFieldPermissions(config: {
-  readonly records: readonly { readonly fields: Record<string, unknown> }[]
-  readonly app: App
-  readonly tableName: string
-  readonly userRole: string
-  readonly c: Context
-}): Response | null {
-  const { records, app, tableName, userRole, c } = config
-  const allForbiddenFields = records
-    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
-    .filter((fields) => fields.length > 0)
-
-  if (allForbiddenFields.length > 0) {
-    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
-    return c.json(
-      {
-        success: false,
-        message: `Cannot write to field '${uniqueForbiddenFields[0]}': insufficient permissions`,
-        code: 'FORBIDDEN',
-      },
-      403
-    )
-  }
-
-  // eslint-disable-next-line unicorn/no-null -- null indicates no permission error
-  return null
 }
 
 /**
@@ -278,45 +146,15 @@ async function handleBatchCreate(c: Context, app: App) {
   // Apply field-level read filtering to response (if records returned)
   const filteredProgram = program.pipe(
     Effect.map((response) =>
-      applyBatchCreateReadFiltering(response, { app, tableName, userRole, userId: session.userId })
+      applyBatchReadFiltering(
+        response,
+        { app, tableName, userRole, userId: session.userId },
+        'created'
+      )
     )
   )
 
   return runEffect(c, provideTableLive(filteredProgram), batchCreateRecordsResponseSchema, 201)
-}
-
-/**
- * Validate stripped records have at least some writable fields
- */
-function validateStrippedRecordsNotEmpty(config: {
-  readonly strippedRecords: readonly { readonly fields: Record<string, unknown> }[]
-  readonly originalRecords: readonly { readonly fields: Record<string, unknown> }[]
-  readonly app: App
-  readonly tableName: string
-  readonly userRole: string
-  readonly c: Context
-}): Response | null {
-  const { strippedRecords, originalRecords, app, tableName, userRole, c } = config
-  const hasWritableFields = strippedRecords.some((record) => Object.keys(record.fields).length > 0)
-  if (!hasWritableFields) {
-    // All fields were stripped - user tried to update only protected fields
-    const allForbiddenFields = originalRecords
-      .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
-      .filter((fields) => fields.length > 0)
-    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
-    const firstForbiddenField = uniqueForbiddenFields[0]
-    return c.json(
-      {
-        success: false,
-        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
-        code: 'FORBIDDEN',
-      },
-      403
-    )
-  }
-
-  // eslint-disable-next-line unicorn/no-null -- null indicates no error
-  return null
 }
 
 /**
@@ -365,25 +203,25 @@ async function handleBatchUpdate(c: Context, app: App) {
   })
   if (strippedValidation) return strippedValidation
 
-  // Keep records in { id, fields } format for database layer
   const recordsData = strippedRecords.map((record) => ({
     id: record.id,
     fields: record.fields,
   }))
 
-  // Execute batch update with returnRecords parameter and app for numeric coercion
-  const program = batchUpdateProgram({
+  // Execute batch update with field-level read filtering on response
+  const filteredProgram = batchUpdateProgram({
     session,
     tableName,
     recordsData,
     returnRecords: result.data.returnRecords,
     app,
-  })
-
-  // Apply field-level read filtering to response (if records returned)
-  const filteredProgram = program.pipe(
+  }).pipe(
     Effect.map((response) =>
-      applyBatchUpdateReadFiltering(response, { app, tableName, userRole, userId: session.userId })
+      applyBatchReadFiltering(
+        response,
+        { app, tableName, userRole, userId: session.userId },
+        'updated'
+      )
     )
   )
 

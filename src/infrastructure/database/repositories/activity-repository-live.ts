@@ -8,7 +8,7 @@
 import { Layer } from 'effect'
 import { ActivityRepository } from '@/application/ports/repositories/activity-repository'
 import { getRecordHistory } from '@/infrastructure/database/table-queries/query-helpers/activity-queries'
-import { checkRecordExists } from '@/infrastructure/database/table-queries/query-helpers/comment-queries'
+import { checkRecordExists } from '@/infrastructure/database/table-queries/query-helpers/record-validation-queries'
 
 /**
  * Live implementation of ActivityRepository using activity-queries infrastructure
