@@ -106,7 +106,7 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.3.2",
     "@types/nodemailer": "^7.0.11",
-    "@types/pg": "^8.16.0",
+    "@types/pg": "^8.18.0",
     "@types/react-dom": "^19.2.3",
     "drizzle-kit": "^0.31.9",
     "eslint": "9.39.2",
