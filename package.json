@@ -91,7 +91,7 @@
     "release": "semantic-release"
   },
   "devDependencies": {
-    "@apidevtools/json-schema-ref-parser": "^15.2.2",
+    "@apidevtools/json-schema-ref-parser": "^15.3.1",
     "@effect/eslint-plugin": "^0.3.2",
     "@effect/language-service": "0.74.0",
     "@eslint/compat": "^2.0.2",
