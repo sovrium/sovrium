@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { valueCard, principleItem } from './company-components'
+import { valueCard, principleItem } from './about-components'
 import {
   docsBadgeItem,
   docsCodeBlock,
@@ -25,7 +25,7 @@ import { sovriumBadge } from './shared-components'
 import type { ComponentTemplate } from '@/index'
 
 export const components: readonly ComponentTemplate[] = [
-  // Company page
+  // About page
   valueCard,
   principleItem,
   // Docs page
@@ -35,7 +35,7 @@ export const components: readonly ComponentTemplate[] = [
   docsPropertyCard,
   docsResourceLink,
   docsSidebarLink,
-  // Partners page
+  // Partner page
   testimonialCard,
   processStep,
   methodologyCard,

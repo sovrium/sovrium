@@ -47,7 +47,7 @@ function footerColumn(title: string, links: readonly ReturnType<typeof footerLin
 
 /**
  * Shared i18n footer section for all internationalized website pages
- * (home, partners, company).
+ * (home, partner, about).
  *
  * Layout:
  * - Top row: Sovrium logo + description | Product links | Company links | Legal links
@@ -218,8 +218,8 @@ export const footer = {
 
             // Company column
             footerColumn('Company', [
-              footerLink('About', '/en/company'),
-              footerLink('Our Partner Service', '/en/partners'),
+              footerLink('About', '/en/about'),
+              footerLink('Our Partner Service', '/en/partner'),
               footerLink('Trademark', 'https://github.com/sovrium/sovrium/blob/main/TRADEMARK.md'),
             ]),
 

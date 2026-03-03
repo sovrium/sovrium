@@ -14,10 +14,10 @@ export const en: Record<string, string> = {
   // ════════════════════════════════════════════════════════════════════
   //  GLOBAL NAVIGATION
   // ════════════════════════════════════════════════════════════════════
-  'nav.partners': 'Our Partner Service',
-  'nav.partners.href': '/en/partners',
-  'nav.company': 'About',
-  'nav.company.href': '/en/company',
+  'nav.partner': 'Our Partner Service',
+  'nav.partner.href': '/en/partner',
+  'nav.about': 'About',
+  'nav.about.href': '/en/about',
   'nav.lang.label': 'FR',
   'nav.lang.code': 'fr',
 
@@ -33,9 +33,9 @@ export const en: Record<string, string> = {
   'footer.col.product.license': 'License',
   'footer.col.company': 'Company',
   'footer.col.company.about': 'About',
-  'footer.col.company.about.href': '/en/company',
+  'footer.col.company.about.href': '/en/about',
   'footer.col.company.partners': 'Our Partner Service',
-  'footer.col.company.partners.href': '/en/partners',
+  'footer.col.company.partners.href': '/en/partner',
   'footer.col.company.trademark': 'Trademark',
   'footer.col.legal': 'Legal',
   'footer.col.legal.privacy': 'Privacy Policy',
@@ -227,219 +227,217 @@ export const en: Record<string, string> = {
   'home.gettingStarted.status.cta': '⭐ Star on GitHub',
 
   // ════════════════════════════════════════════════════════════════════
-  //  PARTNERS PAGE
+  //  PARTNER PAGE
   // ════════════════════════════════════════════════════════════════════
 
   // ── Partners: Meta ──────────────────────────────────────────────────
-  'partners.meta.title': 'Sovrium Partners - Custom Software Solutions',
-  'partners.meta.description':
+  'partner.meta.title': 'Sovrium Partners - Custom Software Solutions',
+  'partner.meta.description':
     'ESSENTIAL SERVICES builds tailor-made software solutions with Sovrium. 50+ clients served, 200+ tools built, 10,000+ hours saved.',
-  'partners.meta.og.title': 'Sovrium Partners - Custom Software Solutions',
-  'partners.meta.og.description':
+  'partner.meta.og.title': 'Sovrium Partners - Custom Software Solutions',
+  'partner.meta.og.description':
     'Tailor-made solutions to your software challenges. Built on Sovrium, deployed on your infrastructure.',
-  'partners.meta.twitter.title': 'Sovrium Partners - Custom Software Solutions',
-  'partners.meta.twitter.description':
+  'partner.meta.twitter.title': 'Sovrium Partners - Custom Software Solutions',
+  'partner.meta.twitter.description':
     'Tailor-made solutions to your software challenges. Built with Sovrium.',
 
   // ── Partners: Hero ──────────────────────────────────────────────────
-  'partners.hero.title': 'Tailor-made solutions to your software challenges',
-  'partners.hero.subtitle':
+  'partner.hero.title': 'Tailor-made solutions to your software challenges',
+  'partner.hero.subtitle':
     'We design, build, and maintain custom internal tools, AI-powered solutions, and automated workflows on your infrastructure. No vendor lock-in, no surprise bills \u2014 just software that works for your team.',
-  'partners.hero.cta.primary': 'Join the Waitlist',
-  'partners.hero.cta.secondary': 'Our Methodology',
+  'partner.hero.cta.primary': 'Join the Waitlist',
+  'partner.hero.cta.secondary': 'Our Methodology',
 
   // ── Partners: Trusted By ────────────────────────────────────────────
-  'partners.trust.title': 'Trusted By',
+  'partner.trust.title': 'Trusted By',
 
   // ── Partners: Stats ─────────────────────────────────────────────────
-  'partners.stats.title': 'Proven Track Record',
-  'partners.stats.clients.stat': '50+',
-  'partners.stats.clients.title': 'Clients Served',
-  'partners.stats.clients.description':
+  'partner.stats.title': 'Proven Track Record',
+  'partner.stats.clients.stat': '50+',
+  'partner.stats.clients.title': 'Clients Served',
+  'partner.stats.clients.description':
     'Startups, SMEs, and enterprises trust us to streamline their operations with custom-built tools.',
-  'partners.stats.tools.stat': '200+',
-  'partners.stats.tools.title': 'Tools Built',
-  'partners.stats.tools.description':
+  'partner.stats.tools.stat': '200+',
+  'partner.stats.tools.title': 'Tools Built',
+  'partner.stats.tools.description':
     'From internal dashboards to full business applications, tailored to each client\u2019s unique workflows.',
-  'partners.stats.hours.stat': '10,000+',
-  'partners.stats.hours.title': 'Hours Saved',
-  'partners.stats.hours.description':
+  'partner.stats.hours.stat': '10,000+',
+  'partner.stats.hours.title': 'Hours Saved',
+  'partner.stats.hours.description':
     'Automating repetitive tasks and consolidating scattered tools into cohesive platforms.',
 
   // ── Partners: Process (5 steps) ─────────────────────────────────────
-  'partners.process.title': 'Our Process',
-  'partners.process.subtitle':
+  'partner.process.title': 'Our Process',
+  'partner.process.subtitle':
     'A proven 5-step approach to deliver software that fits your needs perfectly.',
-  'partners.process.step1.title': 'Listen',
-  'partners.process.step1.description':
+  'partner.process.step1.title': 'Listen',
+  'partner.process.step1.description':
     'Understand your workflows, pain points, and goals through in-depth discovery sessions.',
-  'partners.process.step2.title': 'Advise',
-  'partners.process.step2.description':
+  'partner.process.step2.title': 'Advise',
+  'partner.process.step2.description':
     'Design the optimal solution architecture based on your specific constraints and objectives.',
-  'partners.process.step3.title': 'Develop',
-  'partners.process.step3.description':
+  'partner.process.step3.title': 'Develop',
+  'partner.process.step3.description':
     'Build with Sovrium on your infrastructure. Clean code, tested, deployed on your terms.',
-  'partners.process.step4.title': 'Adjust',
-  'partners.process.step4.description':
+  'partner.process.step4.title': 'Adjust',
+  'partner.process.step4.description':
     'Iterate based on real usage and feedback. We refine until it fits perfectly.',
-  'partners.process.step5.title': 'Maintain',
-  'partners.process.step5.description':
+  'partner.process.step5.title': 'Maintain',
+  'partner.process.step5.description':
     'Ongoing support and evolution as your needs grow. We stay with you for the long run.',
 
   // ── Partners: Methodology (13 principles) ──────────────────────────
-  'partners.methodology.title': 'Our Methodology',
-  'partners.methodology.subtitle': '10 principles that guide every project we deliver.',
-  'partners.methodology.1.title':
+  'partner.methodology.title': 'Our Methodology',
+  'partner.methodology.subtitle': '10 principles that guide every project we deliver.',
+  'partner.methodology.1.title':
     '\u2699\uFE0F We automate processes, build internal tools, and leverage AI to amplify your team',
-  'partners.methodology.1.description':
+  'partner.methodology.1.description':
     'We analyze your workflows to identify repetitive tasks, design end-to-end automations, and integrate AI where it accelerates delivery.',
-  'partners.methodology.2.title':
+  'partner.methodology.2.title':
     '\uD83D\uDCAC We are available to answer your questions, needs, and technical support',
-  'partners.methodology.2.description':
+  'partner.methodology.2.description':
     'Our team is here to understand your specific needs and support you in your projects.',
-  'partners.methodology.3.title': '\uD83E\uDD47 We use the best of Code, No Code, and AI',
-  'partners.methodology.3.description':
+  'partner.methodology.3.title': '\uD83E\uDD47 We use the best of Code, No Code, and AI',
+  'partner.methodology.3.description':
     'We combine traditional code, No Code platforms, and AI-powered tools to deliver the right solution for each use case.',
-  'partners.methodology.4.title':
+  'partner.methodology.4.title':
     '\uD83D\uDCBB We work remotely and asynchronously, using video conferencing when necessary',
-  'partners.methodology.4.description':
+  'partner.methodology.4.description':
     'Our remote work approach is based on clear and effective communication.',
-  'partners.methodology.5.title': '\u23F1\uFE0F You pay for the time we spend on all your requests',
-  'partners.methodology.5.description':
+  'partner.methodology.5.title': '\u23F1\uFE0F You pay for the time we spend on all your requests',
+  'partner.methodology.5.description':
     'Our billing system is transparent and based on actual time spent on your projects.',
-  'partners.methodology.6.title': '\u274C We don\u2019t do estimates',
-  'partners.methodology.6.description':
+  'partner.methodology.6.title': '\u274C We don\u2019t do estimates',
+  'partner.methodology.6.description':
     'We prefer a pragmatic approach based on action rather than approximate predictions.',
-  'partners.methodology.7.title':
+  'partner.methodology.7.title':
     '\uD83D\uDC8E We take the time to do quality work, focusing on what matters',
-  'partners.methodology.7.description':
-    'Our commitment to quality guides every aspect of our work.',
-  'partners.methodology.8.title': '\uD83C\uDFE1 You own everything we develop for you',
-  'partners.methodology.8.description':
+  'partner.methodology.7.description': 'Our commitment to quality guides every aspect of our work.',
+  'partner.methodology.8.title': '\uD83C\uDFE1 You own everything we develop for you',
+  'partner.methodology.8.description':
     'All code, applications, and solutions developed as part of our services belong entirely to you.',
-  'partners.methodology.9.title': '\uD83D\uDD4A\uFE0F You are not committed to anything',
-  'partners.methodology.9.description':
+  'partner.methodology.9.title': '\uD83D\uDD4A\uFE0F You are not committed to anything',
+  'partner.methodology.9.description':
     'Our flexible approach allows you to work with us according to your needs, without long-term contractual commitment.',
-  'partners.methodology.10.title': '\u2764\uFE0F We take care of you',
-  'partners.methodology.10.description':
+  'partner.methodology.10.title': '\u2764\uFE0F We take care of you',
+  'partner.methodology.10.description':
     'Your satisfaction is our priority. We don\u2019t just deliver a project: we commit to supporting you at every step.',
 
   // ── Partners: Testimonials (exact LTF Engine quotes) ────────────────
-  'partners.testimonials.title': 'What Our Clients Say',
-  'partners.testimonials.1.quote':
+  'partner.testimonials.title': 'What Our Clients Say',
+  'partner.testimonials.1.quote':
     'Very satisfying work, it\u2019s a very positive and enriching experience. The La Tech Force team helped us quickly gain expertise.',
-  'partners.testimonials.1.author': 'Marco PERONE',
-  'partners.testimonials.1.role': 'Co-founder at CAPITAL PV',
-  'partners.testimonials.2.quote':
+  'partner.testimonials.1.author': 'Marco PERONE',
+  'partner.testimonials.1.role': 'Co-founder at CAPITAL PV',
+  'partner.testimonials.2.quote':
     'Excellent support, great responsiveness and availability of the team, high quality deliverables, proactive suggestions.',
-  'partners.testimonials.2.author': 'Simon SALLANDRE',
-  'partners.testimonials.2.role': 'Operations Director at AGORASTORE',
-  'partners.testimonials.3.quote':
+  'partner.testimonials.2.author': 'Simon SALLANDRE',
+  'partner.testimonials.2.role': 'Operations Director at AGORASTORE',
+  'partner.testimonials.3.quote':
     'Competent team & effective work. I learned a lot and developed a better understanding of automation logic.',
-  'partners.testimonials.3.author': 'Mbemba DANSOKO',
-  'partners.testimonials.3.role': 'Co-founder at ACTIVPRENEUR',
-  'partners.testimonials.4.quote':
+  'partner.testimonials.3.author': 'Mbemba DANSOKO',
+  'partner.testimonials.3.role': 'Co-founder at ACTIVPRENEUR',
+  'partner.testimonials.4.quote':
     'A great collaboration, we were able to make a giant leap and support across multiple business areas.',
-  'partners.testimonials.4.author': 'Meryem BENMOUAZ',
-  'partners.testimonials.4.role': 'Co-founder at LINTENDANCE',
+  'partner.testimonials.4.author': 'Meryem BENMOUAZ',
+  'partner.testimonials.4.role': 'Co-founder at LINTENDANCE',
 
   // ── Partners: Waitlist CTA ──────────────────────────────────────────
-  'partners.waitlist.title': 'Supercharge Your Team',
-  'partners.waitlist.description':
+  'partner.waitlist.title': 'Supercharge Your Team',
+  'partner.waitlist.description':
     'We work with a limited number of clients to ensure quality. Join our waitlist to be the first to know when a spot opens.',
-  'partners.waitlist.cta': 'Join the Waitlist',
+  'partner.waitlist.cta': 'Join the Waitlist',
 
   // ════════════════════════════════════════════════════════════════════
-  //  COMPANY PAGE
+  //  ABOUT PAGE
   // ════════════════════════════════════════════════════════════════════
 
   // ── Company: Meta ──────────────────────────────────────────────────
-  'company.meta.title': 'Sovrium \u2014 Company',
-  'company.meta.description':
+  'about.meta.title': 'Sovrium \u2014 Company',
+  'about.meta.description':
     'Learn about the vision, values, and team behind Sovrium. Building digital sovereignty for every organization.',
-  'company.meta.og.title': 'Sovrium \u2014 Company',
-  'company.meta.og.description':
+  'about.meta.og.title': 'Sovrium \u2014 Company',
+  'about.meta.og.description':
     'The vision, values, and team behind Sovrium. Digital sovereignty for every organization.',
-  'company.meta.twitter.title': 'Sovrium \u2014 Company',
-  'company.meta.twitter.description':
+  'about.meta.twitter.title': 'Sovrium \u2014 Company',
+  'about.meta.twitter.description':
     'The vision, values, and team behind Sovrium. Digital sovereignty for every organization.',
 
   // ── Company: Hero ──────────────────────────────────────────────────
-  'company.hero.eyebrow': 'ESSENTIAL SERVICES',
-  'company.hero.title': 'Building digital sovereignty',
-  'company.hero.subtitle':
+  'about.hero.eyebrow': 'ESSENTIAL SERVICES',
+  'about.hero.title': 'Building digital sovereignty',
+  'about.hero.subtitle':
     'We believe every organization deserves to own its software, its data, and its future. Sovrium is the platform that makes it possible.',
-  'company.hero.tagline': '\u201COwn your data. Own your tools. Own your future.\u201D',
+  'about.hero.tagline': '\u201COwn your data. Own your tools. Own your future.\u201D',
 
   // ── Company: Mission ───────────────────────────────────────────────
-  'company.mission.title': 'Our Mission',
-  'company.mission.description':
+  'about.mission.title': 'Our Mission',
+  'about.mission.description':
     'Modern organizations are drowning in SaaS dependencies \u2014 paying monthly fees, losing data control, and adapting their business to vendor limitations. We are building the alternative.',
-  'company.mission.statement':
+  'about.mission.statement':
     'To make every organization sovereign in their information systems \u2014 free from SaaS lock-in, in complete control of their data, and empowered to build business applications through configuration-as-code.',
 
   // ── Company: Values ────────────────────────────────────────────────
-  'company.values.title': 'Our Values',
-  'company.values.subtitle':
+  'about.values.title': 'Our Values',
+  'about.values.subtitle':
     'The principles that guide every decision we make, from code architecture to community engagement.',
-  'company.values.sovereignty.icon': '\uD83D\uDEE1\uFE0F',
-  'company.values.sovereignty.title': 'Digital Sovereignty',
-  'company.values.sovereignty.description':
+  'about.values.sovereignty.icon': '\uD83D\uDEE1\uFE0F',
+  'about.values.sovereignty.title': 'Digital Sovereignty',
+  'about.values.sovereignty.description':
     'Organizations should own their information systems, not rent them. Your data, your infrastructure, your rules.',
-  'company.values.transparency.icon': '\uD83D\uDD0D',
-  'company.values.transparency.title': 'Radical Transparency',
-  'company.values.transparency.description':
+  'about.values.transparency.icon': '\uD83D\uDD0D',
+  'about.values.transparency.title': 'Radical Transparency',
+  'about.values.transparency.description':
     'Source-available code, open roadmap, honest communication. No hidden agendas, no surprise pricing, no vendor lock-in.',
-  'company.values.openSource.icon': '\uD83C\uDF10',
-  'company.values.openSource.title': 'Open Source Spirit',
-  'company.values.openSource.description':
+  'about.values.openSource.icon': '\uD83C\uDF10',
+  'about.values.openSource.title': 'Open Source Spirit',
+  'about.values.openSource.description':
     'Built on open standards and open-source technologies. Contributing back to the ecosystem that enables us.',
-  'company.values.simplicity.icon': '\u2728',
-  'company.values.simplicity.title': 'Elegant Simplicity',
-  'company.values.simplicity.description':
+  'about.values.simplicity.icon': '\u2728',
+  'about.values.simplicity.title': 'Elegant Simplicity',
+  'about.values.simplicity.description':
     'Complex problems deserve simple solutions. One config file, one command, one platform \u2014 no unnecessary complexity.',
-  'company.values.ownership.icon': '\uD83C\uDFE1',
-  'company.values.ownership.title': 'True Ownership',
-  'company.values.ownership.description':
+  'about.values.ownership.icon': '\uD83C\uDFE1',
+  'about.values.ownership.title': 'True Ownership',
+  'about.values.ownership.description':
     'Everything we build for you belongs to you. Full source access, full data portability, zero lock-in.',
-  'company.values.longTerm.icon': '\uD83C\uDF31',
-  'company.values.longTerm.title': 'Long-Term Thinking',
-  'company.values.longTerm.description':
+  'about.values.longTerm.icon': '\uD83C\uDF31',
+  'about.values.longTerm.title': 'Long-Term Thinking',
+  'about.values.longTerm.description':
     'We build for sustainability, not hype cycles. Sovrium is designed to grow with your organization for years to come.',
 
   // ── Company: Principles ────────────────────────────────────────────
-  'company.principles.title': 'How We Build',
-  'company.principles.subtitle':
-    'Five core principles shape the technical decisions behind Sovrium.',
-  'company.principles.configOverCode.title': 'Configuration Over Coding',
-  'company.principles.configOverCode.description':
+  'about.principles.title': 'How We Build',
+  'about.principles.subtitle': 'Five core principles shape the technical decisions behind Sovrium.',
+  'about.principles.configOverCode.title': 'Configuration Over Coding',
+  'about.principles.configOverCode.description':
     'Business applications should be configured, not programmed. TypeScript, YAML, or JSON \u2014 choose your format, get a complete app in seconds.',
-  'company.principles.minimalDeps.title': 'Minimal Dependencies',
-  'company.principles.minimalDeps.description':
+  'about.principles.minimalDeps.title': 'Minimal Dependencies',
+  'about.principles.minimalDeps.description':
     'One runtime (Bun), one database (PostgreSQL), zero vendor SDKs. Reduce your dependency surface to only essential infrastructure.',
-  'company.principles.businessFocus.title': 'Business Focus',
-  'company.principles.businessFocus.description':
+  'about.principles.businessFocus.title': 'Business Focus',
+  'about.principles.businessFocus.description':
     'Engineers should focus on business logic, not infrastructure. Sovrium handles auth, database, API, and UI out of the box.',
-  'company.principles.configReuse.title': 'Configuration Reusability',
-  'company.principles.configReuse.description':
+  'about.principles.configReuse.title': 'Configuration Reusability',
+  'about.principles.configReuse.description':
     'Configuration templates become organizational assets. Build CRM, project tools, and portals from composable, version-controlled configs.',
 
   // ── Company: Team ──────────────────────────────────────────────────
-  'company.team.title': 'The Team',
-  'company.team.subtitle':
+  'about.team.title': 'The Team',
+  'about.team.subtitle':
     'Sovrium is built by ESSENTIAL SERVICES, a company dedicated to giving organizations control over their software.',
-  'company.team.founder.name': 'Thomas Jeanneau',
-  'company.team.founder.role': 'Founder & CEO',
-  'company.team.founder.bio':
+  'about.team.founder.name': 'Thomas Jeanneau',
+  'about.team.founder.role': 'Founder & CEO',
+  'about.team.founder.bio':
     'Software engineer and entrepreneur with 8 years of expertise, passionate about building tools that empower organizations. Previously built automation tools serving 50+ clients across France and Europe.',
 
   // ── Company: CTA ───────────────────────────────────────────────────
-  'company.cta.title': 'Join the Movement',
-  'company.cta.description':
+  'about.cta.title': 'Join the Movement',
+  'about.cta.description':
     'Sovrium is open source and actively developed. Star the repo, contribute code, or build with us.',
-  'company.cta.github': 'View on GitHub',
-  'company.cta.partners': 'Work With Us',
-  'company.cta.partners.href': '/en/partners',
+  'about.cta.github': 'View on GitHub',
+  'about.cta.partner': 'Work With Us',
+  'about.cta.partner.href': '/en/partner',
 
   // ════════════════════════════════════════════════════════════════════
   //  TERMS OF SERVICE PAGE

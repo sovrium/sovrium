@@ -88,7 +88,7 @@ export const mobileMenuScript = {
  *
  * Contains:
  * - Sovrium horizontal logo (light variant on dark background, links to home)
- * - Desktop navigation links (Partners, Company) - visible on md+ screens
+ * - Desktop navigation links (Partner, About) - visible on md+ screens
  * - Mobile hamburger button - visible on small screens
  * - Mobile dropdown menu with nav links + language switcher
  * - Language switcher (toggles between EN/FR)
@@ -143,17 +143,17 @@ export const navbar = {
               children: [
                 {
                   type: 'link' as const,
-                  content: '$t:nav.partners',
+                  content: '$t:nav.partner',
                   props: {
-                    href: '$t:nav.partners.href',
+                    href: '$t:nav.partner.href',
                     className: navLinkClass,
                   },
                 },
                 {
                   type: 'link' as const,
-                  content: '$t:nav.company',
+                  content: '$t:nav.about',
                   props: {
-                    href: '$t:nav.company.href',
+                    href: '$t:nav.about.href',
                     className: navLinkClass,
                   },
                 },
@@ -246,17 +246,17 @@ export const navbar = {
               children: [
                 {
                   type: 'link' as const,
-                  content: '$t:nav.partners',
+                  content: '$t:nav.partner',
                   props: {
-                    href: '$t:nav.partners.href',
+                    href: '$t:nav.partner.href',
                     className: mobileNavLinkClass,
                   },
                 },
                 {
                   type: 'link' as const,
-                  content: '$t:nav.company',
+                  content: '$t:nav.about',
                   props: {
-                    href: '$t:nav.company.href',
+                    href: '$t:nav.about.href',
                     className: mobileNavLinkClass,
                   },
                 },

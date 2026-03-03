@@ -8,7 +8,7 @@
 import type { ComponentTemplate } from '@/index'
 
 // ─── testimonial-card: Partner testimonial with quote, author, role ────────
-// Used in partners.ts testimonials section (4 cards)
+// Used in partner.ts testimonials section (4 cards)
 // vars: { index: 1 | 2 | 3 | 4 }
 export const testimonialCard: ComponentTemplate = {
   name: 'testimonial-card',
@@ -25,7 +25,7 @@ export const testimonialCard: ComponentTemplate = {
     },
     {
       type: 'paragraph',
-      content: '$t:partners.testimonials.$index.quote',
+      content: '$t:partner.testimonials.$index.quote',
       props: { className: 'text-sovereignty-gray-300 italic mb-6 leading-relaxed' },
     },
     {
@@ -39,12 +39,12 @@ export const testimonialCard: ComponentTemplate = {
           children: [
             {
               type: 'paragraph',
-              content: '$t:partners.testimonials.$index.author',
+              content: '$t:partner.testimonials.$index.author',
               props: { className: 'font-semibold text-sovereignty-light' },
             },
             {
               type: 'paragraph',
-              content: '$t:partners.testimonials.$index.role',
+              content: '$t:partner.testimonials.$index.role',
               props: { className: 'text-sm text-sovereignty-gray-400' },
             },
           ],
@@ -55,7 +55,7 @@ export const testimonialCard: ComponentTemplate = {
 }
 
 // ─── process-step: Numbered process step with title and description ────────
-// Used in partners.ts process section (5 steps)
+// Used in partner.ts process section (5 steps)
 // vars: { num: 1 | 2 | 3 | 4 | 5 }
 export const processStep: ComponentTemplate = {
   name: 'process-step',
@@ -72,19 +72,19 @@ export const processStep: ComponentTemplate = {
     },
     {
       type: 'h4',
-      content: '$t:partners.process.step$num.title',
+      content: '$t:partner.process.step$num.title',
       props: { className: 'font-semibold mb-2' },
     },
     {
       type: 'paragraph',
-      content: '$t:partners.process.step$num.description',
+      content: '$t:partner.process.step$num.description',
       props: { className: 'text-sm text-sovereignty-gray-400' },
     },
   ],
 }
 
 // ─── methodology-card: Methodology principle with title and description ────
-// Used in partners.ts methodology section (10 cards)
+// Used in partner.ts methodology section (10 cards)
 // vars: { num: 1..10 }
 export const methodologyCard: ComponentTemplate = {
   name: 'methodology-card',
@@ -96,19 +96,19 @@ export const methodologyCard: ComponentTemplate = {
   children: [
     {
       type: 'h4',
-      content: '$t:partners.methodology.$num.title',
+      content: '$t:partner.methodology.$num.title',
       props: { className: 'text-lg font-semibold mb-2 text-sovereignty-light' },
     },
     {
       type: 'paragraph',
-      content: '$t:partners.methodology.$num.description',
+      content: '$t:partner.methodology.$num.description',
       props: { className: 'text-sm text-sovereignty-gray-400' },
     },
   ],
 }
 
 // ─── stat-card: Statistics card with number, title, description ────────────
-// Used in partners.ts stats section (3 cards)
+// Used in partner.ts stats section (3 cards)
 // vars: { key: 'clients' | 'tools' | 'hours' }
 export const statCard: ComponentTemplate = {
   name: 'stat-card',
@@ -120,24 +120,24 @@ export const statCard: ComponentTemplate = {
   children: [
     {
       type: 'h3',
-      content: '$t:partners.stats.$key.stat',
+      content: '$t:partner.stats.$key.stat',
       props: { className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2' },
     },
     {
       type: 'h4',
-      content: '$t:partners.stats.$key.title',
+      content: '$t:partner.stats.$key.title',
       props: { className: 'text-xl font-semibold mb-3' },
     },
     {
       type: 'paragraph',
-      content: '$t:partners.stats.$key.description',
+      content: '$t:partner.stats.$key.description',
       props: { className: 'text-sovereignty-gray-400' },
     },
   ],
 }
 
 // ─── marquee-logo-item: Client logo for marquee/carousel ──────────────────
-// Used in partners.ts trusted-by section (7 logos, duplicated for infinite scroll)
+// Used in partner.ts trusted-by section (7 logos, duplicated for infinite scroll)
 // vars: { src: '/logos/escp.png', name: 'ESCP Business School' }
 export const marqueeLogoItem: ComponentTemplate = {
   name: 'marquee-logo-item',

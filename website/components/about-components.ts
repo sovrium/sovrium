@@ -7,8 +7,8 @@
 
 import type { ComponentTemplate } from '@/index'
 
-// ─── value-card: Company value card with icon, title, description ──────────
-// Used in company.ts values section (6 cards)
+// ─── value-card: About page value card with icon, title, description ───────
+// Used in about.ts values section (6 cards)
 // vars: { key: 'sovereignty' | 'transparency' | ... }
 export const valueCard: ComponentTemplate = {
   name: 'value-card',
@@ -21,23 +21,23 @@ export const valueCard: ComponentTemplate = {
     {
       type: 'div',
       props: { className: 'text-3xl mb-4' },
-      content: '$t:company.values.$key.icon',
+      content: '$t:about.values.$key.icon',
     },
     {
       type: 'h3',
-      content: '$t:company.values.$key.title',
+      content: '$t:about.values.$key.title',
       props: { className: 'text-xl font-semibold mb-3 text-sovereignty-light' },
     },
     {
       type: 'paragraph',
-      content: '$t:company.values.$key.description',
+      content: '$t:about.values.$key.description',
       props: { className: 'text-sovereignty-gray-400 leading-relaxed' },
     },
   ],
 }
 
-// ─── principle-item: Company principle with title and description ──────────
-// Used in company.ts principles section (4 items)
+// ─── principle-item: About page principle with title and description ───────
+// Used in about.ts principles section (4 items)
 // vars: { key: 'configOverCode' | 'minimalDeps' | ... }
 export const principleItem: ComponentTemplate = {
   name: 'principle-item',
@@ -49,12 +49,12 @@ export const principleItem: ComponentTemplate = {
   children: [
     {
       type: 'h4',
-      content: '$t:company.principles.$key.title',
+      content: '$t:about.principles.$key.title',
       props: { className: 'text-lg font-semibold mb-2 text-sovereignty-light' },
     },
     {
       type: 'paragraph',
-      content: '$t:company.principles.$key.description',
+      content: '$t:about.principles.$key.description',
       props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed' },
     },
   ],

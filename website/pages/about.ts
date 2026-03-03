@@ -10,29 +10,28 @@ import { footerI18n } from './footer'
 import { langSwitchScript, mobileMenuScript, navbar } from './navbar'
 import type { Page } from '@/index'
 
-export const company: Page = {
-  name: 'company',
-  path: '/company',
+export const about: Page = {
+  name: 'about',
+  path: '/about',
   meta: {
-    title: '$t:company.meta.title',
-    description: '$t:company.meta.description',
-    keywords:
-      'sovrium, company, vision, team, ESSENTIAL SERVICES, digital sovereignty, open source',
+    title: '$t:about.meta.title',
+    description: '$t:about.meta.description',
+    keywords: 'sovrium, about, vision, team, ESSENTIAL SERVICES, digital sovereignty, open source',
     author: 'ESSENTIAL SERVICES',
-    canonical: 'https://sovrium.com/company',
+    canonical: 'https://sovrium.com/about',
     favicons,
     openGraph: {
-      title: '$t:company.meta.og.title',
-      description: '$t:company.meta.og.description',
+      title: '$t:about.meta.og.title',
+      description: '$t:about.meta.og.description',
       type: 'website',
-      url: 'https://sovrium.com/company',
+      url: 'https://sovrium.com/about',
       image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
       siteName: 'Sovrium',
     },
     twitter: {
       card: 'summary_large_image',
-      title: '$t:company.meta.twitter.title',
-      description: '$t:company.meta.twitter.description',
+      title: '$t:about.meta.twitter.title',
+      description: '$t:about.meta.twitter.description',
       image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
     },
     schema: {
@@ -77,7 +76,7 @@ export const company: Page = {
           children: [
             {
               type: 'paragraph',
-              content: '$t:company.hero.eyebrow',
+              content: '$t:about.hero.eyebrow',
               props: {
                 className:
                   'text-sm uppercase tracking-widest text-sovereignty-accent font-medium mb-6',
@@ -85,7 +84,7 @@ export const company: Page = {
             },
             {
               type: 'h1',
-              content: '$t:company.hero.title',
+              content: '$t:about.hero.title',
               props: {
                 className:
                   'text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight bg-gradient-to-r from-sovereignty-accent to-sovereignty-teal bg-clip-text text-transparent overflow-visible',
@@ -93,7 +92,7 @@ export const company: Page = {
             },
             {
               type: 'paragraph',
-              content: '$t:company.hero.subtitle',
+              content: '$t:about.hero.subtitle',
               props: {
                 className:
                   'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 max-w-3xl mx-auto mb-8',
@@ -101,7 +100,7 @@ export const company: Page = {
             },
             {
               type: 'paragraph',
-              content: '$t:company.hero.tagline',
+              content: '$t:about.hero.tagline',
               props: {
                 className:
                   'text-lg sm:text-xl md:text-2xl font-semibold text-sovereignty-light italic',
@@ -126,14 +125,14 @@ export const company: Page = {
           children: [
             {
               type: 'h2',
-              content: '$t:company.mission.title',
+              content: '$t:about.mission.title',
               props: {
                 className: 'text-2xl sm:text-3xl font-bold text-center mb-8',
               },
             },
             {
               type: 'paragraph',
-              content: '$t:company.mission.description',
+              content: '$t:about.mission.description',
               props: {
                 className:
                   'text-base sm:text-lg md:text-xl text-sovereignty-gray-300 text-center max-w-3xl mx-auto mb-12 leading-relaxed',
@@ -148,7 +147,7 @@ export const company: Page = {
               children: [
                 {
                   type: 'paragraph',
-                  content: '$t:company.mission.statement',
+                  content: '$t:about.mission.statement',
                   props: {
                     className:
                       'text-lg sm:text-xl text-sovereignty-light leading-relaxed text-center italic',
@@ -175,14 +174,14 @@ export const company: Page = {
           children: [
             {
               type: 'h2',
-              content: '$t:company.values.title',
+              content: '$t:about.values.title',
               props: {
                 className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {
               type: 'paragraph',
-              content: '$t:company.values.subtitle',
+              content: '$t:about.values.subtitle',
               props: {
                 className:
                   'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center max-w-3xl mx-auto mb-12 md:mb-16',
@@ -219,14 +218,14 @@ export const company: Page = {
           children: [
             {
               type: 'h2',
-              content: '$t:company.principles.title',
+              content: '$t:about.principles.title',
               props: {
                 className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {
               type: 'paragraph',
-              content: '$t:company.principles.subtitle',
+              content: '$t:about.principles.subtitle',
               props: {
                 className:
                   'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center max-w-3xl mx-auto mb-12 md:mb-16',
@@ -261,14 +260,14 @@ export const company: Page = {
           children: [
             {
               type: 'h2',
-              content: '$t:company.team.title',
+              content: '$t:about.team.title',
               props: {
                 className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {
               type: 'paragraph',
-              content: '$t:company.team.subtitle',
+              content: '$t:about.team.subtitle',
               props: {
                 className:
                   'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center max-w-3xl mx-auto mb-12 md:mb-16',
@@ -297,21 +296,21 @@ export const company: Page = {
                     },
                     {
                       type: 'h3',
-                      content: '$t:company.team.founder.name',
+                      content: '$t:about.team.founder.name',
                       props: {
                         className: 'text-2xl font-bold text-sovereignty-light mb-1',
                       },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:company.team.founder.role',
+                      content: '$t:about.team.founder.role',
                       props: {
                         className: 'text-sovereignty-accent font-medium mb-4',
                       },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:company.team.founder.bio',
+                      content: '$t:about.team.founder.bio',
                       props: {
                         className: 'text-sovereignty-gray-400 leading-relaxed mb-6',
                       },
@@ -374,14 +373,14 @@ export const company: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: '$t:company.cta.title',
+                  content: '$t:about.cta.title',
                   props: {
                     className: 'text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:company.cta.description',
+                  content: '$t:about.cta.description',
                   props: {
                     className: 'text-lg text-white/90 max-w-2xl mx-auto mb-8',
                   },
@@ -392,7 +391,7 @@ export const company: Page = {
                   children: [
                     {
                       type: 'link',
-                      content: '$t:company.cta.github',
+                      content: '$t:about.cta.github',
                       props: {
                         href: 'https://github.com/sovrium/sovrium',
                         className:
@@ -403,9 +402,9 @@ export const company: Page = {
                     },
                     {
                       type: 'link',
-                      content: '$t:company.cta.partners',
+                      content: '$t:about.cta.partner',
                       props: {
-                        href: '$t:company.cta.partners.href',
+                        href: '$t:about.cta.partner.href',
                         className:
                           'inline-block border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-sovereignty-accent transition-all duration-200 text-center',
                       },

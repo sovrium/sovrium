@@ -61,8 +61,14 @@
 - FIX: Use all-lowercase single-word names (e.g., `marqueescroll` not `marqueeScroll`) so kebab-case conversion has no effect
 - camelCase names like `marqueeScroll` become `marquee-scroll` in inline styles but stay `marqueeScroll` in CSS = MISMATCH
 
-## Partners Page
-- 10 client logos in marquee (infinite scroll) layout
-- Logos: escp, tablecana, th1, maitrescuisiniers, agorastore, dunseulgeste, capitalpv, lebeausourire, 1492, edl
+## Page Naming (Updated 2026-03-03)
+- **About page** (`/about`): file `website/pages/about.ts`, export `about`, i18n keys `about.*`
+  - Was previously called "Company" (`/company`, `company.*` keys)
+- **Partner page** (`/partner`): file `website/pages/partner.ts`, export `partner`, i18n keys `partner.*`
+  - Was previously called "Partners" (`/partners`, `partners.*` keys)
+- **Component files**: `about-components.ts` (valueCard, principleItem), `partner-components.ts` (testimonialCard, etc.)
+- **Navbar tokens**: `$t:nav.partner`, `$t:nav.about` (not `nav.partners`/`nav.company`)
+- **Footer column**: Still called "Company" (`$t:footer.col.company`) but links point to `/about` and `/partner`
+- 7 client logos in marquee (infinite scroll) on Partner page
 - Animation: `marqueescroll` keyframes in `app.ts` theme.animations (enabled:false = keyframes only)
 - Marquee: duplicated logos array, CSS mask-image gradient for fade edges, 35s linear infinite

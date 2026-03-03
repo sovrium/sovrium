@@ -9,12 +9,12 @@ import { type App } from '@/index'
 import { components } from './components'
 import { en } from './i18n/en'
 import { fr } from './i18n/fr'
+import { about } from './pages/about'
 import { brandCharter } from './pages/brand-charter'
-import { company } from './pages/company'
 import { dataDeletion } from './pages/data-deletion'
 import { docsSchema } from './pages/docs-schema'
 import { home } from './pages/home'
-import { partners } from './pages/partners'
+import { partner } from './pages/partner'
 import { privacyPolicy } from './pages/privacy-policy'
 import { termsOfService } from './pages/terms-of-service'
 
@@ -122,8 +122,8 @@ export const app: App = {
     termsOfService,
     privacyPolicy,
     dataDeletion,
-    partners,
-    company,
+    partner,
+    about,
     brandCharter,
     docsSchema,
   ],

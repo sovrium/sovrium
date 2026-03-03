@@ -29,29 +29,29 @@ const marqueeLogos = [...allClientLogos, ...allClientLogos].map((logo) => ({
 
 // ─── Page ───────────────────────────────────────────────────────────────────────
 
-export const partners: Page = {
-  name: 'partners',
-  path: '/partners',
+export const partner: Page = {
+  name: 'partner',
+  path: '/partner',
   meta: {
-    title: '$t:partners.meta.title',
-    description: '$t:partners.meta.description',
+    title: '$t:partner.meta.title',
+    description: '$t:partner.meta.description',
     keywords:
       'sovrium partner, consulting, implementation, internal tools, process optimization, digital transformation',
     author: 'ESSENTIAL SERVICES',
-    canonical: 'https://sovrium.com/partners',
+    canonical: 'https://sovrium.com/partner',
     favicons,
     openGraph: {
-      title: '$t:partners.meta.og.title',
-      description: '$t:partners.meta.og.description',
+      title: '$t:partner.meta.og.title',
+      description: '$t:partner.meta.og.description',
       type: 'website',
-      url: 'https://sovrium.com/partners',
+      url: 'https://sovrium.com/partner',
       image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
       siteName: 'Sovrium',
     },
     twitter: {
       card: 'summary_large_image',
-      title: '$t:partners.meta.twitter.title',
-      description: '$t:partners.meta.twitter.description',
+      title: '$t:partner.meta.twitter.title',
+      description: '$t:partner.meta.twitter.description',
       image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
     },
   },
@@ -76,7 +76,7 @@ export const partners: Page = {
           children: [
             {
               type: 'h1',
-              content: '$t:partners.hero.title',
+              content: '$t:partner.hero.title',
               props: {
                 className:
                   'text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight bg-gradient-to-r from-sovereignty-accent to-sovereignty-teal bg-clip-text text-transparent overflow-visible',
@@ -84,7 +84,7 @@ export const partners: Page = {
             },
             {
               type: 'paragraph',
-              content: '$t:partners.hero.subtitle',
+              content: '$t:partner.hero.subtitle',
               props: {
                 className:
                   'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 max-w-3xl mx-auto mb-12',
@@ -96,7 +96,7 @@ export const partners: Page = {
               children: [
                 {
                   type: 'link',
-                  content: '$t:partners.hero.cta.primary',
+                  content: '$t:partner.hero.cta.primary',
                   props: {
                     href: '#waitlist',
                     className:
@@ -105,7 +105,7 @@ export const partners: Page = {
                 },
                 {
                   type: 'link',
-                  content: '$t:partners.hero.cta.secondary',
+                  content: '$t:partner.hero.cta.secondary',
                   props: {
                     href: '#methodology',
                     className:
@@ -133,7 +133,7 @@ export const partners: Page = {
           children: [
             {
               type: 'paragraph',
-              content: '$t:partners.trust.title',
+              content: '$t:partner.trust.title',
               props: {
                 className:
                   'text-sm uppercase tracking-widest text-sovereignty-gray-500 font-medium mb-8',
@@ -177,7 +177,7 @@ export const partners: Page = {
           children: [
             {
               type: 'h2',
-              content: '$t:partners.stats.title',
+              content: '$t:partner.stats.title',
               props: {
                 className: 'text-2xl sm:text-3xl font-bold text-center mb-12 md:mb-16',
               },
@@ -210,14 +210,14 @@ export const partners: Page = {
           children: [
             {
               type: 'h2',
-              content: '$t:partners.process.title',
+              content: '$t:partner.process.title',
               props: {
                 className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {
               type: 'paragraph',
-              content: '$t:partners.process.subtitle',
+              content: '$t:partner.process.subtitle',
               props: {
                 className:
                   'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center max-w-3xl mx-auto mb-12 md:mb-16',
@@ -255,14 +255,14 @@ export const partners: Page = {
           children: [
             {
               type: 'h2',
-              content: '$t:partners.methodology.title',
+              content: '$t:partner.methodology.title',
               props: {
                 className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {
               type: 'paragraph',
-              content: '$t:partners.methodology.subtitle',
+              content: '$t:partner.methodology.subtitle',
               props: {
                 className:
                   'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center max-w-3xl mx-auto mb-12 md:mb-16',
@@ -305,7 +305,7 @@ export const partners: Page = {
           children: [
             {
               type: 'h2',
-              content: '$t:partners.testimonials.title',
+              content: '$t:partner.testimonials.title',
               props: {
                 className: 'text-2xl sm:text-3xl font-bold text-center mb-12 md:mb-16',
               },
@@ -346,21 +346,21 @@ export const partners: Page = {
               children: [
                 {
                   type: 'h2',
-                  content: '$t:partners.waitlist.title',
+                  content: '$t:partner.waitlist.title',
                   props: {
                     className: 'text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-4',
                   },
                 },
                 {
                   type: 'paragraph',
-                  content: '$t:partners.waitlist.description',
+                  content: '$t:partner.waitlist.description',
                   props: {
                     className: 'text-lg text-white/90 max-w-2xl mx-auto mb-8',
                   },
                 },
                 {
                   type: 'link',
-                  content: '$t:partners.waitlist.cta',
+                  content: '$t:partner.waitlist.cta',
                   props: {
                     href: 'https://latechforce.notion.site/1609911026ec807e9a17d1610e198511',
                     className:
