@@ -100,6 +100,7 @@
     "db:check": "drizzle-kit check",
     "website": "bun --watch run website/start.ts",
     "website:build": "bun run website/build.ts",
+    "analyze-commits": "bun run scripts/analyze-commits.ts",
     "prepublish-check": "bun run scripts/prepublish-check.ts",
     "release": "bun run scripts/release.ts"
   },

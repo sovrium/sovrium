@@ -6,22 +6,32 @@ on:
     types: [completed]
     branches: [main]
 
+# Prevent parallel releases
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 permissions:
   contents: write
   id-token: write
 
 jobs:
-  publish:
-    name: Publish to npm
+  release:
+    name: Analyze & Publish
     runs-on: ubuntu-latest
+    # Only run when: Test succeeded, not a [skip ci] commit, not a release commit
     if: |
       github.event.workflow_run.conclusion == 'success' &&
       !contains(github.event.workflow_run.head_commit.message, '[skip ci]') &&
-      startsWith(github.event.workflow_run.head_commit.message, 'release:')
+      !startsWith(github.event.workflow_run.head_commit.message, 'chore(release):')
 
     steps:
+      # Full history needed for git log analysis
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GH_PAT_WORKFLOW }}
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -37,29 +47,134 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # ── Analyze commits ────────────────────────────────────────
+      - name: Analyze commits
+        id: analyze
+        run: |
+          RESULT=$(bun run scripts/analyze-commits.ts)
+          echo "result=$RESULT" >> "$GITHUB_OUTPUT"
+
+          # Extract fields for subsequent steps
+          BUMP=$(echo "$RESULT" | jq -r '.bump')
+          NEW_VERSION=$(echo "$RESULT" | jq -r '.newVersion')
+          CHANGELOG=$(echo "$RESULT" | jq -r '.changelog')
+
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+          # Multiline output for changelog
+          {
+            echo "changelog<<CHANGELOG_EOF"
+            echo "$CHANGELOG"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$BUMP" = "null" ]; then
+            echo "No releasable commits found. Skipping release."
+          else
+            echo "Detected bump: $BUMP → $NEW_VERSION"
+          fi
+
+      # ── Exit early if no release needed ────────────────────────
+      - name: Skip if no releasable commits
+        if: steps.analyze.outputs.bump == 'null'
+        run: echo "No releasable commits. Exiting."
+
+      # ── Pre-publish validation ─────────────────────────────────
       - name: Pre-publish validation
+        if: steps.analyze.outputs.bump != 'null'
         run: bun run prepublish-check
 
+      # ── Bump version in package.json ───────────────────────────
+      - name: Bump version
+        if: steps.analyze.outputs.bump != 'null'
+        run: |
+          NEW_VERSION="${{ steps.analyze.outputs.new_version }}"
+          jq --arg v "$NEW_VERSION" '.version = $v' package.json > package.json.tmp
+          mv package.json.tmp package.json
+          echo "Updated package.json to $NEW_VERSION"
+
+      # ── Export schemas ─────────────────────────────────────────
+      - name: Export schemas
+        if: steps.analyze.outputs.bump != 'null'
+        run: |
+          NEW_VERSION="${{ steps.analyze.outputs.new_version }}"
+          bun run export:schema --version "$NEW_VERSION"
+          bun run export:openapi --version "$NEW_VERSION"
+
+      # ── Update CHANGELOG.md ────────────────────────────────────
+      - name: Update CHANGELOG
+        if: steps.analyze.outputs.bump != 'null'
+        run: |
+          NEW_VERSION="${{ steps.analyze.outputs.new_version }}"
+          CHANGELOG="${{ steps.analyze.outputs.changelog }}"
+
+          if [ -f CHANGELOG.md ]; then
+            # Prepend new entry to existing changelog
+            {
+              echo "$CHANGELOG"
+              echo ""
+              cat CHANGELOG.md
+            } > CHANGELOG.md.tmp
+            mv CHANGELOG.md.tmp CHANGELOG.md
+          else
+            echo "$CHANGELOG" > CHANGELOG.md
+          fi
+
+          echo "Updated CHANGELOG.md for $NEW_VERSION"
+
+      # ── Commit, tag, and push ──────────────────────────────────
+      - name: Commit release
+        if: steps.analyze.outputs.bump != 'null'
+        run: |
+          NEW_VERSION="${{ steps.analyze.outputs.new_version }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add package.json CHANGELOG.md "schemas/${NEW_VERSION}" || true
+          git commit -m "chore(release): ${NEW_VERSION} [skip ci]"
+          git tag -a "v${NEW_VERSION}" -m "v${NEW_VERSION}"
+
+          # Pull with rebase to handle race conditions (same pattern as test.yml)
+          if ! git pull --rebase origin main; then
+            echo "⚠️ Rebase failed — aborting release push"
+            echo "   This can happen if another commit landed during the release."
+            echo "   The next Test run will trigger another release attempt."
+            git rebase --abort 2>/dev/null || true
+            exit 0
+          fi
+
+          git push origin main --follow-tags
+          echo "Pushed release v${NEW_VERSION}"
+
+      # ── Publish to npm ─────────────────────────────────────────
       - name: Publish to npm
+        if: steps.analyze.outputs.bump != 'null'
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Read version
-        id: version
-        run: echo "version=$(jq -r '.version' package.json)" >> "$GITHUB_OUTPUT"
-
+      # ── Create GitHub Release ──────────────────────────────────
       - name: Create GitHub Release
+        if: steps.analyze.outputs.bump != 'null'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "v${{ steps.version.outputs.version }}" --title "v${{ steps.version.outputs.version }}" --generate-notes --verify-tag
+        run: |
+          NEW_VERSION="${{ steps.analyze.outputs.new_version }}"
+          CHANGELOG="${{ steps.analyze.outputs.changelog }}"
+          gh release create "v${NEW_VERSION}" \
+            --title "v${NEW_VERSION}" \
+            --notes "$CHANGELOG" \
+            --verify-tag
 
   # Trigger website sync + deploy after successful release.
   # The sync-docs job (Claude Code) now lives in deploy-website.yml and runs
   # only on workflow_dispatch. Non-blocking: release succeeds even if this fails.
   trigger-website-sync:
     name: Trigger Website Sync
-    needs: publish
+    needs: release
+    if: needs.release.result == 'success'
     runs-on: ubuntu-latest
     continue-on-error: true
     steps:

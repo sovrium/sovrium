@@ -103,49 +103,99 @@ This saves Test time and resources by stopping at the first failure.
 
 ### Purpose
 
-The release workflow publishes the package to npm and creates a GitHub Release. It runs after the Test workflow completes successfully on commits created by `bun run release` (which start with `release:`).
+The release workflow **automatically** analyzes conventional commits, determines the version bump, publishes to npm, and creates a GitHub Release. It runs after the Test workflow completes successfully on main.
 
-### What the Release Workflow Does
+### How It Works
 
-1. **Trigger Check** - Only runs if Test workflow succeeded and commit starts with `release:`
-2. **Checkout** - Fetches the repository code
-3. **Setup Bun + Node.js** - Bun for dependencies, Node.js for `npm publish --provenance` (Bun lacks provenance support)
-4. **Install Dependencies** - Runs `bun install --frozen-lockfile`
-5. **Publish to npm** - `npm publish --provenance --access public` with OIDC Trusted Publishing
-6. **Create GitHub Release** - `gh release create --generate-notes --verify-tag`
-7. **Trigger Website Sync** - Dispatches `deploy-website.yml` (non-blocking)
+1. **Trigger Check** - Only runs if Test succeeded, not `[skip ci]`, not `chore(release):`
+2. **Checkout** - Fetches full git history (for commit analysis)
+3. **Setup Bun + Node.js** - Bun for scripts, Node.js for `npm publish --provenance`
+4. **Analyze Commits** - `scripts/analyze-commits.ts` parses git log since last tag
+5. **Early Exit** - If no releasable commits (`feat:`, `fix:`, `perf:`), skips release
+6. **Pre-publish Check** - Validates package metadata
+7. **Bump Version** - Updates `package.json` with new version
+8. **Export Schemas** - Generates versioned JSON Schema and OpenAPI files
+9. **Update CHANGELOG** - Prepends generated changelog entry
+10. **Commit & Tag** - `chore(release): X.Y.Z [skip ci]` + `vX.Y.Z` tag
+11. **Push** - Rebase-then-push (handles race conditions)
+12. **Publish to npm** - `npm publish --provenance --access public`
+13. **Create GitHub Release** - With generated changelog as body
+14. **Trigger Website Sync** - Dispatches `deploy-website.yml` (non-blocking)
+
+### Commit Classification
+
+| Prefix                            | Bump  | Changelog Section                        |
+| --------------------------------- | ----- | ---------------------------------------- |
+| `feat:`                           | minor | Features                                 |
+| `fix:`                            | patch | Bug Fixes                                |
+| `perf:`                           | patch | Performance Improvements                 |
+| `!` or `BREAKING CHANGE:`         | major | BREAKING CHANGES                         |
+| `chore:`, `docs:`, `style:`, etc. | none  | (included only if mixed with releasable) |
+
+### Infinite Loop Prevention
+
+- Release commit uses `chore(release): X.Y.Z [skip ci]`
+- `[skip ci]` prevents test.yml from triggering
+- `chore(release):` prefix explicitly excluded in workflow condition
+
+### Concurrency
+
+- `concurrency: group: release` prevents parallel release attempts
+- Rebase-before-push handles race conditions with other commits
 
 ### Permissions
 
-- `contents: write` - Create GitHub Release
+- `contents: write` - Commit release, create GitHub Release
 - `id-token: write` - OIDC for npm provenance
 
 ### Required GitHub Secrets
 
 - `NPM_TOKEN` - npm registry authentication
-- `GH_PAT_WORKFLOW` - Dispatch website deploy workflow
+- `GH_PAT_WORKFLOW` - Push release commit + dispatch website deploy
 
 ## Workflow Orchestration
 
 The workflows run in sequence:
 
 ```
-bun run release patch (local)
+git push origin main (conventional commits)
        ↓
-git push origin main --follow-tags
-       ↓
-Test Workflow runs (tests, linting, type checking)
-       ↓ (if successful + commit starts with "release:")
-Release Workflow runs (npm publish + GitHub Release)
+Test Workflow runs (quality checks + tests)
+       ↓ (if successful)
+Release Workflow runs:
+  → Analyze commits (feat: → minor, fix: → patch, etc.)
+  → If releasable: bump version, export schemas, update CHANGELOG
+  → Commit "chore(release): X.Y.Z [skip ci]" + tag
+  → npm publish + GitHub Release
        ↓
 Website sync triggered
 ```
+
+### Manual Override
+
+For emergencies, the manual release script handles local versioning:
+
+```
+bun run release patch --message "Hotfix"
+       ↓
+git push origin main --follow-tags
+       ↓
+Test → Release workflow runs but exits early:
+  analyze-commits.ts finds 0 commits since the new tag → bump = null → skip
+       ↓
+You must publish manually (CI won't):
+  npm publish --provenance --access public
+  gh release create "vX.Y.Z" --title "vX.Y.Z" --notes "..."
+```
+
+See `@docs/infrastructure/release/release-script.md` for the complete manual release process.
 
 ### Why Sequential Execution
 
 - **Quality Gate**: Tests must pass before publishing
 - **Resource Efficiency**: Don't publish if tests fail
 - **Safety**: Ensures only validated code gets released
+- **Automation**: No manual intervention for routine releases
 
 ## Workflow Triggers
 
@@ -156,11 +206,12 @@ Website sync triggered
 
 ### Release Workflow Triggers
 
-- **After Test completes** - Only runs if Test workflow succeeds
+- **After Test completes** - Only runs if Test workflow succeeds on main
 - **Skip conditions**:
   - Test workflow failed
   - Commit message contains `[skip ci]`
-  - Push is to branch other than main
+  - Commit message starts with `chore(release):`
+  - No releasable commits since last tag (`feat:`, `fix:`, `perf:`, or breaking changes)
 
 ## Using [skip ci] in Commits
 
@@ -176,7 +227,7 @@ git commit -m "docs: update README [skip ci]"
 - README updates
 - CHANGELOG edits (when manually edited)
 
-**Important**: Only semantic-release should automatically use `[skip ci]` (in release commits). Don't use it for regular commits unless absolutely necessary.
+**Important**: Only the automated CI release workflow (`chore(release): X.Y.Z [skip ci]`) should automatically use `[skip ci]`. Don't use it for regular commits unless absolutely necessary.
 
 ## Local Workflow Testing
 
@@ -194,7 +245,13 @@ bun test:e2e                   # E2E tests (Playwright)
 ### Test Release Process Locally
 
 ```bash
-# Dry-run release script (doesn't make changes)
+# Preview what CI would release (simulates automated commit analysis)
+bun run analyze-commits --dry-run
+
+# Preview specific tag range
+bun run analyze-commits --dry-run --from v0.0.1
+
+# Dry-run manual override script (doesn't make changes)
 bun run release patch --dry-run
 ```
 
@@ -238,8 +295,8 @@ Add workflow status badges to README:
 
 1. Test workflow failed - Check Test workflow status
 2. Commit contains `[skip ci]` - Remove from commit message
-3. Commit doesn't start with `release:` - Must be created by `bun run release`
-4. Tag doesn't exist - Ensure `--follow-tags` was used when pushing
+3. Commit starts with `chore(release):` - This is a release commit; expected to be skipped
+4. No releasable commits - Only `feat:`, `fix:`, `perf:`, or breaking changes trigger a release
 
 ### Release Workflow Fails
 
@@ -258,7 +315,7 @@ Add workflow status badges to README:
 ## Best Practices
 
 1. **Always run tests locally first** - Don't rely on Test to catch basic errors
-2. **Use conventional commits** - Required for semantic-release to work
+2. **Use conventional commits** - Required for automated release detection to work
 3. **Don't force push to main** - Breaks workflow history
 4. **Monitor workflow status** - Check Actions tab after pushing
 5. **Fix Test failures immediately** - Don't merge PRs with failing Test
@@ -271,9 +328,9 @@ Add workflow status badges to README:
 
 When updating Bun version in project:
 
-1. Update `bun-version` in both Test and Release workflows
+1. Update `packageManager` field in `package.json` (both workflows use `bun-version-file: package.json`)
 2. Test locally with new Bun version first
-3. Update in one PR to keep workflows in sync
+3. No workflow file changes needed — both workflows auto-resolve version from `package.json`
 
 ### Updating GitHub Actions
 

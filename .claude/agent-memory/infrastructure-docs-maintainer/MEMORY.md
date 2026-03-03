@@ -4,6 +4,8 @@
 
 | Doc File | Quality | Notes |
 |----------|---------|-------|
+| `docs/infrastructure/cicd/workflows.md` | Good | 2026-03-03: Fixed 3 stale semantic-release refs; fixed Bun version update instructions; added analyze-commits dry-run; corrected manual release flow |
+| `docs/infrastructure/release/release-script.md` | Good | 2026-03-03: Added critical note that manual release requires manual publish (CI exits early — tag already exists); updated comparison table; corrected developer workflow |
 | `docs/infrastructure/runtime/bun.md` | Good | Version updated 1.3.9→1.3.10 |
 | `docs/infrastructure/language/typescript.md` | Good | Removed false tsc wrapper v2.0.4 claim; target string vs array fixed |
 | `docs/infrastructure/quality/eslint.md` | Good | Versions updated (9.39.1→9.39.2, typescript-eslint updated) |
@@ -29,7 +31,7 @@ Last verified against package.json (bun@1.3.10):
 - @effect/language-service: 0.77.0 (exact pin)
 - @effect/experimental: ^0.58.0
 - Hono: ^4.12.3
-- Better Auth: ^1.5.1
+- Better Auth: ^1.5.2
 - Drizzle ORM: ^0.45.1, drizzle-kit: ^0.31.9
 - React: ^19.2.4
 - Tailwind CSS: ^4.2.1, @tailwindcss/postcss: ^4.2.1

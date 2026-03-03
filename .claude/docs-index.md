@@ -77,7 +77,7 @@
 
 ### CI/CD & Release
 - `@docs/infrastructure/cicd/workflows.md` - GitHub Actions
-- `@docs/infrastructure/release/release-script.md` - Release script (`bun run release`)
+- `@docs/infrastructure/release/release-script.md` - Release system (automated CI + manual override `bun run release`)
 
 ## Architecture
 

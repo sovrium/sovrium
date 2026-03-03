@@ -7,11 +7,14 @@
  */
 
 /**
- * Release Script — Manual version management for Sovrium
+ * Release Script — Manual override for Sovrium releases
  *
- * Replaces semantic-release with explicit version control.
- * Bumps version, updates changelog, exports schemas, commits, and tags.
- * Does NOT push or publish — CI handles that.
+ * PRIMARY: Releases are automated via CI (release.yml + analyze-commits.ts).
+ *   Push conventional commits → CI analyzes → bumps version → publishes.
+ *
+ * THIS SCRIPT: Emergency manual override for hotfixes or explicit version control.
+ *   Bumps version, updates changelog, exports schemas, commits, and tags locally.
+ *   Does NOT push or publish — CI handles that.
  *
  * Usage:
  *   bun run release patch                          # 0.0.2 → 0.0.3
