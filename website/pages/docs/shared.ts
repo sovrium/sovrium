@@ -155,7 +155,7 @@ export const propertyTable = (rows: ReadonlyArray<{ name: string; description: s
   type: 'div' as const,
   props: {
     className:
-      'overflow-x-auto my-6 border border-sovereignty-gray-800 rounded-lg bg-sovereignty-gray-900',
+      'overflow-x-auto my-4 border border-sovereignty-gray-800 rounded-lg bg-sovereignty-gray-900',
   },
   children: [
     {
@@ -388,7 +388,7 @@ export function docsPage(options: DocsPageOptions): Page {
                   // ── Content ───────────────────────────────────────────
                   {
                     type: 'div',
-                    props: { className: 'flex-1 min-w-0 space-y-16' },
+                    props: { className: 'flex-1 min-w-0 space-y-12' },
                     children: [...content, buildPrevNext(activeId)],
                   },
                 ],

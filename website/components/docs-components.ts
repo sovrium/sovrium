@@ -32,7 +32,7 @@ export const docsCodeBlock: ComponentTemplate = {
   type: 'div',
   props: {
     className:
-      'docs-code-wrapper relative bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg overflow-hidden my-6',
+      'docs-code-wrapper relative bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg overflow-hidden my-4',
   },
   children: [
     {
@@ -44,11 +44,11 @@ export const docsCodeBlock: ComponentTemplate = {
       },
       children: [
         {
-          type: 'span',
+          type: 'pre',
           content: '$code',
           props: {
             className:
-              'text-sm font-mono text-sovereignty-gray-300 whitespace-pre-wrap block leading-relaxed',
+              'text-sm font-mono text-sovereignty-gray-300 whitespace-pre-wrap leading-relaxed m-0',
           },
         },
       ],
@@ -172,7 +172,7 @@ export const docsCallout: ComponentTemplate = {
   name: 'docs-callout',
   type: 'div',
   props: {
-    className: 'rounded-lg p-4 my-6 border-l-4 $borderColor $bgColor',
+    className: 'rounded-lg p-4 my-4 border-l-4 $borderColor $bgColor',
   },
   children: [
     {
@@ -217,7 +217,7 @@ export const docsSectionHeader: ComponentTemplate = {
       content: '$title',
       props: {
         id: '$anchor',
-        className: 'text-xl font-semibold text-sovereignty-light mb-2',
+        className: 'text-2xl font-bold text-sovereignty-light mb-2',
       },
     },
     {
@@ -233,7 +233,7 @@ export const docsSectionHeader: ComponentTemplate = {
 export const docsStep: ComponentTemplate = {
   name: 'docs-step',
   type: 'div',
-  props: { className: 'flex gap-4 mb-8' },
+  props: { className: 'flex gap-4 mb-6' },
   children: [
     {
       type: 'div',

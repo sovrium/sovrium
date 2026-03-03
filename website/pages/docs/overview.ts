@@ -27,7 +27,7 @@ export const docsOverview = docsPage({
           type: 'paragraph',
           content: '$t:docs.header.description',
           props: {
-            className: 'text-lg text-sovereignty-gray-300 max-w-3xl leading-relaxed',
+            className: 'text-base text-sovereignty-gray-300 max-w-3xl leading-relaxed',
           },
         },
       ],
@@ -42,7 +42,7 @@ export const docsOverview = docsPage({
           type: 'h2',
           content: '$t:docs.overview.title',
           props: {
-            className: 'text-xl font-semibold mb-2 text-sovereignty-light',
+            className: 'text-2xl font-bold mb-2 text-sovereignty-light',
           },
         },
         {
@@ -67,7 +67,7 @@ export const docsOverview = docsPage({
           type: 'h2',
           content: '$t:docs.quickStart.title',
           props: {
-            className: 'text-xl font-semibold mb-2 text-sovereignty-light',
+            className: 'text-2xl font-bold mb-2 text-sovereignty-light',
           },
         },
         {
@@ -104,7 +104,7 @@ export const docsOverview = docsPage({
           type: 'h2',
           content: '$t:docs.rootProps.title',
           props: {
-            className: 'text-xl font-semibold mb-2 text-sovereignty-light',
+            className: 'text-2xl font-bold mb-2 text-sovereignty-light',
           },
         },
         {
