@@ -82,9 +82,9 @@ jobs:
             Read these files to get the ACTUAL counts and types:
 
             1. `src/domain/models/app/table/fields.ts` — Count the imported field type schemas (lines 10-50).
-               Each import like `XxxFieldSchema` = 1 field type. Currently 41 field types.
+               Each import like `XxxFieldSchema` = 1 field type. Currently 40 field types.
             2. `src/domain/models/app/page/sections.ts` — Count the `Schema.Literal(...)` values (lines 27-89).
-               Each string literal = 1 component type. Currently 63 component types.
+               Each string literal = 1 component type. Currently 62 component types.
             3. `src/domain/models/app/index.ts` — Count root AppSchema properties (name, version, tables, theme, etc.).
             4. `schemas/${{ steps.version.outputs.version }}/app.schema.json` — The generated JSON Schema for this version.
 
@@ -160,6 +160,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
+    if: always() && !cancelled() && needs.build.result == 'success'
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
