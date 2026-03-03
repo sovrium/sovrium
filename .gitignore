@@ -70,5 +70,3 @@ test-output.log
 prevalidation-result.json
 .tdd-marker-*
 
-# Development schemas (not released)
-schemas/development/
