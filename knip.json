@@ -27,9 +27,7 @@
     "@apidevtools/json-schema-ref-parser",
     "@types/dompurify",
     "@hono/zod-validator",
-    "nanoid",
-    "@effect/cli",
-    "@effect/platform-bun"
+    "nanoid"
   ],
   "ignoreBinaries": ["pull_with_retry", "actionlint", "printf"],
   "ignoreExportsUsedInFile": true
