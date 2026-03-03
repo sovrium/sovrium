@@ -8,7 +8,8 @@
         "preset": "angular",
         "releaseRules": [
           { "type": "release", "release": "patch" },
-          { "breaking": true, "release": "patch" }
+          { "breaking": true, "release": "patch" },
+          { "type": "feat", "release": "patch" }
         ]
       }
     ],
