@@ -14,7 +14,7 @@ export const en: Record<string, string> = {
   // ════════════════════════════════════════════════════════════════════
   //  GLOBAL NAVIGATION
   // ════════════════════════════════════════════════════════════════════
-  'nav.partner': 'Our Partner Service',
+  'nav.partner': 'Partner Service',
   'nav.partner.href': '/en/partner',
   'nav.about': 'About',
   'nav.about.href': '/en/about',
@@ -28,13 +28,13 @@ export const en: Record<string, string> = {
     'A self-hosted, configuration-driven platform that puts you back in control of your software.',
   'footer.col.product': 'Product',
   'footer.col.product.docs': 'Documentation',
-  'footer.col.product.docs.href': '/en/docs/schema',
+  'footer.col.product.docs.href': '/en/docs',
   'footer.col.product.github': 'GitHub',
   'footer.col.product.license': 'License',
   'footer.col.company': 'Company',
   'footer.col.company.about': 'About',
   'footer.col.company.about.href': '/en/about',
-  'footer.col.company.partners': 'Our Partner Service',
+  'footer.col.company.partners': 'Partner Service',
   'footer.col.company.partners.href': '/en/partner',
   'footer.col.company.trademark': 'Trademark',
   'footer.col.legal': 'Legal',
@@ -836,7 +836,7 @@ export const en: Record<string, string> = {
 
   // ── Docs: Navigation ──────────────────────────────────────────────
   'nav.docs': 'Docs',
-  'nav.docs.href': '/en/docs/schema',
+  'nav.docs.href': '/en/docs',
 
   // ── Docs: Meta ────────────────────────────────────────────────────
   'docs.meta.title': 'Schema Documentation - Sovrium',
@@ -850,16 +850,46 @@ export const en: Record<string, string> = {
     'Define your entire application \u2014 data models, authentication, pages, themes, analytics \u2014 in a single YAML or JSON file. This is the complete reference for the Sovrium app schema.',
 
   // ── Docs: Sidebar ─────────────────────────────────────────────────
+  'docs.sidebar.toggle': 'Menu',
   'docs.sidebar.overview': 'Overview',
-  'docs.sidebar.quickStart': 'Quick Start',
-  'docs.sidebar.rootProperties': 'Root Properties',
+  'docs.sidebar.overview.href': '/en/docs',
   'docs.sidebar.tables': 'Tables & Fields',
+  'docs.sidebar.tables.href': '/en/docs/tables',
   'docs.sidebar.theme': 'Theme',
+  'docs.sidebar.theme.href': '/en/docs/theme',
   'docs.sidebar.pages': 'Pages & Components',
+  'docs.sidebar.pages.href': '/en/docs/pages',
   'docs.sidebar.auth': 'Authentication',
+  'docs.sidebar.auth.href': '/en/docs/auth',
   'docs.sidebar.languages': 'Languages',
+  'docs.sidebar.languages.href': '/en/docs/languages',
   'docs.sidebar.analytics': 'Analytics',
+  'docs.sidebar.analytics.href': '/en/docs/analytics',
   'docs.sidebar.resources': 'Resources',
+  'docs.sidebar.resources.href': '/en/docs/resources',
+
+  // ── Docs: Per-Page Meta ──────────────────────────────────────────
+  'docs.tables.meta.title': 'Tables & Fields - Sovrium Docs',
+  'docs.tables.meta.description':
+    'Define data models with 41 field types, relationships, and RBAC permissions in the Sovrium schema.',
+  'docs.theme.meta.title': 'Theme - Sovrium Docs',
+  'docs.theme.meta.description':
+    'Customize colors, fonts, spacing, shadows, animations, and breakpoints in the Sovrium theme system.',
+  'docs.pages.meta.title': 'Pages & Components - Sovrium Docs',
+  'docs.pages.meta.description':
+    'Build server-rendered pages with 63 component types, SEO metadata, and i18n support.',
+  'docs.auth.meta.title': 'Authentication - Sovrium Docs',
+  'docs.auth.meta.description':
+    'Configure authentication strategies, roles, two-factor auth, and email templates.',
+  'docs.languages.meta.title': 'Languages - Sovrium Docs',
+  'docs.languages.meta.description':
+    'Add multi-language support with the $t: translation syntax and locale configuration.',
+  'docs.analytics.meta.title': 'Analytics - Sovrium Docs',
+  'docs.analytics.meta.description':
+    'Enable privacy-friendly, cookie-free analytics with configurable retention and session options.',
+  'docs.resources.meta.title': 'Resources - Sovrium Docs',
+  'docs.resources.meta.description':
+    'LLM references, JSON Schema, GitHub repository, and additional resources for the Sovrium schema.',
 
   // ── Docs: Section 1 — Overview ────────────────────────────────────
   'docs.overview.title': 'Overview',

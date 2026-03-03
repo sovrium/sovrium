@@ -7,18 +7,19 @@
 
 import type { ComponentTemplate } from '@/index'
 
-// ─── docs-sidebar-link: Sidebar navigation anchor ───────────────────────────
-// Used in docs-schema.ts sidebar (10 links)
-// vars: { id: 'overview', label: 'Overview' }
-export const docsSidebarLink: ComponentTemplate = {
-  name: 'docs-sidebar-link',
+// ─── docs-nav-link: Sidebar navigation link for multi-page docs ─────────────
+// Used in docs/shared.ts sidebar (8 links per page)
+// vars: { href: '/en/docs/tables', label: 'Tables & Fields', activeClass: '...' }
+// activeClass is set by docsPage() builder:
+//   Active:   'text-sovereignty-accent bg-sovereignty-gray-900 font-medium'
+//   Inactive: 'text-sovereignty-gray-400 hover:text-sovereignty-accent hover:bg-sovereignty-gray-900'
+export const docsNavLink: ComponentTemplate = {
+  name: 'docs-nav-link',
   type: 'link',
   content: '$label',
   props: {
-    href: '#$id',
-    className:
-      'block py-2 px-3 text-sm text-sovereignty-gray-400 hover:text-sovereignty-accent transition-colors rounded hover:bg-sovereignty-gray-900',
-    'data-nav': '$id',
+    href: '$href',
+    className: 'block py-2 px-3 text-sm transition-colors rounded $activeClass',
   },
 }
 

@@ -143,6 +143,14 @@ export const navbar = {
               children: [
                 {
                   type: 'link' as const,
+                  content: '$t:nav.docs',
+                  props: {
+                    href: '$t:nav.docs.href',
+                    className: navLinkClass,
+                  },
+                },
+                {
+                  type: 'link' as const,
                   content: '$t:nav.partner',
                   props: {
                     href: '$t:nav.partner.href',
@@ -154,14 +162,6 @@ export const navbar = {
                   content: '$t:nav.about',
                   props: {
                     href: '$t:nav.about.href',
-                    className: navLinkClass,
-                  },
-                },
-                {
-                  type: 'link' as const,
-                  content: '$t:nav.docs',
-                  props: {
-                    href: '$t:nav.docs.href',
                     className: navLinkClass,
                   },
                 },
@@ -246,6 +246,14 @@ export const navbar = {
               children: [
                 {
                   type: 'link' as const,
+                  content: '$t:nav.docs',
+                  props: {
+                    href: '$t:nav.docs.href',
+                    className: mobileNavLinkClass,
+                  },
+                },
+                {
+                  type: 'link' as const,
                   content: '$t:nav.partner',
                   props: {
                     href: '$t:nav.partner.href',
@@ -257,14 +265,6 @@ export const navbar = {
                   content: '$t:nav.about',
                   props: {
                     href: '$t:nav.about.href',
-                    className: mobileNavLinkClass,
-                  },
-                },
-                {
-                  type: 'link' as const,
-                  content: '$t:nav.docs',
-                  props: {
-                    href: '$t:nav.docs.href',
                     className: mobileNavLinkClass,
                   },
                 },

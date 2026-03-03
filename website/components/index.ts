@@ -10,9 +10,9 @@ import {
   docsBadgeItem,
   docsCodeBlock,
   docsInfoCard,
+  docsNavLink,
   docsPropertyCard,
   docsResourceLink,
-  docsSidebarLink,
 } from './docs-components'
 import {
   testimonialCard,
@@ -33,8 +33,8 @@ export const components: readonly ComponentTemplate[] = [
   docsCodeBlock,
   docsInfoCard,
   docsPropertyCard,
+  docsNavLink,
   docsResourceLink,
-  docsSidebarLink,
   // Partner page
   testimonialCard,
   processStep,

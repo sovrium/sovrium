@@ -12,7 +12,16 @@ import { fr } from './i18n/fr'
 import { about } from './pages/about'
 import { brandCharter } from './pages/brand-charter'
 import { dataDeletion } from './pages/data-deletion'
-import { docsSchema } from './pages/docs-schema'
+import {
+  docsAnalytics,
+  docsAuth,
+  docsLanguages,
+  docsOverview,
+  docsPages,
+  docsResources,
+  docsTables,
+  docsTheme,
+} from './pages/docs'
 import { home } from './pages/home'
 import { partner } from './pages/partner'
 import { privacyPolicy } from './pages/privacy-policy'
@@ -125,6 +134,13 @@ export const app: App = {
     partner,
     about,
     brandCharter,
-    docsSchema,
+    docsOverview,
+    docsTables,
+    docsTheme,
+    docsPages,
+    docsAuth,
+    docsLanguages,
+    docsAnalytics,
+    docsResources,
   ],
 }

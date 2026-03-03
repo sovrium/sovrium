@@ -211,7 +211,7 @@ export const footer = {
 
             // Product column
             footerColumn('Product', [
-              footerLink('Documentation', '/en/docs/schema'),
+              footerLink('Documentation', '/en/docs'),
               footerLink('GitHub', 'https://github.com/sovrium/sovrium'),
               footerLink('License', 'https://github.com/sovrium/sovrium/blob/main/LICENSE.md'),
             ]),
@@ -219,7 +219,7 @@ export const footer = {
             // Company column
             footerColumn('Company', [
               footerLink('About', '/en/about'),
-              footerLink('Our Partner Service', '/en/partner'),
+              footerLink('Partner Service', '/en/partner'),
               footerLink('Trademark', 'https://github.com/sovrium/sovrium/blob/main/TRADEMARK.md'),
             ]),
 

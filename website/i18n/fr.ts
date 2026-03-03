@@ -14,7 +14,7 @@ export const fr: Record<string, string> = {
   // ════════════════════════════════════════════════════════════════════
   //  GLOBAL NAVIGATION
   // ════════════════════════════════════════════════════════════════════
-  'nav.partner': 'Notre service partenaire',
+  'nav.partner': 'Service partenaire',
   'nav.partner.href': '/fr/partner',
   'nav.about': '\u00C0 propos',
   'nav.about.href': '/fr/about',
@@ -28,13 +28,13 @@ export const fr: Record<string, string> = {
     'Une plateforme auto-h\u00E9berg\u00E9e et pilot\u00E9e par la configuration qui vous redonne le contr\u00F4le de votre logiciel.',
   'footer.col.product': 'Produit',
   'footer.col.product.docs': 'Documentation',
-  'footer.col.product.docs.href': '/fr/docs/schema',
+  'footer.col.product.docs.href': '/fr/docs',
   'footer.col.product.github': 'GitHub',
   'footer.col.product.license': 'Licence',
   'footer.col.company': 'Entreprise',
   'footer.col.company.about': 'À propos',
   'footer.col.company.about.href': '/fr/about',
-  'footer.col.company.partners': 'Notre service partenaire',
+  'footer.col.company.partners': 'Service partenaire',
   'footer.col.company.partners.href': '/fr/partner',
   'footer.col.company.trademark': 'Marque d\u00E9pos\u00E9e',
   'footer.col.legal': 'L\u00E9gal',
@@ -868,7 +868,7 @@ export const fr: Record<string, string> = {
 
   // ── Docs: Navigation ──────────────────────────────────────────────
   'nav.docs': 'Docs',
-  'nav.docs.href': '/fr/docs/schema',
+  'nav.docs.href': '/fr/docs',
 
   // ── Docs: Meta ────────────────────────────────────────────────────
   'docs.meta.title': 'Documentation du sch\u00E9ma - Sovrium',
@@ -882,16 +882,46 @@ export const fr: Record<string, string> = {
     'D\u00E9finissez l\u2019int\u00E9gralit\u00E9 de votre application \u2014 mod\u00E8les de donn\u00E9es, authentification, pages, th\u00E8mes, analytiques \u2014 dans un seul fichier YAML ou JSON. Voici la r\u00E9f\u00E9rence compl\u00E8te du sch\u00E9ma applicatif Sovrium.',
 
   // ── Docs: Sidebar ─────────────────────────────────────────────────
+  'docs.sidebar.toggle': 'Menu',
   'docs.sidebar.overview': 'Vue d\u2019ensemble',
-  'docs.sidebar.quickStart': 'D\u00E9marrage rapide',
-  'docs.sidebar.rootProperties': 'Propri\u00E9t\u00E9s racine',
+  'docs.sidebar.overview.href': '/fr/docs',
   'docs.sidebar.tables': 'Tables & Champs',
+  'docs.sidebar.tables.href': '/fr/docs/tables',
   'docs.sidebar.theme': 'Th\u00E8me',
+  'docs.sidebar.theme.href': '/fr/docs/theme',
   'docs.sidebar.pages': 'Pages & Composants',
+  'docs.sidebar.pages.href': '/fr/docs/pages',
   'docs.sidebar.auth': 'Authentification',
+  'docs.sidebar.auth.href': '/fr/docs/auth',
   'docs.sidebar.languages': 'Langues',
+  'docs.sidebar.languages.href': '/fr/docs/languages',
   'docs.sidebar.analytics': 'Analytiques',
+  'docs.sidebar.analytics.href': '/fr/docs/analytics',
   'docs.sidebar.resources': 'Ressources',
+  'docs.sidebar.resources.href': '/fr/docs/resources',
+
+  // ── Docs: Per-Page Meta ──────────────────────────────────────────
+  'docs.tables.meta.title': 'Tables & Champs - Docs Sovrium',
+  'docs.tables.meta.description':
+    'D\u00E9finissez vos mod\u00E8les de donn\u00E9es avec 41 types de champs, relations et permissions RBAC.',
+  'docs.theme.meta.title': 'Th\u00E8me - Docs Sovrium',
+  'docs.theme.meta.description':
+    'Personnalisez couleurs, polices, espacement, ombres, animations et points de rupture.',
+  'docs.pages.meta.title': 'Pages & Composants - Docs Sovrium',
+  'docs.pages.meta.description':
+    'Construisez des pages rendues c\u00F4t\u00E9 serveur avec 63 types de composants, m\u00E9tadonn\u00E9es SEO et i18n.',
+  'docs.auth.meta.title': 'Authentification - Docs Sovrium',
+  'docs.auth.meta.description':
+    'Configurez strat\u00E9gies d\u2019authentification, r\u00F4les, 2FA et mod\u00E8les d\u2019e-mail.',
+  'docs.languages.meta.title': 'Langues - Docs Sovrium',
+  'docs.languages.meta.description':
+    'Ajoutez le support multi-langue avec la syntaxe de traduction $t: et la configuration des locales.',
+  'docs.analytics.meta.title': 'Analytiques - Docs Sovrium',
+  'docs.analytics.meta.description':
+    'Activez des analytiques respectueuses de la vie priv\u00E9e, sans cookies, avec r\u00E9tention et sessions configurables.',
+  'docs.resources.meta.title': 'Ressources - Docs Sovrium',
+  'docs.resources.meta.description':
+    'R\u00E9f\u00E9rences LLM, JSON Schema, d\u00E9p\u00F4t GitHub et ressources suppl\u00E9mentaires.',
 
   // ── Docs: Section 1 — Overview ────────────────────────────────────
   'docs.overview.title': 'Vue d\u2019ensemble',
