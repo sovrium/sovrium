@@ -1,0 +1,33 @@
+# Sovrium
+
+> A self-hosted, configuration-driven application platform. Define your entire app — data models, auth, pages, themes, analytics — in a single YAML/JSON file.
+
+Sovrium turns declarative configuration into production-ready applications with built-in authentication (Better Auth), PostgreSQL database (Drizzle ORM), server-side rendered pages, and privacy-friendly analytics. No vendor lock-in, no telemetry, full source available.
+
+## Docs
+
+- [Full LLM Reference](https://sovrium.com/llms-full.txt): Complete schema documentation for LLMs (~3000 lines)
+- [Schema Documentation](https://sovrium.com/en/docs/schema): Interactive documentation page
+- [JSON Schema](https://sovrium.com/schemas/0.0.1/app.schema.json): Machine-readable JSON Schema (Draft-07)
+- [GitHub](https://github.com/sovrium/sovrium): Source code repository
+- [License](https://github.com/sovrium/sovrium/blob/main/LICENSE.md): Business Source License 1.1
+
+## Schema Reference
+
+The app schema has 10 root properties:
+
+- `name` (required): App identifier (npm naming conventions)
+- `version`: SemVer version string
+- `description`: Single-line app description
+- `tables`: Data model with 36+ field types, relationships, permissions
+- `theme`: Design tokens (colors, fonts, spacing, shadows, animations, breakpoints, borderRadius)
+- `pages`: Server-rendered pages with 63 component types, SEO metadata, i18n
+- `auth`: Authentication strategies (email/password, magic link, OAuth), roles, 2FA
+- `languages`: Multi-language support with $t: translation syntax
+- `components`: Reusable UI templates with $ref and $variable substitution
+- `analytics`: Privacy-friendly, cookie-free analytics
+
+## Optional
+
+- [Vision](https://github.com/sovrium/sovrium/blob/main/VISION.md): Product vision and roadmap
+- [Trademark](https://github.com/sovrium/sovrium/blob/main/TRADEMARK.md): Trademark usage guidelines

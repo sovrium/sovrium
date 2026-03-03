@@ -1,0 +1,1689 @@
+# Sovrium App Schema — Complete Reference
+
+> Sovrium is a self-hosted, configuration-driven application platform. Define your entire app — data models, authentication, pages, themes, analytics — in a single YAML or JSON file. This document is the complete schema reference for LLMs.
+
+**Schema Version**: 0.0.1
+**JSON Schema**: https://sovrium.com/schemas/0.0.1/app.schema.json
+**License**: Business Source License 1.1 (BSL 1.1)
+
+---
+
+## Overview
+
+A Sovrium app is a declarative configuration object with 10 root properties. Only `name` is required — everything else is optional, enabling progressive complexity from a minimal app identifier to a full-stack application.
+
+### Minimal Valid Configuration
+
+```yaml
+name: my-app
+```
+
+### Complete Configuration Structure
+
+```yaml
+name: my-app
+version: 1.0.0
+description: A complete application
+tables: [...]       # Data models with 41 field types
+theme: {...}        # Design tokens (colors, fonts, spacing, etc.)
+pages: [...]        # Server-rendered pages with 63 component types
+auth: {...}         # Authentication (email/password, OAuth, magic link)
+languages: {...}    # Multi-language support with $t: syntax
+components: [...]   # Reusable UI templates with $ref and $variable
+analytics: {...}    # Privacy-friendly, cookie-free analytics
+```
+
+### How to Use
+
+1. Write your configuration in YAML or JSON
+2. Run `sovrium start app.yaml` to launch the dev server
+3. Run `sovrium static app.yaml` to generate a static site
+
+---
+
+## Root Properties
+
+### name (required)
+
+Application identifier following npm package naming conventions.
+
+| Constraint | Value |
+|-----------|-------|
+| Type | string |
+| Required | Yes |
+| Max length | 214 characters |
+| Pattern | Lowercase, no leading dots/underscores, URL-safe |
+| Scoped | `@scope/package-name` format allowed |
+
+```yaml
+name: todo-app
+# or scoped:
+name: '@myorg/dashboard'
+```
+
+### version (optional)
+
+Semantic Versioning 2.0.0 string.
+
+| Constraint | Value |
+|-----------|-------|
+| Format | MAJOR.MINOR.PATCH |
+| Pre-release | Optional (e.g., `1.0.0-alpha.1`) |
+| Build metadata | Optional (e.g., `1.0.0+build.123`) |
+
+```yaml
+version: 1.0.0
+version: 2.0.0-beta.1
+version: 1.0.0+build.123
+```
+
+### description (optional)
+
+Single-line string describing the application.
+
+| Constraint | Value |
+|-----------|-------|
+| Line breaks | Not allowed (`\n`, `\r`) |
+| Unicode | Supported (including emojis) |
+| Max length | None |
+
+```yaml
+description: A simple todo list application
+```
+
+---
+
+## Tables
+
+Data tables define the data structure of your application. Each table represents an entity (users, products, orders) with typed fields.
+
+### Table Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `id` | number | No | Auto-generated if omitted |
+| `name` | string | Yes | Table name |
+| `fields` | Field[] | Yes | Array of field definitions (min 1) |
+| `primaryKey` | string[] | No | Custom primary key columns |
+| `uniqueConstraints` | Constraint[] | No | Unique constraints |
+| `indexes` | Index[] | No | Database indexes |
+| `views` | View[] | No | Named views with filters/sorts |
+| `foreignKeys` | ForeignKey[] | No | Foreign key constraints |
+| `constraints` | Constraint[] | No | Additional constraints |
+| `permissions` | Permissions | No | RBAC access control |
+| `allowDestructive` | boolean | No | Allow destructive migrations |
+
+### Table Example
+
+```yaml
+tables:
+  - name: products
+    fields:
+      - { name: title, type: single-line-text, required: true }
+      - { name: price, type: currency, currency: USD, required: true }
+      - { name: description, type: long-text }
+      - { name: category, type: single-select, options: [Electronics, Books, Clothing] }
+      - { name: in_stock, type: checkbox, default: true }
+      - { name: created, type: created-at }
+    indexes:
+      - { name: idx_category, fields: [category] }
+    permissions:
+      read: all
+      create: authenticated
+      update: [admin, member]
+      delete: [admin]
+```
+
+### Cross-Table Validations
+
+- Table IDs must be unique
+- Table names must be unique
+- Relationship fields must reference existing tables
+- Lookup/rollup fields must reference existing relationship fields
+- Circular required relationships are forbidden (optional cycles OK)
+- User fields (`user`, `created-by`, `updated-by`) require `auth` configuration
+- Permission role names must reference defined roles
+
+---
+
+## Field Types
+
+All fields share a base schema:
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `id` | number | No | Auto-generated if omitted |
+| `name` | string | Yes | Field name (lowercase, hyphens, underscores) |
+| `type` | string | Yes | Field type discriminator |
+| `required` | boolean | No | Whether field is required |
+| `unique` | boolean | No | Whether field must be unique |
+| `indexed` | boolean | No | Whether to create DB index |
+
+### Text Fields
+
+#### single-line-text
+
+Plain text field for short strings.
+
+| Property | Type | Required |
+|----------|------|----------|
+| `default` | string | No |
+
+```yaml
+- { name: title, type: single-line-text, required: true }
+```
+
+#### long-text
+
+Multi-line text field.
+
+| Property | Type | Required |
+|----------|------|----------|
+| `default` | string | No |
+
+```yaml
+- { name: bio, type: long-text }
+```
+
+#### rich-text
+
+Rich text with formatting support.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `maxLength` | integer >= 1 | No | Max character count |
+| `fullTextSearch` | boolean | No | Enable full-text search indexing |
+
+```yaml
+- { name: content, type: rich-text, fullTextSearch: true }
+```
+
+#### email
+
+Email address with format validation.
+
+| Property | Type | Required |
+|----------|------|----------|
+| `default` | string | No |
+
+```yaml
+- { name: email, type: email, required: true, unique: true }
+```
+
+#### url
+
+URL with format validation.
+
+| Property | Type | Required |
+|----------|------|----------|
+| `default` | string | No |
+
+```yaml
+- { name: website, type: url }
+```
+
+#### phone-number
+
+Phone number string.
+
+| Property | Type | Required |
+|----------|------|----------|
+| `default` | string | No |
+
+```yaml
+- { name: phone, type: phone-number }
+```
+
+### Numeric Fields
+
+#### integer
+
+Whole number field.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `min` | number | No | Minimum value |
+| `max` | number | No | Maximum value (must be >= min) |
+| `default` | integer | No | Default value |
+
+```yaml
+- { name: quantity, type: integer, min: 0, max: 999 }
+```
+
+#### decimal
+
+Decimal number field.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `precision` | integer 1-10 | No | Decimal places |
+| `min` | number | No | Minimum value |
+| `max` | number | No | Maximum value |
+| `default` | number | No | Default value |
+
+```yaml
+- { name: weight, type: decimal, precision: 2 }
+```
+
+#### currency
+
+Monetary value field.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `currency` | string (3-char uppercase) | Yes | ISO 4217 code (e.g., `USD`, `EUR`) |
+| `precision` | integer 0-10 | No | Decimal places |
+| `min` | number | No | Minimum value |
+| `max` | number | No | Maximum value |
+| `symbolPosition` | `before` or `after` | No | Currency symbol placement |
+| `negativeFormat` | `minus` or `parentheses` | No | Negative number display |
+| `thousandsSeparator` | `comma`, `period`, `space`, `none` | No | Thousands separator |
+| `default` | number | No | Default value |
+
+```yaml
+- { name: price, type: currency, currency: USD, precision: 2 }
+```
+
+#### percentage
+
+Percentage value (stored as 0-100, not 0-1).
+
+| Property | Type | Required |
+|----------|------|----------|
+| `precision` | integer 0-10 | No |
+| `min` | number | No |
+| `max` | number | No |
+| `default` | number | No |
+
+```yaml
+- { name: discount, type: percentage, precision: 1, max: 100 }
+```
+
+#### rating
+
+Star or score rating.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `max` | integer 1-10 | No | Maximum rating value |
+| `style` | string | No | Visual style hint |
+| `default` | integer | No | Default rating |
+
+```yaml
+- { name: rating, type: rating, max: 5 }
+```
+
+#### progress
+
+Progress bar (0-100).
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `color` | string (#RRGGBB) | No | Bar color |
+| `default` | number 0-100 | No | Default percentage |
+
+```yaml
+- { name: completion, type: progress, color: '#10b981' }
+```
+
+### Selection Fields
+
+#### checkbox
+
+Boolean toggle.
+
+| Property | Type | Required |
+|----------|------|----------|
+| `default` | boolean | No |
+
+```yaml
+- { name: active, type: checkbox, default: true }
+```
+
+#### single-select
+
+Choose one option from a list.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `options` | string[] (min 1, unique) | Yes | Available choices |
+| `default` | string | No | Must be in options |
+
+```yaml
+- name: priority
+  type: single-select
+  options: [Low, Medium, High, Critical]
+  default: Medium
+```
+
+#### multi-select
+
+Choose multiple options from a list.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `options` | string[] (min 1, unique) | Yes | Available choices |
+| `maxSelections` | integer >= 1 | No | Max choices (cannot exceed options count) |
+| `default` | string[] | No | Default selections |
+
+```yaml
+- name: tags
+  type: multi-select
+  options: [Frontend, Backend, DevOps, Design]
+  maxSelections: 3
+```
+
+#### status
+
+Select with color-coded options.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `options` | `{value, color?}[]` | Yes | Status options with optional hex color |
+| `default` | string | No | Default status value |
+
+```yaml
+- name: status
+  type: status
+  options:
+    - { value: Todo, color: '#9ca3af' }
+    - { value: In Progress, color: '#3b82f6' }
+    - { value: Done, color: '#10b981' }
+  default: Todo
+```
+
+### Date & Time Fields
+
+#### date / datetime / time
+
+Date, datetime, or time field (three separate type literals sharing the same schema).
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `format` | string | No | Display format (e.g., `YYYY-MM-DD`) |
+| `dateFormat` | `US`, `European`, `ISO` | No | Date format preset |
+| `timeFormat` | `12-hour` or `24-hour` | No | Time display |
+| `includeTime` | boolean | No | Include time component |
+| `timezone` | string | No | Timezone (e.g., `America/New_York`) |
+| `timeZone` | `local` or IANA string | No | Alternative timezone property |
+| `default` | string | No | Default value |
+
+```yaml
+- { name: due_date, type: date, dateFormat: ISO }
+- { name: event_start, type: datetime, includeTime: true }
+- { name: opening_time, type: time, timeFormat: 24-hour }
+```
+
+#### duration
+
+Time duration stored in seconds.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `format` | string | No | Custom format string |
+| `displayFormat` | `h:mm`, `h:mm:ss`, `decimal` | No | Display format |
+| `default` | number | No | Default in seconds |
+
+```yaml
+- { name: time_spent, type: duration, displayFormat: 'h:mm:ss' }
+```
+
+### System-Managed Fields
+
+These fields are automatically populated by the system. No extra configuration properties.
+
+| Type | Description |
+|------|-------------|
+| `created-at` | Timestamp of record creation |
+| `updated-at` | Timestamp of last update |
+| `deleted-at` | Soft-delete timestamp (NULL = active) |
+| `created-by` | User who created the record (requires `auth`) |
+| `updated-by` | User who last updated (requires `auth`) |
+| `deleted-by` | User who soft-deleted (requires `auth`) |
+
+```yaml
+- { name: created, type: created-at }
+- { name: updated, type: updated-at }
+- { name: deleted, type: deleted-at }
+- { name: author, type: created-by }
+```
+
+### User Fields
+
+#### user
+
+Reference to an authenticated user. Requires `auth` to be configured.
+
+| Property | Type | Required |
+|----------|------|----------|
+| `allowMultiple` | boolean | No |
+
+```yaml
+- { name: assignee, type: user }
+- { name: team, type: user, allowMultiple: true }
+```
+
+### Relational Fields
+
+#### relationship
+
+Foreign key relationship to another table.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `relatedTable` | string | Yes | Target table name |
+| `relationType` | string | No | Default: `many-to-one` |
+| `foreignKey` | string | No | FK column name override |
+| `displayField` | string | No | Field shown in UI |
+| `onDelete` | string | No | Cascade behavior |
+| `onUpdate` | string | No | Cascade behavior |
+| `reciprocalField` | string | No | Back-reference field name |
+| `allowMultiple` | boolean | No | Allow multiple selections |
+| `limitToView` | string | No | Filter via named view |
+| `relatedField` | string | No | Related field reference |
+
+```yaml
+- name: category
+  type: relationship
+  relatedTable: categories
+  relationType: many-to-one
+  displayField: name
+```
+
+#### lookup
+
+Read a field value from a related table via a relationship.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `relationshipField` | string | Yes | Name of the relationship field in this table |
+| `relatedField` | string | Yes | Field name in the related table to display |
+| `filters` | ViewFilters | No | Filter conditions |
+
+```yaml
+- name: category_name
+  type: lookup
+  relationshipField: category
+  relatedField: name
+```
+
+#### rollup
+
+Aggregate values from related records.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `relationshipField` | string | Yes | Name of the relationship field |
+| `relatedField` | string | Yes | Field to aggregate |
+| `aggregation` | string | Yes | `SUM`, `AVG`, `COUNT`, `COUNTA`, `COUNTALL`, `MIN`, `MAX` |
+| `format` | string | No | Display format |
+| `filters` | ViewFilters | No | Filter conditions |
+
+Aggregation compatibility:
+- `SUM`, `AVG`: numeric fields only (integer, decimal, currency, percentage, duration)
+- `MIN`, `MAX`: numeric and date fields
+- `COUNT`, `COUNTA`, `COUNTALL`: any field type
+
+```yaml
+- name: total_orders
+  type: rollup
+  relationshipField: orders
+  relatedField: amount
+  aggregation: SUM
+```
+
+#### count
+
+Count related records.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `relationshipField` | string | Yes | Name of the relationship field |
+| `conditions` | FilterCondition[] | No | Filter conditions |
+
+```yaml
+- name: order_count
+  type: count
+  relationshipField: orders
+```
+
+### Media Fields
+
+#### single-attachment
+
+Single file upload.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `allowedFileTypes` | string[] | No | MIME types or extensions |
+| `maxFileSize` | integer | No | Max file size in bytes |
+| `generateThumbnail` | boolean | No | Auto-generate thumbnails |
+| `storeMetadata` | boolean | No | Store file metadata |
+| `storage` | object | No | Storage provider config |
+
+```yaml
+- name: avatar
+  type: single-attachment
+  allowedFileTypes: ['image/png', 'image/jpeg']
+  maxFileSize: 5242880  # 5MB
+```
+
+#### multiple-attachments
+
+Multiple file uploads.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `maxFiles` | integer >= 1 | No | Maximum number of files |
+| `allowedFileTypes` | string[] | No | MIME types or extensions |
+| `maxFileSize` | integer | No | Max file size in bytes |
+| `generateThumbnails` | boolean | No | Auto-generate thumbnails |
+| `storeMetadata` | boolean | No | Store file metadata |
+| `storage` | object | No | Storage provider config |
+
+```yaml
+- name: photos
+  type: multiple-attachments
+  maxFiles: 10
+  allowedFileTypes: ['image/*']
+```
+
+#### barcode
+
+Barcode or QR code.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `format` | string | No | Barcode format (e.g., `EAN-13`, `QR`) |
+
+```yaml
+- { name: sku_barcode, type: barcode, format: EAN-13 }
+```
+
+### Advanced Fields
+
+#### formula
+
+Computed field from an expression.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `formula` | string | Yes | Expression (e.g., `price * quantity`) |
+| `resultType` | string | No | Expected result type |
+| `format` | string | No | Display format |
+
+```yaml
+- name: total
+  type: formula
+  formula: 'price * quantity'
+  resultType: currency
+```
+
+#### autonumber
+
+Auto-incrementing identifier.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `prefix` | string | No | Text prefix (e.g., `INV-`) |
+| `startFrom` | integer >= 1 | No | Starting number |
+| `digits` | integer 1-10 | No | Zero-padded digit count |
+
+```yaml
+- name: invoice_number
+  type: autonumber
+  prefix: 'INV-'
+  startFrom: 1000
+  digits: 6
+```
+
+#### color
+
+Hex color value (#RRGGBB).
+
+| Property | Type | Required |
+|----------|------|----------|
+| `default` | string (#RRGGBB) | No |
+
+```yaml
+- { name: brand_color, type: color, default: '#3b82f6' }
+```
+
+#### array
+
+Array of typed items.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `itemType` | string | No | Type of array items |
+| `maxItems` | integer >= 1 | No | Maximum array length |
+
+```yaml
+- { name: tags, type: array, itemType: string, maxItems: 20 }
+```
+
+#### json
+
+Arbitrary JSON data.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `schema` | object | No | JSON Schema-like validation |
+
+```yaml
+- { name: metadata, type: json }
+```
+
+#### geolocation
+
+Latitude/longitude coordinates.
+
+```yaml
+- { name: location, type: geolocation }
+```
+
+#### button
+
+UI action button.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `label` | string | Yes | Button text |
+| `action` | string | Yes | `url` or `automation` |
+| `url` | string | No | Required when action is `url` |
+| `automation` | object | No | Required when action is `automation` |
+
+```yaml
+- name: open_link
+  type: button
+  label: View
+  action: url
+  url: 'https://example.com/{{id}}'
+```
+
+---
+
+## Table Indexes
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `name` | string | Yes | Index name (lowercase + underscores, unique within table) |
+| `fields` | string[] (min 1) | Yes | Column names to index |
+| `unique` | boolean | No | Unique constraint |
+| `where` | string | No | Partial index SQL condition |
+
+```yaml
+indexes:
+  - { name: idx_email, fields: [email], unique: true }
+  - { name: idx_status_active, fields: [status], where: "status != 'archived'" }
+```
+
+---
+
+## Table Permissions (RBAC)
+
+Three permission value formats:
+- `'all'` — everyone including unauthenticated users
+- `'authenticated'` — any logged-in user
+- `['role1', 'role2']` — array of role names (min 1)
+
+### Table-Level Permissions
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `read` | Permission | Who can read rows |
+| `create` | Permission | Who can create rows |
+| `update` | Permission | Who can update rows |
+| `delete` | Permission | Who can delete rows |
+| `comment` | Permission | Who can comment |
+| `fields` | FieldPermission[] | Per-field read/write permissions |
+| `inherit` | string | Inherit from another table |
+
+### Field-Level Permissions
+
+| Property | Type | Required |
+|----------|------|----------|
+| `field` | string | Yes |
+| `read` | Permission | No |
+| `write` | Permission | No |
+
+```yaml
+permissions:
+  read: all
+  create: authenticated
+  update: [admin, member]
+  delete: [admin]
+  fields:
+    - { field: salary, read: [admin, hr], write: [admin] }
+    - { field: ssn, read: [admin], write: [admin] }
+```
+
+---
+
+## Table Views
+
+Views are saved filter/sort configurations for tables.
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `id` | string | No | View identifier |
+| `name` | string | Yes | View name |
+| `isDefault` | boolean | No | Default view |
+| `query` | string | No | Raw SQL (SQL mode) |
+| `materialized` | boolean | No | Materialized view |
+| `filters` | FilterNode | No | JSON config filters |
+| `sorts` | Sort[] | No | JSON config sorts |
+| `fields` | string[] | No | Visible columns |
+| `groupBy` | string[] | No | Group-by columns |
+| `permissions` | Permissions | No | View-level access control |
+
+### Filter Conditions
+
+Filters support recursive AND/OR trees:
+
+```yaml
+# Simple condition
+filters:
+  field: status
+  operator: equals
+  value: active
+
+# AND group
+filters:
+  and:
+    - { field: status, operator: equals, value: active }
+    - { field: price, operator: greaterThan, value: 100 }
+
+# OR group
+filters:
+  or:
+    - { field: category, operator: equals, value: Books }
+    - { field: category, operator: equals, value: Electronics }
+
+# Nested AND/OR
+filters:
+  and:
+    - { field: status, operator: equals, value: active }
+    - or:
+        - { field: priority, operator: equals, value: High }
+        - { field: priority, operator: equals, value: Critical }
+```
+
+### Sort Definitions
+
+| Property | Type | Required |
+|----------|------|----------|
+| `field` | string | Yes |
+| `direction` | `asc` or `desc` | Yes |
+
+```yaml
+sorts:
+  - { field: created_at, direction: desc }
+  - { field: priority, direction: asc }
+```
+
+---
+
+## Theme
+
+Design tokens for the visual identity of your application. All 7 categories are optional.
+
+### colors
+
+Record of color name to CSS color value.
+
+- **Key**: kebab-case (e.g., `primary`, `brand-blue`, `text-muted`)
+- **Value**: hex (`#RRGGBB`, `#RRGGBBAA`), `rgb(...)`, `rgba(...)`, `hsl(...)`, `hsla(...)`
+
+```yaml
+theme:
+  colors:
+    primary: '#3b82f6'
+    secondary: '#8b5cf6'
+    success: '#10b981'
+    danger: 'rgb(239, 68, 68)'
+    text: '#1f2937'
+    background: '#ffffff'
+```
+
+Colors become Tailwind CSS utilities: `bg-primary`, `text-danger`, `border-success`, etc.
+
+### fonts
+
+Record of font category to font configuration.
+
+- **Key**: alphabetic (e.g., `body`, `heading`, `mono`)
+- **Value**: font configuration object
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `family` | string | Yes | Font family name |
+| `fallback` | string or string[] | No | Fallback font stack |
+| `weights` | number[] | No | Available weights (100-900) |
+| `style` | `normal`, `italic`, `oblique` | No | Font style |
+| `size` | string | No | Base font size (e.g., `16px`) |
+| `lineHeight` | string | No | Line height (e.g., `1.6`) |
+| `letterSpacing` | string | No | Letter spacing |
+| `transform` | `none`, `uppercase`, `lowercase`, `capitalize` | No | Text transform |
+| `url` | string | No | URL to load the font (e.g., Google Fonts) |
+
+```yaml
+theme:
+  fonts:
+    heading:
+      family: Inter
+      fallback: 'system-ui, sans-serif'
+      weights: [600, 700, 800]
+      lineHeight: '1.2'
+      url: 'https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&display=swap'
+    body:
+      family: Inter
+      fallback: 'system-ui, sans-serif'
+      weights: [400, 500, 600]
+      size: 16px
+      lineHeight: '1.6'
+    mono:
+      family: Fira Code
+      fallback: 'Monaco, Courier New, monospace'
+      weights: [400, 500]
+      size: 14px
+```
+
+### spacing
+
+Record of spacing name to Tailwind utility classes or CSS values.
+
+```yaml
+theme:
+  spacing:
+    container: 'max-w-7xl mx-auto px-4'
+    section: 'py-16 sm:py-20 lg:py-24'
+    gap: 'gap-6'
+    padding: 'p-6'
+```
+
+### shadows
+
+Record of shadow name to CSS `box-shadow` value.
+
+```yaml
+theme:
+  shadows:
+    sm: '0 1px 2px 0 rgb(0 0 0 / 0.05)'
+    DEFAULT: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+    lg: '0 10px 15px -3px rgb(0 0 0 / 0.1)'
+```
+
+### borderRadius
+
+Record of radius name to CSS border-radius value.
+
+```yaml
+theme:
+  borderRadius:
+    sm: '0.25rem'
+    DEFAULT: '0.375rem'
+    lg: '0.5rem'
+    full: '9999px'
+```
+
+### breakpoints
+
+Record of breakpoint name to pixel value string.
+
+```yaml
+theme:
+  breakpoints:
+    sm: '640px'
+    md: '768px'
+    lg: '1024px'
+    xl: '1280px'
+```
+
+### animations
+
+Record of animation name to configuration.
+
+Values can be:
+- `boolean` — enable/disable a built-in animation
+- `string` — CSS animation value
+- `object` — full animation configuration
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `enabled` | boolean | No | Enable/disable |
+| `duration` | string | No | Animation duration |
+| `easing` | string | No | Timing function |
+| `delay` | string | No | Animation delay |
+| `keyframes` | object | No | Custom keyframes |
+
+```yaml
+theme:
+  animations:
+    fadeIn:
+      enabled: true
+      duration: '0.3s'
+      easing: ease-in-out
+      keyframes:
+        '0%': { opacity: '0' }
+        '100%': { opacity: '1' }
+    slideUp: true
+    duration: '0.2s'
+```
+
+---
+
+## Pages
+
+Server-rendered pages with a component-based section system.
+
+### Page Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `id` | string | No | Page identifier |
+| `name` | string | Yes | Human-readable name (1-63 chars) |
+| `path` | string | Yes | URL path (e.g., `/home`, `/blog/:slug`) |
+| `meta` | Meta | No | SEO and metadata (title required within meta) |
+| `sections` | Section[] | Yes | Array of page sections |
+| `scripts` | Scripts | No | Client-side scripts |
+
+### Page Meta
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `title` | string (max 60) | Yes | Browser tab and SEO title |
+| `description` | string (max 160) | No | SEO description |
+| `keywords` | string | No | Comma-separated keywords |
+| `author` | string | No | Page author |
+| `canonical` | string | No | Canonical URL |
+| `robots` | string | No | Robot directives |
+| `noindex` | boolean | No | Prevent search engine indexing |
+| `favicon` | string | No | Favicon path |
+| `favicons` | FaviconSet | No | Multiple favicons for different devices |
+| `stylesheet` | string | No | CSS file path |
+| `googleFonts` | string | No | Google Fonts URL |
+| `socialImage` | string | No | Default social sharing image |
+| `openGraph` | OpenGraph | No | Open Graph metadata |
+| `twitter` | TwitterCard | No | Twitter Card metadata |
+| `structuredData` | StructuredData[] | No | JSON-LD structured data |
+| `dnsPrefetch` | string[] | No | DNS prefetch domains |
+| `preload` | Preload[] | No | Resource preloading |
+| `customElements` | CustomElement[] | No | Custom HTML head elements |
+| `analytics` | PageAnalytics | No | Page-specific analytics |
+
+### Open Graph
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `title` | string (max 90) | OG title |
+| `description` | string (max 200) | OG description |
+| `type` | `website`, `article`, `book`, `profile`, `video`, `music` | Object type |
+| `url` | string (https URL) | Canonical URL |
+| `image` | string (https URL) | Image (recommended 1200x630px) |
+| `imageAlt` | string | Image alt text |
+| `siteName` | string | Website name |
+| `locale` | string (e.g., `en_US`) | Locale |
+
+### Twitter Card
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `card` | `summary`, `summary_large_image`, `app`, `player` | Card type (required) |
+| `title` | string (max 70) | Card title |
+| `description` | string (max 200) | Card description |
+| `image` | string | Image URL |
+| `site` | string (e.g., `@sovrium`) | Website Twitter handle |
+| `creator` | string | Content creator handle |
+
+### Structured Data (JSON-LD)
+
+Supported types: `Article`, `Product`, `Organization`, `Person`, `LocalBusiness`, `FAQPage`, `BreadcrumbList`, `EducationEvent`
+
+```yaml
+meta:
+  title: 'My Blog Post'
+  description: 'An article about Sovrium'
+  openGraph:
+    type: article
+    image: 'https://example.com/og.png'
+  twitter:
+    card: summary_large_image
+  structuredData:
+    - type: Article
+      headline: 'My Blog Post'
+      author: { name: 'Jane Doe' }
+```
+
+---
+
+## Component Types
+
+63 component types for building page sections:
+
+### Layout Components
+
+| Type | Description |
+|------|-------------|
+| `section` | Page section container |
+| `container` | Content container with max-width |
+| `flex` | Flexbox layout |
+| `grid` | CSS Grid layout |
+| `responsive-grid` | Responsive grid with auto-fit |
+| `div` | Generic division |
+| `modal` | Modal dialog |
+| `sidebar` | Sidebar panel |
+| `hero` | Hero section |
+| `hero-section` | Hero section (alias) |
+| `header` | Header element |
+| `footer` | Footer element |
+| `main` | Main content area |
+| `article` | Article element |
+| `aside` | Aside element |
+| `nav` | Navigation element |
+| `navigation` | Navigation (alias) |
+
+### Content Components
+
+| Type | Description |
+|------|-------------|
+| `text` | Generic text |
+| `single-line-text` | Single-line text |
+| `heading` | Generic heading |
+| `paragraph` / `p` | Paragraph text |
+| `h1` - `h6` | Heading levels 1-6 |
+| `span` | Inline text |
+| `code` | Inline code |
+| `pre` | Preformatted text / code block |
+| `icon` | Lucide icon (by name) |
+| `image` / `img` | Image element |
+| `avatar` | User avatar |
+| `thumbnail` | Image thumbnail |
+| `hero-image` | Hero banner image |
+| `customHTML` | Raw HTML string |
+
+### Interactive Components
+
+| Type | Description |
+|------|-------------|
+| `button` | Clickable button |
+| `link` / `a` | Hyperlink |
+| `accordion` | Collapsible content |
+| `dropdown` | Dropdown menu |
+| `form` | Form container |
+| `input` | Form input |
+
+### Grouping Components
+
+| Type | Description |
+|------|-------------|
+| `card` | Content card |
+| `card-with-header` | Card with header slot |
+| `card-header` | Card header |
+| `card-body` | Card body |
+| `card-footer` | Card footer |
+| `badge` | Badge/tag |
+| `timeline` | Timeline element |
+| `list` | List container |
+| `list-item` | List item |
+| `speech-bubble` | Chat-style bubble |
+
+### Media Components
+
+| Type | Description |
+|------|-------------|
+| `video` | Video player |
+| `audio` | Audio player |
+| `iframe` | Embedded content |
+
+### Feedback Components
+
+| Type | Description |
+|------|-------------|
+| `toast` | Toast notification |
+| `spinner` | Loading spinner |
+| `alert` | Alert message |
+| `fab` | Floating action button |
+
+### Component Properties
+
+Every component accepts:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `type` | string | Component type (required) |
+| `content` | string | Text content (supports `$t:key` i18n) |
+| `props` | object | HTML attributes + className, style, id, data-*, aria-* |
+| `children` | Component[] | Nested child components |
+| `interactions` | Interactions | Hover, click, scroll, entrance animations |
+| `responsive` | Responsive | Breakpoint-specific visibility/styling |
+
+### Component Reference ($ref)
+
+Reference a reusable component template defined at the app level:
+
+```yaml
+sections:
+  - $ref: hero-banner
+    $vars:
+      title: Welcome to My App
+      subtitle: Built with Sovrium
+      ctaText: Get Started
+      ctaHref: /signup
+```
+
+---
+
+## Interactions
+
+Components can have interactive behaviors:
+
+### hover
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `scale` | number | Scale factor (e.g., 1.05) |
+| `opacity` | number | Opacity (0-1) |
+| `rotate` | number | Rotation in degrees |
+| `translateX` | number | Horizontal offset |
+| `translateY` | number | Vertical offset |
+| `className` | string | Additional CSS classes |
+| `duration` | number | Transition duration (ms) |
+| `easing` | string | CSS timing function |
+
+### click
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `action` | `navigate`, `scroll`, `toggle`, `custom` | Action type |
+| `target` | string | Action target |
+| `data` | object | Additional data |
+
+### scroll
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `effect` | `parallax`, `fade`, `slide`, `scale`, `rotate` | Scroll effect |
+| `speed` | number | Effect speed |
+| `direction` | `up`, `down`, `left`, `right` | Direction |
+| `offset` | number | Trigger offset |
+
+### entrance
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `animation` | `fadeIn`, `slideUp`, `slideDown`, `slideLeft`, `slideRight`, `scaleUp`, `scaleDown`, `rotateIn`, `bounceIn` | Animation type |
+| `duration` | number | Duration (ms) |
+| `delay` | number | Delay (ms) |
+| `easing` | string | CSS timing function |
+| `threshold` | number | Intersection Observer threshold (0-1) |
+
+---
+
+## Auth
+
+Authentication configuration. If present, auth endpoints are enabled. If omitted, no auth.
+
+### Auth Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `strategies` | Strategy[] | Yes | At least one, no duplicate types |
+| `roles` | Role[] | No | Custom role definitions |
+| `defaultRole` | string | No | Default role for new users (default: `member`) |
+| `twoFactor` | boolean or object | No | TOTP-based 2FA (requires `emailAndPassword`) |
+| `emailTemplates` | EmailTemplates | No | Custom email templates |
+
+### Strategies
+
+#### emailAndPassword
+
+| Property | Type | Required |
+|----------|------|----------|
+| `type` | `emailAndPassword` | Yes |
+| `minPasswordLength` | integer 6-128 | No |
+| `maxPasswordLength` | integer 8-256 | No |
+| `requireEmailVerification` | boolean | No |
+| `autoSignIn` | boolean | No |
+
+#### magicLink
+
+| Property | Type | Required |
+|----------|------|----------|
+| `type` | `magicLink` | Yes |
+| `expirationMinutes` | number | No |
+
+#### oauth
+
+| Property | Type | Required |
+|----------|------|----------|
+| `type` | `oauth` | Yes |
+| `providers` | string[] (min 1) | Yes |
+
+Supported OAuth providers: `google`, `github`, `microsoft`, `slack`, `gitlab`
+
+OAuth credentials are loaded from environment variables: `{PROVIDER}_CLIENT_ID` and `{PROVIDER}_CLIENT_SECRET`.
+
+```yaml
+auth:
+  strategies:
+    - type: emailAndPassword
+      minPasswordLength: 10
+      requireEmailVerification: true
+    - type: oauth
+      providers: [google, github]
+  defaultRole: member
+  roles:
+    - { name: editor, description: 'Can edit content', level: 30 }
+  twoFactor: true
+```
+
+### Built-in Roles
+
+| Role | Level | Description |
+|------|-------|-------------|
+| `admin` | 80 | Full access |
+| `member` | 40 | Standard user |
+| `viewer` | 10 | Read-only |
+
+### Custom Roles
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `name` | string | Yes | Lowercase alphanumeric + hyphens, no conflicts with built-in |
+| `description` | string | No | Role description |
+| `level` | number | No | Permission level |
+
+### Two-Factor Authentication
+
+`true` enables with defaults. Object form:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `issuer` | string | TOTP issuer name |
+| `backupCodes` | boolean | Enable backup codes |
+| `digits` | integer 4-8 | OTP digit count |
+| `period` | number | TOTP period in seconds |
+
+### Email Templates
+
+Available templates (all optional):
+
+| Template | Purpose |
+|----------|---------|
+| `verification` | Email verification |
+| `resetPassword` | Password reset |
+| `magicLink` | Magic link login |
+| `emailOtp` | Email OTP |
+| `twoFactorBackupCodes` | 2FA backup codes |
+| `welcome` | Welcome email |
+| `accountDeletion` | Account deletion |
+
+Each template:
+
+| Property | Type | Required |
+|----------|------|----------|
+| `subject` | string | Yes |
+| `text` | string | No |
+| `html` | string | No |
+
+Templates support variable substitution: `$name`, `$url`, `$email`, `$organizationName`, `$inviterName`.
+
+```yaml
+emailTemplates:
+  verification:
+    subject: 'Verify your email - $name'
+    html: '<p>Hello $name, click <a href="$url">here</a> to verify.</p>'
+  resetPassword:
+    subject: 'Reset your password'
+```
+
+---
+
+## Languages
+
+Multi-language support with translation dictionaries and `$t:` syntax.
+
+### Languages Properties
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `default` | string | Yes | Default language code (ISO 639-1, e.g., `en`) |
+| `supported` | LanguageConfig[] | Yes | Supported languages (min 1) |
+| `fallback` | string | No | Fallback language code |
+| `detectBrowser` | boolean | No | Auto-detect from browser |
+| `persistSelection` | boolean | No | Remember language choice |
+| `translations` | object | No | Translation dictionaries |
+
+### Language Config
+
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `code` | string | Yes | ISO 639-1 code (e.g., `en`) |
+| `locale` | string | No | Full locale (e.g., `en-US`) |
+| `label` | string | Yes | Display name (e.g., `English`) |
+| `direction` | `ltr` or `rtl` | No | Text direction |
+| `flag` | string | No | Flag emoji or URL |
+
+### Translation Dictionaries
+
+Key-value pairs where keys use dot notation:
+
+```yaml
+languages:
+  default: en
+  supported:
+    - { code: en, locale: en-US, label: English, direction: ltr }
+    - { code: fr, locale: fr-FR, label: Français, direction: ltr }
+  translations:
+    en:
+      hero.title: Welcome to My App
+      hero.subtitle: Build faster with configuration
+      nav.home: Home
+      nav.about: About
+    fr:
+      hero.title: Bienvenue sur Mon App
+      hero.subtitle: Construisez plus vite avec la configuration
+      nav.home: Accueil
+      nav.about: À propos
+```
+
+### Using Translations ($t: syntax)
+
+Reference translations anywhere a string is accepted:
+
+```yaml
+sections:
+  - type: section
+    children:
+      - type: h1
+        content: '$t:hero.title'
+      - type: paragraph
+        content: '$t:hero.subtitle'
+      - type: link
+        content: '$t:nav.about'
+        props:
+          href: '$t:nav.about.href'
+```
+
+---
+
+## Components (Reusable Templates)
+
+Define reusable UI component templates at the app level and reference them in pages.
+
+### Component Template
+
+```yaml
+components:
+  - name: hero-banner
+    children:
+      - type: section
+        props:
+          className: 'py-20 bg-gradient-to-b from-blue-900 to-blue-950'
+        children:
+          - type: container
+            props: { className: 'max-w-4xl mx-auto text-center' }
+            children:
+              - type: h1
+                content: '$title'
+                props: { className: 'text-5xl font-bold text-white' }
+              - type: paragraph
+                content: '$subtitle'
+                props: { className: 'text-xl text-blue-200 mt-4' }
+              - type: link
+                content: '$ctaText'
+                props:
+                  href: '$ctaHref'
+                  className: 'mt-8 inline-block bg-blue-600 text-white px-6 py-3 rounded-lg'
+```
+
+### Using Component References
+
+```yaml
+pages:
+  - name: Home
+    path: /home
+    sections:
+      - $ref: hero-banner
+        $vars:
+          title: Welcome to My App
+          subtitle: Build faster with Sovrium
+          ctaText: Get Started
+          ctaHref: /signup
+```
+
+Variable substitution replaces `$variable` placeholders in content and props with values from `$vars`.
+
+---
+
+## Analytics
+
+Privacy-friendly, cookie-free analytics. No external dependencies.
+
+### Configuration
+
+`true` or `false` for quick enable/disable. Object for detailed configuration:
+
+| Property | Type | Required | Default | Description |
+|----------|------|----------|---------|-------------|
+| `retentionDays` | integer 1-730 | No | 365 | Data retention period |
+| `excludedPaths` | string[] | No | - | Glob patterns to exclude (e.g., `/admin/*`) |
+| `respectDoNotTrack` | boolean | No | true | Honor browser DNT signal |
+| `sessionTimeout` | integer 1-120 | No | 30 | Session timeout in minutes |
+
+```yaml
+# Simple enable
+analytics: true
+
+# Detailed configuration
+analytics:
+  retentionDays: 90
+  excludedPaths: ['/admin/*', '/api/*']
+  respectDoNotTrack: true
+  sessionTimeout: 30
+```
+
+Design principles:
+- No cookies (uses SHA-256 visitor hashing)
+- No external dependencies
+- GDPR-friendly by default
+- First-party data only
+
+---
+
+## Page Scripts
+
+Pages can include client-side JavaScript:
+
+### External Scripts
+
+```yaml
+scripts:
+  externalScripts:
+    - src: 'https://cdn.example.com/library.js'
+      async: true
+```
+
+### Inline Scripts
+
+```yaml
+scripts:
+  inlineScripts:
+    - code: 'console.log("Hello from Sovrium")'
+      position: body-end
+```
+
+### Script Features
+
+```yaml
+scripts:
+  features:
+    smoothScroll: true
+    lazyImages: true
+```
+
+---
+
+## Responsive Configuration
+
+Components support breakpoint-specific behavior:
+
+```yaml
+- type: div
+  props: { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3' }
+  responsive:
+    hidden:
+      below: md  # Hidden on mobile
+    className:
+      md: 'grid-cols-2'
+      lg: 'grid-cols-3'
+```
+
+---
+
+## Complete Examples
+
+### Minimal App
+
+```yaml
+name: my-app
+```
+
+### Blog Application
+
+```yaml
+name: my-blog
+version: 1.0.0
+description: A personal blog
+
+tables:
+  - name: posts
+    fields:
+      - { name: title, type: single-line-text, required: true }
+      - { name: slug, type: single-line-text, required: true, unique: true }
+      - { name: content, type: rich-text, required: true }
+      - { name: excerpt, type: long-text }
+      - { name: published, type: checkbox, default: false }
+      - { name: author, type: created-by }
+      - { name: created, type: created-at }
+      - { name: updated, type: updated-at }
+    indexes:
+      - { name: idx_slug, fields: [slug], unique: true }
+    permissions:
+      read: all
+      create: [admin, member]
+      update: [admin, member]
+      delete: [admin]
+
+  - name: categories
+    fields:
+      - { name: name, type: single-line-text, required: true }
+      - { name: color, type: color, default: '#3b82f6' }
+
+auth:
+  strategies:
+    - type: emailAndPassword
+      requireEmailVerification: true
+  defaultRole: viewer
+  roles:
+    - { name: editor, description: 'Can publish posts', level: 50 }
+
+theme:
+  colors:
+    primary: '#3b82f6'
+    text: '#1f2937'
+    background: '#ffffff'
+  fonts:
+    body:
+      family: Inter
+      fallback: 'system-ui, sans-serif'
+      weights: [400, 500, 600]
+    heading:
+      family: Inter
+      weights: [700, 800]
+
+analytics: true
+```
+
+### SaaS Dashboard
+
+```yaml
+name: saas-dashboard
+version: 2.0.0
+description: Analytics dashboard for SaaS metrics
+
+tables:
+  - name: customers
+    fields:
+      - { name: email, type: email, required: true, unique: true }
+      - { name: name, type: single-line-text, required: true }
+      - { name: plan, type: single-select, options: [Free, Pro, Enterprise] }
+      - { name: mrr, type: currency, currency: USD, precision: 2 }
+      - { name: signup_date, type: created-at }
+      - { name: status, type: status, options: [
+          { value: Active, color: '#10b981' },
+          { value: Churned, color: '#ef4444' },
+          { value: Trial, color: '#f59e0b' }
+        ] }
+    permissions:
+      read: [admin, member]
+      create: [admin]
+      update: [admin]
+      delete: [admin]
+
+  - name: invoices
+    fields:
+      - { name: number, type: autonumber, prefix: 'INV-', digits: 6 }
+      - { name: customer, type: relationship, relatedTable: customers }
+      - { name: amount, type: currency, currency: USD, required: true }
+      - { name: status, type: single-select, options: [Pending, Paid, Overdue] }
+      - { name: due_date, type: date }
+      - { name: created, type: created-at }
+
+auth:
+  strategies:
+    - type: emailAndPassword
+      minPasswordLength: 12
+    - type: oauth
+      providers: [google, github]
+  twoFactor: true
+  defaultRole: viewer
+
+theme:
+  colors:
+    primary: '#6366f1'
+    secondary: '#8b5cf6'
+    success: '#10b981'
+    warning: '#f59e0b'
+    danger: '#ef4444'
+
+languages:
+  default: en
+  supported:
+    - { code: en, label: English }
+    - { code: fr, label: Français }
+
+analytics:
+  retentionDays: 90
+  excludedPaths: ['/admin/*']
+```
+
+---
+
+## Key Patterns
+
+1. **Discriminated unions**: Fields use `type` as the discriminator. Each type has specific properties.
+2. **System-managed fields**: `created-at`, `updated-at`, `deleted-at`, `created-by`, `updated-by`, `deleted-by` are auto-populated.
+3. **Soft-delete**: `deleted-at` field enables soft-delete (NULL = active, timestamp = deleted).
+4. **Auth-required fields**: `user`, `created-by`, `updated-by` require `auth` in app config.
+5. **RBAC permissions**: Three formats: `'all'`, `'authenticated'`, `['role1', 'role2']`.
+6. **i18n `$t:key` syntax**: Reference translations in any string property.
+7. **Component `$ref` + `$vars`**: Reference reusable components with variable substitution.
+8. **View modes**: SQL mode (`query`) vs JSON config mode (`filters`, `sorts`, `fields`, `groupBy`).
+9. **Recursive filters**: AND/OR filter trees for complex query conditions.
+10. **Role hierarchy**: Built-in roles (admin=80, member=40, viewer=10) + custom roles with levels.
+
+---
+
+*Generated for Sovrium v0.0.1 — https://sovrium.com*

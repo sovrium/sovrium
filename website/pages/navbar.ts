@@ -157,6 +157,14 @@ export const navbar = {
                     className: navLinkClass,
                   },
                 },
+                {
+                  type: 'link' as const,
+                  content: '$t:nav.docs',
+                  props: {
+                    href: '$t:nav.docs.href',
+                    className: navLinkClass,
+                  },
+                },
 
                 // Vertical separator
                 {
@@ -249,6 +257,14 @@ export const navbar = {
                   content: '$t:nav.company',
                   props: {
                     href: '$t:nav.company.href',
+                    className: mobileNavLinkClass,
+                  },
+                },
+                {
+                  type: 'link' as const,
+                  content: '$t:nav.docs',
+                  props: {
+                    href: '$t:nav.docs.href',
                     className: mobileNavLinkClass,
                   },
                 },

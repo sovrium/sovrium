@@ -28,6 +28,7 @@ export const en: Record<string, string> = {
     'A self-hosted, configuration-driven platform that puts you back in control of your software.',
   'footer.col.product': 'Product',
   'footer.col.product.docs': 'Documentation',
+  'footer.col.product.docs.href': '/en/docs/schema',
   'footer.col.product.github': 'GitHub',
   'footer.col.product.license': 'License',
   'footer.col.company': 'Company',
@@ -830,4 +831,186 @@ export const en: Record<string, string> = {
   'dataDeletion.s5.item5': '\u2022 TVA: FR04834241481',
   'dataDeletion.s5.item6': '\u2022 Address: 128 Rue La Bo\u00E9tie, 75008 Paris, France',
   'dataDeletion.s5.item7': '\u2022 President: Thomas Jeanneau',
+
+  // ════════════════════════════════════════════════════════════════════
+  //  DOCS SCHEMA PAGE
+  // ════════════════════════════════════════════════════════════════════
+
+  // ── Docs: Navigation ──────────────────────────────────────────────
+  'nav.docs': 'Docs',
+  'nav.docs.href': '/en/docs/schema',
+
+  // ── Docs: Meta ────────────────────────────────────────────────────
+  'docs.meta.title': 'Schema Documentation - Sovrium',
+  'docs.meta.description':
+    'Complete reference for the Sovrium app schema. Define data models, authentication, pages, themes, and analytics in a single configuration file.',
+
+  // ── Docs: Header ──────────────────────────────────────────────────
+  'docs.header.backLink': '\u2190 sovrium.com',
+  'docs.header.title': 'Schema Documentation',
+  'docs.header.description':
+    'Define your entire application \u2014 data models, authentication, pages, themes, analytics \u2014 in a single YAML or JSON file. This is the complete reference for the Sovrium app schema.',
+
+  // ── Docs: Sidebar ─────────────────────────────────────────────────
+  'docs.sidebar.overview': 'Overview',
+  'docs.sidebar.quickStart': 'Quick Start',
+  'docs.sidebar.rootProperties': 'Root Properties',
+  'docs.sidebar.tables': 'Tables & Fields',
+  'docs.sidebar.theme': 'Theme',
+  'docs.sidebar.pages': 'Pages & Components',
+  'docs.sidebar.auth': 'Authentication',
+  'docs.sidebar.languages': 'Languages',
+  'docs.sidebar.analytics': 'Analytics',
+  'docs.sidebar.resources': 'Resources',
+
+  // ── Docs: Section 1 — Overview ────────────────────────────────────
+  'docs.overview.title': 'Overview',
+  'docs.overview.description':
+    'A Sovrium app is a declarative configuration object with 10 root properties. Only name is required \u2014 everything else is optional, enabling progressive complexity from a minimal app identifier to a full-stack application.',
+  'docs.overview.footnote':
+    'Configuration files can be written in YAML or JSON. Run sovrium start app.yaml to launch a dev server, or sovrium static app.yaml to generate a static site.',
+
+  // ── Docs: Section 2 — Quick Start ─────────────────────────────────
+  'docs.quickStart.title': 'Quick Start',
+  'docs.quickStart.description':
+    'Create an app.yaml file and start building. Here is a minimal example that grows from the simplest valid config to a small but complete app:',
+  'docs.quickStart.runDev': 'Then run the development server:',
+
+  // ── Docs: Section 3 — Root Properties ─────────────────────────────
+  'docs.rootProps.title': 'Root Properties',
+  'docs.rootProps.description': 'The app schema has 10 root properties. Only name is required.',
+  'docs.rootProps.name.description':
+    'App identifier following npm naming conventions. Lowercase, max 214 chars, supports scoped format (@scope/name).',
+  'docs.rootProps.version.description':
+    'Semantic Versioning 2.0.0 string (e.g., 1.0.0, 2.0.0-beta.1). Supports pre-release and build metadata.',
+  'docs.rootProps.description.description':
+    'Single-line app description. No line breaks allowed. Unicode and emojis supported.',
+  'docs.rootProps.tables.description':
+    'Data models with 41 field types, relationships, indexes, permissions, and views.',
+  'docs.rootProps.theme.description':
+    'Design tokens: colors, fonts, spacing, shadows, animations, breakpoints, and border radius.',
+  'docs.rootProps.pages.description':
+    'Server-rendered pages with 63 component types, SEO metadata, and i18n support.',
+  'docs.rootProps.auth.description':
+    'Authentication strategies (email/password, magic link, OAuth), roles, and two-factor authentication.',
+  'docs.rootProps.languages.description':
+    'Multi-language support with $t: translation syntax, browser detection, and language persistence.',
+  'docs.rootProps.components.description':
+    'Reusable UI templates with $ref referencing and $variable substitution.',
+  'docs.rootProps.analytics.description':
+    'Privacy-friendly, cookie-free, first-party analytics. Set to true for defaults or configure with options.',
+
+  // ── Docs: Section 4 — Tables & Fields ─────────────────────────────
+  'docs.tables.title': 'Tables & Fields',
+  'docs.tables.description':
+    'Tables define your data models. Each table has an id, name, fields, and optional permissions, indexes, and views.',
+  'docs.tables.structure.title': 'Table Structure',
+  'docs.tables.baseFields.title': 'Base Field Properties',
+  'docs.tables.baseFields.description':
+    'Every field has these base properties: id (unique integer), name (identifier), type (one of 41 types), and optional required, unique, description, and defaultValue.',
+  'docs.tables.fieldTypes.title': '41 Field Types',
+  'docs.tables.fieldTypes.description': 'Field types are organized into 9 categories:',
+  'docs.tables.fieldTypes.text': 'Text Fields',
+  'docs.tables.fieldTypes.numeric': 'Numeric Fields',
+  'docs.tables.fieldTypes.selection': 'Selection Fields',
+  'docs.tables.fieldTypes.dateTime': 'Date & Time Fields',
+  'docs.tables.fieldTypes.user': 'User Fields',
+  'docs.tables.fieldTypes.relational': 'Relational Fields',
+  'docs.tables.fieldTypes.media': 'Media Fields',
+  'docs.tables.fieldTypes.computed': 'Computed Fields',
+  'docs.tables.fieldTypes.advanced': 'Advanced Fields',
+  'docs.tables.permissions.title': 'Permissions (RBAC)',
+  'docs.tables.permissions.description':
+    'Table permissions use role-based access control. Each permission (create, read, update, delete, comment) accepts: "all" (public), "authenticated" (logged-in users), or an array of role names.',
+
+  // ── Docs: Section 5 — Theme ───────────────────────────────────────
+  'docs.theme.title': 'Theme',
+  'docs.theme.description':
+    'The theme property defines your design system with 7 optional token categories. All tokens generate CSS custom properties and Tailwind CSS utility classes.',
+  'docs.theme.colors.title': 'colors',
+  'docs.theme.colors.description':
+    'Named color tokens as key-value pairs. Each becomes a CSS variable (--color-{name}) and Tailwind class (bg-{name}, text-{name}).',
+  'docs.theme.fonts.title': 'fonts',
+  'docs.theme.fonts.description':
+    'Typography configuration for heading, body, and mono fonts. Supports family, fallback, weights, size, line height, and Google Fonts URL.',
+  'docs.theme.spacing.title': 'spacing',
+  'docs.theme.spacing.description':
+    'Named spacing tokens as Tailwind class strings. Define container widths, section padding, gaps, and component spacing.',
+  'docs.theme.shadows.title': 'shadows',
+  'docs.theme.shadows.description':
+    'Named shadow tokens as CSS box-shadow values. Each becomes a shadow-{name} utility.',
+  'docs.theme.animations.title': 'animations',
+  'docs.theme.animations.description':
+    'Custom @keyframes animations with enabled flag, duration, timing function, iteration count, and keyframe definitions.',
+  'docs.theme.breakpoints.title': 'breakpoints',
+  'docs.theme.breakpoints.description':
+    'Custom responsive breakpoints as pixel values. Each becomes a min-width media query for responsive utilities.',
+  'docs.theme.borderRadius.title': 'borderRadius',
+  'docs.theme.borderRadius.description':
+    'Named border radius tokens as CSS values. Each becomes a rounded-{name} utility class.',
+
+  // ── Docs: Section 6 — Pages & Components ──────────────────────────
+  'docs.pages.title': 'Pages & Components',
+  'docs.pages.description':
+    'Pages are server-rendered using a component tree system. Each page has a name, path, metadata (SEO, favicons), and sections containing nested components.',
+  'docs.pages.structure.title': 'Page Structure',
+  'docs.pages.componentTypes.title': '63 Component Types',
+  'docs.pages.componentTypes.description':
+    'Components form a recursive tree \u2014 each can have type, content, props, and children.',
+  'docs.pages.componentTypes.layout': 'Layout',
+  'docs.pages.componentTypes.typography': 'Typography',
+  'docs.pages.componentTypes.navActions': 'Navigation & Actions',
+  'docs.pages.componentTypes.media': 'Media',
+  'docs.pages.componentTypes.formElements': 'Form Elements',
+  'docs.pages.componentTypes.dataDisplay': 'Data Display',
+  'docs.pages.componentTypes.interactive': 'Interactive',
+  'docs.pages.componentTypes.display': 'Display',
+  'docs.pages.interactions.title': 'Interactions',
+  'docs.pages.interactions.description':
+    'Components support 4 interaction types via the interactions property: hover (transform, opacity, scale, shadow changes), click (navigation, scroll, toggle), scroll (parallax, fade-in, sticky behavior), and entrance (animation on first view with delay and duration).',
+
+  // ── Docs: Section 7 — Authentication ──────────────────────────────
+  'docs.auth.title': 'Authentication',
+  'docs.auth.description':
+    'Built-in authentication powered by Better Auth. Configure strategies, roles, two-factor authentication, and email templates.',
+  'docs.auth.strategies.title': 'Strategies',
+  'docs.auth.strategies.description':
+    'email-password (default), magic-link (passwordless email), and OAuth providers (google, github, apple, microsoft, facebook, twitter, discord, spotify, twitch, gitlab, bitbucket, linkedin, dropbox).',
+  'docs.auth.roles.title': 'Roles & Permissions',
+  'docs.auth.roles.description':
+    'Three built-in roles: admin, member, viewer. Define custom roles with name + description. Set defaultRole for new users. First user automatically becomes admin.',
+  'docs.auth.twoFactor.title': 'Two-Factor Auth',
+  'docs.auth.twoFactor.description':
+    'Optional TOTP-based 2FA. Enable with twoFactor: true in the auth config. Users can set up authenticator apps.',
+  'docs.auth.emails.title': 'Email Templates',
+  'docs.auth.emails.description':
+    'Customizable emails for verification, password reset, and magic link. Supports $name, $url, $email variable substitution in subject and body.',
+
+  // ── Docs: Section 8 — Languages ───────────────────────────────────
+  'docs.languages.title': 'Languages',
+  'docs.languages.description':
+    'Multi-language support with translation keys, browser language detection, and automatic URL-based language routing (/en/..., /fr/...). Reference translations in pages using the $t: prefix.',
+  'docs.languages.syntax.title': '$t: Translation Syntax',
+  'docs.languages.syntax.description':
+    'Use $t:key.path in any page content or prop value to reference a translation. Example: $t:hero.title resolves to "Welcome" in English and "Bienvenue" in French.',
+
+  // ── Docs: Section 9 — Analytics ───────────────────────────────────
+  'docs.analytics.title': 'Analytics',
+  'docs.analytics.description':
+    'Built-in, privacy-friendly analytics with no cookies, no external services, and full GDPR compliance. All data stays on your server.',
+  'docs.analytics.details':
+    'When enabled, Sovrium injects a lightweight tracking script that records page views, sessions, referrers, and device information. Analytics data is collected at /api/analytics/collect and stored locally.',
+
+  // ── Docs: Section 10 — Resources ──────────────────────────────────
+  'docs.resources.title': 'Resources',
+  'docs.resources.description': 'Additional references for working with the Sovrium schema.',
+  'docs.resources.llmQuick.label': 'LLM Quick Reference',
+  'docs.resources.llmQuick.description': 'Concise schema overview optimized for LLMs (~40 lines).',
+  'docs.resources.llmFull.label': 'LLM Full Reference',
+  'docs.resources.llmFull.description': 'Complete schema documentation for LLMs (~1700 lines).',
+  'docs.resources.jsonSchema.label': 'JSON Schema',
+  'docs.resources.jsonSchema.description':
+    'Machine-readable JSON Schema (Draft-07) for validation and editor support.',
+  'docs.resources.github.label': 'GitHub Repository',
+  'docs.resources.github.description': 'Source code, issues, and contribution guidelines.',
 }

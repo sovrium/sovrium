@@ -46,3 +46,92 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: bunx semantic-release
+
+  # ===========================================================================
+  # JOB: SYNC DOCUMENTATION
+  #
+  # After semantic-release publishes a new version, use Claude Code to update
+  # website documentation files that may contain stale counts or version refs:
+  #   - website/assets/llms.txt        (LLM quick reference)
+  #   - website/assets/llms-full.txt   (complete LLM schema docs)
+  #   - website/pages/docs-schema.ts   (interactive docs page)
+  #
+  # Non-blocking: release succeeds even if this job fails.
+  # ===========================================================================
+  sync-docs:
+    name: Sync Documentation
+    needs: release
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code (post-release)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          token: ${{ secrets.GH_PAT_WORKFLOW }}
+          fetch-depth: 1
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Get released version
+        id: version
+        run: echo "version=$(jq -r '.version' package.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Sync documentation with Claude Code
+        uses: anthropics/claude-code-action@v1
+        timeout-minutes: 15
+        continue-on-error: true
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: false
+          use_sticky_comment: false
+          claude_args: "--max-turns 30 --model claude-sonnet-4-20250514 --max-budget-usd 5.00"
+          prompt: |
+            You are updating website documentation after a new Sovrium release (v${{ steps.version.outputs.version }}).
+
+            ## Source of Truth
+
+            Read these files to get the ACTUAL counts and types:
+
+            1. `src/domain/models/app/table/fields.ts` — Count the imported field type schemas (lines 10-50). Each import like `XxxFieldSchema` = 1 field type.
+            2. `src/domain/models/app/page/sections.ts` — Count the `Schema.Literal(...)` values (lines 27-89). Each string literal = 1 component type.
+            3. `src/domain/models/app/index.ts` — Count root AppSchema properties.
+            4. `schemas/${{ steps.version.outputs.version }}/app.schema.json` — The generated JSON Schema for this version.
+
+            ## Files to Update
+
+            Update ONLY these three files in `website/`:
+
+            ### 1. `website/assets/llms.txt`
+            - Update version number references
+            - Update field type count (e.g., "41 field types" or "41+ field types")
+            - Update component type count (e.g., "63 component types")
+            - Update JSON Schema URL to point to the new version
+
+            ### 2. `website/assets/llms-full.txt`
+            - Update version number references
+            - Update field type count and component type count
+            - Update JSON Schema URL
+            - Verify every field type from `fields.ts` is documented — add any NEW types, remove any DELETED types
+            - Verify every component type from `sections.ts` is documented — add any NEW types, remove any DELETED types
+
+            ### 3. `website/pages/docs-schema.ts`
+            - Update version number references
+            - Update field type count and component type count in the UI
+            - Update JSON Schema URL
+            - Verify badge lists match actual types — add/remove as needed
+
+            ## Rules
+
+            - NEVER modify files outside `website/`
+            - After making changes, run `bun run typecheck` and `bun run format` to ensure validity
+            - If NO changes are needed (counts and versions already match), do nothing
+            - Commit changes with message: `docs: sync website documentation for v${{ steps.version.outputs.version }} [skip ci]`
+            - Push the commit to main directly

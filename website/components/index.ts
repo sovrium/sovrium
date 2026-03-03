@@ -7,6 +7,14 @@
 
 import { valueCard, principleItem } from './company-components'
 import {
+  docsBadgeItem,
+  docsCodeBlock,
+  docsInfoCard,
+  docsPropertyCard,
+  docsResourceLink,
+  docsSidebarLink,
+} from './docs-components'
+import {
   testimonialCard,
   processStep,
   methodologyCard,
@@ -20,6 +28,13 @@ export const components: readonly ComponentTemplate[] = [
   // Company page
   valueCard,
   principleItem,
+  // Docs page
+  docsBadgeItem,
+  docsCodeBlock,
+  docsInfoCard,
+  docsPropertyCard,
+  docsResourceLink,
+  docsSidebarLink,
   // Partners page
   testimonialCard,
   processStep,

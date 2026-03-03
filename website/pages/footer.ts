@@ -106,10 +106,7 @@ export const footerI18n = {
 
             // Product column
             footerColumn('$t:footer.col.product', [
-              footerLink(
-                '$t:footer.col.product.docs',
-                'https://github.com/sovrium/sovrium/blob/main/README.md'
-              ),
+              footerLink('$t:footer.col.product.docs', '$t:footer.col.product.docs.href'),
               footerLink('$t:footer.col.product.github', 'https://github.com/sovrium/sovrium'),
               footerLink(
                 '$t:footer.col.product.license',
@@ -214,7 +211,7 @@ export const footer = {
 
             // Product column
             footerColumn('Product', [
-              footerLink('Documentation', 'https://github.com/sovrium/sovrium/blob/main/README.md'),
+              footerLink('Documentation', '/en/docs/schema'),
               footerLink('GitHub', 'https://github.com/sovrium/sovrium'),
               footerLink('License', 'https://github.com/sovrium/sovrium/blob/main/LICENSE.md'),
             ]),

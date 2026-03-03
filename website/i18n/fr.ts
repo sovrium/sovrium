@@ -28,6 +28,7 @@ export const fr: Record<string, string> = {
     'Une plateforme auto-h\u00E9berg\u00E9e et pilot\u00E9e par la configuration qui vous redonne le contr\u00F4le de votre logiciel.',
   'footer.col.product': 'Produit',
   'footer.col.product.docs': 'Documentation',
+  'footer.col.product.docs.href': '/fr/docs/schema',
   'footer.col.product.github': 'GitHub',
   'footer.col.product.license': 'Licence',
   'footer.col.company': 'Entreprise',
@@ -861,4 +862,191 @@ export const fr: Record<string, string> = {
   'dataDeletion.s5.item5': '\u2022 TVA\u00A0: FR04834241481',
   'dataDeletion.s5.item6': '\u2022 Adresse\u00A0: 128 Rue La Bo\u00E9tie, 75008 Paris, France',
   'dataDeletion.s5.item7': '\u2022 Pr\u00E9sident\u00A0: Thomas Jeanneau',
+
+  // ════════════════════════════════════════════════════════════════════
+  //  DOCS SCHEMA PAGE
+  // ════════════════════════════════════════════════════════════════════
+
+  // ── Docs: Navigation ──────────────────────────────────────────────
+  'nav.docs': 'Docs',
+  'nav.docs.href': '/fr/docs/schema',
+
+  // ── Docs: Meta ────────────────────────────────────────────────────
+  'docs.meta.title': 'Documentation du sch\u00E9ma - Sovrium',
+  'docs.meta.description':
+    'R\u00E9f\u00E9rence du sch\u00E9ma Sovrium. D\u00E9finissez mod\u00E8les de donn\u00E9es, authentification, pages, th\u00E8mes et analytiques dans un seul fichier de configuration.',
+
+  // ── Docs: Header ──────────────────────────────────────────────────
+  'docs.header.backLink': '\u2190 sovrium.com',
+  'docs.header.title': 'Documentation du sch\u00E9ma',
+  'docs.header.description':
+    'D\u00E9finissez l\u2019int\u00E9gralit\u00E9 de votre application \u2014 mod\u00E8les de donn\u00E9es, authentification, pages, th\u00E8mes, analytiques \u2014 dans un seul fichier YAML ou JSON. Voici la r\u00E9f\u00E9rence compl\u00E8te du sch\u00E9ma applicatif Sovrium.',
+
+  // ── Docs: Sidebar ─────────────────────────────────────────────────
+  'docs.sidebar.overview': 'Vue d\u2019ensemble',
+  'docs.sidebar.quickStart': 'D\u00E9marrage rapide',
+  'docs.sidebar.rootProperties': 'Propri\u00E9t\u00E9s racine',
+  'docs.sidebar.tables': 'Tables & Champs',
+  'docs.sidebar.theme': 'Th\u00E8me',
+  'docs.sidebar.pages': 'Pages & Composants',
+  'docs.sidebar.auth': 'Authentification',
+  'docs.sidebar.languages': 'Langues',
+  'docs.sidebar.analytics': 'Analytiques',
+  'docs.sidebar.resources': 'Ressources',
+
+  // ── Docs: Section 1 — Overview ────────────────────────────────────
+  'docs.overview.title': 'Vue d\u2019ensemble',
+  'docs.overview.description':
+    'Une application Sovrium est un objet de configuration d\u00E9claratif avec 10 propri\u00E9t\u00E9s racine. Seul name est requis \u2014 tout le reste est optionnel, permettant une complexit\u00E9 progressive, d\u2019un simple identifiant d\u2019application \u00E0 une application full-stack.',
+  'docs.overview.footnote':
+    'Les fichiers de configuration peuvent \u00EAtre \u00E9crits en YAML ou JSON. Ex\u00E9cutez sovrium start app.yaml pour lancer un serveur de d\u00E9veloppement, ou sovrium static app.yaml pour g\u00E9n\u00E9rer un site statique.',
+
+  // ── Docs: Section 2 — Quick Start ─────────────────────────────────
+  'docs.quickStart.title': 'D\u00E9marrage rapide',
+  'docs.quickStart.description':
+    'Cr\u00E9ez un fichier app.yaml et commencez \u00E0 construire. Voici un exemple minimal qui \u00E9volue de la config valide la plus simple \u00E0 une petite application compl\u00E8te\u00A0:',
+  'docs.quickStart.runDev': 'Puis lancez le serveur de d\u00E9veloppement\u00A0:',
+
+  // ── Docs: Section 3 — Root Properties ─────────────────────────────
+  'docs.rootProps.title': 'Propri\u00E9t\u00E9s racine',
+  'docs.rootProps.description':
+    'Le sch\u00E9ma applicatif a 10 propri\u00E9t\u00E9s racine. Seul name est requis.',
+  'docs.rootProps.name.description':
+    'Identifiant d\u2019application suivant les conventions de nommage npm. Minuscules, max 214 caract\u00E8res, supporte le format \u00E0 port\u00E9e (@scope/name).',
+  'docs.rootProps.version.description':
+    'Cha\u00EEne de versionnement s\u00E9mantique 2.0.0 (ex.\u00A0: 1.0.0, 2.0.0-beta.1). Supporte les pr\u00E9-versions et les m\u00E9tadonn\u00E9es de build.',
+  'docs.rootProps.description.description':
+    'Description d\u2019application sur une seule ligne. Pas de retour \u00E0 la ligne autoris\u00E9. Unicode et emojis support\u00E9s.',
+  'docs.rootProps.tables.description':
+    'Mod\u00E8les de donn\u00E9es avec 41 types de champs, relations, index, permissions et vues.',
+  'docs.rootProps.theme.description':
+    'Jetons de design\u00A0: couleurs, polices, espacement, ombres, animations, points de rupture et rayons de bordure.',
+  'docs.rootProps.pages.description':
+    'Pages rendues c\u00F4t\u00E9 serveur avec 63 types de composants, m\u00E9tadonn\u00E9es SEO et support i18n.',
+  'docs.rootProps.auth.description':
+    'Strat\u00E9gies d\u2019authentification (email/mot de passe, lien magique, OAuth), r\u00F4les et authentification \u00E0 deux facteurs.',
+  'docs.rootProps.languages.description':
+    'Support multilingue avec syntaxe de traduction $t:, d\u00E9tection du navigateur et persistance de la langue.',
+  'docs.rootProps.components.description':
+    'Templates UI r\u00E9utilisables avec r\u00E9f\u00E9rencement $ref et substitution de $variable.',
+  'docs.rootProps.analytics.description':
+    'Analytiques respectueux de la vie priv\u00E9e, sans cookies, en premi\u00E8re partie. Activez avec true par d\u00E9faut ou configurez avec des options.',
+
+  // ── Docs: Section 4 — Tables & Fields ─────────────────────────────
+  'docs.tables.title': 'Tables & Champs',
+  'docs.tables.description':
+    'Les tables d\u00E9finissent vos mod\u00E8les de donn\u00E9es. Chaque table a un id, un name, des fields, et des permissions, index et vues optionnels.',
+  'docs.tables.structure.title': 'Structure d\u2019une table',
+  'docs.tables.baseFields.title': 'Propri\u00E9t\u00E9s de base des champs',
+  'docs.tables.baseFields.description':
+    'Chaque champ a ces propri\u00E9t\u00E9s de base\u00A0: id (entier unique), name (identifiant), type (un des 41 types), et optionnellement required, unique, description et defaultValue.',
+  'docs.tables.fieldTypes.title': '41 types de champs',
+  'docs.tables.fieldTypes.description':
+    'Les types de champs sont organis\u00E9s en 9 cat\u00E9gories\u00A0:',
+  'docs.tables.fieldTypes.text': 'Champs texte',
+  'docs.tables.fieldTypes.numeric': 'Champs num\u00E9riques',
+  'docs.tables.fieldTypes.selection': 'Champs de s\u00E9lection',
+  'docs.tables.fieldTypes.dateTime': 'Champs date & heure',
+  'docs.tables.fieldTypes.user': 'Champs utilisateur',
+  'docs.tables.fieldTypes.relational': 'Champs relationnels',
+  'docs.tables.fieldTypes.media': 'Champs m\u00E9dia',
+  'docs.tables.fieldTypes.computed': 'Champs calcul\u00E9s',
+  'docs.tables.fieldTypes.advanced': 'Champs avanc\u00E9s',
+  'docs.tables.permissions.title': 'Permissions (RBAC)',
+  'docs.tables.permissions.description':
+    'Les permissions de table utilisent le contr\u00F4le d\u2019acc\u00E8s par r\u00F4le. Chaque permission (create, read, update, delete, comment) accepte\u00A0: "all" (public), "authenticated" (utilisateurs connect\u00E9s), ou un tableau de noms de r\u00F4les.',
+
+  // ── Docs: Section 5 — Theme ───────────────────────────────────────
+  'docs.theme.title': 'Th\u00E8me',
+  'docs.theme.description':
+    'La propri\u00E9t\u00E9 theme d\u00E9finit votre syst\u00E8me de design avec 7 cat\u00E9gories de jetons optionnelles. Tous les jetons g\u00E9n\u00E8rent des propri\u00E9t\u00E9s CSS personnalis\u00E9es et des classes utilitaires Tailwind CSS.',
+  'docs.theme.colors.title': 'colors',
+  'docs.theme.colors.description':
+    'Jetons de couleur nomm\u00E9s sous forme de paires cl\u00E9-valeur. Chacun devient une variable CSS (--color-{name}) et une classe Tailwind (bg-{name}, text-{name}).',
+  'docs.theme.fonts.title': 'fonts',
+  'docs.theme.fonts.description':
+    'Configuration typographique pour les polices de titre, corps et monospace. Supporte family, fallback, weights, size, line height et URL Google Fonts.',
+  'docs.theme.spacing.title': 'spacing',
+  'docs.theme.spacing.description':
+    'Jetons d\u2019espacement nomm\u00E9s sous forme de cha\u00EEnes de classes Tailwind. D\u00E9finissez largeurs de conteneur, padding de section, gaps et espacement des composants.',
+  'docs.theme.shadows.title': 'shadows',
+  'docs.theme.shadows.description':
+    'Jetons d\u2019ombre nomm\u00E9s sous forme de valeurs CSS box-shadow. Chacun devient un utilitaire shadow-{name}.',
+  'docs.theme.animations.title': 'animations',
+  'docs.theme.animations.description':
+    'Animations @keyframes personnalis\u00E9es avec indicateur d\u2019activation, dur\u00E9e, fonction de temporisation, nombre d\u2019it\u00E9rations et d\u00E9finitions de keyframes.',
+  'docs.theme.breakpoints.title': 'breakpoints',
+  'docs.theme.breakpoints.description':
+    'Points de rupture responsifs personnalis\u00E9s en pixels. Chacun devient une media query min-width pour les utilitaires responsifs.',
+  'docs.theme.borderRadius.title': 'borderRadius',
+  'docs.theme.borderRadius.description':
+    'Jetons de rayon de bordure nomm\u00E9s sous forme de valeurs CSS. Chacun devient une classe utilitaire rounded-{name}.',
+
+  // ── Docs: Section 6 — Pages & Components ──────────────────────────
+  'docs.pages.title': 'Pages & Composants',
+  'docs.pages.description':
+    'Les pages sont rendues c\u00F4t\u00E9 serveur via un syst\u00E8me d\u2019arbre de composants. Chaque page a un name, un path, des m\u00E9tadonn\u00E9es (SEO, favicons) et des sections contenant des composants imbriqu\u00E9s.',
+  'docs.pages.structure.title': 'Structure d\u2019une page',
+  'docs.pages.componentTypes.title': '63 types de composants',
+  'docs.pages.componentTypes.description':
+    'Les composants forment un arbre r\u00E9cursif \u2014 chacun peut avoir type, content, props et children.',
+  'docs.pages.componentTypes.layout': 'Mise en page',
+  'docs.pages.componentTypes.typography': 'Typographie',
+  'docs.pages.componentTypes.navActions': 'Navigation & Actions',
+  'docs.pages.componentTypes.media': 'M\u00E9dia',
+  'docs.pages.componentTypes.formElements': '\u00C9l\u00E9ments de formulaire',
+  'docs.pages.componentTypes.dataDisplay': 'Affichage de donn\u00E9es',
+  'docs.pages.componentTypes.interactive': 'Interactif',
+  'docs.pages.componentTypes.display': 'Affichage',
+  'docs.pages.interactions.title': 'Interactions',
+  'docs.pages.interactions.description':
+    'Les composants supportent 4 types d\u2019interaction via la propri\u00E9t\u00E9 interactions\u00A0: hover (transformation, opacit\u00E9, \u00E9chelle, ombre), click (navigation, d\u00E9filement, bascule), scroll (parallaxe, fondu, comportement sticky) et entrance (animation \u00E0 la premi\u00E8re vue avec d\u00E9lai et dur\u00E9e).',
+
+  // ── Docs: Section 7 — Authentication ──────────────────────────────
+  'docs.auth.title': 'Authentification',
+  'docs.auth.description':
+    'Authentification int\u00E9gr\u00E9e propuls\u00E9e par Better Auth. Configurez les strat\u00E9gies, les r\u00F4les, l\u2019authentification \u00E0 deux facteurs et les mod\u00E8les d\u2019e-mail.',
+  'docs.auth.strategies.title': 'Strat\u00E9gies',
+  'docs.auth.strategies.description':
+    'email-password (par d\u00E9faut), magic-link (e-mail sans mot de passe), et fournisseurs OAuth (google, github, apple, microsoft, facebook, twitter, discord, spotify, twitch, gitlab, bitbucket, linkedin, dropbox).',
+  'docs.auth.roles.title': 'R\u00F4les & Permissions',
+  'docs.auth.roles.description':
+    'Trois r\u00F4les int\u00E9gr\u00E9s\u00A0: admin, member, viewer. D\u00E9finissez des r\u00F4les personnalis\u00E9s avec nom + description. D\u00E9finissez defaultRole pour les nouveaux utilisateurs. Le premier utilisateur devient automatiquement admin.',
+  'docs.auth.twoFactor.title': 'Auth \u00E0 deux facteurs',
+  'docs.auth.twoFactor.description':
+    '2FA bas\u00E9e sur TOTP optionnelle. Activez avec twoFactor: true dans la config auth. Les utilisateurs peuvent configurer des applications d\u2019authentification.',
+  'docs.auth.emails.title': 'Mod\u00E8les d\u2019e-mail',
+  'docs.auth.emails.description':
+    'E-mails personnalisables pour la v\u00E9rification, la r\u00E9initialisation du mot de passe et le lien magique. Supporte la substitution de variables $name, $url, $email dans le sujet et le corps.',
+
+  // ── Docs: Section 8 — Languages ───────────────────────────────────
+  'docs.languages.title': 'Langues',
+  'docs.languages.description':
+    'Support multilingue avec cl\u00E9s de traduction, d\u00E9tection de la langue du navigateur et routage automatique par URL (/en/..., /fr/...). R\u00E9f\u00E9rencez les traductions dans les pages avec le pr\u00E9fixe $t:.',
+  'docs.languages.syntax.title': 'Syntaxe de traduction $t:',
+  'docs.languages.syntax.description':
+    'Utilisez $t:key.path dans tout contenu ou valeur de propri\u00E9t\u00E9 de page pour r\u00E9f\u00E9rencer une traduction. Exemple\u00A0: $t:hero.title se r\u00E9sout en "Welcome" en anglais et "Bienvenue" en fran\u00E7ais.',
+
+  // ── Docs: Section 9 — Analytics ───────────────────────────────────
+  'docs.analytics.title': 'Analytiques',
+  'docs.analytics.description':
+    'Analytiques int\u00E9gr\u00E9es, respectueuses de la vie priv\u00E9e, sans cookies, sans services externes et enti\u00E8rement conformes au RGPD. Toutes les donn\u00E9es restent sur votre serveur.',
+  'docs.analytics.details':
+    'Lorsqu\u2019activ\u00E9, Sovrium injecte un script de suivi l\u00E9ger qui enregistre les pages vues, les sessions, les r\u00E9f\u00E9rents et les informations sur l\u2019appareil. Les donn\u00E9es analytiques sont collect\u00E9es \u00E0 /api/analytics/collect et stock\u00E9es localement.',
+
+  // ── Docs: Section 10 — Resources ──────────────────────────────────
+  'docs.resources.title': 'Ressources',
+  'docs.resources.description':
+    'R\u00E9f\u00E9rences suppl\u00E9mentaires pour travailler avec le sch\u00E9ma Sovrium.',
+  'docs.resources.llmQuick.label': 'R\u00E9f\u00E9rence rapide LLM',
+  'docs.resources.llmQuick.description':
+    'Aper\u00E7u concis du sch\u00E9ma optimis\u00E9 pour les LLMs (~40 lignes).',
+  'docs.resources.llmFull.label': 'R\u00E9f\u00E9rence compl\u00E8te LLM',
+  'docs.resources.llmFull.description':
+    'Documentation compl\u00E8te du sch\u00E9ma pour les LLMs (~1700 lignes).',
+  'docs.resources.jsonSchema.label': 'JSON Schema',
+  'docs.resources.jsonSchema.description':
+    'JSON Schema (Draft-07) lisible par machine pour la validation et le support \u00E9diteur.',
+  'docs.resources.github.label': 'D\u00E9p\u00F4t GitHub',
+  'docs.resources.github.description': 'Code source, issues et directives de contribution.',
 }

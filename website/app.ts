@@ -12,6 +12,7 @@ import { fr } from './i18n/fr'
 import { brandCharter } from './pages/brand-charter'
 import { company } from './pages/company'
 import { dataDeletion } from './pages/data-deletion'
+import { docsSchema } from './pages/docs-schema'
 import { home } from './pages/home'
 import { partners } from './pages/partners'
 import { privacyPolicy } from './pages/privacy-policy'
@@ -116,5 +117,14 @@ export const app: App = {
     translations: { en, fr },
   },
   components,
-  pages: [home, termsOfService, privacyPolicy, dataDeletion, partners, company, brandCharter],
+  pages: [
+    home,
+    termsOfService,
+    privacyPolicy,
+    dataDeletion,
+    partners,
+    company,
+    brandCharter,
+    docsSchema,
+  ],
 }
