@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Version**: ^7.71.1 (minimum 7.71.1, allows patch/minor updates)
+**Version**: ^7.71.2 (minimum 7.71.2, allows patch/minor updates)
 **Purpose**: Performant, flexible form management library for React with built-in validation support
 **Scope**: Client-side only (Presentation layer)
 
@@ -74,7 +74,7 @@ See `@docs/infrastructure/api/zod-hono-openapi.md` for complete Zod usage guidel
 
 ```bash
 # Already in package.json
-bun add react-hook-form  # ^7.65.0
+bun add react-hook-form  # ^7.71.2
 bun add @hookform/resolvers  # Zod integration
 bun add zod  # ^4.1.13
 ```

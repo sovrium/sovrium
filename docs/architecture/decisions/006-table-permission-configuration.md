@@ -396,7 +396,7 @@ export const getPermissions = (tableId: number, role: string) =>
 - **Related ADR**: [ADR 005: Authorization Strategy](./005-authorization-strategy.md)
 - **Gap Analysis**: [AUTH-SPECS-GAP-ANALYSIS.md](../../../AUTH-SPECS-GAP-ANALYSIS.md)
 - **E2E Specs**: [Table API Authorization Tests](../../../specs/api/paths/tables/)
-- **Better Auth**: [Organization Plugin](../../infrastructure/framework/better-auth/123-plugins-organization.md)
+- **Better Auth**: [Organization Plugin](https://better-auth.com/docs/plugins/organization)
 
 ---
 

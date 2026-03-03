@@ -1,1186 +1,234 @@
-# Better Auth - Framework-Agnostic Authentication Library
+# Better Auth - Authentication Library
 
 ## Overview
 
-**Version**: ^1.4.19 (minimum 1.4.19, allows patch/minor updates)
-**Purpose**: Framework-agnostic authentication and authorization library for TypeScript providing type-safe auth flows with built-in support for email/password, social providers, 2FA, passkeys, and extensible plugin ecosystem
+**Version**: ^1.5.1
+**Purpose**: Framework-agnostic authentication and authorization library for TypeScript
+**Full Reference**: https://better-auth.com/llms.txt
 
-Better Auth is a comprehensive authentication library designed to work seamlessly with any TypeScript framework. It provides production-ready auth features out of the box while remaining flexible and extensible through a powerful plugin system.
+## Sovrium-Specific Configuration
 
-## Why Better Auth for Sovrium
+### File Structure
 
-- **Framework Agnostic**: Works with Hono, React, Next.js, and all major frameworks
-- **TypeScript First**: Full type safety for auth flows, errors, and sessions
-- **Built-in Features**: Email/password, OAuth providers, sessions, 2FA, passkeys
-- **Plugin Ecosystem**: Extend with magic links, email OTP, multi-tenancy, SSO
-- **Bun Compatible**: Runs natively on Bun runtime with native TypeScript execution
-- **Effect Integration**: Works seamlessly with Effect.ts for business logic
-- **Database Flexibility**: Supports SQLite, PostgreSQL, MySQL, MongoDB via adapters
-- **Zero Config Start**: Works out of the box with sensible defaults
-- **Full Control**: Own your user data, customize auth flows completely
-- **No Vendor Lock-in**: Run in your infrastructure, scale without per-user costs
+```
+src/infrastructure/auth/better-auth/
+├── auth.ts              # Factory: createAuthInstance(authConfig?)
+├── layer.ts             # Effect Context.Tag + createAuthLayer(authConfig?)
+├── schema.ts            # Drizzle schema in pgSchema('auth')
+├── email-handlers.ts    # Email handler factory with variable substitution
+├── index.ts             # Exports: auth, Auth, AuthLive, createAuthLayer, AuthError
+└── plugins/
+    ├── admin.ts         # Admin plugin (always enabled when auth configured)
+    ├── two-factor.ts    # Two-factor plugin (conditional)
+    └── magic-link.ts    # Magic link plugin (conditional)
+```
 
-## Core Concepts
+### Environment Variables
 
-### 1. Better Auth Server Instance
+| Variable                   | Purpose             | Note                         |
+| -------------------------- | ------------------- | ---------------------------- |
+| `AUTH_SECRET`              | Encryption secret   | NOT `BETTER_AUTH_SECRET`     |
+| `BASE_URL`                 | Base URL of app     | NOT `BETTER_AUTH_URL`        |
+| `{PROVIDER}_CLIENT_ID`     | OAuth client ID     | e.g., `GOOGLE_CLIENT_ID`     |
+| `{PROVIDER}_CLIENT_SECRET` | OAuth client secret | e.g., `GOOGLE_CLIENT_SECRET` |
 
-The server instance handles authentication logic and routes:
+### Factory Pattern
+
+Sovrium uses a factory function instead of a static singleton:
 
 ```typescript
+// src/infrastructure/auth/better-auth/auth.ts
 import { betterAuth } from 'better-auth'
-
-export const auth = betterAuth({
-  // Database connection
-  database: {
-    type: 'sqlite',
-    database: './db.sqlite',
-  },
-
-  // Environment variables
-  secret: process.env.BETTER_AUTH_SECRET, // Required for encryption
-  baseURL: process.env.BETTER_AUTH_URL, // Base URL of your app
-
-  // Authentication methods
-  emailAndPassword: {
-    enabled: true,
-    autoSignIn: true, // Auto sign in after signup
-  },
-
-  // Social providers
-  socialProviders: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    },
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    },
-  },
-
-  // Session configuration
-  session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days - total session lifetime
-    updateAge: 60 * 60 * 24, // 1 day - threshold for automatic expiration refresh
-    freshAge: 60 * 60 * 24, // 1 day - required "fresh" session age for sensitive operations
-    disableSessionRefresh: false, // Set to true to disable automatic session extension
-  },
-
-  // Background tasks (v1.4.8+) - Defer email sending and updates post-response
-  backgroundTasks: {
-    enabled: true, // Improves response times for auth operations
-    // Custom task runner (optional, defaults to setImmediate)
-    taskRunner: async (task) => {
-      await task()
-    },
-  },
-
-  // Plugins
-  plugins: [
-    // Add plugins here
-  ],
-})
-```
-
-### 2. Authentication Methods
-
-Better Auth provides multiple built-in authentication methods:
-
-#### Email and Password
-
-```typescript
-// Server configuration
-export const auth = betterAuth({
-  emailAndPassword: {
-    enabled: true,
-    minPasswordLength: 8,
-    autoSignIn: true, // Sign in after signup
-  },
-})
-
-// Client usage - Sign Up
-import { authClient } from '@/lib/auth-client'
-
-const { data, error } = await authClient.signUp.email(
-  {
-    email: 'user@example.com',
-    password: 'securePassword123',
-    name: 'Alice Johnson',
-    image: 'https://example.com/avatar.jpg', // Optional
-    callbackURL: '/dashboard', // Redirect after email verification
-  },
-  {
-    onRequest: () => {
-      // Show loading state
-    },
-    onSuccess: (ctx) => {
-      // Redirect or show success
-    },
-    onError: (ctx) => {
-      // Display error message
-      alert(ctx.error.message)
-    },
-  }
-)
-
-// Client usage - Sign In
-const { data, error } = await authClient.signIn.email({
-  email: 'user@example.com',
-  password: 'securePassword123',
-  callbackURL: '/dashboard',
-  rememberMe: true, // Persist session after browser close
-})
-```
-
-#### Social Sign-On (OAuth)
-
-Supported providers: GitHub, Google, Apple, Microsoft, Discord, Facebook, Twitter, LinkedIn, and more.
-
-```typescript
-// Server configuration
-export const auth = betterAuth({
-  socialProviders: {
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    },
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    },
-    apple: {
-      clientId: process.env.APPLE_CLIENT_ID,
-      clientSecret: process.env.APPLE_CLIENT_SECRET,
-    },
-  },
-})
-
-// Client usage
-import { authClient } from '@/lib/auth-client'
-
-// Redirect to OAuth provider
-await authClient.signIn.social({
-  provider: 'github',
-  callbackURL: '/dashboard',
-})
-
-// Or use a button
-<button onClick={() => authClient.signIn.social({ provider: 'google' })}>
-  Sign in with Google
-</button>
-```
-
-#### Sign Out
-
-```typescript
-import { authClient } from '@/lib/auth-client'
-
-await authClient.signOut({
-  fetchOptions: {
-    onSuccess: () => {
-      // Redirect to login page
-      window.location.href = '/login'
-    },
-  },
-})
-```
-
-### 3. Session Management
-
-Better Auth uses traditional cookie-based session management where sessions are stored server-side in the database and verified on each request.
-
-#### How Session Expiration Works (Server-Side)
-
-**IMPORTANT**: Session expiration is managed **server-side** via database timestamps, NOT client-side cookie expiration.
-
-**Core Mechanism**:
-
-1. When a session is created, Better Auth stores an `expiresAt` timestamp in the database session table
-2. On each request, the server checks the current time against the stored `expiresAt` timestamp
-3. If the current time is past `expiresAt`, the session is invalid (even if the cookie is still present)
-4. The session cookie itself may have a different expiration, but the authoritative expiration is in the database
-
-**Configuration Parameters**:
-
-```typescript
-session: {
-  expiresIn: 60 * 60 * 24 * 7,      // 7 days - Total session lifetime
-  updateAge: 60 * 60 * 24,           // 1 day - Automatic extension threshold
-  freshAge: 60 * 60 * 24,            // 1 day - "Fresh" session requirement
-  disableSessionRefresh: false,      // Disable automatic extension
-}
-```
-
-**How `updateAge` Works**:
-
-- When a session is actively used and has existed for at least `updateAge` duration, Better Auth automatically extends the `expiresAt` timestamp by the `expiresIn` duration
-- Example: With `updateAge: 1 day` and `expiresIn: 7 days`, a session that's been active for 24 hours will have its expiration extended by another 7 days
-- Set `disableSessionRefresh: true` to disable this behavior (sessions expire after exactly `expiresIn` regardless of activity)
-
-**Fresh Sessions** (v1.4.7+):
-
-- Certain sensitive endpoints (password changes, account deletion) require "fresh" sessions
-- A fresh session is one created within the `freshAge` window (default: 1 day)
-- Set `freshAge: 0` to disable freshness validation entirely
-- Users must re-authenticate if their session is too old for sensitive operations
-
-**Cookie Cache for Performance** (Optional):
-
-- Better Auth can store session data in signed/encrypted cookies to reduce database queries
-- Configure via `session.cookieCache` with strategies: `compact`, `jwt`, or `jwe` (encrypted)
-- The cookie cache has its own `maxAge` separate from session expiration
-- The database `expiresAt` timestamp remains the source of truth even with cookie caching enabled
-
-> **For managing authentication state with TanStack Query**, including caching, optimistic updates, and React integration patterns, see [TanStack Query Authentication Patterns](../../ui/tanstack-query.md#authentication-with-better-auth).
-
-#### Client-Side Session
-
-```typescript
-import { authClient } from '@/lib/auth-client'
-
-// Using React hook (recommended)
-function UserProfile() {
-  const {
-    data: session, // Session data
-    isPending, // Loading state
-    error, // Error object
-    refetch, // Refetch session
-  } = authClient.useSession()
-
-  if (isPending) return <div>Loading...</div>
-  if (error) return <div>Error: {error.message}</div>
-  if (!session) return <div>Not authenticated</div>
-
-  return (
-    <div>
-      <h1>Welcome, {session.user.name}</h1>
-      <p>Email: {session.user.email}</p>
-      <button onClick={() => authClient.signOut()}>Sign Out</button>
-    </div>
-  )
-}
-
-// Using getSession (without hook)
-const { data: session, error } = await authClient.getSession()
-```
-
-#### Server-Side Session
-
-```typescript
-import { auth } from './auth' // Better Auth instance
-
-// Hono example
-import { Hono } from 'hono'
-
-const app = new Hono()
-
-app.get('/api/profile', async (c) => {
-  const session = await auth.api.getSession({
-    headers: c.req.raw.headers,
-  })
-
-  if (!session) {
-    return c.json({ error: 'Unauthorized' }, 401)
-  }
-
-  return c.json({
-    user: session.user,
-    session: session.session,
-  })
-})
-
-export default app
-```
-
-### 4. Database Configuration
-
-Better Auth supports multiple databases and ORMs:
-
-#### Direct Database Connection
-
-```typescript
-import { betterAuth } from 'better-auth'
-
-// SQLite
-import Database from 'better-sqlite3'
-
-export const auth = betterAuth({
-  database: new Database('./sqlite.db'),
-})
-
-// PostgreSQL
-import { Pool } from 'pg'
-
-export const auth = betterAuth({
-  database: new Pool({
-    host: 'localhost',
-    port: 5432,
-    user: 'postgres',
-    password: 'password',
-    database: 'mydb',
-  }),
-})
-
-// MySQL
-import { createPool } from 'mysql2/promise'
-
-export const auth = betterAuth({
-  database: createPool({
-    host: 'localhost',
-    user: 'root',
-    password: 'password',
-    database: 'mydb',
-  }),
-})
-```
-
-#### ORM Adapters
-
-```typescript
-import { betterAuth } from 'better-auth'
-
-// Drizzle ORM
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { db } from '@/db' // Your Drizzle instance
 
-export const auth = betterAuth({
-  database: drizzleAdapter(db, {
-    provider: 'pg', // or 'mysql', 'sqlite'
-  }),
-})
-
-// Prisma
-import { prismaAdapter } from 'better-auth/adapters/prisma'
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
-
-export const auth = betterAuth({
-  database: prismaAdapter(prisma, {
-    provider: 'postgresql', // or 'mysql', 'sqlite'
-  }),
-})
-
-// MongoDB
-import { mongodbAdapter } from 'better-auth/adapters/mongodb'
-import { client } from '@/db' // Your MongoDB client
-
-export const auth = betterAuth({
-  database: mongodbAdapter(client),
-})
-```
-
-### 5. Plugin System
-
-Better Auth provides a rich plugin ecosystem:
-
-#### Using Plugins (Server)
-
-```typescript
-import { betterAuth } from 'better-auth'
-import { twoFactor, magicLink, username } from 'better-auth/plugins'
-
-export const auth = betterAuth({
-  // ...other config
-  plugins: [
-    twoFactor({
-      issuer: 'My App',
+export function createAuthInstance(authConfig?: Auth) {
+  return betterAuth({
+    secret: process.env.AUTH_SECRET,
+    baseURL: process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`,
+    database: drizzleAdapter(db, {
+      provider: 'pg',
+      usePlural: false, // CRITICAL: GitHub #5879 fix
+      schema: drizzleSchema, // Model names as keys, NOT table names
     }),
-    magicLink({
-      sendMagicLink: async (email, magicLink) => {
-        // Send email with magic link
-        await sendEmail(email, magicLink)
-      },
-    }),
-    username(),
-  ],
-})
-```
-
-#### Using Plugins (Client)
-
-```typescript
-import { createAuthClient } from 'better-auth/react'
-import { twoFactorClient, magicLinkClient, usernameClient } from 'better-auth/client/plugins'
-
-export const authClient = createAuthClient({
-  baseURL: process.env.BETTER_AUTH_URL,
-  plugins: [
-    twoFactorClient({
-      twoFactorPage: '/two-factor', // Redirect page for 2FA
-    }),
-    magicLinkClient(),
-    usernameClient(),
-  ],
-})
-
-// Using two-factor plugin
-const enableTwoFactor = async () => {
-  const data = await authClient.twoFactor.enable({
-    password: 'userPassword',
-  })
-  // Display QR code: data.qrCode
-}
-
-const verifyTOTP = async (code: string) => {
-  const data = await authClient.twoFactor.verifyTOTP({
-    code,
-    trustDevice: true, // Remember device
+    emailAndPassword: buildEmailAndPasswordConfig(authConfig, handlers),
+    socialProviders: buildSocialProviders(authConfig),
+    plugins: buildAuthPlugins(handlers, authConfig),
+    rateLimit: buildRateLimitConfig(),
+    hooks: buildAuthHooks(),
+    // ...
   })
 }
 
-// Using magic link plugin
-const sendMagicLink = async () => {
-  await authClient.signIn.magicLink({
-    email: 'user@example.com',
-    callbackURL: '/dashboard',
-  })
-}
-
-// Using username plugin
-const signUpWithUsername = async () => {
-  await authClient.signUp.username({
-    username: 'alice',
-    password: 'securePassword123',
-    name: 'Alice Johnson',
-  })
-}
+// Default instance for OpenAPI schema generation only
+export const auth = createAuthInstance()
 ```
 
-### 6. Popular Plugins
+### Effect Layer Integration
 
-Better Auth includes many built-in plugins:
-
-#### Two-Factor Authentication (2FA)
+Auth is exposed as an Effect Context service for dependency injection:
 
 ```typescript
-import { twoFactor } from 'better-auth/plugins'
-import { twoFactorClient } from 'better-auth/client/plugins'
-
-// Server
-export const auth = betterAuth({
-  plugins: [
-    twoFactor({
-      issuer: 'My App', // App name in authenticator
-      totpWindow: 1, // TOTP tolerance window
-    }),
-  ],
-})
-
-// Client
-const { data } = await authClient.twoFactor.enable({ password: 'userPassword' })
-// Returns QR code for Google Authenticator, Authy, etc.
-
-await authClient.twoFactor.verifyTOTP({
-  code: '123456',
-  trustDevice: true,
-})
-```
-
-#### Passkeys (WebAuthn)
-
-```typescript
-import { passkey } from 'better-auth/plugins'
-import { passkeyClient } from 'better-auth/client/plugins'
-
-// Server
-export const auth = betterAuth({
-  plugins: [
-    passkey({
-      rpName: 'My App',
-      rpID: 'example.com',
-    }),
-  ],
-})
-
-// Client - Register passkey
-await authClient.passkey.register({
-  email: 'user@example.com',
-  name: 'Alice',
-})
-
-// Client - Sign in with passkey
-await authClient.signIn.passkey()
-```
-
-#### Magic Link
-
-```typescript
-import { magicLink } from 'better-auth/plugins'
-import { magicLinkClient } from 'better-auth/client/plugins'
-
-// Server
-export const auth = betterAuth({
-  plugins: [
-    magicLink({
-      sendMagicLink: async (email, magicLink) => {
-        await sendEmail(email, {
-          subject: 'Sign in to My App',
-          body: `Click here to sign in: ${magicLink}`,
-        })
-      },
-    }),
-  ],
-})
-
-// Client
-await authClient.signIn.magicLink({
-  email: 'user@example.com',
-  callbackURL: '/dashboard',
-})
-```
-
-#### Email OTP
-
-```typescript
-import { emailOTP } from 'better-auth/plugins'
-import { emailOTPClient } from 'better-auth/client/plugins'
-
-// Server
-export const auth = betterAuth({
-  plugins: [
-    emailOTP({
-      sendOTP: async (email, otp) => {
-        await sendEmail(email, {
-          subject: 'Your OTP Code',
-          body: `Your code is: ${otp}`,
-        })
-      },
-    }),
-  ],
-})
-
-// Client - Send OTP
-await authClient.emailOTP.sendOTP({
-  email: 'user@example.com',
-})
-
-// Client - Verify OTP
-await authClient.emailOTP.verifyOTP({
-  email: 'user@example.com',
-  otp: '123456',
-})
-```
-
-#### Admin Plugin
-
-The admin plugin enables comprehensive user management, including user creation, role assignment, session control, account restrictions, and impersonation.
-
-**Features** (v1.4.7+):
-
-- User creation with role and custom field assignment
-- Ban users (temporary or permanent) with automatic session revocation
-- User impersonation for troubleshooting (1-hour sessions by default)
-- Session management (list, revoke individual, or revoke all sessions)
-- Role-based permissions for user modifications
-- Configurable admin roles and user IDs
-
-**Configuration**:
-
-```typescript
-import { admin } from 'better-auth/plugins'
-
-export const auth = betterAuth({
-  plugins: [
-    admin({
-      // Default role for new users
-      defaultRole: 'user',
-
-      // Roles that have admin privileges
-      adminRoles: ['admin', 'super-admin'],
-
-      // Specific user IDs with admin access
-      adminUserIds: ['user-123', 'user-456'],
-
-      // Allow admins to impersonate other admins (v1.4.6: disabled by default)
-      allowImpersonatingAdmins: false,
-
-      // Impersonation session duration (default: 1 hour)
-      impersonationSessionDuration: 60 * 60,
-
-      // Custom message for banned users
-      bannedUserMessage: 'Your account has been suspended. Contact support for details.',
-    }),
-  ],
-})
-```
-
-**Server API** (admin endpoints):
-
-```typescript
-// Create user with admin privileges
-await auth.api.createUser({
-  body: {
-    email: 'newuser@example.com',
-    name: 'New User',
-    role: 'user',
-    emailVerified: true,
-  },
-  headers: adminHeaders,
-})
-
-// Ban user (v1.4.7+: supports role-based permissions)
-await auth.api.banUser({
-  body: {
-    userId: 'user-789',
-    banReason: 'Violated terms of service',
-    banExpiresIn: 60 * 60 * 24 * 7, // 7 days (optional, omit for permanent)
-  },
-  headers: adminHeaders,
-})
-
-// Unban user
-await auth.api.unbanUser({
-  body: { userId: 'user-789' },
-  headers: adminHeaders,
-})
-
-// Impersonate user (creates temporary session)
-await auth.api.impersonateUser({
-  body: { userId: 'user-789' },
-  headers: adminHeaders,
-})
-
-// Stop impersonation
-await auth.api.stopImpersonation({
-  headers: impersonationHeaders,
-})
-
-// List user sessions
-const sessions = await auth.api.listUserSessions({
-  query: { userId: 'user-789' },
-  headers: adminHeaders,
-})
-
-// Revoke specific session
-await auth.api.revokeUserSession({
-  body: { sessionId: 'session-123' },
-  headers: adminHeaders,
-})
-
-// Revoke all user sessions
-await auth.api.revokeUserSessions({
-  body: { userId: 'user-789' },
-  headers: adminHeaders,
-})
-```
-
-**Role-Based Permissions** (v1.4.7+):
-
-- Admins can only modify users with permissions they have access to
-- Role validation enforced during user updates and role changes
-- Prevents privilege escalation attacks
-- Supports custom access control via `createAccessControl` function
-
-**Database Schema**:
-
-- Adds `role`, `banned`, `banReason`, `banExpires` to users table
-- Adds `impersonatedBy` to sessions table
-- Requires database migration after plugin installation
-
-### 7. Integration with Hono
-
-Mount Better Auth routes in Hono:
-
-```typescript
-import { Hono } from 'hono'
-import { auth } from './auth' // Better Auth instance
-
-const app = new Hono()
-
-// Mount Better Auth handler at /api/auth/*
-app.on(['POST', 'GET'], '/api/auth/*', (c) => auth.handler(c.req.raw))
-
-// Protected route using session
-app.get('/api/profile', async (c) => {
-  const session = await auth.api.getSession({
-    headers: c.req.raw.headers,
-  })
-
-  if (!session) {
-    return c.json({ error: 'Unauthorized' }, 401)
-  }
-
-  return c.json({
-    user: session.user,
-    email: session.user.email,
-  })
-})
-
-// Public route
-app.get('/api/public', (c) => {
-  return c.json({ message: 'Public endpoint' })
-})
-
-export default app
-```
-
-### 8. Integration with React
-
-Create Better Auth client for React:
-
-```typescript
-// lib/auth-client.ts
-import { createAuthClient } from 'better-auth/react'
-
-export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_BETTER_AUTH_URL, // or VITE_BETTER_AUTH_URL
-})
-
-// components/LoginForm.tsx
-import { useState } from 'react'
-import { authClient } from '@/lib/auth-client'
-
-export function LoginForm() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    const { error } = await authClient.signIn.email({
-      email,
-      password,
-      callbackURL: '/dashboard',
-    })
-
-    if (error) {
-      alert(error.message)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="Email"
-      />
-      <input
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Password"
-      />
-      <button type="submit">Sign In</button>
-    </form>
-  )
-}
-
-// components/UserProfile.tsx
-import { authClient } from '@/lib/auth-client'
-
-export function UserProfile() {
-  const { data: session, isPending } = authClient.useSession()
-
-  if (isPending) return <div>Loading...</div>
-  if (!session) return <div>Not signed in</div>
-
-  return (
-    <div>
-      <h1>{session.user.name}</h1>
-      <p>{session.user.email}</p>
-      <button onClick={() => authClient.signOut()}>Sign Out</button>
-    </div>
-  )
-}
-```
-
-### 9. Integration with Effect
-
-Better Auth works seamlessly with Effect for business logic:
-
-```typescript
-import { Effect, Context, Layer } from 'effect'
-import { auth } from './auth'
-
-// Define Better Auth service
-class BetterAuthService extends Context.Tag('BetterAuthService')<
-  BetterAuthService,
+// src/infrastructure/auth/better-auth/layer.ts
+export class Auth extends Context.Tag('Auth')<
+  Auth,
   {
-    readonly getSession: (headers: Headers) => Effect.Effect<Session | null, AuthError, never>
-    readonly requireSession: (headers: Headers) => Effect.Effect<Session, AuthError, never>
+    readonly api: ReturnType<typeof createAuthInstance>['api']
+    readonly handler: ReturnType<typeof createAuthInstance>['handler']
+    readonly getSession: (headers: Headers) => Effect.Effect<Session | null, AuthError>
+    readonly requireSession: (headers: Headers) => Effect.Effect<Session, AuthError>
   }
 >() {}
 
-// Define errors
-class AuthError extends Error {
-  readonly _tag = 'AuthError'
-  constructor(message: string) {
-    super(message)
-  }
-}
-
-// Implement Better Auth service
-const BetterAuthServiceLive = Layer.succeed(BetterAuthService, {
-  getSession: (headers) =>
-    Effect.tryPromise({
-      try: () => auth.api.getSession({ headers }),
-      catch: (error) => new AuthError('Failed to get session'),
-    }),
-  requireSession: (headers) =>
-    Effect.gen(function* () {
-      const session = yield* Effect.tryPromise({
-        try: () => auth.api.getSession({ headers }),
-        catch: (error) => new AuthError('Failed to get session'),
-      })
-
-      if (!session) {
-        return yield* Effect.fail(new AuthError('Unauthorized'))
-      }
-
-      return session
-    }),
-})
-
-// Use in Hono route with Effect
-import { Hono } from 'hono'
-
-const app = new Hono()
-
-app.get('/api/protected', async (c) => {
-  const program = Effect.gen(function* () {
-    const authService = yield* BetterAuthService
-    const session = yield* authService.requireSession(c.req.raw.headers)
-
-    return {
-      message: 'Protected data',
-      user: session.user,
-    }
-  }).pipe(Effect.provide(BetterAuthServiceLive))
-
-  const result = await Effect.runPromise(program.pipe(Effect.either))
-
-  if (result._tag === 'Left') {
-    return c.json({ error: result.left.message }, 401)
-  }
-
-  return c.json(result.right)
-})
-
-export default app
-```
-
-## Common Patterns in Sovrium
-
-### Pattern 1: Authentication Middleware
-
-```typescript
-import { Hono } from 'hono'
-import { auth } from './auth'
-
-const app = new Hono()
-
-// Create auth middleware
-const authMiddleware = async (c, next) => {
-  const session = await auth.api.getSession({
-    headers: c.req.raw.headers,
-  })
-
-  if (!session) {
-    return c.json({ error: 'Unauthorized' }, 401)
-  }
-
-  // Attach session to context
-  c.set('session', session)
-  await next()
-}
-
-// Public routes
-app.get('/api/public', (c) => c.json({ message: 'Public' }))
-
-// Protected routes
-app.use('/api/protected/*', authMiddleware)
-
-app.get('/api/protected/profile', (c) => {
-  const session = c.get('session')
-  return c.json({ user: session.user })
-})
-
-export default app
-```
-
-### Pattern 2: Role-Based Access Control
-
-```typescript
-import { Hono } from 'hono'
-import { auth } from './auth'
-
-const app = new Hono()
-
-// Role check middleware
-const requireRole = (role: string) => {
-  return async (c, next) => {
-    const session = await auth.api.getSession({
-      headers: c.req.raw.headers,
+// Factory: creates Layer with app-specific auth configuration
+export const createAuthLayer = (authConfig?: AuthConfig): Layer.Layer<Auth> => {
+  const authInstance = createAuthInstance(authConfig)
+  return Layer.succeed(
+    Auth,
+    Auth.of({
+      /* ... */
     })
-
-    if (!session) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    if (session.user.role !== role) {
-      return c.json({ error: 'Forbidden' }, 403)
-    }
-
-    c.set('session', session)
-    await next()
-  }
+  )
 }
 
-// Admin-only route
-app.use('/api/admin/*', requireRole('admin'))
-
-app.get('/api/admin/users', (c) => {
-  return c.json({ message: 'Admin access' })
-})
-
-export default app
+// @deprecated — use createAuthLayer(authConfig) instead
+export const AuthLive = createAuthLayer()
 ```
 
-### Pattern 3: Custom User Fields
+**Usage in Application Layer**:
 
 ```typescript
-import { betterAuth } from 'better-auth'
-
-// Extend user schema with additional fields
-export const auth = betterAuth({
-  database: /* ... */,
-  user: {
-    additionalFields: {
-      phoneNumber: {
-        type: 'string',
-        required: false,
-      },
-      bio: {
-        type: 'string',
-        required: false,
-      },
-      dateOfBirth: {
-        type: 'date',
-        required: false,
-      },
-    },
-  },
-})
-
-// Update user with additional fields
-await auth.api.updateUser({
-  body: {
-    userId: '123',
-    phoneNumber: '+1234567890',
-    bio: 'Software developer',
-  },
+const protectedProgram = Effect.gen(function* () {
+  const authService = yield* Auth
+  const session = yield* authService.requireSession(headers)
+  return { userId: session.user.id, email: session.user.email }
 })
 ```
 
-### Pattern 4: Email Verification
+### PostgreSQL Schema Isolation
+
+All auth tables live in a dedicated `auth` PostgreSQL schema (not `public`):
 
 ```typescript
-import { betterAuth } from 'better-auth'
+// src/infrastructure/auth/better-auth/schema.ts
+import { pgSchema } from 'drizzle-orm/pg-core'
 
-export const auth = betterAuth({
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: true,
-    sendVerificationEmail: async (email, verificationToken) => {
-      const verificationLink = `${process.env.BETTER_AUTH_URL}/api/auth/verify-email?token=${verificationToken}`
+export const authSchema = pgSchema('auth')
 
-      await sendEmail(email, {
-        subject: 'Verify your email',
-        body: `Click here to verify: ${verificationLink}`,
-      })
-    },
-  },
+export const users = authSchema.table('user', {
+  /* ... */
 })
+export const sessions = authSchema.table('session', {
+  /* ... */
+})
+export const accounts = authSchema.table('account', {
+  /* ... */
+})
+export const verifications = authSchema.table('verification', {
+  /* ... */
+})
+export const twoFactors = authSchema.table('two_factor', {
+  /* ... */
+})
+```
 
-// Client - check verification status
-const session = await authClient.getSession()
-if (session && !session.user.emailVerified) {
-  // Show verification notice
+**Why**: Prevents conflicts when Sovrium users create their own tables in `public` schema.
+
+### Drizzle Adapter Configuration
+
+```typescript
+const drizzleSchema = {
+  user: users, // Key = Better Auth model name (NOT table name)
+  session: sessions,
+  account: accounts,
+  verification: verifications,
+  twoFactor: twoFactors,
+}
+
+database: drizzleAdapter(db, {
+  provider: 'pg',
+  usePlural: false, // Better Auth expects singular model names
+  schema: drizzleSchema, // Explicit schema mapping (GitHub #5879 fix)
+})
+```
+
+### Rate Limiting Architecture
+
+Better Auth's native rate limiting is **disabled** due to upstream bugs (GitHub #392, #1891, #2153).
+
+Instead, custom Hono middleware handles rate limiting in `auth-routes.ts`:
+
+| Endpoint                           | Limit              | Window     |
+| ---------------------------------- | ------------------ | ---------- |
+| `/api/auth/sign-in/email`          | 5 attempts         | 60 seconds |
+| `/api/auth/sign-up/email`          | 5 attempts         | 60 seconds |
+| `/api/auth/request-password-reset` | 3 attempts         | 60 seconds |
+| `/api/auth/admin/*`                | General rate limit | Per-IP     |
+
+### Custom Auth Hooks
+
+One custom hook via `createAuthMiddleware`:
+
+1. **Admin createUser password validation** (Better Auth #4651 workaround):
+   - Validates password length (min 8, max 128) on `/admin/create-user`
+   - Admin plugin doesn't respect `emailAndPassword` validation settings
+
+**Note**: The `/change-email` endpoint uses Better Auth 1.5's native email enumeration protection —
+it always returns 200 OK regardless of whether the target email exists. This follows OWASP best
+practices by preventing email enumeration attacks.
+
+### Plugin Configuration
+
+| Plugin      | When Enabled                      | Config                                                                                             |
+| ----------- | --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `openAPI`   | Always                            | `{ disableDefaultReference: true }`                                                                |
+| `admin`     | When `authConfig` exists          | `defaultRole: authConfig.defaultRole ?? 'member'`, `adminRoles: ['admin']`, `firstUserAdmin: true` |
+| `twoFactor` | When `authConfig?.twoFactor`      | No arguments (modelName removed)                                                                   |
+| `magicLink` | When `magicLink` strategy enabled | `sendMagicLink` handler from email-handlers                                                        |
+
+### Email Handlers
+
+Factory pattern in `email-handlers.ts`:
+
+- `createEmailHandlers(authConfig?)` returns `{ passwordReset, verification, magicLink }`
+- Supports custom templates with variable substitution: `$name`, `$url`, `$email`, `$organizationName`, `$inviterName`
+- Silent error handling (prevents user enumeration attacks)
+
+### Auth Routes Setup
+
+```typescript
+// src/infrastructure/server/route-setup/auth-routes.ts
+export function setupAuthRoutes(honoApp, app?) {
+  if (!app?.auth) return honoApp // No auth = all /api/auth/* returns 404
+
+  const authInstance = createAuthInstance(app.auth)
+
+  // 1. Auth check middleware for admin routes (401 before parameter validation)
+  // 2. Rate limiting middleware for admin routes
+  // 3. Auth rate limiting for sign-in/sign-up/password-reset
+  // 4. Mount Better Auth handler at /api/auth/*
+
+  return appWithRateLimit.on(['POST', 'GET'], '/api/auth/*', async (c) => {
+    return authInstance.handler(c.req.raw)
+  })
 }
 ```
 
-## Database Schema
+### Session Configuration
 
-Better Auth requires core database tables. Use the CLI to generate schema:
+Sovrium uses Better Auth's **default session settings** — no explicit session config is provided. See the official docs for default values.
 
-```bash
-# Generate schema for your ORM/database (Bun-first approach)
-bunx @better-auth/cli generate
-
-# Apply migration directly (Kysely only)
-bunx @better-auth/cli migrate
-```
-
-**Core tables:**
-
-- `user` - User accounts
-- `session` - Active sessions
-- `account` - OAuth provider accounts
-- `verification` - Email verification tokens
-
-**Plugin tables** (added by plugins):
-
-- Two-Factor: `twoFactor` table
-- Passkey: `passkey` table
-
-## CLI Commands
-
-Better Auth provides a CLI for schema management:
-
-```bash
-# Generate schema/migration (Bun-first approach)
-bunx @better-auth/cli generate
-
-# Apply migration (Kysely only)
-bunx @better-auth/cli migrate
-
-# View current schema
-bunx @better-auth/cli schema
-```
-
-## Security Features
-
-Better Auth includes built-in security best practices:
-
-- **Password hashing**: Bcrypt with configurable rounds
-- **CSRF protection**: Built-in CSRF token validation
-- **Session security**: HttpOnly cookies, secure flags
-- **Rate limiting**: Plugin for API rate limiting
-- **Email verification**: Optional email verification flow
-- **2FA support**: TOTP, SMS, email OTP
-- **Passkeys**: WebAuthn passwordless authentication
-
-## Testing Better Auth Routes
-
-Test authentication flows with Bun Test:
+### Security Settings
 
 ```typescript
-import { test, expect } from 'bun:test'
-import { auth } from './auth'
-
-test('sign up creates new user', async () => {
-  const response = await auth.api.signUpEmail({
-    body: {
-      email: 'test@example.com',
-      password: 'password123',
-      name: 'Test User',
-    },
-  })
-
-  expect(response.status).toBe(200)
-  const data = await response.json()
-  expect(data.user.email).toBe('test@example.com')
-})
-
-test('sign in with valid credentials', async () => {
-  const response = await auth.api.signInEmail({
-    body: {
-      email: 'test@example.com',
-      password: 'password123',
-    },
-  })
-
-  expect(response.status).toBe(200)
-  const data = await response.json()
-  expect(data.session).toBeDefined()
-})
+advanced: {
+  useSecureCookies: process.env.NODE_ENV === 'production',
+  disableCSRFCheck: process.env.NODE_ENV !== 'production',
+},
+trustedOrigins: ['*'],
 ```
-
-## Better Auth vs Other Solutions
-
-| Aspect                 | Better Auth    | Auth.js (NextAuth) | Lucia Auth  | Clerk        |
-| ---------------------- | -------------- | ------------------ | ----------- | ------------ |
-| **Framework Support**  | All frameworks | Next.js focused    | All         | All          |
-| **TypeScript**         | Excellent      | Good               | Excellent   | Good         |
-| **Built-in Features**  | Very Rich      | Basic              | Minimal     | Very Rich    |
-| **Plugin System**      | Yes            | Limited            | No          | No           |
-| **Self-Hosted**        | Yes            | Yes                | Yes         | No (SaaS)    |
-| **Database Control**   | Full           | Full               | Full        | No (managed) |
-| **Cost**               | Free           | Free               | Free        | Paid         |
-| **Bundle Size**        | Small          | Medium             | Tiny        | Large (SDK)  |
-| **Social Providers**   | 15+            | 50+                | DIY         | Many         |
-| **2FA/Passkeys**       | Built-in       | Via plugins        | DIY         | Built-in     |
-| **Session Management** | Built-in       | Built-in           | Manual      | Built-in     |
-| **Learning Curve**     | Easy           | Medium             | Steep (DIY) | Easy         |
-| **Vendor Lock-in**     | None           | None               | None        | High (SaaS)  |
-| **Bun Compatibility**  | Native         | Works              | Native      | Works        |
-| **Effect Integration** | Easy           | Manual             | Manual      | Manual       |
-
-## Best Practices
-
-1. **Use Environment Variables**: Never hardcode secrets
-2. **Enable HTTPS**: Use secure connections in production
-3. **Implement Rate Limiting**: Protect against brute force attacks
-4. **Verify Emails**: Require email verification for sensitive apps
-5. **Use 2FA for Admins**: Enable two-factor for privileged accounts
-6. **Validate Input**: Always validate auth-related input
-7. **Handle Errors Gracefully**: Provide user-friendly error messages
-8. **Test Auth Flows**: Write tests for sign up, sign in, sign out
-9. **Session Security**: Use HttpOnly cookies, secure flags
-10. **Database Migrations**: Run migrations before deployment
-
-## Common Pitfalls
-
-- ❌ **Forgetting Environment Variables**: `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` required
-- ❌ **Not Running Migrations**: Run `@better-auth/cli migrate` after adding plugins
-- ❌ **Wrong baseURL**: Client `baseURL` must match server URL
-- ❌ **Missing Headers**: Server session requires `headers` object
-- ❌ **Not Handling Errors**: Always check `error` from client methods
-- ❌ **Hardcoded Secrets**: Use environment variables for all secrets
-- ❌ **Skipping Email Verification**: Enable for production apps
-
-## When to Use Better Auth
-
-**Use Better Auth for:**
-
-- Building apps with Hono, Bun, React, or any TypeScript framework
-- Projects requiring full control over user data
-- Applications needing type-safe authentication
-- Self-hosted auth without vendor lock-in
-- Apps requiring advanced features (2FA, passkeys, multi-tenancy)
-- Projects using Effect.ts for business logic
-
-**Consider alternatives for:**
-
-- Teams wanting managed auth service (use Clerk, Auth0)
-- Next.js-only projects (Auth.js might be simpler)
-- Projects requiring minimal auth library (use Lucia)
-
-## Integration with Bun
-
-- **Native Execution**: Better Auth runs natively on Bun
-- **Fast Startup**: Bun's speed makes auth flows faster
-- **TypeScript Support**: Direct TypeScript execution without compilation
-- **Environment Variables**: Bun automatically loads `.env` files
-
-## Full Documentation Reference
-
-This is a high-level summary of Better Auth. For comprehensive documentation covering all features, plugins, and advanced topics, see the split documentation sections:
-
-**Location**: `docs/infrastructure/framework/better-auth/`
-
-The full documentation (33,792 lines) is split into 132 major sections covering:
-
-- Complete authentication methods (email, social, passkeys, magic links, OTP)
-- All built-in plugins (2FA, multi-session, rate limiting, etc.)
-- Database adapters (Drizzle, Prisma, MongoDB, Kysely)
-- Framework integrations (Hono, Next.js, SvelteKit, Nuxt, Remix, etc.)
-- Advanced patterns (custom fields, webhooks, middleware)
-- Session management strategies
-- Security best practices
-- Testing strategies
-- Deployment guides
-- Real-world examples
-
-To explore specific topics in depth, refer to the numbered section files in the `better-auth/` directory.
 
 ## References
 
-- Better Auth documentation: https://better-auth.com/
-- Better Auth GitHub: https://github.com/better-auth/better-auth
-- Better Auth Discord: https://discord.gg/better-auth
-- Plugin documentation: https://better-auth.com/docs/plugins
-- Examples: https://github.com/better-auth/better-auth/tree/main/examples
+- Official documentation: https://better-auth.com/
+- LLM-optimized reference: https://better-auth.com/llms.txt
+- GitHub: https://github.com/better-auth/better-auth

@@ -10,10 +10,10 @@
 
 **Sovrium uses two validation libraries with strict separation**:
 
-| Library           | Version | Usage                     | Allowed Locations                     | Why                                |
-| ----------------- | ------- | ------------------------- | ------------------------------------- | ---------------------------------- |
-| **Effect Schema** | 3.19.16 | Server validation, domain | All `src/` files (default)            | Project standard, Effect ecosystem |
-| **Zod**           | 4.3.6   | OpenAPI + client forms    | `src/domain/models/api/` + forms only | OpenAPI tooling compatibility      |
+| Library           | Version  | Usage                     | Allowed Locations                     | Why                                |
+| ----------------- | -------- | ------------------------- | ------------------------------------- | ---------------------------------- |
+| **Effect Schema** | ^3.19.19 | Server validation, domain | All `src/` files (default)            | Project standard, Effect ecosystem |
+| **Zod**           | 4.3.6    | OpenAPI + client forms    | `src/domain/models/api/` + forms only | OpenAPI tooling compatibility      |
 
 **Why This Separation Exists**:
 
