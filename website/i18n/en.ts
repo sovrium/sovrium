@@ -814,20 +814,18 @@ export const en: Record<string, string> = {
   'nav.docs': 'Docs',
   'nav.docs.href': '/en/docs',
 
-  // ── Docs: Meta ────────────────────────────────────────────────────
-  'docs.meta.title': 'Schema Documentation - Sovrium',
-  'docs.meta.description':
-    'Complete reference for the Sovrium app schema. Define data models, authentication, pages, themes, and analytics in a single configuration file.',
-
-  // ── Docs: Header ──────────────────────────────────────────────────
-  'docs.header.title': 'Schema Documentation',
-  'docs.header.description':
-    'Define your entire application \u2014 data models, authentication, pages, themes, analytics \u2014 in a single YAML or JSON file. This is the complete reference for the Sovrium app schema.',
-
   // ── Docs: Sidebar ─────────────────────────────────────────────────
   'docs.sidebar.toggle': 'Menu',
+  'docs.sidebar.section.getStarted': 'Get Started',
+  'docs.sidebar.section.appSchema': 'App Schema',
+  'docs.sidebar.introduction': 'Introduction',
+  'docs.sidebar.introduction.href': '/en/docs',
+  'docs.sidebar.installation': 'Installation',
+  'docs.sidebar.installation.href': '/en/docs/installation',
+  'docs.sidebar.quickStart': 'Quick Start',
+  'docs.sidebar.quickStart.href': '/en/docs/quick-start',
   'docs.sidebar.overview': 'Overview',
-  'docs.sidebar.overview.href': '/en/docs',
+  'docs.sidebar.overview.href': '/en/docs/overview',
   'docs.sidebar.tables': 'Tables & Fields',
   'docs.sidebar.tables.href': '/en/docs/tables',
   'docs.sidebar.theme': 'Theme',
@@ -844,6 +842,18 @@ export const en: Record<string, string> = {
   'docs.sidebar.resources.href': '/en/docs/resources',
 
   // ── Docs: Per-Page Meta ──────────────────────────────────────────
+  'docs.introduction.meta.title': 'Introduction - Sovrium Docs',
+  'docs.introduction.meta.description':
+    'Learn what Sovrium is, why it exists, and how it lets you build complete applications from a single configuration file.',
+  'docs.installation.meta.title': 'Installation - Sovrium Docs',
+  'docs.installation.meta.description':
+    'Install Sovrium via npm or Bun and create your first configuration file in YAML or JSON.',
+  'docs.quickStart.meta.title': 'Quick Start - Sovrium Docs',
+  'docs.quickStart.meta.description':
+    'Build your first Sovrium app in 3 steps using YAML or TypeScript. Create a config, add data tables, and start the server.',
+  'docs.overview.meta.title': 'Schema Overview - Sovrium Docs',
+  'docs.overview.meta.description':
+    'Complete reference for the 10 root properties of the Sovrium app schema. Define data models, authentication, pages, themes, and analytics.',
   'docs.tables.meta.title': 'Tables & Fields - Sovrium Docs',
   'docs.tables.meta.description':
     'Define data models with 40 field types, relationships, and RBAC permissions in the Sovrium schema.',
@@ -866,8 +876,123 @@ export const en: Record<string, string> = {
   'docs.resources.meta.description':
     'LLM references, JSON Schema, GitHub repository, and additional resources for the Sovrium schema.',
 
-  // ── Docs: Section 1 — Overview ────────────────────────────────────
-  'docs.overview.title': 'Overview',
+  // ── Docs: Get Started — Introduction ────────────────────────────
+  'docs.introduction.header.title': 'Introduction',
+  'docs.introduction.header.description':
+    'Sovrium is an open-source, self-hosted platform that turns a single configuration file into a complete web application.',
+  'docs.introduction.what.title': 'What is Sovrium?',
+  'docs.introduction.what.description':
+    'Sovrium is a configuration-driven application platform. You describe your application in a YAML or JSON file \u2014 data models, authentication, pages, themes, analytics \u2014 and Sovrium turns it into a running, full-stack web application.',
+  'docs.introduction.what.detail':
+    'No boilerplate code, no framework setup, no build pipeline. Just one file that declares what your app should be.',
+  'docs.introduction.why.title': 'Why Sovrium?',
+  'docs.introduction.why.description':
+    'Most business applications share the same building blocks: data tables, user authentication, server-rendered pages, and a design system. Sovrium provides all of these out of the box, configured through a single schema.',
+  'docs.introduction.why.point1.title': 'No vendor lock-in',
+  'docs.introduction.why.point1.description':
+    'Self-hosted on your infrastructure. Your data stays yours.',
+  'docs.introduction.why.point2.title': 'Configuration over code',
+  'docs.introduction.why.point2.description':
+    'Declare what you need instead of writing boilerplate. 40 field types, 62 component types, built-in auth.',
+  'docs.introduction.why.point3.title': 'Progressive complexity',
+  'docs.introduction.why.point3.description':
+    'Start with just a name. Add tables, theme, pages, auth, and analytics as your needs grow.',
+  'docs.introduction.why.point4.title': 'Open source',
+  'docs.introduction.why.point4.description':
+    'Business Source License 1.1. Free for internal use. Becomes Apache 2.0 in 2029.',
+  'docs.introduction.how.title': 'How it works',
+  'docs.introduction.how.description':
+    'Write a configuration file, run one command, and get a working application:',
+  'docs.introduction.how.step1': 'Define your schema in YAML or JSON',
+  'docs.introduction.how.step2': 'Run sovrium start app.yaml',
+  'docs.introduction.how.step3': 'Get a full-stack app with data tables, auth, pages, and more',
+  'docs.introduction.next.title': 'Next steps',
+  'docs.introduction.next.description':
+    'Ready to try it? Install Sovrium and build your first app in under 5 minutes.',
+
+  // ── Docs: Get Started — Installation ────────────────────────────
+  'docs.installation.header.title': 'Installation',
+  'docs.installation.header.description':
+    'Install Sovrium globally or as a project dependency. Supports npm, Bun, yarn, and pnpm.',
+  'docs.installation.prerequisites.title': 'Prerequisites',
+  'docs.installation.prerequisites.description':
+    'Sovrium requires Node.js 18+ or Bun 1.0+. A PostgreSQL database is needed for data persistence (tables, auth).',
+  'docs.installation.global.title': 'Global installation',
+  'docs.installation.global.description':
+    'Install Sovrium globally to use the sovrium command from anywhere:',
+  'docs.installation.project.title': 'Project dependency',
+  'docs.installation.project.description': 'Or add Sovrium as a dependency in an existing project:',
+  'docs.installation.verify.title': 'Verify installation',
+  'docs.installation.verify.description': 'Check that Sovrium is installed correctly:',
+  'docs.installation.config.title': 'Create a config file',
+  'docs.installation.config.description':
+    'Sovrium reads a YAML or JSON configuration file. Create an app.yaml in your project root:',
+  'docs.installation.config.tip.title': 'YAML or JSON',
+  'docs.installation.config.tip.body':
+    'Sovrium supports both .yaml/.yml and .json files. YAML is recommended for readability.',
+  'docs.installation.database.title': 'Database setup',
+  'docs.installation.database.description':
+    'If your app uses tables or auth, set the DATABASE_URL environment variable:',
+  'docs.installation.database.tip.title': 'No database needed for static sites',
+  'docs.installation.database.tip.body':
+    'If you only use pages and theme (no tables or auth), Sovrium works without a database. Run sovrium static app.yaml to generate a static site.',
+
+  // ── Docs: Get Started — Quick Start ─────────────────────────────
+  'docs.quickStart.header.title': 'Quick Start',
+  'docs.quickStart.header.description':
+    'Build your first Sovrium app in 3 steps. From an empty file to a running application in under 5 minutes. Choose the approach that fits your workflow.',
+  'docs.quickStart.chooseApproach': 'Choose your approach',
+  'docs.quickStart.chooseApproach.description':
+    'Sovrium supports two configuration formats. YAML is great for simplicity; TypeScript gives you full type safety and autocompletion.',
+
+  // Option A: YAML + CLI
+  'docs.quickStart.yaml.title': 'Option A \u2014 YAML + CLI',
+  'docs.quickStart.yaml.description':
+    'The simplest path. Create an app.yaml file and run it with the Sovrium CLI:',
+  'docs.quickStart.yaml.step1.title': 'Create a config file',
+  'docs.quickStart.yaml.step1.description':
+    'Start with the simplest valid configuration \u2014 just a name.',
+  'docs.quickStart.yaml.step2.title': 'Add data tables',
+  'docs.quickStart.yaml.step2.description':
+    'Define your data models with typed fields, options, and validation.',
+  'docs.quickStart.yaml.step3.title': 'Start the server',
+  'docs.quickStart.yaml.step3.description':
+    'Run the dev server and visit http://localhost:3000 to see your app.',
+
+  // Option B: TypeScript + Bun
+  'docs.quickStart.ts.title': 'Option B \u2014 TypeScript + Bun',
+  'docs.quickStart.ts.description':
+    'The power-user path. Import Sovrium as a library in a TypeScript file and run it with Bun:',
+  'docs.quickStart.ts.step1.title': 'Create an app.ts file',
+  'docs.quickStart.ts.step1.description':
+    'Import the start function and pass a typed configuration object.',
+  'docs.quickStart.ts.step2.title': 'Add data tables',
+  'docs.quickStart.ts.step2.description':
+    'Extend the configuration with typed fields, options, and validation \u2014 with full autocompletion.',
+  'docs.quickStart.ts.step3.title': 'Run with Bun',
+  'docs.quickStart.ts.step3.description':
+    'Execute your TypeScript file directly. Visit http://localhost:3000 to see your app.',
+  'docs.quickStart.ts.tip.title': 'Why TypeScript?',
+  'docs.quickStart.ts.tip.body':
+    'TypeScript gives you autocompletion for every property, compile-time validation of field types, and the full power of Bun as your runtime. Ideal for developers who prefer code over config files.',
+
+  // Shared
+  'docs.quickStart.tip.title': 'Add more as you go',
+  'docs.quickStart.tip.body':
+    'Start small with just tables. Then progressively add theme, auth, pages, and analytics as your needs grow.',
+  'docs.quickStart.whatsNext.title': 'What\u2019s next?',
+  'docs.quickStart.whatsNext.description':
+    'Now that your app is running, explore the schema reference to add more capabilities:',
+  'docs.quickStart.whatsNext.overview': 'Schema Overview \u2014 All 10 root properties explained',
+  'docs.quickStart.whatsNext.tables': 'Tables & Fields \u2014 40 field types, permissions, indexes',
+  'docs.quickStart.whatsNext.theme': 'Theme \u2014 Colors, fonts, spacing, and design tokens',
+  'docs.quickStart.whatsNext.pages': 'Pages \u2014 62 component types for server-rendered pages',
+
+  // ── Docs: App Schema — Overview ─────────────────────────────────
+  'docs.overview.header.title': 'Schema Overview',
+  'docs.overview.header.description':
+    'The complete reference for the Sovrium app schema. A declarative configuration object with 10 root properties.',
+  'docs.overview.title': 'Schema Structure',
   'docs.overview.description':
     'A Sovrium app is a declarative configuration object with 10 root properties. Only name is required \u2014 everything else is optional, enabling progressive complexity from a minimal app identifier to a full-stack application.',
   'docs.overview.footnote':
@@ -876,25 +1001,7 @@ export const en: Record<string, string> = {
   'docs.overview.tip.body':
     'Only name is required. Add tables, theme, pages, auth, and other sections as your app grows.',
 
-  // ── Docs: Section 2 — Quick Start ─────────────────────────────────
-  'docs.quickStart.title': 'Quick Start',
-  'docs.quickStart.description':
-    'Create an app.yaml file and start building. Here is a minimal example that grows from the simplest valid config to a small but complete app:',
-  'docs.quickStart.runDev': 'Then run the development server:',
-  'docs.quickStart.step1.title': 'Create a config file',
-  'docs.quickStart.step1.description':
-    'Start with the simplest valid configuration \u2014 just a name.',
-  'docs.quickStart.step2.title': 'Add data tables',
-  'docs.quickStart.step2.description':
-    'Define your data models with typed fields, options, and validation.',
-  'docs.quickStart.step3.title': 'Start the server',
-  'docs.quickStart.step3.description':
-    'Run the dev server and visit http://localhost:3000 to see your app.',
-  'docs.quickStart.tip.title': 'Add more as you go',
-  'docs.quickStart.tip.body':
-    'Start small with just tables. Then progressively add theme, auth, pages, and analytics as your needs grow.',
-
-  // ── Docs: Section 3 — Root Properties ─────────────────────────────
+  // ── Docs: App Schema — Root Properties ──────────────────────────
   'docs.rootProps.title': 'Root Properties',
   'docs.rootProps.description': 'The app schema has 10 root properties. Only name is required.',
   'docs.rootProps.name.description':

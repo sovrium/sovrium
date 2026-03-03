@@ -36,49 +36,112 @@ export interface DocsPageEntry {
   readonly id: string
   readonly sidebarLabel: string
   readonly sidebarHref: string
+  readonly section: 'get-started' | 'app-schema' | 'resources'
 }
 
-export const DOCS_PAGES: readonly DocsPageEntry[] = [
+export interface DocsSidebarSection {
+  readonly id: string
+  readonly label?: string
+  readonly pages: readonly DocsPageEntry[]
+}
+
+const GET_STARTED_PAGES: readonly DocsPageEntry[] = [
+  {
+    id: 'introduction',
+    sidebarLabel: '$t:docs.sidebar.introduction',
+    sidebarHref: '$t:docs.sidebar.introduction.href',
+    section: 'get-started',
+  },
+  {
+    id: 'installation',
+    sidebarLabel: '$t:docs.sidebar.installation',
+    sidebarHref: '$t:docs.sidebar.installation.href',
+    section: 'get-started',
+  },
+  {
+    id: 'quick-start',
+    sidebarLabel: '$t:docs.sidebar.quickStart',
+    sidebarHref: '$t:docs.sidebar.quickStart.href',
+    section: 'get-started',
+  },
+]
+
+const APP_SCHEMA_PAGES: readonly DocsPageEntry[] = [
   {
     id: 'overview',
     sidebarLabel: '$t:docs.sidebar.overview',
     sidebarHref: '$t:docs.sidebar.overview.href',
+    section: 'app-schema',
   },
   {
     id: 'tables',
     sidebarLabel: '$t:docs.sidebar.tables',
     sidebarHref: '$t:docs.sidebar.tables.href',
+    section: 'app-schema',
   },
   {
     id: 'theme',
     sidebarLabel: '$t:docs.sidebar.theme',
     sidebarHref: '$t:docs.sidebar.theme.href',
+    section: 'app-schema',
   },
   {
     id: 'pages',
     sidebarLabel: '$t:docs.sidebar.pages',
     sidebarHref: '$t:docs.sidebar.pages.href',
+    section: 'app-schema',
   },
   {
     id: 'auth',
     sidebarLabel: '$t:docs.sidebar.auth',
     sidebarHref: '$t:docs.sidebar.auth.href',
+    section: 'app-schema',
   },
   {
     id: 'languages',
     sidebarLabel: '$t:docs.sidebar.languages',
     sidebarHref: '$t:docs.sidebar.languages.href',
+    section: 'app-schema',
   },
   {
     id: 'analytics',
     sidebarLabel: '$t:docs.sidebar.analytics',
     sidebarHref: '$t:docs.sidebar.analytics.href',
+    section: 'app-schema',
   },
+]
+
+const RESOURCES_PAGES: readonly DocsPageEntry[] = [
   {
     id: 'resources',
     sidebarLabel: '$t:docs.sidebar.resources',
     sidebarHref: '$t:docs.sidebar.resources.href',
+    section: 'resources',
   },
+]
+
+export const DOCS_SIDEBAR_SECTIONS: readonly DocsSidebarSection[] = [
+  {
+    id: 'get-started',
+    label: '$t:docs.sidebar.section.getStarted',
+    pages: GET_STARTED_PAGES,
+  },
+  {
+    id: 'app-schema',
+    label: '$t:docs.sidebar.section.appSchema',
+    pages: APP_SCHEMA_PAGES,
+  },
+  {
+    id: 'resources',
+    pages: RESOURCES_PAGES,
+  },
+]
+
+/** Flat list of all docs pages in sidebar order (used for prev/next navigation). */
+export const DOCS_PAGES: readonly DocsPageEntry[] = [
+  ...GET_STARTED_PAGES,
+  ...APP_SCHEMA_PAGES,
+  ...RESOURCES_PAGES,
 ]
 
 // ─── Badge Group Helper ─────────────────────────────────────────────────────
@@ -208,15 +271,37 @@ const ACTIVE_CLASS = 'text-sovereignty-accent bg-sovereignty-gray-900 font-mediu
 const INACTIVE_CLASS =
   'text-sovereignty-gray-400 hover:text-sovereignty-accent hover:bg-sovereignty-gray-900'
 
-function buildSidebarLinks(activeId: string) {
-  return DOCS_PAGES.map((page) => ({
-    $ref: 'docs-nav-link' as const,
-    vars: {
-      href: page.sidebarHref,
-      label: page.sidebarLabel,
-      activeClass: page.id === activeId ? ACTIVE_CLASS : INACTIVE_CLASS,
-    },
-  }))
+function buildSidebarLinks(activeId: string): readonly object[] {
+  return DOCS_SIDEBAR_SECTIONS.flatMap((section) => [
+    // Section header label (omitted when no label — standalone links get spacing only)
+    ...(section.label
+      ? [
+          {
+            type: 'span' as const,
+            content: section.label,
+            props: {
+              className:
+                'block text-[11px] font-semibold uppercase tracking-wider text-sovereignty-gray-500 px-3 pt-5 pb-1 first:pt-0',
+            },
+          },
+        ]
+      : [
+          {
+            type: 'div' as const,
+            props: { className: 'pt-4' },
+            children: [] as readonly object[],
+          },
+        ]),
+    // Section page links
+    ...section.pages.map((page) => ({
+      $ref: 'docs-nav-link' as const,
+      vars: {
+        href: page.sidebarHref,
+        label: page.sidebarLabel,
+        activeClass: page.id === activeId ? ACTIVE_CLASS : INACTIVE_CLASS,
+      },
+    })),
+  ])
 }
 
 // ─── Prev / Next Navigation ─────────────────────────────────────────────────

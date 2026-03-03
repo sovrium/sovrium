@@ -5,13 +5,13 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { calloutTip, codeBlock, docsPage, step, stepCodeBlock } from './shared'
+import { calloutTip, codeBlock, docsPage } from './shared'
 
 export const docsOverview = docsPage({
   activeId: 'overview',
-  path: '/docs',
-  metaTitle: '$t:docs.meta.title',
-  metaDescription: '$t:docs.meta.description',
+  path: '/docs/overview',
+  metaTitle: '$t:docs.overview.meta.title',
+  metaDescription: '$t:docs.overview.meta.description',
   content: [
     // ── Header ──────────────────────────────────────────────────────────
     {
@@ -20,12 +20,12 @@ export const docsOverview = docsPage({
       children: [
         {
           type: 'h1',
-          content: '$t:docs.header.title',
+          content: '$t:docs.overview.header.title',
           props: { className: 'text-3xl sm:text-4xl font-bold mb-4 text-sovereignty-light' },
         },
         {
           type: 'paragraph',
-          content: '$t:docs.header.description',
+          content: '$t:docs.overview.header.description',
           props: {
             className: 'text-base text-sovereignty-gray-300 max-w-3xl leading-relaxed',
           },
@@ -33,7 +33,7 @@ export const docsOverview = docsPage({
       ],
     },
 
-    // ── Overview ─────────────────────────────────────────────────────────
+    // ── Schema Structure ────────────────────────────────────────────────
     {
       type: 'div',
       props: {},
@@ -58,44 +58,7 @@ export const docsOverview = docsPage({
       ],
     },
 
-    // ── Quick Start ──────────────────────────────────────────────────────
-    {
-      type: 'div',
-      props: {},
-      children: [
-        {
-          type: 'h2',
-          content: '$t:docs.quickStart.title',
-          props: {
-            className: 'text-2xl font-bold mb-2 text-sovereignty-light',
-          },
-        },
-        {
-          type: 'paragraph',
-          content: '$t:docs.quickStart.description',
-          props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed mb-6' },
-        },
-
-        // Step 1
-        step('1', '$t:docs.quickStart.step1.title', '$t:docs.quickStart.step1.description'),
-        stepCodeBlock('name: my-app', 'yaml'),
-
-        // Step 2
-        step('2', '$t:docs.quickStart.step2.title', '$t:docs.quickStart.step2.description'),
-        stepCodeBlock(
-          'name: my-app\n\ntables:\n  - id: 1\n    name: tasks\n    fields:\n      - id: 1\n        name: title\n        type: single-line-text\n        required: true\n      - id: 2\n        name: status\n        type: single-select\n        options:\n          - label: To Do\n            color: gray\n          - label: In Progress\n            color: blue\n          - label: Done\n            color: green',
-          'yaml'
-        ),
-
-        // Step 3
-        step('3', '$t:docs.quickStart.step3.title', '$t:docs.quickStart.step3.description'),
-        stepCodeBlock('sovrium start app.yaml', 'bash'),
-
-        calloutTip('$t:docs.quickStart.tip.title', '$t:docs.quickStart.tip.body'),
-      ],
-    },
-
-    // ── Root Properties ──────────────────────────────────────────────────
+    // ── Root Properties ─────────────────────────────────────────────────
     {
       type: 'div',
       props: {},

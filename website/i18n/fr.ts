@@ -846,20 +846,18 @@ export const fr: Record<string, string> = {
   'nav.docs': 'Docs',
   'nav.docs.href': '/fr/docs',
 
-  // ── Docs: Meta ────────────────────────────────────────────────────
-  'docs.meta.title': 'Documentation du sch\u00E9ma - Sovrium',
-  'docs.meta.description':
-    'R\u00E9f\u00E9rence du sch\u00E9ma Sovrium. D\u00E9finissez mod\u00E8les de donn\u00E9es, authentification, pages, th\u00E8mes et analytiques dans un seul fichier de configuration.',
-
-  // ── Docs: Header ──────────────────────────────────────────────────
-  'docs.header.title': 'Documentation du sch\u00E9ma',
-  'docs.header.description':
-    'D\u00E9finissez l\u2019int\u00E9gralit\u00E9 de votre application \u2014 mod\u00E8les de donn\u00E9es, authentification, pages, th\u00E8mes, analytiques \u2014 dans un seul fichier YAML ou JSON. Voici la r\u00E9f\u00E9rence compl\u00E8te du sch\u00E9ma applicatif Sovrium.',
-
   // ── Docs: Sidebar ─────────────────────────────────────────────────
   'docs.sidebar.toggle': 'Menu',
+  'docs.sidebar.section.getStarted': 'Pour commencer',
+  'docs.sidebar.section.appSchema': 'Schéma applicatif',
+  'docs.sidebar.introduction': 'Introduction',
+  'docs.sidebar.introduction.href': '/fr/docs',
+  'docs.sidebar.installation': 'Installation',
+  'docs.sidebar.installation.href': '/fr/docs/installation',
+  'docs.sidebar.quickStart': 'D\u00E9marrage rapide',
+  'docs.sidebar.quickStart.href': '/fr/docs/quick-start',
   'docs.sidebar.overview': 'Vue d\u2019ensemble',
-  'docs.sidebar.overview.href': '/fr/docs',
+  'docs.sidebar.overview.href': '/fr/docs/overview',
   'docs.sidebar.tables': 'Tables & Champs',
   'docs.sidebar.tables.href': '/fr/docs/tables',
   'docs.sidebar.theme': 'Th\u00E8me',
@@ -876,6 +874,18 @@ export const fr: Record<string, string> = {
   'docs.sidebar.resources.href': '/fr/docs/resources',
 
   // ── Docs: Per-Page Meta ──────────────────────────────────────────
+  'docs.introduction.meta.title': 'Introduction - Docs Sovrium',
+  'docs.introduction.meta.description':
+    'D\u00E9couvrez ce qu\u2019est Sovrium, pourquoi il existe, et comment il vous permet de cr\u00E9er des applications compl\u00E8tes \u00E0 partir d\u2019un seul fichier de configuration.',
+  'docs.installation.meta.title': 'Installation - Docs Sovrium',
+  'docs.installation.meta.description':
+    'Installez Sovrium via npm ou Bun et cr\u00E9ez votre premier fichier de configuration en YAML ou JSON.',
+  'docs.quickStart.meta.title': 'D\u00E9marrage rapide - Docs Sovrium',
+  'docs.quickStart.meta.description':
+    'Construisez votre premi\u00E8re application Sovrium en 3 \u00E9tapes avec YAML ou TypeScript. Cr\u00E9ez une config, ajoutez des tables, et d\u00E9marrez le serveur.',
+  'docs.overview.meta.title': 'Vue d\u2019ensemble du sch\u00E9ma - Docs Sovrium',
+  'docs.overview.meta.description':
+    'R\u00E9f\u00E9rence compl\u00E8te des 10 propri\u00E9t\u00E9s racine du sch\u00E9ma applicatif Sovrium. D\u00E9finissez mod\u00E8les de donn\u00E9es, authentification, pages, th\u00E8mes et analytiques.',
   'docs.tables.meta.title': 'Tables & Champs - Docs Sovrium',
   'docs.tables.meta.description':
     'D\u00E9finissez vos mod\u00E8les de donn\u00E9es avec 40 types de champs, relations et permissions RBAC.',
@@ -898,8 +908,130 @@ export const fr: Record<string, string> = {
   'docs.resources.meta.description':
     'R\u00E9f\u00E9rences LLM, JSON Schema, d\u00E9p\u00F4t GitHub et ressources suppl\u00E9mentaires.',
 
-  // ── Docs: Section 1 — Overview ────────────────────────────────────
-  'docs.overview.title': 'Vue d\u2019ensemble',
+  // ── Docs: Get Started — Introduction ────────────────────────────
+  'docs.introduction.header.title': 'Introduction',
+  'docs.introduction.header.description':
+    'Sovrium est une plateforme open-source, auto-h\u00E9berg\u00E9e, qui transforme un seul fichier de configuration en une application web compl\u00E8te.',
+  'docs.introduction.what.title': 'Qu\u2019est-ce que Sovrium\u00A0?',
+  'docs.introduction.what.description':
+    'Sovrium est une plateforme applicative pilot\u00E9e par la configuration. Vous d\u00E9crivez votre application dans un fichier YAML ou JSON \u2014 mod\u00E8les de donn\u00E9es, authentification, pages, th\u00E8mes, analytiques \u2014 et Sovrium la transforme en application web full-stack fonctionnelle.',
+  'docs.introduction.what.detail':
+    'Pas de code r\u00E9p\u00E9titif, pas de configuration de framework, pas de pipeline de build. Un seul fichier qui d\u00E9clare ce que votre application doit \u00EAtre.',
+  'docs.introduction.why.title': 'Pourquoi Sovrium\u00A0?',
+  'docs.introduction.why.description':
+    'La plupart des applications m\u00E9tier partagent les m\u00EAmes briques\u00A0: tables de donn\u00E9es, authentification, pages rendues c\u00F4t\u00E9 serveur et syst\u00E8me de design. Sovrium fournit tout cela cl\u00E9 en main, configur\u00E9 via un seul sch\u00E9ma.',
+  'docs.introduction.why.point1.title': 'Pas de d\u00E9pendance fournisseur',
+  'docs.introduction.why.point1.description':
+    'Auto-h\u00E9berg\u00E9 sur votre infrastructure. Vos donn\u00E9es restent les v\u00F4tres.',
+  'docs.introduction.why.point2.title': 'Configuration plut\u00F4t que code',
+  'docs.introduction.why.point2.description':
+    'D\u00E9clarez ce dont vous avez besoin au lieu d\u2019\u00E9crire du code r\u00E9p\u00E9titif. 40 types de champs, 62 types de composants, authentification int\u00E9gr\u00E9e.',
+  'docs.introduction.why.point3.title': 'Complexit\u00E9 progressive',
+  'docs.introduction.why.point3.description':
+    'Commencez avec juste un nom. Ajoutez tables, th\u00E8me, pages, auth et analytiques selon vos besoins.',
+  'docs.introduction.why.point4.title': 'Open source',
+  'docs.introduction.why.point4.description':
+    'Business Source License 1.1. Gratuit pour usage interne. Devient Apache 2.0 en 2029.',
+  'docs.introduction.how.title': 'Comment \u00E7a marche',
+  'docs.introduction.how.description':
+    '\u00C9crivez un fichier de configuration, lancez une commande, et obtenez une application fonctionnelle\u00A0:',
+  'docs.introduction.how.step1': 'D\u00E9finissez votre sch\u00E9ma en YAML ou JSON',
+  'docs.introduction.how.step2': 'Lancez sovrium start app.yaml',
+  'docs.introduction.how.step3':
+    'Obtenez une application full-stack avec tables, auth, pages et plus',
+  'docs.introduction.next.title': '\u00C9tapes suivantes',
+  'docs.introduction.next.description':
+    'Pr\u00EAt \u00E0 essayer\u00A0? Installez Sovrium et construisez votre premi\u00E8re application en moins de 5 minutes.',
+
+  // ── Docs: Get Started — Installation ────────────────────────────
+  'docs.installation.header.title': 'Installation',
+  'docs.installation.header.description':
+    'Installez Sovrium globalement ou comme d\u00E9pendance de projet. Supporte npm, Bun, yarn et pnpm.',
+  'docs.installation.prerequisites.title': 'Pr\u00E9requis',
+  'docs.installation.prerequisites.description':
+    'Sovrium n\u00E9cessite Node.js 18+ ou Bun 1.0+. Une base de donn\u00E9es PostgreSQL est n\u00E9cessaire pour la persistance des donn\u00E9es (tables, auth).',
+  'docs.installation.global.title': 'Installation globale',
+  'docs.installation.global.description':
+    'Installez Sovrium globalement pour utiliser la commande sovrium partout\u00A0:',
+  'docs.installation.project.title': 'D\u00E9pendance de projet',
+  'docs.installation.project.description':
+    'Ou ajoutez Sovrium comme d\u00E9pendance dans un projet existant\u00A0:',
+  'docs.installation.verify.title': 'V\u00E9rifier l\u2019installation',
+  'docs.installation.verify.description':
+    'V\u00E9rifiez que Sovrium est install\u00E9 correctement\u00A0:',
+  'docs.installation.config.title': 'Cr\u00E9er un fichier de config',
+  'docs.installation.config.description':
+    'Sovrium lit un fichier de configuration YAML ou JSON. Cr\u00E9ez un app.yaml \u00E0 la racine de votre projet\u00A0:',
+  'docs.installation.config.tip.title': 'YAML ou JSON',
+  'docs.installation.config.tip.body':
+    'Sovrium supporte les fichiers .yaml/.yml et .json. Le YAML est recommand\u00E9 pour sa lisibilit\u00E9.',
+  'docs.installation.database.title': 'Configuration de la base de donn\u00E9es',
+  'docs.installation.database.description':
+    'Si votre application utilise des tables ou l\u2019auth, d\u00E9finissez la variable d\u2019environnement DATABASE_URL\u00A0:',
+  'docs.installation.database.tip.title': 'Pas de base de donn\u00E9es pour les sites statiques',
+  'docs.installation.database.tip.body':
+    'Si vous n\u2019utilisez que pages et theme (pas de tables ni d\u2019auth), Sovrium fonctionne sans base de donn\u00E9es. Lancez sovrium static app.yaml pour g\u00E9n\u00E9rer un site statique.',
+
+  // ── Docs: Get Started — Quick Start ─────────────────────────────
+  'docs.quickStart.header.title': 'D\u00E9marrage rapide',
+  'docs.quickStart.header.description':
+    'Construisez votre premi\u00E8re application Sovrium en 3 \u00E9tapes. D\u2019un fichier vide \u00E0 une application fonctionnelle en moins de 5 minutes. Choisissez l\u2019approche qui vous convient.',
+  'docs.quickStart.chooseApproach': 'Choisissez votre approche',
+  'docs.quickStart.chooseApproach.description':
+    'Sovrium supporte deux formats de configuration. Le YAML est id\u00E9al pour la simplicit\u00E9\u00A0; le TypeScript offre un typage complet et l\u2019autocompl\u00E9tion.',
+
+  // Option A: YAML + CLI
+  'docs.quickStart.yaml.title': 'Option A \u2014 YAML + CLI',
+  'docs.quickStart.yaml.description':
+    'Le chemin le plus simple. Cr\u00E9ez un fichier app.yaml et lancez-le avec le CLI Sovrium\u00A0:',
+  'docs.quickStart.yaml.step1.title': 'Cr\u00E9er un fichier de config',
+  'docs.quickStart.yaml.step1.description':
+    'Commencez avec la configuration valide la plus simple \u2014 juste un nom.',
+  'docs.quickStart.yaml.step2.title': 'Ajouter des tables de donn\u00E9es',
+  'docs.quickStart.yaml.step2.description':
+    'D\u00E9finissez vos mod\u00E8les de donn\u00E9es avec des champs typ\u00E9s, des options et de la validation.',
+  'docs.quickStart.yaml.step3.title': 'D\u00E9marrer le serveur',
+  'docs.quickStart.yaml.step3.description':
+    'Lancez le serveur de d\u00E9veloppement et visitez http://localhost:3000 pour voir votre application.',
+
+  // Option B: TypeScript + Bun
+  'docs.quickStart.ts.title': 'Option B \u2014 TypeScript + Bun',
+  'docs.quickStart.ts.description':
+    'Le chemin pour les utilisateurs avanc\u00E9s. Importez Sovrium comme biblioth\u00E8que dans un fichier TypeScript et lancez-le avec Bun\u00A0:',
+  'docs.quickStart.ts.step1.title': 'Cr\u00E9er un fichier app.ts',
+  'docs.quickStart.ts.step1.description':
+    'Importez la fonction start et passez un objet de configuration typ\u00E9.',
+  'docs.quickStart.ts.step2.title': 'Ajouter des tables de donn\u00E9es',
+  'docs.quickStart.ts.step2.description':
+    'Enrichissez la configuration avec des champs typ\u00E9s, des options et de la validation \u2014 avec autocompl\u00E9tion compl\u00E8te.',
+  'docs.quickStart.ts.step3.title': 'Lancer avec Bun',
+  'docs.quickStart.ts.step3.description':
+    'Ex\u00E9cutez votre fichier TypeScript directement. Visitez http://localhost:3000 pour voir votre application.',
+  'docs.quickStart.ts.tip.title': 'Pourquoi TypeScript\u00A0?',
+  'docs.quickStart.ts.tip.body':
+    'TypeScript offre l\u2019autocompl\u00E9tion pour chaque propri\u00E9t\u00E9, la validation \u00E0 la compilation des types de champs, et toute la puissance de Bun comme runtime. Id\u00E9al pour les d\u00E9veloppeurs qui pr\u00E9f\u00E8rent le code aux fichiers de configuration.',
+
+  // Shared
+  'docs.quickStart.tip.title': 'Ajoutez au fur et \u00E0 mesure',
+  'docs.quickStart.tip.body':
+    'Commencez petit avec juste des tables. Puis ajoutez progressivement theme, auth, pages et analytics selon vos besoins.',
+  'docs.quickStart.whatsNext.title': 'Et ensuite\u00A0?',
+  'docs.quickStart.whatsNext.description':
+    'Maintenant que votre application tourne, explorez la r\u00E9f\u00E9rence du sch\u00E9ma pour ajouter plus de fonctionnalit\u00E9s\u00A0:',
+  'docs.quickStart.whatsNext.overview':
+    'Vue d\u2019ensemble du sch\u00E9ma \u2014 Les 10 propri\u00E9t\u00E9s racine expliqu\u00E9es',
+  'docs.quickStart.whatsNext.tables':
+    'Tables & Champs \u2014 40 types de champs, permissions, index',
+  'docs.quickStart.whatsNext.theme':
+    'Th\u00E8me \u2014 Couleurs, polices, espacement et jetons de design',
+  'docs.quickStart.whatsNext.pages':
+    'Pages \u2014 62 types de composants pour des pages rendues c\u00F4t\u00E9 serveur',
+
+  // ── Docs: App Schema — Overview ─────────────────────────────────
+  'docs.overview.header.title': 'Vue d\u2019ensemble du sch\u00E9ma',
+  'docs.overview.header.description':
+    'R\u00E9f\u00E9rence compl\u00E8te du sch\u00E9ma applicatif Sovrium. Un objet de configuration d\u00E9claratif avec 10 propri\u00E9t\u00E9s racine.',
+  'docs.overview.title': 'Structure du sch\u00E9ma',
   'docs.overview.description':
     'Une application Sovrium est un objet de configuration d\u00E9claratif avec 10 propri\u00E9t\u00E9s racine. Seul name est requis \u2014 tout le reste est optionnel, permettant une complexit\u00E9 progressive, d\u2019un simple identifiant d\u2019application \u00E0 une application full-stack.',
   'docs.overview.footnote':
@@ -908,25 +1040,7 @@ export const fr: Record<string, string> = {
   'docs.overview.tip.body':
     'Seul name est requis. Ajoutez tables, theme, pages, auth et d\u2019autres sections au fur et \u00E0 mesure.',
 
-  // ── Docs: Section 2 — Quick Start ─────────────────────────────────
-  'docs.quickStart.title': 'D\u00E9marrage rapide',
-  'docs.quickStart.description':
-    'Cr\u00E9ez un fichier app.yaml et commencez \u00E0 construire. Voici un exemple minimal qui \u00E9volue de la config valide la plus simple \u00E0 une petite application compl\u00E8te\u00A0:',
-  'docs.quickStart.runDev': 'Puis lancez le serveur de d\u00E9veloppement\u00A0:',
-  'docs.quickStart.step1.title': 'Cr\u00E9er un fichier de config',
-  'docs.quickStart.step1.description':
-    'Commencez avec la configuration valide la plus simple \u2014 juste un nom.',
-  'docs.quickStart.step2.title': 'Ajouter des tables de donn\u00E9es',
-  'docs.quickStart.step2.description':
-    'D\u00E9finissez vos mod\u00E8les de donn\u00E9es avec des champs typ\u00E9s, des options et de la validation.',
-  'docs.quickStart.step3.title': 'D\u00E9marrer le serveur',
-  'docs.quickStart.step3.description':
-    'Lancez le serveur de d\u00E9veloppement et visitez http://localhost:3000 pour voir votre application.',
-  'docs.quickStart.tip.title': 'Ajoutez au fur et \u00E0 mesure',
-  'docs.quickStart.tip.body':
-    'Commencez petit avec juste des tables. Puis ajoutez progressivement theme, auth, pages et analytics selon vos besoins.',
-
-  // ── Docs: Section 3 — Root Properties ─────────────────────────────
+  // ── Docs: App Schema — Root Properties ──────────────────────────
   'docs.rootProps.title': 'Propri\u00E9t\u00E9s racine',
   'docs.rootProps.description':
     'Le sch\u00E9ma applicatif a 10 propri\u00E9t\u00E9s racine. Seul name est requis.',
