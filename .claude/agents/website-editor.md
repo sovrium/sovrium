@@ -119,15 +119,16 @@ memory: project
   - Modify website files (Edit, Write) to create/update pages and components
   - Execute commands (Bash) for dev server (bun website), quality checks (bun run quality), and formatting
   - Read brand charter page to enforce design consistency
-  - Chrome MCP tools (mcp__claude-in-chrome__*) for automated visual testing:
-    - tabs_context_mcp: Initialize browser session and get tab IDs
-    - tabs_create_mcp: Open new tabs for testing
-    - navigate: Navigate to localhost:3000 pages
-    - read_page: Verify page content, structure, and accessibility tree
-    - computer: Take screenshots for visual verification, click interactions
-    - resize_window: Test responsive design at mobile/tablet/desktop breakpoints
-    - gif_creator: Record multi-step interactions for review
-    - find: Locate specific elements by natural language description
+  - Playwright MCP tools (mcp__playwright__*) for automated visual testing:
+    - browser_navigate: Navigate to localhost:3000 pages
+    - browser_snapshot: Read page accessibility tree with element refs
+    - browser_take_screenshot: Take viewport or full-page screenshots
+    - browser_click: Click elements by ref from snapshot
+    - browser_resize: Test responsive design at mobile/tablet/desktop breakpoints
+    - browser_wait_for: Wait for text, text removal, or duration
+    - browser_tabs: Manage browser tabs
+    - browser_console_messages: Read console errors for debugging
+    - browser_close: Close browser when done
 -->
 
 ## Agent Type: CREATIVE (Website Design & Content)
@@ -261,44 +262,47 @@ bun run quality --skip-e2e     # Quality pipeline (skip E2E, not relevant for we
 bun run license                # Add copyright headers
 ```
 
-### Chrome Visual Testing Commands (MCP Tools)
+### Playwright Visual Testing Commands (MCP Tools)
 
-After starting `bun website`, use these Chrome MCP tools for automated visual verification.
-**IMPORTANT**: Always load tools with `ToolSearch` before first use, then call `tabs_context_mcp` before any browser interaction.
+After starting `bun website`, use these Playwright MCP tools for automated visual verification.
+**IMPORTANT**: Always load tools with `ToolSearch` before first use. Playwright auto-launches its own Chromium browser on the first call — no external browser or extension needed.
 
 ```
-# 1. Initialize browser session (ALWAYS first)
-ToolSearch("select:mcp__claude-in-chrome__tabs_context_mcp")
-mcp__claude-in-chrome__tabs_context_mcp()
+# 1. Navigate to a website page (auto-launches browser)
+ToolSearch("select:mcp__playwright__browser_navigate")
+mcp__playwright__browser_navigate({ url: "http://localhost:3000" })
 
-# 2. Create a new tab for testing
-ToolSearch("select:mcp__claude-in-chrome__tabs_create_mcp")
-mcp__claude-in-chrome__tabs_create_mcp()
+# 2. Read page content and structure (accessibility tree with element refs)
+ToolSearch("select:mcp__playwright__browser_snapshot")
+mcp__playwright__browser_snapshot()
 
-# 3. Navigate to a website page
-ToolSearch("select:mcp__claude-in-chrome__navigate")
-mcp__claude-in-chrome__navigate({ url: "http://localhost:3000", tabId: <tabId> })
+# 3. Take a screenshot for visual verification
+ToolSearch("select:mcp__playwright__browser_take_screenshot")
+mcp__playwright__browser_take_screenshot()                      # Viewport only
+mcp__playwright__browser_take_screenshot({ fullPage: true })    # Full page
 
-# 4. Read page content and structure (accessibility tree)
-ToolSearch("select:mcp__claude-in-chrome__read_page")
-mcp__claude-in-chrome__read_page({ tabId: <tabId> })
+# 4. Test responsive design (resize to mobile/tablet/desktop)
+ToolSearch("select:mcp__playwright__browser_resize")
+mcp__playwright__browser_resize({ width: 375, height: 812 })   # Mobile
+mcp__playwright__browser_resize({ width: 768, height: 1024 })  # Tablet
+mcp__playwright__browser_resize({ width: 1440, height: 900 })  # Desktop
 
-# 5. Take a screenshot for visual verification
-ToolSearch("select:mcp__claude-in-chrome__computer")
-mcp__claude-in-chrome__computer({ action: "screenshot", tabId: <tabId> })
+# 5. Click elements using ref IDs from snapshot
+ToolSearch("select:mcp__playwright__browser_click")
+mcp__playwright__browser_click({ element: "Navigation link", ref: "a12" })
 
-# 6. Test responsive design (resize to mobile/tablet/desktop)
-ToolSearch("select:mcp__claude-in-chrome__resize_window")
-mcp__claude-in-chrome__resize_window({ width: 375, height: 812, tabId: <tabId> })   # Mobile
-mcp__claude-in-chrome__resize_window({ width: 768, height: 1024, tabId: <tabId> })  # Tablet
-mcp__claude-in-chrome__resize_window({ width: 1440, height: 900, tabId: <tabId> })  # Desktop
+# 6. Wait for content or duration
+ToolSearch("select:mcp__playwright__browser_wait_for")
+mcp__playwright__browser_wait_for({ time: 2 })                 # Wait 2 seconds
+mcp__playwright__browser_wait_for({ text: "Welcome" })         # Wait for text
 
-# 7. Record a multi-step interaction as GIF
-ToolSearch("select:mcp__claude-in-chrome__gif_creator")
-mcp__claude-in-chrome__gif_creator({ action: "start_recording", tabId: <tabId> })
-# ... perform interactions (navigate, click, scroll) ...
-mcp__claude-in-chrome__gif_creator({ action: "stop_recording", tabId: <tabId> })
-mcp__claude-in-chrome__gif_creator({ action: "export", download: true, tabId: <tabId> })
+# 7. Check for console errors
+ToolSearch("select:mcp__playwright__browser_console_messages")
+mcp__playwright__browser_console_messages()
+
+# 8. Close browser when done
+ToolSearch("select:mcp__playwright__browser_close")
+mcp__playwright__browser_close()
 ```
 
 ## Website Structure
@@ -654,8 +658,8 @@ Before making ANY change to the website, review the brand charter page to ensure
 10. **Format and lint** -- Run `bun run format` and `bun run lint:fix`
 11. **Type check** -- Run `bun run typecheck` to catch type errors
 12. **Workflow consistency check** -- If you renamed, added, or removed website files, verify that `deploy-website.yml` path filters and `release.yml` sync-docs prompt still reference the correct paths (see "Website CI/CD Workflow Maintenance" section)
-13. **Visual verification** -- Run `bun website` to start the dev server, then use Chrome browser tools to verify rendering (see "Chrome-Based Visual Testing" section below)
-14. **Cross-page consistency check** -- Use Chrome tools to navigate through all pages, take screenshots at each breakpoint, and verify visual coherence across the site
+13. **Visual verification** -- Run `bun website` to start the dev server, then use Playwright browser tools to verify rendering (see "Playwright-Based Visual Testing" section below)
+14. **Cross-page consistency check** -- Use Playwright tools to navigate through all pages, take screenshots at each breakpoint, and verify visual coherence across the site
 
 ## Collaborative Workflow Examples
 
@@ -809,18 +813,18 @@ Should I create the brand charter first, or proceed with the style update using 
 
 ### Before Finalizing Changes
 
-**Visual Verification** (using Chrome browser tools):
+**Visual Verification** (using Playwright browser tools):
 1. Run `bun website` in the background to start the dev server on `localhost:3000`
-2. Initialize Chrome session: call `tabs_context_mcp`, then `tabs_create_mcp` for a fresh tab
-3. Navigate to each modified page with `navigate({ url: "http://localhost:3000/<path>", tabId })`
-4. Use `read_page({ tabId })` to verify page structure, content, and accessibility tree
-5. Use `computer({ action: "screenshot", tabId })` to take screenshots for visual verification
-6. Test responsive behavior using `resize_window`:
-   - Mobile: `{ width: 375, height: 812, tabId }` -- then screenshot
-   - Tablet: `{ width: 768, height: 1024, tabId }` -- then screenshot
-   - Desktop: `{ width: 1440, height: 900, tabId }` -- then screenshot
+2. Navigate to each modified page with `browser_navigate({ url: "http://localhost:3000/<path>" })`
+3. Use `browser_snapshot()` to verify page structure, content, and accessibility tree (returns element refs)
+4. Use `browser_take_screenshot()` to take screenshots for visual verification
+5. Test responsive behavior using `browser_resize`:
+   - Mobile: `{ width: 375, height: 812 }` -- then screenshot
+   - Tablet: `{ width: 768, height: 1024 }` -- then screenshot
+   - Desktop: `{ width: 1440, height: 900 }` -- then screenshot
+6. Click interactive elements using refs from snapshot: `browser_click({ element: "description", ref: "refId" })`
 7. If visual issues found, fix the code and re-verify before presenting to user
-8. If Chrome tools fail after 2-3 attempts, stop and ask the user for help
+8. If Playwright tools fail after 2-3 attempts, stop and ask the user for help
 
 **Vision & Progress Alignment Check** (when content makes product claims):
 1. Skim `VISION.md` -- do taglines, value props, and audience descriptions on the website still match?
@@ -873,34 +877,35 @@ Should I create the brand charter first, or proceed with the style update using 
 - Generated schema outdated -- Run `bun run export:schema` to regenerate `schemas/development/app.schema.json`, then re-check documentation files
 - Docs page field/component counts differ from generated schema -- Update the docs page badge lists and counts to match the generated JSON Schema, then update hardcoded counts in `release.yml` sync-docs prompt if they also drifted
 - Component duplication detected -- Extract shared components, document in agent memory
-- Chrome tools unavailable or failing -- Fall back to running `bun website` and asking the user to verify manually; note the issue in agent memory
+- Playwright tools unavailable or failing -- Fall back to running `bun website` and asking the user to verify manually; note the issue in agent memory
 - Visual defects found via screenshot -- Fix the code, re-run the visual verification workflow, and take a new screenshot to confirm the fix
 - Workflow file paths stale after website restructuring -- Update the workflow file, verify with `ls` that the new paths exist, and note the change for the user
 - Hardcoded counts in sync-docs prompt outdated -- Count the actual values in the source files, update the prompt, and note the change for the user
 
-## Chrome-Based Visual Testing
+## Playwright-Based Visual Testing
 
-The website-editor agent uses Claude in Chrome MCP tools for automated visual testing. This replaces manual browser verification with a reproducible, tool-driven workflow.
+The website-editor agent uses Playwright MCP tools for automated visual testing. Playwright auto-launches its own Chromium browser — no external browser or extension needed. This provides a self-contained, CI-compatible, reproducible visual verification workflow.
 
 ### Prerequisites
 
 - The website dev server must be running: `bun website` (serves on `http://localhost:3000`)
-- Chrome browser must be open with the Claude in Chrome extension active
-- All Chrome MCP tools must be loaded via `ToolSearch` before first use
+- Playwright MCP auto-launches Chromium on first tool call — no manual browser setup required
+- All Playwright MCP tools must be loaded via `ToolSearch` before first use
 
 ### Tool Loading Protocol
 
-Chrome MCP tools are **deferred** and must be loaded before use. Load them with `ToolSearch("select:<tool_name>")`. Once loaded in a session, they remain available for subsequent calls.
+Playwright MCP tools are **deferred** and must be loaded before use. Load them with `ToolSearch("select:<tool_name>")`. Once loaded in a session, they remain available for subsequent calls.
 
 Required tools (load as needed):
-- `mcp__claude-in-chrome__tabs_context_mcp` -- Get/create browser session
-- `mcp__claude-in-chrome__tabs_create_mcp` -- Create new tabs
-- `mcp__claude-in-chrome__navigate` -- Navigate to URLs
-- `mcp__claude-in-chrome__read_page` -- Read page accessibility tree
-- `mcp__claude-in-chrome__computer` -- Screenshots, clicks, scrolling
-- `mcp__claude-in-chrome__resize_window` -- Resize for responsive testing
-- `mcp__claude-in-chrome__gif_creator` -- Record multi-step interactions
-- `mcp__claude-in-chrome__find` -- Find elements by natural language
+- `mcp__playwright__browser_navigate` -- Navigate to URLs (auto-launches browser on first call)
+- `mcp__playwright__browser_snapshot` -- Read page accessibility tree with element refs
+- `mcp__playwright__browser_take_screenshot` -- Take viewport or full-page screenshots
+- `mcp__playwright__browser_click` -- Click elements by ref from snapshot
+- `mcp__playwright__browser_resize` -- Resize viewport for responsive testing
+- `mcp__playwright__browser_wait_for` -- Wait for text, text removal, or duration
+- `mcp__playwright__browser_tabs` -- Manage browser tabs
+- `mcp__playwright__browser_console_messages` -- Read console errors for debugging
+- `mcp__playwright__browser_close` -- Close browser when done
 
 ### Standard Visual Testing Workflow
 
@@ -910,19 +915,15 @@ Required tools (load as needed):
 bun website  # Runs in background, serves on http://localhost:3000
 ```
 
-**Step 2: Initialize browser session**
-
-Always call `tabs_context_mcp` first to get available tabs. Then create a fresh tab with `tabs_create_mcp` for this testing session. Each conversation should use its own tab.
-
-**Step 3: Navigate and verify each modified page**
+**Step 2: Navigate and verify each modified page**
 
 For each page you modified:
-1. `navigate({ url: "http://localhost:3000/<page-path>", tabId })` -- Load the page
-2. `computer({ action: "wait", duration: 2, tabId })` -- Wait for rendering
-3. `read_page({ tabId })` -- Verify content structure and text
-4. `computer({ action: "screenshot", tabId })` -- Capture visual state
+1. `browser_navigate({ url: "http://localhost:3000/<page-path>" })` -- Load the page (auto-launches browser on first call)
+2. `browser_wait_for({ time: 2 })` -- Wait for rendering
+3. `browser_snapshot()` -- Verify content structure, text, and get element refs
+4. `browser_take_screenshot()` -- Capture visual state
 
-**Step 4: Responsive design verification**
+**Step 3: Responsive design verification**
 
 For each modified page, test at three breakpoints:
 
@@ -933,59 +934,59 @@ For each modified page, test at three breakpoints:
 | Desktop | 1440px | 900px | `lg:` / `xl:` |
 
 At each breakpoint:
-1. `resize_window({ width, height, tabId })` -- Set viewport size
-2. `computer({ action: "wait", duration: 1, tabId })` -- Wait for reflow
-3. `computer({ action: "screenshot", tabId })` -- Capture for review
+1. `browser_resize({ width, height })` -- Set viewport size
+2. `browser_wait_for({ time: 1 })` -- Wait for reflow
+3. `browser_take_screenshot()` -- Capture for review
 
-**Step 5: Interactive element verification**
+**Step 4: Interactive element verification**
 
 For pages with interactive elements (navigation, dropdowns, hover states):
-1. `find({ query: "navigation menu", tabId })` -- Locate elements
-2. `computer({ action: "left_click", coordinate: [x, y], tabId })` -- Test interactions
-3. `computer({ action: "screenshot", tabId })` -- Verify interaction results
+1. `browser_snapshot()` -- Get element refs for all interactive elements
+2. `browser_click({ element: "navigation menu", ref: "<ref-from-snapshot>" })` -- Click by ref (more reliable than coordinates)
+3. `browser_take_screenshot()` -- Verify interaction results
 
-**Step 6: Record multi-step flows (optional)**
+**Step 5: Multi-step flow verification (optional)**
 
-For complex interactions (e.g., navigation flow, mobile menu toggle):
-1. `gif_creator({ action: "start_recording", tabId })` -- Start recording
-2. `computer({ action: "screenshot", tabId })` -- Capture initial frame
-3. Perform the interaction steps (navigate, click, scroll)
-4. `computer({ action: "screenshot", tabId })` -- Capture final frame
-5. `gif_creator({ action: "stop_recording", tabId })` -- Stop recording
-6. `gif_creator({ action: "export", download: true, tabId })` -- Export GIF
+For complex interactions (e.g., navigation flow, mobile menu toggle), take sequential screenshots at each step:
+1. `browser_take_screenshot()` -- Capture initial state
+2. Perform interaction steps (navigate, click via refs)
+3. `browser_take_screenshot()` -- Capture after each step
+4. Compare screenshots to verify the flow works correctly
 
 ### What to Verify
 
 | Check | Tool | What to Look For |
 |-------|------|-----------------|
-| Content rendered | `read_page` | All expected text, headings, links present in accessibility tree |
-| Visual layout | `computer` (screenshot) | Correct spacing, alignment, no overlapping elements |
-| Brand colors | `computer` (screenshot) | Colors match brand charter palette |
-| Typography | `computer` (screenshot) | Font sizes, weights, line heights are correct |
-| Responsive layout | `resize_window` + screenshot | Layout adapts correctly at each breakpoint |
-| Navigation | `navigate` + `read_page` | All links work, consistent across pages |
-| Interactive states | `computer` (click/hover) | Buttons, dropdowns, menus respond correctly |
-| Accessibility | `read_page` | Semantic structure, ARIA attributes, heading hierarchy |
+| Content rendered | `browser_snapshot` | All expected text, headings, links present in accessibility tree |
+| Visual layout | `browser_take_screenshot` | Correct spacing, alignment, no overlapping elements |
+| Brand colors | `browser_take_screenshot` | Colors match brand charter palette |
+| Typography | `browser_take_screenshot` | Font sizes, weights, line heights are correct |
+| Responsive layout | `browser_resize` + screenshot | Layout adapts correctly at each breakpoint |
+| Navigation | `browser_navigate` + `browser_snapshot` | All links work, consistent across pages |
+| Interactive states | `browser_click` (ref-based) | Buttons, dropdowns, menus respond correctly |
+| Accessibility | `browser_snapshot` | Semantic structure, ARIA attributes, heading hierarchy |
+| Console errors | `browser_console_messages` | No JavaScript errors or warnings |
 
-### Troubleshooting Chrome Tools
+### Troubleshooting Playwright Tools
 
 | Issue | Solution |
 |-------|---------|
-| `tabs_context_mcp` returns no tabs | Call with `{ createIfEmpty: true }` to create a new tab group |
+| Browser fails to launch | Playwright auto-installs Chromium; check `mcp__playwright__browser_install` if missing |
 | Navigation fails (connection refused) | Verify `bun website` is running on port 3000 |
-| Screenshot shows blank page | Add `computer({ action: "wait", duration: 3, tabId })` for slower pages |
-| Page content not loading | Check browser console with `read_console_messages` for errors |
-| Tools fail after 2-3 attempts | Stop and ask the user for help -- Chrome extension may need restart |
-| Wrong tab being used | Re-call `tabs_context_mcp` to verify tab IDs |
+| Screenshot shows blank page | Add `browser_wait_for({ time: 3 })` for slower pages |
+| Page content not loading | Use `browser_console_messages()` to check for JavaScript errors |
+| Tools fail after 2-3 attempts | Stop and ask the user for help -- note the error in agent memory |
+| Element click fails | Re-run `browser_snapshot()` to get fresh refs (refs change after navigation/DOM updates) |
 
 ### Important Constraints
 
-- **Never trigger JavaScript alerts/dialogs** -- They block the browser automation tools
-- **Always call `tabs_context_mcp` first** -- Required before any other browser tool
 - **Use `http://` not `https://`** -- localhost:3000 uses HTTP, not HTTPS
-- **Wait after navigation** -- Pages need time to render; use `computer({ action: "wait", duration: 2 })` after navigation
-- **Stop on repeated failures** -- If Chrome tools fail after 2-3 attempts, ask the user for assistance rather than retrying indefinitely
-- **One tab per session** -- Create a fresh tab with `tabs_create_mcp` rather than reusing existing tabs from other conversations
+- **Wait after navigation** -- Pages need time to render; use `browser_wait_for({ time: 2 })` after navigation
+- **Ref-based clicks** -- Always use `browser_snapshot()` first to get element refs, then `browser_click({ ref })` — never use coordinate-based clicking
+- **Refs are ephemeral** -- Element refs from `browser_snapshot()` become stale after navigation or DOM changes; re-snapshot to get fresh refs
+- **Handle dialogs** -- If a page triggers a dialog, use `browser_handle_dialog({ action: "dismiss" })` to unblock automation
+- **Stop on repeated failures** -- If Playwright tools fail after 2-3 attempts, ask the user for assistance rather than retrying indefinitely
+- **Close when done** -- Use `browser_close()` to clean up the Chromium instance after testing
 
 ## Error Handling and Edge Cases
 
