@@ -14,7 +14,7 @@
 
 **Project**: Sovrium (npm package: "sovrium")
 **Legal Entity**: ESSENTIAL SERVICES (copyright holder & trademark owner)
-**Version**: 0.0.2 (automated via CI, manual override: `scripts/release.ts`)
+**Version**: 0.1.0 (explicit `release:` commit triggers CI, manual override: `scripts/release.ts`)
 **License**: Business Source License 1.1 (BSL 1.1)
 - **Core**: BSL 1.1 - Free for internal/non-commercial use, prevents competitive SaaS hosting
 - **Enterprise**: Enterprise License (files with `.ee.` in filename/dirname) - Paid features
@@ -129,8 +129,8 @@ bun test:e2e:regression     # E2E regression tests (@regression tag) - for CI/pr
 bun test:e2e:ui             # E2E tests with Playwright UI
 bun test:all                # All tests (unit + E2E regression)
 
-# Release (automated — just push conventional commits)
-# CI: Test → analyze commits → bump version → npm publish → GitHub Release
+# Release (explicit trigger — push a "release: publish" commit)
+# CI: Test → detect "release:" commit → analyze commits → bump version → npm publish → GitHub Release
 bun run analyze-commits --dry-run    # Preview what CI would release
 # Manual override (emergencies only — CI won't publish, must publish manually):
 bun run release patch --message "Description of changes"
@@ -241,7 +241,7 @@ npm publish --provenance --access public  # Must run manually after push
 - `fix:`, `perf:` → Triggers **patch** release in CI (bug fixes, performance)
 - `!` (e.g., `feat!:`) or `BREAKING CHANGE:` in body → Triggers **major** release
 - `chore(release):` → Created by CI automated release — **never create manually**
-- `release:` → Created by `bun run release` manual script (emergency override)
+- `release:` → **Triggers CI release** (e.g., `release: publish`) OR created by `bun run release` manual script
 - `docs:`, `style:`, `refactor:`, `test:`, `chore:`, `ci:`, `build:` → No version bump
 
 ## Architecture Principles
@@ -349,8 +349,9 @@ When implementing features that use infrastructure technologies, fetch the offic
 1. **Write code** following standards above
 2. **Test locally**: `bun run lint && bun run format && bun run typecheck && bun test:unit`
 3. **Commit**: Use conventional commits (`feat:`, `fix:`, etc.)
-4. **Push**: GitHub Actions runs tests → automatically releases if `feat:`/`fix:`/`perf:` commits found
-5. **Manual release** (emergency): `bun run release patch --message "..."` then `git push origin main --follow-tags` then `npm publish --provenance --access public` (CI won't publish — see `@docs/infrastructure/release/release-script.md`)
+4. **Push**: GitHub Actions runs tests
+5. **Release**: Push a `release: publish` commit to trigger CI release (analyzes conventional commits since last tag for version bump)
+6. **Manual release** (emergency): `bun run release patch --message "..."` then `git push origin main --follow-tags` then `npm publish --provenance --access public` (CI won't publish — see `@docs/infrastructure/release/release-script.md`)
 
 ## TDD Automation Pipeline (V3)
 
