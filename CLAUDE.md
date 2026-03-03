@@ -314,6 +314,20 @@ sovrium/
 
 **Slash Command**: Use `/docs` to list all available documentation files
 
+## LLM Documentation URLs (Infrastructure Reference)
+
+When implementing features that use infrastructure technologies, fetch the official LLM-optimized documentation for the latest API reference. Use these **when you need to understand a framework's API, resolve usage questions, or implement features involving these technologies** — not for every task.
+
+| Technology | llms.txt URL | When to Fetch |
+|-----------|-------------|---------------|
+| **Bun** | https://bun.sh/llms.txt | Bun APIs, runtime features, package manager |
+| **Effect** | https://effect.website/llms.txt | Effect.gen, Schema, Layer, Context patterns |
+| **Hono** | https://hono.dev/llms.txt | Route handlers, middleware, SSR patterns |
+| **Better Auth** | https://better-auth.com/llms.txt | Auth flows, plugins, session management |
+| **Drizzle** | https://orm.drizzle.team/llms.txt | Schema definitions, queries, migrations |
+
+**Usage**: `WebFetch(url: "https://hono.dev/llms.txt", prompt: "How to use zValidator middleware")`
+
 ## Development Workflow
 
 1. **Write code** following standards above

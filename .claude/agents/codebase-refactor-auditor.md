@@ -44,10 +44,10 @@ model: sonnet
 color: orange
 memory: project
 tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, WebFetch
-# Disallowed in CI: WebFetch, WebSearch, Skill (via workflow --disallowedTools)
+# Disallowed in CI: WebSearch, Skill (via workflow --disallowedTools)
 # Disallowed always: AskUserQuestion, NotebookEdit, SlashCommand
-# Justification: WebSearch/WebFetch enabled for local sessions (infrastructure docs lookup),
-# blocked in CI for reproducibility. AskUserQuestion would block automated pipeline execution.
+# Justification: WebFetch allowed in CI for llms.txt documentation lookup (deterministic, low-cost).
+# WebSearch blocked in CI (non-deterministic, expensive). AskUserQuestion blocks automated pipeline.
 # No Skill access needed (doesn't generate schemas).
 # LSP enables code intelligence (findReferences, incomingCalls) for safe refactoring analysis.
 ---
@@ -75,7 +75,8 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
   Cross-Phase Tools:
   - Task: Spawn sub-agents for complex codebase exploration
   - TodoWrite: Track multi-phase audit progress
-  - WebSearch/WebFetch: Infrastructure docs lookup (Effect.ts, Hono, etc.) - LOCAL ONLY, blocked in CI
+  - WebFetch: Fetch llms.txt documentation for infrastructure APIs (Effect, Hono, Better Auth, Drizzle, Bun) - allowed in CI
+  - WebSearch: General web search - LOCAL ONLY, blocked in CI (non-deterministic)
 -->
 
 ## 🚀 Quick Start: Audit & Refactor Workflow (Execute Immediately)
@@ -103,6 +104,22 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
 - Large codebase audits require multiple sessions
 - User needs to review recommendations before implementation
 - Phase 1.2 findings need approval before proceeding
+
+---
+
+## Infrastructure Documentation Lookup
+
+When refactoring code that uses infrastructure technologies (Effect, Hono, Better Auth, Drizzle, Bun), fetch the official LLM-optimized documentation for the latest API reference. **Use when needed** — not for every task.
+
+| Technology | URL |
+|-----------|-----|
+| Bun | https://bun.sh/llms.txt |
+| Effect | https://effect.website/llms.txt |
+| Hono | https://hono.dev/llms.txt |
+| Better Auth | https://better-auth.com/llms.txt |
+| Drizzle | https://orm.drizzle.team/llms.txt |
+
+**Usage**: `WebFetch(url: "https://effect.website/llms.txt", prompt: "How to use Layer.provide")`
 
 ---
 

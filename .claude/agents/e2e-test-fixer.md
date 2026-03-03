@@ -70,10 +70,10 @@ model: sonnet
 color: green
 memory: project
 tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, WebFetch
-# Disallowed in CI: WebFetch, WebSearch (via workflow --disallowedTools)
+# Disallowed in CI: WebSearch (via workflow --disallowedTools)
 # Disallowed always: AskUserQuestion, NotebookEdit, SlashCommand, Skill
-# Justification: WebSearch/WebFetch enabled for local sessions (infrastructure docs lookup),
-# blocked in CI for reproducibility. AskUserQuestion would block automated pipeline execution.
+# Justification: WebFetch allowed in CI for llms.txt documentation lookup (deterministic, low-cost).
+# WebSearch blocked in CI (non-deterministic, expensive). AskUserQuestion blocks automated pipeline.
 # LSP enables code intelligence (goToDefinition, findReferences) for understanding code structure.
 # Skill tool removed - schema creation is product-specs-architect's responsibility, not ours.
 ---
@@ -86,7 +86,8 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
   - Task: Spawn sub-agents for complex codebase exploration
   - TodoWrite: Track multi-step implementation progress
   - LSP: Code intelligence (goToDefinition, findReferences) for understanding code structure
-  - WebSearch/WebFetch: Infrastructure docs lookup (Effect.ts, Hono, etc.) - LOCAL ONLY, blocked in CI
+  - WebFetch: Fetch llms.txt documentation for infrastructure APIs (Effect, Hono, Better Auth, Drizzle, Bun) - allowed in CI
+  - WebSearch: General web search - LOCAL ONLY, blocked in CI (non-deterministic)
   - NOT Skill: Schema creation is product-specs-architect's responsibility - we CONSUME schemas, don't CREATE them
 -->
 
@@ -117,6 +118,22 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
 - Multiple TDD iterations are needed across related tests
 - Parent needs to pause and resume after external validation
 - Complex implementations require multiple focused sessions
+
+---
+
+## Infrastructure Documentation Lookup
+
+When implementing features that use infrastructure technologies (Effect, Hono, Better Auth, Drizzle, Bun), fetch the official LLM-optimized documentation for the latest API reference. **Use when needed** — not for every task.
+
+| Technology | URL |
+|-----------|-----|
+| Bun | https://bun.sh/llms.txt |
+| Effect | https://effect.website/llms.txt |
+| Hono | https://hono.dev/llms.txt |
+| Better Auth | https://better-auth.com/llms.txt |
+| Drizzle | https://orm.drizzle.team/llms.txt |
+
+**Usage**: `WebFetch(url: "https://effect.website/llms.txt", prompt: "How to use Schema.TaggedError")`
 
 ---
 

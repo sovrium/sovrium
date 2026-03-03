@@ -463,13 +463,13 @@ jobs:
           # See: docs/development/tdd-automation-pipeline.md#agent-configurations
 
           if [ "$AGENT_TYPE" = "codebase-refactor-auditor" ]; then
-            ALLOWED_TOOLS="Bash,Read,Write,Edit,Glob,Grep,Task,TodoWrite,LSP"
-            DISALLOWED_TOOLS="WebFetch,WebSearch,Skill,AskUserQuestion,NotebookEdit"
+            ALLOWED_TOOLS="Bash,Read,Write,Edit,Glob,Grep,Task,TodoWrite,LSP,WebFetch"
+            DISALLOWED_TOOLS="WebSearch,Skill,AskUserQuestion,NotebookEdit"
             MAX_TURNS=40
           else
             # Default: e2e-test-fixer
-            ALLOWED_TOOLS="Bash,Read,Write,Edit,Glob,Grep,Task,TodoWrite,LSP,Skill"
-            DISALLOWED_TOOLS="WebFetch,WebSearch,AskUserQuestion,NotebookEdit"
+            ALLOWED_TOOLS="Bash,Read,Write,Edit,Glob,Grep,Task,TodoWrite,LSP,Skill,WebFetch"
+            DISALLOWED_TOOLS="WebSearch,AskUserQuestion,NotebookEdit"
             MAX_TURNS=60
           fi
 

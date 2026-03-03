@@ -151,12 +151,12 @@ Both agents use **Claude Opus 4.6** (`claude-opus-4-6`) for all attempts. The ag
 
 **Configuration:** See `.github/workflows/tdd-tdd-claude-code.yml` for `claude_args` parameter values.
 
-| Parameter           | Value                   | Rationale                                                                                   |
-| ------------------- | ----------------------- | ------------------------------------------------------------------------------------------- |
-| `--max-turns`       | `50`                    | Complex TDD cycles require multiple iterations (quality check → fix → test → repeat)        |
-| `--model`           | Opus 4.6 (all attempts) | Maximum reasoning capability from first attempt                                             |
-| `--allowedTools`    | Core tools + Skill      | Read/Write/Edit for code, Bash for tests, Glob/Grep for search, Skill for schema generation |
-| `--disallowedTools` | Web + Interactive       | WebFetch/WebSearch blocked for CI reproducibility, AskUserQuestion blocked for autonomy     |
+| Parameter           | Value                         | Rationale                                                                                                               |
+| ------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `--max-turns`       | `50`                          | Complex TDD cycles require multiple iterations (quality check → fix → test → repeat)                                    |
+| `--model`           | Opus 4.6 (all attempts)       | Maximum reasoning capability from first attempt                                                                         |
+| `--allowedTools`    | Core tools + Skill + WebFetch | Read/Write/Edit for code, Bash for tests, Glob/Grep for search, Skill for schema generation, WebFetch for llms.txt docs |
+| `--disallowedTools` | WebSearch + Interactive       | WebSearch blocked for CI reproducibility, AskUserQuestion blocked for autonomy                                          |
 
 **Autonomous Behaviors:**
 
@@ -164,8 +164,9 @@ Both agents use **Claude Opus 4.6** (`claude-opus-4-6`) for all attempts. The ag
 - ✅ Runs quality checks and tests iteratively
 - ✅ Commits and pushes changes without confirmation
 - ✅ Handles merge conflicts via merge strategy
+- ✅ Fetches llms.txt documentation for infrastructure APIs when needed (deterministic, low-cost)
 - ❌ Never asks clarifying questions (autonomous mode)
-- ❌ Never fetches external documentation (CI reproducibility)
+- ❌ Never uses WebSearch (non-deterministic, blocked in CI)
 
 #### codebase-refactor-auditor Agent Configuration
 
@@ -173,12 +174,12 @@ Both agents use **Claude Opus 4.6** (`claude-opus-4-6`) for all attempts. The ag
 
 **Configuration:** See `.github/workflows/tdd-tdd-claude-code.yml` for `claude_args` parameter values.
 
-| Parameter           | Value                     | Rationale                                                          |
-| ------------------- | ------------------------- | ------------------------------------------------------------------ |
-| `--max-turns`       | `40`                      | Refactoring is bounded; fewer iterations than implementation       |
-| `--model`           | Opus 4.6 (all attempts)   | Maximum reasoning capability from first attempt                    |
-| `--allowedTools`    | Core tools (no Skill)     | Same base tools, but Skill excluded (schema creation not its job)  |
-| `--disallowedTools` | Web + Skill + Interactive | Skill blocked (schema creation is e2e-test-fixer's responsibility) |
+| Parameter           | Value                            | Rationale                                                                                      |
+| ------------------- | -------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `--max-turns`       | `40`                             | Refactoring is bounded; fewer iterations than implementation                                   |
+| `--model`           | Opus 4.6 (all attempts)          | Maximum reasoning capability from first attempt                                                |
+| `--allowedTools`    | Core tools + WebFetch (no Skill) | Same base tools + WebFetch for llms.txt docs, but Skill excluded (schema creation not its job) |
+| `--disallowedTools` | WebSearch + Skill + Interactive  | Skill blocked (schema creation is e2e-test-fixer's responsibility)                             |
 
 **Autonomous Behaviors:**
 
@@ -186,10 +187,12 @@ Both agents use **Claude Opus 4.6** (`claude-opus-4-6`) for all attempts. The ag
 - ✅ Refactors recent commits (Phase 1.1) immediately
 - ✅ Generates recommendations for older code (Phase 1.2)
 - ✅ Validates with targeted spec test (`bun test:e2e -- <spec-file>`) and quality checks before committing (full regression suite delegated to `test.yml` post-push)
+- ✅ Fetches llms.txt documentation for infrastructure APIs when needed (deterministic, low-cost)
 - ❌ Does not implement Phase 1.2 recommendations without approval
 - ❌ Never creates new schemas (e2e-test-fixer's responsibility)
+- ❌ Never uses WebSearch (non-deterministic, blocked in CI)
 
-**Note**: "Core tools" include: Bash, Read, Write, Edit, Glob, Grep, Task, TodoWrite, LSP
+**Note**: "Core tools" include: Bash, Read, Write, Edit, Glob, Grep, Task, TodoWrite, LSP. WebFetch is allowed for both agents (llms.txt documentation lookup).
 
 ---
 
