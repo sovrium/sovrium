@@ -18,17 +18,33 @@ export interface HreflangConfig {
 }
 
 /**
+ * Repair whitespace inside <pre> tags that Prettier's HTML formatter damages.
+ *
+ * Prettier adds a newline + indentation after the opening `>` of `<pre>` tags.
+ * Because `<pre>` renders whitespace literally (CSS `white-space: pre`), this
+ * introduces a visible blank first line in code blocks.
+ *
+ * This function strips the newline and any spaces immediately after `<pre ...>`.
+ */
+const repairPreWhitespace = (html: string): string => html.replace(/(<pre[^>]*>)\n[ ]*/g, '$1')
+
+/**
  * Format HTML with Prettier for professional formatting
- * Loads Prettier config and formats HTML using the HTML parser
+ * Loads Prettier config and formats HTML using the HTML parser.
+ *
+ * After formatting, repairs `<pre>` whitespace that Prettier damages
+ * (leading newline + indentation, trailing whitespace).
  */
 export const formatHtmlWithPrettier = async (html: string): Promise<string> => {
   const prettier = await import('prettier')
   const config = await prettier.resolveConfig(process.cwd())
 
-  return await prettier.format(html, {
+  const formatted = await prettier.format(html, {
     ...config,
     parser: 'html',
   })
+
+  return repairPreWhitespace(formatted)
 }
 
 /**
