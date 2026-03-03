@@ -10,13 +10,14 @@ This index provides a comprehensive guide to Sovrium's architecture documentatio
 
 ### Core Architecture Patterns
 
-| Document                        | Purpose                                          | Enforcement                                                   |
-| ------------------------------- | ------------------------------------------------ | ------------------------------------------------------------- |
-| **functional-programming.md**   | Pure functions, immutability, Effect.ts patterns | ESLint (eslint-plugin-functional)                             |
-| **layer-based-architecture.md** | 4-layer architecture (fully implemented)         | ESLint boundaries (active, 636 lines in boundaries.config.ts) |
-| **testing-strategy.md**         | F.I.R.S.T principles, test organization          | Bun Test + Playwright                                         |
-| **performance-optimization.md** | Effect.ts, Bun optimization, manual React tuning | Profiling-based (React Compiler NOT available)                |
-| **security-best-practices.md**  | Authentication, validation, CSRF/XSS protection  | ESLint Drizzle rules                                          |
+| Document                          | Purpose                                           | Enforcement                                                   |
+| --------------------------------- | ------------------------------------------------- | ------------------------------------------------------------- |
+| **functional-programming.md**     | Pure functions, immutability, Effect.ts patterns  | ESLint (eslint-plugin-functional)                             |
+| **layer-based-architecture.md**   | 4-layer architecture (fully implemented)          | ESLint boundaries (active, 636 lines in boundaries.config.ts) |
+| **testing-strategy.md**           | F.I.R.S.T principles, test organization           | Bun Test + Playwright                                         |
+| **performance-optimization.md**   | Effect.ts, Bun optimization, manual React tuning  | Profiling-based (React Compiler NOT available)                |
+| **security-best-practices.md**    | Authentication, validation, CSRF/XSS protection   | ESLint Drizzle rules                                          |
+| **dependency-risk-assessment.md** | Vendor risk, coupling analysis, contingency plans | Quarterly review                                              |
 
 ### Architectural Decision Records (ADRs)
 
@@ -181,6 +182,34 @@ This index provides a comprehensive guide to Sovrium's architecture documentatio
 - SQL injection prevention (Drizzle parameterized queries)
 - XSS prevention (React auto-escaping)
 - CSRF protection (sameSite cookies)
+
+---
+
+### Dependency Risk Assessment
+
+**Architecture Document**: `dependency-risk-assessment.md`
+
+**Related Infrastructure**:
+
+- `@docs/infrastructure/dependency-sustainability.md` - Concrete dependency data (versions, licenses, alternatives)
+- `@docs/infrastructure/framework/effect.md` - Effect.ts (Tier 1 dependency)
+- `@docs/infrastructure/framework/better-auth.md` - Better Auth (Tier 1 dependency)
+- `@docs/infrastructure/database/drizzle.md` - Drizzle ORM (Tier 2 dependency)
+- `@docs/infrastructure/runtime/bun.md` - Bun runtime (Tier 2 dependency)
+
+**Enforcement**:
+
+- ✅ **eslint-plugin-boundaries**: Limits dependency coupling to appropriate layers
+- ✅ **ADR-001**: Restricts Zod to API schemas + forms (ESLint enforced)
+- ✅ **ADR-009**: Accepts Effect as sole domain dependency with clear rationale
+- ⚠️ **Quarterly review**: Manual review of dependency health and funding status
+
+**Key Concepts**:
+
+- Risk tiers (High/Medium/Low) based on coupling depth and replacement cost
+- Port/adapter pattern (Effect Context.Tag) for swappable implementations
+- Layer enforcement reduces blast radius of dependency changes
+- Accepted risks documented with clear rationale (ADR-009 for Effect)
 
 ---
 
@@ -501,5 +530,5 @@ Sovrium uses different validation libraries depending on the context:
 
 ---
 
-**Last Updated**: 2026-02-27
+**Last Updated**: 2026-03-03
 **Maintained By**: architecture-docs-maintainer agent

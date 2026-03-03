@@ -11,7 +11,8 @@
 | `docs/infrastructure/quality/knip.md` | Good | Version 5.71.0→^5.85.0 |
 | `docs/infrastructure/framework/effect.md` | Good | Version ^3.19.16→^3.19.19; language-service 0.73.1→0.74.0 |
 | `docs/infrastructure/framework/hono.md` | Good | Version ^4.11.9→^4.12.3 |
-| `docs/infrastructure/framework/better-auth.md` | Good | Version ^1.4.18→^1.4.19 |
+| `docs/infrastructure/framework/better-auth.md` | Stale | Docs say ^1.4.19 but package.json is ^1.5.1 — needs update |
+| `docs/infrastructure/dependency-sustainability.md` | Good | Created 2026-03-03; fact sheet for all major deps |
 | `docs/infrastructure/database/drizzle.md` | Good | Removed false dual-driver arch; fixed layer path (src/db→src/infrastructure/database/drizzle); fixed schema path |
 | `docs/infrastructure/testing/bun-test.md` | Good | Removed non-existent scripts test:unit:watch, test:unit:coverage; fixed --concurrent claim |
 | `docs/infrastructure/ui/tailwind.md` | Good | Version ^4.1.18→^4.2.1 |
@@ -24,10 +25,10 @@ Last verified against package.json (bun@1.3.10):
 - Bun: 1.3.10 (packageManager field)
 - TypeScript: ^5.9.3 (direct install, no wrapper)
 - Effect: ^3.19.19
-- @effect/language-service: 0.74.0
+- @effect/language-service: 0.77.0 (exact pin)
 - @effect/experimental: ^0.58.0
 - Hono: ^4.12.3
-- Better Auth: ^1.4.19
+- Better Auth: ^1.5.1 (NOTE: better-auth.md still says ^1.4.19 — stale)
 - Drizzle ORM: ^0.45.1, drizzle-kit: ^0.31.9
 - React: ^19.2.4
 - Tailwind CSS: ^4.2.1, @tailwindcss/postcss: ^4.2.1

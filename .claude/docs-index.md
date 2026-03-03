@@ -54,6 +54,9 @@
 ### Parsing
 - `@docs/infrastructure/parsing/js-yaml.md` - YAML parser for CLI configuration files
 
+### Dependency Management
+- `@docs/infrastructure/dependency-sustainability.md` - Dependency fact sheets (versions, licenses, funding, alternatives, migration effort)
+
 ### Utilities
 (No utilities currently documented - use Effect.DateTime for date handling)
 
@@ -84,6 +87,7 @@
 - `@docs/architecture/testing-strategy.md` - F.I.R.S.T principles
 - `@docs/architecture/performance-optimization.md` - Performance patterns
 - `@docs/architecture/security-best-practices.md` - Security guidelines
+- `@docs/architecture/dependency-risk-assessment.md` - Vendor risk, coupling analysis, contingency plans
 
 ### Architectural Decision Records (ADRs)
 
