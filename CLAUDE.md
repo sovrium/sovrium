@@ -14,7 +14,7 @@
 
 **Project**: Sovrium (npm package: "sovrium")
 **Legal Entity**: ESSENTIAL SERVICES (copyright holder & trademark owner)
-**Version**: 0.0.1 (managed by semantic-release)
+**Version**: 0.0.2 (managed by `scripts/release.ts`)
 **License**: Business Source License 1.1 (BSL 1.1)
 - **Core**: BSL 1.1 - Free for internal/non-commercial use, prevents competitive SaaS hosting
 - **Enterprise**: Enterprise License (files with `.ee.` in filename/dirname) - Paid features
@@ -98,7 +98,11 @@ bun run check:all                  # Run quality && progress --strict
 bun run validate:specs             # Validate spec test structure and conventions
 bun run validate:docs:versions     # Validate documentation versions match package.json
 bun run test:cleanup               # Kill zombie test processes (Playwright, browsers)
-bun run release                    # Manually trigger release (semantic-release)
+bun run release patch              # Bump patch version (0.0.2 → 0.0.3)
+bun run release minor              # Bump minor version (0.0.2 → 0.1.0)
+bun run release major              # Bump major version (0.0.2 → 1.0.0)
+bun run release patch --dry-run    # Preview release without changes
+bun run release patch --message "…" # Custom CHANGELOG message
 
 # Database (Drizzle ORM)
 bun run db:generate         # Generate migration from schema changes
@@ -125,9 +129,9 @@ bun test:e2e:regression     # E2E regression tests (@regression tag) - for CI/pr
 bun test:e2e:ui             # E2E tests with Playwright UI
 bun test:all                # All tests (unit + E2E regression)
 
-# Release (manual via GitHub Actions)
-git commit -m "release: publish"   # Explicit release commit
-git push origin main               # Triggers release ONLY with "release:" type
+# Release (local script + CI publish)
+bun run release patch --message "Description of changes"
+git push origin main --follow-tags  # CI: Test → npm publish → GitHub Release
 
 # Agent Workflows (TDD Pipeline)
 # See: @docs/development/tdd-automation-pipeline.md for complete TDD automation guide
@@ -229,7 +233,7 @@ git push origin main               # Triggers release ONLY with "release:" type
 - **See**: `@docs/architecture/testing-strategy/14-using-test-steps-for-readability.md` for comprehensive guide with architectural rationale, patterns, and adoption metrics
 
 ### Commit Messages (Conventional Commits - REQUIRED)
-- `release:` → Publish new version (patch bump 0.0.X) - **ONLY this triggers releases**
+- `release:` → Created by `bun run release` script - **ONLY this triggers CI publishing**
 - `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:` → No version bump
 
 ## Architecture Principles
@@ -338,7 +342,7 @@ When implementing features that use infrastructure technologies, fetch the offic
 2. **Test locally**: `bun run lint && bun run format && bun run typecheck && bun test:unit`
 3. **Commit**: Use conventional commits (`feat:`, `fix:`, etc.) for regular work
 4. **Push**: GitHub Actions runs tests
-5. **Release**: When ready to publish, use `git commit -m "release: publish"` and push
+5. **Release**: `bun run release patch --message "..."` then `git push origin main --follow-tags`
 
 ## TDD Automation Pipeline (V3)
 

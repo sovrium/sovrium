@@ -285,7 +285,6 @@ Sovrium uses the following version management approach:
 | `typescript-eslint`          | `^8.56.1`        | MIT        | typescript-eslint team         | Stable    | TypeScript-aware lint rules                                                |
 | `prettier`                   | `^3.8.1`         | MIT        | Community                      | Stable    | Code formatter; config in `.prettierrc.json`                               |
 | `knip`                       | `^5.85.0`        | MIT        | Community (Lars Kappert, solo) | Stable    | Unused code/dependency detection                                           |
-| `semantic-release`           | `^25.0.3`        | MIT        | Community                      | Stable    | Automated release management                                               |
 | `drizzle-kit`                | `^0.31.9`        | Apache 2.0 | Drizzle Team                   | Maturing  | Must be upgraded in sync with `drizzle-orm`                                |
 | `@playwright/test`           | `^1.58.2`        | Apache 2.0 | Microsoft                      | Stable    | Test runner for E2E specs                                                  |
 | `@testcontainers/postgresql` | `^11.12.0`       | MIT        | AtomicJar / Docker Inc.        | Stable    | PostgreSQL test containers                                                 |

@@ -7,7 +7,7 @@
 
 import { favicons } from './favicons'
 import { footerI18n } from './footer'
-import { langSwitchScript, mobileMenuScript, navbar } from './navbar'
+import { createNavbar, langSwitchScript, mobileMenuScript } from './navbar'
 import type { Page } from '@/index'
 
 // ─── Static data for marquee logos (duplicated for infinite scroll effect) ─────
@@ -60,7 +60,7 @@ export const partner: Page = {
   },
   sections: [
     // Navigation Bar
-    navbar,
+    createNavbar('partner'),
 
     // ─── Section 1: Hero ────────────────────────────────────────────────────
     {

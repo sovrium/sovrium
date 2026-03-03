@@ -7,7 +7,7 @@
 
 import { favicons } from './favicons'
 import { footerI18n } from './footer'
-import { langSwitchScript, mobileMenuScript, navbar } from './navbar'
+import { createNavbar, langSwitchScript, mobileMenuScript } from './navbar'
 import type { Page } from '@/index'
 
 export const about: Page = {
@@ -60,7 +60,7 @@ export const about: Page = {
   },
   sections: [
     // Navigation Bar
-    navbar,
+    createNavbar('about'),
 
     // --- Section 1: Hero ---------------------------------------------------
     {

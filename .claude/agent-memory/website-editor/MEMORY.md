@@ -39,7 +39,14 @@
 - For SVG-like elements: use CSS-styled `span` elements (e.g., hamburger bars with `bg-current`)
 
 ## Responsive Navbar
-- Navbar shared via `website/pages/navbar.ts` (imported by all pages)
+- Navbar created via `createNavbar(activePage?)` factory in `website/pages/navbar.ts`
+- `NavPage` type: `'docs' | 'partner' | 'about'` -- pass to highlight corresponding link
+- Deprecated `navbar` const still exported (calls `createNavbar()` with no active page)
+- **Active state (desktop)**: `text-sovereignty-light` (bright white, no hover classes)
+- **Active state (mobile)**: `text-sovereignty-light bg-sovereignty-gray-800` (bright white + bg)
+- **Inactive state (desktop)**: `text-sovereignty-gray-400 hover:text-sovereignty-light`
+- **Inactive state (mobile)**: `text-sovereignty-gray-300 hover:text-sovereignty-light hover:bg-sovereignty-gray-800`
+- Active links get `aria-current="page"` for accessibility
 - Desktop: `hidden md:flex` on nav links container
 - Mobile: hamburger button (`button` type, `id="mobile-menu-btn"`) with Lucide `menu`/`x` icons
 - Mobile menu: `div` with `id="mobile-menu"`, absolute overlay (not in-flow), animated via `maxHeight`

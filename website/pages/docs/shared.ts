@@ -7,7 +7,7 @@
 
 import { favicons } from '../favicons'
 import { footerI18n } from '../footer'
-import { langSwitchScript, mobileMenuScript, navbar } from '../navbar'
+import { createNavbar, langSwitchScript, mobileMenuScript } from '../navbar'
 import type { Page } from '@/index'
 
 // ─── Docs Sidebar Toggle Script ─────────────────────────────────────────────
@@ -209,7 +209,7 @@ export function docsPage(options: DocsPageOptions): Page {
     },
     sections: [
       // ── Navbar ──────────────────────────────────────────────────────────
-      navbar,
+      createNavbar('docs'),
 
       // ── Main Content (Sidebar + Content) ────────────────────────────────
       {

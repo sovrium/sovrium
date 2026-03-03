@@ -103,101 +103,48 @@ This saves Test time and resources by stopping at the first failure.
 
 ### Purpose
 
-The release workflow automates the entire release process using semantic-release. It only runs after the Test workflow completes successfully.
-
-### Configuration
-
-```yaml
-name: Release
-
-on:
-  workflow_run:
-    workflows: ['Test']
-    types: [completed]
-    branches: [main]
-
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
-  id-token: write
-
-jobs:
-  release:
-    name: Release
-    runs-on: ubuntu-latest
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      !contains(github.event.workflow_run.head_commit.message, '[skip ci]')
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json # Uses version from packageManager field
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: bunx semantic-release
-```
+The release workflow publishes the package to npm and creates a GitHub Release. It runs after the Test workflow completes successfully on commits created by `bun run release` (which start with `release:`).
 
 ### What the Release Workflow Does
 
-1. **Trigger Check** - Only runs if Test workflow succeeded and commit doesn't contain `[skip ci]`
-2. **Checkout** - Fetches full git history for version analysis
-3. **Setup Bun** - Installs Bun using version from package.json
-4. **Setup Node.js** - Installs Node.js LTS (semantic-release requires Node.js)
-5. **Install Dependencies** - Runs `bun install --frozen-lockfile`
-6. **Release** - Runs `bunx semantic-release` to create automated release
+1. **Trigger Check** - Only runs if Test workflow succeeded and commit starts with `release:`
+2. **Checkout** - Fetches the repository code
+3. **Setup Bun + Node.js** - Bun for dependencies, Node.js for `npm publish --provenance` (Bun lacks provenance support)
+4. **Install Dependencies** - Runs `bun install --frozen-lockfile`
+5. **Publish to npm** - `npm publish --provenance --access public` with OIDC Trusted Publishing
+6. **Create GitHub Release** - `gh release create --generate-notes --verify-tag`
+7. **Trigger Website Sync** - Dispatches `deploy-website.yml` (non-blocking)
 
 ### Permissions
 
-The release workflow requires these permissions:
-
-- `contents: write` - Commit version bumps and changelog
-- `issues: write` - Close issues referenced in commits
-- `pull-requests: write` - Comment on PRs
-- `id-token: write` - OpenID Connect token
+- `contents: write` - Create GitHub Release
+- `id-token: write` - OIDC for npm provenance
 
 ### Required GitHub Secrets
 
-- `GITHUB_TOKEN` - Automatically provided by GitHub Actions
-- `NPM_TOKEN` - Must be configured manually for npm publishing
+- `NPM_TOKEN` - npm registry authentication
+- `GH_PAT_WORKFLOW` - Dispatch website deploy workflow
 
 ## Workflow Orchestration
 
 The workflows run in sequence:
 
 ```
-Push to main branch
+bun run release patch (local)
+       ↓
+git push origin main --follow-tags
        ↓
 Test Workflow runs (tests, linting, type checking)
-       ↓ (if successful)
-Release Workflow runs (semantic-release)
+       ↓ (if successful + commit starts with "release:")
+Release Workflow runs (npm publish + GitHub Release)
        ↓
-Automated release created
+Website sync triggered
 ```
 
 ### Why Sequential Execution
 
-- **Quality Gate**: Tests must pass before releasing
-- **Resource Efficiency**: Don't run release if tests fail
+- **Quality Gate**: Tests must pass before publishing
+- **Resource Efficiency**: Don't publish if tests fail
 - **Safety**: Ensures only validated code gets released
 
 ## Workflow Triggers
@@ -247,8 +194,8 @@ bun test:e2e                   # E2E tests (Playwright)
 ### Test Release Process Locally
 
 ```bash
-# Dry-run semantic-release (doesn't publish)
-bunx semantic-release --dry-run
+# Dry-run release script (doesn't make changes)
+bun run release patch --dry-run
 ```
 
 ## Monitoring Workflows
@@ -291,8 +238,8 @@ Add workflow status badges to README:
 
 1. Test workflow failed - Check Test workflow status
 2. Commit contains `[skip ci]` - Remove from commit message
-3. No `feat:` or `fix:` commits - semantic-release only releases for these
-4. Already released - No new commits since last release
+3. Commit doesn't start with `release:` - Must be created by `bun run release`
+4. Tag doesn't exist - Ensure `--follow-tags` was used when pushing
 
 ### Release Workflow Fails
 
@@ -300,12 +247,12 @@ Add workflow status badges to README:
 
 1. Go to Actions tab
 2. Click on failed release workflow
-3. View semantic-release step output
+3. View npm publish or GitHub Release step output
 
 **Common issues**:
 
 - NPM_TOKEN not configured - Add secret in repository settings
-- Commit message format wrong - Use conventional commits
+- Tag not pushed - Re-push with `git push origin main --follow-tags`
 - Package name already taken - Change package name in package.json
 
 ## Best Practices

@@ -12,7 +12,7 @@
     "company": "ESSENTIAL SERVICES",
     "email": "support@sovrium.com"
   },
-  "license": "SEE LICENSE IN LICENSE.md",
+  "license": "BUSL-1.1",
   "type": "module",
   "publishConfig": {
     "provenance": true,
@@ -25,7 +25,16 @@
   "bugs": {
     "url": "https://github.com/sovrium/sovrium/issues"
   },
-  "homepage": "https://github.com/sovrium/sovrium#readme",
+  "homepage": "https://sovrium.com",
+  "engines": {
+    "bun": ">=1.3.10"
+  },
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
   "keywords": [
     "sovrium",
     "bun",
@@ -38,9 +47,9 @@
     "configuration"
   ],
   "files": [
-    "drizzle/*",
-    "drizzle/**/*",
-    "schemas/*",
+    "drizzle/**",
+    "schemas/**",
+    "!schemas/development/**",
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.css",
@@ -51,7 +60,6 @@
     "LICENSE.md",
     "LICENSE_EE.md",
     "README.md",
-    "CHANGELOG.md",
     "tsconfig.json"
   ],
   "scripts": {
@@ -92,7 +100,8 @@
     "db:check": "drizzle-kit check",
     "website": "bun --watch run website/start.ts",
     "website:build": "bun run website/build.ts",
-    "release": "semantic-release"
+    "prepublish-check": "bun run scripts/prepublish-check.ts",
+    "release": "bun run scripts/release.ts"
   },
   "devDependencies": {
     "@apidevtools/json-schema-ref-parser": "^15.3.1",
@@ -101,9 +110,7 @@
     "@eslint/compat": "^2.0.2",
     "@eslint/js": "^9.39.3",
     "@playwright/test": "^1.58.2",
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/exec": "^7.1.0",
-    "@semantic-release/git": "^10.0.1",
+    "@tanstack/react-query-devtools": "^5.91.3",
     "@testcontainers/postgresql": "^11.12.0",
     "@types/bun": "^1.3.10",
     "@types/dompurify": "^3.2.0",
@@ -132,7 +139,6 @@
     "pg": "^8.19.0",
     "playwright": "^1.58.2",
     "prettier-plugin-tailwindcss": "^0.7.2",
-    "semantic-release": "^25.0.3",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1"
   },
@@ -147,14 +153,12 @@
     "@scalar/hono-api-reference": "^0.9.47",
     "@tailwindcss/postcss": "^4.2.1",
     "@tanstack/react-query": "^5.90.21",
-    "@tanstack/react-query-devtools": "^5.91.3",
     "@tanstack/react-table": "^8.21.3",
     "better-auth": "^1.5.2",
     "dompurify": "^3.3.1",
     "drizzle-orm": "^0.45.1",
     "effect": "^3.19.19",
     "hono": "^4.12.3",
-    "jiti": "^2.6.1",
     "js-yaml": "^4.1.1",
     "lucide-react": "^0.575.0",
     "nanoid": "^5.1.6",

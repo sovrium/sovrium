@@ -34,7 +34,7 @@ You will maintain this modular documentation approach:
   - `quality/`: ESLint, Prettier, Knip
   - `testing/`: Bun Test, Playwright
   - `cicd/`: GitHub Actions
-  - `release/`: semantic-release
+  - `release/`: Release script
 
 ## Documentation Optimization (CRITICAL)
 

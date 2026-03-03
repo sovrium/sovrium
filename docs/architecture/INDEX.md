@@ -328,10 +328,10 @@ This index provides a comprehensive guide to Sovrium's architecture documentatio
 
 ### CI/CD & Release
 
-| Document                      | Purpose                           | Used By                   |
-| ----------------------------- | --------------------------------- | ------------------------- |
-| `cicd/workflows.md`           | GitHub Actions, automated testing | Testing Strategy          |
-| `release/semantic-release.md` | Automated releases                | All architecture patterns |
+| Document                    | Purpose                            | Used By                   |
+| --------------------------- | ---------------------------------- | ------------------------- |
+| `cicd/workflows.md`         | GitHub Actions, automated testing  | Testing Strategy          |
+| `release/release-script.md` | Release script (`bun run release`) | All architecture patterns |
 
 ---
 

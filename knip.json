@@ -21,7 +21,6 @@
     "@hookform/resolvers",
     "react-hook-form",
     "@tanstack/react-query",
-    "@tanstack/react-query-devtools",
     "@tanstack/react-table",
     "@eslint/compat",
     "@apidevtools/json-schema-ref-parser",

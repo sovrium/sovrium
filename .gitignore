@@ -63,6 +63,9 @@ drizzle-kit.log
 !drizzle/*.sql
 test-output.log
 
+# Development schemas (generated, not for consumers)
+schemas/development/
+
 # TDD automation generated files
 .github/tdd-scan.lock
 .github/tdd-queue-scan.json

@@ -10,6 +10,8 @@
   <a href="SPEC-PROGRESS.md"><img src="https://img.shields.io/badge/specs-99%25_passing-brightgreen" alt="Specs" /></a>
   <a href="https://bun.sh"><img src="https://img.shields.io/badge/runtime-Bun_1.3-f472b6" alt="Bun" /></a>
   <a href="https://www.typescriptlang.org"><img src="https://img.shields.io/badge/TypeScript-5.9-3178c6" alt="TypeScript" /></a>
+  <a href="https://www.npmjs.com/package/sovrium"><img src="https://img.shields.io/npm/v/sovrium" alt="npm" /></a>
+  <a href="https://www.npmjs.com/package/sovrium"><img src="https://img.shields.io/npm/dm/sovrium" alt="downloads" /></a>
 </p>
 
 <p align="center">
@@ -151,7 +153,7 @@ APP_SCHEMA='https://example.com/app.yaml' sovrium start
 
 Define your data model in config. Sovrium creates PostgreSQL tables, handles migrations, and exposes a full REST API automatically.
 
-- **44+ field types** -- text, numeric, date/time, selection, media, relational, user tracking, and advanced types (formula, JSON, geolocation, barcode, autonumber, and more)
+- **40 field types** -- text, numeric, date/time, selection, media, relational, user tracking, and advanced types (formula, JSON, geolocation, barcode, autonumber, and more)
 - **Relationships** -- one-to-many and many-to-many with lookup and rollup fields
 - **Views** -- filtered, sorted, and grouped views with field-level visibility
 - **Indexes and constraints** -- primary keys, unique constraints, check constraints
