@@ -100,7 +100,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           track_progress: false
           use_sticky_comment: false
-          claude_args: "--max-turns 30 --model claude-sonnet-4-20250514 --max-budget-usd 5.00"
+          claude_args: "--max-turns 30 --model claude-opus-4-6 --max-budget-usd 10.00"
           prompt: |
             You are updating website documentation after a new Sovrium release (v${{ steps.version.outputs.version }}).
 
