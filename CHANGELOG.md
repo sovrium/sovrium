@@ -1,3 +1,30 @@
+## [0.1.0](https://github.com/sovrium/sovrium/compare/v0.0.2...v0.1.0) (2026-03-03)
+
+### Features
+
+- **website**: redesign docs with Shiki syntax highlighting, screenshots, and pedagogical content ([cf9b91636](https://github.com/sovrium/sovrium/commit/cf9b91636))
+- **ci**: automate releases with conventional commit analysis ([6694ac35f](https://github.com/sovrium/sovrium/commit/6694ac35f))
+
+### Bug Fixes
+
+- **website**: audit fixes and docs spacing improvements ([cfa594d86](https://github.com/sovrium/sovrium/commit/cfa594d86))
+- **ci**: prevent deploy job from being skipped when sync-docs is skipped ([8f394b68c](https://github.com/sovrium/sovrium/commit/8f394b68c))
+- **website**: sync version, field count, and component count with source of truth ([4c3603211](https://github.com/sovrium/sovrium/commit/4c3603211))
+
+### Refactoring
+
+- replace semantic-release with custom release script and enhance website navbar ([422626be2](https://github.com/sovrium/sovrium/commit/422626be2))
+- **ci**: move sync-docs from release.yml to deploy-website.yml ([5816636a7](https://github.com/sovrium/sovrium/commit/5816636a7))
+
+### Styles
+
+- **website**: standardize spacing and typography across all pages ([641004b4a](https://github.com/sovrium/sovrium/commit/641004b4a))
+- format CHANGELOG and v0.0.2 schema files ([c04779fad](https://github.com/sovrium/sovrium/commit/c04779fad))
+
+### Chores
+
+- switch npm publishing to Trusted Publishing (OIDC) ([cf401c8e9](https://github.com/sovrium/sovrium/commit/cf401c8e9))
+
 ## [0.0.2](https://github.com/sovrium/sovrium/compare/v0.0.1...v0.0.2) (2026-03-03)
 
 - refactor(i18n)!: completely remove per-component i18n infrastructure ([0fc7c4c](https://github.com/sovrium/sovrium/commit/0fc7c4cde35db2c9a6625b5ce71534714f7abe67))
