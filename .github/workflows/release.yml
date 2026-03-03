@@ -44,7 +44,6 @@ jobs:
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: bunx semantic-release
 
   # Trigger website sync + deploy after successful release.
