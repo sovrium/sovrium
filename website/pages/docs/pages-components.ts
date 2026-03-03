@@ -28,7 +28,7 @@ export const docsPages = docsPage({
         {
           type: 'paragraph',
           content: '$t:docs.pages.description',
-          props: { className: 'text-lg text-sovereignty-gray-300 max-w-3xl leading-relaxed' },
+          props: { className: 'text-base text-sovereignty-gray-300 max-w-3xl leading-relaxed' },
         },
       ],
     },
