@@ -32,6 +32,20 @@ Modern organizations are drowning in technological dependencies:
 4. **Engineering Distraction**: Teams waste time integrating incompatible tools
 5. **Strategic Risk**: Business continuity depends on external companies
 
+### The Structural Trap: Platform Decay
+
+The costs above are not accidental—they follow a well-documented pattern that writer Cory Doctorow termed **enshittification**: the predictable, three-stage decay of digital platforms.
+
+**Stage 1 — Attract**: Platforms launch with generous free tiers, excellent UX, and fair pricing. Users invest their time, data, and workflows into the platform. Teams build processes around it. The switching cost grows quietly.
+
+**Stage 2 — Extract from users**: Once users are locked in, the platform shifts value away from them. Free tiers shrink (Airtable cut its free API calls from unlimited to 1,000). Features move behind paywalls (Notion eliminated its AI add-on, forcing upgrades to Business tier). Prices rise significantly (Airtable's Business plan increased 87% in two years).
+
+**Stage 3 — Extract from everyone**: Finally, the platform optimizes purely for shareholders. Both users and business customers see degraded experiences—opaque billing, silent overage charges, removed integrations—while the platform captures maximum revenue from the captive audience.
+
+**This pattern is structural, not exceptional.** Every venture-backed SaaS platform faces the same incentive: acquire users at a loss, then recoup that investment by extracting value once switching costs are high. The question is not _whether_ your current tools will follow this path, but _when_.
+
+**Self-hosted software is structurally immune to this cycle.** When you own the software running on your infrastructure, there is no third party whose incentives can diverge from yours. Configuration files in your Git repository cannot be paywalled. Features you already use cannot be moved to a higher pricing tier. Your data cannot be held hostage during a migration.
+
 ### The Paradox
 
 No-code tools promised to make software development accessible, but instead created **a new form of dependency**:
