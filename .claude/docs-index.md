@@ -39,6 +39,7 @@
 - `@docs/infrastructure/ui/tailwind.md` - Tailwind CSS
 - `@docs/infrastructure/ui/tanstack-query.md` - TanStack Query
 - `@docs/infrastructure/ui/tanstack-table.md` - TanStack Table
+- `@docs/infrastructure/ui/lucide-react.md` - Icon library (dynamic icon resolution from app schema)
 
 ### CSS & Styling
 - `@docs/infrastructure/css/css-compiler.md` - Programmatic Tailwind CSS generation
@@ -61,7 +62,7 @@
 - `@docs/infrastructure/dependency-sustainability.md` - Dependency fact sheets (versions, licenses, funding, alternatives, migration effort)
 
 ### Utilities
-(No utilities currently documented - use Effect.DateTime for date handling)
+- `@docs/infrastructure/utilities/nanoid.md` - Nano ID (compact, URL-friendly unique IDs)
 
 ### Quality & Testing
 - `@docs/infrastructure/quality/eslint.md` - ESLint linting

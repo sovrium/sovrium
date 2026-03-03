@@ -58,7 +58,8 @@ bunx prettier --write . --config .prettierrc.json
   "tabWidth": 2, // 2 spaces per indentation level
   "useTabs": false, // Spaces, not tabs
   "printWidth": 100, // Wrap lines at 100 characters
-  "singleAttributePerLine": true // Each attribute on separate line (HTML/JSX)
+  "singleAttributePerLine": true, // Each attribute on separate line (HTML/JSX)
+  "plugins": ["prettier-plugin-tailwindcss"] // Auto-sort Tailwind CSS classes
 }
 ```
 

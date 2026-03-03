@@ -438,18 +438,9 @@ test('user can complete login flow', { tag: '@regression' }, async ({ page }) =>
   await expect(page).toHaveURL('/dashboard')
 })
 
-// Critical test - Run every commit (essential workflows)
-test('user can authenticate', { tag: '@spec' }, async ({ page }) => {
-  await page.goto('/login')
-  await page.getByLabel('Email').fill('user@example.com')
-  await page.getByLabel('Password').fill('password123')
-  await page.getByRole('button', { name: 'Sign in' }).click()
-  await expect(page).toHaveURL('/dashboard')
-})
-
 // Multiple tags - Test serves multiple purposes
-test('user can save work', { tag: ['@spec', '@spec'] }, async ({ page }) => {
-  // Runs during development AND every commit
+test('user can save work', { tag: ['@spec', '@regression'] }, async ({ page }) => {
+  // Runs in both spec and regression suites
   await page.goto('/editor')
   await page.getByRole('textbox').fill('Important data')
   await page.getByRole('button', { name: 'Save' }).click()
@@ -468,15 +459,8 @@ playwright test --grep="@spec"
 playwright test --project=regression
 playwright test --grep="@regression"
 
-# Every commit - Critical paths (essential workflows)
-playwright test --project=critical
-playwright test --grep="@spec"
-
-# Combined - Spec + Critical (pre-commit)
-playwright test --grep="@spec|@spec"
-
-# Combined - Regression + Critical (CI/CD)
-playwright test --grep="@regression|@spec"
+# Combined - Spec + Regression (full suite)
+playwright test --grep="@spec|@regression"
 
 # Full suite - All tests (manual runs)
 playwright test
@@ -500,11 +484,6 @@ export default defineConfig({
       grep: /@regression/,
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'critical',
-      grep: /@spec/,
-      use: { ...devices['Desktop Chrome'] },
-    },
   ],
 })
 ```
@@ -526,14 +505,6 @@ export default defineConfig({
 - Fewer tests, broader coverage
 - Run in CI/CD pipelines
 - Efficient validation before deployment
-
-**`@spec` - Critical Path Tests:**
-
-- Essential workflows only (auth, data persistence, checkout)
-- Must always work
-- Rock-solid (no flakiness)
-- Run every commit
-- Production smoke tests after deployment
 
 ### Migration Strategy
 
@@ -563,12 +534,12 @@ test('user can reset password', { tag: '@spec' }, ...)  // Keep for debugging
 test('password management flow', { tag: '@regression' }, ...)  // Add consolidated
 ```
 
-**Phase 4: Promote Critical Workflows**
+**Phase 4: Add to Regression Suite**
 
 ```typescript
-// Add @spec tag if essential
-test('user can reset password', { tag: ['@spec', '@spec'] }, async ({ page }) => {
-  // Now runs during development AND every commit
+// Add @regression tag for CI coverage
+test('user can reset password', { tag: ['@spec', '@regression'] }, async ({ page }) => {
+  // Now runs in both spec (development) and regression (CI/CD) suites
 })
 ```
 

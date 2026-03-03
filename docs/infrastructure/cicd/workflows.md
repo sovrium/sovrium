@@ -8,8 +8,24 @@ This project uses GitHub Actions for automated continuous integration and deploy
 
 All workflow files are located in `.github/workflows/`:
 
-- `test.yml` - Continuous Integration (runs tests on push/PR)
+### Core Workflows
+
+- `test.yml` - Continuous Integration (runs tests on push/PR, extended with TDD handling)
 - `release.yml` - Automated releases (runs after Test passes)
+
+### TDD Automation Workflows
+
+- `tdd-pr-creator.yml` - Scans for `.fixme()` specs, creates TDD PRs
+- `tdd-claude-code.yml` - Runs Claude Code to fix failing specs
+- `tdd-monitor.yml` - Detects stale TDD PRs
+- `tdd-branch-sync.yml` - Syncs TDD branches with main
+- `tdd-cleanup.yml` - Cancels Claude Code runs when TDD PRs reach terminal state
+
+### Workflow Linting
+
+- GitHub Actions workflows are linted with `actionlint` via `bun run lint:workflows`
+
+> **TDD Automation**: For comprehensive documentation on the TDD automation pipeline, see `@docs/development/tdd-automation-pipeline.md`
 
 ## Test Workflow (test.yml)
 
@@ -53,7 +69,7 @@ jobs:
         run: bun run typecheck
 
       - name: Run unit tests
-        run: bun test
+        run: bun test .test.ts .test.tsx
 
       - name: Install Playwright browsers
         run: bunx playwright install --with-deps chromium
@@ -224,8 +240,8 @@ git commit -m "docs: update README [skip ci]"
 bun run lint
 bun run format:check
 bun run typecheck
-bun test
-bun test:e2e
+bun test .test.ts .test.tsx    # Unit tests (pattern-filtered)
+bun test:e2e                   # E2E tests (Playwright)
 ```
 
 ### Test Release Process Locally

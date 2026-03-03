@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Version**: 24.2.0
+**Version**: ^25.0.3
 **Purpose**: Fully automated version management, changelog generation, and npm package publishing based on conventional commits
 
 Semantic-release eliminates manual version bumping, changelog writing, and release creation by analyzing commit messages to determine the next version number and automating the entire release process.

@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Version**: ^1.5.1
+**Version**: ^1.5.2
 **Purpose**: Framework-agnostic authentication and authorization library for TypeScript
 **Full Reference**: https://better-auth.com/llms.txt
 

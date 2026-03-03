@@ -159,7 +159,7 @@ export const DevToolsLayer = DevTools.layer()
 export const isDevToolsEnabled = (): boolean => process.env['EFFECT_DEVTOOLS'] === '1'
 ```
 
-### @effect/language-service (0.74.0)
+### @effect/language-service (0.77.0)
 
 TypeScript language service plugin for enhanced IDE support. Configured in `tsconfig.json`:
 

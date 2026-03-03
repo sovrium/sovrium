@@ -1,4 +1,4 @@
-# Nodemailer v7.0.11
+# Nodemailer v8.0.1
 
 ## Overview
 

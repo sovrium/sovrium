@@ -36,7 +36,7 @@
 | **Hono** | ^4.12.3 | Web framework (API routes, RPC client, OpenAPI) | @docs/infrastructure/framework/hono.md |
 | **Zod** | ^4.3.6 | OpenAPI integration ONLY (src/domain/models/api/) + client forms | @docs/infrastructure/api/zod-hono-openapi.md |
 | **js-yaml** | ^4.1.1 | YAML parser (CLI config files only) | @docs/infrastructure/parsing/js-yaml.md |
-| **Better Auth** | ^1.5.1 | Authentication | @docs/infrastructure/framework/better-auth.md |
+| **Better Auth** | ^1.5.2 | Authentication | @docs/infrastructure/framework/better-auth.md |
 | **Drizzle ORM** | ^0.45.1 | Database (PostgreSQL via bun:sql) | @docs/infrastructure/database/drizzle.md |
 | **React** | ^19.2.4 | UI library | @docs/infrastructure/ui/react.md |
 | **Tailwind CSS** | ^4.2.1 | Styling (programmatic CSS compiler) | @docs/infrastructure/ui/tailwind.md |

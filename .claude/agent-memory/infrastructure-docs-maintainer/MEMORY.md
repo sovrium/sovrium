@@ -17,6 +17,7 @@
 | `docs/infrastructure/testing/bun-test.md` | Good | Removed non-existent scripts test:unit:watch, test:unit:coverage; fixed --concurrent claim |
 | `docs/infrastructure/ui/tailwind.md` | Good | Version ^4.1.18→^4.2.1 |
 | `docs/infrastructure/ui/tanstack-query.md` | Good | Version ^5.90.20→^5.90.21 |
+| `docs/infrastructure/ui/lucide-react.md` | Good | Created 2026-03-03; dynamic icon resolution from app schema |
 | `docs/infrastructure/api/zod-hono-openapi.md` | Good | @hono/zod-openapi 1.2.1→^1.2.2; fixed ESLint rule description (3 rules not 2) |
 
 ## Version Tracking
@@ -69,6 +70,13 @@ Last verified against package.json (bun@1.3.10):
 - Drizzle config schema path: `./src/infrastructure/database/drizzle/schema.ts`
 - ESLint modular configs: `eslint/` directory (16 files), main `eslint.config.ts` is ~44 lines
 - Zod restrictions: `eslint/infrastructure.config.ts` (3 rules: restriction + 2 exceptions)
+
+## Installed-but-unused packages (verified 2026-03-03)
+
+- `@effect/cli` (^0.73.2): Installed, zero imports anywhere. CLI uses hand-rolled `Bun.argv` parser.
+- `@effect/platform` (^0.94.5): Installed, zero imports anywhere.
+- `@effect/platform-bun` (^0.87.1): Installed, zero imports anywhere.
+- These 3 can be safely removed until a future migration. Noted in dependency-sustainability.md.
 
 ## Token Optimization Notes
 

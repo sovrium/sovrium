@@ -72,17 +72,16 @@ Sovrium uses the following version management approach:
 
 **Packages in use**:
 
-| Package                    | Version    | Purpose                                        |
-| -------------------------- | ---------- | ---------------------------------------------- |
-| `effect`                   | `^3.19.19` | Core runtime, Schema, Context, Layer           |
-| `@effect/experimental`     | `^0.58.0`  | DevTools layer                                 |
-| `@effect/platform`         | `^0.94.5`  | HTTP platform abstractions                     |
-| `@effect/platform-bun`     | `^0.87.1`  | Bun-specific platform bindings                 |
-| `@effect/cli`              | `^0.73.2`  | CLI command framework                          |
-| `@effect/language-service` | `0.77.0`   | TypeScript language service plugin (exact pin) |
-| `@effect/eslint-plugin`    | `^0.3.2`   | ESLint rules for Effect patterns               |
+| Package                    | Version    | Purpose                                        | Status |
+| -------------------------- | ---------- | ---------------------------------------------- | ------ |
+| `effect`                   | `^3.19.19` | Core runtime, Schema, Context, Layer           | Active |
+| `@effect/experimental`     | `^0.58.0`  | DevTools layer                                 | Active |
+| `@effect/language-service` | `0.77.0`   | TypeScript language service plugin (exact pin) | Active |
+| `@effect/eslint-plugin`    | `^0.3.2`   | ESLint rules for Effect patterns               | Active |
 
 **Notes**: Effect is the deepest framework coupling in Sovrium — used in 277+ domain files across all four architectural layers. The weekly release cadence means `bun.lock` updates are frequent. `@effect/language-service` is pinned to an exact version (`0.77.0`) because it directly affects the TypeScript language service behavior in IDEs.
+
+**Removed packages** (2026-03-03): `@effect/platform`, `@effect/platform-bun`, and `@effect/cli` were removed after codebase audit confirmed zero imports and no adoption benefit. The CLI (`src/cli.ts`) uses a hand-rolled argument parser with `Bun.argv` — `@effect/cli` would add unnecessary framework overhead for 2 commands and 1 flag. `@effect/platform` would complicate existing Bun-native I/O patterns (`Bun.file()`, `Bun.write()`).
 
 ---
 
@@ -265,31 +264,33 @@ Sovrium uses the following version management approach:
 
 ## Utilities
 
-| Dependency       | Version         | License              | Backing                                | Stability | Notes                                                         |
-| ---------------- | --------------- | -------------------- | -------------------------------------- | --------- | ------------------------------------------------------------- |
-| `nodemailer`     | `8.0.1` (exact) | MIT                  | Community (Andris Reinman, solo)       | Stable    | Exact pin due to v8 API changes; used for SMTP email sending  |
-| `dompurify`      | `^3.3.1`        | Apache 2.0 / MPL 2.0 | Community (Cure53 security firm)       | Stable    | HTML sanitization; dual-licensed; security-critical           |
-| `nanoid`         | `^5.1.6`        | MIT                  | Community (Andrey Sitnik, solo)        | Stable    | Unique ID generation; ESM-only since v4                       |
-| `js-yaml`        | `^4.1.1`        | MIT                  | Community                              | Stable    | YAML parsing in CLI only; no serialization used               |
-| `lucide-react`   | `^0.575.0`      | ISC                  | Community (fork of Feather Icons)      | Stable    | Icon library; each icon is a separate export (tree-shakeable) |
-| `jiti`           | `^2.6.1`        | MIT                  | Community (Pooya Parsa)                | Stable    | Runtime TypeScript execution for config loading               |
-| `postcss`        | `^8.5.8`        | MIT                  | Community (Andrey Sitnik + Eva Minich) | Stable    | Required by Tailwind CSS programmatic compiler                |
-| `tw-animate-css` | `^1.4.0`        | MIT                  | Community                              | Stable    | Pre-built animation classes for Tailwind v4                   |
+| Dependency       | Version         | License              | Backing                                | Stability | Notes                                                                                                               |
+| ---------------- | --------------- | -------------------- | -------------------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------- |
+| `nodemailer`     | `8.0.1` (exact) | MIT                  | Community (Andris Reinman, solo)       | Stable    | Exact pin due to v8 API changes; used for SMTP email sending                                                        |
+| `dompurify`      | `^3.3.1`        | Apache 2.0 / MPL 2.0 | Community (Cure53 security firm)       | Stable    | HTML sanitization; dual-licensed; security-critical                                                                 |
+| `nanoid`         | `^5.1.6`        | MIT                  | Community (Andrey Sitnik, solo)        | Stable    | Unique ID generation; ESM-only since v4                                                                             |
+| `js-yaml`        | `^4.1.1`        | MIT                  | Community                              | Stable    | YAML parsing in CLI only; no serialization used                                                                     |
+| `lucide-react`   | `^0.575.0`      | ISC                  | Community (fork of Feather Icons)      | Stable    | Icon library; dynamic resolution from kebab-case names in app schema. See `@docs/infrastructure/ui/lucide-react.md` |
+| `jiti`           | `^2.6.1`        | MIT                  | Community (Pooya Parsa)                | Stable    | Runtime TypeScript execution for config loading                                                                     |
+| `postcss`        | `^8.5.8`        | MIT                  | Community (Andrey Sitnik + Eva Minich) | Stable    | Required by Tailwind CSS programmatic compiler                                                                      |
+| `tw-animate-css` | `^1.4.0`        | MIT                  | Community                              | Stable    | Pre-built animation classes for Tailwind v4                                                                         |
 
 ---
 
 ## Dev Dependencies
 
-| Dependency                   | Version          | License    | Backing                        | Stability | Notes                                                |
-| ---------------------------- | ---------------- | ---------- | ------------------------------ | --------- | ---------------------------------------------------- |
-| `eslint`                     | `9.39.2` (exact) | MIT        | OpenJS Foundation              | Stable    | Exact pin for reproducibility; v9 flat config format |
-| `typescript-eslint`          | `^8.56.1`        | MIT        | typescript-eslint team         | Stable    | TypeScript-aware lint rules                          |
-| `prettier`                   | `^3.8.1`         | MIT        | Community                      | Stable    | Code formatter; config in `.prettierrc.json`         |
-| `knip`                       | `^5.85.0`        | MIT        | Community (Lars Kappert, solo) | Stable    | Unused code/dependency detection                     |
-| `semantic-release`           | `^25.0.3`        | MIT        | Community                      | Stable    | Automated release management                         |
-| `drizzle-kit`                | `^0.31.9`        | Apache 2.0 | Drizzle Team                   | Maturing  | Must be upgraded in sync with `drizzle-orm`          |
-| `@playwright/test`           | `^1.58.2`        | Apache 2.0 | Microsoft                      | Stable    | Test runner for E2E specs                            |
-| `@testcontainers/postgresql` | `^11.12.0`       | MIT        | AtomicJar / Docker Inc.        | Stable    | PostgreSQL test containers                           |
+| Dependency                   | Version          | License    | Backing                        | Stability | Notes                                                                      |
+| ---------------------------- | ---------------- | ---------- | ------------------------------ | --------- | -------------------------------------------------------------------------- |
+| `eslint`                     | `9.39.2` (exact) | MIT        | OpenJS Foundation              | Stable    | Exact pin for reproducibility; v9 flat config format                       |
+| `typescript-eslint`          | `^8.56.1`        | MIT        | typescript-eslint team         | Stable    | TypeScript-aware lint rules                                                |
+| `prettier`                   | `^3.8.1`         | MIT        | Community                      | Stable    | Code formatter; config in `.prettierrc.json`                               |
+| `knip`                       | `^5.85.0`        | MIT        | Community (Lars Kappert, solo) | Stable    | Unused code/dependency detection                                           |
+| `semantic-release`           | `^25.0.3`        | MIT        | Community                      | Stable    | Automated release management                                               |
+| `drizzle-kit`                | `^0.31.9`        | Apache 2.0 | Drizzle Team                   | Maturing  | Must be upgraded in sync with `drizzle-orm`                                |
+| `@playwright/test`           | `^1.58.2`        | Apache 2.0 | Microsoft                      | Stable    | Test runner for E2E specs                                                  |
+| `@testcontainers/postgresql` | `^11.12.0`       | MIT        | AtomicJar / Docker Inc.        | Stable    | PostgreSQL test containers                                                 |
+| `otplib`                     | `^13.3.0`        | MIT        | Community                      | Stable    | TOTP code generation for 2FA E2E tests only (`specs/api/auth/two-factor/`) |
+| `glob`                       | `^13.0.6`        | ISC        | Community (Isaac Z. Schlueter) | Stable    | File globbing in `scripts/lib/effect/FileSystemService.ts` only            |
 
 ---
 

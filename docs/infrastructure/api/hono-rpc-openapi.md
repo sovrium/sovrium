@@ -10,10 +10,10 @@ Sovrium uses a **dual-track API architecture** that provides both type-safe RPC 
 
 **Sovrium uses two validation libraries with strict separation**:
 
-| Library           | Version | Usage                            | Allowed Locations                                         | Enforced By       |
-| ----------------- | ------- | -------------------------------- | --------------------------------------------------------- | ----------------- |
-| **Effect Schema** | 3.19.12 | Server validation, domain models | All `src/` files                                          | Project standard  |
-| **Zod**           | 4.1.13  | OpenAPI integration ONLY         | `src/domain/models/api/` + `src/presentation/api/routes/` | ESLint boundaries |
+| Library           | Version  | Usage                            | Allowed Locations                              | Enforced By       |
+| ----------------- | -------- | -------------------------------- | ---------------------------------------------- | ----------------- |
+| **Effect Schema** | ^3.19.19 | Server validation, domain models | All `src/` files                               | Project standard  |
+| **Zod**           | ^4.3.6   | OpenAPI integration ONLY         | `src/domain/models/api/` + `src/presentation/` | ESLint boundaries |
 
 **Why This Separation Exists**:
 
@@ -22,13 +22,16 @@ Sovrium uses a **dual-track API architecture** that provides both type-safe RPC 
 3. OpenAPI tools do not support Effect Schema, forcing this dual-track approach
 4. Without strict enforcement, developers might use Zod everywhere, breaking architectural consistency
 
-**ESLint Enforcement** (eslint.config.ts lines 1086-1120):
+**ESLint Enforcement** (`eslint/infrastructure.config.ts`):
 
 ```typescript
-// Zod is FORBIDDEN in src/ except specific API directories
+// Zod is FORBIDDEN in src/ except specific directories
 {
   files: ['src/**/*.{ts,tsx}'],
-  ignores: ['src/domain/models/api/**/*.{ts,tsx}'], // Exception
+  ignores: [
+    'src/domain/models/api/**/*.{ts,tsx}', // API contract schemas (Zod for OpenAPI)
+    'src/presentation/**/*.{ts,tsx}',       // Forms, API routes, OpenAPI
+  ],
   rules: {
     'no-restricted-imports': [
       'error',
@@ -36,11 +39,11 @@ Sovrium uses a **dual-track API architecture** that provides both type-safe RPC 
         paths: [
           {
             name: 'zod',
-            message: 'Zod is restricted in src/ - use Effect Schema for server validation. EXCEPTION: Zod is allowed in src/domain/models/api for OpenAPI/Hono integration.'
+            message: 'Zod is restricted in src/ - use Effect Schema for server validation. EXCEPTION: Zod is allowed in src/domain/models/api for OpenAPI/Hono integration and src/presentation for client forms.'
           },
           {
             name: '@hono/zod-validator',
-            message: 'Zod validator is restricted - use Effect Schema. EXCEPTION: Allowed in src/domain/models/api for API routes.'
+            message: 'Zod validator is restricted - use Effect Schema. EXCEPTION: Allowed in src/presentation/api/routes for API validation.'
           }
         ]
       }

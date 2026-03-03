@@ -26,9 +26,9 @@ Jiti is a lightweight runtime TypeScript and ESM (ECMAScript Modules) loader for
 
 ```
 sovrium
-└── tailwindcss@4.1.18
-    └── @tailwindcss/node@4.1.17
-        └── jiti@2.6.1
+└── tailwindcss@^4.2.1
+    └── @tailwindcss/node
+        └── jiti@^2.6.1
 ```
 
 ### Why Tailwind CSS Uses Jiti
