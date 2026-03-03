@@ -325,6 +325,10 @@ When implementing features that use infrastructure technologies, fetch the offic
 | **Hono** | https://hono.dev/llms.txt | Route handlers, middleware, SSR patterns |
 | **Better Auth** | https://better-auth.com/llms.txt | Auth flows, plugins, session management |
 | **Drizzle** | https://orm.drizzle.team/llms.txt | Schema definitions, queries, migrations |
+| **React** | https://react.dev/llms.txt | Components, hooks, React 19 features |
+| **TanStack** | https://tanstack.com/llms.txt | TanStack Query, TanStack Table |
+| **Zod** | https://zod.dev/llms.txt | Schema validation, OpenAPI integration |
+| **Prettier** | https://prettier.io/llms.txt | Formatting options, configuration |
 
 **Usage**: `WebFetch(url: "https://hono.dev/llms.txt", prompt: "How to use zValidator middleware")`
 

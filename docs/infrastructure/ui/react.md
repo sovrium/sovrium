@@ -5,6 +5,7 @@
 **Version**: ^19.2.4
 **React DOM Version**: ^19.2.4
 **Purpose**: Declarative, component-based JavaScript library for building fast, interactive user interfaces with a focus on composability, reusability, and developer experience
+**Full Reference**: https://react.dev/llms.txt
 
 React is a modern UI library created by Facebook (Meta) that revolutionized web development with its component-based architecture and virtual DOM. React 19 introduces significant improvements including the React Compiler for automatic optimization, Actions for simplified form handling, and enhanced server-side rendering capabilities.
 
@@ -710,6 +711,7 @@ For advanced React topics and integrations with the Sovrium stack, see:
 
 ## References
 
+- LLM-optimized: https://react.dev/llms.txt
 - React documentation: https://react.dev/
 - React 19 announcement: https://react.dev/blog/2024/12/05/react-19
 - React API reference: https://react.dev/reference/react

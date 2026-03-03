@@ -4,6 +4,7 @@
 
 **Version**: ^3.8.1
 **Purpose**: Enforces consistent code formatting across the entire codebase automatically, eliminating style debates and ensuring uniform code appearance
+**Full Reference**: https://prettier.io/llms.txt
 
 ## Why Prettier
 
@@ -342,6 +343,7 @@ playwright/.cache/
 
 ## References
 
+- LLM-optimized: https://prettier.io/llms.txt
 - Prettier documentation: https://prettier.io/docs/en/
 - Configuration options: https://prettier.io/docs/en/options.html
 - Editor integration: https://prettier.io/docs/en/editors.html

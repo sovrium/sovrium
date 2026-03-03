@@ -51,6 +51,9 @@
 - `@docs/infrastructure/email/nodemailer.md` - Nodemailer SMTP email client (transporter, Effect service, Better Auth integration)
 - `@docs/infrastructure/email/mailpit.md` - Local email testing with web UI (local SMTP server)
 
+### Validation
+- `@docs/infrastructure/validation/zod.md` - Zod schema validation (OpenAPI + client forms, limited scope)
+
 ### Parsing
 - `@docs/infrastructure/parsing/js-yaml.md` - YAML parser for CLI configuration files
 

@@ -6,6 +6,7 @@
 
 **Version**: ^8.21.3
 **Purpose**: Framework-agnostic headless table library for building powerful data tables and data grids with complete control over markup and styling
+**Full Reference**: https://tanstack.com/llms.txt
 
 TanStack Table (formerly React Table) is a headless UI library for building feature-rich data tables. Unlike traditional component libraries that provide pre-styled tables, TanStack Table focuses solely on state management and table logic, giving you 100% control over markup, styling, and rendering.
 
@@ -860,6 +861,7 @@ test('renders table with user data', () => {
 
 ## References
 
+- LLM-optimized: https://tanstack.com/llms.txt
 - TanStack Table documentation: https://tanstack.com/table/latest/docs/introduction
 - TanStack Table API reference: https://tanstack.com/table/latest/docs/api/core/table
 - TanStack Query integration: https://tanstack.com/query/latest

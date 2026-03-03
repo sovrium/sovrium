@@ -5,6 +5,7 @@
 **Version**: ^5.90.21
 **DevTools Version**: ^5.91.3
 **Purpose**: Powerful data fetching and server-state management library for React applications. Handles caching, background updates, request deduplication, and synchronization with minimal boilerplate.
+**Full Reference**: https://tanstack.com/llms.txt
 
 > **Note**: This document provides a high-level summary with essential patterns. For comprehensive coverage including all hooks, advanced patterns, query cancellation strategies, and detailed performance optimizations, see the full documentation in the TanStack Query reference.
 
@@ -1149,6 +1150,7 @@ With TanStack Query, Sovrium applications achieve exceptional user experience th
 
 ## References
 
+- LLM-optimized: https://tanstack.com/llms.txt
 - TanStack Query documentation: https://tanstack.com/query/latest
 - React Query (TanStack Query): https://tanstack.com/query/latest/docs/framework/react/overview
 - Server-Side Rendering: https://tanstack.com/query/latest/docs/framework/react/guides/ssr

@@ -75,7 +75,7 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
   Cross-Phase Tools:
   - Task: Spawn sub-agents for complex codebase exploration
   - TodoWrite: Track multi-phase audit progress
-  - WebFetch: Fetch llms.txt documentation for infrastructure APIs (Effect, Hono, Better Auth, Drizzle, Bun) - allowed in CI
+  - WebFetch: Fetch llms.txt documentation for infrastructure APIs (Effect, Hono, Better Auth, Drizzle, Bun, React, TanStack, Zod, Prettier) - allowed in CI
   - WebSearch: General web search - LOCAL ONLY, blocked in CI (non-deterministic)
 -->
 
@@ -118,6 +118,10 @@ When refactoring code that uses infrastructure technologies (Effect, Hono, Bette
 | Hono | https://hono.dev/llms.txt |
 | Better Auth | https://better-auth.com/llms.txt |
 | Drizzle | https://orm.drizzle.team/llms.txt |
+| React | https://react.dev/llms.txt |
+| TanStack | https://tanstack.com/llms.txt |
+| Zod | https://zod.dev/llms.txt |
+| Prettier | https://prettier.io/llms.txt |
 
 **Usage**: `WebFetch(url: "https://effect.website/llms.txt", prompt: "How to use Layer.provide")`
 

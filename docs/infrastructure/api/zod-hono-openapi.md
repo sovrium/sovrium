@@ -3,6 +3,7 @@
 ## Overview
 
 **Purpose**: Schema validation library for OpenAPI API contracts and client-side forms
+**Full Reference**: https://zod.dev/llms.txt
 **Scope**: Limited to `src/domain/models/api/` and `src/presentation/` (client forms)
 **Enforced By**: ESLint no-restricted-imports rules (in `eslint/infrastructure.config.ts`)
 
@@ -795,6 +796,7 @@ z.number().describe('User age in years')
 
 ## References
 
+- LLM-optimized: https://zod.dev/llms.txt
 - Zod documentation: https://zod.dev/
 - @hono/zod-openapi: https://github.com/honojs/middleware/tree/main/packages/zod-openapi
 - @hono/zod-validator: https://github.com/honojs/middleware/tree/main/packages/zod-validator

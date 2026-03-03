@@ -86,7 +86,7 @@ tools: Read, Edit, Write, Bash, Glob, Grep, Task, TodoWrite, LSP, WebSearch, Web
   - Task: Spawn sub-agents for complex codebase exploration
   - TodoWrite: Track multi-step implementation progress
   - LSP: Code intelligence (goToDefinition, findReferences) for understanding code structure
-  - WebFetch: Fetch llms.txt documentation for infrastructure APIs (Effect, Hono, Better Auth, Drizzle, Bun) - allowed in CI
+  - WebFetch: Fetch llms.txt documentation for infrastructure APIs (Effect, Hono, Better Auth, Drizzle, Bun, React, TanStack, Zod, Prettier) - allowed in CI
   - WebSearch: General web search - LOCAL ONLY, blocked in CI (non-deterministic)
   - NOT Skill: Schema creation is product-specs-architect's responsibility - we CONSUME schemas, don't CREATE them
 -->
@@ -132,6 +132,10 @@ When implementing features that use infrastructure technologies (Effect, Hono, B
 | Hono | https://hono.dev/llms.txt |
 | Better Auth | https://better-auth.com/llms.txt |
 | Drizzle | https://orm.drizzle.team/llms.txt |
+| React | https://react.dev/llms.txt |
+| TanStack | https://tanstack.com/llms.txt |
+| Zod | https://zod.dev/llms.txt |
+| Prettier | https://prettier.io/llms.txt |
 
 **Usage**: `WebFetch(url: "https://effect.website/llms.txt", prompt: "How to use Schema.TaggedError")`
 
