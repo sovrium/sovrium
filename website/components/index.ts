@@ -8,11 +8,16 @@
 import { valueCard, principleItem } from './about-components'
 import {
   docsBadgeItem,
+  docsCallout,
   docsCodeBlock,
   docsInfoCard,
   docsNavLink,
   docsPropertyCard,
+  docsPropertyRow,
   docsResourceLink,
+  docsScreenshot,
+  docsSectionHeader,
+  docsStep,
 } from './docs-components'
 import {
   testimonialCard,
@@ -30,11 +35,16 @@ export const components: readonly ComponentTemplate[] = [
   principleItem,
   // Docs page
   docsBadgeItem,
+  docsCallout,
   docsCodeBlock,
   docsInfoCard,
-  docsPropertyCard,
   docsNavLink,
+  docsPropertyCard,
+  docsPropertyRow,
   docsResourceLink,
+  docsScreenshot,
+  docsSectionHeader,
+  docsStep,
   // Partner page
   testimonialCard,
   processStep,

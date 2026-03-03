@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { docsPage } from './shared'
+import { calloutWarning, codeBlock, docsPage, sectionHeader } from './shared'
 
 export const docsAuth = docsPage({
   activeId: 'auth',
@@ -13,6 +13,7 @@ export const docsAuth = docsPage({
   metaTitle: '$t:docs.auth.meta.title',
   metaDescription: '$t:docs.auth.meta.description',
   content: [
+    // ── Title ────────────────────────────────────────────────────────────
     {
       type: 'div',
       props: {},
@@ -29,47 +30,108 @@ export const docsAuth = docsPage({
           content: '$t:docs.auth.description',
           props: { className: 'text-sovereignty-gray-400 mb-6' },
         },
+      ],
+    },
+
+    // ── Basic Setup ──────────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader('$t:docs.auth.basic.title', '$t:docs.auth.basic.description', 'basic-setup'),
+        codeBlock(
+          'auth:\n  strategies:\n    - type: email-password\n  defaultRole: member',
+          'yaml'
+        ),
+      ],
+    },
+
+    // ── Adding OAuth ─────────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader('$t:docs.auth.oauth.title', '$t:docs.auth.oauth.description', 'oauth'),
+        codeBlock(
+          'auth:\n  strategies:\n    - type: email-password\n    - type: magic-link\n    - type: oauth\n      provider: google\n    - type: oauth\n      provider: github',
+          'yaml'
+        ),
+        calloutWarning('$t:docs.auth.oauth.warning.title', '$t:docs.auth.oauth.warning.body'),
+      ],
+    },
+
+    // ── Roles & Permissions ──────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader('$t:docs.auth.roles.title', '$t:docs.auth.roles.description', 'roles'),
+        codeBlock(
+          'auth:\n  strategies:\n    - type: email-password\n  defaultRole: member\n  roles:\n    - name: editor\n      description: Can edit content\n    - name: reviewer\n      description: Can approve changes',
+          'yaml'
+        ),
         {
           type: 'grid',
-          props: {
-            className: 'grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6',
-          },
+          props: { className: 'grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4' },
           children: [
             {
               $ref: 'docs-info-card',
               vars: {
-                title: '$t:docs.auth.strategies.title',
-                description: '$t:docs.auth.strategies.description',
+                title: 'admin',
+                description: '$t:docs.auth.roles.admin',
               },
             },
             {
               $ref: 'docs-info-card',
               vars: {
-                title: '$t:docs.auth.roles.title',
-                description: '$t:docs.auth.roles.description',
+                title: 'member',
+                description: '$t:docs.auth.roles.member',
               },
             },
             {
               $ref: 'docs-info-card',
               vars: {
-                title: '$t:docs.auth.twoFactor.title',
-                description: '$t:docs.auth.twoFactor.description',
-              },
-            },
-            {
-              $ref: 'docs-info-card',
-              vars: {
-                title: '$t:docs.auth.emails.title',
-                description: '$t:docs.auth.emails.description',
+                title: 'viewer',
+                description: '$t:docs.auth.roles.viewer',
               },
             },
           ],
         },
+      ],
+    },
+
+    // ── Two-Factor Auth ──────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.auth.twoFactor.title',
+          '$t:docs.auth.twoFactor.description',
+          'two-factor'
+        ),
+        codeBlock('auth:\n  strategies:\n    - type: email-password\n  twoFactor: true', 'yaml'),
+      ],
+    },
+
+    // ── Email Templates ──────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.auth.emails.title',
+          '$t:docs.auth.emails.description',
+          'email-templates'
+        ),
+        codeBlock(
+          'auth:\n  strategies:\n    - type: email-password\n  emails:\n    verification:\n      subject: "Verify your email, $name"\n      body: "Click here to verify: $url"\n    passwordReset:\n      subject: "Reset your password"\n      body: "Hi $name, reset here: $url"\n    magicLink:\n      subject: "Your sign-in link"\n      body: "Click to sign in: $url"',
+          'yaml'
+        ),
         {
-          $ref: 'docs-code-block',
-          vars: {
-            code: 'auth:\n  strategies:\n    - type: email-password\n    - type: magic-link\n    - type: oauth\n      provider: google\n  defaultRole: member\n  roles:\n    - name: editor\n      description: Can edit content\n  twoFactor: true\n  emails:\n    verification:\n      subject: "Verify your email, $name"\n      body: "Click here to verify: $url"',
-          },
+          type: 'paragraph',
+          content: '$t:docs.auth.emails.variables',
+          props: { className: 'text-sm text-sovereignty-gray-400 mt-2' },
         },
       ],
     },

@@ -8,6 +8,7 @@
 import { favicons } from './favicons'
 import { footerI18n } from './footer'
 import { createNavbar, langSwitchScript, mobileMenuScript } from './navbar'
+import { shikiHighlightScript, copyToClipboardScript, shikiCustomStyles } from './shiki'
 import type { Page } from '@/index'
 
 export const home: Page = {
@@ -70,38 +71,14 @@ export const home: Page = {
           'Open-source, configuration-driven application platform. Build complete business apps with a single config file.',
       },
     },
-    customElements: [
-      {
-        type: 'style',
-        content: [
-          'code[class*="language-"],pre[class*="language-"]{background:transparent;text-shadow:none}',
-          'pre[class*="language-"]{padding:1rem 1.5rem}',
-          '@media(min-width:640px){pre[class*="language-"]{padding:1.5rem}}',
-          '@media(min-width:768px){pre[class*="language-"]{padding:2rem}}',
-        ].join(''),
-      },
-    ],
+    customElements: shikiCustomStyles,
   },
   scripts: {
-    externalScripts: [
-      {
-        src: 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js',
-        defer: true,
-        position: 'body-end' as const,
-      },
-      {
-        src: 'https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js',
-        defer: true,
-        position: 'body-end' as const,
-      },
-    ],
     inlineScripts: [
-      {
-        code: '(function(){var l=document.createElement("link");l.rel="stylesheet";l.href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css";document.head.appendChild(l)})();document.addEventListener("DOMContentLoaded",function(){if(typeof Prism!=="undefined"){Prism.highlightAll()}})',
-        position: 'body-end' as const,
-      },
       langSwitchScript,
       mobileMenuScript,
+      shikiHighlightScript,
+      copyToClipboardScript,
     ],
   },
   sections: [
@@ -165,6 +142,197 @@ export const home: Page = {
                     className:
                       'inline-block border-2 border-sovereignty-accent text-sovereignty-accent px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-semibold hover:bg-sovereignty-accent hover:text-white transition-all duration-200 text-center',
                   },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+
+    // Solution Overview Section
+    {
+      type: 'section',
+      props: {
+        className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
+        id: 'solution',
+      },
+      children: [
+        {
+          type: 'container',
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
+          children: [
+            {
+              type: 'h2',
+              content: '$t:home.solution.title',
+              props: {
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6 md:mb-8',
+              },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:home.solution.description',
+              props: {
+                className:
+                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center max-w-4xl mx-auto mb-12 md:mb-16',
+              },
+            },
+
+            // Code Example — TypeScript config
+            {
+              $ref: 'docs-code-block',
+              vars: {
+                lang: 'typescript',
+                code: [
+                  '// app.ts \u2014 Type-safe, with IDE completion',
+                  "import { start } from 'sovrium'",
+                  '',
+                  'await start({',
+                  "  name: 'Company CRM',",
+                  "  tables: [{ name: 'contacts', fields: [",
+                  "    { name: 'name', type: 'single-line-text' },",
+                  "    { name: 'email', type: 'email', required: true },",
+                  "    { name: 'status', type: 'single-select', options: ['Lead', 'Customer'] },",
+                  '  ]}],',
+                  "  pages: [{ path: '/', name: 'Dashboard' }],",
+                  "  auth: { strategies: ['email-password'] },",
+                  '})',
+                ].join('\n'),
+              },
+            },
+
+            // "Also works with" CLI commands
+            {
+              type: 'paragraph',
+              content: '$t:home.solution.code.alsoWorks',
+              props: { className: 'text-sovereignty-gray-400 mb-2' },
+            },
+            {
+              $ref: 'docs-code-block',
+              vars: {
+                lang: 'bash',
+                code: [
+                  'sovrium start app.yaml      # or app.json',
+                  'bun run app.ts               # TypeScript with type safety',
+                ].join('\n'),
+              },
+            },
+
+            // How It Works
+            {
+              type: 'div',
+              props: { className: 'max-w-4xl mx-auto' },
+              children: [
+                {
+                  type: 'h3',
+                  content: '$t:home.solution.howItWorks.title',
+                  props: {
+                    className: 'text-xl sm:text-2xl font-semibold mb-6 md:mb-8 text-center',
+                  },
+                },
+                {
+                  type: 'div',
+                  props: {
+                    className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-4',
+                  },
+                  children: [
+                    {
+                      type: 'div',
+                      props: { className: 'text-center' },
+                      children: [
+                        {
+                          type: 'div',
+                          props: {
+                            className:
+                              'bg-sovereignty-accent text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl',
+                          },
+                          content: '1',
+                        },
+                        {
+                          type: 'h4',
+                          content: '$t:home.solution.howItWorks.step1.title',
+                          props: { className: 'font-semibold mb-2' },
+                        },
+                        {
+                          type: 'paragraph',
+                          content: '$t:home.solution.howItWorks.step1.description',
+                          props: { className: 'text-sm text-sovereignty-gray-400' },
+                        },
+                      ],
+                    },
+                    {
+                      type: 'div',
+                      props: { className: 'text-center' },
+                      children: [
+                        {
+                          type: 'div',
+                          props: {
+                            className:
+                              'bg-sovereignty-accent text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl',
+                          },
+                          content: '2',
+                        },
+                        {
+                          type: 'h4',
+                          content: '$t:home.solution.howItWorks.step2.title',
+                          props: { className: 'font-semibold mb-2' },
+                        },
+                        {
+                          type: 'paragraph',
+                          content: '$t:home.solution.howItWorks.step2.description',
+                          props: { className: 'text-sm text-sovereignty-gray-400' },
+                        },
+                      ],
+                    },
+                    {
+                      type: 'div',
+                      props: { className: 'text-center' },
+                      children: [
+                        {
+                          type: 'div',
+                          props: {
+                            className:
+                              'bg-sovereignty-accent text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl',
+                          },
+                          content: '3',
+                        },
+                        {
+                          type: 'h4',
+                          content: '$t:home.solution.howItWorks.step3.title',
+                          props: { className: 'font-semibold mb-2' },
+                        },
+                        {
+                          type: 'paragraph',
+                          content: '$t:home.solution.howItWorks.step3.description',
+                          props: { className: 'text-sm text-sovereignty-gray-400' },
+                        },
+                      ],
+                    },
+                    {
+                      type: 'div',
+                      props: { className: 'text-center' },
+                      children: [
+                        {
+                          type: 'div',
+                          props: {
+                            className:
+                              'bg-sovereignty-accent text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl',
+                          },
+                          content: '4',
+                        },
+                        {
+                          type: 'h4',
+                          content: '$t:home.solution.howItWorks.step4.title',
+                          props: { className: 'font-semibold mb-2' },
+                        },
+                        {
+                          type: 'paragraph',
+                          content: '$t:home.solution.howItWorks.step4.description',
+                          props: { className: 'text-sm text-sovereignty-gray-400' },
+                        },
+                      ],
+                    },
+                  ],
                 },
               ],
             },
@@ -353,299 +521,6 @@ export const home: Page = {
                               props: { className: 'text-sovereignty-gray-400' },
                             },
                           ],
-                        },
-                      ],
-                    },
-                    {
-                      type: 'div',
-                      props: { className: 'flex items-start' },
-                      children: [
-                        {
-                          type: 'span',
-                          content: '\u274C',
-                          props: { className: 'mr-3 text-xl' },
-                        },
-                        {
-                          type: 'div',
-                          children: [
-                            {
-                              type: 'span',
-                              content: '$t:home.problem.hidden.cost4.title',
-                              props: { className: 'font-semibold text-sovereignty-light' },
-                            },
-                            {
-                              type: 'span',
-                              content: '$t:home.problem.hidden.cost4.description',
-                              props: { className: 'text-sovereignty-gray-400' },
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                    {
-                      type: 'div',
-                      props: { className: 'flex items-start' },
-                      children: [
-                        {
-                          type: 'span',
-                          content: '\u274C',
-                          props: { className: 'mr-3 text-xl' },
-                        },
-                        {
-                          type: 'div',
-                          children: [
-                            {
-                              type: 'span',
-                              content: '$t:home.problem.hidden.cost5.title',
-                              props: { className: 'font-semibold text-sovereignty-light' },
-                            },
-                            {
-                              type: 'span',
-                              content: '$t:home.problem.hidden.cost5.description',
-                              props: { className: 'text-sovereignty-gray-400' },
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-
-    // Solution Overview Section
-    {
-      type: 'section',
-      props: {
-        className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
-        id: 'solution',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
-          children: [
-            {
-              type: 'h2',
-              content: '$t:home.solution.title',
-              props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-6 md:mb-8',
-              },
-            },
-            {
-              type: 'paragraph',
-              content: '$t:home.solution.description',
-              props: {
-                className:
-                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center max-w-4xl mx-auto mb-12 md:mb-16',
-              },
-            },
-
-            // Code Example (kept as-is — code is not translatable)
-            {
-              type: 'card',
-              props: {
-                className:
-                  'bg-sovereignty-darker border border-sovereignty-gray-800 rounded-lg mb-12 md:mb-16 overflow-hidden',
-              },
-              children: [
-                // Syntax-highlighted code block (Prism.js)
-                {
-                  type: 'pre',
-                  props: {
-                    className: 'overflow-x-auto !m-0 !rounded-t-lg !rounded-b-none !border-0',
-                  },
-                  children: [
-                    {
-                      type: 'code',
-                      props: {
-                        className: 'language-typescript !text-xs sm:!text-sm !leading-relaxed',
-                      },
-                      content: [
-                        '// app.ts \u2014 Type-safe, with IDE completion',
-                        "import { start } from 'sovrium'",
-                        '',
-                        'await start({',
-                        "  name: 'Company CRM',",
-                        "  tables: [{ name: 'contacts', fields: [",
-                        "    { name: 'name', type: 'single-line-text' },",
-                        "    { name: 'email', type: 'email', required: true },",
-                        "    { name: 'status', type: 'single-select', options: ['Lead', 'Customer'] },",
-                        '  ]}],',
-                        "  pages: [{ path: '/', name: 'Dashboard' }],",
-                        "  auth: { strategies: ['email-password'] },",
-                        '})',
-                      ].join('\n'),
-                    },
-                  ],
-                },
-                // "Also works with" section
-                {
-                  type: 'div',
-                  props: {
-                    className:
-                      'mx-4 sm:mx-6 md:mx-8 pt-6 pb-4 sm:pb-6 md:pb-8 border-t border-sovereignty-gray-800',
-                  },
-                  children: [
-                    {
-                      type: 'paragraph',
-                      content: '$t:home.solution.code.alsoWorks',
-                      props: { className: 'text-sovereignty-gray-400 mb-2' },
-                    },
-                    {
-                      type: 'pre',
-                      children: [
-                        {
-                          type: 'code',
-                          props: {
-                            className: 'font-mono text-xs sm:text-sm',
-                          },
-                          children: [
-                            {
-                              type: 'span',
-                              content: 'sovrium start app.yaml      ',
-                              props: { className: 'text-sovereignty-teal' },
-                            },
-                            {
-                              type: 'span',
-                              content: '# or app.json',
-                              props: { className: 'text-sovereignty-gray-500 italic' },
-                            },
-                            { type: 'span', content: '\n' },
-                            {
-                              type: 'span',
-                              content: 'bun run app.ts               ',
-                              props: { className: 'text-sovereignty-teal' },
-                            },
-                            {
-                              type: 'span',
-                              content: '# TypeScript with type safety',
-                              props: { className: 'text-sovereignty-gray-500 italic' },
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-
-            // How It Works
-            {
-              type: 'div',
-              props: { className: 'max-w-4xl mx-auto' },
-              children: [
-                {
-                  type: 'h3',
-                  content: '$t:home.solution.howItWorks.title',
-                  props: {
-                    className: 'text-xl sm:text-2xl font-semibold mb-6 md:mb-8 text-center',
-                  },
-                },
-                {
-                  type: 'div',
-                  props: {
-                    className: 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-4',
-                  },
-                  children: [
-                    {
-                      type: 'div',
-                      props: { className: 'text-center' },
-                      children: [
-                        {
-                          type: 'div',
-                          props: {
-                            className:
-                              'bg-sovereignty-accent text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl',
-                          },
-                          content: '1',
-                        },
-                        {
-                          type: 'h4',
-                          content: '$t:home.solution.howItWorks.step1.title',
-                          props: { className: 'font-semibold mb-2' },
-                        },
-                        {
-                          type: 'paragraph',
-                          content: '$t:home.solution.howItWorks.step1.description',
-                          props: { className: 'text-sm text-sovereignty-gray-400' },
-                        },
-                      ],
-                    },
-                    {
-                      type: 'div',
-                      props: { className: 'text-center' },
-                      children: [
-                        {
-                          type: 'div',
-                          props: {
-                            className:
-                              'bg-sovereignty-accent text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl',
-                          },
-                          content: '2',
-                        },
-                        {
-                          type: 'h4',
-                          content: '$t:home.solution.howItWorks.step2.title',
-                          props: { className: 'font-semibold mb-2' },
-                        },
-                        {
-                          type: 'paragraph',
-                          content: '$t:home.solution.howItWorks.step2.description',
-                          props: { className: 'text-sm text-sovereignty-gray-400' },
-                        },
-                      ],
-                    },
-                    {
-                      type: 'div',
-                      props: { className: 'text-center' },
-                      children: [
-                        {
-                          type: 'div',
-                          props: {
-                            className:
-                              'bg-sovereignty-accent text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl',
-                          },
-                          content: '3',
-                        },
-                        {
-                          type: 'h4',
-                          content: '$t:home.solution.howItWorks.step3.title',
-                          props: { className: 'font-semibold mb-2' },
-                        },
-                        {
-                          type: 'paragraph',
-                          content: '$t:home.solution.howItWorks.step3.description',
-                          props: { className: 'text-sm text-sovereignty-gray-400' },
-                        },
-                      ],
-                    },
-                    {
-                      type: 'div',
-                      props: { className: 'text-center' },
-                      children: [
-                        {
-                          type: 'div',
-                          props: {
-                            className:
-                              'bg-sovereignty-accent text-white w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl',
-                          },
-                          content: '4',
-                        },
-                        {
-                          type: 'h4',
-                          content: '$t:home.solution.howItWorks.step4.title',
-                          props: { className: 'font-semibold mb-2' },
-                        },
-                        {
-                          type: 'paragraph',
-                          content: '$t:home.solution.howItWorks.step4.description',
-                          props: { className: 'text-sm text-sovereignty-gray-400' },
                         },
                       ],
                     },
@@ -845,6 +720,21 @@ export const home: Page = {
                               type: 'div',
                               props: { className: 'text-red-400' },
                               content: '$t:home.comparison.table.row7.saas',
+                            },
+                            // Managed Hosting (honest row — SaaS advantage)
+                            {
+                              type: 'div',
+                              content: '$t:home.comparison.table.row8.aspect',
+                            },
+                            {
+                              type: 'div',
+                              props: { className: 'text-yellow-400' },
+                              content: '$t:home.comparison.table.row8.sovrium',
+                            },
+                            {
+                              type: 'div',
+                              props: { className: 'text-green-400' },
+                              content: '$t:home.comparison.table.row8.saas',
                             },
                           ],
                         },
@@ -1057,8 +947,6 @@ export const home: Page = {
                         { type: 'paragraph', content: '$t:home.features.auth.point2' },
                         { type: 'paragraph', content: '$t:home.features.auth.point3' },
                         { type: 'paragraph', content: '$t:home.features.auth.point4' },
-                        { type: 'paragraph', content: '$t:home.features.auth.point5' },
-                        { type: 'paragraph', content: '$t:home.features.auth.point6' },
                       ],
                     },
                   ],
@@ -1085,8 +973,6 @@ export const home: Page = {
                         { type: 'paragraph', content: '$t:home.features.tables.point2' },
                         { type: 'paragraph', content: '$t:home.features.tables.point3' },
                         { type: 'paragraph', content: '$t:home.features.tables.point4' },
-                        { type: 'paragraph', content: '$t:home.features.tables.point5' },
-                        { type: 'paragraph', content: '$t:home.features.tables.point6' },
                       ],
                     },
                   ],
@@ -1113,8 +999,6 @@ export const home: Page = {
                         { type: 'paragraph', content: '$t:home.features.api.point2' },
                         { type: 'paragraph', content: '$t:home.features.api.point3' },
                         { type: 'paragraph', content: '$t:home.features.api.point4' },
-                        { type: 'paragraph', content: '$t:home.features.api.point5' },
-                        { type: 'paragraph', content: '$t:home.features.api.point6' },
                       ],
                     },
                   ],
@@ -1141,8 +1025,6 @@ export const home: Page = {
                         { type: 'paragraph', content: '$t:home.features.pages.point2' },
                         { type: 'paragraph', content: '$t:home.features.pages.point3' },
                         { type: 'paragraph', content: '$t:home.features.pages.point4' },
-                        { type: 'paragraph', content: '$t:home.features.pages.point5' },
-                        { type: 'paragraph', content: '$t:home.features.pages.point6' },
                       ],
                     },
                   ],
@@ -1169,36 +1051,6 @@ export const home: Page = {
                         { type: 'paragraph', content: '$t:home.features.theming.point2' },
                         { type: 'paragraph', content: '$t:home.features.theming.point3' },
                         { type: 'paragraph', content: '$t:home.features.theming.point4' },
-                        { type: 'paragraph', content: '$t:home.features.theming.point5' },
-                        { type: 'paragraph', content: '$t:home.features.theming.point6' },
-                      ],
-                    },
-                  ],
-                },
-
-                // Admin & Operations
-                {
-                  type: 'card',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                  children: [
-                    {
-                      type: 'h3',
-                      content: '$t:home.features.admin.title',
-                      props: { className: 'text-xl font-semibold mb-3' },
-                    },
-                    {
-                      type: 'div',
-                      props: { className: 'space-y-1 text-sm text-sovereignty-gray-400' },
-                      children: [
-                        { type: 'paragraph', content: '$t:home.features.admin.point1' },
-                        { type: 'paragraph', content: '$t:home.features.admin.point2' },
-                        { type: 'paragraph', content: '$t:home.features.admin.point3' },
-                        { type: 'paragraph', content: '$t:home.features.admin.point4' },
-                        { type: 'paragraph', content: '$t:home.features.admin.point5' },
-                        { type: 'paragraph', content: '$t:home.features.admin.point6' },
                       ],
                     },
                   ],
@@ -1464,13 +1316,30 @@ export const home: Page = {
                   props: { className: 'text-sovereignty-gray-400 mb-6' },
                 },
                 {
-                  type: 'link',
-                  content: '$t:home.gettingStarted.status.cta',
+                  type: 'flex',
                   props: {
-                    href: 'https://github.com/sovrium/sovrium',
-                    className:
-                      'inline-block bg-sovereignty-accent hover:bg-sovereignty-accent-hover text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200',
+                    className: 'flex flex-col sm:flex-row items-center justify-center gap-4',
                   },
+                  children: [
+                    {
+                      type: 'link',
+                      content: '$t:home.gettingStarted.status.cta',
+                      props: {
+                        href: '$t:home.gettingStarted.status.cta.href',
+                        className:
+                          'inline-block bg-sovereignty-accent hover:bg-sovereignty-accent-hover text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200',
+                      },
+                    },
+                    {
+                      type: 'link',
+                      content: '$t:home.gettingStarted.status.cta.secondary',
+                      props: {
+                        href: 'https://github.com/sovrium/sovrium',
+                        className:
+                          'inline-block border border-sovereignty-gray-700 hover:border-sovereignty-accent text-sovereignty-light px-6 py-3 rounded-lg font-semibold transition-all duration-200',
+                      },
+                    },
+                  ],
                 },
               ],
             },

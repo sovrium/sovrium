@@ -23,24 +23,60 @@ export const docsNavLink: ComponentTemplate = {
   },
 }
 
-// ─── docs-code-block: Monospace code display with dark background ───────────
-// Used in docs-schema.ts for YAML/JSON code examples
-// vars: { code: 'name: my-app\nversion: 1.0.0' }
+// ─── docs-code-block: Syntax-highlighted code with Shiki + copy button ──────
+// vars: { code: 'name: my-app\n...', lang: 'yaml' }
+// lang: yaml | json | typescript | bash | text (default: yaml)
+// Shiki script upgrades [data-shiki] elements post-render; plain text is fallback
 export const docsCodeBlock: ComponentTemplate = {
   name: 'docs-code-block',
   type: 'div',
   props: {
     className:
-      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg p-4 overflow-x-auto my-4',
+      'docs-code-wrapper relative bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg overflow-hidden my-4 group',
   },
   children: [
     {
-      type: 'span',
-      content: '$code',
+      type: 'div',
       props: {
         className:
-          'text-sm font-mono text-sovereignty-gray-300 whitespace-pre-wrap block leading-relaxed',
+          'docs-code-header flex items-center justify-between px-4 py-2 border-b border-sovereignty-gray-800',
       },
+      children: [
+        {
+          type: 'span',
+          content: '$lang',
+          props: {
+            className: 'text-xs font-mono text-sovereignty-gray-500 uppercase tracking-wider',
+          },
+        },
+        {
+          type: 'button',
+          content: 'Copy',
+          props: {
+            className:
+              'docs-copy-btn text-xs text-sovereignty-gray-500 hover:text-sovereignty-accent transition-colors cursor-pointer',
+            'data-code': '$code',
+          },
+        },
+      ],
+    },
+    {
+      type: 'div',
+      props: {
+        className: 'p-4 overflow-x-auto',
+        'data-shiki': 'true',
+        'data-lang': '$lang',
+      },
+      children: [
+        {
+          type: 'span',
+          content: '$code',
+          props: {
+            className:
+              'text-sm font-mono text-sovereignty-gray-300 whitespace-pre-wrap block leading-relaxed',
+          },
+        },
+      ],
     },
   ],
 }
@@ -153,4 +189,166 @@ export const docsBadgeItem: ComponentTemplate = {
     className:
       'text-xs font-mono px-2 py-1 bg-sovereignty-gray-800 rounded text-sovereignty-gray-300 border border-sovereignty-gray-700',
   },
+}
+
+// ─── docs-callout: Tip/warning/info box with colored left border ────────────
+// vars: { icon, title, body, borderColor, bgColor, titleColor, textColor }
+export const docsCallout: ComponentTemplate = {
+  name: 'docs-callout',
+  type: 'div',
+  props: {
+    className: 'rounded-lg p-4 my-4 border-l-4 $borderColor $bgColor',
+  },
+  children: [
+    {
+      type: 'div',
+      props: { className: 'flex items-start gap-3' },
+      children: [
+        {
+          type: 'span',
+          content: '$icon',
+          props: { className: 'text-lg flex-shrink-0 mt-0.5' },
+        },
+        {
+          type: 'div',
+          props: {},
+          children: [
+            {
+              type: 'h4',
+              content: '$title',
+              props: { className: 'text-sm font-semibold mb-1 $titleColor' },
+            },
+            {
+              type: 'paragraph',
+              content: '$body',
+              props: { className: 'text-sm leading-relaxed $textColor' },
+            },
+          ],
+        },
+      ],
+    },
+  ],
+}
+
+// ─── docs-section-header: Consistent h2 with anchor + description ───────────
+// vars: { title, description, anchor }
+export const docsSectionHeader: ComponentTemplate = {
+  name: 'docs-section-header',
+  type: 'div',
+  props: { className: 'mb-6' },
+  children: [
+    {
+      type: 'h2',
+      content: '$title',
+      props: {
+        id: '$anchor',
+        className: 'text-xl font-semibold text-sovereignty-light mb-2',
+      },
+    },
+    {
+      type: 'paragraph',
+      content: '$description',
+      props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed' },
+    },
+  ],
+}
+
+// ─── docs-step: Numbered step with circle + title + description ─────────────
+// vars: { stepNumber, title, description }
+export const docsStep: ComponentTemplate = {
+  name: 'docs-step',
+  type: 'div',
+  props: { className: 'flex gap-4 mb-6' },
+  children: [
+    {
+      type: 'div',
+      props: {
+        className:
+          'flex-shrink-0 w-8 h-8 rounded-full bg-sovereignty-accent/20 text-sovereignty-accent flex items-center justify-center text-sm font-bold',
+      },
+      children: [
+        {
+          type: 'span',
+          content: '$stepNumber',
+          props: {},
+        },
+      ],
+    },
+    {
+      type: 'div',
+      props: { className: 'flex-1 pt-0.5' },
+      children: [
+        {
+          type: 'h4',
+          content: '$title',
+          props: { className: 'font-semibold text-sovereignty-light mb-1' },
+        },
+        {
+          type: 'paragraph',
+          content: '$description',
+          props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed' },
+        },
+      ],
+    },
+  ],
+}
+
+// ─── docs-screenshot: Figure with lazy-loaded image + caption ────────────────
+// vars: { src, alt, caption }
+export const docsScreenshot: ComponentTemplate = {
+  name: 'docs-screenshot',
+  type: 'div',
+  props: { className: 'my-6' },
+  children: [
+    {
+      type: 'div',
+      props: {
+        className:
+          'rounded-lg overflow-hidden border border-sovereignty-gray-800 bg-sovereignty-gray-900',
+      },
+      children: [
+        {
+          type: 'image',
+          props: {
+            src: '$src',
+            alt: '$alt',
+            className: 'w-full h-auto',
+            loading: 'lazy',
+          },
+        },
+      ],
+    },
+    {
+      type: 'paragraph',
+      content: '$caption',
+      props: {
+        className: 'text-xs text-sovereignty-gray-500 mt-2 text-center italic',
+      },
+    },
+  ],
+}
+
+// ─── docs-property-row: Single row for property references ───────────────────
+// vars: { name, description }
+export const docsPropertyRow: ComponentTemplate = {
+  name: 'docs-property-row',
+  type: 'div',
+  props: {
+    className:
+      'grid grid-cols-[140px_1fr] sm:grid-cols-[180px_1fr] gap-2 py-3 px-4 border-b border-sovereignty-gray-800 last:border-0',
+  },
+  children: [
+    {
+      type: 'span',
+      content: '$name',
+      props: {
+        className: 'font-mono text-sm text-sovereignty-accent font-semibold',
+      },
+    },
+    {
+      type: 'span',
+      content: '$description',
+      props: { className: 'text-sm text-sovereignty-gray-400' },
+    },
+  ],
 }

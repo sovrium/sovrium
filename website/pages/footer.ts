@@ -101,6 +101,34 @@ export const footerI18n = {
                     className: 'text-sovereignty-gray-400 text-sm leading-relaxed max-w-xs',
                   },
                 },
+                {
+                  type: 'flex' as const,
+                  props: { className: 'gap-4 mt-4' },
+                  children: [
+                    {
+                      type: 'link' as const,
+                      content: 'GitHub',
+                      props: {
+                        href: 'https://github.com/sovrium/sovrium',
+                        className:
+                          'text-sovereignty-gray-400 hover:text-sovereignty-light transition-colors duration-150 text-sm',
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                      },
+                    },
+                    {
+                      type: 'link' as const,
+                      content: 'LinkedIn',
+                      props: {
+                        href: 'https://www.linkedin.com/company/sovrium/',
+                        className:
+                          'text-sovereignty-gray-400 hover:text-sovereignty-light transition-colors duration-150 text-sm',
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                      },
+                    },
+                  ],
+                },
               ],
             },
 
@@ -206,6 +234,34 @@ export const footer = {
                     className: 'text-sovereignty-gray-400 text-sm leading-relaxed max-w-xs',
                   },
                 },
+                {
+                  type: 'flex' as const,
+                  props: { className: 'gap-4 mt-4' },
+                  children: [
+                    {
+                      type: 'link' as const,
+                      content: 'GitHub',
+                      props: {
+                        href: 'https://github.com/sovrium/sovrium',
+                        className:
+                          'text-sovereignty-gray-400 hover:text-sovereignty-light transition-colors duration-150 text-sm',
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                      },
+                    },
+                    {
+                      type: 'link' as const,
+                      content: 'LinkedIn',
+                      props: {
+                        href: 'https://www.linkedin.com/company/sovrium/',
+                        className:
+                          'text-sovereignty-gray-400 hover:text-sovereignty-light transition-colors duration-150 text-sm',
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                      },
+                    },
+                  ],
+                },
               ],
             },
 
@@ -219,7 +275,7 @@ export const footer = {
             // Company column
             footerColumn('Company', [
               footerLink('About', '/en/about'),
-              footerLink('Partner Service', '/en/partner'),
+              footerLink('Services', '/en/partner'),
               footerLink('Trademark', 'https://github.com/sovrium/sovrium/blob/main/TRADEMARK.md'),
             ]),
 

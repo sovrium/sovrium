@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { docsPage } from './shared'
+import { calloutTip, codeBlock, docsPage, propertyTable, sectionHeader } from './shared'
 
 export const docsAnalytics = docsPage({
   activeId: 'analytics',
@@ -13,6 +13,7 @@ export const docsAnalytics = docsPage({
   metaTitle: '$t:docs.analytics.meta.title',
   metaDescription: '$t:docs.analytics.meta.description',
   content: [
+    // ── Title ────────────────────────────────────────────────────────────
     {
       type: 'div',
       props: {},
@@ -29,12 +30,52 @@ export const docsAnalytics = docsPage({
           content: '$t:docs.analytics.description',
           props: { className: 'text-sovereignty-gray-400 mb-6' },
         },
-        {
-          $ref: 'docs-code-block',
-          vars: {
-            code: '# Simple: enable with defaults\nanalytics: true\n\n# Advanced: configure options\nanalytics:\n  retentionDays: 90\n  respectDoNotTrack: true\n  excludePaths:\n    - /admin\n    - /api\n  sessionTimeout: 30',
-          },
-        },
+      ],
+    },
+
+    // ── Quick Enable ─────────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.analytics.quickEnable.title',
+          '$t:docs.analytics.quickEnable.description',
+          'quick-enable'
+        ),
+        codeBlock('# Enable analytics with defaults\nanalytics: true', 'yaml'),
+      ],
+    },
+
+    // ── Advanced Configuration ───────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.analytics.advanced.title',
+          '$t:docs.analytics.advanced.description',
+          'advanced-config'
+        ),
+        codeBlock(
+          'analytics:\n  retentionDays: 90\n  respectDoNotTrack: true\n  excludePaths:\n    - /admin\n    - /api\n  sessionTimeout: 30',
+          'yaml'
+        ),
+        propertyTable([
+          { name: 'retentionDays', description: '$t:docs.analytics.props.retentionDays' },
+          { name: 'respectDoNotTrack', description: '$t:docs.analytics.props.respectDoNotTrack' },
+          { name: 'excludePaths', description: '$t:docs.analytics.props.excludePaths' },
+          { name: 'sessionTimeout', description: '$t:docs.analytics.props.sessionTimeout' },
+        ]),
+      ],
+    },
+
+    // ── Privacy ──────────────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        calloutTip('$t:docs.analytics.privacy.title', '$t:docs.analytics.privacy.body'),
         {
           type: 'paragraph',
           content: '$t:docs.analytics.details',

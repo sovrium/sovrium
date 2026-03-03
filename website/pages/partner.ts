@@ -67,7 +67,7 @@ export const partner: Page = {
       type: 'section',
       props: {
         className:
-          'min-h-screen flex items-center justify-center bg-gradient-to-b from-sovereignty-dark to-sovereignty-darker text-sovereignty-light',
+          'py-24 md:py-32 flex items-center justify-center bg-gradient-to-b from-sovereignty-dark to-sovereignty-darker text-sovereignty-light',
       },
       children: [
         {
@@ -241,7 +241,7 @@ export const partner: Page = {
       ],
     },
 
-    // ─── Section 5: Our Methodology (10 principles) ─────────────────────────
+    // ─── Section 5: Our Methodology (5 principles) ──────────────────────────
     {
       type: 'section',
       props: {
@@ -279,11 +279,6 @@ export const partner: Page = {
                 { $ref: 'methodology-card', vars: { num: 3 } },
                 { $ref: 'methodology-card', vars: { num: 4 } },
                 { $ref: 'methodology-card', vars: { num: 5 } },
-                { $ref: 'methodology-card', vars: { num: 6 } },
-                { $ref: 'methodology-card', vars: { num: 7 } },
-                { $ref: 'methodology-card', vars: { num: 8 } },
-                { $ref: 'methodology-card', vars: { num: 9 } },
-                { $ref: 'methodology-card', vars: { num: 10 } },
               ],
             },
           ],
@@ -362,11 +357,24 @@ export const partner: Page = {
                   type: 'link',
                   content: '$t:partner.waitlist.cta',
                   props: {
-                    href: 'https://latechforce.notion.site/1609911026ec807e9a17d1610e198511',
+                    href: '$t:partner.waitlist.email.href',
                     className:
                       'inline-block bg-white text-sovereignty-accent px-8 py-3 rounded-lg font-semibold hover:bg-sovereignty-gray-100 transition-all duration-200 transform hover:-translate-y-1',
-                    target: '_blank',
-                    rel: 'noopener noreferrer',
+                  },
+                },
+                {
+                  type: 'paragraph',
+                  content: '$t:partner.waitlist.email.label',
+                  props: {
+                    className: 'text-white/70 text-sm mt-4',
+                  },
+                },
+                {
+                  type: 'link',
+                  content: '$t:partner.waitlist.email',
+                  props: {
+                    href: '$t:partner.waitlist.email.href',
+                    className: 'text-white font-medium hover:underline',
                   },
                 },
               ],

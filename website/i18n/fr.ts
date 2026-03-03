@@ -14,10 +14,12 @@ export const fr: Record<string, string> = {
   // ════════════════════════════════════════════════════════════════════
   //  GLOBAL NAVIGATION
   // ════════════════════════════════════════════════════════════════════
-  'nav.partner': 'Service partenaire',
+  'nav.partner': 'Services',
   'nav.partner.href': '/fr/partner',
   'nav.about': '\u00C0 propos',
   'nav.about.href': '/fr/about',
+  'nav.cta': 'Commencer',
+  'nav.cta.href': '/fr/docs',
   'nav.lang.label': 'EN',
   'nav.lang.code': 'en',
 
@@ -34,7 +36,7 @@ export const fr: Record<string, string> = {
   'footer.col.company': 'Entreprise',
   'footer.col.company.about': 'À propos',
   'footer.col.company.about.href': '/fr/about',
-  'footer.col.company.partners': 'Service partenaire',
+  'footer.col.company.partners': 'Services',
   'footer.col.company.partners.href': '/fr/partner',
   'footer.col.company.trademark': 'Marque d\u00E9pos\u00E9e',
   'footer.col.legal': 'L\u00E9gal',
@@ -44,6 +46,10 @@ export const fr: Record<string, string> = {
   'footer.col.legal.terms.href': '/fr/terms-of-service',
   'footer.col.legal.dataDeletion': 'Suppression des donn\u00E9es',
   'footer.col.legal.dataDeletion.href': '/fr/data-deletion',
+  'footer.social.github': 'GitHub',
+  'footer.social.github.href': 'https://github.com/nichochar/sovrium',
+  'footer.social.twitter': 'Twitter',
+  'footer.social.twitter.href': 'https://x.com/sovrium',
   'footer.copyright':
     '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE est une marque enregistr\u00E9e d\u2019ESSENTIAL SERVICES.',
 
@@ -63,10 +69,11 @@ export const fr: Record<string, string> = {
     'Plateforme applicative open-source pilot\u00E9e par la configuration. L\u0027alternative SaaS auto-h\u00E9berg\u00E9e, sans d\u00E9pendance fournisseur.',
 
   // ── Home: Hero ──────────────────────────────────────────────────────
-  'home.hero.title': 'Sovrium, l\u0027\u00E9l\u00E9ment de souverainet\u00E9',
-  'home.hero.subtitle': 'Vos donn\u00E9es. Vos outils. Votre avenir.',
+  'home.hero.eyebrow': 'L\u2019\u00C9L\u00C9MENT DE SOUVERAINET\u00C9',
+  'home.hero.title': 'Cr\u00E9ez des apps compl\u00E8tes avec un seul fichier de config',
+  'home.hero.subtitle': 'Open-source. Auto-h\u00E9berg\u00E9. Pilot\u00E9 par la configuration.',
   'home.hero.description':
-    'Lib\u00E9rez-vous de la d\u00E9pendance au SaaS gr\u00E2ce \u00E0 une plateforme auto-h\u00E9berg\u00E9e et pilot\u00E9e par la configuration, qui vous redonne le contr\u00F4le.',
+    'D\u00E9finissez vos tables, auth, pages et th\u00E8me dans un seul fichier. Sovrium le transforme en application full-stack que vous poss\u00E9dez et contr\u00F4lez.',
   'home.hero.cta.primary': 'Commencer',
   'home.hero.cta.secondary': 'Voir sur GitHub',
 
@@ -74,12 +81,14 @@ export const fr: Record<string, string> = {
   'home.problem.title': 'Le pi\u00E8ge du SaaS',
   'home.problem.stat1.value': '10 000 \u20AC+',
   'home.problem.stat1.label': 'D\u00E9pense SaaS annuelle moyenne par employ\u00E9',
+  'home.problem.stat1.source': 'Source : Productiv SaaS Trends 2024',
   'home.problem.stat2.value': '0%',
   'home.problem.stat2.label':
-    'Des donn\u00E9es que vous poss\u00E9dez r\u00E9ellement sur les plateformes SaaS',
+    'Garantie de portabilit\u00E9 des donn\u00E9es sur la plupart des plateformes SaaS',
   'home.problem.stat3.value': '73%',
   'home.problem.stat3.label':
     'Des entreprises pr\u00E9occup\u00E9es par la d\u00E9pendance fournisseur',
+  'home.problem.stat3.source': 'Source : Flexera 2024 State of ITAM Report',
   'home.problem.hidden.title': 'Les co\u00FBts cach\u00E9s de la d\u00E9pendance au SaaS',
   'home.problem.hidden.cost1.title': 'D\u00E9pendance fournisseur \u2014 ',
   'home.problem.hidden.cost1.description':
@@ -90,12 +99,6 @@ export const fr: Record<string, string> = {
   'home.problem.hidden.cost3.title': 'Surcharge fonctionnelle \u2014 ',
   'home.problem.hidden.cost3.description':
     'Vous payez des milliers de fonctionnalit\u00E9s que vous n\u2019utilisez jamais, tandis que celles dont vous avez besoin sont derri\u00E8re des offres enterprise.',
-  'home.problem.hidden.cost4.title': 'Souverainet\u00E9 des donn\u00E9es \u2014 ',
-  'home.problem.hidden.cost4.description':
-    'Vos donn\u00E9es m\u00E9tier sont sur des serveurs que vous ne contr\u00F4lez pas, dans des juridictions que vous n\u2019avez pas choisies.',
-  'home.problem.hidden.cost5.title': 'Taxe d\u2019int\u00E9gration \u2014 ',
-  'home.problem.hidden.cost5.description':
-    'Connecter des outils SaaS n\u00E9cessite des middlewares, des APIs custom et une maintenance constante.',
 
   // ── Home: Solution Overview ─────────────────────────────────────────
   'home.solution.title': 'Une config. Une application compl\u00E8te.',
@@ -118,7 +121,8 @@ export const fr: Record<string, string> = {
 
   // ── Home: Comparison ────────────────────────────────────────────────
   'home.comparison.title': 'Pourquoi ne pas simplement utiliser du SaaS ?',
-  'home.comparison.stat1': '90% moins cher que les outils SaaS \u00E9quivalents',
+  'home.comparison.stat1':
+    '\u00C9conomies significatives par rapport aux outils SaaS \u00E9quivalents',
   'home.comparison.stat2': '100% de propri\u00E9t\u00E9 des donn\u00E9es, pour toujours',
   'home.comparison.table.title': 'Sovrium vs SaaS traditionnel',
   'home.comparison.table.header.aspect': 'Aspect',
@@ -143,6 +147,9 @@ export const fr: Record<string, string> = {
   'home.comparison.table.row7.aspect': 'Confidentialit\u00E9',
   'home.comparison.table.row7.sovrium': '\u2705 Vos serveurs',
   'home.comparison.table.row7.saas': '\u274C Tiers',
+  'home.comparison.table.row8.aspect': 'H\u00E9bergement g\u00E9r\u00E9',
+  'home.comparison.table.row8.sovrium': '\u26A0\uFE0F Vous g\u00E9rez l\u2019infrastructure',
+  'home.comparison.table.row8.saas': '\u2705 Enti\u00E8rement g\u00E9r\u00E9 pour vous',
 
   // ── Home: Use Cases ─────────────────────────────────────────────────
   'home.useCases.title': 'Con\u00E7u pour le travail r\u00E9el',
@@ -170,47 +177,36 @@ export const fr: Record<string, string> = {
   'home.features.subtitle':
     'Une plateforme compl\u00E8te, pas un \u00E9ni\u00E8me framework \u00E0 apprendre.',
   'home.features.auth.title': '\uD83D\uDD10 Authentification',
+  'home.features.auth.status': 'Disponible',
   'home.features.auth.point1': '\u2022 Email/mot de passe & OAuth social',
   'home.features.auth.point2': '\u2022 Acc\u00E8s par r\u00F4le (admin, membre, lecteur)',
-  'home.features.auth.point3': '\u2022 Gestion des sessions',
-  'home.features.auth.point4': '\u2022 Authentification \u00E0 deux facteurs',
-  'home.features.auth.point5': '\u2022 Support des passkeys',
-  'home.features.auth.point6': '\u2022 Champs utilisateur personnalis\u00E9s',
+  'home.features.auth.point3': '\u2022 Authentification \u00E0 deux facteurs',
+  'home.features.auth.point4': '\u2022 Gestion des sessions & passkeys',
   'home.features.tables.title': '\uD83D\uDDC2\uFE0F Tables & Donn\u00E9es',
+  'home.features.tables.status': 'Disponible',
   'home.features.tables.point1': '\u2022 15+ types de champs (texte, email, nombre, \u2026)',
   'home.features.tables.point2': '\u2022 API CRUD automatique',
-  'home.features.tables.point3': '\u2022 Relations et lookups',
+  'home.features.tables.point3': '\u2022 Relations, lookups & champs formule',
   'home.features.tables.point4': '\u2022 Tri, filtrage, pagination',
-  'home.features.tables.point5': '\u2022 Champs formule',
-  'home.features.tables.point6': '\u2022 Import/export',
   'home.features.api.title': '\uD83D\uDD0C API Records',
+  'home.features.api.status': 'Disponible',
   'home.features.api.point1': '\u2022 Endpoints REST auto-g\u00E9n\u00E9r\u00E9s',
   'home.features.api.point2': '\u2022 Documentation OpenAPI',
   'home.features.api.point3': '\u2022 SDK client typ\u00E9',
-  'home.features.api.point4': '\u2022 Filtrage et tri',
-  'home.features.api.point5': '\u2022 Op\u00E9rations en masse',
-  'home.features.api.point6': '\u2022 Support des webhooks',
+  'home.features.api.point4': '\u2022 Filtrage, tri & op\u00E9rations en masse',
   'home.features.pages.title': '\uD83D\uDCBB Pages & UI',
+  'home.features.pages.status': 'Disponible',
   'home.features.pages.point1': '\u2022 Pages React rendues c\u00F4t\u00E9 serveur',
-  'home.features.pages.point2': '\u2022 Biblioth\u00E8que de composants incluse',
+  'home.features.pages.point2': '\u2022 62 types de composants inclus',
   'home.features.pages.point3': '\u2022 Responsive par d\u00E9faut',
-  'home.features.pages.point4': '\u2022 Layouts personnalis\u00E9s',
-  'home.features.pages.point5': '\u2022 Constructeur de formulaires',
-  'home.features.pages.point6': '\u2022 Syst\u00E8me de navigation',
+  'home.features.pages.point4': '\u2022 Layouts personnalis\u00E9s & navigation',
   'home.features.theming.title': '\uD83C\uDFA8 Th\u00E8mes & i18n',
-  'home.features.theming.point1': '\u2022 Sch\u00E9mas de couleurs personnalis\u00E9s',
-  'home.features.theming.point2': '\u2022 Syst\u00E8me typographique',
-  'home.features.theming.point3': '\u2022 Support du mode sombre',
-  'home.features.theming.point4': '\u2022 Multi-langue (i18n)',
-  'home.features.theming.point5': '\u2022 Th\u00E9matisation par variables CSS',
-  'home.features.theming.point6': '\u2022 Design coh\u00E9rent avec votre marque',
-  'home.features.admin.title': '\u2699\uFE0F Admin & Op\u00E9rations',
-  'home.features.admin.point1': '\u2022 Tableau de bord admin',
-  'home.features.admin.point2': '\u2022 Gestion des utilisateurs',
-  'home.features.admin.point3': '\u2022 Journaux d\u2019activit\u00E9',
-  'home.features.admin.point4': '\u2022 Studio base de donn\u00E9es',
-  'home.features.admin.point5': '\u2022 Outils CLI',
-  'home.features.admin.point6': '\u2022 Monitoring de sant\u00E9',
+  'home.features.theming.status': 'Disponible',
+  'home.features.theming.point1':
+    '\u2022 Sch\u00E9mas de couleurs & typographie personnalis\u00E9s',
+  'home.features.theming.point2': '\u2022 Support du mode sombre',
+  'home.features.theming.point3': '\u2022 Multi-langue (i18n)',
+  'home.features.theming.point4': '\u2022 Th\u00E9matisation par variables CSS',
 
   // ── Home: Tech Stack ────────────────────────────────────────────────
   'home.techStack.title': 'Stack moderne. Sans compromis.',
@@ -230,7 +226,9 @@ export const fr: Record<string, string> = {
   'home.gettingStarted.status.title': 'Acc\u00E8s anticipé',
   'home.gettingStarted.status.description':
     'Sovrium est en d\u00E9veloppement actif. Mettez une \u00E9toile au repo et suivez la construction de l\u2019avenir des applications auto-h\u00E9berg\u00E9es.',
-  'home.gettingStarted.status.cta': '⭐ \u00C9toiler sur GitHub',
+  'home.gettingStarted.status.cta': 'Lire le guide de d\u00E9marrage',
+  'home.gettingStarted.status.cta.href': '/fr/docs',
+  'home.gettingStarted.status.cta.secondary': '\u00C9toiler sur GitHub',
 
   // ════════════════════════════════════════════════════════════════════
   //  PARTNER PAGE
@@ -251,7 +249,7 @@ export const fr: Record<string, string> = {
   'partner.hero.title': 'Des solutions sur mesure pour vos d\u00E9fis logiciels',
   'partner.hero.subtitle':
     'Nous concevons, construisons et maintenons des outils internes, des solutions pilot\u00E9es par l\u2019IA et des workflows automatis\u00E9s sur votre infrastructure. Aucun vendor lock-in, aucune facture surprise \u2014 juste du logiciel qui fonctionne pour votre \u00E9quipe.',
-  'partner.hero.cta.primary': 'Rejoindre la liste d\u2019attente',
+  'partner.hero.cta.primary': 'Nous contacter',
   'partner.hero.cta.secondary': 'Notre m\u00E9thodologie',
 
   // ── Partners: Trusted By ────────────────────────────────────────────
@@ -292,9 +290,9 @@ export const fr: Record<string, string> = {
   'partner.process.step5.description':
     'Support continu et \u00E9volution au fil de vos besoins. Nous restons \u00E0 vos c\u00F4t\u00E9s sur le long terme.',
 
-  // ── Partners: Methodology (13 principles) ──────────────────────────
+  // ── Partners: Methodology (5 principles) ───────────────────────────
   'partner.methodology.title': 'Notre m\u00E9thodologie',
-  'partner.methodology.subtitle': '10 principes qui guident chaque projet que nous livrons.',
+  'partner.methodology.subtitle': '5 principes qui guident chaque projet que nous livrons.',
   'partner.methodology.1.title':
     '\u2699\uFE0F Nous automatisons les processus, construisons des outils internes et exploitons l\u2019IA pour amplifier votre \u00E9quipe',
   'partner.methodology.1.description':
@@ -315,26 +313,10 @@ export const fr: Record<string, string> = {
     '\u23F1\uFE0F Vous payez le temps que nous consacrons \u00E0 toutes vos demandes',
   'partner.methodology.5.description':
     'Notre syst\u00E8me de facturation est transparent et bas\u00E9 sur le temps r\u00E9ellement pass\u00E9 sur vos projets.',
-  'partner.methodology.6.title': '\u274C Nous ne faisons pas de devis',
-  'partner.methodology.6.description':
-    'Nous pr\u00E9f\u00E9rons une approche pragmatique bas\u00E9e sur l\u2019action plut\u00F4t que sur des pr\u00E9dictions approximatives.',
-  'partner.methodology.7.title':
-    '\uD83D\uDC8E Nous prenons le temps de faire un travail de qualit\u00E9, en nous concentrant sur ce qui compte',
-  'partner.methodology.7.description':
-    'Notre engagement envers la qualit\u00E9 guide chaque aspect de notre travail.',
-  'partner.methodology.8.title':
-    '\uD83C\uDFE1 Vous \u00EAtes propri\u00E9taire de tout ce que nous d\u00E9veloppons pour vous',
-  'partner.methodology.8.description':
-    'Tout le code, les applications et les solutions d\u00E9velopp\u00E9s dans le cadre de nos services vous appartiennent enti\u00E8rement.',
-  'partner.methodology.9.title': '\uD83D\uDD4A\uFE0F Vous n\u2019\u00EAtes engag\u00E9 \u00E0 rien',
-  'partner.methodology.9.description':
-    'Notre approche flexible vous permet de travailler avec nous selon vos besoins, sans engagement contractuel \u00E0 long terme.',
-  'partner.methodology.10.title': '\u2764\uFE0F Nous prenons soin de vous',
-  'partner.methodology.10.description':
-    'Votre satisfaction est notre priorit\u00E9. Nous ne livrons pas seulement un projet : nous nous engageons \u00E0 vous accompagner \u00E0 chaque \u00E9tape.',
 
   // ── Partners: Testimonials (exact LTF Engine quotes) ────────────────
   'partner.testimonials.title': 'Ce que disent nos clients',
+  'partner.testimonials.disclaimer': 'Ce que disent nos clients en consulting',
   'partner.testimonials.1.quote':
     'Un travail tr\u00E8s satisfaisant, c\u2019est une exp\u00E9rience tr\u00E8s positive et enrichissante. L\u2019\u00E9quipe La Tech Force nous a aid\u00E9s \u00E0 monter rapidement en comp\u00E9tence.',
   'partner.testimonials.1.author': 'Marco PERONE',
@@ -356,7 +338,10 @@ export const fr: Record<string, string> = {
   'partner.waitlist.title': 'Boostez votre \u00E9quipe',
   'partner.waitlist.description':
     'Nous travaillons avec un nombre limit\u00E9 de clients pour garantir la qualit\u00E9. Rejoignez notre liste d\u2019attente pour \u00EAtre inform\u00E9 d\u00E8s qu\u2019une place se lib\u00E8re.',
-  'partner.waitlist.cta': 'Rejoindre la liste d\u2019attente',
+  'partner.waitlist.cta': 'Nous contacter',
+  'partner.waitlist.email': 'bonjour@sovrium.com',
+  'partner.waitlist.email.href': 'mailto:bonjour@sovrium.com',
+  'partner.waitlist.email.label': 'Ou contactez-nous directement\u00A0:',
 
   // ════════════════════════════════════════════════════════════════════
   //  ABOUT PAGE
@@ -449,6 +434,14 @@ export const fr: Record<string, string> = {
   'about.cta.github': 'Voir sur GitHub',
   'about.cta.partner': 'Travailler avec nous',
   'about.cta.partner.href': '/fr/partner',
+
+  // ── Company: Origin Story ─────────────────────────────────────────
+  'about.origin.title': 'Pourquoi Sovrium existe',
+  'about.origin.description':
+    'Apr\u00E8s 8 ans \u00E0 construire des outils d\u2019automatisation et des logiciels internes pour plus de 50 clients en France et en Europe, j\u2019ai observ\u00E9 le m\u00EAme sch\u00E9ma partout\u00A0: des organisations pi\u00E9g\u00E9es dans des abonnements SaaS qu\u2019elles ne pouvaient pas quitter, payant pour des fonctionnalit\u00E9s dont elles n\u2019avaient pas besoin, avec des donn\u00E9es qu\u2019elles ne contr\u00F4laient pas pleinement.',
+  'about.origin.paragraph2':
+    'J\u2019ai cr\u00E9\u00E9 Sovrium pour prouver qu\u2019un meilleur mod\u00E8le existe \u2014 un mod\u00E8le o\u00F9 un seul fichier de configuration remplace des dizaines d\u2019abonnements SaaS, et o\u00F9 vous poss\u00E9dez chaque ligne de code et chaque octet de donn\u00E9es.',
+  'about.origin.signature': '\u2014 Thomas Jeanneau, Fondateur',
 
   // ════════════════════════════════════════════════════════════════════
   //  TERMS OF SERVICE PAGE
@@ -929,12 +922,27 @@ export const fr: Record<string, string> = {
     'Une application Sovrium est un objet de configuration d\u00E9claratif avec 10 propri\u00E9t\u00E9s racine. Seul name est requis \u2014 tout le reste est optionnel, permettant une complexit\u00E9 progressive, d\u2019un simple identifiant d\u2019application \u00E0 une application full-stack.',
   'docs.overview.footnote':
     'Les fichiers de configuration peuvent \u00EAtre \u00E9crits en YAML ou JSON. Ex\u00E9cutez sovrium start app.yaml pour lancer un serveur de d\u00E9veloppement, ou sovrium static app.yaml pour g\u00E9n\u00E9rer un site statique.',
+  'docs.overview.tip.title': 'Complexit\u00E9 progressive',
+  'docs.overview.tip.body':
+    'Seul name est requis. Ajoutez tables, theme, pages, auth et d\u2019autres sections au fur et \u00E0 mesure.',
 
   // ── Docs: Section 2 — Quick Start ─────────────────────────────────
   'docs.quickStart.title': 'D\u00E9marrage rapide',
   'docs.quickStart.description':
     'Cr\u00E9ez un fichier app.yaml et commencez \u00E0 construire. Voici un exemple minimal qui \u00E9volue de la config valide la plus simple \u00E0 une petite application compl\u00E8te\u00A0:',
   'docs.quickStart.runDev': 'Puis lancez le serveur de d\u00E9veloppement\u00A0:',
+  'docs.quickStart.step1.title': 'Cr\u00E9er un fichier de config',
+  'docs.quickStart.step1.description':
+    'Commencez avec la configuration valide la plus simple \u2014 juste un nom.',
+  'docs.quickStart.step2.title': 'Ajouter des tables de donn\u00E9es',
+  'docs.quickStart.step2.description':
+    'D\u00E9finissez vos mod\u00E8les de donn\u00E9es avec des champs typ\u00E9s, des options et de la validation.',
+  'docs.quickStart.step3.title': 'D\u00E9marrer le serveur',
+  'docs.quickStart.step3.description':
+    'Lancez le serveur de d\u00E9veloppement et visitez http://localhost:3000 pour voir votre application.',
+  'docs.quickStart.tip.title': 'Ajoutez au fur et \u00E0 mesure',
+  'docs.quickStart.tip.body':
+    'Commencez petit avec juste des tables. Puis ajoutez progressivement theme, auth, pages et analytics selon vos besoins.',
 
   // ── Docs: Section 3 — Root Properties ─────────────────────────────
   'docs.rootProps.title': 'Propri\u00E9t\u00E9s racine',
@@ -966,12 +974,33 @@ export const fr: Record<string, string> = {
   'docs.tables.description':
     'Les tables d\u00E9finissent vos mod\u00E8les de donn\u00E9es. Chaque table a un id, un name, des fields, et des permissions, index et vues optionnels.',
   'docs.tables.structure.title': 'Structure d\u2019une table',
+  'docs.tables.structure.description':
+    'Chaque table a un id, un name, un tableau de fields, et des permissions et index optionnels.',
   'docs.tables.baseFields.title': 'Propri\u00E9t\u00E9s de base des champs',
   'docs.tables.baseFields.description':
     'Chaque champ a ces propri\u00E9t\u00E9s de base\u00A0: id (entier unique), name (identifiant), type (un des 40 types), et optionnellement required, unique, description et defaultValue.',
+  'docs.tables.baseFields.id': 'Identifiant entier unique du champ dans la table.',
+  'docs.tables.baseFields.name':
+    'Nom du champ utilis\u00E9 comme identifiant de colonne. Suit les conventions de nommage.',
+  'docs.tables.baseFields.type':
+    'Un des 40 types de champs disponibles (ex.\u00A0: single-line-text, number, checkbox).',
+  'docs.tables.baseFields.required':
+    'Bool\u00E9en. Lorsque true, le champ doit avoir une valeur pour chaque enregistrement.',
+  'docs.tables.baseFields.unique':
+    'Bool\u00E9en. Lorsque true, deux enregistrements ne peuvent pas avoir la m\u00EAme valeur.',
+  'docs.tables.baseFields.descriptionProp':
+    'Description lisible optionnelle affich\u00E9e comme infobulle dans l\u2019interface.',
+  'docs.tables.baseFields.defaultValue':
+    'Valeur par d\u00E9faut attribu\u00E9e lorsqu\u2019un enregistrement est cr\u00E9\u00E9 sans sp\u00E9cifier ce champ.',
   'docs.tables.fieldTypes.title': '40 types de champs',
   'docs.tables.fieldTypes.description':
     'Les types de champs sont organis\u00E9s en 9 cat\u00E9gories\u00A0:',
+  'docs.tables.fieldTypes.text.description':
+    'Champs pour le contenu textuel \u2014 des \u00E9tiquettes courtes au texte riche format\u00E9 et aux cha\u00EEnes structur\u00E9es.',
+  'docs.tables.fieldTypes.numeric.description':
+    'Champs pour les nombres, devises, pourcentages et notations avec options de formatage.',
+  'docs.tables.fieldTypes.selection.description':
+    'Champs pour choisir parmi des options pr\u00E9d\u00E9finies \u2014 s\u00E9lection simple ou multiple avec \u00E9tiquettes color\u00E9es.',
   'docs.tables.fieldTypes.text': 'Champs texte',
   'docs.tables.fieldTypes.numeric': 'Champs num\u00E9riques',
   'docs.tables.fieldTypes.selection': 'Champs de s\u00E9lection',
@@ -984,6 +1013,9 @@ export const fr: Record<string, string> = {
   'docs.tables.permissions.title': 'Permissions (RBAC)',
   'docs.tables.permissions.description':
     'Les permissions de table utilisent le contr\u00F4le d\u2019acc\u00E8s par r\u00F4le. Chaque permission (create, read, update, delete, comment) accepte\u00A0: "all" (public), "authenticated" (utilisateurs connect\u00E9s), ou un tableau de noms de r\u00F4les.',
+  'docs.tables.permissions.tip.title': 'Trois niveaux d\u2019acc\u00E8s',
+  'docs.tables.permissions.tip.body':
+    '"all" pour un acc\u00E8s public, "authenticated" pour tout utilisateur connect\u00E9, ou un tableau de noms de r\u00F4les comme [admin, member] pour des r\u00F4les sp\u00E9cifiques.',
 
   // ── Docs: Section 5 — Theme ───────────────────────────────────────
   'docs.theme.title': 'Th\u00E8me',
@@ -1010,12 +1042,26 @@ export const fr: Record<string, string> = {
   'docs.theme.borderRadius.title': 'borderRadius',
   'docs.theme.borderRadius.description':
     'Jetons de rayon de bordure nomm\u00E9s sous forme de valeurs CSS. Chacun devient une classe utilitaire rounded-{name}.',
+  'docs.theme.fonts.tip.title': 'Google Fonts',
+  'docs.theme.fonts.tip.body':
+    'Ajoutez une googleFontsUrl pour charger automatiquement des polices personnalis\u00E9es. L\u2019URL est inject\u00E9e comme balise <link> dans le head de la page.',
+  'docs.theme.advanced.title': 'Ombres, Animations & Plus',
+  'docs.theme.advanced.description':
+    'Jetons de design suppl\u00E9mentaires pour ombres, animations, points de rupture responsifs et rayon de bordure.',
+  'docs.theme.fullExample.title': 'Exemple complet',
+  'docs.theme.fullExample.description':
+    'Une configuration de th\u00E8me compl\u00E8te combinant couleurs, polices, espacement et ombres.',
+  'docs.theme.screenshot.alt': 'Application Sovrium avec un th\u00E8me personnalis\u00E9',
+  'docs.theme.screenshot.caption':
+    'Une application CRM rendue avec des couleurs, polices et espacements personnalis\u00E9s.',
 
   // ── Docs: Section 6 — Pages & Components ──────────────────────────
   'docs.pages.title': 'Pages & Composants',
   'docs.pages.description':
     'Les pages sont rendues c\u00F4t\u00E9 serveur via un syst\u00E8me d\u2019arbre de composants. Chaque page a un name, un path, des m\u00E9tadonn\u00E9es (SEO, favicons) et des sections contenant des composants imbriqu\u00E9s.',
   'docs.pages.structure.title': 'Structure d\u2019une page',
+  'docs.pages.structure.description':
+    'Chaque page a un name, un path, des m\u00E9tadonn\u00E9es SEO et des sections avec des composants imbriqu\u00E9s.',
   'docs.pages.componentTypes.title': '62 types de composants',
   'docs.pages.componentTypes.description':
     'Les composants forment un arbre r\u00E9cursif \u2014 chacun peut avoir type, content, props et children.',
@@ -1027,39 +1073,127 @@ export const fr: Record<string, string> = {
   'docs.pages.componentTypes.dataDisplay': 'Affichage de donn\u00E9es',
   'docs.pages.componentTypes.interactive': 'Interactif',
   'docs.pages.componentTypes.display': 'Affichage',
+  'docs.pages.componentTypes.layout.description':
+    '\u00C9l\u00E9ments structurels qui contr\u00F4lent la mise en page et le flux du contenu.',
+  'docs.pages.componentTypes.typography.description':
+    '\u00C9l\u00E9ments textuels des titres aux paragraphes et citations.',
+  'docs.pages.componentTypes.media.description':
+    '\u00C9l\u00E9ments visuels et multim\u00E9dia pour images, vid\u00E9o, audio et int\u00E9grations.',
+  'docs.pages.componentTypes.interactive.description':
+    'Composants avec interactivit\u00E9 int\u00E9gr\u00E9e comme les accord\u00E9ons, onglets et modales.',
   'docs.pages.interactions.title': 'Interactions',
   'docs.pages.interactions.description':
     'Les composants supportent 4 types d\u2019interaction via la propri\u00E9t\u00E9 interactions\u00A0: hover (transformation, opacit\u00E9, \u00E9chelle, ombre), click (navigation, d\u00E9filement, bascule), scroll (parallaxe, fondu, comportement sticky) et entrance (animation \u00E0 la premi\u00E8re vue avec d\u00E9lai et dur\u00E9e).',
+  'docs.pages.interactions.hover.title': 'Survol',
+  'docs.pages.interactions.hover.description':
+    'Transformation, opacit\u00E9, \u00E9chelle et changements d\u2019ombre au survol de la souris.',
+  'docs.pages.interactions.click.title': 'Clic',
+  'docs.pages.interactions.click.description':
+    'Naviguer vers une URL, d\u00E9filer vers une ancre ou basculer la visibilit\u00E9.',
+  'docs.pages.interactions.scroll.title': 'D\u00E9filement',
+  'docs.pages.interactions.scroll.description':
+    'Effets de parallaxe, fondu au d\u00E9filement et positionnement sticky.',
+  'docs.pages.interactions.entrance.title': 'Entr\u00E9e',
+  'docs.pages.interactions.entrance.description':
+    'Animer lorsque l\u2019\u00E9l\u00E9ment entre dans la fen\u00EAtre d\u2019affichage avec d\u00E9lai et dur\u00E9e configurables.',
+  'docs.pages.templates.title': 'Templates de composants',
+  'docs.pages.templates.description':
+    'D\u00E9finissez des composants r\u00E9utilisables avec des r\u00E9f\u00E9rences $ref et la substitution de $variable pour un balisage DRY.',
+  'docs.pages.screenshot.hero.alt': 'Section hero rendue par Sovrium',
+  'docs.pages.screenshot.hero.caption':
+    'Une section hero avec titre, description et boutons d\u2019appel \u00E0 l\u2019action \u2014 le tout depuis la config YAML.',
+  'docs.pages.screenshot.features.alt': 'Grille de fonctionnalit\u00E9s rendue par Sovrium',
+  'docs.pages.screenshot.features.caption':
+    'Une grille \u00E0 3 colonnes utilisant des composants section, grid et card avec des ic\u00F4nes emoji.',
 
   // ── Docs: Section 7 — Authentication ──────────────────────────────
   'docs.auth.title': 'Authentification',
   'docs.auth.description':
     'Authentification int\u00E9gr\u00E9e propuls\u00E9e par Better Auth. Configurez les strat\u00E9gies, les r\u00F4les, l\u2019authentification \u00E0 deux facteurs et les mod\u00E8les d\u2019e-mail.',
+  'docs.auth.basic.title': 'Configuration de base',
+  'docs.auth.basic.description':
+    'Commencez avec la config auth la plus simple \u2014 email et mot de passe avec un r\u00F4le par d\u00E9faut.',
   'docs.auth.strategies.title': 'Strat\u00E9gies',
   'docs.auth.strategies.description':
     'email-password (par d\u00E9faut), magic-link (e-mail sans mot de passe), et fournisseurs OAuth (google, github, apple, microsoft, facebook, twitter, discord, spotify, twitch, gitlab, bitbucket, linkedin, dropbox).',
+  'docs.auth.oauth.title': 'Ajout d\u2019OAuth',
+  'docs.auth.oauth.description':
+    'Ajoutez des fournisseurs de connexion sociale en plus de l\u2019email-password. Plusieurs strat\u00E9gies peuvent coexister.',
+  'docs.auth.oauth.warning.title': 'Variables d\u2019environnement requises',
+  'docs.auth.oauth.warning.body':
+    'Les fournisseurs OAuth n\u00E9cessitent AUTH_SECRET et les variables CLIENT_ID / CLIENT_SECRET sp\u00E9cifiques au fournisseur.',
   'docs.auth.roles.title': 'R\u00F4les & Permissions',
   'docs.auth.roles.description':
     'Trois r\u00F4les int\u00E9gr\u00E9s\u00A0: admin, member, viewer. D\u00E9finissez des r\u00F4les personnalis\u00E9s avec nom + description. D\u00E9finissez defaultRole pour les nouveaux utilisateurs. Le premier utilisateur devient automatiquement admin.',
+  'docs.auth.roles.admin':
+    'Acc\u00E8s complet \u00E0 toutes les fonctionnalit\u00E9s, gestion des utilisateurs et param\u00E8tres.',
+  'docs.auth.roles.member':
+    'Peut cr\u00E9er, lire et modifier des enregistrements. Ne peut pas g\u00E9rer les utilisateurs.',
+  'docs.auth.roles.viewer':
+    'Acc\u00E8s en lecture seule. Ne peut pas cr\u00E9er ou modifier d\u2019enregistrements.',
   'docs.auth.twoFactor.title': 'Auth \u00E0 deux facteurs',
   'docs.auth.twoFactor.description':
     '2FA bas\u00E9e sur TOTP optionnelle. Activez avec twoFactor: true dans la config auth. Les utilisateurs peuvent configurer des applications d\u2019authentification.',
   'docs.auth.emails.title': 'Mod\u00E8les d\u2019e-mail',
   'docs.auth.emails.description':
     'E-mails personnalisables pour la v\u00E9rification, la r\u00E9initialisation du mot de passe et le lien magique. Supporte la substitution de variables $name, $url, $email dans le sujet et le corps.',
+  'docs.auth.emails.variables':
+    'Variables disponibles\u00A0: $name (nom utilisateur), $url (lien d\u2019action), $email (email utilisateur), $organizationName, $inviterName.',
 
   // ── Docs: Section 8 — Languages ───────────────────────────────────
   'docs.languages.title': 'Langues',
   'docs.languages.description':
     'Support multilingue avec cl\u00E9s de traduction, d\u00E9tection de la langue du navigateur et routage automatique par URL (/en/..., /fr/...). R\u00E9f\u00E9rencez les traductions dans les pages avec le pr\u00E9fixe $t:.',
+  'docs.languages.defining.title': 'D\u00E9finir les langues',
+  'docs.languages.defining.description':
+    'D\u00E9finissez une langue par d\u00E9faut et listez les langues support\u00E9es avec code, locale, libell\u00E9 et direction du texte.',
+  'docs.languages.translations.title': 'Cl\u00E9s de traduction',
+  'docs.languages.translations.description':
+    'D\u00E9finissez des paires cl\u00E9-valeur pour chaque langue. Les cl\u00E9s utilisent la notation point\u00E9e pour l\u2019organisation.',
+  'docs.languages.usage.title': 'Utiliser les traductions',
+  'docs.languages.usage.description':
+    'R\u00E9f\u00E9rencez les traductions dans tout contenu ou valeur de propri\u00E9t\u00E9 avec le pr\u00E9fixe $t:.',
   'docs.languages.syntax.title': 'Syntaxe de traduction $t:',
   'docs.languages.syntax.description':
     'Utilisez $t:key.path dans tout contenu ou valeur de propri\u00E9t\u00E9 de page pour r\u00E9f\u00E9rencer une traduction. Exemple\u00A0: $t:hero.title se r\u00E9sout en "Welcome" en anglais et "Bienvenue" en fran\u00E7ais.',
+  'docs.languages.adding.title': 'Ajouter une nouvelle langue',
+  'docs.languages.adding.description':
+    'Suivez ces \u00E9tapes pour ajouter une nouvelle langue \u00E0 votre application.',
+  'docs.languages.adding.step1.title': 'Ajouter l\u2019entr\u00E9e de langue',
+  'docs.languages.adding.step1.description':
+    'Ajoutez un nouvel \u00E9l\u00E9ment au tableau supported avec code, locale, libell\u00E9 et direction.',
+  'docs.languages.adding.step2.title': 'Ajouter les traductions',
+  'docs.languages.adding.step2.description':
+    'Cr\u00E9ez une nouvelle section de traductions pour le code de langue avec toutes les cl\u00E9s n\u00E9cessaires.',
+  'docs.languages.adding.step3.title': 'Tester la langue',
+  'docs.languages.adding.step3.description':
+    'Visitez /[code-langue]/ dans votre navigateur pour v\u00E9rifier que la nouvelle langue s\u2019affiche correctement.',
+  'docs.languages.screenshot.en.alt': 'Version anglaise de l\u2019application',
+  'docs.languages.screenshot.en.caption': 'English \u2014 /en/',
+  'docs.languages.screenshot.fr.alt': 'Version fran\u00E7aise de l\u2019application',
+  'docs.languages.screenshot.fr.caption': 'Fran\u00E7ais \u2014 /fr/',
 
   // ── Docs: Section 9 — Analytics ───────────────────────────────────
   'docs.analytics.title': 'Analytiques',
   'docs.analytics.description':
     'Analytiques int\u00E9gr\u00E9es, respectueuses de la vie priv\u00E9e, sans cookies, sans services externes et enti\u00E8rement conformes au RGPD. Toutes les donn\u00E9es restent sur votre serveur.',
+  'docs.analytics.quickEnable.title': 'Activation rapide',
+  'docs.analytics.quickEnable.description':
+    'Activez analytics \u00E0 true pour des param\u00E8tres par d\u00E9faut \u2014 aucune configuration n\u00E9cessaire.',
+  'docs.analytics.advanced.title': 'Configuration avanc\u00E9e',
+  'docs.analytics.advanced.description':
+    'Affinez le comportement des analytiques avec r\u00E9tention, vie priv\u00E9e et options de session.',
+  'docs.analytics.props.retentionDays':
+    'Nombre de jours de r\u00E9tention des donn\u00E9es analytiques. Par d\u00E9faut\u00A0: 90.',
+  'docs.analytics.props.respectDoNotTrack':
+    'Lorsque true, respecte le param\u00E8tre Do Not Track du navigateur. Par d\u00E9faut\u00A0: true.',
+  'docs.analytics.props.excludePaths':
+    'Tableau de chemins URL \u00E0 exclure du suivi (ex.\u00A0: /admin, /api).',
+  'docs.analytics.props.sessionTimeout':
+    'D\u00E9lai d\u2019expiration de session en minutes. Une nouvelle session d\u00E9marre apr\u00E8s cette p\u00E9riode d\u2019inactivit\u00E9. Par d\u00E9faut\u00A0: 30.',
+  'docs.analytics.privacy.title': 'Analytiques orient\u00E9es vie priv\u00E9e',
+  'docs.analytics.privacy.body':
+    'Les analytiques Sovrium sont sans cookies, conformes RGPD par d\u00E9faut. Toutes les donn\u00E9es restent sur votre serveur \u2014 aucun service tiers impliqu\u00E9.',
   'docs.analytics.details':
     'Lorsqu\u2019activ\u00E9, Sovrium injecte un script de suivi l\u00E9ger qui enregistre les pages vues, les sessions, les r\u00E9f\u00E9rents et les informations sur l\u2019appareil. Les donn\u00E9es analytiques sont collect\u00E9es \u00E0 /api/analytics/collect et stock\u00E9es localement.',
 
@@ -1078,4 +1212,8 @@ export const fr: Record<string, string> = {
     'JSON Schema (Draft-07) lisible par machine pour la validation et le support \u00E9diteur.',
   'docs.resources.github.label': 'D\u00E9p\u00F4t GitHub',
   'docs.resources.github.description': 'Code source, issues et directives de contribution.',
+  'docs.resources.help.title': 'Besoin d\u2019aide\u00A0?',
+  'docs.resources.help.description':
+    'Trouv\u00E9 un bug, une question ou une demande de fonctionnalit\u00E9\u00A0? Ouvrez une issue sur GitHub.',
+  'docs.resources.help.link': 'Ouvrir une issue sur GitHub \u2192',
 }

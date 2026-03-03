@@ -8,6 +8,7 @@
 import { favicons } from '../favicons'
 import { footerI18n } from '../footer'
 import { createNavbar, langSwitchScript, mobileMenuScript } from '../navbar'
+import { shikiHighlightScript, copyToClipboardScript, shikiCustomStyles } from '../shiki'
 import type { Page } from '@/index'
 
 // ─── Docs Sidebar Toggle Script ─────────────────────────────────────────────
@@ -28,6 +29,8 @@ const docsSidebarToggleScript = {
   ].join(''),
   position: 'body-end' as const,
 }
+
+const docsCustomStyles = shikiCustomStyles
 
 // ─── Docs Pages Definition ──────────────────────────────────────────────────
 
@@ -101,6 +104,97 @@ export const badgeGroup = (title: string, items: readonly string[]) => ({
       })),
     },
   ],
+})
+
+// ─── Code Block Helper ──────────────────────────────────────────────────────
+// Shortcut for creating a docs-code-block $ref with lang.
+
+export const codeBlock = (code: string, lang: string = 'yaml') => ({
+  $ref: 'docs-code-block' as const,
+  vars: { code, lang },
+})
+
+// ─── Callout Helpers ────────────────────────────────────────────────────────
+// Shortcuts for tip and warning callouts with predefined colors.
+
+export const calloutTip = (title: string, body: string) => ({
+  $ref: 'docs-callout' as const,
+  vars: {
+    icon: '\u{1F4A1}',
+    title,
+    body,
+    borderColor: 'border-sovereignty-accent',
+    bgColor: 'bg-sovereignty-accent/5',
+    titleColor: 'text-sovereignty-accent',
+    textColor: 'text-sovereignty-gray-300',
+  },
+})
+
+export const calloutWarning = (title: string, body: string) => ({
+  $ref: 'docs-callout' as const,
+  vars: {
+    icon: '\u26A0\uFE0F',
+    title,
+    body,
+    borderColor: 'border-yellow-500',
+    bgColor: 'bg-yellow-500/5',
+    titleColor: 'text-yellow-400',
+    textColor: 'text-sovereignty-gray-300',
+  },
+})
+
+// ─── Property Table Helper ──────────────────────────────────────────────────
+// Builds a table with property-row refs for clean property documentation.
+
+export const propertyTable = (rows: ReadonlyArray<{ name: string; description: string }>) => ({
+  type: 'div' as const,
+  props: {
+    className:
+      'overflow-x-auto my-4 border border-sovereignty-gray-800 rounded-lg bg-sovereignty-gray-900',
+  },
+  children: [
+    {
+      type: 'div' as const,
+      props: {
+        className:
+          'grid grid-cols-[140px_1fr] sm:grid-cols-[180px_1fr] gap-2 py-2 px-4 border-b border-sovereignty-gray-800',
+      },
+      children: [
+        {
+          type: 'span' as const,
+          content: 'Property',
+          props: {
+            className: 'text-xs font-semibold text-sovereignty-gray-500 uppercase tracking-wider',
+          },
+        },
+        {
+          type: 'span' as const,
+          content: 'Description',
+          props: {
+            className: 'text-xs font-semibold text-sovereignty-gray-500 uppercase tracking-wider',
+          },
+        },
+      ],
+    },
+    ...rows.map((row) => ({
+      $ref: 'docs-property-row' as const,
+      vars: { name: row.name, description: row.description },
+    })),
+  ],
+})
+
+// ─── Section Header Helper ──────────────────────────────────────────────────
+
+export const sectionHeader = (title: string, description: string, anchor: string) => ({
+  $ref: 'docs-section-header' as const,
+  vars: { title, description, anchor },
+})
+
+// ─── Step Helper ────────────────────────────────────────────────────────────
+
+export const step = (stepNumber: string, title: string, description: string) => ({
+  $ref: 'docs-step' as const,
+  vars: { stepNumber, title, description },
 })
 
 // ─── Sidebar Builder ────────────────────────────────────────────────────────
@@ -203,9 +297,16 @@ export function docsPage(options: DocsPageOptions): Page {
       title: metaTitle,
       description: metaDescription,
       favicons,
+      customElements: docsCustomStyles,
     },
     scripts: {
-      inlineScripts: [mobileMenuScript, langSwitchScript, docsSidebarToggleScript],
+      inlineScripts: [
+        mobileMenuScript,
+        langSwitchScript,
+        docsSidebarToggleScript,
+        shikiHighlightScript,
+        copyToClipboardScript,
+      ],
     },
     sections: [
       // ── Navbar ──────────────────────────────────────────────────────────

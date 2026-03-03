@@ -67,7 +67,7 @@ export const about: Page = {
       type: 'section',
       props: {
         className:
-          'min-h-screen flex items-center justify-center bg-gradient-to-b from-sovereignty-dark to-sovereignty-darker text-sovereignty-light',
+          'py-24 md:py-32 flex items-center justify-center bg-gradient-to-b from-sovereignty-dark to-sovereignty-darker text-sovereignty-light',
       },
       children: [
         {
@@ -160,7 +160,52 @@ export const about: Page = {
       ],
     },
 
-    // --- Section 3: Our Values ---------------------------------------------
+    // --- Section 3: Origin Story --------------------------------------------
+    {
+      type: 'section',
+      props: {
+        className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
+        id: 'origin',
+      },
+      children: [
+        {
+          type: 'container',
+          props: { className: 'max-w-3xl mx-auto px-4 sm:px-6 md:px-8' },
+          children: [
+            {
+              type: 'h2',
+              content: '$t:about.origin.title',
+              props: {
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-8',
+              },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:about.origin.description',
+              props: {
+                className: 'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed mb-6',
+              },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:about.origin.paragraph2',
+              props: {
+                className: 'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed mb-8',
+              },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:about.origin.signature',
+              props: {
+                className: 'text-sovereignty-accent font-semibold italic',
+              },
+            },
+          ],
+        },
+      ],
+    },
+
+    // --- Section 4: Our Values ---------------------------------------------
     {
       type: 'section',
       props: {
@@ -189,14 +234,12 @@ export const about: Page = {
             },
             {
               type: 'grid',
-              props: { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' },
+              props: { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
               children: [
                 { $ref: 'value-card', vars: { key: 'sovereignty' } },
                 { $ref: 'value-card', vars: { key: 'transparency' } },
-                { $ref: 'value-card', vars: { key: 'openSource' } },
                 { $ref: 'value-card', vars: { key: 'simplicity' } },
                 { $ref: 'value-card', vars: { key: 'ownership' } },
-                { $ref: 'value-card', vars: { key: 'longTerm' } },
               ],
             },
           ],

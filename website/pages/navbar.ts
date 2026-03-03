@@ -115,7 +115,8 @@ export const mobileMenuScript = {
  *
  * Contains:
  * - Sovrium horizontal logo (light variant on dark background, links to home)
- * - Desktop navigation links (Docs, Partner, About) - visible on md+ screens
+ * - Desktop navigation links (Docs, Services, About) - visible on md+ screens
+ * - "Get Started" CTA button (accent-colored, links to docs)
  * - Mobile hamburger button - visible on small screens
  * - Mobile dropdown menu with nav links + language switcher
  * - Language switcher (toggles between EN/FR)
@@ -241,6 +242,17 @@ export function createNavbar(activePage?: NavPage) {
                       'aria-label': 'Switch language',
                     },
                   },
+
+                  // CTA button
+                  {
+                    type: 'link' as const,
+                    content: '$t:nav.cta',
+                    props: {
+                      href: '$t:nav.cta.href',
+                      className:
+                        'bg-sovereignty-accent hover:bg-sovereignty-accent/90 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors duration-200',
+                    },
+                  },
                 ],
               },
 
@@ -340,6 +352,17 @@ export function createNavbar(activePage?: NavPage) {
                       href: '$t:nav.about.href',
                       className: mobileClass('about'),
                       ...(activePage === 'about' ? { 'aria-current': 'page' } : {}),
+                    },
+                  },
+
+                  // CTA button (mobile)
+                  {
+                    type: 'link' as const,
+                    content: '$t:nav.cta',
+                    props: {
+                      href: '$t:nav.cta.href',
+                      className:
+                        'block bg-sovereignty-accent hover:bg-sovereignty-accent/90 text-white text-base font-medium px-4 py-3 rounded-lg transition-colors duration-200 text-center',
                     },
                   },
 

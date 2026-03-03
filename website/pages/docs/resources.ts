@@ -13,6 +13,7 @@ export const docsResources = docsPage({
   metaTitle: '$t:docs.resources.meta.title',
   metaDescription: '$t:docs.resources.meta.description',
   content: [
+    // ── Title ────────────────────────────────────────────────────────────
     {
       type: 'div',
       props: {},
@@ -29,6 +30,14 @@ export const docsResources = docsPage({
           content: '$t:docs.resources.description',
           props: { className: 'text-sovereignty-gray-400 mb-8' },
         },
+      ],
+    },
+
+    // ── Resource Cards ───────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
         {
           type: 'grid',
           props: {
@@ -65,6 +74,41 @@ export const docsResources = docsPage({
                 label: '$t:docs.resources.github.label',
                 href: 'https://github.com/sovrium/sovrium',
                 description: '$t:docs.resources.github.description',
+              },
+            },
+          ],
+        },
+      ],
+    },
+
+    // ── Getting Help ─────────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        {
+          type: 'div',
+          props: {
+            className:
+              'rounded-lg p-6 border border-sovereignty-gray-800 bg-sovereignty-gray-900 mt-4',
+          },
+          children: [
+            {
+              type: 'h3',
+              content: '$t:docs.resources.help.title',
+              props: { className: 'text-lg font-semibold text-sovereignty-light mb-2' },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:docs.resources.help.description',
+              props: { className: 'text-sm text-sovereignty-gray-400 mb-4' },
+            },
+            {
+              type: 'link',
+              content: '$t:docs.resources.help.link',
+              props: {
+                href: 'https://github.com/sovrium/sovrium/issues',
+                className: 'text-sm text-sovereignty-accent hover:underline font-medium',
               },
             },
           ],

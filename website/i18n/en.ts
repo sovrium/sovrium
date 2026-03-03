@@ -14,10 +14,12 @@ export const en: Record<string, string> = {
   // ════════════════════════════════════════════════════════════════════
   //  GLOBAL NAVIGATION
   // ════════════════════════════════════════════════════════════════════
-  'nav.partner': 'Partner Service',
+  'nav.partner': 'Services',
   'nav.partner.href': '/en/partner',
   'nav.about': 'About',
   'nav.about.href': '/en/about',
+  'nav.cta': 'Get Started',
+  'nav.cta.href': '/en/docs',
   'nav.lang.label': 'FR',
   'nav.lang.code': 'fr',
 
@@ -34,7 +36,7 @@ export const en: Record<string, string> = {
   'footer.col.company': 'Company',
   'footer.col.company.about': 'About',
   'footer.col.company.about.href': '/en/about',
-  'footer.col.company.partners': 'Partner Service',
+  'footer.col.company.partners': 'Services',
   'footer.col.company.partners.href': '/en/partner',
   'footer.col.company.trademark': 'Trademark',
   'footer.col.legal': 'Legal',
@@ -44,6 +46,10 @@ export const en: Record<string, string> = {
   'footer.col.legal.terms.href': '/en/terms-of-service',
   'footer.col.legal.dataDeletion': 'Data Deletion',
   'footer.col.legal.dataDeletion.href': '/en/data-deletion',
+  'footer.social.github': 'GitHub',
+  'footer.social.github.href': 'https://github.com/nichochar/sovrium',
+  'footer.social.twitter': 'Twitter',
+  'footer.social.twitter.href': 'https://x.com/sovrium',
   'footer.copyright':
     '\u00A9 2025-2026 ESSENTIAL SERVICES. Sovrium\u00AE is a registered trademark of ESSENTIAL SERVICES.',
 
@@ -63,10 +69,11 @@ export const en: Record<string, string> = {
     'Open-source, configuration-driven application platform. The self-hosted SaaS alternative with no vendor lock-in.',
 
   // ── Home: Hero ──────────────────────────────────────────────────────
-  'home.hero.title': 'Sovrium, the sovereignty element',
-  'home.hero.subtitle': 'Own your data. Own your tools. Own your future.',
+  'home.hero.eyebrow': 'THE SOVEREIGNTY ELEMENT',
+  'home.hero.title': 'Build complete apps with a single config file',
+  'home.hero.subtitle': 'Open-source. Self-hosted. Configuration-driven.',
   'home.hero.description':
-    'Break free from SaaS dependency with a self-hosted, configuration-driven platform that puts you back in control.',
+    'Define your tables, auth, pages, and theme in one file. Sovrium turns it into a full-stack application you own and control.',
   'home.hero.cta.primary': 'Get Started',
   'home.hero.cta.secondary': 'View on GitHub',
 
@@ -74,10 +81,12 @@ export const en: Record<string, string> = {
   'home.problem.title': 'The SaaS Trap',
   'home.problem.stat1.value': '$10K+',
   'home.problem.stat1.label': 'Average annual SaaS spend per employee',
+  'home.problem.stat1.source': 'Source: Productiv SaaS Trends 2024',
   'home.problem.stat2.value': '0%',
-  'home.problem.stat2.label': 'Data you actually own on SaaS platforms',
+  'home.problem.stat2.label': 'Data portability guarantee on most SaaS platforms',
   'home.problem.stat3.value': '73%',
   'home.problem.stat3.label': 'Companies worried about vendor lock-in',
+  'home.problem.stat3.source': 'Source: Flexera 2024 State of ITAM Report',
   'home.problem.hidden.title': 'The Hidden Costs of SaaS Dependency',
   'home.problem.hidden.cost1.title': 'Vendor Lock-in \u2014 ',
   'home.problem.hidden.cost1.description':
@@ -88,12 +97,6 @@ export const en: Record<string, string> = {
   'home.problem.hidden.cost3.title': 'Feature Bloat \u2014 ',
   'home.problem.hidden.cost3.description':
     'You pay for thousands of features you never use, while the ones you need are behind enterprise paywalls.',
-  'home.problem.hidden.cost4.title': 'Data Sovereignty \u2014 ',
-  'home.problem.hidden.cost4.description':
-    'Your business data lives on servers you don\u2019t control, in jurisdictions you didn\u2019t choose.',
-  'home.problem.hidden.cost5.title': 'Integration Tax \u2014 ',
-  'home.problem.hidden.cost5.description':
-    'Connecting SaaS tools requires middleware, custom APIs, and constant maintenance.',
 
   // ── Home: Solution Overview ─────────────────────────────────────────
   'home.solution.title': 'One Config. Full Application.',
@@ -114,7 +117,7 @@ export const en: Record<string, string> = {
 
   // ── Home: Comparison ────────────────────────────────────────────────
   'home.comparison.title': 'Why Not Just Use SaaS?',
-  'home.comparison.stat1': '90% less cost than equivalent SaaS tools',
+  'home.comparison.stat1': 'Significant cost savings vs equivalent SaaS tools',
   'home.comparison.stat2': '100% data ownership, forever',
   'home.comparison.table.title': 'Sovrium vs Traditional SaaS',
   'home.comparison.table.header.aspect': 'Aspect',
@@ -139,6 +142,9 @@ export const en: Record<string, string> = {
   'home.comparison.table.row7.aspect': 'Privacy',
   'home.comparison.table.row7.sovrium': '\u2705 Your servers',
   'home.comparison.table.row7.saas': '\u274C Third-party',
+  'home.comparison.table.row8.aspect': 'Managed Hosting',
+  'home.comparison.table.row8.sovrium': '\u26A0\uFE0F You manage infrastructure',
+  'home.comparison.table.row8.saas': '\u2705 Fully managed for you',
 
   // ── Home: Use Cases ─────────────────────────────────────────────────
   'home.useCases.title': 'Built For Real Work',
@@ -165,47 +171,35 @@ export const en: Record<string, string> = {
   'home.features.title': 'Everything You Need',
   'home.features.subtitle': 'A complete platform, not another framework to learn.',
   'home.features.auth.title': '\uD83D\uDD10 Authentication',
+  'home.features.auth.status': 'Available',
   'home.features.auth.point1': '\u2022 Email/password & social OAuth',
   'home.features.auth.point2': '\u2022 Role-based access (admin, member, viewer)',
-  'home.features.auth.point3': '\u2022 Session management',
-  'home.features.auth.point4': '\u2022 Two-factor authentication',
-  'home.features.auth.point5': '\u2022 Passkeys support',
-  'home.features.auth.point6': '\u2022 Custom user fields',
+  'home.features.auth.point3': '\u2022 Two-factor authentication',
+  'home.features.auth.point4': '\u2022 Session management & passkeys',
   'home.features.tables.title': '\uD83D\uDDC2\uFE0F Tables & Data',
+  'home.features.tables.status': 'Available',
   'home.features.tables.point1': '\u2022 15+ field types (text, email, number, \u2026)',
   'home.features.tables.point2': '\u2022 Automatic CRUD API',
-  'home.features.tables.point3': '\u2022 Relations and lookups',
+  'home.features.tables.point3': '\u2022 Relations, lookups & formula fields',
   'home.features.tables.point4': '\u2022 Sorting, filtering, pagination',
-  'home.features.tables.point5': '\u2022 Formula fields',
-  'home.features.tables.point6': '\u2022 Import/export',
   'home.features.api.title': '\uD83D\uDD0C Records API',
+  'home.features.api.status': 'Available',
   'home.features.api.point1': '\u2022 Auto-generated REST endpoints',
   'home.features.api.point2': '\u2022 OpenAPI documentation',
   'home.features.api.point3': '\u2022 Type-safe client SDK',
-  'home.features.api.point4': '\u2022 Filtering and sorting',
-  'home.features.api.point5': '\u2022 Bulk operations',
-  'home.features.api.point6': '\u2022 Webhook support',
+  'home.features.api.point4': '\u2022 Filtering, sorting & bulk operations',
   'home.features.pages.title': '\uD83D\uDCBB Pages & UI',
+  'home.features.pages.status': 'Available',
   'home.features.pages.point1': '\u2022 Server-rendered React pages',
-  'home.features.pages.point2': '\u2022 Component library included',
+  'home.features.pages.point2': '\u2022 62 component types included',
   'home.features.pages.point3': '\u2022 Responsive by default',
-  'home.features.pages.point4': '\u2022 Custom layouts',
-  'home.features.pages.point5': '\u2022 Form builder',
-  'home.features.pages.point6': '\u2022 Navigation system',
+  'home.features.pages.point4': '\u2022 Custom layouts & navigation',
   'home.features.theming.title': '\uD83C\uDFA8 Theming & i18n',
-  'home.features.theming.point1': '\u2022 Custom color schemes',
-  'home.features.theming.point2': '\u2022 Typography system',
-  'home.features.theming.point3': '\u2022 Dark mode support',
-  'home.features.theming.point4': '\u2022 Multi-language (i18n)',
-  'home.features.theming.point5': '\u2022 CSS variable theming',
-  'home.features.theming.point6': '\u2022 Brand-consistent design',
-  'home.features.admin.title': '\u2699\uFE0F Admin & Operations',
-  'home.features.admin.point1': '\u2022 Admin dashboard',
-  'home.features.admin.point2': '\u2022 User management',
-  'home.features.admin.point3': '\u2022 Activity logs',
-  'home.features.admin.point4': '\u2022 Database studio',
-  'home.features.admin.point5': '\u2022 CLI tools',
-  'home.features.admin.point6': '\u2022 Health monitoring',
+  'home.features.theming.status': 'Available',
+  'home.features.theming.point1': '\u2022 Custom color schemes & typography',
+  'home.features.theming.point2': '\u2022 Dark mode support',
+  'home.features.theming.point3': '\u2022 Multi-language (i18n)',
+  'home.features.theming.point4': '\u2022 CSS variable theming',
 
   // ── Home: Tech Stack ────────────────────────────────────────────────
   'home.techStack.title': 'Modern Stack. No Compromises.',
@@ -224,7 +218,9 @@ export const en: Record<string, string> = {
   'home.gettingStarted.status.title': 'Early Access',
   'home.gettingStarted.status.description':
     'Sovrium is in active development. Star the repo and follow along as we build the future of self-hosted applications.',
-  'home.gettingStarted.status.cta': '⭐ Star on GitHub',
+  'home.gettingStarted.status.cta': 'Read the Quickstart',
+  'home.gettingStarted.status.cta.href': '/en/docs',
+  'home.gettingStarted.status.cta.secondary': 'Star on GitHub',
 
   // ════════════════════════════════════════════════════════════════════
   //  PARTNER PAGE
@@ -245,7 +241,7 @@ export const en: Record<string, string> = {
   'partner.hero.title': 'Tailor-made solutions to your software challenges',
   'partner.hero.subtitle':
     'We design, build, and maintain custom internal tools, AI-powered solutions, and automated workflows on your infrastructure. No vendor lock-in, no surprise bills \u2014 just software that works for your team.',
-  'partner.hero.cta.primary': 'Join the Waitlist',
+  'partner.hero.cta.primary': 'Get in Touch',
   'partner.hero.cta.secondary': 'Our Methodology',
 
   // ── Partners: Trusted By ────────────────────────────────────────────
@@ -288,7 +284,7 @@ export const en: Record<string, string> = {
 
   // ── Partners: Methodology (13 principles) ──────────────────────────
   'partner.methodology.title': 'Our Methodology',
-  'partner.methodology.subtitle': '10 principles that guide every project we deliver.',
+  'partner.methodology.subtitle': '5 principles that guide every project we deliver.',
   'partner.methodology.1.title':
     '\u2699\uFE0F We automate processes, build internal tools, and leverage AI to amplify your team',
   'partner.methodology.1.description':
@@ -307,24 +303,10 @@ export const en: Record<string, string> = {
   'partner.methodology.5.title': '\u23F1\uFE0F You pay for the time we spend on all your requests',
   'partner.methodology.5.description':
     'Our billing system is transparent and based on actual time spent on your projects.',
-  'partner.methodology.6.title': '\u274C We don\u2019t do estimates',
-  'partner.methodology.6.description':
-    'We prefer a pragmatic approach based on action rather than approximate predictions.',
-  'partner.methodology.7.title':
-    '\uD83D\uDC8E We take the time to do quality work, focusing on what matters',
-  'partner.methodology.7.description': 'Our commitment to quality guides every aspect of our work.',
-  'partner.methodology.8.title': '\uD83C\uDFE1 You own everything we develop for you',
-  'partner.methodology.8.description':
-    'All code, applications, and solutions developed as part of our services belong entirely to you.',
-  'partner.methodology.9.title': '\uD83D\uDD4A\uFE0F You are not committed to anything',
-  'partner.methodology.9.description':
-    'Our flexible approach allows you to work with us according to your needs, without long-term contractual commitment.',
-  'partner.methodology.10.title': '\u2764\uFE0F We take care of you',
-  'partner.methodology.10.description':
-    'Your satisfaction is our priority. We don\u2019t just deliver a project: we commit to supporting you at every step.',
 
   // ── Partners: Testimonials (exact LTF Engine quotes) ────────────────
   'partner.testimonials.title': 'What Our Clients Say',
+  'partner.testimonials.disclaimer': 'What our consulting clients say',
   'partner.testimonials.1.quote':
     'Very satisfying work, it\u2019s a very positive and enriching experience. The La Tech Force team helped us quickly gain expertise.',
   'partner.testimonials.1.author': 'Marco PERONE',
@@ -346,7 +328,10 @@ export const en: Record<string, string> = {
   'partner.waitlist.title': 'Supercharge Your Team',
   'partner.waitlist.description':
     'We work with a limited number of clients to ensure quality. Join our waitlist to be the first to know when a spot opens.',
-  'partner.waitlist.cta': 'Join the Waitlist',
+  'partner.waitlist.cta': 'Contact Us',
+  'partner.waitlist.email': 'hello@sovrium.com',
+  'partner.waitlist.email.href': 'mailto:hello@sovrium.com',
+  'partner.waitlist.email.label': 'Or email us directly:',
 
   // ════════════════════════════════════════════════════════════════════
   //  ABOUT PAGE
@@ -438,6 +423,14 @@ export const en: Record<string, string> = {
   'about.cta.github': 'View on GitHub',
   'about.cta.partner': 'Work With Us',
   'about.cta.partner.href': '/en/partner',
+
+  // ── Company: Origin Story ─────────────────────────────────────────
+  'about.origin.title': 'Why Sovrium Exists',
+  'about.origin.description':
+    'After 8 years building automation tools and internal software for 50+ clients across France and Europe, I saw the same pattern everywhere: organizations trapped in SaaS subscriptions they couldn\u2019t leave, paying for features they didn\u2019t need, with data they couldn\u2019t fully control.',
+  'about.origin.paragraph2':
+    'I started Sovrium to prove that a better model exists \u2014 one where a single configuration file replaces dozens of SaaS subscriptions, and where you own every line of code and every byte of data.',
+  'about.origin.signature': '\u2014 Thomas Jeanneau, Founder',
 
   // ════════════════════════════════════════════════════════════════════
   //  TERMS OF SERVICE PAGE
@@ -897,12 +890,27 @@ export const en: Record<string, string> = {
     'A Sovrium app is a declarative configuration object with 10 root properties. Only name is required \u2014 everything else is optional, enabling progressive complexity from a minimal app identifier to a full-stack application.',
   'docs.overview.footnote':
     'Configuration files can be written in YAML or JSON. Run sovrium start app.yaml to launch a dev server, or sovrium static app.yaml to generate a static site.',
+  'docs.overview.tip.title': 'Progressive complexity',
+  'docs.overview.tip.body':
+    'Only name is required. Add tables, theme, pages, auth, and other sections as your app grows.',
 
   // ── Docs: Section 2 — Quick Start ─────────────────────────────────
   'docs.quickStart.title': 'Quick Start',
   'docs.quickStart.description':
     'Create an app.yaml file and start building. Here is a minimal example that grows from the simplest valid config to a small but complete app:',
   'docs.quickStart.runDev': 'Then run the development server:',
+  'docs.quickStart.step1.title': 'Create a config file',
+  'docs.quickStart.step1.description':
+    'Start with the simplest valid configuration \u2014 just a name.',
+  'docs.quickStart.step2.title': 'Add data tables',
+  'docs.quickStart.step2.description':
+    'Define your data models with typed fields, options, and validation.',
+  'docs.quickStart.step3.title': 'Start the server',
+  'docs.quickStart.step3.description':
+    'Run the dev server and visit http://localhost:3000 to see your app.',
+  'docs.quickStart.tip.title': 'Add more as you go',
+  'docs.quickStart.tip.body':
+    'Start small with just tables. Then progressively add theme, auth, pages, and analytics as your needs grow.',
 
   // ── Docs: Section 3 — Root Properties ─────────────────────────────
   'docs.rootProps.title': 'Root Properties',
@@ -933,11 +941,31 @@ export const en: Record<string, string> = {
   'docs.tables.description':
     'Tables define your data models. Each table has an id, name, fields, and optional permissions, indexes, and views.',
   'docs.tables.structure.title': 'Table Structure',
+  'docs.tables.structure.description':
+    'Each table has an id, name, fields array, and optional permissions and indexes.',
   'docs.tables.baseFields.title': 'Base Field Properties',
   'docs.tables.baseFields.description':
     'Every field has these base properties: id (unique integer), name (identifier), type (one of 40 types), and optional required, unique, description, and defaultValue.',
+  'docs.tables.baseFields.id': 'Unique integer identifier for the field within the table.',
+  'docs.tables.baseFields.name':
+    'Field name used as the column identifier. Follows naming conventions.',
+  'docs.tables.baseFields.type':
+    'One of the 40 available field types (e.g., single-line-text, number, checkbox).',
+  'docs.tables.baseFields.required':
+    'Boolean. When true, the field must have a value for every record.',
+  'docs.tables.baseFields.unique': 'Boolean. When true, no two records can have the same value.',
+  'docs.tables.baseFields.descriptionProp':
+    'Optional human-readable description shown as a tooltip in the UI.',
+  'docs.tables.baseFields.defaultValue':
+    'Default value assigned when a record is created without specifying this field.',
   'docs.tables.fieldTypes.title': '40 Field Types',
   'docs.tables.fieldTypes.description': 'Field types are organized into 9 categories:',
+  'docs.tables.fieldTypes.text.description':
+    'Fields for textual content \u2014 from short labels to rich formatted text and structured strings.',
+  'docs.tables.fieldTypes.numeric.description':
+    'Fields for numbers, currencies, percentages, and ratings with formatting options.',
+  'docs.tables.fieldTypes.selection.description':
+    'Fields for choosing from predefined options \u2014 single or multi-select with colored labels.',
   'docs.tables.fieldTypes.text': 'Text Fields',
   'docs.tables.fieldTypes.numeric': 'Numeric Fields',
   'docs.tables.fieldTypes.selection': 'Selection Fields',
@@ -950,6 +978,9 @@ export const en: Record<string, string> = {
   'docs.tables.permissions.title': 'Permissions (RBAC)',
   'docs.tables.permissions.description':
     'Table permissions use role-based access control. Each permission (create, read, update, delete, comment) accepts: "all" (public), "authenticated" (logged-in users), or an array of role names.',
+  'docs.tables.permissions.tip.title': 'Three access levels',
+  'docs.tables.permissions.tip.body':
+    '"all" for public access, "authenticated" for any logged-in user, or an array of role names like [admin, member] for specific roles.',
 
   // ── Docs: Section 5 — Theme ───────────────────────────────────────
   'docs.theme.title': 'Theme',
@@ -976,12 +1007,26 @@ export const en: Record<string, string> = {
   'docs.theme.borderRadius.title': 'borderRadius',
   'docs.theme.borderRadius.description':
     'Named border radius tokens as CSS values. Each becomes a rounded-{name} utility class.',
+  'docs.theme.fonts.tip.title': 'Google Fonts',
+  'docs.theme.fonts.tip.body':
+    'Add a googleFontsUrl to automatically load custom fonts. The URL is injected as a <link> tag in the page head.',
+  'docs.theme.advanced.title': 'Shadows, Animations & More',
+  'docs.theme.advanced.description':
+    'Additional design tokens for shadows, animations, responsive breakpoints, and border radius.',
+  'docs.theme.fullExample.title': 'Full Example',
+  'docs.theme.fullExample.description':
+    'A complete theme configuration combining colors, fonts, spacing, and shadows.',
+  'docs.theme.screenshot.alt': 'Sovrium app with custom theme applied',
+  'docs.theme.screenshot.caption':
+    'A CRM application rendered with custom theme colors, fonts, and spacing.',
 
   // ── Docs: Section 6 — Pages & Components ──────────────────────────
   'docs.pages.title': 'Pages & Components',
   'docs.pages.description':
     'Pages are server-rendered using a component tree system. Each page has a name, path, metadata (SEO, favicons), and sections containing nested components.',
   'docs.pages.structure.title': 'Page Structure',
+  'docs.pages.structure.description':
+    'Each page has a name, path, SEO metadata, and sections with nested components.',
   'docs.pages.componentTypes.title': '62 Component Types',
   'docs.pages.componentTypes.description':
     'Components form a recursive tree \u2014 each can have type, content, props, and children.',
@@ -993,39 +1038,123 @@ export const en: Record<string, string> = {
   'docs.pages.componentTypes.dataDisplay': 'Data Display',
   'docs.pages.componentTypes.interactive': 'Interactive',
   'docs.pages.componentTypes.display': 'Display',
+  'docs.pages.componentTypes.layout.description':
+    'Structural elements that control page layout and content flow.',
+  'docs.pages.componentTypes.typography.description':
+    'Text elements from headings to paragraphs and block quotes.',
+  'docs.pages.componentTypes.media.description':
+    'Visual and multimedia elements for images, video, audio, and embeds.',
+  'docs.pages.componentTypes.interactive.description':
+    'Components with built-in interactivity like accordions, tabs, and modals.',
   'docs.pages.interactions.title': 'Interactions',
   'docs.pages.interactions.description':
     'Components support 4 interaction types via the interactions property: hover (transform, opacity, scale, shadow changes), click (navigation, scroll, toggle), scroll (parallax, fade-in, sticky behavior), and entrance (animation on first view with delay and duration).',
+  'docs.pages.interactions.hover.title': 'Hover',
+  'docs.pages.interactions.hover.description':
+    'Transform, opacity, scale, and shadow changes on mouse hover.',
+  'docs.pages.interactions.click.title': 'Click',
+  'docs.pages.interactions.click.description':
+    'Navigate to a URL, scroll to an anchor, or toggle visibility.',
+  'docs.pages.interactions.scroll.title': 'Scroll',
+  'docs.pages.interactions.scroll.description':
+    'Parallax effects, fade-in on scroll, and sticky positioning.',
+  'docs.pages.interactions.entrance.title': 'Entrance',
+  'docs.pages.interactions.entrance.description':
+    'Animate when element first enters the viewport with configurable delay and duration.',
+  'docs.pages.templates.title': 'Component Templates',
+  'docs.pages.templates.description':
+    'Define reusable components with $ref references and $variable substitution for DRY markup.',
+  'docs.pages.screenshot.hero.alt': 'Hero section rendered by Sovrium',
+  'docs.pages.screenshot.hero.caption':
+    'A hero section with heading, description, and call-to-action buttons \u2014 all from YAML config.',
+  'docs.pages.screenshot.features.alt': 'Features grid rendered by Sovrium',
+  'docs.pages.screenshot.features.caption':
+    'A 3-column features grid using section, grid, and card components with emoji icons.',
 
   // ── Docs: Section 7 — Authentication ──────────────────────────────
   'docs.auth.title': 'Authentication',
   'docs.auth.description':
     'Built-in authentication powered by Better Auth. Configure strategies, roles, two-factor authentication, and email templates.',
+  'docs.auth.basic.title': 'Basic Setup',
+  'docs.auth.basic.description':
+    'Start with the simplest auth config \u2014 email and password with a default role.',
   'docs.auth.strategies.title': 'Strategies',
   'docs.auth.strategies.description':
     'email-password (default), magic-link (passwordless email), and OAuth providers (google, github, apple, microsoft, facebook, twitter, discord, spotify, twitch, gitlab, bitbucket, linkedin, dropbox).',
+  'docs.auth.oauth.title': 'Adding OAuth',
+  'docs.auth.oauth.description':
+    'Add social login providers alongside email-password. Multiple strategies can coexist.',
+  'docs.auth.oauth.warning.title': 'Environment variables required',
+  'docs.auth.oauth.warning.body':
+    'OAuth providers require AUTH_SECRET and provider-specific CLIENT_ID / CLIENT_SECRET environment variables.',
   'docs.auth.roles.title': 'Roles & Permissions',
   'docs.auth.roles.description':
     'Three built-in roles: admin, member, viewer. Define custom roles with name + description. Set defaultRole for new users. First user automatically becomes admin.',
+  'docs.auth.roles.admin': 'Full access to all features, user management, and settings.',
+  'docs.auth.roles.member': 'Can create, read, and update records. Cannot manage users.',
+  'docs.auth.roles.viewer': 'Read-only access. Cannot create or modify records.',
   'docs.auth.twoFactor.title': 'Two-Factor Auth',
   'docs.auth.twoFactor.description':
     'Optional TOTP-based 2FA. Enable with twoFactor: true in the auth config. Users can set up authenticator apps.',
   'docs.auth.emails.title': 'Email Templates',
   'docs.auth.emails.description':
     'Customizable emails for verification, password reset, and magic link. Supports $name, $url, $email variable substitution in subject and body.',
+  'docs.auth.emails.variables':
+    'Available variables: $name (user name), $url (action link), $email (user email), $organizationName, $inviterName.',
 
   // ── Docs: Section 8 — Languages ───────────────────────────────────
   'docs.languages.title': 'Languages',
   'docs.languages.description':
     'Multi-language support with translation keys, browser language detection, and automatic URL-based language routing (/en/..., /fr/...). Reference translations in pages using the $t: prefix.',
+  'docs.languages.defining.title': 'Defining Languages',
+  'docs.languages.defining.description':
+    'Set a default language and list supported languages with code, locale, label, and text direction.',
+  'docs.languages.translations.title': 'Translation Keys',
+  'docs.languages.translations.description':
+    'Define key-value pairs for each language. Keys use dot notation for organization.',
+  'docs.languages.usage.title': 'Using Translations',
+  'docs.languages.usage.description':
+    'Reference translations in any content or prop value with the $t: prefix.',
   'docs.languages.syntax.title': '$t: Translation Syntax',
   'docs.languages.syntax.description':
     'Use $t:key.path in any page content or prop value to reference a translation. Example: $t:hero.title resolves to "Welcome" in English and "Bienvenue" in French.',
+  'docs.languages.adding.title': 'Adding a New Language',
+  'docs.languages.adding.description':
+    'Follow these steps to add a new language to your application.',
+  'docs.languages.adding.step1.title': 'Add language entry',
+  'docs.languages.adding.step1.description':
+    'Add a new item to the supported array with code, locale, label, and direction.',
+  'docs.languages.adding.step2.title': 'Add translations',
+  'docs.languages.adding.step2.description':
+    'Create a new translations section for the language code with all required keys.',
+  'docs.languages.adding.step3.title': 'Test the language',
+  'docs.languages.adding.step3.description':
+    'Visit /[lang-code]/ in your browser to verify the new language renders correctly.',
+  'docs.languages.screenshot.en.alt': 'English version of the app',
+  'docs.languages.screenshot.en.caption': 'English \u2014 /en/',
+  'docs.languages.screenshot.fr.alt': 'French version of the app',
+  'docs.languages.screenshot.fr.caption': 'Fran\u00E7ais \u2014 /fr/',
 
   // ── Docs: Section 9 — Analytics ───────────────────────────────────
   'docs.analytics.title': 'Analytics',
   'docs.analytics.description':
     'Built-in, privacy-friendly analytics with no cookies, no external services, and full GDPR compliance. All data stays on your server.',
+  'docs.analytics.quickEnable.title': 'Quick Enable',
+  'docs.analytics.quickEnable.description':
+    'Set analytics to true for sensible defaults \u2014 no configuration needed.',
+  'docs.analytics.advanced.title': 'Advanced Configuration',
+  'docs.analytics.advanced.description':
+    'Fine-tune analytics behavior with retention, privacy, and session options.',
+  'docs.analytics.props.retentionDays': 'Number of days to retain analytics data. Default: 90.',
+  'docs.analytics.props.respectDoNotTrack':
+    'When true, respects the browser Do Not Track setting. Default: true.',
+  'docs.analytics.props.excludePaths':
+    'Array of URL paths to exclude from tracking (e.g., /admin, /api).',
+  'docs.analytics.props.sessionTimeout':
+    'Session timeout in minutes. A new session starts after this idle period. Default: 30.',
+  'docs.analytics.privacy.title': 'Privacy-first analytics',
+  'docs.analytics.privacy.body':
+    'Sovrium analytics are cookie-free, GDPR-compliant by default. All data stays on your server \u2014 no third-party services involved.',
   'docs.analytics.details':
     'When enabled, Sovrium injects a lightweight tracking script that records page views, sessions, referrers, and device information. Analytics data is collected at /api/analytics/collect and stored locally.',
 
@@ -1041,4 +1170,8 @@ export const en: Record<string, string> = {
     'Machine-readable JSON Schema (Draft-07) for validation and editor support.',
   'docs.resources.github.label': 'GitHub Repository',
   'docs.resources.github.description': 'Source code, issues, and contribution guidelines.',
+  'docs.resources.help.title': 'Need Help?',
+  'docs.resources.help.description':
+    'Found a bug, have a question, or want to request a feature? Open an issue on GitHub.',
+  'docs.resources.help.link': 'Open an issue on GitHub \u2192',
 }
