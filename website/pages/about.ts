@@ -127,7 +127,7 @@ export const about: Page = {
               type: 'h2',
               content: '$t:about.mission.title',
               props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-8',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {
@@ -135,7 +135,7 @@ export const about: Page = {
               content: '$t:about.mission.description',
               props: {
                 className:
-                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-300 text-center max-w-3xl mx-auto mb-12 leading-relaxed',
+                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-300 text-center max-w-3xl mx-auto mb-12 md:mb-16 leading-relaxed',
               },
             },
             {
@@ -176,7 +176,7 @@ export const about: Page = {
               type: 'h2',
               content: '$t:about.origin.title',
               props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-8',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6 md:mb-8',
               },
             },
             {
@@ -190,7 +190,7 @@ export const about: Page = {
               type: 'paragraph',
               content: '$t:about.origin.paragraph2',
               props: {
-                className: 'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed mb-8',
+                className: 'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed mb-6',
               },
             },
             {

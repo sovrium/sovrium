@@ -161,7 +161,7 @@ export const home: Page = {
               type: 'h2',
               content: '$t:home.solution.title',
               props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-6 md:mb-8',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {
@@ -904,7 +904,7 @@ export const home: Page = {
               type: 'h2',
               content: '$t:home.features.title',
               props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-6 md:mb-8',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {
@@ -1073,7 +1073,7 @@ export const home: Page = {
               type: 'h2',
               content: '$t:home.techStack.title',
               props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-6 md:mb-8',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
               },
             },
             {

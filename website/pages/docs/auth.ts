@@ -22,13 +22,13 @@ export const docsAuth = docsPage({
           type: 'h1',
           content: '$t:docs.auth.title',
           props: {
-            className: 'text-3xl sm:text-4xl font-bold mb-2 text-sovereignty-light',
+            className: 'text-3xl sm:text-4xl font-bold mb-4 text-sovereignty-light',
           },
         },
         {
           type: 'paragraph',
           content: '$t:docs.auth.description',
-          props: { className: 'text-sovereignty-gray-400 mb-6' },
+          props: { className: 'text-lg text-sovereignty-gray-300 max-w-3xl leading-relaxed' },
         },
       ],
     },
@@ -72,7 +72,7 @@ export const docsAuth = docsPage({
         ),
         {
           type: 'grid',
-          props: { className: 'grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4' },
+          props: { className: 'grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6' },
           children: [
             {
               $ref: 'docs-info-card',

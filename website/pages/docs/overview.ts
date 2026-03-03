@@ -16,7 +16,7 @@ export const docsOverview = docsPage({
     // ── Header ──────────────────────────────────────────────────────────
     {
       type: 'div',
-      props: { className: 'mb-12' },
+      props: {},
       children: [
         {
           type: 'h1',
@@ -42,13 +42,13 @@ export const docsOverview = docsPage({
           type: 'h2',
           content: '$t:docs.overview.title',
           props: {
-            className: 'text-2xl font-bold mb-2 text-sovereignty-light',
+            className: 'text-xl font-semibold mb-2 text-sovereignty-light',
           },
         },
         {
           type: 'paragraph',
           content: '$t:docs.overview.description',
-          props: { className: 'text-sovereignty-gray-400 mb-8' },
+          props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed mb-6' },
         },
         codeBlock(
           'name: my-app                  # App identifier (required)\nversion: 1.0.0               # SemVer version\ndescription: My application   # One-line description\ntables: [...]                 # Data models with 40 field types\ntheme: {...}                  # Design tokens (colors, fonts, etc.)\npages: [...]                  # Server-rendered pages (62 component types)\nauth: {...}                   # Authentication & authorization\nlanguages: {...}              # Multi-language support ($t: syntax)\ncomponents: [...]             # Reusable UI templates ($ref, $variable)\nanalytics: {...}              # Privacy-friendly, cookie-free analytics',
@@ -67,13 +67,13 @@ export const docsOverview = docsPage({
           type: 'h2',
           content: '$t:docs.quickStart.title',
           props: {
-            className: 'text-2xl font-bold mb-2 text-sovereignty-light',
+            className: 'text-xl font-semibold mb-2 text-sovereignty-light',
           },
         },
         {
           type: 'paragraph',
           content: '$t:docs.quickStart.description',
-          props: { className: 'text-sovereignty-gray-400 mb-6' },
+          props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed mb-6' },
         },
 
         // Step 1
@@ -104,13 +104,13 @@ export const docsOverview = docsPage({
           type: 'h2',
           content: '$t:docs.rootProps.title',
           props: {
-            className: 'text-2xl font-bold mb-2 text-sovereignty-light',
+            className: 'text-xl font-semibold mb-2 text-sovereignty-light',
           },
         },
         {
           type: 'paragraph',
           content: '$t:docs.rootProps.description',
-          props: { className: 'text-sovereignty-gray-400 mb-8' },
+          props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed mb-6' },
         },
         {
           type: 'div',

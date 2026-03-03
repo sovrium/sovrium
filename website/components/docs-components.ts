@@ -172,7 +172,7 @@ export const docsCallout: ComponentTemplate = {
   name: 'docs-callout',
   type: 'div',
   props: {
-    className: 'rounded-lg p-4 my-4 border-l-4 $borderColor $bgColor',
+    className: 'rounded-lg p-4 my-6 border-l-4 $borderColor $bgColor',
   },
   children: [
     {

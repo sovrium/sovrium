@@ -22,13 +22,13 @@ export const docsLanguages = docsPage({
           type: 'h1',
           content: '$t:docs.languages.title',
           props: {
-            className: 'text-3xl sm:text-4xl font-bold mb-2 text-sovereignty-light',
+            className: 'text-3xl sm:text-4xl font-bold mb-4 text-sovereignty-light',
           },
         },
         {
           type: 'paragraph',
           content: '$t:docs.languages.description',
-          props: { className: 'text-sovereignty-gray-400 mb-6' },
+          props: { className: 'text-lg text-sovereignty-gray-300 max-w-3xl leading-relaxed' },
         },
       ],
     },

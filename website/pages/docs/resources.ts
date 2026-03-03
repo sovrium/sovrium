@@ -23,13 +23,13 @@ export const docsResources = docsPage({
           type: 'h1',
           content: '$t:docs.resources.title',
           props: {
-            className: 'text-3xl sm:text-4xl font-bold mb-2 text-sovereignty-light',
+            className: 'text-3xl sm:text-4xl font-bold mb-4 text-sovereignty-light',
           },
         },
         {
           type: 'paragraph',
           content: '$t:docs.resources.description',
-          props: { className: 'text-sovereignty-gray-400 mb-8' },
+          props: { className: 'text-lg text-sovereignty-gray-300 max-w-3xl leading-relaxed' },
         },
       ],
     },
@@ -90,8 +90,7 @@ export const docsResources = docsPage({
         {
           type: 'div',
           props: {
-            className:
-              'rounded-lg p-6 border border-sovereignty-gray-800 bg-sovereignty-gray-900 mt-4',
+            className: 'rounded-lg p-6 border border-sovereignty-gray-800 bg-sovereignty-gray-900',
           },
           children: [
             {
