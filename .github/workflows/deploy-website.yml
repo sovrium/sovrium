@@ -82,7 +82,7 @@ jobs:
             Read these files to get the ACTUAL counts and types:
 
             1. `src/domain/models/app/table/fields.ts` — Count the imported field type schemas (lines 10-50).
-               Each import like `XxxFieldSchema` = 1 field type. Currently 40 field types.
+               Each import like `XxxFieldSchema` = 1 field type. Currently 41 field types (39 named + date covers 3 values).
             2. `src/domain/models/app/page/sections.ts` — Count the `Schema.Literal(...)` values (lines 27-89).
                Each string literal = 1 component type. Currently 62 component types.
             3. `src/domain/models/app/index.ts` — Count root AppSchema properties (name, version, tables, theme, etc.).

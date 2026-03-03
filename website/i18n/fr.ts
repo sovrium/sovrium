@@ -181,7 +181,7 @@ export const fr: Record<string, string> = {
   'home.features.auth.point3': '\u2022 Authentification \u00E0 deux facteurs',
   'home.features.auth.point4': '\u2022 Gestion des sessions & passkeys',
   'home.features.tables.title': '\uD83D\uDDC2\uFE0F Tables & Donn\u00E9es',
-  'home.features.tables.point1': '\u2022 15+ types de champs (texte, email, nombre, \u2026)',
+  'home.features.tables.point1': '\u2022 41 types de champs (texte, email, integer, \u2026)',
   'home.features.tables.point2': '\u2022 API CRUD automatique',
   'home.features.tables.point3': '\u2022 Relations, lookups & champs formule',
   'home.features.tables.point4': '\u2022 Tri, filtrage, pagination',
@@ -888,7 +888,7 @@ export const fr: Record<string, string> = {
     'R\u00E9f\u00E9rence compl\u00E8te des 10 propri\u00E9t\u00E9s racine du sch\u00E9ma applicatif Sovrium. D\u00E9finissez mod\u00E8les de donn\u00E9es, authentification, pages, th\u00E8mes et analytiques.',
   'docs.tables.meta.title': 'Tables & Champs - Docs Sovrium',
   'docs.tables.meta.description':
-    'D\u00E9finissez vos mod\u00E8les de donn\u00E9es avec 40 types de champs, relations et permissions RBAC.',
+    'D\u00E9finissez vos mod\u00E8les de donn\u00E9es avec 41 types de champs, relations et permissions RBAC.',
   'docs.theme.meta.title': 'Th\u00E8me - Docs Sovrium',
   'docs.theme.meta.description':
     'Personnalisez couleurs, polices, espacement, ombres, animations et points de rupture.',
@@ -925,7 +925,7 @@ export const fr: Record<string, string> = {
     'Auto-h\u00E9berg\u00E9 sur votre infrastructure. Vos donn\u00E9es restent les v\u00F4tres.',
   'docs.introduction.why.point2.title': 'Configuration plut\u00F4t que code',
   'docs.introduction.why.point2.description':
-    'D\u00E9clarez ce dont vous avez besoin au lieu d\u2019\u00E9crire du code r\u00E9p\u00E9titif. 40 types de champs, 62 types de composants, authentification int\u00E9gr\u00E9e.',
+    'D\u00E9clarez ce dont vous avez besoin au lieu d\u2019\u00E9crire du code r\u00E9p\u00E9titif. 41 types de champs, 62 types de composants, authentification int\u00E9gr\u00E9e.',
   'docs.introduction.why.point3.title': 'Complexit\u00E9 progressive',
   'docs.introduction.why.point3.description':
     'Commencez avec juste un nom. Ajoutez tables, th\u00E8me, pages, auth et analytiques selon vos besoins.',
@@ -1021,7 +1021,7 @@ export const fr: Record<string, string> = {
   'docs.quickStart.whatsNext.overview':
     'Vue d\u2019ensemble du sch\u00E9ma \u2014 Les 10 propri\u00E9t\u00E9s racine expliqu\u00E9es',
   'docs.quickStart.whatsNext.tables':
-    'Tables & Champs \u2014 40 types de champs, permissions, index',
+    'Tables & Champs \u2014 41 types de champs, permissions, index',
   'docs.quickStart.whatsNext.theme':
     'Th\u00E8me \u2014 Couleurs, polices, espacement et jetons de design',
   'docs.quickStart.whatsNext.pages':
@@ -1051,7 +1051,7 @@ export const fr: Record<string, string> = {
   'docs.rootProps.description.description':
     'Description d\u2019application sur une seule ligne. Pas de retour \u00E0 la ligne autoris\u00E9. Unicode et emojis support\u00E9s.',
   'docs.rootProps.tables.description':
-    'Mod\u00E8les de donn\u00E9es avec 40 types de champs, relations, index, permissions et vues.',
+    'Mod\u00E8les de donn\u00E9es avec 41 types de champs, relations, index, permissions et vues.',
   'docs.rootProps.theme.description':
     'Jetons de design\u00A0: couleurs, polices, espacement, ombres, animations, points de rupture et rayons de bordure.',
   'docs.rootProps.pages.description':
@@ -1074,12 +1074,12 @@ export const fr: Record<string, string> = {
     'Chaque table a un id, un name, un tableau de fields, et des permissions et index optionnels.',
   'docs.tables.baseFields.title': 'Propri\u00E9t\u00E9s de base des champs',
   'docs.tables.baseFields.description':
-    'Chaque champ a ces propri\u00E9t\u00E9s de base\u00A0: id (entier unique), name (identifiant), type (un des 40 types), et optionnellement required, unique, description et defaultValue.',
+    'Chaque champ a ces propri\u00E9t\u00E9s de base\u00A0: id (entier unique), name (identifiant), type (un des 41 types), et optionnellement required, unique, description et defaultValue.',
   'docs.tables.baseFields.id': 'Identifiant entier unique du champ dans la table.',
   'docs.tables.baseFields.name':
     'Nom du champ utilis\u00E9 comme identifiant de colonne. Suit les conventions de nommage.',
   'docs.tables.baseFields.type':
-    'Un des 40 types de champs disponibles (ex.\u00A0: single-line-text, number, checkbox).',
+    'Un des 41 types de champs disponibles (ex.\u00A0: single-line-text, integer, checkbox).',
   'docs.tables.baseFields.required':
     'Bool\u00E9en. Lorsque true, le champ doit avoir une valeur pour chaque enregistrement.',
   'docs.tables.baseFields.unique':
@@ -1088,7 +1088,7 @@ export const fr: Record<string, string> = {
     'Description lisible optionnelle affich\u00E9e comme infobulle dans l\u2019interface.',
   'docs.tables.baseFields.defaultValue':
     'Valeur par d\u00E9faut attribu\u00E9e lorsqu\u2019un enregistrement est cr\u00E9\u00E9 sans sp\u00E9cifier ce champ.',
-  'docs.tables.fieldTypes.title': '40 types de champs',
+  'docs.tables.fieldTypes.title': '41 types de champs',
   'docs.tables.fieldTypes.description':
     'Les types de champs sont organis\u00E9s en 9 cat\u00E9gories\u00A0:',
   'docs.tables.fieldTypes.text.description':
@@ -1101,9 +1101,9 @@ export const fr: Record<string, string> = {
   'docs.tables.fieldTypes.numeric': 'Champs num\u00E9riques',
   'docs.tables.fieldTypes.selection': 'Champs de s\u00E9lection',
   'docs.tables.fieldTypes.dateTime': 'Champs date & heure',
-  'docs.tables.fieldTypes.user': 'Champs utilisateur',
+  'docs.tables.fieldTypes.user': 'Champs utilisateur & audit',
   'docs.tables.fieldTypes.relational': 'Champs relationnels',
-  'docs.tables.fieldTypes.media': 'Champs m\u00E9dia',
+  'docs.tables.fieldTypes.media': 'Champs pi\u00E8ces jointes',
   'docs.tables.fieldTypes.computed': 'Champs calcul\u00E9s',
   'docs.tables.fieldTypes.advanced': 'Champs avanc\u00E9s',
   'docs.tables.permissions.title': 'Permissions (RBAC)',
@@ -1162,21 +1162,19 @@ export const fr: Record<string, string> = {
   'docs.pages.componentTypes.description':
     'Les composants forment un arbre r\u00E9cursif \u2014 chacun peut avoir type, content, props et children.',
   'docs.pages.componentTypes.layout': 'Mise en page',
-  'docs.pages.componentTypes.typography': 'Typographie',
-  'docs.pages.componentTypes.navActions': 'Navigation & Actions',
-  'docs.pages.componentTypes.media': 'M\u00E9dia',
-  'docs.pages.componentTypes.formElements': '\u00C9l\u00E9ments de formulaire',
-  'docs.pages.componentTypes.dataDisplay': 'Affichage de donn\u00E9es',
-  'docs.pages.componentTypes.interactive': 'Interactif',
-  'docs.pages.componentTypes.display': 'Affichage',
+  'docs.pages.componentTypes.typography': 'Typographie & Texte',
+  'docs.pages.componentTypes.media': 'M\u00E9dia & Images',
+  'docs.pages.componentTypes.interactive': 'Interactif & Navigation',
+  'docs.pages.componentTypes.display': 'Cartes & Affichage',
+  'docs.pages.componentTypes.feedback': 'Retour & Utilitaires',
   'docs.pages.componentTypes.layout.description':
-    '\u00C9l\u00E9ments structurels qui contr\u00F4lent la mise en page et le flux du contenu.',
+    '\u00C9l\u00E9ments structurels qui contr\u00F4lent la mise en page, les sections et le flux du contenu.',
   'docs.pages.componentTypes.typography.description':
-    '\u00C9l\u00E9ments textuels des titres aux paragraphes et citations.',
+    '\u00C9l\u00E9ments textuels des titres aux paragraphes, texte inline et blocs de code.',
   'docs.pages.componentTypes.media.description':
-    '\u00C9l\u00E9ments visuels et multim\u00E9dia pour images, vid\u00E9o, audio et int\u00E9grations.',
+    '\u00C9l\u00E9ments visuels et multim\u00E9dia pour images, avatars, vid\u00E9o, audio et int\u00E9grations.',
   'docs.pages.componentTypes.interactive.description':
-    'Composants avec interactivit\u00E9 int\u00E9gr\u00E9e comme les accord\u00E9ons, onglets et modales.',
+    '\u00C9l\u00E9ments d\u2019interaction incluant boutons, liens, accord\u00E9ons et navigation.',
   'docs.pages.interactions.title': 'Interactions',
   'docs.pages.interactions.description':
     'Les composants supportent 4 types d\u2019interaction via la propri\u00E9t\u00E9 interactions\u00A0: hover (transformation, opacit\u00E9, \u00E9chelle, ombre), click (navigation, d\u00E9filement, bascule), scroll (parallaxe, fondu, comportement sticky) et entrance (animation \u00E0 la premi\u00E8re vue avec d\u00E9lai et dur\u00E9e).',

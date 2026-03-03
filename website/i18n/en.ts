@@ -175,7 +175,7 @@ export const en: Record<string, string> = {
   'home.features.auth.point3': '\u2022 Two-factor authentication',
   'home.features.auth.point4': '\u2022 Session management & passkeys',
   'home.features.tables.title': '\uD83D\uDDC2\uFE0F Tables & Data',
-  'home.features.tables.point1': '\u2022 15+ field types (text, email, number, \u2026)',
+  'home.features.tables.point1': '\u2022 41 field types (text, email, integer, \u2026)',
   'home.features.tables.point2': '\u2022 Automatic CRUD API',
   'home.features.tables.point3': '\u2022 Relations, lookups & formula fields',
   'home.features.tables.point4': '\u2022 Sorting, filtering, pagination',
@@ -856,7 +856,7 @@ export const en: Record<string, string> = {
     'Complete reference for the 10 root properties of the Sovrium app schema. Define data models, authentication, pages, themes, and analytics.',
   'docs.tables.meta.title': 'Tables & Fields - Sovrium Docs',
   'docs.tables.meta.description':
-    'Define data models with 40 field types, relationships, and RBAC permissions in the Sovrium schema.',
+    'Define data models with 41 field types, relationships, and RBAC permissions in the Sovrium schema.',
   'docs.theme.meta.title': 'Theme - Sovrium Docs',
   'docs.theme.meta.description':
     'Customize colors, fonts, spacing, shadows, animations, and breakpoints in the Sovrium theme system.',
@@ -893,7 +893,7 @@ export const en: Record<string, string> = {
     'Self-hosted on your infrastructure. Your data stays yours.',
   'docs.introduction.why.point2.title': 'Configuration over code',
   'docs.introduction.why.point2.description':
-    'Declare what you need instead of writing boilerplate. 40 field types, 62 component types, built-in auth.',
+    'Declare what you need instead of writing boilerplate. 41 field types, 62 component types, built-in auth.',
   'docs.introduction.why.point3.title': 'Progressive complexity',
   'docs.introduction.why.point3.description':
     'Start with just a name. Add tables, theme, pages, auth, and analytics as your needs grow.',
@@ -984,7 +984,7 @@ export const en: Record<string, string> = {
   'docs.quickStart.whatsNext.description':
     'Now that your app is running, explore the schema reference to add more capabilities:',
   'docs.quickStart.whatsNext.overview': 'Schema Overview \u2014 All 10 root properties explained',
-  'docs.quickStart.whatsNext.tables': 'Tables & Fields \u2014 40 field types, permissions, indexes',
+  'docs.quickStart.whatsNext.tables': 'Tables & Fields \u2014 41 field types, permissions, indexes',
   'docs.quickStart.whatsNext.theme': 'Theme \u2014 Colors, fonts, spacing, and design tokens',
   'docs.quickStart.whatsNext.pages': 'Pages \u2014 62 component types for server-rendered pages',
 
@@ -1011,7 +1011,7 @@ export const en: Record<string, string> = {
   'docs.rootProps.description.description':
     'Single-line app description. No line breaks allowed. Unicode and emojis supported.',
   'docs.rootProps.tables.description':
-    'Data models with 40 field types, relationships, indexes, permissions, and views.',
+    'Data models with 41 field types, relationships, indexes, permissions, and views.',
   'docs.rootProps.theme.description':
     'Design tokens: colors, fonts, spacing, shadows, animations, breakpoints, and border radius.',
   'docs.rootProps.pages.description':
@@ -1034,12 +1034,12 @@ export const en: Record<string, string> = {
     'Each table has an id, name, fields array, and optional permissions and indexes.',
   'docs.tables.baseFields.title': 'Base Field Properties',
   'docs.tables.baseFields.description':
-    'Every field has these base properties: id (unique integer), name (identifier), type (one of 40 types), and optional required, unique, description, and defaultValue.',
+    'Every field has these base properties: id (unique integer), name (identifier), type (one of 41 types), and optional required, unique, description, and defaultValue.',
   'docs.tables.baseFields.id': 'Unique integer identifier for the field within the table.',
   'docs.tables.baseFields.name':
     'Field name used as the column identifier. Follows naming conventions.',
   'docs.tables.baseFields.type':
-    'One of the 40 available field types (e.g., single-line-text, number, checkbox).',
+    'One of the 41 available field types (e.g., single-line-text, integer, checkbox).',
   'docs.tables.baseFields.required':
     'Boolean. When true, the field must have a value for every record.',
   'docs.tables.baseFields.unique': 'Boolean. When true, no two records can have the same value.',
@@ -1047,21 +1047,21 @@ export const en: Record<string, string> = {
     'Optional human-readable description shown as a tooltip in the UI.',
   'docs.tables.baseFields.defaultValue':
     'Default value assigned when a record is created without specifying this field.',
-  'docs.tables.fieldTypes.title': '40 Field Types',
+  'docs.tables.fieldTypes.title': '41 Field Types',
   'docs.tables.fieldTypes.description': 'Field types are organized into 9 categories:',
   'docs.tables.fieldTypes.text.description':
     'Fields for textual content \u2014 from short labels to rich formatted text and structured strings.',
   'docs.tables.fieldTypes.numeric.description':
-    'Fields for numbers, currencies, percentages, and ratings with formatting options.',
+    'Fields for numbers, currencies, percentages, ratings, and progress indicators.',
   'docs.tables.fieldTypes.selection.description':
     'Fields for choosing from predefined options \u2014 single or multi-select with colored labels.',
   'docs.tables.fieldTypes.text': 'Text Fields',
   'docs.tables.fieldTypes.numeric': 'Numeric Fields',
   'docs.tables.fieldTypes.selection': 'Selection Fields',
   'docs.tables.fieldTypes.dateTime': 'Date & Time Fields',
-  'docs.tables.fieldTypes.user': 'User Fields',
+  'docs.tables.fieldTypes.user': 'User & Audit Fields',
   'docs.tables.fieldTypes.relational': 'Relational Fields',
-  'docs.tables.fieldTypes.media': 'Media Fields',
+  'docs.tables.fieldTypes.media': 'Attachment Fields',
   'docs.tables.fieldTypes.computed': 'Computed Fields',
   'docs.tables.fieldTypes.advanced': 'Advanced Fields',
   'docs.tables.permissions.title': 'Permissions (RBAC)',
@@ -1120,21 +1120,19 @@ export const en: Record<string, string> = {
   'docs.pages.componentTypes.description':
     'Components form a recursive tree \u2014 each can have type, content, props, and children.',
   'docs.pages.componentTypes.layout': 'Layout',
-  'docs.pages.componentTypes.typography': 'Typography',
-  'docs.pages.componentTypes.navActions': 'Navigation & Actions',
-  'docs.pages.componentTypes.media': 'Media',
-  'docs.pages.componentTypes.formElements': 'Form Elements',
-  'docs.pages.componentTypes.dataDisplay': 'Data Display',
-  'docs.pages.componentTypes.interactive': 'Interactive',
-  'docs.pages.componentTypes.display': 'Display',
+  'docs.pages.componentTypes.typography': 'Typography & Text',
+  'docs.pages.componentTypes.media': 'Media & Images',
+  'docs.pages.componentTypes.interactive': 'Interactive & Navigation',
+  'docs.pages.componentTypes.display': 'Cards & Display',
+  'docs.pages.componentTypes.feedback': 'Feedback & Utilities',
   'docs.pages.componentTypes.layout.description':
-    'Structural elements that control page layout and content flow.',
+    'Structural elements that control page layout, sections, and content flow.',
   'docs.pages.componentTypes.typography.description':
-    'Text elements from headings to paragraphs and block quotes.',
+    'Text elements from headings to paragraphs, inline text, and code blocks.',
   'docs.pages.componentTypes.media.description':
-    'Visual and multimedia elements for images, video, audio, and embeds.',
+    'Visual and multimedia elements for images, avatars, video, audio, and embeds.',
   'docs.pages.componentTypes.interactive.description':
-    'Components with built-in interactivity like accordions, tabs, and modals.',
+    'Elements for user interaction including buttons, links, accordions, and navigation.',
   'docs.pages.interactions.title': 'Interactions',
   'docs.pages.interactions.description':
     'Components support 4 interaction types via the interactions property: hover (transform, opacity, scale, shadow changes), click (navigation, scroll, toggle), scroll (parallax, fade-in, sticky behavior), and entrance (animation on first view with delay and duration).',

@@ -7,14 +7,14 @@ Sovrium turns declarative configuration into production-ready applications with 
 ## Docs
 
 - [Full LLM Reference](https://sovrium.com/llms-full.txt): Complete schema documentation for LLMs (~3000 lines)
-- [JSON Schema](https://sovrium.com/schemas/0.0.2/app.schema.json): Machine-readable JSON Schema (Draft-07)
+- [JSON Schema](https://sovrium.com/schemas/0.1.0/app.schema.json): Machine-readable JSON Schema (Draft-07)
 - [GitHub](https://github.com/sovrium/sovrium): Source code repository
 - [License](https://github.com/sovrium/sovrium/blob/main/LICENSE.md): Business Source License 1.1
 
 ### Interactive Documentation
 
 - [Overview](https://sovrium.com/en/docs): Quick start guide and root properties
-- [Tables](https://sovrium.com/en/docs/tables): Data models, 40 field types, permissions
+- [Tables](https://sovrium.com/en/docs/tables): Data models, 41 field types, permissions
 - [Theme](https://sovrium.com/en/docs/theme): Design tokens (colors, fonts, spacing, animations)
 - [Pages](https://sovrium.com/en/docs/pages): Server-rendered pages, 62 component types
 - [Auth](https://sovrium.com/en/docs/auth): Authentication strategies, roles, 2FA
@@ -29,7 +29,7 @@ The app schema has 10 root properties:
 - `name` (required): App identifier (npm naming conventions)
 - `version`: SemVer version string
 - `description`: Single-line app description
-- `tables`: Data model with 40 field types, relationships, permissions
+- `tables`: Data model with 41 field types, relationships, permissions
 - `theme`: Design tokens (colors, fonts, spacing, shadows, animations, breakpoints, borderRadius)
 - `pages`: Server-rendered pages with 62 component types, SEO metadata, i18n
 - `auth`: Authentication strategies (email/password, magic link, OAuth), roles, 2FA

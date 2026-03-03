@@ -27,9 +27,7 @@
         "summary": "Health check endpoint",
         "description": "Returns server health status. Used by monitoring tools and E2E tests to verify server is running.",
         "operationId": "healthCheck",
-        "tags": [
-          "infrastructure"
-        ],
+        "tags": ["infrastructure"],
         "responses": {
           "200": {
             "description": "Server is healthy",
@@ -40,9 +38,7 @@
                   "properties": {
                     "status": {
                       "type": "string",
-                      "enum": [
-                        "ok"
-                      ],
+                      "enum": ["ok"],
                       "description": "Server health status indicator"
                     },
                     "timestamp": {
@@ -58,17 +54,11 @@
                           "description": "Application name from configuration"
                         }
                       },
-                      "required": [
-                        "name"
-                      ],
+                      "required": ["name"],
                       "description": "Application metadata"
                     }
                   },
-                  "required": [
-                    "status",
-                    "timestamp",
-                    "app"
-                  ]
+                  "required": ["status", "timestamp", "app"]
                 }
               }
             }

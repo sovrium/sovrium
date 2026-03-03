@@ -68,6 +68,15 @@
 - FIX: Use all-lowercase single-word names (e.g., `marqueescroll` not `marqueeScroll`) so kebab-case conversion has no effect
 - camelCase names like `marqueeScroll` become `marquee-scroll` in inline styles but stay `marqueeScroll` in CSS = MISMATCH
 
+## Schema Counts (Verified 2026-03-03 against schemas/development/app.schema.json)
+- **Version**: 0.1.0 (package.json)
+- **Field types**: 41 unique values (39 named field schemas + DateFieldSchema covers date/datetime/time = 3 values + 1 unknown catch-all = 40 anyOf entries in JSON Schema)
+- **Component types**: 62 (from ComponentTypeSchema in sections.ts)
+- **Root properties**: 10 (name, version, description, tables, theme, pages, auth, languages, components, analytics)
+- **Field type categories** (9): Text(7), Numeric(6), Selection(4), DateTime(4), UserAudit(7), Relational(4), Attachment(2), Computed(2), Advanced(5)
+- **Component type categories** (6): Layout(15), Typography(13), Media(9), Interactive(8), Cards(12), Feedback(5)
+- deploy-website.yml sync-docs prompt: "Currently 41 field types" and "Currently 62 component types"
+
 ## Page Naming (Updated 2026-03-03)
 - **About page** (`/about`): file `website/pages/about.ts`, export `about`, i18n keys `about.*`
   - Was previously called "Company" (`/company`, `company.*` keys)

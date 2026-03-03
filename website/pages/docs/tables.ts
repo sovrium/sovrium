@@ -110,13 +110,15 @@ export const docsTables = docsPage({
           props: { className: 'text-sm text-sovereignty-gray-400 mb-2 mt-6' },
         },
         badgeGroup('$t:docs.tables.fieldTypes.numeric', [
-          'number',
+          'integer',
+          'decimal',
           'currency',
-          'percent',
+          'percentage',
           'rating',
+          'progress',
         ]),
         codeBlock(
-          'fields:\n  - id: 1\n    name: price\n    type: currency\n    options:\n      symbol: "$"\n      precision: 2\n  - id: 2\n    name: satisfaction\n    type: rating\n    options:\n      max: 5',
+          'fields:\n  - id: 1\n    name: price\n    type: currency\n    currency: USD\n  - id: 2\n    name: satisfaction\n    type: rating',
           'yaml'
         ),
 
@@ -138,19 +140,33 @@ export const docsTables = docsPage({
         ),
 
         // Remaining categories (compact badge groups)
-        badgeGroup('$t:docs.tables.fieldTypes.dateTime', ['date', 'date-time', 'time']),
-        badgeGroup('$t:docs.tables.fieldTypes.user', ['user', 'created-by', 'updated-by']),
-        badgeGroup('$t:docs.tables.fieldTypes.relational', ['link', 'lookup']),
-        badgeGroup('$t:docs.tables.fieldTypes.media', ['attachment', 'image', 'file', 'signature']),
-        badgeGroup('$t:docs.tables.fieldTypes.computed', ['formula', 'auto-number', 'rollup']),
+        badgeGroup('$t:docs.tables.fieldTypes.dateTime', ['date', 'datetime', 'time', 'duration']),
+        badgeGroup('$t:docs.tables.fieldTypes.user', [
+          'user',
+          'created-by',
+          'created-at',
+          'updated-by',
+          'updated-at',
+          'deleted-by',
+          'deleted-at',
+        ]),
+        badgeGroup('$t:docs.tables.fieldTypes.relational', [
+          'relationship',
+          'lookup',
+          'rollup',
+          'count',
+        ]),
+        badgeGroup('$t:docs.tables.fieldTypes.media', [
+          'single-attachment',
+          'multiple-attachments',
+        ]),
+        badgeGroup('$t:docs.tables.fieldTypes.computed', ['formula', 'autonumber']),
         badgeGroup('$t:docs.tables.fieldTypes.advanced', [
           'json',
-          'geo',
-          'duration',
+          'array',
+          'geolocation',
+          'color',
           'button',
-          'ai-generated',
-          'last-modified-time',
-          'created-time',
         ]),
       ],
     },

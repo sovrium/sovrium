@@ -15,7 +15,7 @@ import { join } from 'node:path'
 const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf-8')) as {
   version: string
 }
-/** Version without `v` prefix — for schema paths like `/schemas/0.0.2/...` */
+/** Version without `v` prefix — for schema paths like `/schemas/0.1.0/...` */
 export const rawVersion = packageJson.version
 
 /** Version with `v` prefix — for display (e.g. navbar badge) */
