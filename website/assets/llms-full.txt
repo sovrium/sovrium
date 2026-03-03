@@ -2,8 +2,8 @@
 
 > Sovrium is a self-hosted, configuration-driven application platform. Define your entire app — data models, authentication, pages, themes, analytics — in a single YAML or JSON file. This document is the complete schema reference for LLMs.
 
-**Schema Version**: 0.0.1
-**JSON Schema**: https://sovrium.com/schemas/0.0.1/app.schema.json
+**Schema Version**: 0.0.2
+**JSON Schema**: https://sovrium.com/schemas/0.0.2/app.schema.json
 **License**: Business Source License 1.1 (BSL 1.1)
 
 ---
@@ -24,9 +24,9 @@ name: my-app
 name: my-app
 version: 1.0.0
 description: A complete application
-tables: [...]       # Data models with 41 field types
+tables: [...]       # Data models with 40 field types
 theme: {...}        # Design tokens (colors, fonts, spacing, etc.)
-pages: [...]        # Server-rendered pages with 63 component types
+pages: [...]        # Server-rendered pages with 62 component types
 auth: {...}         # Authentication (email/password, OAuth, magic link)
 languages: {...}    # Multi-language support with $t: syntax
 components: [...]   # Reusable UI templates with $ref and $variable
@@ -1059,7 +1059,7 @@ meta:
 
 ## Component Types
 
-63 component types for building page sections:
+62 component types for building page sections:
 
 ### Layout Components
 
@@ -1686,4 +1686,4 @@ analytics:
 
 ---
 
-*Generated for Sovrium v0.0.1 — https://sovrium.com*
+*Generated for Sovrium v0.0.2 — https://sovrium.com*

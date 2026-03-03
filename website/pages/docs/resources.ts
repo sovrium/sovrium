@@ -55,7 +55,7 @@ export const docsResources = docsPage({
               $ref: 'docs-resource-link',
               vars: {
                 label: '$t:docs.resources.jsonSchema.label',
-                href: '/schemas/0.0.1/app.schema.json',
+                href: '/schemas/0.0.2/app.schema.json',
                 description: '$t:docs.resources.jsonSchema.description',
               },
             },

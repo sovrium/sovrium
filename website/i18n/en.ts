@@ -871,13 +871,13 @@ export const en: Record<string, string> = {
   // ── Docs: Per-Page Meta ──────────────────────────────────────────
   'docs.tables.meta.title': 'Tables & Fields - Sovrium Docs',
   'docs.tables.meta.description':
-    'Define data models with 41 field types, relationships, and RBAC permissions in the Sovrium schema.',
+    'Define data models with 40 field types, relationships, and RBAC permissions in the Sovrium schema.',
   'docs.theme.meta.title': 'Theme - Sovrium Docs',
   'docs.theme.meta.description':
     'Customize colors, fonts, spacing, shadows, animations, and breakpoints in the Sovrium theme system.',
   'docs.pages.meta.title': 'Pages & Components - Sovrium Docs',
   'docs.pages.meta.description':
-    'Build server-rendered pages with 63 component types, SEO metadata, and i18n support.',
+    'Build server-rendered pages with 62 component types, SEO metadata, and i18n support.',
   'docs.auth.meta.title': 'Authentication - Sovrium Docs',
   'docs.auth.meta.description':
     'Configure authentication strategies, roles, two-factor auth, and email templates.',
@@ -914,11 +914,11 @@ export const en: Record<string, string> = {
   'docs.rootProps.description.description':
     'Single-line app description. No line breaks allowed. Unicode and emojis supported.',
   'docs.rootProps.tables.description':
-    'Data models with 41 field types, relationships, indexes, permissions, and views.',
+    'Data models with 40 field types, relationships, indexes, permissions, and views.',
   'docs.rootProps.theme.description':
     'Design tokens: colors, fonts, spacing, shadows, animations, breakpoints, and border radius.',
   'docs.rootProps.pages.description':
-    'Server-rendered pages with 63 component types, SEO metadata, and i18n support.',
+    'Server-rendered pages with 62 component types, SEO metadata, and i18n support.',
   'docs.rootProps.auth.description':
     'Authentication strategies (email/password, magic link, OAuth), roles, and two-factor authentication.',
   'docs.rootProps.languages.description':
@@ -935,8 +935,8 @@ export const en: Record<string, string> = {
   'docs.tables.structure.title': 'Table Structure',
   'docs.tables.baseFields.title': 'Base Field Properties',
   'docs.tables.baseFields.description':
-    'Every field has these base properties: id (unique integer), name (identifier), type (one of 41 types), and optional required, unique, description, and defaultValue.',
-  'docs.tables.fieldTypes.title': '41 Field Types',
+    'Every field has these base properties: id (unique integer), name (identifier), type (one of 40 types), and optional required, unique, description, and defaultValue.',
+  'docs.tables.fieldTypes.title': '40 Field Types',
   'docs.tables.fieldTypes.description': 'Field types are organized into 9 categories:',
   'docs.tables.fieldTypes.text': 'Text Fields',
   'docs.tables.fieldTypes.numeric': 'Numeric Fields',
@@ -982,7 +982,7 @@ export const en: Record<string, string> = {
   'docs.pages.description':
     'Pages are server-rendered using a component tree system. Each page has a name, path, metadata (SEO, favicons), and sections containing nested components.',
   'docs.pages.structure.title': 'Page Structure',
-  'docs.pages.componentTypes.title': '63 Component Types',
+  'docs.pages.componentTypes.title': '62 Component Types',
   'docs.pages.componentTypes.description':
     'Components form a recursive tree \u2014 each can have type, content, props, and children.',
   'docs.pages.componentTypes.layout': 'Layout',

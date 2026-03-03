@@ -33,7 +33,7 @@ export const docsOverview = docsPage({
             },
             {
               type: 'span',
-              content: 'v0.0.1',
+              content: 'v0.0.2',
               props: {
                 className:
                   'text-xs font-mono px-2 py-0.5 bg-sovereignty-gray-800 rounded text-sovereignty-gray-400',
@@ -76,7 +76,7 @@ export const docsOverview = docsPage({
         {
           $ref: 'docs-code-block',
           vars: {
-            code: 'name: my-app                  # App identifier (required)\nversion: 1.0.0               # SemVer version\ndescription: My application   # One-line description\ntables: [...]                 # Data models with 41 field types\ntheme: {...}                  # Design tokens (colors, fonts, etc.)\npages: [...]                  # Server-rendered pages (63 component types)\nauth: {...}                   # Authentication & authorization\nlanguages: {...}              # Multi-language support ($t: syntax)\ncomponents: [...]             # Reusable UI templates ($ref, $variable)\nanalytics: {...}              # Privacy-friendly, cookie-free analytics',
+            code: 'name: my-app                  # App identifier (required)\nversion: 1.0.0               # SemVer version\ndescription: My application   # One-line description\ntables: [...]                 # Data models with 40 field types\ntheme: {...}                  # Design tokens (colors, fonts, etc.)\npages: [...]                  # Server-rendered pages (62 component types)\nauth: {...}                   # Authentication & authorization\nlanguages: {...}              # Multi-language support ($t: syntax)\ncomponents: [...]             # Reusable UI templates ($ref, $variable)\nanalytics: {...}              # Privacy-friendly, cookie-free analytics',
           },
         },
         {

@@ -903,13 +903,13 @@ export const fr: Record<string, string> = {
   // ── Docs: Per-Page Meta ──────────────────────────────────────────
   'docs.tables.meta.title': 'Tables & Champs - Docs Sovrium',
   'docs.tables.meta.description':
-    'D\u00E9finissez vos mod\u00E8les de donn\u00E9es avec 41 types de champs, relations et permissions RBAC.',
+    'D\u00E9finissez vos mod\u00E8les de donn\u00E9es avec 40 types de champs, relations et permissions RBAC.',
   'docs.theme.meta.title': 'Th\u00E8me - Docs Sovrium',
   'docs.theme.meta.description':
     'Personnalisez couleurs, polices, espacement, ombres, animations et points de rupture.',
   'docs.pages.meta.title': 'Pages & Composants - Docs Sovrium',
   'docs.pages.meta.description':
-    'Construisez des pages rendues c\u00F4t\u00E9 serveur avec 63 types de composants, m\u00E9tadonn\u00E9es SEO et i18n.',
+    'Construisez des pages rendues c\u00F4t\u00E9 serveur avec 62 types de composants, m\u00E9tadonn\u00E9es SEO et i18n.',
   'docs.auth.meta.title': 'Authentification - Docs Sovrium',
   'docs.auth.meta.description':
     'Configurez strat\u00E9gies d\u2019authentification, r\u00F4les, 2FA et mod\u00E8les d\u2019e-mail.',
@@ -947,11 +947,11 @@ export const fr: Record<string, string> = {
   'docs.rootProps.description.description':
     'Description d\u2019application sur une seule ligne. Pas de retour \u00E0 la ligne autoris\u00E9. Unicode et emojis support\u00E9s.',
   'docs.rootProps.tables.description':
-    'Mod\u00E8les de donn\u00E9es avec 41 types de champs, relations, index, permissions et vues.',
+    'Mod\u00E8les de donn\u00E9es avec 40 types de champs, relations, index, permissions et vues.',
   'docs.rootProps.theme.description':
     'Jetons de design\u00A0: couleurs, polices, espacement, ombres, animations, points de rupture et rayons de bordure.',
   'docs.rootProps.pages.description':
-    'Pages rendues c\u00F4t\u00E9 serveur avec 63 types de composants, m\u00E9tadonn\u00E9es SEO et support i18n.',
+    'Pages rendues c\u00F4t\u00E9 serveur avec 62 types de composants, m\u00E9tadonn\u00E9es SEO et support i18n.',
   'docs.rootProps.auth.description':
     'Strat\u00E9gies d\u2019authentification (email/mot de passe, lien magique, OAuth), r\u00F4les et authentification \u00E0 deux facteurs.',
   'docs.rootProps.languages.description':
@@ -968,8 +968,8 @@ export const fr: Record<string, string> = {
   'docs.tables.structure.title': 'Structure d\u2019une table',
   'docs.tables.baseFields.title': 'Propri\u00E9t\u00E9s de base des champs',
   'docs.tables.baseFields.description':
-    'Chaque champ a ces propri\u00E9t\u00E9s de base\u00A0: id (entier unique), name (identifiant), type (un des 41 types), et optionnellement required, unique, description et defaultValue.',
-  'docs.tables.fieldTypes.title': '41 types de champs',
+    'Chaque champ a ces propri\u00E9t\u00E9s de base\u00A0: id (entier unique), name (identifiant), type (un des 40 types), et optionnellement required, unique, description et defaultValue.',
+  'docs.tables.fieldTypes.title': '40 types de champs',
   'docs.tables.fieldTypes.description':
     'Les types de champs sont organis\u00E9s en 9 cat\u00E9gories\u00A0:',
   'docs.tables.fieldTypes.text': 'Champs texte',
@@ -1016,7 +1016,7 @@ export const fr: Record<string, string> = {
   'docs.pages.description':
     'Les pages sont rendues c\u00F4t\u00E9 serveur via un syst\u00E8me d\u2019arbre de composants. Chaque page a un name, un path, des m\u00E9tadonn\u00E9es (SEO, favicons) et des sections contenant des composants imbriqu\u00E9s.',
   'docs.pages.structure.title': 'Structure d\u2019une page',
-  'docs.pages.componentTypes.title': '63 types de composants',
+  'docs.pages.componentTypes.title': '62 types de composants',
   'docs.pages.componentTypes.description':
     'Les composants forment un arbre r\u00E9cursif \u2014 chacun peut avoir type, content, props et children.',
   'docs.pages.componentTypes.layout': 'Mise en page',
