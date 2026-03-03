@@ -217,7 +217,7 @@ test.describe('Autonumber Field', () => {
 
         // THEN: each record has incrementing auto_field value
         const results = await executeQuery('SELECT auto_field FROM data ORDER BY id')
-        expect(results.rows.length).toBe(5)
+        expect(results.rows).toHaveLength(5)
 
         for (let i = 1; i < results.rows.length; i++) {
           expect(results.rows[i].auto_field).toBeGreaterThan(results.rows[i - 1].auto_field)

@@ -1287,7 +1287,7 @@ test.describe('Relationship Field', () => {
           SELECT name, manager_id FROM employees WHERE manager_id IS NULL
         `)
         // THEN: NULL relationship is allowed
-        expect(noManager.rows.length).toBe(2) // Alice and Diana have no manager
+        expect(noManager.rows).toHaveLength(2) // Alice and Diana have no manager
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-RELATIONSHIP-014: Rejects relationship to non-existent table', async () => {

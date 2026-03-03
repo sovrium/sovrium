@@ -102,7 +102,7 @@ test.describe('Array Field', () => {
         'SELECT array_length(keywords, 1) as length FROM posts WHERE id = 1'
       )
       // THEN: assertion
-      expect(arrayLength.length).toBe(2)
+      expect(arrayLength).toHaveLength(2)
     }
   )
 
@@ -135,7 +135,7 @@ test.describe('Array Field', () => {
         'INSERT INTO datasets (numbers) VALUES (ARRAY[1,2,3,4,5,6,7,8,9,10]) RETURNING array_length(numbers, 1) as length'
       )
       // THEN: assertion
-      expect(maxItems.length).toBe(10)
+      expect(maxItems).toHaveLength(10)
 
       // THEN: assertion
       await expect(
@@ -307,7 +307,7 @@ test.describe('Array Field', () => {
           'SELECT array_length(keywords, 1) as length FROM data WHERE keywords IS NOT NULL LIMIT 1'
         )
         // THEN: array length is returned
-        expect(arrayLength.length).toBe(2)
+        expect(arrayLength).toHaveLength(2)
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-ARRAY-003: Enforces maximum array size via CHECK constraint', async () => {
@@ -316,7 +316,7 @@ test.describe('Array Field', () => {
           'INSERT INTO data (numbers) VALUES (ARRAY[1,2,3,4,5,6,7,8,9,10]) RETURNING array_length(numbers, 1) as length'
         )
         // THEN: array at max size is stored
-        expect(maxItems.length).toBe(10)
+        expect(maxItems).toHaveLength(10)
 
         // WHEN: attempting to insert array exceeding max size
         // THEN: CHECK constraint rejects insertion

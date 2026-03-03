@@ -62,7 +62,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
       const data = await response.json()
       expect(data).toHaveProperty('pages')
       expect(data).toHaveProperty('total')
-      expect(data.pages.length).toBe(3)
+      expect(data.pages).toHaveLength(3)
       expect(data.pages[0].path).toBe('/')
       expect(data.pages[0].pageViews).toBe(4)
       expect(data.pages[1].path).toBe('/about')
@@ -173,7 +173,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data.pages.length).toBe(3)
+      expect(data.pages).toHaveLength(3)
       expect(data.pages[0].pageViews).toBeGreaterThanOrEqual(data.pages[1].pageViews)
       expect(data.pages[1].pageViews).toBeGreaterThanOrEqual(data.pages[2].pageViews)
       expect(data.pages[0].path).toBe('/docs')
@@ -262,7 +262,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data.pages.length).toBe(2)
+      expect(data.pages).toHaveLength(2)
       const paths = data.pages.map((p: any) => p.path)
       expect(paths).toContain('/recent-page')
       expect(paths).toContain('/today-page')
@@ -321,7 +321,7 @@ test.describe('GET /api/analytics/pages - Top Pages', () => {
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data.pages.length).toBe(3)
+        expect(data.pages).toHaveLength(3)
         expect(data.pages[0].path).toBe('/')
         expect(data.pages[0].pageViews).toBe(3)
       })

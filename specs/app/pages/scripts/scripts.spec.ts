@@ -197,8 +197,8 @@ test.describe('Client Scripts Configuration', () => {
       await page.goto('/')
 
       // THEN: it should allow pages without client-side scripts
-      const scriptTags = await page.locator('script[src]').count()
-      expect(scriptTags).toBe(0)
+      const scriptTags = page.locator('script[src]')
+      await expect(scriptTags).toHaveCount(0)
     }
   )
 
@@ -457,8 +457,8 @@ test.describe('Client Scripts Configuration', () => {
           ],
         })
         await page.goto('/')
-        const scriptTags = await page.locator('script[src]').count()
-        expect(scriptTags).toBe(0)
+        const scriptTags = page.locator('script[src]')
+        await expect(scriptTags).toHaveCount(0)
       })
 
       await test.step('APP-PAGES-SCRIPTS-007: Support flexible client configuration', async () => {

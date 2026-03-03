@@ -119,33 +119,51 @@ export function buildEmailAndPasswordConfig(
   }
 }
 
+type AuthMiddlewareCtx = Parameters<typeof createAuthMiddleware>[0] extends (
+  ctx: infer C
+) => unknown
+  ? C
+  : never
+
 /**
- * Build auth hooks with password validation middleware
+ * Validate admin create-user password length (Better Auth Issue #4651 workaround).
+ * The admin plugin doesn't respect emailAndPassword validation settings.
+ */
+// eslint-disable-next-line functional/prefer-immutable-types
+async function validateAdminCreateUserPassword(ctx: AuthMiddlewareCtx) {
+  const body = ctx.body as { password?: string }
+  if (!body?.password) return
+  const minLength = 8
+  const maxLength = 128
+  if (body.password.length < minLength) {
+    // eslint-disable-next-line functional/no-throw-statements
+    throw new APIError('BAD_REQUEST', {
+      message: `Password must be at least ${minLength} characters`,
+    })
+  }
+  if (body.password.length > maxLength) {
+    // eslint-disable-next-line functional/no-throw-statements
+    throw new APIError('BAD_REQUEST', {
+      message: `Password must not exceed ${maxLength} characters`,
+    })
+  }
+}
+
+/**
+ * Build auth hooks with request validation middleware
  *
  * Validates password length for admin createUser endpoint (Better Auth Issue #4651 workaround).
  * The admin plugin doesn't respect emailAndPassword validation settings.
+ *
+ * Note: The /change-email endpoint uses Better Auth 1.5's native email enumeration protection,
+ * which always returns 200 OK regardless of whether the target email exists.
  */
 export function buildAuthHooks() {
   return {
     before: createAuthMiddleware(async (ctx) => {
       if (ctx.path === '/admin/create-user') {
-        const body = ctx.body as { password?: string }
-        if (body?.password) {
-          const minLength = 8
-          const maxLength = 128
-          if (body.password.length < minLength) {
-            // eslint-disable-next-line functional/no-throw-statements
-            throw new APIError('BAD_REQUEST', {
-              message: `Password must be at least ${minLength} characters`,
-            })
-          }
-          if (body.password.length > maxLength) {
-            // eslint-disable-next-line functional/no-throw-statements
-            throw new APIError('BAD_REQUEST', {
-              message: `Password must not exceed ${maxLength} characters`,
-            })
-          }
-        }
+        // eslint-disable-next-line functional/no-expression-statements
+        await validateAdminCreateUserPassword(ctx)
       }
     }),
   }

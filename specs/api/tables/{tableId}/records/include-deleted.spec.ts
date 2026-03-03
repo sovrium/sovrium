@@ -328,7 +328,7 @@ test.describe('Include Deleted query parameter', () => {
         const deletedRecords = allData.records.filter((r: { fields: { deleted_at: any } }) =>
           Boolean(r.fields.deleted_at)
         )
-        expect(deletedRecords.length).toBe(20)
+        expect(deletedRecords).toHaveLength(20)
       })
 
       await test.step('API-TABLES-RECORDS-INCLUDE-DELETED-003: Allows member to use includeDeleted', async () => {

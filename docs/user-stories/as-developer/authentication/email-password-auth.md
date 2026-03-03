@@ -116,16 +116,16 @@ auth:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                         | E2E Spec                           | Status |
-| ------ | ------------------------------------------------- | ---------------------------------- | ------ |
-| AC-001 | Returns 200 OK on successful email change         | `API-AUTH-CHANGE-EMAIL-001`        | ✅     |
-| AC-002 | Returns 400 when new email is missing             | `API-AUTH-CHANGE-EMAIL-002`        | ✅     |
-| AC-003 | Returns 400 for invalid email format              | `API-AUTH-CHANGE-EMAIL-003`        | ✅     |
-| AC-004 | Returns 401 when not authenticated                | `API-AUTH-CHANGE-EMAIL-004`        | ✅     |
-| AC-005 | Returns 409 when email is already in use          | `API-AUTH-CHANGE-EMAIL-005`        | ✅     |
-| AC-006 | Handles same email gracefully                     | `API-AUTH-CHANGE-EMAIL-006`        | ✅     |
-| AC-007 | Returns 409 for case-insensitive duplicate        | `API-AUTH-CHANGE-EMAIL-007`        | ✅     |
-| AC-008 | User completes email change workflow (regression) | `API-AUTH-CHANGE-EMAIL-REGRESSION` | ✅     |
+| ID     | Criterion                                                                                          | E2E Spec                           | Status |
+| ------ | -------------------------------------------------------------------------------------------------- | ---------------------------------- | ------ |
+| AC-001 | Returns 200 OK on successful email change                                                          | `API-AUTH-CHANGE-EMAIL-001`        | ✅     |
+| AC-002 | Returns 400 when new email is missing                                                              | `API-AUTH-CHANGE-EMAIL-002`        | ✅     |
+| AC-003 | Returns 400 for invalid email format                                                               | `API-AUTH-CHANGE-EMAIL-003`        | ✅     |
+| AC-004 | Returns 401 when not authenticated                                                                 | `API-AUTH-CHANGE-EMAIL-004`        | ✅     |
+| AC-005 | Returns 200 OK when email is already in use (enumeration protection -- no verification email sent) | `API-AUTH-CHANGE-EMAIL-005`        | ✅     |
+| AC-006 | Handles same email gracefully                                                                      | `API-AUTH-CHANGE-EMAIL-006`        | ✅     |
+| AC-007 | Returns 200 OK for case-insensitive duplicate (enumeration protection)                             | `API-AUTH-CHANGE-EMAIL-007`        | ✅     |
+| AC-008 | User completes email change workflow (regression)                                                  | `API-AUTH-CHANGE-EMAIL-REGRESSION` | ✅     |
 
 ### Implementation References
 

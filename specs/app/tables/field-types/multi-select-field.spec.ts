@@ -98,11 +98,11 @@ test.describe('Multi Select Field', () => {
       // WHEN: executing query
       const results = await executeQuery('SELECT categories FROM articles ORDER BY id')
       // THEN: assertion
-      expect(results.rows.length).toBe(3)
+      expect(results.rows).toHaveLength(3)
       // THEN: assertion
-      expect(results.rows[0].categories.length).toBe(2)
+      expect(results.rows[0].categories).toHaveLength(2)
       // THEN: assertion
-      expect(results.rows[2].categories.length).toBe(3)
+      expect(results.rows[2].categories).toHaveLength(3)
     }
   )
 
@@ -390,9 +390,9 @@ test.describe('Multi Select Field', () => {
           'SELECT categories FROM data WHERE categories IS NOT NULL ORDER BY id'
         )
         // THEN: multiple values are stored per row
-        expect(results.rows.length).toBe(3)
-        expect(results.rows[0].categories.length).toBe(2)
-        expect(results.rows[2].categories.length).toBe(3)
+        expect(results.rows).toHaveLength(3)
+        expect(results.rows[0].categories).toHaveLength(2)
+        expect(results.rows[2].categories).toHaveLength(3)
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-MULTI-SELECT-003: Rejects NULL when required', async () => {

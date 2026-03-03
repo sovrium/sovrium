@@ -99,7 +99,7 @@ test.describe('List all tables', () => {
       const data = await response.json()
       // THEN: assertion
       expect(Array.isArray(data)).toBe(true)
-      expect(data.length).toBe(0)
+      expect(data).toHaveLength(0)
     }
   )
 

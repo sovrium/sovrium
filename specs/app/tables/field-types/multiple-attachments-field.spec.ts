@@ -72,7 +72,7 @@ test.describe('Multiple Attachments Field', () => {
       // WHEN: querying the database
       const files = await executeQuery('SELECT files FROM messages WHERE id = 1')
       // THEN: assertion
-      expect(files.files.length).toBe(2)
+      expect(files.files).toHaveLength(2)
     }
   )
 
@@ -291,7 +291,7 @@ test.describe('Multiple Attachments Field', () => {
         // WHEN: querying the stored files
         const files = await executeQuery('SELECT files FROM data WHERE id = 1')
         // THEN: array contains 2 files
-        expect(files.files.length).toBe(2)
+        expect(files.files).toHaveLength(2)
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-MULTIPLE-ATTACHMENTS-003: Enforces maximum attachment count via CHECK constraint', async () => {

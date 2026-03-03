@@ -49,7 +49,7 @@ test.describe('Disabled Tables Endpoints', () => {
       expect(response.status()).toBe(200)
       const data = await response.json()
       expect(Array.isArray(data)).toBe(true)
-      expect(data.length).toBe(0)
+      expect(data).toHaveLength(0)
     }
   )
 
@@ -149,7 +149,7 @@ test.describe('Disabled Tables Endpoints', () => {
         expect(response.status()).toBe(200)
         const data = await response.json()
         expect(Array.isArray(data)).toBe(true)
-        expect(data.length).toBe(0)
+        expect(data).toHaveLength(0)
       })
 
       await test.step('API-TABLES-DISABLED-002: Returns 404 for get table endpoint when no tables configured', async () => {

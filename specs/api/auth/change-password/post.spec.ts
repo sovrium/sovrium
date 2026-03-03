@@ -124,7 +124,7 @@ test.describe('Change password', () => {
       // Verify only one session remains
       const sessionsAfter = await page.request.get('/api/auth/list-sessions')
       const sessionsAfterData = await sessionsAfter.json()
-      expect(sessionsAfterData.length).toBe(1)
+      expect(sessionsAfterData).toHaveLength(1)
     }
   )
 

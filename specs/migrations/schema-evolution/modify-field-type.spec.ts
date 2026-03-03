@@ -132,7 +132,7 @@ test.describe('Modify Field Type Migration', () => {
 
       // Long SKU truncated to 255 characters
       const truncatedSku = await executeQuery(`SELECT sku FROM products WHERE name = 'Gadget'`)
-      expect(truncatedSku.sku.length).toBe(100) // Original was 100 chars, fits in VARCHAR(255)
+      expect(truncatedSku.sku).toHaveLength(100) // Original was 100 chars, fits in VARCHAR(255)
     }
   )
 

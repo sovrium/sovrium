@@ -238,7 +238,7 @@ test.describe('Lookup Field', () => {
       const electronics = await executeQuery(
         "SELECT * FROM products WHERE product_category = 'Electronics'"
       )
-      expect(electronics.rows.length).toBe(1)
+      expect(electronics.rows).toHaveLength(1)
       expect(electronics.rows[0].title).toBe('Laptop')
     }
   )
@@ -775,7 +775,7 @@ test.describe('Lookup Field', () => {
           'SELECT * FROM orders WHERE product_price > 100 ORDER BY id'
         )
         // THEN: query returns correct filtered results
-        expect(expensiveOrders.rows.length).toBe(1)
+        expect(expensiveOrders.rows).toHaveLength(1)
         expect(expensiveOrders.rows[0].id).toBe(2)
       })
     }

@@ -129,7 +129,9 @@ const compileCSSInternal = (theme?: Theme): Effect.Effect<CompiledCSS, CSSCompil
           return Promise.reject(new Error('Tailwind CSS plugin is not available'))
         }
 
-        const processor = postcss([tailwindcss()])
+        // Cast needed: @tailwindcss/postcss bundles its own PostCSS types
+        // which are structurally identical but nominally different from top-level postcss
+        const processor = postcss([tailwindcss() as postcss.AcceptedPlugin])
         return await processor.process(sourceCSS, {
           from: process.cwd() + '/src/styles/global.css', // Source context for import resolution
           to: undefined, // No output file (in-memory compilation)

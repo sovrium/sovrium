@@ -89,7 +89,7 @@ test.describe('Duration Field', () => {
       // WHEN: querying the database
       const results = await executeQuery('SELECT estimated_time FROM projects ORDER BY id')
       // THEN: assertion
-      expect(results.rows.length).toBe(3)
+      expect(results.rows).toHaveLength(3)
     }
   )
 

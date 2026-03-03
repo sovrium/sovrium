@@ -300,7 +300,7 @@ test.describe('Static Site Generation - Deployment Features', () => {
       const disallowLines = lines.filter((l) => l.startsWith('Disallow:'))
       const uniqueDisallows = new Set(disallowLines)
       // THEN: assertion
-      expect(disallowLines.length).toBe(uniqueDisallows.size)
+      expect(disallowLines).toHaveLength(uniqueDisallows.size)
     }
   )
 

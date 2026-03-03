@@ -94,7 +94,7 @@ test.describe('List table views', () => {
       const data = await response.json()
       // THEN: assertion
       expect(Array.isArray(data)).toBe(true)
-      expect(data.length).toBe(3)
+      expect(data).toHaveLength(3)
 
       // Validate each view has id and name
       for (const view of data) {
@@ -158,7 +158,7 @@ test.describe('List table views', () => {
       const data = await response.json()
       // THEN: assertion
       expect(Array.isArray(data)).toBe(true)
-      expect(data.length).toBe(0)
+      expect(data).toHaveLength(0)
     }
   )
 
@@ -267,7 +267,7 @@ test.describe('List table views', () => {
       const data = await response.json()
       // THEN: assertion
       expect(Array.isArray(data)).toBe(true)
-      expect(data.length).toBe(1)
+      expect(data).toHaveLength(1)
       expect(data[0].id).toBe('public_view')
       expect(data[0].name).toBe('Public View')
     }

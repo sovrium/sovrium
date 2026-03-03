@@ -276,9 +276,9 @@ test(
     expect(textContent).toContain('.')
 
     // 4. Accessibility (exactly one h1)
-    const headingCount = await page.locator('h1').count()
+    const headingCount = page.locator('h1')
     // THEN: assertion
-    expect(headingCount).toBe(1)
+    await expect(headingCount).toHaveCount(1)
 
     // 5. Styling (TypographyH1 component)
     const fontSize = await heading.evaluate((el) => window.getComputedStyle(el).fontSize)
@@ -405,8 +405,8 @@ test(
       expect(textContent).toContain('@')
       expect(textContent).toContain('/')
       expect(textContent).toContain('_')
-      const headingCount = await page.locator('h1').count()
-      expect(headingCount).toBe(1)
+      const headingCount = page.locator('h1')
+      await expect(headingCount).toHaveCount(1)
       await expect(heading).toBeVisible()
     })
   }

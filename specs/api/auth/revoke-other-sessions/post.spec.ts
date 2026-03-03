@@ -67,7 +67,7 @@ test.describe('Revoke all other sessions', () => {
       // Verify only one session remains (current)
       const sessionsAfterResponse = await page.request.get('/api/auth/list-sessions')
       const sessionsAfter = await sessionsAfterResponse.json()
-      expect(sessionsAfter.length).toBe(1)
+      expect(sessionsAfter).toHaveLength(1)
     }
   )
 
@@ -165,7 +165,7 @@ test.describe('Revoke all other sessions', () => {
       // Only current session remains
       const sessionsAfterResponse = await page.request.get('/api/auth/list-sessions')
       const sessionsAfter = await sessionsAfterResponse.json()
-      expect(sessionsAfter.length).toBe(1)
+      expect(sessionsAfter).toHaveLength(1)
     }
   )
 
@@ -212,7 +212,7 @@ test.describe('Revoke all other sessions', () => {
       // User A's other sessions are revoked, only current remains
       const sessionsAfterResponse = await page.request.get('/api/auth/list-sessions')
       const sessionsAfter = await sessionsAfterResponse.json()
-      expect(sessionsAfter.length).toBe(1)
+      expect(sessionsAfter).toHaveLength(1)
 
       // User B can still sign in (their sessions unaffected)
       await signIn({ email: 'userB@example.com', password: 'PasswordB123!' })
@@ -275,7 +275,7 @@ test.describe('Revoke all other sessions', () => {
         // Verify only one session remains (current)
         const sessionsAfterResponse = await page.request.get('/api/auth/list-sessions')
         const sessionsAfter = await sessionsAfterResponse.json()
-        expect(sessionsAfter.length).toBe(1)
+        expect(sessionsAfter).toHaveLength(1)
       })
 
       await test.step('API-AUTH-REVOKE-OTHER-SESSIONS-003: Returns 200 OK with no sessions to revoke', async () => {

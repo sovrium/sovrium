@@ -57,7 +57,7 @@ test.describe('Rich Text Field', () => {
         "INSERT INTO posts (content) VALUES (REPEAT('Lorem ipsum ', 1000)) RETURNING LENGTH(content) as length"
       )
       // THEN: assertion
-      expect(longText.length).toBe(12_000)
+      expect(longText).toHaveLength(12_000)
     }
   )
 
@@ -82,7 +82,7 @@ test.describe('Rich Text Field', () => {
         "INSERT INTO articles (summary) VALUES (REPEAT('a', 500)) RETURNING LENGTH(summary) as length"
       )
       // THEN: assertion
-      expect(withinLimit.length).toBe(500)
+      expect(withinLimit).toHaveLength(500)
 
       // THEN: assertion
       await expect(
@@ -247,7 +247,7 @@ test.describe('Rich Text Field', () => {
           "INSERT INTO data (content, slug) VALUES (REPEAT('Lorem ipsum ', 1000), 'doc-2') RETURNING LENGTH(content) as length"
         )
         // THEN: long text is stored correctly
-        expect(longText.length).toBe(12_000)
+        expect(longText).toHaveLength(12_000)
       })
 
       await test.step('APP-TABLES-FIELD-TYPES-RICH-TEXT-002: Enforces maximum length via CHECK constraint', async () => {
@@ -256,7 +256,7 @@ test.describe('Rich Text Field', () => {
           "INSERT INTO data (summary, slug) VALUES (REPEAT('a', 500), 'doc-3') RETURNING LENGTH(summary) as length"
         )
         // THEN: text within limit is stored
-        expect(withinLimit.length).toBe(500)
+        expect(withinLimit).toHaveLength(500)
 
         // WHEN: attempting to insert text exceeding limit
         // THEN: CHECK constraint rejects insertion

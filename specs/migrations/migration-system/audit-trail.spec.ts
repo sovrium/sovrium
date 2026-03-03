@@ -291,7 +291,7 @@ test.describe('Migration Audit Trail', () => {
       expect(recordedSchema.rows[0].schema.tables[0].fields).toHaveLength(2)
 
       // Drift exists (3 actual vs 2 recorded)
-      expect(actualColumns.rows.length).not.toBe(
+      expect(actualColumns.rows).not.toHaveLength(
         recordedSchema.rows[0].schema.tables[0].fields.length
       )
     }
@@ -374,7 +374,7 @@ test.describe('Migration Audit Trail', () => {
         const afterVersions = await executeQuery(
           `SELECT version FROM system.migration_history ORDER BY version`
         )
-        expect(afterVersions.rows.length).toBe(versionCountBefore + 1)
+        expect(afterVersions.rows).toHaveLength(versionCountBefore + 1)
 
         // Verify versions are sequential
         const latestVersion = afterVersions.rows[afterVersions.rows.length - 1].version
@@ -451,7 +451,7 @@ test.describe('Migration Audit Trail', () => {
         expect(recordedSchema.rows[0].schema.tables[0].fields).toHaveLength(2)
 
         // THEN: Drift exists (actual > 2 recorded)
-        expect(actualColumns.rows.length).not.toBe(
+        expect(actualColumns.rows).not.toHaveLength(
           recordedSchema.rows[0].schema.tables[0].fields.length
         )
       })

@@ -252,11 +252,10 @@ test.describe('DNS Prefetch', () => {
       await page.goto('/')
 
       // THEN: it should prevent duplicate domain entries
-      const count = await page
-        .locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
-        .count()
+      const count = page.locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
+
       // THEN: assertion
-      expect(count).toBe(1)
+      await expect(count).toHaveCount(1)
     }
   )
 
@@ -453,10 +452,9 @@ test.describe('DNS Prefetch', () => {
       })
 
       await test.step('APP-PAGES-DNS-007: Prevent duplicate domain entries', async () => {
-        const count = await page
-          .locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
-          .count()
-        expect(count).toBe(1)
+        const count = page.locator('link[rel="dns-prefetch"][href="https://fonts.googleapis.com"]')
+
+        await expect(count).toHaveCount(1)
       })
 
       await test.step('APP-PAGES-DNS-008: Optimize multiple external connections', async () => {

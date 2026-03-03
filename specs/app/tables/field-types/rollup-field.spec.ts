@@ -1025,7 +1025,7 @@ test.describe('Rollup Field', () => {
           'SELECT * FROM projects WHERE total_hours > 20 ORDER BY id'
         )
         // THEN: filter by rollup value works correctly
-        expect(highHourProjects.rows.length).toBe(1)
+        expect(highHourProjects.rows).toHaveLength(1)
         expect(highHourProjects.rows[0].name).toBe('Website')
       })
     }

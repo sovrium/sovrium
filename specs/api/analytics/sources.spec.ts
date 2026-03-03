@@ -61,7 +61,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
       const data = await response.json()
       expect(data).toHaveProperty('referrers')
       expect(data).toHaveProperty('total')
-      expect(data.referrers.length).toBe(3)
+      expect(data.referrers).toHaveLength(3)
       expect(data.referrers[0].domain).toBe('google.com')
       expect(data.referrers[0].pageViews).toBe(3)
       expect(data.referrers[1].domain).toBe('twitter.com')
@@ -169,7 +169,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
       expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data.referrers.length).toBe(3)
+      expect(data.referrers).toHaveLength(3)
       expect(data.referrers[0].pageViews).toBeGreaterThanOrEqual(data.referrers[1].pageViews)
       expect(data.referrers[1].pageViews).toBeGreaterThanOrEqual(data.referrers[2].pageViews)
       expect(data.referrers[0].domain).toBe('github.com')
@@ -213,7 +213,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
       const data = await response.json()
       expect(data).toHaveProperty('campaigns')
       expect(data).toHaveProperty('total')
-      expect(data.campaigns.length).toBe(3)
+      expect(data.campaigns).toHaveLength(3)
 
       // Spring sale should be first (3 page views)
       const springSale = data.campaigns.find((c: any) => c.campaign === 'spring-sale')
@@ -434,7 +434,7 @@ test.describe('Analytics Traffic Sources - Referrers & Campaigns', () => {
         expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data.campaigns.length).toBe(2)
+        expect(data.campaigns).toHaveLength(2)
 
         const springSale = data.campaigns.find((c: any) => c.campaign === 'spring-sale')
         expect(springSale).toBeDefined()

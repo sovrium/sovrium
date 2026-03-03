@@ -96,7 +96,7 @@ test.describe('Long Text Field', () => {
         "INSERT INTO posts (content) VALUES ('Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.') RETURNING LENGTH(content) as length"
       )
       // THEN: assertion
-      expect(largeTextInsert.length).toBe(445)
+      expect(largeTextInsert).toHaveLength(445)
     }
   )
 
@@ -288,7 +288,7 @@ test.describe('Long Text Field', () => {
           "INSERT INTO data (description, body) VALUES ('Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.', 'body text') RETURNING LENGTH(description) as length"
         )
         // THEN: full text is stored without truncation
-        expect(largeTextInsert.length).toBe(445)
+        expect(largeTextInsert).toHaveLength(445)
       })
 
       await test.step('APP-TABLES-FIELD-LONG-TEXT-003: Rejects NULL value when required', async () => {

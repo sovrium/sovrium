@@ -172,7 +172,7 @@ test.describe('Change email address', () => {
   )
 
   test(
-    'API-AUTH-CHANGE-EMAIL-005: should return 409 Conflict for existing email',
+    'API-AUTH-CHANGE-EMAIL-005: should return 200 OK for existing email (enumeration protection)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user and another user with target email
@@ -208,11 +208,14 @@ test.describe('Change email address', () => {
         },
       })
 
-      // THEN: Returns 409 Conflict error (or 400/422 depending on implementation)
-      expect([400, 409, 422]).toContain(response.status())
+      // THEN: Returns 200 OK to prevent email enumeration attacks
+      // Better Auth 1.5 native enumeration protection: the endpoint always returns
+      // 200 OK regardless of whether the target email is already registered.
+      // No verification email is actually sent for duplicate emails.
+      expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('status', true)
     }
   )
 
@@ -247,7 +250,7 @@ test.describe('Change email address', () => {
   )
 
   test(
-    'API-AUTH-CHANGE-EMAIL-007: should return 409 Conflict with case-insensitive matching',
+    'API-AUTH-CHANGE-EMAIL-007: should return 200 OK for case-insensitive duplicate (enumeration protection)',
     { tag: '@spec' },
     async ({ page, startServerWithSchema, signUp, signIn }) => {
       // GIVEN: An authenticated user with lowercase email
@@ -283,11 +286,13 @@ test.describe('Change email address', () => {
         },
       })
 
-      // THEN: Returns 409 Conflict (case-insensitive email matching), 400, or 422
-      expect([400, 409, 422]).toContain(response.status())
+      // THEN: Returns 200 OK to prevent email enumeration attacks
+      // Better Auth 1.5 native enumeration protection: case-insensitive duplicate
+      // emails also return 200 OK without sending a verification email.
+      expect(response.status()).toBe(200)
 
       const data = await response.json()
-      expect(data).toHaveProperty('message')
+      expect(data).toHaveProperty('status', true)
     }
   )
 
@@ -372,30 +377,30 @@ test.describe('Change email address', () => {
         expect(data).toHaveProperty('message')
       })
 
-      await test.step('API-AUTH-CHANGE-EMAIL-005: Returns 409 for existing email', async () => {
+      await test.step('API-AUTH-CHANGE-EMAIL-005: Returns 200 for existing email (enumeration protection)', async () => {
         // WHEN: User attempts to change to an already registered email
         const response = await page.request.post('/api/auth/change-email', {
           data: { newEmail: existingEmail },
         })
 
-        // THEN: Returns 409 Conflict error (or 400/422 depending on implementation)
-        expect([400, 409, 422]).toContain(response.status())
+        // THEN: Returns 200 OK to prevent email enumeration attacks
+        expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('status', true)
       })
 
-      await test.step('API-AUTH-CHANGE-EMAIL-007: Returns 409 with case-insensitive matching', async () => {
+      await test.step('API-AUTH-CHANGE-EMAIL-007: Returns 200 for case-insensitive duplicate (enumeration protection)', async () => {
         // WHEN: User changes to uppercase variation of existing email
         const response = await page.request.post('/api/auth/change-email', {
           data: { newEmail: existingEmail.toUpperCase() },
         })
 
-        // THEN: Returns 409 Conflict (case-insensitive email matching), 400, or 422
-        expect([400, 409, 422]).toContain(response.status())
+        // THEN: Returns 200 OK to prevent email enumeration attacks
+        expect(response.status()).toBe(200)
 
         const data = await response.json()
-        expect(data).toHaveProperty('message')
+        expect(data).toHaveProperty('status', true)
       })
 
       await test.step('API-AUTH-CHANGE-EMAIL-001: Returns 200 and sends verification email', async () => {

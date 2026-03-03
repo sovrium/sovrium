@@ -209,7 +209,7 @@ test.describe('Responsive Variants', () => {
         })
       )
       // THEN: assertion
-      expect(visibleMobileButtons.length).toBe(1)
+      expect(visibleMobileButtons).toHaveLength(1)
       await expect(page.locator('button').first()).toHaveText('Mobile Button')
 
       await page.setViewportSize({ width: 1024, height: 768 })
@@ -222,7 +222,7 @@ test.describe('Responsive Variants', () => {
         })
       )
       // THEN: assertion
-      expect(visibleDesktopButtons.length).toBe(2)
+      expect(visibleDesktopButtons).toHaveLength(2)
       const allDesktopButtons = await page.locator('button').all()
       const visibleDesktopTexts = await Promise.all(
         allDesktopButtons.map(async (btn) => {
@@ -792,7 +792,7 @@ test.describe('Responsive Variants', () => {
             )
           })
         )
-        expect(visibleMobileButtons.length).toBe(1)
+        expect(visibleMobileButtons).toHaveLength(1)
         await page.setViewportSize({ width: 1024, height: 768 })
         const visibleDesktopButtons = await page.locator('button').evaluateAll((buttons) =>
           buttons.filter((btn) => {
@@ -802,7 +802,7 @@ test.describe('Responsive Variants', () => {
             )
           })
         )
-        expect(visibleDesktopButtons.length).toBe(2)
+        expect(visibleDesktopButtons).toHaveLength(2)
       })
 
       await test.step('APP-PAGES-RESPONSIVE-009: All three override types apply simultaneously', async () => {
