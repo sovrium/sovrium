@@ -47,129 +47,19 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: bunx semantic-release
 
-  # ===========================================================================
-  # JOB: SYNC DOCUMENTATION
-  #
-  # After semantic-release publishes a new version, use Claude Code to update
-  # website documentation files that may contain stale counts or version refs:
-  #   - website/assets/llms.txt          (LLM quick reference)
-  #   - website/assets/llms-full.txt     (complete LLM schema docs)
-  #   - website/pages/docs/               (interactive docs pages)
-  #   - website/components/docs-components.ts (docs reusable components)
-  #
-  # Strategy:
-  #   1. Claude Code updates website/ files, commits with [skip ci]
-  #      → [skip ci] prevents test.yml AND deploy-website.yml from triggering
-  #   2. A follow-up step explicitly dispatches deploy-website.yml
-  #      → Website gets deployed without running the full test suite
-  #
-  # Non-blocking: release succeeds even if this job fails.
-  # ===========================================================================
-  sync-docs:
-    name: Sync Documentation
+  # Trigger website sync + deploy after successful release.
+  # The sync-docs job (Claude Code) now lives in deploy-website.yml and runs
+  # only on workflow_dispatch. Non-blocking: release succeeds even if this fails.
+  trigger-website-sync:
+    name: Trigger Website Sync
     needs: release
     runs-on: ubuntu-latest
     continue-on-error: true
-
     steps:
-      - name: Checkout code (post-release)
-        uses: actions/checkout@v4
-        with:
-          ref: main
-          token: ${{ secrets.GH_PAT_WORKFLOW }}
-          fetch-depth: 1
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Get released version
-        id: version
-        run: echo "version=$(jq -r '.version' package.json)" >> "$GITHUB_OUTPUT"
-
-      - name: Sync documentation with Claude Code
-        id: sync
-        uses: anthropics/claude-code-action@v1
-        timeout-minutes: 15
-        continue-on-error: true
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          track_progress: false
-          use_sticky_comment: false
-          claude_args: "--max-turns 30 --model claude-opus-4-6 --max-budget-usd 10.00"
-          prompt: |
-            You are updating website documentation after a new Sovrium release (v${{ steps.version.outputs.version }}).
-
-            You are acting as a website-editor agent. You ONLY modify files in the `website/` folder.
-            You follow the Sovrium coding standards: no semicolons, single quotes, 100-char line width,
-            2-space indent, trailing commas, one attribute per line in JSX.
-
-            ## Source of Truth
-
-            Read these files to get the ACTUAL counts and types:
-
-            1. `src/domain/models/app/table/fields.ts` — Count the imported field type schemas (lines 10-50).
-               Each import like `XxxFieldSchema` = 1 field type. Currently 41 field types.
-            2. `src/domain/models/app/page/sections.ts` — Count the `Schema.Literal(...)` values (lines 27-89).
-               Each string literal = 1 component type. Currently 63 component types.
-            3. `src/domain/models/app/index.ts` — Count root AppSchema properties (name, version, tables, theme, etc.).
-            4. `schemas/${{ steps.version.outputs.version }}/app.schema.json` — The generated JSON Schema for this version.
-
-            ## Files to Update
-
-            Update ONLY files in `website/`:
-
-            ### 1. `website/assets/llms.txt`
-            - Update version number references to v${{ steps.version.outputs.version }}
-            - Update field type count to match actual count from `fields.ts`
-            - Update component type count to match actual count from `sections.ts`
-            - Update JSON Schema URL to point to the new version
-
-            ### 2. `website/assets/llms-full.txt`
-            - Update version number references to v${{ steps.version.outputs.version }}
-            - Update field type count and component type count
-            - Update JSON Schema URL
-            - Verify every field type from `fields.ts` is documented — add any NEW types, remove any DELETED types
-            - Verify every component type from `sections.ts` is documented — add any NEW types, remove any DELETED types
-
-            ### 3. `website/pages/docs/`
-            - Update version number references to v${{ steps.version.outputs.version }}
-            - Update field type count and component type count in the UI text
-            - Update JSON Schema URL
-            - Verify badge lists match actual types from source of truth — add/remove as needed
-
-            ### 4. `website/components/docs-components.ts` (if needed)
-            - If docs components reference version numbers or counts, update them too
-
-            ## Rules
-
-            - NEVER modify files outside `website/` — source code in `src/` is read-only for you
-            - After making changes, run `bun run typecheck` and `bun run format` to validate
-            - If NO changes are needed (counts and versions already match), do nothing and skip committing
-            - If changes are needed, stage ONLY `website/` files, commit with message:
-              `docs: sync website documentation for v${{ steps.version.outputs.version }} [skip ci]`
-            - Push the commit to main directly
-            - Use `git add website/` to stage — never `git add .` or `git add -A`
-
-      # Trigger website deploy if docs were updated
-      # [skip ci] blocks all push-triggered workflows, so we dispatch explicitly
-      - name: Trigger website deployment
-        if: success()
+      - name: Dispatch website deploy with doc sync
         env:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
-          # Check if the sync step actually pushed changes
-          git fetch origin main
-          LATEST_MSG=$(git log origin/main -1 --format=%s)
-
-          if echo "$LATEST_MSG" | grep -q "docs: sync website documentation"; then
-            echo "📦 Website docs were updated — triggering deploy..."
-            gh workflow run deploy-website.yml --ref main
-            echo "✅ Website deploy workflow dispatched"
-          else
-            echo "ℹ️ No website changes detected — skipping deploy"
-          fi
+          echo "Triggering website deploy with documentation sync..."
+          gh workflow run deploy-website.yml --ref main
+          echo "Website deploy workflow dispatched"
