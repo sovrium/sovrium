@@ -6,6 +6,7 @@
  */
 
 import { favicons } from './favicons'
+import { version } from './navbar'
 import type { Page } from '@/index'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -1669,7 +1670,7 @@ export const brandCharter: Page = {
                                 },
                                 {
                                   type: 'span',
-                                  content: 'v0.0.2',
+                                  content: version,
                                   props: {
                                     className:
                                       'px-3 py-1 text-xs font-mono bg-sovereignty-gray-800 border border-sovereignty-gray-700 rounded-full text-sovereignty-gray-400',

@@ -352,13 +352,6 @@ export const about: Page = {
                       },
                     },
                     {
-                      type: 'paragraph',
-                      content: '$t:about.team.founder.bio',
-                      props: {
-                        className: 'text-sovereignty-gray-400 leading-relaxed mb-6',
-                      },
-                    },
-                    {
                       type: 'flex',
                       props: { className: 'justify-center gap-4' },
                       children: [

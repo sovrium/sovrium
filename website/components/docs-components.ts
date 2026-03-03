@@ -32,34 +32,9 @@ export const docsCodeBlock: ComponentTemplate = {
   type: 'div',
   props: {
     className:
-      'docs-code-wrapper relative bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg overflow-hidden my-4 group',
+      'docs-code-wrapper relative bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg overflow-hidden my-6',
   },
   children: [
-    {
-      type: 'div',
-      props: {
-        className:
-          'docs-code-header flex items-center justify-between px-4 py-2 border-b border-sovereignty-gray-800',
-      },
-      children: [
-        {
-          type: 'span',
-          content: '$lang',
-          props: {
-            className: 'text-xs font-mono text-sovereignty-gray-500 uppercase tracking-wider',
-          },
-        },
-        {
-          type: 'button',
-          content: 'Copy',
-          props: {
-            className:
-              'docs-copy-btn text-xs text-sovereignty-gray-500 hover:text-sovereignty-accent transition-colors cursor-pointer',
-            'data-code': '$code',
-          },
-        },
-      ],
-    },
     {
       type: 'div',
       props: {
@@ -258,7 +233,7 @@ export const docsSectionHeader: ComponentTemplate = {
 export const docsStep: ComponentTemplate = {
   name: 'docs-step',
   type: 'div',
-  props: { className: 'flex gap-4 mb-6' },
+  props: { className: 'flex gap-4 mb-8' },
   children: [
     {
       type: 'div',

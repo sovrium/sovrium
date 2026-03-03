@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { rawVersion } from '../navbar'
 import { docsPage } from './shared'
 
 export const docsResources = docsPage({
@@ -64,7 +65,7 @@ export const docsResources = docsPage({
               $ref: 'docs-resource-link',
               vars: {
                 label: '$t:docs.resources.jsonSchema.label',
-                href: '/schemas/0.0.2/app.schema.json',
+                href: `/schemas/${rawVersion}/app.schema.json`,
                 description: '$t:docs.resources.jsonSchema.description',
               },
             },

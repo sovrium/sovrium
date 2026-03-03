@@ -8,7 +8,7 @@
 import { favicons } from '../favicons'
 import { footerI18n } from '../footer'
 import { createNavbar, langSwitchScript, mobileMenuScript } from '../navbar'
-import { shikiHighlightScript, copyToClipboardScript, shikiCustomStyles } from '../shiki'
+import { shikiHighlightScript, shikiCustomStyles } from '../shiki'
 import type { Page } from '@/index'
 
 // ─── Docs Sidebar Toggle Script ─────────────────────────────────────────────
@@ -29,8 +29,6 @@ const docsSidebarToggleScript = {
   ].join(''),
   position: 'body-end' as const,
 }
-
-const docsCustomStyles = shikiCustomStyles
 
 // ─── Docs Pages Definition ──────────────────────────────────────────────────
 
@@ -112,6 +110,13 @@ export const badgeGroup = (title: string, items: readonly string[]) => ({
 export const codeBlock = (code: string, lang: string = 'yaml') => ({
   $ref: 'docs-code-block' as const,
   vars: { code, lang },
+})
+
+/** Code block indented to align with step text content (past the numbered circle). */
+export const stepCodeBlock = (code: string, lang: string = 'yaml') => ({
+  type: 'div' as const,
+  props: { className: 'ml-12' },
+  children: [codeBlock(code, lang)],
 })
 
 // ─── Callout Helpers ────────────────────────────────────────────────────────
@@ -297,7 +302,7 @@ export function docsPage(options: DocsPageOptions): Page {
       title: metaTitle,
       description: metaDescription,
       favicons,
-      customElements: docsCustomStyles,
+      customElements: shikiCustomStyles,
     },
     scripts: {
       inlineScripts: [
@@ -305,7 +310,6 @@ export function docsPage(options: DocsPageOptions): Page {
         langSwitchScript,
         docsSidebarToggleScript,
         shikiHighlightScript,
-        copyToClipboardScript,
       ],
     },
     sections: [
@@ -384,7 +388,7 @@ export function docsPage(options: DocsPageOptions): Page {
                   // ── Content ───────────────────────────────────────────
                   {
                     type: 'div',
-                    props: { className: 'flex-1 min-w-0 space-y-12' },
+                    props: { className: 'flex-1 min-w-0 space-y-16' },
                     children: [...content, buildPrevNext(activeId)],
                   },
                 ],

@@ -47,7 +47,7 @@ export const fr: Record<string, string> = {
   'footer.col.legal.dataDeletion': 'Suppression des donn\u00E9es',
   'footer.col.legal.dataDeletion.href': '/fr/data-deletion',
   'footer.social.github': 'GitHub',
-  'footer.social.github.href': 'https://github.com/nichochar/sovrium',
+  'footer.social.github.href': 'https://github.com/sovrium/sovrium',
   'footer.social.twitter': 'Twitter',
   'footer.social.twitter.href': 'https://x.com/sovrium',
   'footer.copyright':
@@ -69,7 +69,6 @@ export const fr: Record<string, string> = {
     'Plateforme applicative open-source pilot\u00E9e par la configuration. L\u0027alternative SaaS auto-h\u00E9berg\u00E9e, sans d\u00E9pendance fournisseur.',
 
   // ── Home: Hero ──────────────────────────────────────────────────────
-  'home.hero.eyebrow': 'L\u2019\u00C9L\u00C9MENT DE SOUVERAINET\u00C9',
   'home.hero.title': 'Cr\u00E9ez des apps compl\u00E8tes avec un seul fichier de config',
   'home.hero.subtitle': 'Open-source. Auto-h\u00E9berg\u00E9. Pilot\u00E9 par la configuration.',
   'home.hero.description':
@@ -177,31 +176,26 @@ export const fr: Record<string, string> = {
   'home.features.subtitle':
     'Une plateforme compl\u00E8te, pas un \u00E9ni\u00E8me framework \u00E0 apprendre.',
   'home.features.auth.title': '\uD83D\uDD10 Authentification',
-  'home.features.auth.status': 'Disponible',
   'home.features.auth.point1': '\u2022 Email/mot de passe & OAuth social',
   'home.features.auth.point2': '\u2022 Acc\u00E8s par r\u00F4le (admin, membre, lecteur)',
   'home.features.auth.point3': '\u2022 Authentification \u00E0 deux facteurs',
   'home.features.auth.point4': '\u2022 Gestion des sessions & passkeys',
   'home.features.tables.title': '\uD83D\uDDC2\uFE0F Tables & Donn\u00E9es',
-  'home.features.tables.status': 'Disponible',
   'home.features.tables.point1': '\u2022 15+ types de champs (texte, email, nombre, \u2026)',
   'home.features.tables.point2': '\u2022 API CRUD automatique',
   'home.features.tables.point3': '\u2022 Relations, lookups & champs formule',
   'home.features.tables.point4': '\u2022 Tri, filtrage, pagination',
   'home.features.api.title': '\uD83D\uDD0C API Records',
-  'home.features.api.status': 'Disponible',
   'home.features.api.point1': '\u2022 Endpoints REST auto-g\u00E9n\u00E9r\u00E9s',
   'home.features.api.point2': '\u2022 Documentation OpenAPI',
   'home.features.api.point3': '\u2022 SDK client typ\u00E9',
   'home.features.api.point4': '\u2022 Filtrage, tri & op\u00E9rations en masse',
   'home.features.pages.title': '\uD83D\uDCBB Pages & UI',
-  'home.features.pages.status': 'Disponible',
   'home.features.pages.point1': '\u2022 Pages React rendues c\u00F4t\u00E9 serveur',
   'home.features.pages.point2': '\u2022 62 types de composants inclus',
   'home.features.pages.point3': '\u2022 Responsive par d\u00E9faut',
   'home.features.pages.point4': '\u2022 Layouts personnalis\u00E9s & navigation',
   'home.features.theming.title': '\uD83C\uDFA8 Th\u00E8mes & i18n',
-  'home.features.theming.status': 'Disponible',
   'home.features.theming.point1':
     '\u2022 Sch\u00E9mas de couleurs & typographie personnalis\u00E9s',
   'home.features.theming.point2': '\u2022 Support du mode sombre',
@@ -318,7 +312,7 @@ export const fr: Record<string, string> = {
   'partner.testimonials.title': 'Ce que disent nos clients',
   'partner.testimonials.disclaimer': 'Ce que disent nos clients en consulting',
   'partner.testimonials.1.quote':
-    'Un travail tr\u00E8s satisfaisant, c\u2019est une exp\u00E9rience tr\u00E8s positive et enrichissante. L\u2019\u00E9quipe La Tech Force nous a aid\u00E9s \u00E0 monter rapidement en comp\u00E9tence.',
+    'Un travail tr\u00E8s satisfaisant, c\u2019est une exp\u00E9rience tr\u00E8s positive et enrichissante. L\u2019\u00E9quipe nous a aid\u00E9s \u00E0 monter rapidement en comp\u00E9tence.',
   'partner.testimonials.1.author': 'Marco PERONE',
   'partner.testimonials.1.role': 'Co-fondateur chez CAPITAL PV',
   'partner.testimonials.2.quote':
@@ -384,10 +378,6 @@ export const fr: Record<string, string> = {
   'about.values.transparency.title': 'Transparence radicale',
   'about.values.transparency.description':
     'Code source disponible, feuille de route ouverte, communication honn\u00EAte. Pas d\u2019agendas cach\u00E9s, pas de prix surprise, pas de d\u00E9pendance fournisseur.',
-  'about.values.openSource.icon': '\uD83C\uDF10',
-  'about.values.openSource.title': 'Esprit open source',
-  'about.values.openSource.description':
-    'Construit sur des standards ouverts et des technologies open source. Contribuant \u00E0 l\u2019\u00E9cosyst\u00E8me qui nous permet d\u2019exister.',
   'about.values.simplicity.icon': '\u2728',
   'about.values.simplicity.title': 'Simplicit\u00E9 \u00E9l\u00E9gante',
   'about.values.simplicity.description':
@@ -396,11 +386,6 @@ export const fr: Record<string, string> = {
   'about.values.ownership.title': 'V\u00E9ritable propri\u00E9t\u00E9',
   'about.values.ownership.description':
     'Tout ce que nous construisons pour vous vous appartient. Acc\u00E8s complet au source, portabilit\u00E9 totale des donn\u00E9es, z\u00E9ro d\u00E9pendance.',
-  'about.values.longTerm.icon': '\uD83C\uDF31',
-  'about.values.longTerm.title': 'Vision long terme',
-  'about.values.longTerm.description':
-    'Nous construisons pour la durabilit\u00E9, pas pour les tendances. Sovrium est con\u00E7u pour grandir avec votre organisation pendant des ann\u00E9es.',
-
   // ── Company: Principles ────────────────────────────────────────────
   'about.principles.title': 'Comment nous construisons',
   'about.principles.subtitle':
@@ -424,8 +409,6 @@ export const fr: Record<string, string> = {
     'Sovrium est construit par ESSENTIAL SERVICES, une entreprise d\u00E9di\u00E9e \u00E0 donner aux organisations le contr\u00F4le de leur logiciel.',
   'about.team.founder.name': 'Thomas Jeanneau',
   'about.team.founder.role': 'Fondateur & CEO',
-  'about.team.founder.bio':
-    'Ing\u00E9nieur logiciel et entrepreneur avec 8 ans d\u2019expérience, passionn\u00E9 par la cr\u00E9ation d\u2019outils qui autonomisent les organisations. A pr\u00E9c\u00E9demment construit des outils d\u2019automatisation pour plus de 50 clients en France et en Europe.',
 
   // ── Company: CTA ───────────────────────────────────────────────────
   'about.cta.title': 'Rejoignez le mouvement',
@@ -869,7 +852,6 @@ export const fr: Record<string, string> = {
     'R\u00E9f\u00E9rence du sch\u00E9ma Sovrium. D\u00E9finissez mod\u00E8les de donn\u00E9es, authentification, pages, th\u00E8mes et analytiques dans un seul fichier de configuration.',
 
   // ── Docs: Header ──────────────────────────────────────────────────
-  'docs.header.backLink': '\u2190 sovrium.com',
   'docs.header.title': 'Documentation du sch\u00E9ma',
   'docs.header.description':
     'D\u00E9finissez l\u2019int\u00E9gralit\u00E9 de votre application \u2014 mod\u00E8les de donn\u00E9es, authentification, pages, th\u00E8mes, analytiques \u2014 dans un seul fichier YAML ou JSON. Voici la r\u00E9f\u00E9rence compl\u00E8te du sch\u00E9ma applicatif Sovrium.',

@@ -47,7 +47,7 @@ export const en: Record<string, string> = {
   'footer.col.legal.dataDeletion': 'Data Deletion',
   'footer.col.legal.dataDeletion.href': '/en/data-deletion',
   'footer.social.github': 'GitHub',
-  'footer.social.github.href': 'https://github.com/nichochar/sovrium',
+  'footer.social.github.href': 'https://github.com/sovrium/sovrium',
   'footer.social.twitter': 'Twitter',
   'footer.social.twitter.href': 'https://x.com/sovrium',
   'footer.copyright':
@@ -69,7 +69,6 @@ export const en: Record<string, string> = {
     'Open-source, configuration-driven application platform. The self-hosted SaaS alternative with no vendor lock-in.',
 
   // ── Home: Hero ──────────────────────────────────────────────────────
-  'home.hero.eyebrow': 'THE SOVEREIGNTY ELEMENT',
   'home.hero.title': 'Build complete apps with a single config file',
   'home.hero.subtitle': 'Open-source. Self-hosted. Configuration-driven.',
   'home.hero.description':
@@ -171,31 +170,26 @@ export const en: Record<string, string> = {
   'home.features.title': 'Everything You Need',
   'home.features.subtitle': 'A complete platform, not another framework to learn.',
   'home.features.auth.title': '\uD83D\uDD10 Authentication',
-  'home.features.auth.status': 'Available',
   'home.features.auth.point1': '\u2022 Email/password & social OAuth',
   'home.features.auth.point2': '\u2022 Role-based access (admin, member, viewer)',
   'home.features.auth.point3': '\u2022 Two-factor authentication',
   'home.features.auth.point4': '\u2022 Session management & passkeys',
   'home.features.tables.title': '\uD83D\uDDC2\uFE0F Tables & Data',
-  'home.features.tables.status': 'Available',
   'home.features.tables.point1': '\u2022 15+ field types (text, email, number, \u2026)',
   'home.features.tables.point2': '\u2022 Automatic CRUD API',
   'home.features.tables.point3': '\u2022 Relations, lookups & formula fields',
   'home.features.tables.point4': '\u2022 Sorting, filtering, pagination',
   'home.features.api.title': '\uD83D\uDD0C Records API',
-  'home.features.api.status': 'Available',
   'home.features.api.point1': '\u2022 Auto-generated REST endpoints',
   'home.features.api.point2': '\u2022 OpenAPI documentation',
   'home.features.api.point3': '\u2022 Type-safe client SDK',
   'home.features.api.point4': '\u2022 Filtering, sorting & bulk operations',
   'home.features.pages.title': '\uD83D\uDCBB Pages & UI',
-  'home.features.pages.status': 'Available',
   'home.features.pages.point1': '\u2022 Server-rendered React pages',
   'home.features.pages.point2': '\u2022 62 component types included',
   'home.features.pages.point3': '\u2022 Responsive by default',
   'home.features.pages.point4': '\u2022 Custom layouts & navigation',
   'home.features.theming.title': '\uD83C\uDFA8 Theming & i18n',
-  'home.features.theming.status': 'Available',
   'home.features.theming.point1': '\u2022 Custom color schemes & typography',
   'home.features.theming.point2': '\u2022 Dark mode support',
   'home.features.theming.point3': '\u2022 Multi-language (i18n)',
@@ -308,7 +302,7 @@ export const en: Record<string, string> = {
   'partner.testimonials.title': 'What Our Clients Say',
   'partner.testimonials.disclaimer': 'What our consulting clients say',
   'partner.testimonials.1.quote':
-    'Very satisfying work, it\u2019s a very positive and enriching experience. The La Tech Force team helped us quickly gain expertise.',
+    'Very satisfying work, it\u2019s a very positive and enriching experience. The team helped us quickly gain expertise.',
   'partner.testimonials.1.author': 'Marco PERONE',
   'partner.testimonials.1.role': 'Co-founder at CAPITAL PV',
   'partner.testimonials.2.quote':
@@ -374,10 +368,6 @@ export const en: Record<string, string> = {
   'about.values.transparency.title': 'Radical Transparency',
   'about.values.transparency.description':
     'Source-available code, open roadmap, honest communication. No hidden agendas, no surprise pricing, no vendor lock-in.',
-  'about.values.openSource.icon': '\uD83C\uDF10',
-  'about.values.openSource.title': 'Open Source Spirit',
-  'about.values.openSource.description':
-    'Built on open standards and open-source technologies. Contributing back to the ecosystem that enables us.',
   'about.values.simplicity.icon': '\u2728',
   'about.values.simplicity.title': 'Elegant Simplicity',
   'about.values.simplicity.description':
@@ -386,11 +376,6 @@ export const en: Record<string, string> = {
   'about.values.ownership.title': 'True Ownership',
   'about.values.ownership.description':
     'Everything we build for you belongs to you. Full source access, full data portability, zero lock-in.',
-  'about.values.longTerm.icon': '\uD83C\uDF31',
-  'about.values.longTerm.title': 'Long-Term Thinking',
-  'about.values.longTerm.description':
-    'We build for sustainability, not hype cycles. Sovrium is designed to grow with your organization for years to come.',
-
   // ── Company: Principles ────────────────────────────────────────────
   'about.principles.title': 'How We Build',
   'about.principles.subtitle': 'Five core principles shape the technical decisions behind Sovrium.',
@@ -413,8 +398,6 @@ export const en: Record<string, string> = {
     'Sovrium is built by ESSENTIAL SERVICES, a company dedicated to giving organizations control over their software.',
   'about.team.founder.name': 'Thomas Jeanneau',
   'about.team.founder.role': 'Founder & CEO',
-  'about.team.founder.bio':
-    'Software engineer and entrepreneur with 8 years of expertise, passionate about building tools that empower organizations. Previously built automation tools serving 50+ clients across France and Europe.',
 
   // ── Company: CTA ───────────────────────────────────────────────────
   'about.cta.title': 'Join the Movement',
@@ -837,7 +820,6 @@ export const en: Record<string, string> = {
     'Complete reference for the Sovrium app schema. Define data models, authentication, pages, themes, and analytics in a single configuration file.',
 
   // ── Docs: Header ──────────────────────────────────────────────────
-  'docs.header.backLink': '\u2190 sovrium.com',
   'docs.header.title': 'Schema Documentation',
   'docs.header.description':
     'Define your entire application \u2014 data models, authentication, pages, themes, analytics \u2014 in a single YAML or JSON file. This is the complete reference for the Sovrium app schema.',

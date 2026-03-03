@@ -8,7 +8,7 @@
 import { favicons } from './favicons'
 import { footerI18n } from './footer'
 import { createNavbar, langSwitchScript, mobileMenuScript } from './navbar'
-import { shikiHighlightScript, copyToClipboardScript, shikiCustomStyles } from './shiki'
+import { shikiHighlightScript, shikiCustomStyles } from './shiki'
 import type { Page } from '@/index'
 
 export const home: Page = {
@@ -74,12 +74,7 @@ export const home: Page = {
     customElements: shikiCustomStyles,
   },
   scripts: {
-    inlineScripts: [
-      langSwitchScript,
-      mobileMenuScript,
-      shikiHighlightScript,
-      copyToClipboardScript,
-    ],
+    inlineScripts: [langSwitchScript, mobileMenuScript, shikiHighlightScript],
   },
   sections: [
     // Navigation Bar

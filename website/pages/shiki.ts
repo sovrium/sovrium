@@ -33,29 +33,6 @@ export const shikiHighlightScript = {
   position: 'body-end' as const,
 }
 
-// ─── Copy to Clipboard Script ────────────────────────────────────────────────
-// Handles click on .docs-copy-btn elements, copies code to clipboard.
-
-export const copyToClipboardScript = {
-  code: [
-    '(function(){',
-    'document.addEventListener("click",function(e){',
-    'var btn=e.target.closest(".docs-copy-btn");',
-    'if(!btn)return;',
-    'var code=btn.getAttribute("data-code");',
-    'if(!code)return;',
-    'navigator.clipboard.writeText(code).then(function(){',
-    'var orig=btn.textContent;',
-    'btn.textContent="Copied!";',
-    'btn.classList.add("text-green-400");',
-    'setTimeout(function(){btn.textContent=orig;btn.classList.remove("text-green-400")},2000);',
-    '}).catch(function(){});',
-    '});',
-    '})();',
-  ].join(''),
-  position: 'body-end' as const,
-}
-
 // ─── Custom Styles for Shiki Output ──────────────────────────────────────────
 // Ensures Shiki-generated HTML integrates with our dark theme.
 
@@ -66,8 +43,6 @@ export const shikiCustomStyles = [
       '[data-shiki-done] pre{background:transparent!important;margin:0;padding:0;overflow-x:auto}',
       '[data-shiki-done] code{font-size:0.875rem;line-height:1.625}',
       '[data-shiki-done] .line{min-height:1.25rem}',
-      '.docs-code-header{opacity:0;transition:opacity 150ms}',
-      '.docs-code-wrapper:hover .docs-code-header{opacity:1}',
     ].join(''),
   },
 ]

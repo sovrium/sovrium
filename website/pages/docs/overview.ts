@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { calloutTip, codeBlock, docsPage, step } from './shared'
+import { calloutTip, codeBlock, docsPage, step, stepCodeBlock } from './shared'
 
 export const docsOverview = docsPage({
   activeId: 'overview',
@@ -18,29 +18,6 @@ export const docsOverview = docsPage({
       type: 'div',
       props: { className: 'mb-12' },
       children: [
-        {
-          type: 'div',
-          props: { className: 'flex items-center gap-3 mb-6' },
-          children: [
-            {
-              type: 'link',
-              content: '$t:docs.header.backLink',
-              props: {
-                href: '/',
-                className:
-                  'text-sm text-sovereignty-gray-400 hover:text-sovereignty-accent transition-colors',
-              },
-            },
-            {
-              type: 'span',
-              content: 'v0.0.2',
-              props: {
-                className:
-                  'text-xs font-mono px-2 py-0.5 bg-sovereignty-gray-800 rounded text-sovereignty-gray-400',
-              },
-            },
-          ],
-        },
         {
           type: 'h1',
           content: '$t:docs.header.title',
@@ -101,18 +78,18 @@ export const docsOverview = docsPage({
 
         // Step 1
         step('1', '$t:docs.quickStart.step1.title', '$t:docs.quickStart.step1.description'),
-        codeBlock('name: my-app', 'yaml'),
+        stepCodeBlock('name: my-app', 'yaml'),
 
         // Step 2
         step('2', '$t:docs.quickStart.step2.title', '$t:docs.quickStart.step2.description'),
-        codeBlock(
+        stepCodeBlock(
           'name: my-app\n\ntables:\n  - id: 1\n    name: tasks\n    fields:\n      - id: 1\n        name: title\n        type: single-line-text\n        required: true\n      - id: 2\n        name: status\n        type: single-select\n        options:\n          - label: To Do\n            color: gray\n          - label: In Progress\n            color: blue\n          - label: Done\n            color: green',
           'yaml'
         ),
 
         // Step 3
         step('3', '$t:docs.quickStart.step3.title', '$t:docs.quickStart.step3.description'),
-        codeBlock('sovrium start app.yaml', 'bash'),
+        stepCodeBlock('sovrium start app.yaml', 'bash'),
 
         calloutTip('$t:docs.quickStart.tip.title', '$t:docs.quickStart.tip.body'),
       ],
