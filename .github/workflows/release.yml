@@ -54,7 +54,7 @@ jobs:
   # website documentation files that may contain stale counts or version refs:
   #   - website/assets/llms.txt          (LLM quick reference)
   #   - website/assets/llms-full.txt     (complete LLM schema docs)
-  #   - website/pages/docs-schema.ts     (interactive docs page)
+  #   - website/pages/docs/               (interactive docs pages)
   #   - website/components/docs-components.ts (docs reusable components)
   #
   # Strategy:
@@ -136,7 +136,7 @@ jobs:
             - Verify every field type from `fields.ts` is documented — add any NEW types, remove any DELETED types
             - Verify every component type from `sections.ts` is documented — add any NEW types, remove any DELETED types
 
-            ### 3. `website/pages/docs-schema.ts`
+            ### 3. `website/pages/docs/`
             - Update version number references to v${{ steps.version.outputs.version }}
             - Update field type count and component type count in the UI text
             - Update JSON Schema URL
