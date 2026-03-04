@@ -12,6 +12,7 @@ import {
   setupJavaScriptRoutes,
   createJavaScriptHandler,
   setupStaticAssets,
+  getCacheControlHeader,
 } from './static-assets'
 import type { App } from '@/domain/models/app'
 
@@ -36,8 +37,7 @@ describe('Static Assets - setupCSSRoute', () => {
 
       expect(res.status).toBe(200)
       expect(res.headers.get('Content-Type')).toBe('text/css')
-      expect(res.headers.get('Cache-Control')).toContain('public')
-      expect(res.headers.get('Cache-Control')).toContain('max-age=3600')
+      expect(res.headers.get('Cache-Control')).toBe(getCacheControlHeader())
 
       const css = await res.text()
       expect(css.length).toBeGreaterThan(0)
@@ -122,8 +122,7 @@ describe('Static Assets - createJavaScriptHandler', () => {
 
       expect(res.status).toBe(200)
       expect(res.headers.get('Content-Type')).toBe('application/javascript')
-      expect(res.headers.get('Cache-Control')).toContain('public')
-      expect(res.headers.get('Cache-Control')).toContain('max-age=3600')
+      expect(res.headers.get('Cache-Control')).toBe(getCacheControlHeader())
 
       const content = await res.text()
       expect(content.length).toBeGreaterThan(0)
@@ -325,5 +324,12 @@ describe('Static Assets - setupStaticAssets (Integration)', () => {
       expect(css).toBeDefined()
       expect(css.length).toBeGreaterThan(0)
     })
+  })
+})
+
+describe('Static Assets - getCacheControlHeader', () => {
+  test('When in test environment Then disable caching', () => {
+    // Tests run with NODE_ENV !== 'production'
+    expect(getCacheControlHeader()).toBe('no-store, no-cache, must-revalidate')
   })
 })

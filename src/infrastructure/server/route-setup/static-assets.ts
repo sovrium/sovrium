@@ -11,10 +11,17 @@ import { generateTrackingScript } from '@/infrastructure/analytics/tracking-scri
 import { compileCSS } from '@/infrastructure/css/compiler'
 import type { App } from '@/domain/models/app'
 
+const isProduction = process.env.NODE_ENV === 'production'
+
 /**
- * Cache duration for static assets (CSS, JS) in seconds (1 hour)
+ * Build Cache-Control header value for static assets.
+ *
+ * Production: 1-hour public cache for performance.
+ * Development: no caching so asset changes are immediately visible.
  */
-const STATIC_ASSET_CACHE_DURATION_SECONDS = 3600
+export function getCacheControlHeader(): string {
+  return isProduction ? 'public, max-age=3600' : 'no-store, no-cache, must-revalidate'
+}
 
 /**
  * Setup CSS compilation route
@@ -34,7 +41,7 @@ export function setupCSSRoute(honoApp: Readonly<Hono>, app: App): Readonly<Hono>
 
       return c.text(result.css, 200, {
         'Content-Type': 'text/css',
-        'Cache-Control': `public, max-age=${STATIC_ASSET_CACHE_DURATION_SECONDS}`,
+        'Cache-Control': getCacheControlHeader(),
       })
     } catch (error) {
       // Log error - intentional side effect for error tracking
@@ -62,7 +69,7 @@ export function createJavaScriptHandler(scriptName: string, scriptPath: string) 
 
       return c.text(content, 200, {
         'Content-Type': 'application/javascript',
-        'Cache-Control': `public, max-age=${STATIC_ASSET_CACHE_DURATION_SECONDS}`,
+        'Cache-Control': getCacheControlHeader(),
       })
     } catch (error) {
       // eslint-disable-next-line functional/no-expression-statements
@@ -101,7 +108,7 @@ export function setupAnalyticsScriptRoute(honoApp: Readonly<Hono>, app: App): Re
   return honoApp.get('/assets/analytics.js', (c) => {
     return c.text(scriptContent, 200, {
       'Content-Type': 'application/javascript',
-      'Cache-Control': `public, max-age=${STATIC_ASSET_CACHE_DURATION_SECONDS}`,
+      'Cache-Control': getCacheControlHeader(),
     })
   })
 }
@@ -158,7 +165,7 @@ export function setupPublicDirRoute(honoApp: Readonly<Hono>, publicDir: string):
     if (await file.exists()) {
       return new Response(file, {
         headers: {
-          'Cache-Control': `public, max-age=${STATIC_ASSET_CACHE_DURATION_SECONDS}`,
+          'Cache-Control': getCacheControlHeader(),
         },
       })
     }
