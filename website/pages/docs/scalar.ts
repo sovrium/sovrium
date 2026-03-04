@@ -64,7 +64,7 @@ const scalarInitScript = {
     '(function(){',
     'function init(){',
     'Scalar.createApiReference("#scalar-api-reference",{',
-    'url:"/docs/openapi.json",',
+    'url:"/schemas/latest/app.openapi.json",',
     'darkMode:true,',
     'hideDarkModeToggle:true,',
     'withDefaultFonts:false,',

@@ -1953,7 +1953,7 @@ Components support breakpoint-specific behavior:
 
 ## API Reference
 
-Sovrium exposes a REST API with interactive documentation via Scalar UI. The OpenAPI schema is generated from the runtime implementation and available at `/docs/openapi.json`.
+Sovrium exposes a REST API with interactive documentation via Scalar UI. The OpenAPI schema is generated from the runtime implementation and available at `/schemas/latest/app.openapi.json`.
 
 > **Early Preview**: The API surface is evolving. Endpoints may change before v1.0.
 

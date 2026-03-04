@@ -478,7 +478,7 @@ export const docsApiReference = docsPage({
           '$t:docs.apiReference.openapi.description',
           'openapi-schema'
         ),
-        codeBlock('curl https://your-instance.com/docs/openapi.json', 'bash'),
+        codeBlock('curl https://your-instance.com/schemas/latest/app.openapi.json', 'bash'),
         {
           type: 'div',
           props: { className: 'mt-3' },
@@ -486,7 +486,7 @@ export const docsApiReference = docsPage({
             {
               type: 'link',
               props: {
-                href: '/docs/openapi.json',
+                href: '/schemas/latest/app.openapi.json',
                 target: '_blank',
                 rel: 'noopener noreferrer',
                 className:

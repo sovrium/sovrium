@@ -15,7 +15,8 @@
  * 1. Version references (package.json → website files)
  * 2. Field type count (counted from source → website files)
  * 3. Component type count (counted from source → website files)
- * 4. Schema file copies (schemas/{version}/ → website/assets/schemas/)
+ * 4. Schema file copies (schemas/{version}/app.schema.json → website/assets/schemas/)
+ * 5. OpenAPI file copies (schemas/{version}/app.openapi.json → website/assets/schemas/)
  *
  * Usage:
  *   bun run scripts/sync-website-docs.ts          # Apply changes
@@ -194,7 +195,6 @@ const TARGET_FILES = [
   'website/i18n/fr/docs.ts',
   'website/i18n/fr/home.ts',
   'website/pages/docs/overview.ts',
-  'website/assets/docs/openapi.json',
 ]
 
 const replacements = buildReplacements()
@@ -265,6 +265,42 @@ if (existsSync(schemaSource)) {
   }
 } else {
   warn(`Schema source not found: schemas/${newVersion}/app.schema.json`)
+}
+
+// ── Step 8: Copy OpenAPI schema files ────────────────────────────────
+
+const openapiSource = join(ROOT, `schemas/${newVersion}/app.openapi.json`)
+
+if (existsSync(openapiSource)) {
+  const targets = [
+    `website/assets/schemas/${newVersion}/app.openapi.json`,
+    'website/assets/schemas/latest/app.openapi.json',
+  ]
+
+  for (const target of targets) {
+    const absTarget = join(ROOT, target)
+    const targetDir = join(absTarget, '..')
+
+    // Check if copy is needed (compare contents)
+    const sourceContent = readFileSync(openapiSource, 'utf-8')
+    const targetExists = existsSync(absTarget)
+    const targetContent = targetExists ? readFileSync(absTarget, 'utf-8') : ''
+
+    if (sourceContent === targetContent) continue
+
+    if (dryRun) {
+      console.log(
+        `${c.yellow}Would copy${c.reset} schemas/${newVersion}/app.openapi.json → ${target}`
+      )
+    } else {
+      mkdirSync(targetDir, { recursive: true })
+      copyFileSync(openapiSource, absTarget)
+      ok(`Copied OpenAPI → ${target}`)
+    }
+    totalChanges++
+  }
+} else {
+  warn(`OpenAPI source not found: schemas/${newVersion}/app.openapi.json`)
 }
 
 // ── Summary ─────────────────────────────────────────────────────────────

@@ -155,7 +155,7 @@ export const docs: Record<string, string> = {
   'docs.apiReference.openapi.title': 'OpenAPI Schema',
   'docs.apiReference.openapi.description':
     'Download the OpenAPI 3.1 specification for use with any API client or code generator.',
-  'docs.apiReference.openapi.download': 'Download openapi.json',
+  'docs.apiReference.openapi.download': 'Download app.openapi.json',
   'docs.scalar.meta.title': 'API Explorer - Sovrium Docs',
   'docs.scalar.meta.description':
     'Interactive REST API explorer for Sovrium. Browse, test, and generate code for 55+ endpoints.',
