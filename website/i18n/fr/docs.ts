@@ -1193,7 +1193,7 @@ export const docs: Record<string, string> = {
   // ── Référence LLM ────────────────────────────────────────────────────────
   'docs.llmReference.meta.title': 'Référence LLM - Docs Sovrium',
   'docs.llmReference.meta.description':
-    'Fichiers de documentation lisibles par les machines (llms.txt, llms-full.txt) pour les assistants IA, LLMs et outils de développement afin de comprendre et générer des configurations Sovrium.',
+    'Fichiers de documentation lisibles par les machines (llms.txt, llms-full.txt) pour les assistants IA et LLMs afin de comprendre et configurer Sovrium.',
   'docs.llmReference.title': 'Référence LLM',
   'docs.llmReference.description':
     "Sovrium fournit des fichiers de documentation lisibles par les machines, conçus pour les grands modèles de langage (LLM) et les assistants de codage IA. Utilisez ces fichiers pour donner aux outils IA un contexte complet sur le schéma applicatif, le CLI, l'API et le format de configuration de Sovrium.",
@@ -1204,12 +1204,10 @@ export const docs: Record<string, string> = {
   'docs.llmReference.whatIs.description':
     'Un standard émergent pour fournir de la documentation aux assistants IA dans un format adapté aux machines.',
   'docs.llmReference.whatIs.body':
-    'La convention llms.txt est un standard croissant où les sites web servent des fichiers de documentation en texte brut à des URL bien connues (/llms.txt et /llms-full.txt). Ces fichiers sont spécifiquement formatés pour être consommés par les grands modèles de langage, fournissant des informations structurées sur le projet, ses API, son format de configuration et ses capacités.',
-  'docs.llmReference.whatIs.sovrium':
-    'Sovrium publie deux fichiers llms.txt\u00a0: une référence rapide compacte pour les consultations rapides, et une référence complète exhaustive (~2700 lignes) contenant la documentation intégrale incluant tous les types de champs, types de composants, endpoints API et exemples de configuration.',
-  'docs.llmReference.files.title': 'Fichiers disponibles',
+    'La convention llms.txt est un standard croissant où les sites web servent des fichiers de documentation en texte brut à des URL bien connues (/llms.txt et /llms-full.txt). Ces fichiers sont spécifiquement formatés pour être consommés par les grands modèles de langage, fournissant des informations structurées sur le projet, ses API, son format de configuration et ses capacités. Sovrium publie deux fichiers\u00a0: une référence rapide compacte pour les consultations rapides, et une référence complète pour générer des configurations et répondre aux questions détaillées.',
+  'docs.llmReference.files.title': 'Les fichiers',
   'docs.llmReference.files.description':
-    "Deux fichiers de documentation sont disponibles, optimisés pour différents cas d'utilisation.",
+    "Deux fichiers de documentation optimisés pour différents cas d'utilisation.",
   'docs.llmReference.files.quick.description':
     "Vue d'ensemble compacte avec des liens vers toutes les sections de documentation. Idéal pour un contexte rapide et la navigation.",
   'docs.llmReference.files.quick.size':
@@ -1231,15 +1229,6 @@ export const docs: Record<string, string> = {
   'docs.llmReference.usage.tip.title': 'Quel fichier utiliser\u00a0?',
   'docs.llmReference.usage.tip.body':
     "Commencez avec llms.txt pour des questions rapides sur ce que Sovrium peut faire. Utilisez llms-full.txt quand vous avez besoin que l'IA génère des configurations complètes, comprenne tous les types de champs ou travaille avec l'API complète.",
-  'docs.llmReference.contents.title': 'Contenu des fichiers',
-  'docs.llmReference.contents.description':
-    'Les deux fichiers sont automatiquement synchronisés à chaque release de Sovrium.',
-  'docs.llmReference.contents.quick.title': 'llms.txt — Référence rapide',
-  'docs.llmReference.contents.quick.body':
-    "Une vue d'ensemble compacte de Sovrium avec des liens directs vers chaque page de documentation, le JSON Schema, la référence API et le dépôt GitHub. Utile pour donner un contexte de navigation à un outil IA sans consommer trop de tokens.",
-  'docs.llmReference.contents.full.title': 'llms-full.txt — Référence complète',
-  'docs.llmReference.contents.full.body':
-    'La documentation complète de Sovrium en un seul fichier texte. Couvre tout, du démarrage à la référence complète du schéma\u00a0:',
   'docs.llmReference.contents.version.title': 'Synchronisé automatiquement avec les releases',
   'docs.llmReference.contents.version.body':
     'Les deux fichiers sont automatiquement mis à jour à chaque release de Sovrium pour refléter la dernière version du schéma, les types de champs, types de composants et endpoints API. La version actuelle est toujours à jour.',

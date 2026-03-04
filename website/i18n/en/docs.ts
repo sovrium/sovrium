@@ -1169,12 +1169,10 @@ export const docs: Record<string, string> = {
   'docs.llmReference.whatIs.description':
     'An emerging standard for providing documentation to AI assistants in a machine-friendly format.',
   'docs.llmReference.whatIs.body':
-    'The llms.txt convention is a growing standard where websites serve plain-text documentation files at well-known URLs (/llms.txt and /llms-full.txt). These files are specifically formatted for Large Language Models to consume, providing structured information about the project, its APIs, configuration format, and capabilities.',
-  'docs.llmReference.whatIs.sovrium':
-    'Sovrium publishes two llms.txt files: a compact quick reference for fast lookups, and a comprehensive full reference (~2700 lines) containing the complete documentation including all field types, component types, API endpoints, and configuration examples.',
-  'docs.llmReference.files.title': 'Available Files',
+    'The llms.txt convention is a growing standard where websites serve plain-text documentation files at well-known URLs (/llms.txt and /llms-full.txt). These files are specifically formatted for Large Language Models to consume, providing structured information about the project, its APIs, configuration format, and capabilities. Sovrium publishes two files: a compact quick reference for fast lookups, and a comprehensive full reference for generating configurations and answering detailed questions.',
+  'docs.llmReference.files.title': 'The Files',
   'docs.llmReference.files.description':
-    'Two documentation files are available, optimized for different use cases.',
+    'Two documentation files optimized for different use cases.',
   'docs.llmReference.files.quick.description':
     'Compact overview with links to all documentation sections. Best for quick context and navigation.',
   'docs.llmReference.files.quick.size': 'About 40 lines — fits easily in any LLM context window.',
@@ -1194,15 +1192,6 @@ export const docs: Record<string, string> = {
   'docs.llmReference.usage.tip.title': 'Which file to use?',
   'docs.llmReference.usage.tip.body':
     'Start with llms.txt for quick questions about what Sovrium can do. Use llms-full.txt when you need the AI to generate complete configurations, understand all field types, or work with the full API.',
-  'docs.llmReference.contents.title': 'What the Files Contain',
-  'docs.llmReference.contents.description':
-    'Both files are automatically kept in sync with each Sovrium release.',
-  'docs.llmReference.contents.quick.title': 'llms.txt — Quick Reference',
-  'docs.llmReference.contents.quick.body':
-    'A compact overview of Sovrium with direct links to every documentation page, the JSON Schema, API reference, and GitHub repository. Useful for giving an AI tool navigation context without consuming too many tokens.',
-  'docs.llmReference.contents.full.title': 'llms-full.txt — Complete Reference',
-  'docs.llmReference.contents.full.body':
-    'The full Sovrium documentation in a single plain-text file. Covers everything from getting started to the complete schema reference:',
   'docs.llmReference.contents.version.title': 'Auto-synced with releases',
   'docs.llmReference.contents.version.body':
     'Both files are automatically updated with every Sovrium release to reflect the latest schema version, field types, component types, and API endpoints. The current version is always accurate.',

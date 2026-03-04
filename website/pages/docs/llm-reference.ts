@@ -5,7 +5,116 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { calloutTip, codeBlock, docsPage, sectionHeader, subsectionHeader } from './shared'
+import { calloutTip, codeBlock, docsPage, sectionHeader } from './shared'
+
+// ─── Helper: File Card ──────────────────────────────────────────────────────
+// Renders a card for a single LLM file with description, URL, metadata, and
+// optionally a grid of contained topics.
+
+function fileCard(opts: {
+  readonly anchor: string
+  readonly name: string
+  readonly description: string
+  readonly url: string
+  readonly sizeText: string
+  readonly sizeIcon: string
+  readonly useCaseText: string
+  readonly useCaseIcon: string
+  readonly topics?: readonly string[]
+}) {
+  const metaRows = [
+    {
+      icon: opts.sizeIcon,
+      text: opts.sizeText,
+    },
+    {
+      icon: opts.useCaseIcon,
+      text: opts.useCaseText,
+    },
+  ]
+
+  const children: Record<string, unknown>[] = [
+    // File name heading
+    {
+      type: 'h3' as const,
+      content: opts.name,
+      props: {
+        id: opts.anchor,
+        className: 'text-lg font-semibold text-sovereignty-light mb-1 scroll-mt-24',
+      },
+    },
+    // Description
+    {
+      type: 'paragraph' as const,
+      content: opts.description,
+      props: { className: 'text-sm text-sovereignty-gray-300 leading-relaxed mb-3' },
+    },
+    // URL
+    codeBlock(opts.url, 'text'),
+    // Size & use-case metadata
+    {
+      type: 'div' as const,
+      props: { className: 'space-y-2 mt-3' },
+      children: metaRows.map((row) => ({
+        type: 'div' as const,
+        props: { className: 'flex items-start gap-3' },
+        children: [
+          {
+            type: 'icon' as const,
+            props: {
+              name: row.icon,
+              size: 16,
+              className: 'text-sovereignty-accent mt-0.5 flex-shrink-0',
+            },
+          },
+          {
+            type: 'paragraph' as const,
+            content: row.text,
+            props: { className: 'text-sm text-sovereignty-gray-300' },
+          },
+        ],
+      })),
+    },
+  ]
+
+  // Optional topics grid
+  if (opts.topics) {
+    children.push({
+      type: 'div' as const,
+      props: {
+        className:
+          'grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4 p-4 rounded-lg border border-sovereignty-gray-800 bg-sovereignty-gray-900/30',
+      },
+      children: opts.topics.map((item) => ({
+        type: 'div' as const,
+        props: { className: 'flex items-center gap-2' },
+        children: [
+          {
+            type: 'icon' as const,
+            props: {
+              name: 'check',
+              size: 14,
+              className: 'text-sovereignty-accent flex-shrink-0',
+            },
+          },
+          {
+            type: 'span' as const,
+            content: item,
+            props: { className: 'text-sm text-sovereignty-gray-300' },
+          },
+        ],
+      })),
+    })
+  }
+
+  return {
+    type: 'div' as const,
+    props: {
+      className: 'p-5 rounded-lg border border-sovereignty-gray-800 bg-sovereignty-gray-900/30',
+    },
+    children,
+  }
+}
 
 // ─── Page Definition ────────────────────────────────────────────────────────
 
@@ -20,14 +129,13 @@ export const docsLlmReference = docsPage({
     { label: '$t:docs.llmReference.whatIs.title', anchor: 'what-is-llms-txt' },
     {
       label: '$t:docs.llmReference.files.title',
-      anchor: 'available-files',
+      anchor: 'files',
       children: [
         { label: 'llms.txt', anchor: 'llms-txt' },
         { label: 'llms-full.txt', anchor: 'llms-full-txt' },
       ],
     },
     { label: '$t:docs.llmReference.usage.title', anchor: 'usage' },
-    { label: '$t:docs.llmReference.contents.title', anchor: 'contents' },
   ],
   content: [
     // ── Title ────────────────────────────────────────────────────────────
@@ -124,17 +232,12 @@ export const docsLlmReference = docsPage({
         {
           type: 'paragraph',
           content: '$t:docs.llmReference.whatIs.body',
-          props: { className: 'text-sm text-sovereignty-gray-300 leading-relaxed mb-4' },
-        },
-        {
-          type: 'paragraph',
-          content: '$t:docs.llmReference.whatIs.sovrium',
           props: { className: 'text-sm text-sovereignty-gray-300 leading-relaxed' },
         },
       ],
     },
 
-    // ── Available Files ───────────────────────────────────────────────────
+    // ── Files ─────────────────────────────────────────────────────────────
     {
       type: 'div',
       props: {},
@@ -142,130 +245,57 @@ export const docsLlmReference = docsPage({
         sectionHeader(
           '$t:docs.llmReference.files.title',
           '$t:docs.llmReference.files.description',
-          'available-files'
+          'files'
         ),
-
-        // llms.txt
-        subsectionHeader('llms.txt', '$t:docs.llmReference.files.quick.description', 'llms-txt'),
         {
           type: 'div',
-          props: { className: 'space-y-3' },
+          props: { className: 'space-y-6' },
           children: [
-            codeBlock('https://sovrium.com/llms.txt', 'text'),
-            {
-              type: 'div',
-              props: {
-                className:
-                  'space-y-2 p-4 rounded-lg border border-sovereignty-gray-800 bg-sovereignty-gray-900/30',
-              },
-              children: [
-                {
-                  type: 'div',
-                  props: { className: 'flex items-start gap-3' },
-                  children: [
-                    {
-                      type: 'icon',
-                      props: {
-                        name: 'file-text',
-                        size: 16,
-                        className: 'text-sovereignty-accent mt-0.5 flex-shrink-0',
-                      },
-                    },
-                    {
-                      type: 'paragraph',
-                      content: '$t:docs.llmReference.files.quick.size',
-                      props: { className: 'text-sm text-sovereignty-gray-300' },
-                    },
-                  ],
-                },
-                {
-                  type: 'div',
-                  props: { className: 'flex items-start gap-3' },
-                  children: [
-                    {
-                      type: 'icon',
-                      props: {
-                        name: 'zap',
-                        size: 16,
-                        className: 'text-sovereignty-accent mt-0.5 flex-shrink-0',
-                      },
-                    },
-                    {
-                      type: 'paragraph',
-                      content: '$t:docs.llmReference.files.quick.usecase',
-                      props: { className: 'text-sm text-sovereignty-gray-300' },
-                    },
-                  ],
-                },
+            fileCard({
+              anchor: 'llms-txt',
+              name: 'llms.txt',
+              description: '$t:docs.llmReference.files.quick.description',
+              url: 'https://sovrium.com/llms.txt',
+              sizeIcon: 'file-text',
+              sizeText: '$t:docs.llmReference.files.quick.size',
+              useCaseIcon: 'zap',
+              useCaseText: '$t:docs.llmReference.files.quick.usecase',
+            }),
+            fileCard({
+              anchor: 'llms-full-txt',
+              name: 'llms-full.txt',
+              description: '$t:docs.llmReference.files.full.description',
+              url: 'https://sovrium.com/llms-full.txt',
+              sizeIcon: 'file-text',
+              sizeText: '$t:docs.llmReference.files.full.size',
+              useCaseIcon: 'brain',
+              useCaseText: '$t:docs.llmReference.files.full.usecase',
+              topics: [
+                'Getting Started guides',
+                'Schema Overview & Root Properties',
+                'All 41 Field Types',
+                'All 62 Component Types',
+                'Authentication configuration',
+                'Theme & design tokens',
+                'Pages & interactions',
+                'Languages & i18n',
+                'Analytics configuration',
+                'API Reference (60+ endpoints)',
+                'Complete YAML examples',
+                'JSON Schema reference',
               ],
-            },
+            }),
           ],
         },
-
-        // llms-full.txt
+        // Version note
         {
           type: 'div',
-          props: { className: 'mt-8' },
+          props: { className: 'mt-4' },
           children: [
-            subsectionHeader(
-              'llms-full.txt',
-              '$t:docs.llmReference.files.full.description',
-              'llms-full-txt'
+            calloutTip(
+              '$t:docs.llmReference.contents.version.title',
+              '$t:docs.llmReference.contents.version.body'
             ),
-            {
-              type: 'div',
-              props: { className: 'space-y-3' },
-              children: [
-                codeBlock('https://sovrium.com/llms-full.txt', 'text'),
-                {
-                  type: 'div',
-                  props: {
-                    className:
-                      'space-y-2 p-4 rounded-lg border border-sovereignty-gray-800 bg-sovereignty-gray-900/30',
-                  },
-                  children: [
-                    {
-                      type: 'div',
-                      props: { className: 'flex items-start gap-3' },
-                      children: [
-                        {
-                          type: 'icon',
-                          props: {
-                            name: 'file-text',
-                            size: 16,
-                            className: 'text-sovereignty-accent mt-0.5 flex-shrink-0',
-                          },
-                        },
-                        {
-                          type: 'paragraph',
-                          content: '$t:docs.llmReference.files.full.size',
-                          props: { className: 'text-sm text-sovereignty-gray-300' },
-                        },
-                      ],
-                    },
-                    {
-                      type: 'div',
-                      props: { className: 'flex items-start gap-3' },
-                      children: [
-                        {
-                          type: 'icon',
-                          props: {
-                            name: 'brain',
-                            size: 16,
-                            className: 'text-sovereignty-accent mt-0.5 flex-shrink-0',
-                          },
-                        },
-                        {
-                          type: 'paragraph',
-                          content: '$t:docs.llmReference.files.full.usecase',
-                          props: { className: 'text-sm text-sovereignty-gray-300' },
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
           ],
         },
       ],
@@ -320,110 +350,6 @@ export const docsLlmReference = docsPage({
             calloutTip(
               '$t:docs.llmReference.usage.tip.title',
               '$t:docs.llmReference.usage.tip.body'
-            ),
-          ],
-        },
-      ],
-    },
-
-    // ── What the Files Contain ─────────────────────────────────────────────
-    {
-      type: 'div',
-      props: {},
-      children: [
-        sectionHeader(
-          '$t:docs.llmReference.contents.title',
-          '$t:docs.llmReference.contents.description',
-          'contents'
-        ),
-        {
-          type: 'div',
-          props: { className: 'space-y-4' },
-          children: [
-            // llms.txt contents
-            {
-              type: 'div',
-              props: {},
-              children: [
-                {
-                  type: 'h4',
-                  content: '$t:docs.llmReference.contents.quick.title',
-                  props: { className: 'text-sm font-semibold text-sovereignty-light mb-2' },
-                },
-                {
-                  type: 'paragraph',
-                  content: '$t:docs.llmReference.contents.quick.body',
-                  props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed' },
-                },
-              ],
-            },
-            // llms-full.txt contents
-            {
-              type: 'div',
-              props: {},
-              children: [
-                {
-                  type: 'h4',
-                  content: '$t:docs.llmReference.contents.full.title',
-                  props: { className: 'text-sm font-semibold text-sovereignty-light mb-2' },
-                },
-                {
-                  type: 'paragraph',
-                  content: '$t:docs.llmReference.contents.full.body',
-                  props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed mb-3' },
-                },
-                // Content list
-                {
-                  type: 'div',
-                  props: {
-                    className:
-                      'grid grid-cols-1 sm:grid-cols-2 gap-2 p-4 rounded-lg border border-sovereignty-gray-800 bg-sovereignty-gray-900/30',
-                  },
-                  children: [
-                    'Getting Started guides',
-                    'Schema Overview & Root Properties',
-                    `All 41 Field Types`,
-                    `All 62 Component Types`,
-                    'Authentication configuration',
-                    'Theme & design tokens',
-                    'Pages & interactions',
-                    'Languages & i18n',
-                    'Analytics configuration',
-                    'API Reference (60+ endpoints)',
-                    'Complete YAML examples',
-                    'JSON Schema reference',
-                  ].map((item) => ({
-                    type: 'div' as const,
-                    props: { className: 'flex items-center gap-2' },
-                    children: [
-                      {
-                        type: 'icon' as const,
-                        props: {
-                          name: 'check',
-                          size: 14,
-                          className: 'text-sovereignty-accent flex-shrink-0',
-                        },
-                      },
-                      {
-                        type: 'span' as const,
-                        content: item,
-                        props: { className: 'text-sm text-sovereignty-gray-300' },
-                      },
-                    ],
-                  })),
-                },
-              ],
-            },
-          ],
-        },
-        // Version note
-        {
-          type: 'div',
-          props: { className: 'mt-4' },
-          children: [
-            calloutTip(
-              '$t:docs.llmReference.contents.version.title',
-              `$t:docs.llmReference.contents.version.body`
             ),
           ],
         },
