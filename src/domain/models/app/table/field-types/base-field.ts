@@ -35,6 +35,7 @@ export const BaseFieldSchema = Schema.Struct({
   indexed: Schema.optional(Schema.Boolean),
 }).pipe(
   Schema.annotations({
+    title: 'Base Field',
     description: 'Base field properties: id, name, required, unique, indexed',
   })
 )

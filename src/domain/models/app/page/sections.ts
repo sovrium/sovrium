@@ -88,6 +88,7 @@ export const ComponentTypeSchema = Schema.Literal(
   'nav',
   'responsive-grid'
 ).annotations({
+  title: 'Component Type',
   description: 'Component type for page building',
 })
 
@@ -187,6 +188,7 @@ export const ComponentSchema: Schema.Schema<any, any, never> = Schema.Struct({
     })
   ),
 }).annotations({
+  title: 'Component',
   description: 'Direct component definition',
 })
 
@@ -233,6 +235,7 @@ export const SectionItemSchema = Schema.Union(
   ComponentSchema,
   ComponentReferenceSchema
 ).annotations({
+  title: 'Section Item',
   description:
     'A page section that can be either a component or component reference (with optional variables)',
 })

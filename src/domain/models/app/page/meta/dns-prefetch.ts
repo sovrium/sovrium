@@ -17,6 +17,7 @@ import { HttpUrlSchema } from '../common/url'
  * - Format: uri (valid URL)
  */
 export const DnsPrefetchDomainSchema = HttpUrlSchema.annotations({
+  title: 'DNS Prefetch Domain',
   description: 'Domain to prefetch DNS for',
 })
 

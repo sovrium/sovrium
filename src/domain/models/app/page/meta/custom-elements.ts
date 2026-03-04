@@ -24,6 +24,7 @@ export const CustomElementTypeSchema = Schema.Literal(
   'style',
   'base'
 ).annotations({
+  title: 'Custom Element Type',
   description: 'HTML element type',
 })
 
@@ -111,6 +112,7 @@ export const CustomElementSchema = Schema.Struct({
     })
   ),
 }).annotations({
+  title: 'Custom Element',
   description: 'Custom head element',
 })
 

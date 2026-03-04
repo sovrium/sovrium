@@ -28,6 +28,7 @@ export const HttpUrlSchema = Schema.String.pipe(
     message: () => 'URL must start with http:// or https://',
   })
 ).annotations({
+  title: 'HTTP URL',
   description: 'HTTP/HTTPS URL',
   format: 'uri',
 })

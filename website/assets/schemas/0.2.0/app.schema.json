@@ -37,7 +37,11 @@
       "anyOf": [
         {
           "type": "object",
-          "required": ["field", "operator", "value"],
+          "required": [
+            "field",
+            "operator",
+            "value"
+          ],
           "properties": {
             "field": {
               "type": "string"
@@ -56,7 +60,9 @@
         },
         {
           "type": "object",
-          "required": ["and"],
+          "required": [
+            "and"
+          ],
           "properties": {
             "and": {
               "type": "array",
@@ -69,7 +75,9 @@
         },
         {
           "type": "object",
-          "required": ["or"],
+          "required": [
+            "or"
+          ],
           "properties": {
             "or": {
               "type": "array",
@@ -90,13 +98,20 @@
         "anyOf": [
           {
             "type": "object",
-            "required": ["type"],
+            "required": [
+              "type"
+            ],
             "properties": {
               "type": {
                 "type": "string",
                 "description": "Component type identifier",
                 "title": "Component Type",
-                "examples": ["icon", "text", "div", "button"]
+                "examples": [
+                  "icon",
+                  "text",
+                  "div",
+                  "button"
+                ]
               },
               "props": {
                 "type": "object",
@@ -143,7 +158,11 @@
                 "type": "string",
                 "description": "Text content (may contain $variable)",
                 "title": "Text Content",
-                "examples": ["$label", "$title", "Static text"]
+                "examples": [
+                  "$label",
+                  "$title",
+                  "Static text"
+                ]
               }
             },
             "additionalProperties": false,
@@ -169,7 +188,11 @@
     },
     "Page": {
       "type": "object",
-      "required": ["name", "path", "sections"],
+      "required": [
+        "name",
+        "path",
+        "sections"
+      ],
       "properties": {
         "id": {
           "$ref": "#/$defs/PageId"
@@ -179,7 +202,13 @@
           "description": "Human-readable name for the page",
           "title": "Page Name",
           "minLength": 1,
-          "examples": ["Home", "About Us", "Home Page", "Pricing", "Contact"],
+          "examples": [
+            "Home",
+            "About Us",
+            "Home Page",
+            "Pricing",
+            "Contact"
+          ],
           "maxLength": 63
         },
         "path": {
@@ -200,12 +229,19 @@
         },
         "meta": {
           "type": "object",
-          "required": ["title"],
+          "required": [
+            "title"
+          ],
           "properties": {
             "lang": {
               "type": "string",
               "description": "Page language code (optional - uses auto-detection if not specified)",
-              "examples": ["en-US", "fr-FR", "es-ES", "de-DE"],
+              "examples": [
+                "en-US",
+                "fr-FR",
+                "es-ES",
+                "de-DE"
+              ],
               "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
             },
             "title": {
@@ -249,7 +285,15 @@
             },
             "changefreq": {
               "type": "string",
-              "enum": ["always", "hourly", "daily", "weekly", "monthly", "yearly", "never"],
+              "enum": [
+                "always",
+                "hourly",
+                "daily",
+                "weekly",
+                "monthly",
+                "yearly",
+                "never"
+              ],
               "description": "Sitemap change frequency hint for search engines"
             },
             "favicon": {
@@ -264,23 +308,40 @@
                   "type": "array",
                   "items": {
                     "type": "object",
-                    "required": ["rel", "href"],
+                    "required": [
+                      "rel",
+                      "href"
+                    ],
                     "properties": {
                       "rel": {
                         "type": "string",
-                        "enum": ["icon", "apple-touch-icon", "manifest", "mask-icon"],
+                        "enum": [
+                          "icon",
+                          "apple-touch-icon",
+                          "manifest",
+                          "mask-icon"
+                        ],
                         "description": "Favicon relationship type"
                       },
                       "type": {
                         "type": "string",
                         "description": "MIME type",
-                        "examples": ["image/png", "image/x-icon", "image/svg+xml"],
+                        "examples": [
+                          "image/png",
+                          "image/x-icon",
+                          "image/svg+xml"
+                        ],
                         "pattern": "^image\\/"
                       },
                       "sizes": {
                         "type": "string",
                         "description": "Icon dimensions",
-                        "examples": ["16x16", "32x32", "180x180", "192x192"],
+                        "examples": [
+                          "16x16",
+                          "32x32",
+                          "180x180",
+                          "192x192"
+                        ],
                         "pattern": "^[0-9]+x[0-9]+$"
                       },
                       "href": {
@@ -292,7 +353,12 @@
                         "type": "string",
                         "description": "Color for mask-icon (Safari pinned tab)",
                         "title": "Hex Color",
-                        "examples": ["#007BFF", "#28A745", "#DC3545", "#5BBAD5"],
+                        "examples": [
+                          "#007BFF",
+                          "#28A745",
+                          "#DC3545",
+                          "#5BBAD5"
+                        ],
                         "pattern": "^#[0-9A-Fa-f]{6}$"
                       }
                     },
@@ -318,7 +384,10 @@
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "required": ["size", "href"],
+                        "required": [
+                          "size",
+                          "href"
+                        ],
                         "properties": {
                           "size": {
                             "type": "string",
@@ -372,17 +441,26 @@
                 },
                 "type": {
                   "type": "string",
-                  "enum": ["website", "article", "book", "profile", "video", "music"],
+                  "enum": [
+                    "website",
+                    "article",
+                    "book",
+                    "profile",
+                    "video",
+                    "music"
+                  ],
                   "description": "Open Graph object type"
                 },
                 "url": {
                   "type": "string",
                   "description": "Canonical URL for this page",
+                  "title": "HTTP URL",
                   "pattern": "^https?:\\/\\/"
                 },
                 "image": {
                   "type": "string",
                   "description": "Image URL for social sharing (recommended: 1200x630px)",
+                  "title": "HTTP URL",
                   "pattern": "^https?:\\/\\/"
                 },
                 "imageAlt": {
@@ -396,22 +474,34 @@
                 "locale": {
                   "type": "string",
                   "description": "Locale in format language_TERRITORY",
-                  "examples": ["en_US", "fr_FR", "es_ES"],
+                  "examples": [
+                    "en_US",
+                    "fr_FR",
+                    "es_ES"
+                  ],
                   "pattern": "^[a-z]{2}_[A-Z]{2}$"
                 },
                 "determiner": {
                   "type": "string",
-                  "enum": ["a", "an", "the", "auto", ""],
+                  "enum": [
+                    "a",
+                    "an",
+                    "the",
+                    "auto",
+                    ""
+                  ],
                   "description": "Word that appears before the title"
                 },
                 "video": {
                   "type": "string",
                   "description": "Video URL if sharing video content",
+                  "title": "HTTP URL",
                   "pattern": "^https?:\\/\\/"
                 },
                 "audio": {
                   "type": "string",
                   "description": "Audio URL if sharing audio content",
+                  "title": "HTTP URL",
                   "pattern": "^https?:\\/\\/"
                 }
               },
@@ -421,11 +511,18 @@
             },
             "twitter": {
               "type": "object",
-              "required": ["card"],
+              "required": [
+                "card"
+              ],
               "properties": {
                 "card": {
                   "type": "string",
-                  "enum": ["summary", "summary_large_image", "app", "player"],
+                  "enum": [
+                    "summary",
+                    "summary_large_image",
+                    "app",
+                    "player"
+                  ],
                   "description": "Type of Twitter Card"
                 },
                 "title": {
@@ -453,13 +550,19 @@
                 "site": {
                   "type": "string",
                   "description": "Twitter @username of website",
-                  "examples": ["@mysite", "@johndoe"],
+                  "examples": [
+                    "@mysite",
+                    "@johndoe"
+                  ],
                   "pattern": "^@[A-Za-z0-9_]+$"
                 },
                 "creator": {
                   "type": "string",
                   "description": "Twitter @username of content creator",
-                  "examples": ["@mysite", "@johndoe"],
+                  "examples": [
+                    "@mysite",
+                    "@johndoe"
+                  ],
                   "pattern": "^@[A-Za-z0-9_]+$"
                 },
                 "player": {
@@ -532,7 +635,10 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["href", "as"],
+                "required": [
+                  "href",
+                  "as"
+                ],
                 "properties": {
                   "href": {
                     "type": "string",
@@ -563,7 +669,10 @@
                       },
                       {
                         "type": "string",
-                        "enum": ["anonymous", "use-credentials"]
+                        "enum": [
+                          "anonymous",
+                          "use-credentials"
+                        ]
                       }
                     ],
                     "description": "CORS setting for the resource"
@@ -584,6 +693,7 @@
               "items": {
                 "type": "string",
                 "description": "Domain to prefetch DNS for",
+                "title": "DNS Prefetch Domain",
                 "pattern": "^https?:\\/\\/"
               },
               "description": "DNS prefetch hints for external domains",
@@ -602,13 +712,17 @@
                 },
                 {
                   "type": "object",
-                  "required": ["providers"],
+                  "required": [
+                    "providers"
+                  ],
                   "properties": {
                     "providers": {
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "required": ["name"],
+                        "required": [
+                          "name"
+                        ],
                         "properties": {
                           "name": {
                             "type": "string",
@@ -631,7 +745,9 @@
                             "type": "array",
                             "items": {
                               "type": "object",
-                              "required": ["src"],
+                              "required": [
+                                "src"
+                              ],
                               "properties": {
                                 "src": {
                                   "type": "string",
@@ -685,12 +801,21 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["type"],
+                "required": [
+                  "type"
+                ],
                 "properties": {
                   "type": {
                     "type": "string",
-                    "enum": ["meta", "link", "script", "style", "base"],
-                    "description": "HTML element type"
+                    "enum": [
+                      "meta",
+                      "link",
+                      "script",
+                      "style",
+                      "base"
+                    ],
+                    "description": "HTML element type",
+                    "title": "Custom Element Type"
                   },
                   "attrs": {
                     "type": "object",
@@ -709,7 +834,8 @@
                   }
                 },
                 "additionalProperties": false,
-                "description": "Custom head element"
+                "description": "Custom head element",
+                "title": "Custom Element"
               },
               "description": "Additional custom elements to add to the page head",
               "title": "Custom Head Elements"
@@ -720,11 +846,18 @@
             },
             "twitterCard": {
               "type": "object",
-              "required": ["card"],
+              "required": [
+                "card"
+              ],
               "properties": {
                 "card": {
                   "type": "string",
-                  "enum": ["summary", "summary_large_image", "app", "player"],
+                  "enum": [
+                    "summary",
+                    "summary_large_image",
+                    "app",
+                    "player"
+                  ],
                   "description": "Type of Twitter Card"
                 },
                 "title": {
@@ -752,13 +885,19 @@
                 "site": {
                   "type": "string",
                   "description": "Twitter @username of website",
-                  "examples": ["@mysite", "@johndoe"],
+                  "examples": [
+                    "@mysite",
+                    "@johndoe"
+                  ],
                   "pattern": "^@[A-Za-z0-9_]+$"
                 },
                 "creator": {
                   "type": "string",
                   "description": "Twitter @username of content creator",
-                  "examples": ["@mysite", "@johndoe"],
+                  "examples": [
+                    "@mysite",
+                    "@johndoe"
+                  ],
                   "pattern": "^@[A-Za-z0-9_]+$"
                 },
                 "player": {
@@ -868,7 +1007,9 @@
             "anyOf": [
               {
                 "type": "object",
-                "required": ["type"],
+                "required": [
+                  "type"
+                ],
                 "properties": {
                   "type": {
                     "type": "string",
@@ -936,7 +1077,8 @@
                       "nav",
                       "responsive-grid"
                     ],
-                    "description": "Component type for page building"
+                    "description": "Component type for page building",
+                    "title": "Component Type"
                   },
                   "props": {
                     "type": "object",
@@ -1007,12 +1149,20 @@
                           "scale": {
                             "type": "number",
                             "description": "Scale factor (e.g., 1.05 for 5% larger)",
-                            "examples": [1.05, 1.1, 0.95]
+                            "examples": [
+                              1.05,
+                              1.1,
+                              0.95
+                            ]
                           },
                           "transform": {
                             "type": "string",
                             "description": "CSS transform (scale, rotate, translate)",
-                            "examples": ["scale(1.05)", "translateY(-4px)", "rotate(5deg)"]
+                            "examples": [
+                              "scale(1.05)",
+                              "translateY(-4px)",
+                              "rotate(5deg)"
+                            ]
                           },
                           "opacity": {
                             "type": "number",
@@ -1036,7 +1186,9 @@
                           "shadow": {
                             "type": "string",
                             "description": "Box shadow on hover",
-                            "examples": ["0 10px 25px rgba(0,0,0,0.1)"]
+                            "examples": [
+                              "0 10px 25px rgba(0,0,0,0.1)"
+                            ]
                           },
                           "duration": {
                             "type": "string",
@@ -1047,7 +1199,13 @@
                             "anyOf": [
                               {
                                 "type": "string",
-                                "enum": ["linear", "ease", "ease-in", "ease-out", "ease-in-out"]
+                                "enum": [
+                                  "linear",
+                                  "ease",
+                                  "ease-in",
+                                  "ease-out",
+                                  "ease-in-out"
+                                ]
                               },
                               {
                                 "type": "string",
@@ -1073,13 +1231,24 @@
                         "properties": {
                           "animation": {
                             "type": "string",
-                            "enum": ["pulse", "bounce", "shake", "flash", "ripple", "none"],
+                            "enum": [
+                              "pulse",
+                              "bounce",
+                              "shake",
+                              "flash",
+                              "ripple",
+                              "none"
+                            ],
                             "description": "Animation to trigger on click"
                           },
                           "navigate": {
                             "type": "string",
                             "description": "Path to navigate to",
-                            "examples": ["/contact", "/pricing", "#section-id"]
+                            "examples": [
+                              "/contact",
+                              "/pricing",
+                              "#section-id"
+                            ]
                           },
                           "openUrl": {
                             "type": "string",
@@ -1110,7 +1279,9 @@
                       },
                       "scroll": {
                         "type": "object",
-                        "required": ["animation"],
+                        "required": [
+                          "animation"
+                        ],
                         "properties": {
                           "animation": {
                             "type": "string",
@@ -1136,7 +1307,11 @@
                           "delay": {
                             "type": "string",
                             "description": "Delay before animation starts",
-                            "examples": ["0ms", "100ms", "0.5s"],
+                            "examples": [
+                              "0ms",
+                              "100ms",
+                              "0.5s"
+                            ],
                             "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)$"
                           },
                           "duration": {
@@ -1155,7 +1330,9 @@
                       },
                       "entrance": {
                         "type": "object",
-                        "required": ["animation"],
+                        "required": [
+                          "animation"
+                        ],
                         "properties": {
                           "animation": {
                             "type": "string",
@@ -1182,7 +1359,10 @@
                           "stagger": {
                             "type": "string",
                             "description": "Delay between sibling animations",
-                            "examples": ["50ms", "100ms"],
+                            "examples": [
+                              "50ms",
+                              "100ms"
+                            ],
                             "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)$"
                           }
                         },
@@ -1258,7 +1438,8 @@
                           }
                         },
                         "additionalProperties": false,
-                        "description": "Component properties to override at this breakpoint"
+                        "description": "Component properties to override at this breakpoint",
+                        "title": "Variant Overrides"
                       },
                       "sm": {
                         "type": "object",
@@ -1319,7 +1500,8 @@
                           }
                         },
                         "additionalProperties": false,
-                        "description": "Component properties to override at this breakpoint"
+                        "description": "Component properties to override at this breakpoint",
+                        "title": "Variant Overrides"
                       },
                       "md": {
                         "type": "object",
@@ -1380,7 +1562,8 @@
                           }
                         },
                         "additionalProperties": false,
-                        "description": "Component properties to override at this breakpoint"
+                        "description": "Component properties to override at this breakpoint",
+                        "title": "Variant Overrides"
                       },
                       "lg": {
                         "type": "object",
@@ -1441,7 +1624,8 @@
                           }
                         },
                         "additionalProperties": false,
-                        "description": "Component properties to override at this breakpoint"
+                        "description": "Component properties to override at this breakpoint",
+                        "title": "Variant Overrides"
                       },
                       "xl": {
                         "type": "object",
@@ -1502,7 +1686,8 @@
                           }
                         },
                         "additionalProperties": false,
-                        "description": "Component properties to override at this breakpoint"
+                        "description": "Component properties to override at this breakpoint",
+                        "title": "Variant Overrides"
                       },
                       "2xl": {
                         "type": "object",
@@ -1563,7 +1748,8 @@
                           }
                         },
                         "additionalProperties": false,
-                        "description": "Component properties to override at this breakpoint"
+                        "description": "Component properties to override at this breakpoint",
+                        "title": "Variant Overrides"
                       }
                     },
                     "additionalProperties": false,
@@ -1629,19 +1815,27 @@
                   }
                 },
                 "additionalProperties": false,
-                "description": "Direct component definition"
+                "description": "Direct component definition",
+                "title": "Component"
               },
               {
                 "anyOf": [
                   {
                     "type": "object",
-                    "required": ["$ref", "vars"],
+                    "required": [
+                      "$ref",
+                      "vars"
+                    ],
                     "properties": {
                       "$ref": {
                         "type": "string",
                         "description": "Name of the component to reference (kebab-case)",
                         "title": "Component Reference Name",
-                        "examples": ["icon-badge", "section-header", "call-to-action"],
+                        "examples": [
+                          "icon-badge",
+                          "section-header",
+                          "call-to-action"
+                        ],
                         "pattern": "^[a-z][a-z0-9-]*$"
                       },
                       "vars": {
@@ -1673,13 +1867,20 @@
                   },
                   {
                     "type": "object",
-                    "required": ["component", "vars"],
+                    "required": [
+                      "component",
+                      "vars"
+                    ],
                     "properties": {
                       "component": {
                         "type": "string",
                         "description": "Name of the component to reference (kebab-case)",
                         "title": "Component Reference Name",
-                        "examples": ["icon-badge", "section-header", "call-to-action"],
+                        "examples": [
+                          "icon-badge",
+                          "section-header",
+                          "call-to-action"
+                        ],
                         "pattern": "^[a-z][a-z0-9-]*$"
                       },
                       "vars": {
@@ -1711,13 +1912,19 @@
                   },
                   {
                     "type": "object",
-                    "required": ["component"],
+                    "required": [
+                      "component"
+                    ],
                     "properties": {
                       "component": {
                         "type": "string",
                         "description": "Name of the component to reference (kebab-case)",
                         "title": "Component Reference Name",
-                        "examples": ["icon-badge", "section-header", "call-to-action"],
+                        "examples": [
+                          "icon-badge",
+                          "section-header",
+                          "call-to-action"
+                        ],
                         "pattern": "^[a-z][a-z0-9-]*$"
                       }
                     },
@@ -1730,7 +1937,8 @@
                 "title": "Component Reference"
               }
             ],
-            "description": "A page section that can be either a component or component reference (with optional variables)"
+            "description": "A page section that can be either a component or component reference (with optional variables)",
+            "title": "Section Item"
           },
           "description": "Array of page content sections",
           "title": "Page Sections"
@@ -1783,7 +1991,9 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["src"],
+                "required": [
+                  "src"
+                ],
                 "properties": {
                   "src": {
                     "type": "string",
@@ -1810,12 +2020,19 @@
                   },
                   "crossorigin": {
                     "type": "string",
-                    "enum": ["anonymous", "use-credentials"],
+                    "enum": [
+                      "anonymous",
+                      "use-credentials"
+                    ],
                     "description": "CORS setting for cross-origin scripts"
                   },
                   "position": {
                     "type": "string",
-                    "enum": ["head", "body-start", "body-end"],
+                    "enum": [
+                      "head",
+                      "body-start",
+                      "body-end"
+                    ],
                     "description": "Where to insert the script in the document"
                   }
                 },
@@ -1829,7 +2046,9 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["src"],
+                "required": [
+                  "src"
+                ],
                 "properties": {
                   "src": {
                     "type": "string",
@@ -1856,12 +2075,19 @@
                   },
                   "crossorigin": {
                     "type": "string",
-                    "enum": ["anonymous", "use-credentials"],
+                    "enum": [
+                      "anonymous",
+                      "use-credentials"
+                    ],
                     "description": "CORS setting for cross-origin scripts"
                   },
                   "position": {
                     "type": "string",
-                    "enum": ["head", "body-start", "body-end"],
+                    "enum": [
+                      "head",
+                      "body-start",
+                      "body-end"
+                    ],
                     "description": "Where to insert the script in the document"
                   }
                 },
@@ -1875,7 +2101,9 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["code"],
+                "required": [
+                  "code"
+                ],
                 "properties": {
                   "code": {
                     "type": "string",
@@ -1883,7 +2111,11 @@
                   },
                   "position": {
                     "type": "string",
-                    "enum": ["head", "body-start", "body-end"],
+                    "enum": [
+                      "head",
+                      "body-start",
+                      "body-end"
+                    ],
                     "description": "Where to insert the script in the document"
                   },
                   "async": {
@@ -1966,7 +2198,9 @@
       "anyOf": [
         {
           "type": "object",
-          "required": ["type"],
+          "required": [
+            "type"
+          ],
           "properties": {
             "type": {
               "type": "string",
@@ -2034,7 +2268,8 @@
                 "nav",
                 "responsive-grid"
               ],
-              "description": "Component type for page building"
+              "description": "Component type for page building",
+              "title": "Component Type"
             },
             "props": {
               "type": "object",
@@ -2105,12 +2340,20 @@
                     "scale": {
                       "type": "number",
                       "description": "Scale factor (e.g., 1.05 for 5% larger)",
-                      "examples": [1.05, 1.1, 0.95]
+                      "examples": [
+                        1.05,
+                        1.1,
+                        0.95
+                      ]
                     },
                     "transform": {
                       "type": "string",
                       "description": "CSS transform (scale, rotate, translate)",
-                      "examples": ["scale(1.05)", "translateY(-4px)", "rotate(5deg)"]
+                      "examples": [
+                        "scale(1.05)",
+                        "translateY(-4px)",
+                        "rotate(5deg)"
+                      ]
                     },
                     "opacity": {
                       "type": "number",
@@ -2134,7 +2377,9 @@
                     "shadow": {
                       "type": "string",
                       "description": "Box shadow on hover",
-                      "examples": ["0 10px 25px rgba(0,0,0,0.1)"]
+                      "examples": [
+                        "0 10px 25px rgba(0,0,0,0.1)"
+                      ]
                     },
                     "duration": {
                       "type": "string",
@@ -2145,7 +2390,13 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "enum": ["linear", "ease", "ease-in", "ease-out", "ease-in-out"]
+                          "enum": [
+                            "linear",
+                            "ease",
+                            "ease-in",
+                            "ease-out",
+                            "ease-in-out"
+                          ]
                         },
                         {
                           "type": "string",
@@ -2171,13 +2422,24 @@
                   "properties": {
                     "animation": {
                       "type": "string",
-                      "enum": ["pulse", "bounce", "shake", "flash", "ripple", "none"],
+                      "enum": [
+                        "pulse",
+                        "bounce",
+                        "shake",
+                        "flash",
+                        "ripple",
+                        "none"
+                      ],
                       "description": "Animation to trigger on click"
                     },
                     "navigate": {
                       "type": "string",
                       "description": "Path to navigate to",
-                      "examples": ["/contact", "/pricing", "#section-id"]
+                      "examples": [
+                        "/contact",
+                        "/pricing",
+                        "#section-id"
+                      ]
                     },
                     "openUrl": {
                       "type": "string",
@@ -2208,7 +2470,9 @@
                 },
                 "scroll": {
                   "type": "object",
-                  "required": ["animation"],
+                  "required": [
+                    "animation"
+                  ],
                   "properties": {
                     "animation": {
                       "type": "string",
@@ -2234,7 +2498,11 @@
                     "delay": {
                       "type": "string",
                       "description": "Delay before animation starts",
-                      "examples": ["0ms", "100ms", "0.5s"],
+                      "examples": [
+                        "0ms",
+                        "100ms",
+                        "0.5s"
+                      ],
                       "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)$"
                     },
                     "duration": {
@@ -2253,7 +2521,9 @@
                 },
                 "entrance": {
                   "type": "object",
-                  "required": ["animation"],
+                  "required": [
+                    "animation"
+                  ],
                   "properties": {
                     "animation": {
                       "type": "string",
@@ -2280,7 +2550,10 @@
                     "stagger": {
                       "type": "string",
                       "description": "Delay between sibling animations",
-                      "examples": ["50ms", "100ms"],
+                      "examples": [
+                        "50ms",
+                        "100ms"
+                      ],
                       "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)$"
                     }
                   },
@@ -2356,7 +2629,8 @@
                     }
                   },
                   "additionalProperties": false,
-                  "description": "Component properties to override at this breakpoint"
+                  "description": "Component properties to override at this breakpoint",
+                  "title": "Variant Overrides"
                 },
                 "sm": {
                   "type": "object",
@@ -2417,7 +2691,8 @@
                     }
                   },
                   "additionalProperties": false,
-                  "description": "Component properties to override at this breakpoint"
+                  "description": "Component properties to override at this breakpoint",
+                  "title": "Variant Overrides"
                 },
                 "md": {
                   "type": "object",
@@ -2478,7 +2753,8 @@
                     }
                   },
                   "additionalProperties": false,
-                  "description": "Component properties to override at this breakpoint"
+                  "description": "Component properties to override at this breakpoint",
+                  "title": "Variant Overrides"
                 },
                 "lg": {
                   "type": "object",
@@ -2539,7 +2815,8 @@
                     }
                   },
                   "additionalProperties": false,
-                  "description": "Component properties to override at this breakpoint"
+                  "description": "Component properties to override at this breakpoint",
+                  "title": "Variant Overrides"
                 },
                 "xl": {
                   "type": "object",
@@ -2600,7 +2877,8 @@
                     }
                   },
                   "additionalProperties": false,
-                  "description": "Component properties to override at this breakpoint"
+                  "description": "Component properties to override at this breakpoint",
+                  "title": "Variant Overrides"
                 },
                 "2xl": {
                   "type": "object",
@@ -2661,7 +2939,8 @@
                     }
                   },
                   "additionalProperties": false,
-                  "description": "Component properties to override at this breakpoint"
+                  "description": "Component properties to override at this breakpoint",
+                  "title": "Variant Overrides"
                 }
               },
               "additionalProperties": false,
@@ -2727,19 +3006,27 @@
             }
           },
           "additionalProperties": false,
-          "description": "Direct component definition"
+          "description": "Direct component definition",
+          "title": "Component"
         },
         {
           "anyOf": [
             {
               "type": "object",
-              "required": ["$ref", "vars"],
+              "required": [
+                "$ref",
+                "vars"
+              ],
               "properties": {
                 "$ref": {
                   "type": "string",
                   "description": "Name of the component to reference (kebab-case)",
                   "title": "Component Reference Name",
-                  "examples": ["icon-badge", "section-header", "call-to-action"],
+                  "examples": [
+                    "icon-badge",
+                    "section-header",
+                    "call-to-action"
+                  ],
                   "pattern": "^[a-z][a-z0-9-]*$"
                 },
                 "vars": {
@@ -2771,13 +3058,20 @@
             },
             {
               "type": "object",
-              "required": ["component", "vars"],
+              "required": [
+                "component",
+                "vars"
+              ],
               "properties": {
                 "component": {
                   "type": "string",
                   "description": "Name of the component to reference (kebab-case)",
                   "title": "Component Reference Name",
-                  "examples": ["icon-badge", "section-header", "call-to-action"],
+                  "examples": [
+                    "icon-badge",
+                    "section-header",
+                    "call-to-action"
+                  ],
                   "pattern": "^[a-z][a-z0-9-]*$"
                 },
                 "vars": {
@@ -2809,13 +3103,19 @@
             },
             {
               "type": "object",
-              "required": ["component"],
+              "required": [
+                "component"
+              ],
               "properties": {
                 "component": {
                   "type": "string",
                   "description": "Name of the component to reference (kebab-case)",
                   "title": "Component Reference Name",
-                  "examples": ["icon-badge", "section-header", "call-to-action"],
+                  "examples": [
+                    "icon-badge",
+                    "section-header",
+                    "call-to-action"
+                  ],
                   "pattern": "^[a-z][a-z0-9-]*$"
                 }
               },
@@ -2828,11 +3128,14 @@
           "title": "Component Reference"
         }
       ],
-      "description": "A page section that can be either a component or component reference (with optional variables)"
+      "description": "A page section that can be either a component or component reference (with optional variables)",
+      "title": "Section Item"
     }
   },
   "type": "object",
-  "required": ["name"],
+  "required": [
+    "name"
+  ],
   "properties": {
     "name": {
       "type": "string",
@@ -2840,7 +3143,13 @@
       "title": "Application Name",
       "minLength": 1,
       "maxLength": 214,
-      "examples": ["my-app", "todo-app", "@myorg/my-app", "blog-system", "dashboard-admin"],
+      "examples": [
+        "my-app",
+        "todo-app",
+        "@myorg/my-app",
+        "blog-system",
+        "dashboard-admin"
+      ],
       "pattern": "^(?:@[a-z0-9-~][a-z0-9-._~]*\\/)?[a-z0-9-~][a-z0-9-._~]*$"
     },
     "version": {
@@ -2877,7 +3186,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "fields"],
+        "required": [
+          "name",
+          "fields"
+        ],
         "properties": {
           "id": {
             "$ref": "#/$defs/TableId"
@@ -2895,7 +3207,11 @@
               "anyOf": [
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -2919,7 +3235,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["single-line-text"],
+                      "enum": [
+                        "single-line-text"
+                      ],
                       "description": "Constant value 'single-line-text' for type discrimination in discriminated unions"
                     },
                     "default": {
@@ -2950,7 +3268,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -2974,7 +3296,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["long-text"],
+                      "enum": [
+                        "long-text"
+                      ],
                       "description": "Constant value 'long-text' for type discrimination in discriminated unions"
                     },
                     "default": {
@@ -3004,7 +3328,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -3028,7 +3356,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["phone-number"],
+                      "enum": [
+                        "phone-number"
+                      ],
                       "description": "Constant value 'phone-number' for type discrimination in discriminated unions"
                     },
                     "default": {
@@ -3059,7 +3389,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -3083,7 +3417,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["email"],
+                      "enum": [
+                        "email"
+                      ],
                       "description": "Constant value 'email' for type discrimination in discriminated unions"
                     },
                     "default": {
@@ -3114,7 +3450,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -3138,7 +3478,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["url"],
+                      "enum": [
+                        "url"
+                      ],
                       "description": "Constant value 'url' for type discrimination in discriminated unions"
                     },
                     "default": {
@@ -3169,7 +3511,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -3193,7 +3539,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["integer"],
+                      "enum": [
+                        "integer"
+                      ],
                       "description": "Constant value 'integer' for type discrimination in discriminated unions"
                     },
                     "min": {
@@ -3214,7 +3562,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -3238,7 +3590,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["decimal"],
+                      "enum": [
+                        "decimal"
+                      ],
                       "description": "Constant value 'decimal' for type discrimination in discriminated unions"
                     },
                     "precision": {
@@ -3265,7 +3619,12 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type", "currency"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "currency"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -3289,7 +3648,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["currency"],
+                      "enum": [
+                        "currency"
+                      ],
                       "description": "Constant value 'currency' for type discrimination in discriminated unions"
                     },
                     "currency": {
@@ -3298,7 +3659,14 @@
                       "title": "length(3)",
                       "minLength": 3,
                       "maxLength": 3,
-                      "examples": ["USD", "EUR", "GBP", "JPY", "CAD", "AUD"],
+                      "examples": [
+                        "USD",
+                        "EUR",
+                        "GBP",
+                        "JPY",
+                        "CAD",
+                        "AUD"
+                      ],
                       "pattern": "^[A-Z]{3}$"
                     },
                     "precision": {
@@ -3318,21 +3686,43 @@
                     },
                     "symbolPosition": {
                       "type": "string",
-                      "enum": ["before", "after"],
+                      "enum": [
+                        "before",
+                        "after"
+                      ],
                       "description": "Position of currency symbol relative to the amount",
-                      "examples": ["before", "after"]
+                      "examples": [
+                        "before",
+                        "after"
+                      ]
                     },
                     "negativeFormat": {
                       "type": "string",
-                      "enum": ["minus", "parentheses"],
+                      "enum": [
+                        "minus",
+                        "parentheses"
+                      ],
                       "description": "Format for displaying negative amounts",
-                      "examples": ["minus", "parentheses"]
+                      "examples": [
+                        "minus",
+                        "parentheses"
+                      ]
                     },
                     "thousandsSeparator": {
                       "type": "string",
-                      "enum": ["comma", "period", "space", "none"],
+                      "enum": [
+                        "comma",
+                        "period",
+                        "space",
+                        "none"
+                      ],
                       "description": "Character used to separate thousands",
-                      "examples": ["comma", "period", "space", "none"]
+                      "examples": [
+                        "comma",
+                        "period",
+                        "space",
+                        "none"
+                      ]
                     },
                     "default": {
                       "type": "number",
@@ -3343,7 +3733,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -3367,7 +3761,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["percentage"],
+                      "enum": [
+                        "percentage"
+                      ],
                       "description": "Constant value 'percentage' for type discrimination in discriminated unions"
                     },
                     "precision": {
@@ -3394,7 +3790,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -3418,24 +3818,46 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["date", "datetime", "time"]
+                      "enum": [
+                        "date",
+                        "datetime",
+                        "time"
+                      ]
                     },
                     "format": {
                       "type": "string",
                       "description": "Date format string",
-                      "examples": ["YYYY-MM-DD", "MM/DD/YYYY", "DD-MM-YYYY"]
+                      "examples": [
+                        "YYYY-MM-DD",
+                        "MM/DD/YYYY",
+                        "DD-MM-YYYY"
+                      ]
                     },
                     "dateFormat": {
                       "type": "string",
-                      "enum": ["US", "European", "ISO"],
+                      "enum": [
+                        "US",
+                        "European",
+                        "ISO"
+                      ],
                       "description": "Date display format preset",
-                      "examples": ["US", "European", "ISO"]
+                      "examples": [
+                        "US",
+                        "European",
+                        "ISO"
+                      ]
                     },
                     "timeFormat": {
                       "type": "string",
-                      "enum": ["12-hour", "24-hour"],
+                      "enum": [
+                        "12-hour",
+                        "24-hour"
+                      ],
                       "description": "Time display format (12-hour with AM/PM or 24-hour)",
-                      "examples": ["12-hour", "24-hour"]
+                      "examples": [
+                        "12-hour",
+                        "24-hour"
+                      ]
                     },
                     "includeTime": {
                       "type": "boolean"
@@ -3443,20 +3865,30 @@
                     "timezone": {
                       "type": "string",
                       "description": "Timezone for datetime fields",
-                      "examples": ["UTC", "America/New_York", "Europe/London"]
+                      "examples": [
+                        "UTC",
+                        "America/New_York",
+                        "Europe/London"
+                      ]
                     },
                     "timeZone": {
                       "anyOf": [
                         {
                           "type": "string",
-                          "enum": ["local"]
+                          "enum": [
+                            "local"
+                          ]
                         },
                         {
                           "type": "string"
                         }
                       ],
                       "description": "Timezone setting (specific timezone or \"local\" for browser timezone)",
-                      "examples": ["local", "America/New_York", "Europe/Paris"]
+                      "examples": [
+                        "local",
+                        "America/New_York",
+                        "Europe/Paris"
+                      ]
                     },
                     "default": {
                       "type": "string"
@@ -3478,7 +3910,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -3502,7 +3938,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["checkbox"]
+                      "enum": [
+                        "checkbox"
+                      ]
                     },
                     "default": {
                       "type": "boolean"
@@ -3523,7 +3961,12 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type", "options"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "options"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -3547,7 +3990,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["single-select"]
+                      "enum": [
+                        "single-select"
+                      ]
                     },
                     "options": {
                       "type": "array",
@@ -3570,14 +4015,23 @@
                       "id": 1,
                       "name": "category",
                       "type": "single-select",
-                      "options": ["Electronics", "Clothing", "Food"],
+                      "options": [
+                        "Electronics",
+                        "Clothing",
+                        "Food"
+                      ],
                       "default": "Electronics"
                     }
                   ]
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type", "options"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "options"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -3601,7 +4055,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["multi-select"]
+                      "enum": [
+                        "multi-select"
+                      ]
                     },
                     "options": {
                       "type": "array",
@@ -3629,11 +4085,18 @@
                 },
                 {
                   "type": "object",
-                  "required": ["type", "relatedTable", "id", "name"],
+                  "required": [
+                    "type",
+                    "relatedTable",
+                    "id",
+                    "name"
+                  ],
                   "properties": {
                     "type": {
                       "type": "string",
-                      "enum": ["relationship"]
+                      "enum": [
+                        "relationship"
+                      ]
                     },
                     "relatedTable": {
                       "type": "string",
@@ -3725,7 +4188,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -3749,7 +4216,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["single-attachment"]
+                      "enum": [
+                        "single-attachment"
+                      ]
                     },
                     "allowedFileTypes": {
                       "type": "array",
@@ -3757,13 +4226,21 @@
                         "type": "string"
                       },
                       "description": "Allowed MIME types for file uploads",
-                      "examples": [["image/png", "image/jpeg", "image/gif"]]
+                      "examples": [
+                        [
+                          "image/png",
+                          "image/jpeg",
+                          "image/gif"
+                        ]
+                      ]
                     },
                     "maxFileSize": {
                       "$ref": "#/$defs/Int",
                       "description": "Maximum file size in bytes",
                       "title": "greaterThanOrEqualTo(1)",
-                      "examples": [5242880],
+                      "examples": [
+                        5242880
+                      ],
                       "minimum": 1
                     },
                     "generateThumbnail": {
@@ -3819,7 +4296,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -3843,7 +4324,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["multiple-attachments"]
+                      "enum": [
+                        "multiple-attachments"
+                      ]
                     },
                     "maxFiles": {
                       "$ref": "#/$defs/Int",
@@ -3857,13 +4340,20 @@
                         "type": "string"
                       },
                       "description": "Allowed MIME types for file uploads",
-                      "examples": [["application/pdf", "application/msword"]]
+                      "examples": [
+                        [
+                          "application/pdf",
+                          "application/msword"
+                        ]
+                      ]
                     },
                     "maxFileSize": {
                       "$ref": "#/$defs/Int",
                       "description": "Maximum file size in bytes per attachment",
                       "title": "greaterThanOrEqualTo(1)",
-                      "examples": [10485760],
+                      "examples": [
+                        10485760
+                      ],
                       "minimum": 1
                     },
                     "generateThumbnails": {
@@ -3916,7 +4406,12 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type", "formula"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "formula"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -3940,7 +4435,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["formula"]
+                      "enum": [
+                        "formula"
+                      ]
                     },
                     "formula": {
                       "type": "string",
@@ -3961,7 +4458,12 @@
                     "format": {
                       "type": "string",
                       "description": "Display format for the result (e.g., currency, percentage)",
-                      "examples": ["currency", "percentage", "decimal", "date"]
+                      "examples": [
+                        "currency",
+                        "percentage",
+                        "decimal",
+                        "date"
+                      ]
                     }
                   },
                   "additionalProperties": false,
@@ -4010,7 +4512,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["rollup"]
+                      "enum": [
+                        "rollup"
+                      ]
                     },
                     "relationshipField": {
                       "type": "string",
@@ -4031,13 +4535,21 @@
                     "format": {
                       "type": "string",
                       "description": "Display format for the result",
-                      "examples": ["currency", "number", "percentage"]
+                      "examples": [
+                        "currency",
+                        "number",
+                        "percentage"
+                      ]
                     },
                     "filters": {
                       "anyOf": [
                         {
                           "type": "object",
-                          "required": ["field", "operator", "value"],
+                          "required": [
+                            "field",
+                            "operator",
+                            "value"
+                          ],
                           "properties": {
                             "field": {
                               "type": "string"
@@ -4056,7 +4568,9 @@
                         },
                         {
                           "type": "object",
-                          "required": ["and"],
+                          "required": [
+                            "and"
+                          ],
                           "properties": {
                             "and": {
                               "type": "array",
@@ -4069,7 +4583,9 @@
                         },
                         {
                           "type": "object",
-                          "required": ["or"],
+                          "required": [
+                            "or"
+                          ],
                           "properties": {
                             "or": {
                               "type": "array",
@@ -4101,7 +4617,13 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type", "relationshipField", "relatedField"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "relationshipField",
+                    "relatedField"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4125,7 +4647,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["lookup"]
+                      "enum": [
+                        "lookup"
+                      ]
                     },
                     "relationshipField": {
                       "type": "string",
@@ -4143,7 +4667,11 @@
                       "anyOf": [
                         {
                           "type": "object",
-                          "required": ["field", "operator", "value"],
+                          "required": [
+                            "field",
+                            "operator",
+                            "value"
+                          ],
                           "properties": {
                             "field": {
                               "type": "string"
@@ -4162,7 +4690,9 @@
                         },
                         {
                           "type": "object",
-                          "required": ["and"],
+                          "required": [
+                            "and"
+                          ],
                           "properties": {
                             "and": {
                               "type": "array",
@@ -4175,7 +4705,9 @@
                         },
                         {
                           "type": "object",
-                          "required": ["or"],
+                          "required": [
+                            "or"
+                          ],
                           "properties": {
                             "or": {
                               "type": "array",
@@ -4206,7 +4738,12 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type", "relationshipField"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "relationshipField"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4230,7 +4767,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["count"]
+                      "enum": [
+                        "count"
+                      ]
                     },
                     "relationshipField": {
                       "type": "string",
@@ -4242,7 +4781,11 @@
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "required": ["field", "operator", "value"],
+                        "required": [
+                          "field",
+                          "operator",
+                          "value"
+                        ],
                         "properties": {
                           "field": {
                             "type": "string"
@@ -4289,7 +4832,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4313,7 +4860,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["user"]
+                      "enum": [
+                        "user"
+                      ]
                     },
                     "allowMultiple": {
                       "type": "boolean"
@@ -4334,7 +4883,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4358,7 +4911,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["created-at"]
+                      "enum": [
+                        "created-at"
+                      ]
                     }
                   },
                   "additionalProperties": false,
@@ -4375,7 +4930,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4399,7 +4958,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["created-by"]
+                      "enum": [
+                        "created-by"
+                      ]
                     }
                   },
                   "additionalProperties": false,
@@ -4416,7 +4977,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4440,7 +5005,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["updated-at"]
+                      "enum": [
+                        "updated-at"
+                      ]
                     }
                   },
                   "additionalProperties": false,
@@ -4457,7 +5024,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4481,7 +5052,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["updated-by"]
+                      "enum": [
+                        "updated-by"
+                      ]
                     }
                   },
                   "additionalProperties": false,
@@ -4498,7 +5071,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4522,7 +5099,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["deleted-at"]
+                      "enum": [
+                        "deleted-at"
+                      ]
                     }
                   },
                   "additionalProperties": false,
@@ -4539,7 +5118,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4563,7 +5146,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["deleted-by"]
+                      "enum": [
+                        "deleted-by"
+                      ]
                     }
                   },
                   "additionalProperties": false,
@@ -4580,7 +5165,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4604,7 +5193,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["rating"]
+                      "enum": [
+                        "rating"
+                      ]
                     },
                     "max": {
                       "$ref": "#/$defs/Int",
@@ -4638,7 +5229,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4662,7 +5257,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["duration"]
+                      "enum": [
+                        "duration"
+                      ]
                     },
                     "format": {
                       "type": "string",
@@ -4670,9 +5267,17 @@
                     },
                     "displayFormat": {
                       "type": "string",
-                      "enum": ["h:mm", "h:mm:ss", "decimal"],
+                      "enum": [
+                        "h:mm",
+                        "h:mm:ss",
+                        "decimal"
+                      ],
                       "description": "Display format preset for duration values",
-                      "examples": ["h:mm", "h:mm:ss", "decimal"]
+                      "examples": [
+                        "h:mm",
+                        "h:mm:ss",
+                        "decimal"
+                      ]
                     },
                     "default": {
                       "type": "number",
@@ -4694,7 +5299,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4718,7 +5327,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["rich-text"]
+                      "enum": [
+                        "rich-text"
+                      ]
                     },
                     "maxLength": {
                       "$ref": "#/$defs/Int",
@@ -4746,7 +5357,12 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type", "options"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "options"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4770,13 +5386,17 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["status"]
+                      "enum": [
+                        "status"
+                      ]
                     },
                     "options": {
                       "type": "array",
                       "items": {
                         "type": "object",
-                        "required": ["value"],
+                        "required": [
+                          "value"
+                        ],
                         "properties": {
                           "value": {
                             "type": "string",
@@ -4823,7 +5443,13 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type", "label", "action"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type",
+                    "label",
+                    "action"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4847,7 +5473,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["button"]
+                      "enum": [
+                        "button"
+                      ]
                     },
                     "label": {
                       "type": "string",
@@ -4872,7 +5500,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4896,12 +5528,18 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["autonumber"]
+                      "enum": [
+                        "autonumber"
+                      ]
                     },
                     "prefix": {
                       "type": "string",
                       "description": "Optional prefix for the autonumber",
-                      "examples": ["INV-", "ORD-", ""]
+                      "examples": [
+                        "INV-",
+                        "ORD-",
+                        ""
+                      ]
                     },
                     "startFrom": {
                       "$ref": "#/$defs/Int",
@@ -4933,7 +5571,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -4957,7 +5599,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["barcode"]
+                      "enum": [
+                        "barcode"
+                      ]
                     },
                     "format": {
                       "type": "string",
@@ -4979,7 +5623,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -5003,7 +5651,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["color"]
+                      "enum": [
+                        "color"
+                      ]
                     },
                     "default": {
                       "type": "string",
@@ -5026,7 +5676,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -5050,7 +5704,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["progress"]
+                      "enum": [
+                        "progress"
+                      ]
                     },
                     "color": {
                       "type": "string",
@@ -5080,7 +5736,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -5104,7 +5764,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["geolocation"]
+                      "enum": [
+                        "geolocation"
+                      ]
                     }
                   },
                   "additionalProperties": false,
@@ -5121,7 +5783,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -5145,7 +5811,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["json"]
+                      "enum": [
+                        "json"
+                      ]
                     },
                     "schema": {
                       "$id": "/schemas/%7B%7D",
@@ -5173,7 +5841,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -5197,7 +5869,9 @@
                     },
                     "type": {
                       "type": "string",
-                      "enum": ["array"]
+                      "enum": [
+                        "array"
+                      ]
                     },
                     "itemType": {
                       "type": "string",
@@ -5225,7 +5899,11 @@
                 },
                 {
                   "type": "object",
-                  "required": ["id", "name", "type"],
+                  "required": [
+                    "id",
+                    "name",
+                    "type"
+                  ],
                   "properties": {
                     "id": {
                       "$ref": "#/$defs/FieldId"
@@ -5261,7 +5939,9 @@
           },
           "primaryKey": {
             "type": "object",
-            "required": ["type"],
+            "required": [
+              "type"
+            ],
             "properties": {
               "type": {
                 "type": "string",
@@ -5272,7 +5952,11 @@
               "field": {
                 "type": "string",
                 "description": "Field name for single-column primary key. Only used with 'auto-increment' or 'uuid' type.",
-                "examples": ["id", "user_id", "product_id"],
+                "examples": [
+                  "id",
+                  "user_id",
+                  "product_id"
+                ],
                 "pattern": "^[a-z][a-z0-9_]*$"
               },
               "fields": {
@@ -5299,7 +5983,10 @@
               },
               {
                 "type": "composite",
-                "fields": ["tenant_id", "user_id"]
+                "fields": [
+                  "tenant_id",
+                  "user_id"
+                ]
               }
             ]
           },
@@ -5307,7 +5994,10 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["name", "fields"],
+              "required": [
+                "name",
+                "fields"
+              ],
               "properties": {
                 "name": {
                   "type": "string",
@@ -5341,14 +6031,21 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["name", "fields"],
+              "required": [
+                "name",
+                "fields"
+              ],
               "properties": {
                 "name": {
                   "type": "string",
                   "description": "Name of the index. Use descriptive names like 'idx_tablename_fieldname'",
                   "title": "minLength(1)",
                   "minLength": 1,
-                  "examples": ["idx_users_email", "idx_products_sku", "idx_orders_status"],
+                  "examples": [
+                    "idx_users_email",
+                    "idx_products_sku",
+                    "idx_orders_status"
+                  ],
                   "pattern": "^[a-z][a-z0-9_]*$"
                 },
                 "fields": {
@@ -5370,7 +6067,11 @@
                   "type": "string",
                   "description": "WHERE clause for partial indexes. Creates an index that includes only rows satisfying the condition. Useful for enforcing uniqueness only on non-NULL values.",
                   "title": "minLength(1)",
-                  "examples": ["username IS NOT NULL", "status = 'active'", "deleted_at IS NULL"],
+                  "examples": [
+                    "username IS NOT NULL",
+                    "status = 'active'",
+                    "deleted_at IS NULL"
+                  ],
                   "minLength": 1
                 }
               },
@@ -5381,7 +6082,10 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["id", "name"],
+              "required": [
+                "id",
+                "name"
+              ],
               "properties": {
                 "id": {
                   "anyOf": [
@@ -5396,14 +6100,23 @@
                   ],
                   "description": "Unique identifier for the view. Can be a number or string (lowercase, numbers, underscores, hyphens only).",
                   "title": "View ID",
-                  "examples": [1, 2, "default", "kanban_view"]
+                  "examples": [
+                    1,
+                    2,
+                    "default",
+                    "kanban_view"
+                  ]
                 },
                 "name": {
                   "type": "string",
                   "description": "Human-readable name for the view. Must be non-empty.",
                   "title": "View Name",
                   "minLength": 1,
-                  "examples": ["All Records", "Active Tasks", "Completed Orders"],
+                  "examples": [
+                    "All Records",
+                    "Active Tasks",
+                    "Completed Orders"
+                  ],
                   "maxLength": 100
                 },
                 "query": {
@@ -5422,7 +6135,11 @@
                   "anyOf": [
                     {
                       "type": "object",
-                      "required": ["field", "operator", "value"],
+                      "required": [
+                        "field",
+                        "operator",
+                        "value"
+                      ],
                       "properties": {
                         "field": {
                           "type": "string"
@@ -5441,7 +6158,9 @@
                     },
                     {
                       "type": "object",
-                      "required": ["and"],
+                      "required": [
+                        "and"
+                      ],
                       "properties": {
                         "and": {
                           "type": "array",
@@ -5454,7 +6173,9 @@
                     },
                     {
                       "type": "object",
-                      "required": ["or"],
+                      "required": [
+                        "or"
+                      ],
                       "properties": {
                         "or": {
                           "type": "array",
@@ -5473,14 +6194,20 @@
                   "type": "array",
                   "items": {
                     "type": "object",
-                    "required": ["field", "direction"],
+                    "required": [
+                      "field",
+                      "direction"
+                    ],
                     "properties": {
                       "field": {
                         "type": "string"
                       },
                       "direction": {
                         "type": "string",
-                        "enum": ["asc", "desc"]
+                        "enum": [
+                          "asc",
+                          "desc"
+                        ]
                       }
                     },
                     "additionalProperties": false,
@@ -5498,14 +6225,19 @@
                 },
                 "groupBy": {
                   "type": "object",
-                  "required": ["field"],
+                  "required": [
+                    "field"
+                  ],
                   "properties": {
                     "field": {
                       "type": "string"
                     },
                     "direction": {
                       "type": "string",
-                      "enum": ["asc", "desc"]
+                      "enum": [
+                        "asc",
+                        "desc"
+                      ]
                     }
                   },
                   "additionalProperties": false,
@@ -5526,9 +6258,18 @@
                           "description": "Array of role names (supports both standard and custom roles). At least one role required.",
                           "title": "Flexible Roles",
                           "examples": [
-                            ["admin"],
-                            ["admin", "member"],
-                            ["admin", "editor", "custom-role"]
+                            [
+                              "admin"
+                            ],
+                            [
+                              "admin",
+                              "member"
+                            ],
+                            [
+                              "admin",
+                              "editor",
+                              "custom-role"
+                            ]
                           ],
                           "minItems": 1
                         },
@@ -5540,9 +6281,18 @@
                           "description": "Array of role names (supports both standard and custom roles). At least one role required.",
                           "title": "Flexible Roles",
                           "examples": [
-                            ["admin"],
-                            ["admin", "member"],
-                            ["admin", "editor", "custom-role"]
+                            [
+                              "admin"
+                            ],
+                            [
+                              "admin",
+                              "member"
+                            ],
+                            [
+                              "admin",
+                              "editor",
+                              "custom-role"
+                            ]
                           ],
                           "minItems": 1
                         }
@@ -5552,21 +6302,34 @@
                       "title": "Role-Based View Permissions",
                       "examples": [
                         {
-                          "read": ["admin", "member"],
-                          "write": ["admin"]
+                          "read": [
+                            "admin",
+                            "member"
+                          ],
+                          "write": [
+                            "admin"
+                          ]
                         },
                         {
-                          "read": ["admin", "member", "viewer"]
+                          "read": [
+                            "admin",
+                            "member",
+                            "viewer"
+                          ]
                         }
                       ]
                     },
                     {
                       "type": "object",
-                      "required": ["public"],
+                      "required": [
+                        "public"
+                      ],
                       "properties": {
                         "public": {
                           "type": "boolean",
-                          "enum": [true]
+                          "enum": [
+                            true
+                          ]
                         }
                       },
                       "additionalProperties": false,
@@ -5583,8 +6346,13 @@
                   "title": "View Permissions",
                   "examples": [
                     {
-                      "read": ["admin", "member"],
-                      "write": ["admin"]
+                      "read": [
+                        "admin",
+                        "member"
+                      ],
+                      "write": [
+                        "admin"
+                      ]
                     },
                     {
                       "public": true
@@ -5635,7 +6403,12 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["name", "fields", "referencedTable", "referencedFields"],
+              "required": [
+                "name",
+                "fields",
+                "referencedTable",
+                "referencedFields"
+              ],
               "properties": {
                 "name": {
                   "type": "string",
@@ -5671,13 +6444,23 @@
                 },
                 "onDelete": {
                   "type": "string",
-                  "enum": ["cascade", "set-null", "restrict", "no-action"],
+                  "enum": [
+                    "cascade",
+                    "set-null",
+                    "restrict",
+                    "no-action"
+                  ],
                   "description": "Referential action when parent row is deleted",
                   "title": "On Delete Action"
                 },
                 "onUpdate": {
                   "type": "string",
-                  "enum": ["cascade", "set-null", "restrict", "no-action"],
+                  "enum": [
+                    "cascade",
+                    "set-null",
+                    "restrict",
+                    "no-action"
+                  ],
                   "description": "Referential action when parent primary key is updated",
                   "title": "On Update Action"
                 }
@@ -5691,7 +6474,10 @@
             "type": "array",
             "items": {
               "type": "object",
-              "required": ["name", "check"],
+              "required": [
+                "name",
+                "check"
+              ],
               "properties": {
                 "name": {
                   "type": "string",
@@ -5749,7 +6535,10 @@
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["all", "authenticated"]
+                    "enum": [
+                      "all",
+                      "authenticated"
+                    ]
                   },
                   {
                     "type": "array",
@@ -5758,19 +6547,45 @@
                     },
                     "description": "Array of role names that have access (e.g., admin, editor). At least one role.",
                     "title": "minItems(1)",
-                    "examples": [["admin"], ["admin", "editor"], ["admin", "member", "viewer"]],
+                    "examples": [
+                      [
+                        "admin"
+                      ],
+                      [
+                        "admin",
+                        "editor"
+                      ],
+                      [
+                        "admin",
+                        "member",
+                        "viewer"
+                      ]
+                    ],
                     "minItems": 1
                   }
                 ],
                 "description": "Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor'].",
                 "title": "Table Permission",
-                "examples": ["all", "authenticated", ["admin"], ["admin", "editor"]]
+                "examples": [
+                  "all",
+                  "authenticated",
+                  [
+                    "admin"
+                  ],
+                  [
+                    "admin",
+                    "editor"
+                  ]
+                ]
               },
               "comment": {
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["all", "authenticated"]
+                    "enum": [
+                      "all",
+                      "authenticated"
+                    ]
                   },
                   {
                     "type": "array",
@@ -5779,19 +6594,45 @@
                     },
                     "description": "Array of role names that have access (e.g., admin, editor). At least one role.",
                     "title": "minItems(1)",
-                    "examples": [["admin"], ["admin", "editor"], ["admin", "member", "viewer"]],
+                    "examples": [
+                      [
+                        "admin"
+                      ],
+                      [
+                        "admin",
+                        "editor"
+                      ],
+                      [
+                        "admin",
+                        "member",
+                        "viewer"
+                      ]
+                    ],
                     "minItems": 1
                   }
                 ],
                 "description": "Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor'].",
                 "title": "Table Permission",
-                "examples": ["all", "authenticated", ["admin"], ["admin", "editor"]]
+                "examples": [
+                  "all",
+                  "authenticated",
+                  [
+                    "admin"
+                  ],
+                  [
+                    "admin",
+                    "editor"
+                  ]
+                ]
               },
               "create": {
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["all", "authenticated"]
+                    "enum": [
+                      "all",
+                      "authenticated"
+                    ]
                   },
                   {
                     "type": "array",
@@ -5800,19 +6641,45 @@
                     },
                     "description": "Array of role names that have access (e.g., admin, editor). At least one role.",
                     "title": "minItems(1)",
-                    "examples": [["admin"], ["admin", "editor"], ["admin", "member", "viewer"]],
+                    "examples": [
+                      [
+                        "admin"
+                      ],
+                      [
+                        "admin",
+                        "editor"
+                      ],
+                      [
+                        "admin",
+                        "member",
+                        "viewer"
+                      ]
+                    ],
                     "minItems": 1
                   }
                 ],
                 "description": "Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor'].",
                 "title": "Table Permission",
-                "examples": ["all", "authenticated", ["admin"], ["admin", "editor"]]
+                "examples": [
+                  "all",
+                  "authenticated",
+                  [
+                    "admin"
+                  ],
+                  [
+                    "admin",
+                    "editor"
+                  ]
+                ]
               },
               "update": {
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["all", "authenticated"]
+                    "enum": [
+                      "all",
+                      "authenticated"
+                    ]
                   },
                   {
                     "type": "array",
@@ -5821,19 +6688,45 @@
                     },
                     "description": "Array of role names that have access (e.g., admin, editor). At least one role.",
                     "title": "minItems(1)",
-                    "examples": [["admin"], ["admin", "editor"], ["admin", "member", "viewer"]],
+                    "examples": [
+                      [
+                        "admin"
+                      ],
+                      [
+                        "admin",
+                        "editor"
+                      ],
+                      [
+                        "admin",
+                        "member",
+                        "viewer"
+                      ]
+                    ],
                     "minItems": 1
                   }
                 ],
                 "description": "Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor'].",
                 "title": "Table Permission",
-                "examples": ["all", "authenticated", ["admin"], ["admin", "editor"]]
+                "examples": [
+                  "all",
+                  "authenticated",
+                  [
+                    "admin"
+                  ],
+                  [
+                    "admin",
+                    "editor"
+                  ]
+                ]
               },
               "delete": {
                 "anyOf": [
                   {
                     "type": "string",
-                    "enum": ["all", "authenticated"]
+                    "enum": [
+                      "all",
+                      "authenticated"
+                    ]
                   },
                   {
                     "type": "array",
@@ -5842,19 +6735,44 @@
                     },
                     "description": "Array of role names that have access (e.g., admin, editor). At least one role.",
                     "title": "minItems(1)",
-                    "examples": [["admin"], ["admin", "editor"], ["admin", "member", "viewer"]],
+                    "examples": [
+                      [
+                        "admin"
+                      ],
+                      [
+                        "admin",
+                        "editor"
+                      ],
+                      [
+                        "admin",
+                        "member",
+                        "viewer"
+                      ]
+                    ],
                     "minItems": 1
                   }
                 ],
                 "description": "Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor'].",
                 "title": "Table Permission",
-                "examples": ["all", "authenticated", ["admin"], ["admin", "editor"]]
+                "examples": [
+                  "all",
+                  "authenticated",
+                  [
+                    "admin"
+                  ],
+                  [
+                    "admin",
+                    "editor"
+                  ]
+                ]
               },
               "fields": {
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "required": ["field"],
+                  "required": [
+                    "field"
+                  ],
                   "properties": {
                     "field": {
                       "type": "string"
@@ -5863,7 +6781,10 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "enum": ["all", "authenticated"]
+                          "enum": [
+                            "all",
+                            "authenticated"
+                          ]
                         },
                         {
                           "type": "array",
@@ -5873,22 +6794,44 @@
                           "description": "Array of role names that have access (e.g., admin, editor). At least one role.",
                           "title": "minItems(1)",
                           "examples": [
-                            ["admin"],
-                            ["admin", "editor"],
-                            ["admin", "member", "viewer"]
+                            [
+                              "admin"
+                            ],
+                            [
+                              "admin",
+                              "editor"
+                            ],
+                            [
+                              "admin",
+                              "member",
+                              "viewer"
+                            ]
                           ],
                           "minItems": 1
                         }
                       ],
                       "description": "Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor'].",
                       "title": "Table Permission",
-                      "examples": ["all", "authenticated", ["admin"], ["admin", "editor"]]
+                      "examples": [
+                        "all",
+                        "authenticated",
+                        [
+                          "admin"
+                        ],
+                        [
+                          "admin",
+                          "editor"
+                        ]
+                      ]
                     },
                     "write": {
                       "anyOf": [
                         {
                           "type": "string",
-                          "enum": ["all", "authenticated"]
+                          "enum": [
+                            "all",
+                            "authenticated"
+                          ]
                         },
                         {
                           "type": "array",
@@ -5898,16 +6841,35 @@
                           "description": "Array of role names that have access (e.g., admin, editor). At least one role.",
                           "title": "minItems(1)",
                           "examples": [
-                            ["admin"],
-                            ["admin", "editor"],
-                            ["admin", "member", "viewer"]
+                            [
+                              "admin"
+                            ],
+                            [
+                              "admin",
+                              "editor"
+                            ],
+                            [
+                              "admin",
+                              "member",
+                              "viewer"
+                            ]
                           ],
                           "minItems": 1
                         }
                       ],
                       "description": "Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor'].",
                       "title": "Table Permission",
-                      "examples": ["all", "authenticated", ["admin"], ["admin", "editor"]]
+                      "examples": [
+                        "all",
+                        "authenticated",
+                        [
+                          "admin"
+                        ],
+                        [
+                          "admin",
+                          "editor"
+                        ]
+                      ]
                     }
                   },
                   "additionalProperties": false,
@@ -5916,13 +6878,20 @@
                   "examples": [
                     {
                       "field": "salary",
-                      "read": ["admin", "hr"],
-                      "write": ["admin"]
+                      "read": [
+                        "admin",
+                        "hr"
+                      ],
+                      "write": [
+                        "admin"
+                      ]
                     },
                     {
                       "field": "department",
                       "read": "all",
-                      "write": ["admin"]
+                      "write": [
+                        "admin"
+                      ]
                     }
                   ]
                 },
@@ -5943,7 +6912,10 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "enum": ["all", "authenticated"]
+                        "enum": [
+                          "all",
+                          "authenticated"
+                        ]
                       },
                       {
                         "type": "array",
@@ -5952,19 +6924,45 @@
                         },
                         "description": "Array of role names that have access (e.g., admin, editor). At least one role.",
                         "title": "minItems(1)",
-                        "examples": [["admin"], ["admin", "editor"], ["admin", "member", "viewer"]],
+                        "examples": [
+                          [
+                            "admin"
+                          ],
+                          [
+                            "admin",
+                            "editor"
+                          ],
+                          [
+                            "admin",
+                            "member",
+                            "viewer"
+                          ]
+                        ],
                         "minItems": 1
                       }
                     ],
                     "description": "Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor'].",
                     "title": "Table Permission",
-                    "examples": ["all", "authenticated", ["admin"], ["admin", "editor"]]
+                    "examples": [
+                      "all",
+                      "authenticated",
+                      [
+                        "admin"
+                      ],
+                      [
+                        "admin",
+                        "editor"
+                      ]
+                    ]
                   },
                   "comment": {
                     "anyOf": [
                       {
                         "type": "string",
-                        "enum": ["all", "authenticated"]
+                        "enum": [
+                          "all",
+                          "authenticated"
+                        ]
                       },
                       {
                         "type": "array",
@@ -5973,19 +6971,45 @@
                         },
                         "description": "Array of role names that have access (e.g., admin, editor). At least one role.",
                         "title": "minItems(1)",
-                        "examples": [["admin"], ["admin", "editor"], ["admin", "member", "viewer"]],
+                        "examples": [
+                          [
+                            "admin"
+                          ],
+                          [
+                            "admin",
+                            "editor"
+                          ],
+                          [
+                            "admin",
+                            "member",
+                            "viewer"
+                          ]
+                        ],
                         "minItems": 1
                       }
                     ],
                     "description": "Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor'].",
                     "title": "Table Permission",
-                    "examples": ["all", "authenticated", ["admin"], ["admin", "editor"]]
+                    "examples": [
+                      "all",
+                      "authenticated",
+                      [
+                        "admin"
+                      ],
+                      [
+                        "admin",
+                        "editor"
+                      ]
+                    ]
                   },
                   "create": {
                     "anyOf": [
                       {
                         "type": "string",
-                        "enum": ["all", "authenticated"]
+                        "enum": [
+                          "all",
+                          "authenticated"
+                        ]
                       },
                       {
                         "type": "array",
@@ -5994,19 +7018,45 @@
                         },
                         "description": "Array of role names that have access (e.g., admin, editor). At least one role.",
                         "title": "minItems(1)",
-                        "examples": [["admin"], ["admin", "editor"], ["admin", "member", "viewer"]],
+                        "examples": [
+                          [
+                            "admin"
+                          ],
+                          [
+                            "admin",
+                            "editor"
+                          ],
+                          [
+                            "admin",
+                            "member",
+                            "viewer"
+                          ]
+                        ],
                         "minItems": 1
                       }
                     ],
                     "description": "Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor'].",
                     "title": "Table Permission",
-                    "examples": ["all", "authenticated", ["admin"], ["admin", "editor"]]
+                    "examples": [
+                      "all",
+                      "authenticated",
+                      [
+                        "admin"
+                      ],
+                      [
+                        "admin",
+                        "editor"
+                      ]
+                    ]
                   },
                   "update": {
                     "anyOf": [
                       {
                         "type": "string",
-                        "enum": ["all", "authenticated"]
+                        "enum": [
+                          "all",
+                          "authenticated"
+                        ]
                       },
                       {
                         "type": "array",
@@ -6015,19 +7065,45 @@
                         },
                         "description": "Array of role names that have access (e.g., admin, editor). At least one role.",
                         "title": "minItems(1)",
-                        "examples": [["admin"], ["admin", "editor"], ["admin", "member", "viewer"]],
+                        "examples": [
+                          [
+                            "admin"
+                          ],
+                          [
+                            "admin",
+                            "editor"
+                          ],
+                          [
+                            "admin",
+                            "member",
+                            "viewer"
+                          ]
+                        ],
                         "minItems": 1
                       }
                     ],
                     "description": "Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor'].",
                     "title": "Table Permission",
-                    "examples": ["all", "authenticated", ["admin"], ["admin", "editor"]]
+                    "examples": [
+                      "all",
+                      "authenticated",
+                      [
+                        "admin"
+                      ],
+                      [
+                        "admin",
+                        "editor"
+                      ]
+                    ]
                   },
                   "delete": {
                     "anyOf": [
                       {
                         "type": "string",
-                        "enum": ["all", "authenticated"]
+                        "enum": [
+                          "all",
+                          "authenticated"
+                        ]
                       },
                       {
                         "type": "array",
@@ -6036,13 +7112,36 @@
                         },
                         "description": "Array of role names that have access (e.g., admin, editor). At least one role.",
                         "title": "minItems(1)",
-                        "examples": [["admin"], ["admin", "editor"], ["admin", "member", "viewer"]],
+                        "examples": [
+                          [
+                            "admin"
+                          ],
+                          [
+                            "admin",
+                            "editor"
+                          ],
+                          [
+                            "admin",
+                            "member",
+                            "viewer"
+                          ]
+                        ],
                         "minItems": 1
                       }
                     ],
                     "description": "Permission value for a single operation. 'all' (everyone), 'authenticated' (logged-in users), or role array ['admin', 'editor'].",
                     "title": "Table Permission",
-                    "examples": ["all", "authenticated", ["admin"], ["admin", "editor"]]
+                    "examples": [
+                      "all",
+                      "authenticated",
+                      [
+                        "admin"
+                      ],
+                      [
+                        "admin",
+                        "editor"
+                      ]
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -6055,15 +7154,29 @@
               {
                 "read": "all",
                 "comment": "authenticated",
-                "create": ["admin"],
-                "update": ["admin"],
-                "delete": ["admin"]
+                "create": [
+                  "admin"
+                ],
+                "update": [
+                  "admin"
+                ],
+                "delete": [
+                  "admin"
+                ]
               },
               {
                 "read": "all",
-                "create": ["admin", "editor"],
-                "update": ["admin", "editor"],
-                "delete": ["admin"]
+                "create": [
+                  "admin",
+                  "editor"
+                ],
+                "update": [
+                  "admin",
+                  "editor"
+                ],
+                "delete": [
+                  "admin"
+                ]
               }
             ]
           },
@@ -6087,7 +7200,12 @@
               "type": "string",
               "description": "Color value in hex, rgb, rgba, hsl, or hsla format",
               "title": "Color Value",
-              "examples": ["#007bff", "#007bff80", "rgb(0, 123, 255)", "hsl(210, 100%, 50%)"],
+              "examples": [
+                "#007bff",
+                "#007bff80",
+                "rgb(0, 123, 255)",
+                "hsl(210, 100%, 50%)"
+              ],
               "pattern": "^#[0-9A-Fa-f]{6}$|^#[0-9A-Fa-f]{8}$|^rgb\\(|^rgba\\(|^hsl\\(|^hsla\\("
             }
           },
@@ -6101,7 +7219,9 @@
           "patternProperties": {
             "^[a-zA-Z]+$": {
               "type": "object",
-              "required": ["family"],
+              "required": [
+                "family"
+              ],
               "properties": {
                 "family": {
                   "type": "string",
@@ -6112,26 +7232,53 @@
                   "type": "string",
                   "description": "Fallback font stack",
                   "title": "Fallback Font Stack",
-                  "examples": ["system-ui, sans-serif", "Georgia, serif", "monospace"]
+                  "examples": [
+                    "system-ui, sans-serif",
+                    "Georgia, serif",
+                    "monospace"
+                  ]
                 },
                 "weights": {
                   "type": "array",
                   "items": {
                     "type": "number",
-                    "enum": [100, 200, 300, 400, 500, 600, 700, 800, 900],
+                    "enum": [
+                      100,
+                      200,
+                      300,
+                      400,
+                      500,
+                      600,
+                      700,
+                      800,
+                      900
+                    ],
                     "description": "Font weight value (100-900 in increments of 100)",
                     "title": "Font Weight"
                   },
                   "description": "Available font weights",
                   "title": "Font Weights",
                   "examples": [
-                    [400, 700],
-                    [300, 400, 500, 600, 700]
+                    [
+                      400,
+                      700
+                    ],
+                    [
+                      300,
+                      400,
+                      500,
+                      600,
+                      700
+                    ]
                   ]
                 },
                 "style": {
                   "type": "string",
-                  "enum": ["normal", "italic", "oblique"],
+                  "enum": [
+                    "normal",
+                    "italic",
+                    "oblique"
+                  ],
                   "description": "Font style",
                   "title": "Font Style",
                   "default": "normal"
@@ -6140,23 +7287,40 @@
                   "type": "string",
                   "description": "Default font size",
                   "title": "Font Size",
-                  "examples": ["16px", "1rem", "14px"]
+                  "examples": [
+                    "16px",
+                    "1rem",
+                    "14px"
+                  ]
                 },
                 "lineHeight": {
                   "type": "string",
                   "description": "Default line height",
                   "title": "Line Height",
-                  "examples": ["1.5", "1.75", "24px"]
+                  "examples": [
+                    "1.5",
+                    "1.75",
+                    "24px"
+                  ]
                 },
                 "letterSpacing": {
                   "type": "string",
                   "description": "Letter spacing",
                   "title": "Letter Spacing",
-                  "examples": ["0", "0.05em", "-0.01em"]
+                  "examples": [
+                    "0",
+                    "0.05em",
+                    "-0.01em"
+                  ]
                 },
                 "transform": {
                   "type": "string",
-                  "enum": ["none", "uppercase", "lowercase", "capitalize"],
+                  "enum": [
+                    "none",
+                    "uppercase",
+                    "lowercase",
+                    "capitalize"
+                  ],
                   "description": "Text transformation",
                   "title": "Text Transform"
                 },
@@ -6252,7 +7416,13 @@
                           "anyOf": [
                             {
                               "type": "string",
-                              "enum": ["linear", "ease", "ease-in", "ease-out", "ease-in-out"]
+                              "enum": [
+                                "linear",
+                                "ease",
+                                "ease-in",
+                                "ease-out",
+                                "ease-in-out"
+                              ]
                             },
                             {
                               "type": "string",
@@ -6311,7 +7481,13 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "enum": ["linear", "ease", "ease-in", "ease-out", "ease-in-out"]
+                          "enum": [
+                            "linear",
+                            "ease",
+                            "ease-in",
+                            "ease-out",
+                            "ease-in-out"
+                          ]
                         },
                         {
                           "type": "string",
@@ -6359,7 +7535,12 @@
               "type": "string",
               "description": "Breakpoint value in pixels",
               "title": "Breakpoint Value",
-              "examples": ["640px", "768px", "1024px", "1280px"],
+              "examples": [
+                "640px",
+                "768px",
+                "1024px",
+                "1280px"
+              ],
               "pattern": "^[0-9]+px$"
             }
           },
@@ -6394,7 +7575,12 @@
               "type": "string",
               "description": "CSS border-radius value",
               "title": "Border Radius Value",
-              "examples": ["0", "0.125rem", "0.5rem", "9999px"]
+              "examples": [
+                "0",
+                "0.125rem",
+                "0.5rem",
+                "9999px"
+              ]
             }
           },
           "description": "Border radius design tokens",
@@ -6407,44 +7593,79 @@
     },
     "languages": {
       "type": "object",
-      "required": ["default", "supported"],
+      "required": [
+        "default",
+        "supported"
+      ],
       "properties": {
         "default": {
           "type": "string",
           "description": "Short language code (2 letters) for URLs and routing",
           "title": "Language Code",
-          "examples": ["en", "fr", "es", "de", "ar", "he"],
+          "examples": [
+            "en",
+            "fr",
+            "es",
+            "de",
+            "ar",
+            "he"
+          ],
           "pattern": "^[a-z]{2}$"
         },
         "supported": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["code", "label"],
+            "required": [
+              "code",
+              "label"
+            ],
             "properties": {
               "code": {
                 "type": "string",
                 "description": "Short language code used for URLs and routing (ISO 639-1, 2 letters)",
                 "title": "Language Code",
-                "examples": ["en", "fr", "es", "de", "ar", "he"],
+                "examples": [
+                  "en",
+                  "fr",
+                  "es",
+                  "de",
+                  "ar",
+                  "he"
+                ],
                 "pattern": "^[a-z]{2}$"
               },
               "locale": {
                 "type": "string",
                 "description": "Full locale code (optional - defaults to short code if not specified). Used for HTML lang attribute and hreflang links.",
                 "title": "Language Locale",
-                "examples": ["en-US", "fr-FR", "es-ES", "de-DE", "ar-SA", "he-IL"],
+                "examples": [
+                  "en-US",
+                  "fr-FR",
+                  "es-ES",
+                  "de-DE",
+                  "ar-SA",
+                  "he-IL"
+                ],
                 "pattern": "^[a-z]{2}-[A-Z]{2}$"
               },
               "label": {
                 "type": "string",
                 "description": "Human-readable language name",
                 "title": "Language Label",
-                "examples": ["English", "Français", "Español", "العربية"]
+                "examples": [
+                  "English",
+                  "Français",
+                  "Español",
+                  "العربية"
+                ]
               },
               "direction": {
                 "type": "string",
-                "enum": ["ltr", "rtl"],
+                "enum": [
+                  "ltr",
+                  "rtl"
+                ],
                 "description": "Text direction (left-to-right or right-to-left)",
                 "title": "Text Direction"
               },
@@ -6452,7 +7673,12 @@
                 "type": "string",
                 "description": "Flag emoji or icon path",
                 "title": "Language Flag",
-                "examples": ["🇺🇸", "🇫🇷", "🇪🇸", "/flags/us.svg"]
+                "examples": [
+                  "🇺🇸",
+                  "🇫🇷",
+                  "🇪🇸",
+                  "/flags/us.svg"
+                ]
               }
             },
             "additionalProperties": false,
@@ -6467,7 +7693,14 @@
           "type": "string",
           "description": "Short language code (2 letters) for URLs and routing",
           "title": "Language Code",
-          "examples": ["en", "fr", "es", "de", "ar", "he"],
+          "examples": [
+            "en",
+            "fr",
+            "es",
+            "de",
+            "ar",
+            "he"
+          ],
           "pattern": "^[a-z]{2}$"
         },
         "detectBrowser": {
@@ -6502,7 +7735,9 @@
     },
     "auth": {
       "type": "object",
-      "required": ["strategies"],
+      "required": [
+        "strategies"
+      ],
       "properties": {
         "strategies": {
           "type": "array",
@@ -6511,11 +7746,15 @@
             "anyOf": [
               {
                 "type": "object",
-                "required": ["type"],
+                "required": [
+                  "type"
+                ],
                 "properties": {
                   "type": {
                     "type": "string",
-                    "enum": ["emailAndPassword"]
+                    "enum": [
+                      "emailAndPassword"
+                    ]
                   },
                   "minPasswordLength": {
                     "type": "number",
@@ -6555,11 +7794,15 @@
               },
               {
                 "type": "object",
-                "required": ["type"],
+                "required": [
+                  "type"
+                ],
                 "properties": {
                   "type": {
                     "type": "string",
-                    "enum": ["magicLink"]
+                    "enum": [
+                      "magicLink"
+                    ]
                   },
                   "expirationMinutes": {
                     "type": "number",
@@ -6583,18 +7826,29 @@
               },
               {
                 "type": "object",
-                "required": ["type", "providers"],
+                "required": [
+                  "type",
+                  "providers"
+                ],
                 "properties": {
                   "type": {
                     "type": "string",
-                    "enum": ["oauth"]
+                    "enum": [
+                      "oauth"
+                    ]
                   },
                   "providers": {
                     "type": "array",
                     "minItems": 1,
                     "items": {
                       "type": "string",
-                      "enum": ["google", "github", "microsoft", "slack", "gitlab"],
+                      "enum": [
+                        "google",
+                        "github",
+                        "microsoft",
+                        "slack",
+                        "gitlab"
+                      ],
                       "description": "Supported OAuth providers for social login",
                       "title": "OAuth Provider"
                     },
@@ -6607,7 +7861,10 @@
                 "examples": [
                   {
                     "type": "oauth",
-                    "providers": ["google", "github"]
+                    "providers": [
+                      "google",
+                      "github"
+                    ]
                   }
                 ]
               }
@@ -6623,7 +7880,10 @@
               },
               {
                 "type": "oauth",
-                "providers": ["google", "github"]
+                "providers": [
+                  "google",
+                  "github"
+                ]
               }
             ]
           }
@@ -6632,13 +7892,19 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["name"],
+            "required": [
+              "name"
+            ],
             "properties": {
               "name": {
                 "type": "string",
                 "description": "Role name: lowercase, alphanumeric, hyphens. Must start with a letter.",
                 "title": "Role Name",
-                "examples": ["editor", "content-manager", "moderator"],
+                "examples": [
+                  "editor",
+                  "content-manager",
+                  "moderator"
+                ],
                 "pattern": "^[a-z][a-z0-9-]*$"
               },
               "description": {
@@ -6673,7 +7939,11 @@
           "type": "string",
           "description": "Role assigned to new users by default. Accepts built-in roles or custom role names. Defaults to member.",
           "title": "Default Role",
-          "examples": ["member", "viewer", "editor"]
+          "examples": [
+            "member",
+            "viewer",
+            "editor"
+          ]
         },
         "twoFactor": {
           "anyOf": [
@@ -6725,7 +7995,9 @@
           "properties": {
             "verification": {
               "type": "object",
-              "required": ["subject"],
+              "required": [
+                "subject"
+              ],
               "properties": {
                 "subject": {
                   "type": "string",
@@ -6757,7 +8029,9 @@
             },
             "resetPassword": {
               "type": "object",
-              "required": ["subject"],
+              "required": [
+                "subject"
+              ],
               "properties": {
                 "subject": {
                   "type": "string",
@@ -6789,7 +8063,9 @@
             },
             "magicLink": {
               "type": "object",
-              "required": ["subject"],
+              "required": [
+                "subject"
+              ],
               "properties": {
                 "subject": {
                   "type": "string",
@@ -6821,7 +8097,9 @@
             },
             "emailOtp": {
               "type": "object",
-              "required": ["subject"],
+              "required": [
+                "subject"
+              ],
               "properties": {
                 "subject": {
                   "type": "string",
@@ -6853,7 +8131,9 @@
             },
             "twoFactorBackupCodes": {
               "type": "object",
-              "required": ["subject"],
+              "required": [
+                "subject"
+              ],
               "properties": {
                 "subject": {
                   "type": "string",
@@ -6885,7 +8165,9 @@
             },
             "welcome": {
               "type": "object",
-              "required": ["subject"],
+              "required": [
+                "subject"
+              ],
               "properties": {
                 "subject": {
                   "type": "string",
@@ -6917,7 +8199,9 @@
             },
             "accountDeletion": {
               "type": "object",
-              "required": ["subject"],
+              "required": [
+                "subject"
+              ],
               "properties": {
                 "subject": {
                   "type": "string",
@@ -7011,7 +8295,10 @@
         true,
         {
           "retentionDays": 90,
-          "excludedPaths": ["/admin/*", "/api/*"],
+          "excludedPaths": [
+            "/admin/*",
+            "/api/*"
+          ],
           "sessionTimeout": 15
         },
         false
@@ -7021,19 +8308,34 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "type"],
+        "required": [
+          "name",
+          "type"
+        ],
         "properties": {
           "name": {
             "type": "string",
             "description": "Unique component template identifier in kebab-case",
             "title": "Component Template Name",
-            "examples": ["icon-badge", "section-header", "feature-card", "cta-button-2"],
+            "examples": [
+              "icon-badge",
+              "section-header",
+              "feature-card",
+              "cta-button-2"
+            ],
             "pattern": "^[a-z][a-z0-9-]*$"
           },
           "type": {
             "type": "string",
             "description": "Component type",
-            "examples": ["container", "flex", "grid", "card", "text", "button"]
+            "examples": [
+              "container",
+              "flex",
+              "grid",
+              "card",
+              "text",
+              "button"
+            ]
           },
           "props": {
             "type": "object",
@@ -7079,13 +8381,20 @@
               "anyOf": [
                 {
                   "type": "object",
-                  "required": ["type"],
+                  "required": [
+                    "type"
+                  ],
                   "properties": {
                     "type": {
                       "type": "string",
                       "description": "Component type identifier",
                       "title": "Component Type",
-                      "examples": ["icon", "text", "div", "button"]
+                      "examples": [
+                        "icon",
+                        "text",
+                        "div",
+                        "button"
+                      ]
                     },
                     "props": {
                       "type": "object",
@@ -7132,7 +8441,11 @@
                       "type": "string",
                       "description": "Text content (may contain $variable)",
                       "title": "Text Content",
-                      "examples": ["$label", "$title", "Static text"]
+                      "examples": [
+                        "$label",
+                        "$title",
+                        "Static text"
+                      ]
                     }
                   },
                   "additionalProperties": false,

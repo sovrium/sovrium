@@ -60,6 +60,7 @@ export const VariantOverridesSchema = Schema.Struct({
     })
   ),
 }).annotations({
+  title: 'Variant Overrides',
   description: 'Component properties to override at this breakpoint',
 })
 
