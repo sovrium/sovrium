@@ -20,6 +20,9 @@
  * - request: Request input validation
  */
 
+// Activity log schemas
+export * from './activity'
+
 // Analytics schemas
 export * from './analytics'
 
@@ -35,8 +38,14 @@ export * from './health'
 // Authentication schemas
 export * from './auth'
 
+// Comment and history schemas
+export * from './comments'
+
 // Table and record schemas
 export * from './tables'
+
+// OpenAPI parameter schemas
+export * from './params'
 
 // Request schemas (input validation)
 export * from './request'

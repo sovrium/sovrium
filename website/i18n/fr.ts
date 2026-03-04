@@ -1317,11 +1317,13 @@ export const fr: Record<string, string> = {
   'docs.resources.llmQuick.description':
     'Aper\u00E7u concis du sch\u00E9ma optimis\u00E9 pour les LLMs (~40 lignes).',
   'docs.resources.llmFull.label': 'R\u00E9f\u00E9rence compl\u00E8te LLM',
-  'docs.resources.llmFull.description':
-    'Documentation compl\u00E8te du sch\u00E9ma pour les LLMs (~1700 lignes).',
+  'docs.resources.llmFull.description': 'Documentation compl\u00E8te pour les LLMs (~2100 lignes).',
   'docs.resources.jsonSchema.label': 'JSON Schema',
   'docs.resources.jsonSchema.description':
     'JSON Schema (Draft-07) lisible par machine pour la validation et le support \u00E9diteur.',
+  'docs.resources.jsonSchemaLatest.label': 'JSON Schema (latest)',
+  'docs.resources.jsonSchemaLatest.description':
+    'URL stable qui pointe toujours vers la version la plus r\u00E9cente du sch\u00E9ma.',
   'docs.resources.schemaExplorer.label': 'Explorateur de sch\u00E9ma',
   'docs.resources.schemaExplorer.description':
     'Explorateur visuel interactif du JSON Schema Sovrium (json-schema.app).',

@@ -5,8 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { OpenAPIHono, createRoute } from '@hono/zod-openapi'
-import { healthResponseSchema } from '@/domain/models/api/health'
+import { OpenAPIHono } from '@hono/zod-openapi'
+import { registerActivityRoutes } from './openapi-routes/activity-routes'
+import { registerAnalyticsRoutes } from './openapi-routes/analytics-routes'
+import { registerBatchRoutes } from './openapi-routes/batch-routes'
+import { registerHealthRoutes } from './openapi-routes/health-routes'
+import { registerRecordRoutes } from './openapi-routes/record-routes'
+import { registerTableRoutes } from './openapi-routes/table-routes'
+import { registerViewRoutes } from './openapi-routes/view-routes'
+
+// Read version from package.json at module load (avoids JSON import lint issues)
+const { version: APP_VERSION } = await Bun.file('package.json').json()
 
 /**
  * OpenAPI Schema Generator
@@ -25,7 +34,7 @@ import { healthResponseSchema } from '@/domain/models/api/health'
  * **Usage**:
  * 1. Runtime: Server uses regular Hono routes from api-routes.ts
  * 2. Docs: Server exposes this schema at `/api/openapi.json` and `/api/scalar`
- * 3. Export: Script exports this schema to `schemas/0.0.1/app.openapi.json`
+ * 3. Export: Script exports this schema to `schemas/{version}/app.openapi.json`
  */
 
 /**
@@ -38,42 +47,13 @@ import { healthResponseSchema } from '@/domain/models/api/health'
 const createOpenApiApp = () => {
   const app = new OpenAPIHono()
 
-  // Define health check route with OpenAPI annotations
-  const healthRoute = createRoute({
-    method: 'get',
-    path: '/api/health',
-    summary: 'Health check endpoint',
-    description:
-      'Returns server health status. Used by monitoring tools and E2E tests to verify server is running.',
-    operationId: 'healthCheck',
-    tags: ['infrastructure'],
-    responses: {
-      200: {
-        content: {
-          'application/json': {
-            schema: healthResponseSchema,
-          },
-        },
-        description: 'Server is healthy',
-      },
-    },
-  })
-
-  // Mount route with dummy handler (only for schema generation)
-
-  app.openapi(healthRoute, (c) => {
-    return c.json({
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      app: {
-        name: 'Sovrium',
-      },
-    })
-  })
-
-  // Future routes will be added here:
-  // app.openapi(listTablesRoute, ...)
-  // app.openapi(getTableRoute, ...)
+  registerHealthRoutes(app)
+  registerTableRoutes(app)
+  registerRecordRoutes(app)
+  registerBatchRoutes(app)
+  registerViewRoutes(app)
+  registerActivityRoutes(app)
+  registerAnalyticsRoutes(app)
 
   return app
 }
@@ -96,7 +76,7 @@ export const getOpenAPIDocument = () => {
     openapi: '3.1.0',
     info: {
       title: 'Sovrium API',
-      version: '0.0.1',
+      version: APP_VERSION as string,
       description:
         'REST API specification for Sovrium application.\n\n' +
         '**Generated Schema**: This schema is automatically generated from the runtime implementation. ' +
@@ -114,6 +94,26 @@ export const getOpenAPIDocument = () => {
       {
         name: 'infrastructure',
         description: 'Infrastructure endpoints (health, metrics)',
+      },
+      {
+        name: 'tables',
+        description: 'Table management endpoints',
+      },
+      {
+        name: 'records',
+        description: 'Record CRUD, comments, and history endpoints',
+      },
+      {
+        name: 'views',
+        description: 'View management and filtered record access',
+      },
+      {
+        name: 'activity',
+        description: 'Activity log and audit trail endpoints',
+      },
+      {
+        name: 'analytics',
+        description: 'Analytics collection and reporting endpoints',
       },
     ],
   })

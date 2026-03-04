@@ -6,21 +6,116 @@ Sovrium turns declarative configuration into production-ready applications with 
 
 ## Docs
 
-- [Full LLM Reference](https://sovrium.com/llms-full.txt): Complete schema documentation for LLMs (~3000 lines)
+- [Full LLM Reference](https://sovrium.com/llms-full.txt): Complete documentation for LLMs (~2100 lines)
 - [JSON Schema](https://sovrium.com/schemas/0.1.0/app.schema.json): Machine-readable JSON Schema (Draft-07)
 - [GitHub](https://github.com/sovrium/sovrium): Source code repository
 - [License](https://github.com/sovrium/sovrium/blob/main/LICENSE.md): Business Source License 1.1
 
-### Interactive Documentation
+### Get Started
 
-- [Overview](https://sovrium.com/en/docs): Quick start guide and root properties
-- [Tables](https://sovrium.com/en/docs/tables): Data models, 41 field types, permissions
-- [Theme](https://sovrium.com/en/docs/theme): Design tokens (colors, fonts, spacing, animations)
-- [Pages](https://sovrium.com/en/docs/pages): Server-rendered pages, 62 component types
-- [Auth](https://sovrium.com/en/docs/auth): Authentication strategies, roles, 2FA
-- [Languages](https://sovrium.com/en/docs/languages): Multi-language support, $t: syntax
-- [Analytics](https://sovrium.com/en/docs/analytics): Privacy-friendly, cookie-free analytics
-- [Resources](https://sovrium.com/en/docs/resources): JSON Schema, LLM references, GitHub
+- [Introduction](https://sovrium.com/en/docs): What is Sovrium, why use it, how it works
+- [Installation](https://sovrium.com/en/docs/installation): Prerequisites (Bun 1.0+), global/project install, database setup
+- [Quick Start](https://sovrium.com/en/docs/quick-start): Two paths — YAML + CLI or TypeScript + Bun — from zero to running app
+
+### App Schema Reference
+
+- [Schema Overview](https://sovrium.com/en/docs/overview): 10 root properties, minimal config, progressive complexity
+- [Tables & Fields](https://sovrium.com/en/docs/tables): Data models, 41 field types in 9 categories, RBAC permissions, indexes
+- [Theme](https://sovrium.com/en/docs/theme): Design tokens — colors, fonts, spacing, shadows, animations, breakpoints, borderRadius
+- [Pages & Components](https://sovrium.com/en/docs/pages): Server-rendered pages, 62 component types, SEO metadata, interactions, $ref templates
+- [Authentication](https://sovrium.com/en/docs/auth): Strategies (email/password, magic link, OAuth), roles, 2FA, email templates
+- [Languages](https://sovrium.com/en/docs/languages): Multi-language support, $t: translation syntax, RTL support
+- [Analytics](https://sovrium.com/en/docs/analytics): Privacy-friendly, cookie-free, configurable retention and session tracking
+
+### Resources
+
+- [API Reference](https://sovrium.com/en/docs/api-reference): Interactive OpenAPI documentation (Scalar)
+- [Resources](https://sovrium.com/en/docs/resources): JSON Schema, LLM references, schema explorer, GitHub
+
+## Quick Start
+
+### Prerequisites
+
+- [Bun](https://bun.sh) 1.0+ (JavaScript/TypeScript runtime)
+- PostgreSQL (required for tables and auth; not needed for static sites)
+
+### Install
+
+```bash
+# Global CLI
+bun add -g sovrium
+
+# Or as project dependency
+bun add sovrium
+```
+
+### Minimal Config (app.yaml)
+
+```yaml
+name: my-app
+```
+
+### With Data Tables
+
+```yaml
+name: my-app
+
+tables:
+  - id: 1
+    name: tasks
+    fields:
+      - id: 1
+        name: title
+        type: single-line-text
+        required: true
+      - id: 2
+        name: status
+        type: single-select
+        options:
+          - label: To Do
+            color: gray
+          - label: In Progress
+            color: blue
+          - label: Done
+            color: green
+
+auth:
+  strategies:
+    emailPassword: true
+
+theme:
+  colors:
+    primary: "#3b82f6"
+```
+
+### Run
+
+```bash
+# YAML + CLI
+sovrium start app.yaml
+
+# TypeScript + Bun
+bun run index.ts
+```
+
+### TypeScript Alternative
+
+```typescript
+import { start } from 'sovrium'
+
+await start({
+  name: 'my-app',
+  tables: [
+    {
+      id: 1,
+      name: 'tasks',
+      fields: [
+        { id: 1, name: 'title', type: 'single-line-text', required: true },
+      ],
+    },
+  ],
+})
+```
 
 ## Schema Reference
 

@@ -121,6 +121,11 @@ jobs:
             - This makes the schema publicly available at `https://sovrium.com/schemas/<version>/app.schema.json`
             - Create the directory if it does not exist: `mkdir -p website/assets/schemas/${{ steps.version.outputs.version }}`
 
+            ### 6. `website/assets/schemas/latest/app.schema.json`
+            - Copy the same JSON Schema to `website/assets/schemas/latest/app.schema.json`
+            - This provides a stable URL alias at `https://sovrium.com/schemas/latest/app.schema.json`
+            - Create the directory if it does not exist: `mkdir -p website/assets/schemas/latest`
+
             ## Rules
 
             - NEVER modify files outside `website/` — source code in `src/` is read-only for you

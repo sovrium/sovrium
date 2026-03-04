@@ -1270,10 +1270,13 @@ export const en: Record<string, string> = {
   'docs.resources.llmQuick.label': 'LLM Quick Reference',
   'docs.resources.llmQuick.description': 'Concise schema overview optimized for LLMs (~40 lines).',
   'docs.resources.llmFull.label': 'LLM Full Reference',
-  'docs.resources.llmFull.description': 'Complete schema documentation for LLMs (~1700 lines).',
+  'docs.resources.llmFull.description': 'Complete documentation for LLMs (~2100 lines).',
   'docs.resources.jsonSchema.label': 'JSON Schema',
   'docs.resources.jsonSchema.description':
     'Machine-readable JSON Schema (Draft-07) for validation and editor support.',
+  'docs.resources.jsonSchemaLatest.label': 'JSON Schema (latest)',
+  'docs.resources.jsonSchemaLatest.description':
+    'Stable URL alias that always points to the most recent schema version.',
   'docs.resources.schemaExplorer.label': 'Schema Explorer',
   'docs.resources.schemaExplorer.description':
     'Interactive visual explorer for the Sovrium JSON Schema (json-schema.app).',

@@ -116,6 +116,15 @@ export default [
     },
   },
 
+  // OpenAPI route definitions - Declarative schema registration
+  // These files only call createRoute() + app.openapi() — no mutable logic
+  {
+    files: ['src/infrastructure/server/route-setup/openapi-routes/**/*.ts'],
+    rules: {
+      'functional/prefer-immutable-types': 'off', // OpenAPIHono is a mutable third-party type
+    },
+  },
+
   // Use Case Organization Hints - Suggest phase-based structure
   // Warn when use cases are in flat directory instead of phase subdirectories
   // This is a suggestion, not a hard requirement (warnings, not errors)

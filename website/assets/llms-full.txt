@@ -1,6 +1,6 @@
-# Sovrium App Schema — Complete Reference
+# Sovrium — Complete Documentation for LLMs
 
-> Sovrium is a self-hosted, configuration-driven application platform. Define your entire app — data models, authentication, pages, themes, analytics — in a single YAML or JSON file. This document is the complete schema reference for LLMs.
+> Sovrium is a self-hosted, configuration-driven application platform. Define your entire app — data models, authentication, pages, themes, analytics — in a single YAML or JSON file. This document is the complete reference for LLMs, covering getting started guides, the full app schema reference, and additional resources.
 
 **Schema Version**: 0.1.0
 **JSON Schema**: https://sovrium.com/schemas/0.1.0/app.schema.json
@@ -8,7 +8,292 @@
 
 ---
 
-## Overview
+## Table of Contents
+
+### Get Started
+- [Introduction](#introduction)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+
+### App Schema Reference
+- [Schema Overview](#schema-overview)
+- [Root Properties](#root-properties)
+- [Tables](#tables)
+- [Field Types](#field-types)
+- [Table Indexes](#table-indexes)
+- [Table Permissions (RBAC)](#table-permissions-rbac)
+- [Table Views](#table-views)
+- [Theme](#theme)
+- [Pages](#pages)
+- [Component Types](#component-types)
+- [Interactions](#interactions)
+- [Auth](#auth)
+- [Languages](#languages)
+- [Components (Reusable Templates)](#components-reusable-templates)
+- [Analytics](#analytics)
+- [Page Scripts](#page-scripts)
+- [Responsive Configuration](#responsive-configuration)
+
+### Resources
+- [API Reference](#api-reference)
+- [Additional Resources](#additional-resources)
+- [Complete Examples](#complete-examples)
+
+---
+
+# Get Started
+
+---
+
+## Introduction
+
+### What is Sovrium?
+
+Sovrium is an open-source, self-hosted platform that turns a single configuration file into a complete web application. You describe your application in a YAML or JSON file — data models, authentication, pages, themes, analytics — and Sovrium turns it into a running, full-stack web application.
+
+No boilerplate code, no framework setup, no build pipeline. Just one file that declares what your app should be.
+
+```yaml
+name: my-app
+
+tables:
+  - id: 1
+    name: tasks
+    fields:
+      - id: 1
+        name: title
+        type: single-line-text
+        required: true
+
+auth:
+  strategies:
+    emailPassword: true
+
+theme:
+  colors:
+    primary: "#3b82f6"
+```
+
+### Why Sovrium?
+
+Most business applications share the same building blocks: data tables, user authentication, server-rendered pages, and a design system. Sovrium provides all of these out of the box, configured through a single schema.
+
+- **No vendor lock-in**: Self-hosted on your infrastructure. Your data stays yours.
+- **Configuration over code**: Declare what you need instead of writing boilerplate. 41 field types, 62 component types, built-in auth.
+- **Progressive complexity**: Start with just a name. Add tables, theme, pages, auth, and analytics as your needs grow.
+- **Open source**: Business Source License 1.1. Free for internal use. Becomes Apache 2.0 in 2029.
+
+### How it works
+
+1. Define your schema in YAML or JSON
+2. Run `sovrium start app.yaml`
+3. Get a full-stack app with data tables, auth, pages, and more
+
+---
+
+## Installation
+
+### Prerequisites
+
+Sovrium requires [Bun 1.0+](https://bun.sh). A PostgreSQL database is optional, needed only for data persistence (tables, auth).
+
+### Global installation
+
+Install Sovrium globally to use the `sovrium` command from anywhere:
+
+```bash
+bun add -g sovrium
+```
+
+### Project dependency
+
+Or add Sovrium as a dependency in an existing project:
+
+```bash
+bun add sovrium
+```
+
+### Verify installation
+
+Run the help command to check that Sovrium is installed correctly:
+
+```bash
+sovrium --help
+```
+
+### Create a config file
+
+Sovrium reads a YAML or JSON configuration file. Create an `app.yaml` with the simplest valid config:
+
+```yaml
+name: my-app
+```
+
+> **Tip**: Sovrium supports both `.yaml`/`.yml` and `.json` files. YAML is recommended for readability.
+
+### Database setup
+
+If your app uses tables or auth, set the `DATABASE_URL` environment variable:
+
+```bash
+export DATABASE_URL="postgresql://user:password@localhost:5432/myapp"
+```
+
+> **Tip**: If you only use pages and theme (no tables or auth), Sovrium works without a database. Run `sovrium build app.yaml` to generate a static site.
+
+---
+
+## Quick Start
+
+Build your first Sovrium app in minutes. From zero to a running application. Choose the approach that fits your workflow.
+
+### Choose your approach
+
+Sovrium supports two configuration formats. YAML is great for simplicity; TypeScript gives you full type safety and autocompletion.
+
+### Option A — YAML + CLI
+
+The simplest path. Install the Sovrium CLI, write a YAML config, and start the server:
+
+**Step 1: Install the CLI**
+
+Install Sovrium globally with Bun to get the `sovrium` command.
+
+```bash
+bun add -g sovrium
+```
+
+**Step 2: Create a config file**
+
+Create an `app.yaml` with the simplest valid configuration — just a name.
+
+```yaml
+name: my-app
+```
+
+**Step 3: Add data tables**
+
+Define your data models with typed fields, options, and validation.
+
+```yaml
+name: my-app
+
+tables:
+  - id: 1
+    name: tasks
+    fields:
+      - id: 1
+        name: title
+        type: single-line-text
+        required: true
+      - id: 2
+        name: status
+        type: single-select
+        options:
+          - label: To Do
+            color: gray
+          - label: In Progress
+            color: blue
+          - label: Done
+            color: green
+```
+
+**Step 4: Start the server**
+
+Run the dev server and visit http://localhost:3000 to see your app.
+
+```bash
+sovrium start app.yaml
+```
+
+> **Tip**: Start small with just tables. Then progressively add theme, auth, pages, and analytics as your needs grow.
+
+### Option B — TypeScript + Bun
+
+The power-user path. Create a Bun project, add Sovrium as a dependency, and write type-safe code:
+
+**Step 1: Initialize a project**
+
+```bash
+bun init my-app && cd my-app
+```
+
+**Step 2: Add Sovrium**
+
+```bash
+bun add sovrium
+```
+
+**Step 3: Write your app**
+
+Open `index.ts` and import the `start` function with a minimal configuration.
+
+```typescript
+import { start } from 'sovrium'
+
+await start({
+  name: 'my-app',
+})
+```
+
+**Step 4: Add data tables**
+
+Extend the configuration with typed fields, options, and validation — with full autocompletion.
+
+```typescript
+import { start } from 'sovrium'
+
+await start({
+  name: 'my-app',
+  tables: [
+    {
+      id: 1,
+      name: 'tasks',
+      fields: [
+        {
+          id: 1,
+          name: 'title',
+          type: 'single-line-text',
+          required: true,
+        },
+        {
+          id: 2,
+          name: 'status',
+          type: 'single-select',
+          options: [
+            { label: 'To Do', color: 'gray' },
+            { label: 'In Progress', color: 'blue' },
+            { label: 'Done', color: 'green' },
+          ],
+        },
+      ],
+    },
+  ],
+})
+```
+
+**Step 5: Run your app**
+
+```bash
+bun run index.ts
+```
+
+> **Tip**: TypeScript gives you autocompletion for every property, compile-time validation of field types, and the full power of Bun as your runtime. Ideal for developers who prefer code over config files.
+
+### What's next?
+
+- **Schema Overview** — All 10 root properties explained
+- **Tables & Fields** — 41 field types, permissions, indexes
+- **Theme** — Colors, fonts, spacing, and design tokens
+- **Pages** — 62 component types for server-rendered pages
+
+---
+
+# App Schema Reference
+
+---
+
+## Schema Overview
 
 A Sovrium app is a declarative configuration object with 10 root properties. Only `name` is required — everything else is optional, enabling progressive complexity from a minimal app identifier to a full-stack application.
 
@@ -158,6 +443,8 @@ All fields share a base schema:
 | `required` | boolean | No | Whether field is required |
 | `unique` | boolean | No | Whether field must be unique |
 | `indexed` | boolean | No | Whether to create DB index |
+
+41 field types organized into 9 categories:
 
 ### Text Fields
 
@@ -889,6 +1176,8 @@ theme:
       size: 14px
 ```
 
+> **Tip**: Add a `url` property to automatically load custom fonts from Google Fonts. The URL is injected as a `<link>` tag in the page head.
+
 ### spacing
 
 Record of spacing name to Tailwind utility classes or CSS values.
@@ -969,6 +1258,31 @@ theme:
         '100%': { opacity: '1' }
     slideUp: true
     duration: '0.2s'
+```
+
+### Full Theme Example
+
+```yaml
+theme:
+  colors:
+    primary: "#6366f1"
+    secondary: "#8b5cf6"
+    accent: "#f59e0b"
+    background: "#0f172a"
+    surface: "#1e293b"
+    text: "#f8fafc"
+    muted: "#94a3b8"
+  fonts:
+    heading:
+      family: Inter
+      weights: [600, 700]
+      url: "https://fonts.googleapis.com/css2?family=Inter:wght@600;700&display=swap"
+    body:
+      family: Inter
+      weights: [400, 500]
+  spacing:
+    container: "max-w-6xl mx-auto px-4"
+    section: "py-16 sm:py-20"
 ```
 
 ---
@@ -1055,6 +1369,30 @@ meta:
       author: { name: 'Jane Doe' }
 ```
 
+### Page Structure Example
+
+```yaml
+pages:
+  - name: home
+    path: /
+    meta:
+      title: "My App - Home"
+      description: "Welcome to my application"
+      openGraph:
+        title: "My App"
+        description: "A Sovrium-powered application"
+        image: "/og-image.png"
+    sections:
+      - type: section
+        props:
+          className: "py-20 bg-gray-900"
+        children:
+          - type: h1
+            content: "Welcome"
+          - type: paragraph
+            content: "Built with Sovrium"
+```
+
 ---
 
 ## Component Types
@@ -1080,8 +1418,21 @@ meta:
 | `main` | Main content area |
 | `article` | Article element |
 | `aside` | Aside element |
-| `nav` | Navigation element |
-| `navigation` | Navigation (alias) |
+
+```yaml
+sections:
+  - type: section
+    props:
+      className: "py-20 bg-gray-900"
+    children:
+      - type: container
+        props:
+          className: "max-w-4xl mx-auto px-4"
+        children:
+          - type: grid
+            props:
+              className: "grid grid-cols-3 gap-8"
+```
 
 ### Content Components
 
@@ -1108,6 +1459,8 @@ meta:
 |------|-------------|
 | `button` | Clickable button |
 | `link` / `a` | Hyperlink |
+| `nav` | Navigation element |
+| `navigation` | Navigation (alias) |
 | `accordion` | Collapsible content |
 | `dropdown` | Dropdown menu |
 | `form` | Form container |
@@ -1218,11 +1571,26 @@ Components can have interactive behaviors:
 | `easing` | string | CSS timing function |
 | `threshold` | number | Intersection Observer threshold (0-1) |
 
+```yaml
+children:
+  - type: button
+    content: "Get Started"
+    props:
+      className: "bg-blue-600 text-white px-6 py-3 rounded-lg"
+    interactions:
+      hover:
+        scale: 1.05
+        shadow: "0 10px 30px rgba(59, 130, 246, 0.3)"
+      click:
+        action: navigate
+        target: "/signup"
+```
+
 ---
 
 ## Auth
 
-Authentication configuration. If present, auth endpoints are enabled. If omitted, no auth.
+Authentication configuration powered by Better Auth. If present, auth endpoints are enabled. If omitted, no auth.
 
 ### Auth Properties
 
@@ -1278,6 +1646,8 @@ auth:
   twoFactor: true
 ```
 
+> **Warning**: OAuth providers require `AUTH_SECRET` and provider-specific `CLIENT_ID` / `CLIENT_SECRET` environment variables.
+
 ### Built-in Roles
 
 | Role | Level | Description |
@@ -1285,6 +1655,8 @@ auth:
 | `admin` | 80 | Full access |
 | `member` | 40 | Standard user |
 | `viewer` | 10 | Read-only |
+
+The first user to sign up automatically becomes admin.
 
 ### Custom Roles
 
@@ -1342,7 +1714,7 @@ emailTemplates:
 
 ## Languages
 
-Multi-language support with translation dictionaries and `$t:` syntax.
+Multi-language support with translation dictionaries and `$t:` syntax. Automatic URL-based language routing (`/en/...`, `/fr/...`).
 
 ### Languages Properties
 
@@ -1365,6 +1737,26 @@ Multi-language support with translation dictionaries and `$t:` syntax.
 | `direction` | `ltr` or `rtl` | No | Text direction |
 | `flag` | string | No | Flag emoji or URL |
 
+### Defining Languages
+
+```yaml
+languages:
+  default: en
+  supported:
+    - code: en
+      locale: en-US
+      label: English
+      direction: ltr
+    - code: fr
+      locale: fr-FR
+      label: "Francais"
+      direction: ltr
+    - code: ar
+      locale: ar-SA
+      label: "Arabic"
+      direction: rtl
+```
+
 ### Translation Dictionaries
 
 Key-value pairs where keys use dot notation:
@@ -1374,7 +1766,7 @@ languages:
   default: en
   supported:
     - { code: en, locale: en-US, label: English, direction: ltr }
-    - { code: fr, locale: fr-FR, label: Français, direction: ltr }
+    - { code: fr, locale: fr-FR, label: Francais, direction: ltr }
   translations:
     en:
       hero.title: Welcome to My App
@@ -1385,7 +1777,7 @@ languages:
       hero.title: Bienvenue sur Mon App
       hero.subtitle: Construisez plus vite avec la configuration
       nav.home: Accueil
-      nav.about: À propos
+      nav.about: A propos
 ```
 
 ### Using Translations ($t: syntax)
@@ -1405,6 +1797,12 @@ sections:
         props:
           href: '$t:nav.about.href'
 ```
+
+### Adding a New Language
+
+1. **Add language entry**: Add a new item to the `supported` array with code, locale, label, and direction.
+2. **Add translations**: Create a new translations section for the language code with all required keys.
+3. **Test the language**: Visit `/[lang-code]/` in your browser to verify the new language renders correctly.
 
 ---
 
@@ -1459,9 +1857,17 @@ Variable substitution replaces `$variable` placeholders in content and props wit
 
 ## Analytics
 
-Privacy-friendly, cookie-free analytics. No external dependencies.
+Built-in, privacy-friendly analytics with no cookies, no external services, and full GDPR compliance. All data stays on your server.
 
-### Configuration
+### Quick Enable
+
+Set analytics to `true` for sensible defaults — no configuration needed.
+
+```yaml
+analytics: true
+```
+
+### Advanced Configuration
 
 `true` or `false` for quick enable/disable. Object for detailed configuration:
 
@@ -1473,10 +1879,6 @@ Privacy-friendly, cookie-free analytics. No external dependencies.
 | `sessionTimeout` | integer 1-120 | No | 30 | Session timeout in minutes |
 
 ```yaml
-# Simple enable
-analytics: true
-
-# Detailed configuration
 analytics:
   retentionDays: 90
   excludedPaths: ['/admin/*', '/api/*']
@@ -1489,6 +1891,8 @@ Design principles:
 - No external dependencies
 - GDPR-friendly by default
 - First-party data only
+
+When enabled, Sovrium injects a lightweight tracking script that records page views, sessions, referrers, and device information. Analytics data is collected at `/api/analytics/collect` and stored locally.
 
 ---
 
@@ -1539,6 +1943,40 @@ Components support breakpoint-specific behavior:
       md: 'grid-cols-2'
       lg: 'grid-cols-3'
 ```
+
+---
+
+# Resources
+
+---
+
+## API Reference
+
+Sovrium exposes a REST API with interactive documentation via Scalar UI. Available at `/docs/api-reference` when the server is running. Explore health, authentication, and admin endpoints.
+
+> **Early Preview**: The API surface is evolving. Endpoints may change before v1.0.
+
+The API documentation is generated from the OpenAPI schema at `/api/openapi.json`.
+
+---
+
+## Additional Resources
+
+| Resource | URL | Description |
+|----------|-----|-------------|
+| LLM Quick Reference | https://sovrium.com/llms.txt | Concise schema overview optimized for LLMs (~140 lines) |
+| LLM Full Reference | https://sovrium.com/llms-full.txt | This document — complete documentation for LLMs |
+| JSON Schema | https://sovrium.com/schemas/0.1.0/app.schema.json | Machine-readable JSON Schema (Draft-07) for validation and editor support |
+| Schema Explorer | https://json-schema.app/view/%23?url=https%3A%2F%2Fsovrium.com%2Fschemas%2F0.1.0%2Fapp.schema.json | Interactive visual explorer for the JSON Schema |
+| API Reference | https://sovrium.com/en/docs/api-reference | Interactive REST API documentation (Scalar UI) |
+| GitHub | https://github.com/sovrium/sovrium | Source code, issues, and contribution guidelines |
+| Vision | https://github.com/sovrium/sovrium/blob/main/VISION.md | Product vision and roadmap |
+| License | https://github.com/sovrium/sovrium/blob/main/LICENSE.md | Business Source License 1.1 |
+| Trademark | https://github.com/sovrium/sovrium/blob/main/TRADEMARK.md | Trademark usage guidelines |
+
+### Need Help?
+
+Found a bug, have a question, or want to request a feature? Open an issue on GitHub: https://github.com/sovrium/sovrium/issues
 
 ---
 
@@ -1662,7 +2100,7 @@ languages:
   default: en
   supported:
     - { code: en, label: English }
-    - { code: fr, label: Français }
+    - { code: fr, label: Francais }
 
 analytics:
   retentionDays: 90

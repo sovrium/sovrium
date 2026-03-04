@@ -83,6 +83,16 @@ export default [
     },
   },
 
+  // OpenAPI route definitions - Declarative schema registration (no logic)
+  {
+    files: ['src/infrastructure/server/route-setup/openapi-routes/**/*.ts'],
+    rules: {
+      'max-lines': 'off', // Route definitions are declarative data structures
+      'max-lines-per-function': 'off', // Registration functions list many routes
+      'max-statements': 'off', // Each route is a sequential statement
+    },
+  },
+
   // Strict limits for React components - Should be modular
   {
     files: ['src/presentation/ui/**/*.tsx'],
