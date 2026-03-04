@@ -271,31 +271,28 @@ export const docsTables = docsPage({
         ]),
 
         // User & Audit Fields
-        badgeGroup(
+        subsectionHeader(
           '$t:docs.tables.fieldTypes.user',
-          [
-            'user',
-            'created-by',
-            'created-at',
-            'updated-by',
-            'updated-at',
-            'deleted-by',
-            'deleted-at',
-          ],
+          '$t:docs.tables.fieldTypes.user.description',
           'field-user'
         ),
-        {
-          type: 'paragraph',
-          content: '$t:docs.tables.fieldTypes.user.description',
-          props: { className: 'text-sm text-sovereignty-gray-400 mb-2' },
-        },
+        badgeGroup('', [
+          'user',
+          'created-by',
+          'created-at',
+          'updated-by',
+          'updated-at',
+          'deleted-by',
+          'deleted-at',
+        ]),
 
         // Media Fields
-        badgeGroup(
+        subsectionHeader(
           '$t:docs.tables.fieldTypes.media',
-          ['single-attachment', 'multiple-attachments'],
+          '',
           'field-media'
         ),
+        badgeGroup('', ['single-attachment', 'multiple-attachments']),
         propertyTable([
           {
             name: 'allowedFileTypes',
@@ -315,11 +312,12 @@ export const docsTables = docsPage({
         ]),
 
         // Computed Fields
-        badgeGroup(
+        subsectionHeader(
           '$t:docs.tables.fieldTypes.computed',
-          ['formula', 'autonumber'],
+          '',
           'field-computed'
         ),
+        badgeGroup('', ['formula', 'autonumber']),
         propertyTable([
           { name: 'formula', description: '$t:docs.tables.fieldTypes.computed.formula' },
           { name: 'resultType', description: '$t:docs.tables.fieldTypes.computed.resultType' },
@@ -334,11 +332,12 @@ export const docsTables = docsPage({
         ),
 
         // Advanced Fields
-        badgeGroup(
+        subsectionHeader(
           '$t:docs.tables.fieldTypes.advanced',
-          ['json', 'array', 'geolocation', 'color', 'button'],
+          '',
           'field-advanced'
         ),
+        badgeGroup('', ['json', 'array', 'geolocation', 'color', 'button']),
         propertyTable([
           { name: 'json.schema', description: '$t:docs.tables.fieldTypes.advanced.jsonSchema' },
           { name: 'array.itemType', description: '$t:docs.tables.fieldTypes.advanced.itemType' },
