@@ -26,9 +26,7 @@ export const about: Record<string, string> = {
   // Founder
   'about.founder.title': "Who's Building This",
   'about.founder.bio':
-    'Thomas spent years building internal tools for organizations — with no-code, low-code, and code. The recurring patterns of vendor lock-in, data fragmentation, and maintenance overhead led him to build Sovrium.',
-  'about.founder.note':
-    'Sovrium is currently built by a single founder. This means fast iteration, direct accountability, and no design-by-committee. The source is available so you can evaluate the code yourself.',
+    'Solo founder building Sovrium part-time — designing the schema engine, writing the runtime, and shipping every release. Source-available, no committee.',
   'about.team.founder.name': 'Thomas Jeanneau',
   'about.team.founder.role': 'Founder',
 

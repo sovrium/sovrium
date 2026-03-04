@@ -173,21 +173,13 @@ export const about: Page = {
                         },
                       ],
                     },
-                    // Bio
+                    // Bio (concise tagline — full narrative lives in Origin Story)
                     {
                       type: 'paragraph',
                       content: '$t:about.founder.bio',
                       props: {
                         className:
-                          'text-sovereignty-gray-300 leading-relaxed mb-4 text-sm sm:text-base',
-                      },
-                    },
-                    // Transparency note
-                    {
-                      type: 'paragraph',
-                      content: '$t:about.founder.note',
-                      props: {
-                        className: 'text-sovereignty-gray-400 leading-relaxed text-sm italic mb-6',
+                          'text-sovereignty-gray-300 leading-relaxed mb-6 text-sm sm:text-base',
                       },
                     },
                     // Social links

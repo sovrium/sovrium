@@ -7,13 +7,13 @@
 
 export const about: Record<string, string> = {
   // Meta
-  'about.meta.title': 'Sovrium — A propos',
+  'about.meta.title': 'Sovrium — À propos',
   'about.meta.description':
     'Découvrez les personnes et les idées derrière Sovrium. Une plateforme pilotée par la configuration pour construire des outils internes que vous possédez entièrement.',
-  'about.meta.og.title': 'Sovrium — A propos',
+  'about.meta.og.title': 'Sovrium — À propos',
   'about.meta.og.description':
     'Les personnes et les idées derrière Sovrium. Une plateforme pour construire des outils internes que vous possédez entièrement.',
-  'about.meta.twitter.title': 'Sovrium — A propos',
+  'about.meta.twitter.title': 'Sovrium — À propos',
   'about.meta.twitter.description':
     'Les personnes et les idées derrière Sovrium. Une plateforme pour construire des outils internes que vous possédez entièrement.',
 
@@ -26,9 +26,7 @@ export const about: Record<string, string> = {
   // Founder
   'about.founder.title': 'Qui construit Sovrium',
   'about.founder.bio':
-    "Thomas a passé des années à construire des outils internes pour des organisations — en no-code, low-code et code. Les schémas récurrents d'enfermement fournisseur, de fragmentation des données et de surcharge de maintenance l'ont conduit à créer Sovrium.",
-  'about.founder.note':
-    "Sovrium est actuellement construit par un seul fondateur. Cela signifie des itérations rapides, une responsabilité directe et aucun compromis de comité. Le code source est disponible pour que vous puissiez l'évaluer vous-même.",
+    'Fondateur solo qui construit Sovrium à temps partiel — conception du moteur de schémas, écriture du runtime et livraison de chaque version. Source-available, sans comité.',
   'about.team.founder.name': 'Thomas Jeanneau',
   'about.team.founder.role': 'Fondateur',
 
