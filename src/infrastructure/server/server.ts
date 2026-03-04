@@ -9,7 +9,6 @@ import { Effect, Config } from 'effect'
 import { Hono } from 'hono'
 import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
 import { compileCSS } from '@/infrastructure/css/compiler'
-import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics-repository-live'
 import {
@@ -38,6 +37,7 @@ import {
   type HonoAppConfig,
 } from '@/infrastructure/server/route-setup/page-routes'
 import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-assets'
+import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
 import type { ServerInstance } from '@/application/models/server'
 import type { App } from '@/domain/models/app'
 import type {
