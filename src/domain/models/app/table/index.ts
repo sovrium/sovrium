@@ -239,8 +239,8 @@ export const TableSchema = Schema.Struct({
    */
   allowDestructive: Schema.optional(Schema.Boolean),
 }).pipe(
-  Schema.filter(validateTableSchema),
   Schema.annotations({
+    identifier: 'Table',
     title: 'Table',
     description:
       'A database table that defines the structure of an entity in your application. Contains fields, constraints, and indexes to organize and validate data.',
@@ -270,7 +270,8 @@ export const TableSchema = Schema.Struct({
         primaryKey: { type: 'composite', fields: ['id'] },
       },
     ],
-  })
+  }),
+  Schema.filter(validateTableSchema)
 )
 
 export type Table = Schema.Schema.Type<typeof TableSchema>

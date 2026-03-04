@@ -146,6 +146,42 @@ export const AppSchema = Schema.Struct({
    */
   pages: Schema.optional(PagesSchema),
 }).pipe(
+  Schema.annotations({
+    identifier: 'App',
+    title: 'Application Configuration',
+    description:
+      'Complete application configuration including name, version, description, and data tables. This is the root schema for Sovrium applications.',
+    examples: [
+      {
+        name: 'todo-app',
+        version: '1.0.0',
+        description: 'A simple todo list application',
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              {
+                id: 1,
+                name: 'title',
+                type: 'single-line-text' as const,
+                required: true,
+              },
+              { id: 2, name: 'completed', type: 'checkbox' as const, required: true },
+            ],
+          },
+        ],
+      },
+      {
+        name: '@myorg/dashboard',
+        version: '2.0.0-beta.1',
+        description: 'Admin dashboard for analytics and reporting',
+      },
+      {
+        name: 'blog-system',
+      },
+    ],
+  }),
   Schema.filter((app) => {
     const userFieldTypes = new Set(['user', 'created-by', 'updated-by'])
     const hasUserFields =
@@ -186,41 +222,6 @@ export const AppSchema = Schema.Struct({
       })
 
     return validationErrors.length > 0 ? validationErrors[0] : true
-  }),
-  Schema.annotations({
-    title: 'Application Configuration',
-    description:
-      'Complete application configuration including name, version, description, and data tables. This is the root schema for Sovrium applications.',
-    examples: [
-      {
-        name: 'todo-app',
-        version: '1.0.0',
-        description: 'A simple todo list application',
-        tables: [
-          {
-            id: 1,
-            name: 'tasks',
-            fields: [
-              {
-                id: 1,
-                name: 'title',
-                type: 'single-line-text' as const,
-                required: true,
-              },
-              { id: 2, name: 'completed', type: 'checkbox' as const, required: true },
-            ],
-          },
-        ],
-      },
-      {
-        name: '@myorg/dashboard',
-        version: '2.0.0-beta.1',
-        description: 'Admin dashboard for analytics and reporting',
-      },
-      {
-        name: 'blog-system',
-      },
-    ],
   })
 )
 

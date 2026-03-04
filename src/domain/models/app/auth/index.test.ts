@@ -203,8 +203,12 @@ describe('AuthSchema', () => {
   })
 
   describe('schema metadata', () => {
+    // Annotations are placed before Schema.filter() so they propagate to JSON Schema.
+    // The outer AST node is the Refinement; annotations live on its .from (the annotated struct).
+    const annotatedAst = (AuthSchema.ast as { readonly from: SchemaAST.AST }).from
+
     test('should have title annotation', () => {
-      const title = SchemaAST.getTitleAnnotation(AuthSchema.ast)
+      const title = SchemaAST.getTitleAnnotation(annotatedAst)
       expect(title._tag).toBe('Some')
       if (title._tag === 'Some') {
         expect(title.value).toBe('Authentication Configuration')
@@ -212,7 +216,7 @@ describe('AuthSchema', () => {
     })
 
     test('should have description annotation', () => {
-      const description = SchemaAST.getDescriptionAnnotation(AuthSchema.ast)
+      const description = SchemaAST.getDescriptionAnnotation(annotatedAst)
       expect(description._tag).toBe('Some')
       if (description._tag === 'Some') {
         expect(description.value).toContain('Authentication configuration')
@@ -220,7 +224,7 @@ describe('AuthSchema', () => {
     })
 
     test('should have examples annotation', () => {
-      const examples = SchemaAST.getExamplesAnnotation(AuthSchema.ast)
+      const examples = SchemaAST.getExamplesAnnotation(annotatedAst)
       expect(examples._tag).toBe('Some')
       if (examples._tag === 'Some') {
         expect(examples.value.length).toBeGreaterThan(0)

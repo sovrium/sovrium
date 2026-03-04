@@ -157,6 +157,26 @@ export const AuthSchema = Schema.Struct({
    */
   emailTemplates: Schema.optional(AuthEmailTemplatesSchema),
 }).pipe(
+  Schema.annotations({
+    identifier: 'Auth',
+    title: 'Authentication Configuration',
+    description:
+      'Authentication configuration with strategies, roles, and plugins. Admin features are always enabled when auth is configured.',
+    examples: [
+      { strategies: [{ type: 'emailAndPassword' as const }] },
+      {
+        strategies: [{ type: 'emailAndPassword' as const, minPasswordLength: 12 }],
+        defaultRole: 'viewer',
+        roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
+      },
+      {
+        strategies: [
+          { type: 'emailAndPassword' as const },
+          { type: 'oauth' as const, providers: ['google', 'github'] },
+        ],
+      },
+    ],
+  }),
   Schema.filter((config) => {
     // Validate two-factor requires emailAndPassword strategy
     if (config.twoFactor) {
@@ -177,25 +197,6 @@ export const AuthSchema = Schema.Struct({
     }
 
     return undefined
-  }),
-  Schema.annotations({
-    title: 'Authentication Configuration',
-    description:
-      'Authentication configuration with strategies, roles, and plugins. Admin features are always enabled when auth is configured.',
-    examples: [
-      { strategies: [{ type: 'emailAndPassword' as const }] },
-      {
-        strategies: [{ type: 'emailAndPassword' as const, minPasswordLength: 12 }],
-        defaultRole: 'viewer',
-        roles: [{ name: 'editor', description: 'Can edit content', level: 30 }],
-      },
-      {
-        strategies: [
-          { type: 'emailAndPassword' as const },
-          { type: 'oauth' as const, providers: ['google', 'github'] },
-        ],
-      },
-    ],
   })
 )
 

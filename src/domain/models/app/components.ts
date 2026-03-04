@@ -47,6 +47,12 @@ import { ComponentTemplateSchema } from './component/component'
  * @see specs/app/components/components.schema.json
  */
 export const ComponentsSchema = Schema.Array(ComponentTemplateSchema).pipe(
+  Schema.annotations({
+    identifier: 'Components',
+    title: 'Reusable Components',
+    description:
+      'Array of reusable UI component templates with variable substitution for use across pages',
+  }),
   Schema.filter((components) => {
     const names = components.map((component) => component.name)
     const uniqueNames = new Set(names)
@@ -54,11 +60,6 @@ export const ComponentsSchema = Schema.Array(ComponentTemplateSchema).pipe(
       names.length === uniqueNames.size ||
       'Component names must be unique within the components array'
     )
-  }),
-  Schema.annotations({
-    title: 'Reusable Components',
-    description:
-      'Array of reusable UI component templates with variable substitution for use across pages',
   })
 )
 

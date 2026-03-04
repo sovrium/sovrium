@@ -168,6 +168,11 @@ export const LanguagesSchema = Schema.Struct({
   persistSelection: Schema.optional(Schema.Boolean),
   translations: Schema.optional(TranslationsSchema),
 }).pipe(
+  Schema.annotations({
+    identifier: 'Languages',
+    title: 'Languages Configuration',
+    description: 'Multi-language support configuration for the entire application',
+  }),
   Schema.filter((input) => {
     const supportedCodes = new Set(input.supported.map((lang) => lang.code))
 
@@ -191,10 +196,6 @@ export const LanguagesSchema = Schema.Struct({
     }
 
     return undefined
-  }),
-  Schema.annotations({
-    title: 'Languages Configuration',
-    description: 'Multi-language support configuration for the entire application',
   })
 )
 
