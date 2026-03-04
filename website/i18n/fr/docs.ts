@@ -971,7 +971,7 @@ export const docs: Record<string, string> = {
   'docs.sidebar.envVars.href': '/fr/docs/env-vars',
   'docs.envVars.meta.title': "Variables d'environnement - Sovrium Docs",
   'docs.envVars.meta.description':
-    "Référence complète de toutes les variables d'environnement utilisées par Sovrium. Couvre l'application, le serveur, la base de données, l'authentification, l'email, le build et le débogage.",
+    "Référence des variables d'environnement Sovrium. Couvre le serveur, la base de données, l'authentification, l'email, le build et le débogage.",
   'docs.envVars.header.title': "Variables d'environnement",
   'docs.envVars.header.description':
     "Sovrium lit la configuration depuis les variables d'environnement au démarrage. Définissez-les dans un fichier .env ou dans votre environnement serveur. Toutes les variables sont optionnelles sauf mention contraire.",
