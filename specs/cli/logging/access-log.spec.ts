@@ -34,7 +34,7 @@ test.describe('CLI Request Access Log', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-LOG-ACCESS-001: LOG_LEVEL=debug shows request log with method, path, status, duration',
     { tag: '@spec' },
     async () => {
@@ -62,7 +62,7 @@ test.describe('CLI Request Access Log', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-LOG-ACCESS-002: static asset paths excluded from access log',
     { tag: '@spec' },
     async () => {
@@ -90,7 +90,7 @@ test.describe('CLI Request Access Log', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-LOG-ACCESS-003: default log level produces no access log',
     { tag: '@spec' },
     async () => {
@@ -114,7 +114,7 @@ test.describe('CLI Request Access Log', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-LOG-ACCESS-004: access log format includes duration',
     { tag: '@spec' },
     async () => {
@@ -146,7 +146,7 @@ test.describe('CLI Request Access Log', () => {
   // @regression test - ONE optimized integration test
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-LOG-ACCESS-REGRESSION: access log regression workflow',
     { tag: '@regression' },
     async () => {
