@@ -109,7 +109,7 @@ const fixEmptyPatternProperties = (node: unknown): unknown => {
 const schemaWithMetadata = {
   $id: `https://sovrium.com/schemas/${version}/app.schema.json`,
   $schema: 'http://json-schema.org/draft-07/schema#',
-  ...fixEmptyPatternProperties(jsonSchema),
+  ...(fixEmptyPatternProperties(jsonSchema) as Record<string, unknown>),
 }
 
 // Output path

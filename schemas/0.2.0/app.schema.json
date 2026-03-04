@@ -103,7 +103,7 @@
                 "required": [],
                 "properties": {},
                 "patternProperties": {
-                  "": {
+                  "^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$": {
                     "anyOf": [
                       {
                         "type": "string"
@@ -132,20 +132,6 @@
                       }
                     ]
                   }
-                },
-                "propertyNames": {
-                  "type": "string",
-                  "description": "Valid JavaScript property name (camelCase) or HTML data-*/aria-* attribute (kebab-case)",
-                  "title": "Component Prop Key",
-                  "examples": [
-                    "className",
-                    "size",
-                    "enabled",
-                    "maxWidth",
-                    "data-testid",
-                    "aria-label"
-                  ],
-                  "pattern": "^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$"
                 },
                 "description": "Properties for component templates, supporting variable references",
                 "title": "Component Props"
@@ -711,14 +697,9 @@
                     "required": [],
                     "properties": {},
                     "patternProperties": {
-                      "": {
+                      "^[a-zA-Z][a-zA-Z0-9-]*$": {
                         "type": "string"
                       }
-                    },
-                    "propertyNames": {
-                      "type": "string",
-                      "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9-]*$",
-                      "pattern": "^[a-zA-Z][a-zA-Z0-9-]*$"
                     },
                     "description": "Element attributes"
                   },
@@ -854,7 +835,7 @@
               "required": [],
               "properties": {},
               "patternProperties": {
-                "": {
+                "^[a-z]{2}(-[A-Z]{2})?$": {
                   "type": "object",
                   "required": [],
                   "properties": {
@@ -873,12 +854,6 @@
                   },
                   "additionalProperties": false
                 }
-              },
-              "propertyNames": {
-                "type": "string",
-                "description": "Page language code (ISO 639-1 with optional country)",
-                "examples": ["en-US", "fr-FR", "es-ES", "de-DE"],
-                "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
               },
               "description": "Localized metadata translations per language"
             }
@@ -968,7 +943,7 @@
                     "required": [],
                     "properties": {},
                     "patternProperties": {
-                      "": {
+                      "^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$": {
                         "anyOf": [
                           {
                             "type": "string"
@@ -997,20 +972,6 @@
                           }
                         ]
                       }
-                    },
-                    "propertyNames": {
-                      "type": "string",
-                      "description": "Valid JavaScript property name (camelCase) or HTML data-*/aria-* attribute (kebab-case)",
-                      "title": "Component Prop Key",
-                      "examples": [
-                        "className",
-                        "size",
-                        "enabled",
-                        "maxWidth",
-                        "data-testid",
-                        "aria-label"
-                      ],
-                      "pattern": "^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$"
                     },
                     "description": "Properties for component templates, supporting variable references",
                     "title": "Component Props"
@@ -1247,7 +1208,7 @@
                             "required": [],
                             "properties": {},
                             "patternProperties": {
-                              "": {
+                              "^[a-zA-Z][a-zA-Z0-9]*$": {
                                 "anyOf": [
                                   {
                                     "type": "string"
@@ -1276,11 +1237,6 @@
                                   }
                                 ]
                               }
-                            },
-                            "propertyNames": {
-                              "type": "string",
-                              "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                              "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                             },
                             "description": "Props to override"
                           },
@@ -1313,7 +1269,7 @@
                             "required": [],
                             "properties": {},
                             "patternProperties": {
-                              "": {
+                              "^[a-zA-Z][a-zA-Z0-9]*$": {
                                 "anyOf": [
                                   {
                                     "type": "string"
@@ -1342,11 +1298,6 @@
                                   }
                                 ]
                               }
-                            },
-                            "propertyNames": {
-                              "type": "string",
-                              "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                              "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                             },
                             "description": "Props to override"
                           },
@@ -1379,7 +1330,7 @@
                             "required": [],
                             "properties": {},
                             "patternProperties": {
-                              "": {
+                              "^[a-zA-Z][a-zA-Z0-9]*$": {
                                 "anyOf": [
                                   {
                                     "type": "string"
@@ -1408,11 +1359,6 @@
                                   }
                                 ]
                               }
-                            },
-                            "propertyNames": {
-                              "type": "string",
-                              "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                              "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                             },
                             "description": "Props to override"
                           },
@@ -1445,7 +1391,7 @@
                             "required": [],
                             "properties": {},
                             "patternProperties": {
-                              "": {
+                              "^[a-zA-Z][a-zA-Z0-9]*$": {
                                 "anyOf": [
                                   {
                                     "type": "string"
@@ -1474,11 +1420,6 @@
                                   }
                                 ]
                               }
-                            },
-                            "propertyNames": {
-                              "type": "string",
-                              "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                              "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                             },
                             "description": "Props to override"
                           },
@@ -1511,7 +1452,7 @@
                             "required": [],
                             "properties": {},
                             "patternProperties": {
-                              "": {
+                              "^[a-zA-Z][a-zA-Z0-9]*$": {
                                 "anyOf": [
                                   {
                                     "type": "string"
@@ -1540,11 +1481,6 @@
                                   }
                                 ]
                               }
-                            },
-                            "propertyNames": {
-                              "type": "string",
-                              "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                              "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                             },
                             "description": "Props to override"
                           },
@@ -1577,7 +1513,7 @@
                             "required": [],
                             "properties": {},
                             "patternProperties": {
-                              "": {
+                              "^[a-zA-Z][a-zA-Z0-9]*$": {
                                 "anyOf": [
                                   {
                                     "type": "string"
@@ -1606,11 +1542,6 @@
                                   }
                                 ]
                               }
-                            },
-                            "propertyNames": {
-                              "type": "string",
-                              "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                              "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                             },
                             "description": "Props to override"
                           },
@@ -1644,7 +1575,7 @@
                     "required": [],
                     "properties": {},
                     "patternProperties": {
-                      "": {
+                      "^[a-z]{2}(-[A-Z]{2})?$": {
                         "type": "object",
                         "required": [],
                         "properties": {
@@ -1657,7 +1588,7 @@
                             "required": [],
                             "properties": {},
                             "patternProperties": {
-                              "": {
+                              "^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$": {
                                 "anyOf": [
                                   {
                                     "type": "string"
@@ -1687,31 +1618,12 @@
                                 ]
                               }
                             },
-                            "propertyNames": {
-                              "type": "string",
-                              "description": "Valid JavaScript property name (camelCase) or HTML data-*/aria-* attribute (kebab-case)",
-                              "title": "Component Prop Key",
-                              "examples": [
-                                "className",
-                                "size",
-                                "enabled",
-                                "maxWidth",
-                                "data-testid",
-                                "aria-label"
-                              ],
-                              "pattern": "^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$"
-                            },
                             "description": "Properties for component templates, supporting variable references",
                             "title": "Component Props"
                           }
                         },
                         "additionalProperties": false
                       }
-                    },
-                    "propertyNames": {
-                      "type": "string",
-                      "description": "a string matching the pattern ^[a-z]{2}(-[A-Z]{2})?$",
-                      "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
                     },
                     "description": "Localized translations per language for this component"
                   }
@@ -1737,7 +1649,7 @@
                         "required": [],
                         "properties": {},
                         "patternProperties": {
-                          "": {
+                          "^[a-zA-Z][a-zA-Z0-9]*$": {
                             "anyOf": [
                               {
                                 "type": "string"
@@ -1750,13 +1662,6 @@
                               }
                             ]
                           }
-                        },
-                        "propertyNames": {
-                          "type": "string",
-                          "description": "Variable name (alphanumeric)",
-                          "title": "Component Variable Key",
-                          "examples": ["color", "icon", "text", "titleColor"],
-                          "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                         },
                         "description": "Variables to substitute in the component template",
                         "title": "Component Variables"
@@ -1782,7 +1687,7 @@
                         "required": [],
                         "properties": {},
                         "patternProperties": {
-                          "": {
+                          "^[a-zA-Z][a-zA-Z0-9]*$": {
                             "anyOf": [
                               {
                                 "type": "string"
@@ -1795,13 +1700,6 @@
                               }
                             ]
                           }
-                        },
-                        "propertyNames": {
-                          "type": "string",
-                          "description": "Variable name (alphanumeric)",
-                          "title": "Component Variable Key",
-                          "examples": ["color", "icon", "text", "titleColor"],
-                          "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                         },
                         "description": "Variables to substitute in the component template",
                         "title": "Component Variables"
@@ -1846,7 +1744,7 @@
               "required": [],
               "properties": {},
               "patternProperties": {
-                "": {
+                "^[a-zA-Z][a-zA-Z0-9]*$": {
                   "anyOf": [
                     {
                       "type": "boolean",
@@ -1877,11 +1775,6 @@
                   ],
                   "description": "Feature value - either a boolean flag or a configuration object"
                 }
-              },
-              "propertyNames": {
-                "type": "string",
-                "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
               },
               "description": "Client-side feature toggles",
               "title": "Feature Flags"
@@ -2148,7 +2041,7 @@
               "required": [],
               "properties": {},
               "patternProperties": {
-                "": {
+                "^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$": {
                   "anyOf": [
                     {
                       "type": "string"
@@ -2177,20 +2070,6 @@
                     }
                   ]
                 }
-              },
-              "propertyNames": {
-                "type": "string",
-                "description": "Valid JavaScript property name (camelCase) or HTML data-*/aria-* attribute (kebab-case)",
-                "title": "Component Prop Key",
-                "examples": [
-                  "className",
-                  "size",
-                  "enabled",
-                  "maxWidth",
-                  "data-testid",
-                  "aria-label"
-                ],
-                "pattern": "^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$"
               },
               "description": "Properties for component templates, supporting variable references",
               "title": "Component Props"
@@ -2427,7 +2306,7 @@
                       "required": [],
                       "properties": {},
                       "patternProperties": {
-                        "": {
+                        "^[a-zA-Z][a-zA-Z0-9]*$": {
                           "anyOf": [
                             {
                               "type": "string"
@@ -2456,11 +2335,6 @@
                             }
                           ]
                         }
-                      },
-                      "propertyNames": {
-                        "type": "string",
-                        "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                        "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                       },
                       "description": "Props to override"
                     },
@@ -2493,7 +2367,7 @@
                       "required": [],
                       "properties": {},
                       "patternProperties": {
-                        "": {
+                        "^[a-zA-Z][a-zA-Z0-9]*$": {
                           "anyOf": [
                             {
                               "type": "string"
@@ -2522,11 +2396,6 @@
                             }
                           ]
                         }
-                      },
-                      "propertyNames": {
-                        "type": "string",
-                        "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                        "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                       },
                       "description": "Props to override"
                     },
@@ -2559,7 +2428,7 @@
                       "required": [],
                       "properties": {},
                       "patternProperties": {
-                        "": {
+                        "^[a-zA-Z][a-zA-Z0-9]*$": {
                           "anyOf": [
                             {
                               "type": "string"
@@ -2588,11 +2457,6 @@
                             }
                           ]
                         }
-                      },
-                      "propertyNames": {
-                        "type": "string",
-                        "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                        "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                       },
                       "description": "Props to override"
                     },
@@ -2625,7 +2489,7 @@
                       "required": [],
                       "properties": {},
                       "patternProperties": {
-                        "": {
+                        "^[a-zA-Z][a-zA-Z0-9]*$": {
                           "anyOf": [
                             {
                               "type": "string"
@@ -2654,11 +2518,6 @@
                             }
                           ]
                         }
-                      },
-                      "propertyNames": {
-                        "type": "string",
-                        "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                        "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                       },
                       "description": "Props to override"
                     },
@@ -2691,7 +2550,7 @@
                       "required": [],
                       "properties": {},
                       "patternProperties": {
-                        "": {
+                        "^[a-zA-Z][a-zA-Z0-9]*$": {
                           "anyOf": [
                             {
                               "type": "string"
@@ -2720,11 +2579,6 @@
                             }
                           ]
                         }
-                      },
-                      "propertyNames": {
-                        "type": "string",
-                        "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                        "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                       },
                       "description": "Props to override"
                     },
@@ -2757,7 +2611,7 @@
                       "required": [],
                       "properties": {},
                       "patternProperties": {
-                        "": {
+                        "^[a-zA-Z][a-zA-Z0-9]*$": {
                           "anyOf": [
                             {
                               "type": "string"
@@ -2786,11 +2640,6 @@
                             }
                           ]
                         }
-                      },
-                      "propertyNames": {
-                        "type": "string",
-                        "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                        "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                       },
                       "description": "Props to override"
                     },
@@ -2824,7 +2673,7 @@
               "required": [],
               "properties": {},
               "patternProperties": {
-                "": {
+                "^[a-z]{2}(-[A-Z]{2})?$": {
                   "type": "object",
                   "required": [],
                   "properties": {
@@ -2837,7 +2686,7 @@
                       "required": [],
                       "properties": {},
                       "patternProperties": {
-                        "": {
+                        "^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$": {
                           "anyOf": [
                             {
                               "type": "string"
@@ -2867,31 +2716,12 @@
                           ]
                         }
                       },
-                      "propertyNames": {
-                        "type": "string",
-                        "description": "Valid JavaScript property name (camelCase) or HTML data-*/aria-* attribute (kebab-case)",
-                        "title": "Component Prop Key",
-                        "examples": [
-                          "className",
-                          "size",
-                          "enabled",
-                          "maxWidth",
-                          "data-testid",
-                          "aria-label"
-                        ],
-                        "pattern": "^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$"
-                      },
                       "description": "Properties for component templates, supporting variable references",
                       "title": "Component Props"
                     }
                   },
                   "additionalProperties": false
                 }
-              },
-              "propertyNames": {
-                "type": "string",
-                "description": "a string matching the pattern ^[a-z]{2}(-[A-Z]{2})?$",
-                "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
               },
               "description": "Localized translations per language for this component"
             }
@@ -2917,7 +2747,7 @@
                   "required": [],
                   "properties": {},
                   "patternProperties": {
-                    "": {
+                    "^[a-zA-Z][a-zA-Z0-9]*$": {
                       "anyOf": [
                         {
                           "type": "string"
@@ -2930,13 +2760,6 @@
                         }
                       ]
                     }
-                  },
-                  "propertyNames": {
-                    "type": "string",
-                    "description": "Variable name (alphanumeric)",
-                    "title": "Component Variable Key",
-                    "examples": ["color", "icon", "text", "titleColor"],
-                    "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                   },
                   "description": "Variables to substitute in the component template",
                   "title": "Component Variables"
@@ -2962,7 +2785,7 @@
                   "required": [],
                   "properties": {},
                   "patternProperties": {
-                    "": {
+                    "^[a-zA-Z][a-zA-Z0-9]*$": {
                       "anyOf": [
                         {
                           "type": "string"
@@ -2975,13 +2798,6 @@
                         }
                       ]
                     }
-                  },
-                  "propertyNames": {
-                    "type": "string",
-                    "description": "Variable name (alphanumeric)",
-                    "title": "Component Variable Key",
-                    "examples": ["color", "icon", "text", "titleColor"],
-                    "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                   },
                   "description": "Variables to substitute in the component template",
                   "title": "Component Variables"
@@ -6267,20 +6083,13 @@
           "required": [],
           "properties": {},
           "patternProperties": {
-            "": {
+            "^[a-z]+[a-z0-9]*(-[a-z0-9]+)*$": {
               "type": "string",
               "description": "Color value in hex, rgb, rgba, hsl, or hsla format",
               "title": "Color Value",
               "examples": ["#007bff", "#007bff80", "rgb(0, 123, 255)", "hsl(210, 100%, 50%)"],
               "pattern": "^#[0-9A-Fa-f]{6}$|^#[0-9A-Fa-f]{8}$|^rgb\\(|^rgba\\(|^hsl\\(|^hsla\\("
             }
-          },
-          "propertyNames": {
-            "type": "string",
-            "description": "Color name in kebab-case format",
-            "title": "Color Name",
-            "examples": ["primary", "primary-hover", "gray-500", "text-muted"],
-            "pattern": "^[a-z]+[a-z0-9]*(-[a-z0-9]+)*$"
           },
           "description": "Color design tokens with support for semantic naming and variants",
           "title": "Color Palette"
@@ -6290,7 +6099,7 @@
           "required": [],
           "properties": {},
           "patternProperties": {
-            "": {
+            "^[a-zA-Z]+$": {
               "type": "object",
               "required": ["family"],
               "properties": {
@@ -6366,13 +6175,6 @@
               "title": "Font Configuration Item"
             }
           },
-          "propertyNames": {
-            "type": "string",
-            "description": "Semantic font category name (alphabetic characters only)",
-            "title": "Font Category Key",
-            "examples": ["title", "body", "mono", "heading", "label"],
-            "pattern": "^[a-zA-Z]+$"
-          },
           "description": "Typography design tokens for font families and styles",
           "title": "Font Configuration"
         },
@@ -6381,7 +6183,7 @@
           "required": [],
           "properties": {},
           "patternProperties": {
-            "": {
+            "^[a-z]+(-[a-z]+)*$": {
               "type": "string",
               "description": "Spacing value as Tailwind utility classes or CSS values (rem, px, em, %). Supports responsive variants (sm:, md:, lg:) and multiple classes.",
               "title": "Spacing Value",
@@ -6398,21 +6200,6 @@
                 "1.5em"
               ]
             }
-          },
-          "propertyNames": {
-            "type": "string",
-            "description": "Kebab-case name for spacing token (e.g., container-small, not containerSmall)",
-            "title": "Spacing Token Name",
-            "examples": [
-              "section",
-              "container",
-              "container-small",
-              "gap",
-              "gap-small",
-              "padding",
-              "margin"
-            ],
-            "pattern": "^[a-z]+(-[a-z]+)*$"
           },
           "description": "Spacing design tokens for consistent layout",
           "title": "Spacing Configuration",
@@ -6439,7 +6226,7 @@
           "required": [],
           "properties": {},
           "patternProperties": {
-            "": {
+            "^[a-zA-Z][a-zA-Z0-9]*$": {
               "anyOf": [
                 {
                   "anyOf": [
@@ -6508,16 +6295,11 @@
                   "required": [],
                   "properties": {},
                   "patternProperties": {
-                    "": {
+                    "^[a-zA-Z][a-zA-Z0-9]*$": {
                       "type": "string",
                       "description": "a string matching the pattern ^[0-9]+(\\.[0-9]+)?(ms|s)$",
                       "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s)$"
                     }
-                  },
-                  "propertyNames": {
-                    "type": "string",
-                    "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                    "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                   }
                 },
                 {
@@ -6525,7 +6307,7 @@
                   "required": [],
                   "properties": {},
                   "patternProperties": {
-                    "": {
+                    "^[a-zA-Z][a-zA-Z0-9]*$": {
                       "anyOf": [
                         {
                           "type": "string",
@@ -6544,11 +6326,6 @@
                       ],
                       "description": "Transition timing function"
                     }
-                  },
-                  "propertyNames": {
-                    "type": "string",
-                    "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                    "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                   }
                 },
                 {
@@ -6556,7 +6333,7 @@
                   "required": [],
                   "properties": {},
                   "patternProperties": {
-                    "": {
+                    "^[a-zA-Z][a-zA-Z0-9]*$": {
                       "type": "object",
                       "required": [],
                       "properties": {},
@@ -6565,22 +6342,10 @@
                         "title": "unknown"
                       }
                     }
-                  },
-                  "propertyNames": {
-                    "type": "string",
-                    "description": "a string matching the pattern ^[a-zA-Z][a-zA-Z0-9]*$",
-                    "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
                   }
                 }
               ]
             }
-          },
-          "propertyNames": {
-            "type": "string",
-            "description": "Animation name (alphanumeric)",
-            "title": "Animation Key",
-            "examples": ["fadeIn", "slideUp", "modalOpen", "duration", "easing", "keyframes"],
-            "pattern": "^[a-zA-Z][a-zA-Z0-9]*$"
           },
           "description": "Animation and transition design tokens",
           "title": "Animation Configuration"
@@ -6590,20 +6355,13 @@
           "required": [],
           "properties": {},
           "patternProperties": {
-            "": {
+            "^[a-z0-9]+$": {
               "type": "string",
               "description": "Breakpoint value in pixels",
               "title": "Breakpoint Value",
               "examples": ["640px", "768px", "1024px", "1280px"],
               "pattern": "^[0-9]+px$"
             }
-          },
-          "propertyNames": {
-            "type": "string",
-            "description": "Breakpoint name (lowercase alphanumeric)",
-            "title": "Breakpoint Key",
-            "examples": ["sm", "md", "lg", "xl", "2xl"],
-            "pattern": "^[a-z0-9]+$"
           },
           "description": "Responsive design breakpoints",
           "title": "Breakpoints"
@@ -6613,7 +6371,7 @@
           "required": [],
           "properties": {},
           "patternProperties": {
-            "": {
+            "^[a-z0-9]+(-[a-z0-9]+)*$": {
               "type": "string",
               "description": "CSS box-shadow value",
               "title": "Shadow Value",
@@ -6624,13 +6382,6 @@
               ]
             }
           },
-          "propertyNames": {
-            "type": "string",
-            "description": "Semantic shadow name (kebab-case with numbers)",
-            "title": "Shadow Key",
-            "examples": ["sm", "md", "lg", "xl", "2xl", "inner", "none"],
-            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
-          },
           "description": "Box shadow design tokens",
           "title": "Shadows"
         },
@@ -6639,19 +6390,12 @@
           "required": [],
           "properties": {},
           "patternProperties": {
-            "": {
+            "^(DEFAULT|[a-z0-9]+(-[a-z0-9]+)*)$": {
               "type": "string",
               "description": "CSS border-radius value",
               "title": "Border Radius Value",
               "examples": ["0", "0.125rem", "0.5rem", "9999px"]
             }
-          },
-          "propertyNames": {
-            "type": "string",
-            "description": "Semantic radius name (kebab-case with numbers) or DEFAULT for base radius",
-            "title": "Border Radius Key",
-            "examples": ["DEFAULT", "none", "sm", "md", "lg", "2xl", "3xl", "full"],
-            "pattern": "^(DEFAULT|[a-z0-9]+(-[a-z0-9]+)*)$"
           },
           "description": "Border radius design tokens",
           "title": "Border Radius"
@@ -6737,32 +6481,18 @@
           "required": [],
           "properties": {},
           "patternProperties": {
-            "": {
+            "^[a-z]{2}$": {
               "type": "object",
               "required": [],
               "properties": {},
               "patternProperties": {
-                "": {
+                "^[a-zA-Z0-9._-]+$": {
                   "type": "string"
                 }
-              },
-              "propertyNames": {
-                "type": "string",
-                "description": "Key for centralized translations dictionary",
-                "title": "Translation Key",
-                "examples": ["common.save", "nav.home", "homepage.hero.title", "errors.404"],
-                "pattern": "^[a-zA-Z0-9._-]+$"
               },
               "description": "Maps translation keys to localized strings for a single language",
               "title": "Translation Dictionary"
             }
-          },
-          "propertyNames": {
-            "type": "string",
-            "description": "Short language code (2 letters) for URLs and routing",
-            "title": "Language Code",
-            "examples": ["en", "fr", "es", "de", "ar", "he"],
-            "pattern": "^[a-z]{2}$"
           },
           "description": "Translation dictionaries for all supported languages (keyed by short codes: en, fr, es). Use $t:key syntax to reference translations.",
           "title": "Centralized Translations"
@@ -7310,7 +7040,7 @@
             "required": [],
             "properties": {},
             "patternProperties": {
-              "": {
+              "^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$": {
                 "anyOf": [
                   {
                     "type": "string"
@@ -7340,13 +7070,6 @@
                 ]
               }
             },
-            "propertyNames": {
-              "type": "string",
-              "description": "Valid JavaScript property name (camelCase) or HTML data-*/aria-* attribute (kebab-case)",
-              "title": "Component Prop Key",
-              "examples": ["className", "size", "enabled", "maxWidth", "data-testid", "aria-label"],
-              "pattern": "^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$"
-            },
             "description": "Properties for component templates, supporting variable references",
             "title": "Component Props"
           },
@@ -7369,7 +7092,7 @@
                       "required": [],
                       "properties": {},
                       "patternProperties": {
-                        "": {
+                        "^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$": {
                           "anyOf": [
                             {
                               "type": "string"
@@ -7398,20 +7121,6 @@
                             }
                           ]
                         }
-                      },
-                      "propertyNames": {
-                        "type": "string",
-                        "description": "Valid JavaScript property name (camelCase) or HTML data-*/aria-* attribute (kebab-case)",
-                        "title": "Component Prop Key",
-                        "examples": [
-                          "className",
-                          "size",
-                          "enabled",
-                          "maxWidth",
-                          "data-testid",
-                          "aria-label"
-                        ],
-                        "pattern": "^([a-zA-Z][a-zA-Z0-9]*|data-[a-z]+(-[a-z]+)*|aria-[a-z]+(-[a-z]+)*)$"
                       },
                       "description": "Properties for component templates, supporting variable references",
                       "title": "Component Props"
