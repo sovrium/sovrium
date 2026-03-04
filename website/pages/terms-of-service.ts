@@ -713,5 +713,7 @@ export const termsOfService: Page = {
 
     // Footer
     footerI18n,
+
+    { component: 'sovrium-badge' },
   ],
 }

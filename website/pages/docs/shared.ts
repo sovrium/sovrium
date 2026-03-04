@@ -156,8 +156,18 @@ const REFERENCES_EXTERNAL_LINKS: readonly DocsSidebarExternalLink[] = [
     external: true,
   },
   {
-    label: '$t:docs.sidebar.github',
-    href: 'https://github.com/sovrium/sovrium',
+    label: '$t:docs.sidebar.roadmap',
+    href: 'https://github.com/sovrium/sovrium/issues/7107',
+    external: true,
+  },
+  {
+    label: '$t:docs.sidebar.contributing',
+    href: 'https://github.com/sovrium/sovrium/blob/main/CONTRIBUTING.md',
+    external: true,
+  },
+  {
+    label: '$t:docs.sidebar.license',
+    href: 'https://github.com/sovrium/sovrium/blob/main/LICENSE.md',
     external: true,
   },
 ]
@@ -787,7 +797,22 @@ export function docsPage(options: DocsPageOptions): Page {
     meta: {
       title: metaTitle,
       description: metaDescription,
+      author: 'ESSENTIAL SERVICES',
       favicons,
+      openGraph: {
+        title: metaTitle,
+        description: metaDescription,
+        type: 'website',
+        url: `https://sovrium.com${path}`,
+        image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
+        siteName: 'Sovrium',
+      },
+      twitter: {
+        card: 'summary',
+        title: metaTitle,
+        description: metaDescription,
+        image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
+      },
       customElements: shikiCustomStyles,
     },
     scripts: {

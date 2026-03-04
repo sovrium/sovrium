@@ -688,5 +688,7 @@ export const privacyPolicy: Page = {
 
     // Footer
     footerI18n,
+
+    { component: 'sovrium-badge' },
   ],
 }

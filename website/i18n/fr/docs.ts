@@ -6,9 +6,9 @@
  */
 
 export const docs: Record<string, string> = {
-  'docs.banner.title': 'Sovrium v0.1.0 — Developpement actif',
+  'docs.banner.title': 'Sovrium v0.1.0 — Développement actif',
   'docs.banner.body':
-    'Ce projet est en cours de developpement actif. Les APIs, le format de configuration et les fonctionnalites peuvent changer entre les versions.',
+    'Ce projet est en cours de développement actif. Les APIs, le format de configuration et les fonctionnalités peuvent changer entre les versions.',
   'docs.sidebar.toggle': 'Menu',
   'docs.toc.heading': 'Sur cette page',
   'docs.sidebar.section.getStarted': 'Pour commencer',
@@ -16,7 +16,9 @@ export const docs: Record<string, string> = {
   'docs.sidebar.section.references': 'Références',
   'docs.sidebar.jsonSchema': 'JSON Schema',
   'docs.sidebar.llmReference': 'Référence LLM',
-  'docs.sidebar.github': 'GitHub',
+  'docs.sidebar.roadmap': 'Feuille de route',
+  'docs.sidebar.contributing': 'Contribuer',
+  'docs.sidebar.license': 'Licence',
   'docs.sidebar.introduction': 'Introduction',
   'docs.sidebar.introduction.href': '/fr/docs',
   'docs.sidebar.installation': 'Installation',

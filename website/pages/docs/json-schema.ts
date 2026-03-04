@@ -346,6 +346,7 @@ export const docsJsonSchema = docsPage({
                   props: {
                     href: `/schemas/${rawVersion}/app.schema.json`,
                     target: '_blank',
+                    rel: 'noopener noreferrer',
                     className:
                       'inline-flex items-center gap-2 text-sm text-sovereignty-accent hover:text-sovereignty-accent/80 transition-colors',
                   },
@@ -363,6 +364,7 @@ export const docsJsonSchema = docsPage({
                   props: {
                     href: '/schemas/latest/app.schema.json',
                     target: '_blank',
+                    rel: 'noopener noreferrer',
                     className:
                       'inline-flex items-center gap-2 text-sm text-sovereignty-accent hover:text-sovereignty-accent/80 transition-colors',
                   },

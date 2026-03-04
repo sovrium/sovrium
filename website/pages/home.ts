@@ -46,9 +46,19 @@ export const home: Page = {
       organization: {
         '@context': 'https://schema.org',
         '@type': 'Organization',
-        name: 'Sovrium',
+        name: 'ESSENTIAL SERVICES',
+        legalName: 'ESSENTIAL SERVICES',
         url: 'https://sovrium.com',
         logo: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
+        description:
+          'ESSENTIAL SERVICES builds Sovrium, a source-available configuration-driven application platform for digital sovereignty.',
+        founder: {
+          '@type': 'Person',
+          name: 'Thomas Jeanneau',
+          jobTitle: 'Founder',
+          url: 'https://www.linkedin.com/in/thomasjeanneauentrepreneur/',
+        },
+        foundingDate: '2025',
         sameAs: ['https://github.com/sovrium/sovrium', 'https://www.linkedin.com/company/sovrium/'],
       },
       webSite: {
@@ -56,11 +66,6 @@ export const home: Page = {
         '@type': 'WebSite',
         name: 'Sovrium',
         url: 'https://sovrium.com',
-        potentialAction: {
-          '@type': 'SearchAction',
-          target: 'https://sovrium.com/?q={search_term_string}',
-          'query-input': 'required name=search_term_string',
-        },
       },
       softwareApplication: {
         '@context': 'https://schema.org',

@@ -488,6 +488,7 @@ export const docsApiReference = docsPage({
               props: {
                 href: '/docs/openapi.json',
                 target: '_blank',
+                rel: 'noopener noreferrer',
                 className:
                   'inline-flex items-center gap-2 text-sm text-sovereignty-accent hover:text-sovereignty-accent/80 transition-colors',
               },

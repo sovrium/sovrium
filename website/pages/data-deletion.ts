@@ -411,5 +411,7 @@ export const dataDeletion: Page = {
 
     // Footer
     footerI18n,
+
+    { component: 'sovrium-badge' },
   ],
 }
