@@ -58,10 +58,6 @@ export const withGracefulShutdown = (server: ServerInstance): Effect.Effect<neve
       })
     )
 
-    // Log shutdown instructions
-    yield* Console.log('')
-    yield* Console.log('Press Ctrl+C to stop the server')
-
     // Keep the process alive indefinitely
     return yield* Effect.never
   })

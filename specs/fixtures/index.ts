@@ -37,6 +37,7 @@ export {
   cleanupTempConfigFile,
   startCliWithConfigFile,
   captureCliOutput,
+  captureRuntimeOutput,
 } from './cli'
 
 // Export database testing utilities

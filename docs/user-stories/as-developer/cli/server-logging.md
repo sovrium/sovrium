@@ -1,6 +1,6 @@
-# Server Startup Logging
+# Server Logging
 
-> **Feature Area**: CLI - Startup Logging
+> **Feature Area**: CLI - Server Logging (Startup + Runtime)
 > **Schema**: `src/infrastructure/logging/logger.ts`
 > **E2E Specs**: `specs/cli/logging/`
 
@@ -125,3 +125,94 @@ Clean, structured startup output inspired by Vite/Next.js/Astro. Treats logs as 
 
 - Debug output uses existing `logDebug()` which checks `LOG_LEVEL=debug` or `NODE_ENV=development`
 - All diagnostic logs (CSS compiler, schema initializer, bootstrap admin, migrations) are demoted to debug level
+
+---
+
+## US-CLI-LOGGING-004: Silent Runtime for Static Assets
+
+**As a** developer using Sovrium CLI,
+**I want to** see no console output during normal page browsing,
+**so that** the terminal stays clean and only shows meaningful information.
+
+### Acceptance Criteria
+
+| ID     | Criterion                                                  | E2E Spec                     | Status |
+| ------ | ---------------------------------------------------------- | ---------------------------- | ------ |
+| AC-001 | CSS cache hit produces no console output                   | `CLI-LOG-RUNTIME-001`        | .fixme |
+| AC-002 | CSS compilation (first compile) logs at debug level only   | `CLI-LOG-RUNTIME-002`        | .fixme |
+| AC-003 | JS asset serving produces no console output                | `CLI-LOG-RUNTIME-003`        | .fixme |
+| AC-004 | CSS errors still log at error level                        | `CLI-LOG-RUNTIME-004`        | .fixme |
+| AC-005 | No "Press Ctrl+C to stop the server" message after startup | `CLI-LOG-RUNTIME-005`        | .fixme |
+| AC-006 | Regression test covering runtime silence                   | `CLI-LOG-RUNTIME-REGRESSION` | .fixme |
+
+### Implementation References
+
+- CSS route: `src/infrastructure/server/route-setup/static-assets.ts` (removed Console.log tap)
+- JS routes: `src/infrastructure/server/route-setup/static-assets.ts` (migrated to logError)
+- Lifecycle: `src/infrastructure/server/lifecycle.ts` (removed "Press Ctrl+C" message)
+- CSS compiler: `src/infrastructure/css/compiler.ts` (internal logDebug already handles debug logging)
+
+### Notes
+
+- The CSS compiler (`compileCSS()`) already has internal `logDebug('[CSS] Compiled and cached')` and `logDebug('[CSS] Cache hit')` — no additional logging needed at the route level
+- Error logging uses `logError()` for consistent structured format with timestamps
+- "Press Ctrl+C" is universal knowledge and adds no value to startup output
+
+---
+
+## US-CLI-LOGGING-005: Development Request Access Log
+
+**As a** developer debugging request routing,
+**I want to** optionally see a request access log in the terminal,
+**so that** I can trace which routes are being hit and how long they take.
+
+### Acceptance Criteria
+
+| ID     | Criterion                                                             | E2E Spec                    | Status |
+| ------ | --------------------------------------------------------------------- | --------------------------- | ------ |
+| AC-001 | `LOG_LEVEL=debug` logs method, path, status, and duration per request | `CLI-LOG-ACCESS-001`        | .fixme |
+| AC-002 | Static asset paths (`/assets/*`) excluded from access log             | `CLI-LOG-ACCESS-002`        | .fixme |
+| AC-003 | Default log level produces no access log                              | `CLI-LOG-ACCESS-003`        | .fixme |
+| AC-004 | Format: `<-- METHOD /path STATUS TIMEms`                              | `CLI-LOG-ACCESS-004`        | .fixme |
+| AC-005 | Regression test covering access log scenarios                         | `CLI-LOG-ACCESS-REGRESSION` | .fixme |
+
+### Implementation References
+
+- Middleware: `src/infrastructure/server/middleware/request-logger.ts`
+- Mount point: `src/infrastructure/server/server.ts` (createHonoApp)
+- Logger: `src/infrastructure/logging/logger.ts` (logDebug)
+
+### Notes
+
+- Middleware uses Hono's `MiddlewareHandler` pattern (async with `next()`)
+- Excluded prefixes: `/assets/`, `/favicon` — these are high-frequency, low-value for debugging
+- Format inspired by Koa/Fastify request loggers: `<-- GET / 200 12ms`
+
+---
+
+## US-CLI-LOGGING-006: Structured Error Logging
+
+**As a** developer investigating server errors,
+**I want to** see structured error logs with request context,
+**so that** I can quickly identify which request caused the error.
+
+### Acceptance Criteria
+
+| ID     | Criterion                                                  | E2E Spec                   | Status |
+| ------ | ---------------------------------------------------------- | -------------------------- | ------ |
+| AC-001 | Server 500 errors include method and path in log           | `CLI-LOG-ERROR-001`        | .fixme |
+| AC-002 | Page rendering errors use `logError` (not `Console.error`) | `CLI-LOG-ERROR-002`        | .fixme |
+| AC-003 | Auth errors don't leak passwords or tokens                 | `CLI-LOG-ERROR-003`        | .fixme |
+| AC-004 | Regression test covering error logging scenarios           | `CLI-LOG-ERROR-REGRESSION` | .fixme |
+
+### Implementation References
+
+- Global error handler: `src/infrastructure/server/server.ts` (onError)
+- Page routes: `src/infrastructure/server/route-setup/page-routes.ts` (3 catch blocks)
+- Logger: `src/infrastructure/logging/logger.ts` (logError)
+
+### Notes
+
+- `logError()` is synchronous internally (uses `Effect.runSync`), so no `.catch()` needed
+- Error format: `[timestamp] [ERROR] [SERVER] GET /path → 500`
+- Auth error sanitization relies on not passing raw request bodies to log functions

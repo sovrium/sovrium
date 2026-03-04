@@ -137,6 +137,88 @@ export async function startCliWithConfigFile(
 }
 
 /**
+ * Spawn CLI server, wait for startup, execute requests, then capture
+ * output that appeared AFTER the startup URL line.
+ *
+ * This enables testing runtime behavior (request logging, error output)
+ * separately from startup output.
+ *
+ * @param configPath - Path to the config file
+ * @param requestFn - Function to execute HTTP requests against the running server
+ * @param options - Optional env overrides
+ * @returns Startup output and runtime output as separate strings
+ */
+export async function captureRuntimeOutput(
+  configPath: string,
+  requestFn: (url: string) => Promise<void>,
+  options?: { env?: Record<string, string> }
+): Promise<{ startupOutput: string; runtimeOutput: string }> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('bun', ['run', 'src/cli.ts', 'start', configPath], {
+      env: { ...process.env, PORT: '0', ...options?.env },
+      stdio: 'pipe',
+      cwd: process.cwd(),
+    })
+
+    const chunks: string[] = []
+    let resolved = false
+
+    child.stdout?.on('data', (data: Buffer) => chunks.push(data.toString()))
+    child.stderr?.on('data', (data: Buffer) => chunks.push(data.toString()))
+
+    child.on('error', (error) => {
+      if (!resolved) {
+        resolved = true
+        reject(new Error(`Failed to start CLI: ${error.message}`))
+      }
+    })
+
+    // Poll for server URL (indicates startup complete)
+    const interval = setInterval(async () => {
+      const output = chunks.join('')
+      const port = extractPortFromCliOutput(output)
+      if (port && !resolved) {
+        resolved = true
+        clearInterval(interval)
+        const serverUrl = `http://localhost:${port}`
+
+        // Wait for any trailing startup output to flush
+        await new Promise((r) => setTimeout(r, 200))
+        const startupEndIndex = chunks.join('').length
+
+        try {
+          await requestFn(serverUrl)
+
+          // Wait for log output to flush
+          await new Promise((r) => setTimeout(r, 500))
+
+          const fullOutput = chunks.join('')
+          child.kill()
+
+          resolve({
+            startupOutput: fullOutput.slice(0, startupEndIndex),
+            runtimeOutput: fullOutput.slice(startupEndIndex),
+          })
+        } catch (error) {
+          child.kill()
+          reject(error instanceof Error ? error : new Error(String(error)))
+        }
+      }
+    }, 100)
+
+    // Timeout safety
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true
+        clearInterval(interval)
+        child.kill()
+        reject(new Error(`Server did not start within 15s. Output:\n${chunks.join('')}`))
+      }
+    }, 15_000)
+  })
+}
+
+/**
  * Capture CLI command output (stdout + stderr) for error testing
  * @param configPath - Path to the config file to test
  * @param options - Optional settings for waitForServer, env, etc.

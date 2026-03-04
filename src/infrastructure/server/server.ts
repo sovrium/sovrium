@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Console, Effect, Config } from 'effect'
+import { Effect, Config } from 'effect'
 import { Hono } from 'hono'
 import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
 import { compileCSS } from '@/infrastructure/css/compiler'
@@ -20,10 +20,12 @@ import { getEmailConfigFromEffect } from '@/infrastructure/email/email-config'
 import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
 import {
   logDebug,
+  logError,
   renderStartupSummary,
   formatDuration,
   type StartupPhase,
 } from '@/infrastructure/logging/logger'
+import { requestLogger } from '@/infrastructure/server/middleware/request-logger'
 import { createApiRoutes } from '@/infrastructure/server/route-setup/api-routes'
 import {
   setupAuthMiddleware,
@@ -99,6 +101,10 @@ export function createHonoApp(config: HonoAppConfig): Readonly<Hono> {
     })
   }
 
+  // Request access log (debug level only, excludes /assets/*)
+  // eslint-disable-next-line functional/no-expression-statements
+  honoApp.use('*', requestLogger)
+
   // Create base Hono app and chain API routes directly
   // This pattern is required for Hono RPC type inference to work correctly
   // Setup all routes by chaining the setup functions
@@ -118,10 +124,7 @@ export function createHonoApp(config: HonoAppConfig): Readonly<Hono> {
   return honoWithRoutes
     .notFound((c) => c.html(renderNotFoundPage(app), 404))
     .onError((error, c) => {
-      // Fire-and-forget error logging (onError handler is synchronous)
-      Effect.runPromise(Console.error('Server error:', error)).catch(() => {
-        // Silently ignore logging failures to prevent unhandled promise rejections
-      })
+      logError(`[SERVER] ${c.req.method} ${c.req.path} → 500`, error)
       return c.html(renderErrorPage(app), 500)
     })
 }

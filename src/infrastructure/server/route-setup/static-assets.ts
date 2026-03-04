@@ -5,10 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Console, Effect } from 'effect'
+import { Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
 import { generateTrackingScript } from '@/infrastructure/analytics/tracking-script'
 import { compileCSS } from '@/infrastructure/css/compiler'
+import { logError } from '@/infrastructure/logging/logger'
 import { clientScriptPath } from '@/infrastructure/utils/package-paths'
 import type { App } from '@/domain/models/app'
 
@@ -36,18 +37,14 @@ export function getCacheControlHeader(): string {
 export function setupCSSRoute(honoApp: Readonly<Hono>, app: App): Readonly<Hono> {
   return honoApp.get('/assets/output.css', async (c) => {
     try {
-      const result = await Effect.runPromise(
-        compileCSS(app).pipe(Effect.tap(() => Console.log('CSS compiled successfully')))
-      )
+      const result = await Effect.runPromise(compileCSS(app))
 
       return c.text(result.css, 200, {
         'Content-Type': 'text/css',
         'Cache-Control': getCacheControlHeader(),
       })
     } catch (error) {
-      // Log error - intentional side effect for error tracking
-      // eslint-disable-next-line functional/no-expression-statements
-      await Effect.runPromise(Console.error('CSS compilation failed:', error))
+      logError('[CSS] Compilation failed', error)
       return c.text('/* CSS compilation failed */', 500, {
         'Content-Type': 'text/css',
       })
@@ -73,8 +70,7 @@ export function createJavaScriptHandler(scriptName: string, scriptPath: string) 
         'Cache-Control': getCacheControlHeader(),
       })
     } catch (error) {
-      // eslint-disable-next-line functional/no-expression-statements
-      await Effect.runPromise(Console.error(`Failed to load ${scriptName}:`, error))
+      logError(`[ASSETS] Failed to load ${scriptName}`, error)
       return c.text(`/* ${scriptName} failed to load */`, 500, {
         'Content-Type': 'application/javascript',
       })

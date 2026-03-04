@@ -1163,7 +1163,12 @@ export {
   getTemplateManager,
   generateTestDatabaseName,
 } from './fixtures/server'
-export { createTempConfigFile, cleanupTempConfigFile, captureCliOutput } from './fixtures/cli'
+export {
+  createTempConfigFile,
+  cleanupTempConfigFile,
+  captureCliOutput,
+  captureRuntimeOutput,
+} from './fixtures/cli'
 export type { CliServerResult, CliOutputResult } from './fixtures/cli'
 export {
   splitSQLStatements,

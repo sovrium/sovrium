@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Console, Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
+import { logError } from '@/infrastructure/logging/logger'
 import {
   detectLanguageIfEnabled,
   validateLanguageSubdirectory,
@@ -67,7 +67,7 @@ export function setupHomepageRoute(honoApp: Readonly<Hono>, config: HonoAppConfi
       const html = renderHomePage(app, undefined)
       return c.html(html)
     } catch (error) {
-      Effect.runSync(Console.error('Error rendering homepage:', error))
+      logError('[SERVER] GET / → 500 Error rendering homepage', error)
       return c.html(renderErrorPage(app), 500)
     }
   })
@@ -94,7 +94,7 @@ function handleLanguageHomepageRoute(config: HonoAppConfig) {
       const html = renderHomePage(app, urlLanguage)
       return c.html(html)
     } catch (error) {
-      Effect.runSync(Console.error('Error rendering homepage:', error))
+      logError(`[SERVER] GET ${c.req.path} → 500 Error rendering homepage`, error)
       const detectedLang = detectLanguageIfEnabled(app, c.req.header('Accept-Language'))
       return c.html(renderErrorPage(app, detectedLang), 500)
     }
@@ -125,7 +125,7 @@ function handleLanguagePageRoute(config: HonoAppConfig) {
       }
       return c.html(html)
     } catch (error) {
-      Effect.runSync(Console.error('Error rendering page:', error))
+      logError(`[SERVER] GET ${path} → 500 Error rendering page`, error)
       return c.html(renderErrorPage(app, detectedLanguage), 500)
     }
   }
