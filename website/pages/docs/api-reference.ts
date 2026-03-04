@@ -26,7 +26,16 @@ export const docsApiReference = docsPage({
     { label: '$t:docs.apiReference.baseUrl.title', anchor: 'base-url' },
     { label: '$t:docs.apiReference.health.title', anchor: 'health' },
     { label: '$t:docs.apiReference.tables.title', anchor: 'tables' },
-    { label: '$t:docs.apiReference.records.title', anchor: 'records' },
+    {
+      label: '$t:docs.apiReference.records.title',
+      anchor: 'records',
+      children: [
+        { label: '$t:docs.apiReference.records.crud.title', anchor: 'records-crud' },
+        { label: '$t:docs.apiReference.records.batch.title', anchor: 'records-batch' },
+        { label: '$t:docs.apiReference.records.lifecycle.title', anchor: 'records-lifecycle' },
+        { label: '$t:docs.apiReference.records.comments.title', anchor: 'records-comments' },
+      ],
+    },
     { label: '$t:docs.apiReference.views.title', anchor: 'views' },
     { label: '$t:docs.apiReference.activity.title', anchor: 'activity' },
     { label: '$t:docs.apiReference.analyticsEndpoints.title', anchor: 'analytics-endpoints' },
@@ -168,96 +177,120 @@ export const docsApiReference = docsPage({
           '$t:docs.apiReference.records.description',
           'records'
         ),
-        endpointGroup('$t:docs.apiReference.records.crud.title', '', [
-          endpointRow('GET', '/api/tables/{tableId}/records', '$t:docs.apiReference.records.list'),
-          endpointRow(
-            'POST',
-            '/api/tables/{tableId}/records',
-            '$t:docs.apiReference.records.create'
-          ),
-          endpointRow(
-            'GET',
-            '/api/tables/{tableId}/records/{recordId}',
-            '$t:docs.apiReference.records.get'
-          ),
-          endpointRow(
-            'PATCH',
-            '/api/tables/{tableId}/records/{recordId}',
-            '$t:docs.apiReference.records.update'
-          ),
-          endpointRow(
-            'DELETE',
-            '/api/tables/{tableId}/records/{recordId}',
-            '$t:docs.apiReference.records.delete'
-          ),
-        ]),
-        endpointGroup('$t:docs.apiReference.records.batch.title', '', [
-          endpointRow(
-            'POST',
-            '/api/tables/{tableId}/records/batch',
-            '$t:docs.apiReference.records.batchCreate'
-          ),
-          endpointRow(
-            'PATCH',
-            '/api/tables/{tableId}/records/batch',
-            '$t:docs.apiReference.records.batchUpdate'
-          ),
-          endpointRow(
-            'DELETE',
-            '/api/tables/{tableId}/records/batch',
-            '$t:docs.apiReference.records.batchDelete'
-          ),
-          endpointRow(
-            'POST',
-            '/api/tables/{tableId}/records/upsert',
-            '$t:docs.apiReference.records.upsert'
-          ),
-        ]),
-        endpointGroup('$t:docs.apiReference.records.lifecycle.title', '', [
-          endpointRow('GET', '/api/tables/{tableId}/trash', '$t:docs.apiReference.records.trash'),
-          endpointRow(
-            'POST',
-            '/api/tables/{tableId}/records/{recordId}/restore',
-            '$t:docs.apiReference.records.restore'
-          ),
-          endpointRow(
-            'POST',
-            '/api/tables/{tableId}/records/batch/restore',
-            '$t:docs.apiReference.records.batchRestore'
-          ),
-          endpointRow(
-            'GET',
-            '/api/tables/{tableId}/records/{recordId}/history',
-            '$t:docs.apiReference.records.history'
-          ),
-        ]),
-        endpointGroup('$t:docs.apiReference.records.comments.title', '', [
-          endpointRow(
-            'GET',
-            '/api/tables/{tableId}/records/{recordId}/comments',
-            '$t:docs.apiReference.records.commentsList'
-          ),
-          endpointRow(
-            'POST',
-            '/api/tables/{tableId}/records/{recordId}/comments',
-            '$t:docs.apiReference.records.commentsCreate'
-          ),
-          endpointRow(
-            'GET',
-            '.../{recordId}/comments/{commentId}',
-            '$t:docs.apiReference.records.commentsGet'
-          ),
-          endpointRow(
-            'PATCH',
-            '.../{recordId}/comments/{commentId}',
-            '$t:docs.apiReference.records.commentsUpdate'
-          ),
-          endpointRow(
-            'DELETE',
-            '.../{recordId}/comments/{commentId}',
-            '$t:docs.apiReference.records.commentsDelete'
-          ),
-        ]),
+        endpointGroup(
+          '$t:docs.apiReference.records.crud.title',
+          '',
+          [
+            endpointRow(
+              'GET',
+              '/api/tables/{tableId}/records',
+              '$t:docs.apiReference.records.list'
+            ),
+            endpointRow(
+              'POST',
+              '/api/tables/{tableId}/records',
+              '$t:docs.apiReference.records.create'
+            ),
+            endpointRow(
+              'GET',
+              '/api/tables/{tableId}/records/{recordId}',
+              '$t:docs.apiReference.records.get'
+            ),
+            endpointRow(
+              'PATCH',
+              '/api/tables/{tableId}/records/{recordId}',
+              '$t:docs.apiReference.records.update'
+            ),
+            endpointRow(
+              'DELETE',
+              '/api/tables/{tableId}/records/{recordId}',
+              '$t:docs.apiReference.records.delete'
+            ),
+          ],
+          'records-crud'
+        ),
+        endpointGroup(
+          '$t:docs.apiReference.records.batch.title',
+          '',
+          [
+            endpointRow(
+              'POST',
+              '/api/tables/{tableId}/records/batch',
+              '$t:docs.apiReference.records.batchCreate'
+            ),
+            endpointRow(
+              'PATCH',
+              '/api/tables/{tableId}/records/batch',
+              '$t:docs.apiReference.records.batchUpdate'
+            ),
+            endpointRow(
+              'DELETE',
+              '/api/tables/{tableId}/records/batch',
+              '$t:docs.apiReference.records.batchDelete'
+            ),
+            endpointRow(
+              'POST',
+              '/api/tables/{tableId}/records/upsert',
+              '$t:docs.apiReference.records.upsert'
+            ),
+          ],
+          'records-batch'
+        ),
+        endpointGroup(
+          '$t:docs.apiReference.records.lifecycle.title',
+          '',
+          [
+            endpointRow('GET', '/api/tables/{tableId}/trash', '$t:docs.apiReference.records.trash'),
+            endpointRow(
+              'POST',
+              '/api/tables/{tableId}/records/{recordId}/restore',
+              '$t:docs.apiReference.records.restore'
+            ),
+            endpointRow(
+              'POST',
+              '/api/tables/{tableId}/records/batch/restore',
+              '$t:docs.apiReference.records.batchRestore'
+            ),
+            endpointRow(
+              'GET',
+              '/api/tables/{tableId}/records/{recordId}/history',
+              '$t:docs.apiReference.records.history'
+            ),
+          ],
+          'records-lifecycle'
+        ),
+        endpointGroup(
+          '$t:docs.apiReference.records.comments.title',
+          '',
+          [
+            endpointRow(
+              'GET',
+              '/api/tables/{tableId}/records/{recordId}/comments',
+              '$t:docs.apiReference.records.commentsList'
+            ),
+            endpointRow(
+              'POST',
+              '/api/tables/{tableId}/records/{recordId}/comments',
+              '$t:docs.apiReference.records.commentsCreate'
+            ),
+            endpointRow(
+              'GET',
+              '.../{recordId}/comments/{commentId}',
+              '$t:docs.apiReference.records.commentsGet'
+            ),
+            endpointRow(
+              'PATCH',
+              '.../{recordId}/comments/{commentId}',
+              '$t:docs.apiReference.records.commentsUpdate'
+            ),
+            endpointRow(
+              'DELETE',
+              '.../{recordId}/comments/{commentId}',
+              '$t:docs.apiReference.records.commentsDelete'
+            ),
+          ],
+          'records-comments'
+        ),
       ],
     },
 

@@ -86,7 +86,14 @@ export const docsQuickStart = docsPage({
   metaTitle: '$t:docs.quickStart.meta.title',
   metaDescription: '$t:docs.quickStart.meta.description',
   toc: [
-    { label: '$t:docs.quickStart.chooseApproach', anchor: 'choose-approach' },
+    {
+      label: '$t:docs.quickStart.chooseApproach',
+      anchor: 'choose-approach',
+      children: [
+        { label: '$t:docs.quickStart.yaml.title', anchor: 'option-yaml' },
+        { label: '$t:docs.quickStart.ts.title', anchor: 'option-typescript' },
+      ],
+    },
     { label: '$t:docs.quickStart.whatsNext.title', anchor: 'whats-next' },
   ],
   content: [
@@ -132,6 +139,7 @@ export const docsQuickStart = docsPage({
           type: 'h3',
           content: '$t:docs.quickStart.yaml.title',
           props: {
+            id: 'option-yaml',
             className: 'text-xl font-bold mb-2 text-sovereignty-light',
           },
         },
@@ -186,6 +194,7 @@ export const docsQuickStart = docsPage({
           type: 'h3',
           content: '$t:docs.quickStart.ts.title',
           props: {
+            id: 'option-typescript',
             className: 'text-xl font-bold mb-2 text-sovereignty-light',
           },
         },

@@ -23,6 +23,7 @@ export default [
       'schemas/**', // Generated schema exports
       'tmp/**', // Temporary test files
       'eslint/**', // ESLint config modules - not subject to linting
+      'website/build/**', // Website static build output
     ],
   },
 

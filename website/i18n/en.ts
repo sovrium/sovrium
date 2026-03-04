@@ -89,34 +89,12 @@ export const en: Record<string, string> = {
   'home.problem.stat2.label': 'Of SaaS platforms let you export your full schema and workflows',
   'home.problem.stat3.value': '87%',
   'home.problem.stat3.label': 'Of IT leaders plan to reduce SaaS sprawl',
-  'home.problem.stat3.source': 'Source: Zylo 2024 SaaS Management Index',
-  'home.problem.hidden.title': 'The Hidden Costs of SaaS Dependency',
-  'home.problem.hidden.cost1.title': 'Vendor Lock-in \u2014 ',
-  'home.problem.hidden.cost1.description':
-    'Your data, workflows, and team habits are trapped in someone else\u2019s platform.',
-  'home.problem.hidden.cost2.title': 'Per-Seat Pricing \u2014 ',
-  'home.problem.hidden.cost2.description':
-    'Costs scale with headcount, not value. Growing your team means growing your SaaS bill.',
-  'home.problem.hidden.cost3.title': 'Feature Bloat \u2014 ',
-  'home.problem.hidden.cost3.description':
-    'You pay for thousands of features you never use, while the ones you need are behind enterprise paywalls.',
 
   // ── Home: Solution Overview ─────────────────────────────────────────
   'home.solution.title': 'One Config. Full Application.',
   'home.solution.description':
     'Sovrium turns a simple configuration file into a complete business application \u2014 authentication, database, API, pages, and admin panel included.',
   'home.solution.code.alsoWorks': 'Also works with YAML and JSON configs:',
-  'home.solution.howItWorks.title': 'How It Works',
-  'home.solution.howItWorks.step1.title': 'Configure',
-  'home.solution.howItWorks.step1.description':
-    'Define your app schema in TypeScript, YAML, or JSON.',
-  'home.solution.howItWorks.step2.title': 'Deploy',
-  'home.solution.howItWorks.step2.description': 'Run on your server, your cloud, your laptop.',
-  'home.solution.howItWorks.step3.title': 'Own',
-  'home.solution.howItWorks.step3.description': 'Full source code access, full data control.',
-  'home.solution.howItWorks.step4.title': 'Evolve',
-  'home.solution.howItWorks.step4.description':
-    'Add features by updating your config. No migration pain.',
 
   // ── Home: Comparison ────────────────────────────────────────────────
   'home.comparison.title': 'The Self-Hosted Advantage',
@@ -171,17 +149,14 @@ export const en: Record<string, string> = {
   'home.features.data.point1': '\u2022 41 field types with relations, lookups & formulas',
   'home.features.data.point2': '\u2022 Auto-generated REST API with OpenAPI docs',
   'home.features.data.point3': '\u2022 Sorting, filtering, pagination & bulk operations',
-  'home.features.data.point4': '\u2022 Type-safe client SDK included',
   'home.features.auth.title': '\uD83D\uDD10 Auth & Access Control',
   'home.features.auth.point1': '\u2022 Email/password, social OAuth & magic links',
   'home.features.auth.point2': '\u2022 Role-based access (admin, member, viewer)',
   'home.features.auth.point3': '\u2022 Two-factor authentication & passkeys',
-  'home.features.auth.point4': '\u2022 Session management & rate limiting',
   'home.features.ui.title': '\uD83C\uDFA8 UI & Theming',
   'home.features.ui.point1': '\u2022 62 component types with SSR React pages',
   'home.features.ui.point2': '\u2022 Custom color schemes & typography',
   'home.features.ui.point3': '\u2022 Dark mode & multi-language (i18n)',
-  'home.features.ui.point4': '\u2022 Responsive layouts with CSS variable theming',
 
   // ── Home: Getting Started ───────────────────────────────────────────
   'home.gettingStarted.title': 'Get Started in Minutes',
@@ -804,6 +779,7 @@ export const en: Record<string, string> = {
   'docs.toc.heading': 'On this page',
   'docs.sidebar.section.getStarted': 'Get Started',
   'docs.sidebar.section.appSchema': 'App Schema',
+  'docs.sidebar.section.resources': 'Resources',
   'docs.sidebar.introduction': 'Introduction',
   'docs.sidebar.introduction.href': '/en/docs',
   'docs.sidebar.installation': 'Installation',

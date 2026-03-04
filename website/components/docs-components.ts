@@ -24,8 +24,10 @@ export const docsNavLink: ComponentTemplate = {
 }
 
 // ─── docs-code-block: Syntax-highlighted code with Shiki + copy button ──────
-// vars: { code: 'name: my-app\n...', lang: 'yaml' }
+// vars: { code, lang, langIcon, langLabel }
 // lang: yaml | json | typescript | bash | text (default: yaml)
+// langIcon: Lucide icon name for the language header (e.g. 'file-text', 'terminal')
+// langLabel: Display label for the language header (e.g. 'YAML', 'Terminal')
 // Shiki script upgrades [data-shiki] elements post-render; plain text is fallback
 export const docsCodeBlock: ComponentTemplate = {
   name: 'docs-code-block',
@@ -35,6 +37,24 @@ export const docsCodeBlock: ComponentTemplate = {
       'docs-code-wrapper relative bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg overflow-hidden my-4',
   },
   children: [
+    {
+      type: 'div',
+      props: {
+        className:
+          'flex items-center gap-1.5 px-4 py-1.5 border-b border-sovereignty-gray-800 text-sovereignty-gray-500',
+      },
+      children: [
+        {
+          type: 'icon',
+          props: { name: '$langIcon', size: 12 },
+        },
+        {
+          type: 'span',
+          content: '$langLabel',
+          props: { className: 'text-[11px] font-medium uppercase tracking-wider' },
+        },
+      ],
+    },
     {
       type: 'div',
       props: {
@@ -126,8 +146,51 @@ export const docsInfoCard: ComponentTemplate = {
   ],
 }
 
+// ─── docs-info-card-icon: Info card with a leading Lucide icon ───────────────
+// Used in introduction.ts "Why Sovrium?" section
+// vars: { iconName, title, description }
+export const docsInfoCardIcon: ComponentTemplate = {
+  name: 'docs-info-card-icon',
+  type: 'div',
+  props: {
+    className:
+      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent/30 transition-colors',
+  },
+  children: [
+    {
+      type: 'div',
+      props: { className: 'flex items-center gap-2.5 mb-3' },
+      children: [
+        {
+          type: 'div',
+          props: {
+            className:
+              'flex items-center justify-center w-8 h-8 rounded-lg bg-sovereignty-accent/10 text-sovereignty-accent flex-shrink-0',
+          },
+          children: [
+            {
+              type: 'icon',
+              props: { name: '$iconName', size: 16 },
+            },
+          ],
+        },
+        {
+          type: 'h4',
+          content: '$title',
+          props: { className: 'text-lg font-semibold text-sovereignty-light' },
+        },
+      ],
+    },
+    {
+      type: 'paragraph',
+      content: '$description',
+      props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed' },
+    },
+  ],
+}
+
 // ─── docs-resource-link: Linked resource card with description ──────────────
-// Used in docs Resources section (6 cards)
+// Used in docs Resources section (7 cards)
 // vars: { label, href, description }
 export const docsResourceLink: ComponentTemplate = {
   name: 'docs-resource-link',
@@ -139,11 +202,22 @@ export const docsResourceLink: ComponentTemplate = {
   children: [
     {
       type: 'link',
-      content: '$label',
       props: {
         href: '$href',
-        className: 'font-semibold text-sovereignty-accent hover:underline',
+        className:
+          'inline-flex items-center gap-1.5 font-semibold text-sovereignty-accent hover:underline',
       },
+      children: [
+        {
+          type: 'span',
+          content: '$label',
+          props: {},
+        },
+        {
+          type: 'icon',
+          props: { name: 'external-link', size: 12, className: 'opacity-60' },
+        },
+      ],
     },
     {
       type: 'paragraph',
@@ -167,7 +241,7 @@ export const docsBadgeItem: ComponentTemplate = {
 }
 
 // ─── docs-callout: Tip/warning/info box with colored left border ────────────
-// vars: { icon, title, body, borderColor, bgColor, titleColor, textColor }
+// vars: { iconName, title, body, borderColor, bgColor, titleColor, iconColor, textColor }
 export const docsCallout: ComponentTemplate = {
   name: 'docs-callout',
   type: 'div',
@@ -180,9 +254,14 @@ export const docsCallout: ComponentTemplate = {
       props: { className: 'flex items-start gap-3' },
       children: [
         {
-          type: 'span',
-          content: '$icon',
-          props: { className: 'text-lg flex-shrink-0 mt-0.5' },
+          type: 'div',
+          props: { className: 'flex-shrink-0 mt-0.5 $iconColor' },
+          children: [
+            {
+              type: 'icon',
+              props: { name: '$iconName', size: 16 },
+            },
+          ],
         },
         {
           type: 'div',

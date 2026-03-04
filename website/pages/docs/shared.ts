@@ -41,6 +41,7 @@ const docsSidebarToggleScript = {
 export interface TocEntry {
   readonly label: string
   readonly anchor: string
+  readonly children?: readonly TocEntry[]
 }
 
 // ─── Docs Pages Definition ──────────────────────────────────────────────────
@@ -55,6 +56,7 @@ export interface DocsPageEntry {
 export interface DocsSidebarSection {
   readonly id: string
   readonly label?: string
+  readonly icon?: string
   readonly pages: readonly DocsPageEntry[]
 }
 
@@ -143,15 +145,19 @@ export const DOCS_SIDEBAR_SECTIONS: readonly DocsSidebarSection[] = [
   {
     id: 'get-started',
     label: '$t:docs.sidebar.section.getStarted',
+    icon: 'rocket',
     pages: GET_STARTED_PAGES,
   },
   {
     id: 'app-schema',
     label: '$t:docs.sidebar.section.appSchema',
+    icon: 'file-code-2',
     pages: APP_SCHEMA_PAGES,
   },
   {
     id: 'resources',
+    label: '$t:docs.sidebar.section.resources',
+    icon: 'book-open',
     pages: RESOURCES_PAGES,
   },
 ]
@@ -166,14 +172,17 @@ export const DOCS_PAGES: readonly DocsPageEntry[] = [
 // ─── Badge Group Helper ─────────────────────────────────────────────────────
 // Structural composition that wraps $ref badge-item components with a title.
 
-export const badgeGroup = (title: string, items: readonly string[]) => ({
+export const badgeGroup = (title: string, items: readonly string[], anchor?: string) => ({
   type: 'div' as const,
   props: { className: 'mb-6' },
   children: [
     {
       type: 'h4' as const,
       content: title,
-      props: { className: 'text-sm font-semibold text-sovereignty-light mb-2' },
+      props: {
+        className: 'text-sm font-semibold text-sovereignty-light mb-2',
+        ...(anchor ? { id: anchor } : {}),
+      },
     },
     {
       type: 'div' as const,
@@ -187,12 +196,28 @@ export const badgeGroup = (title: string, items: readonly string[]) => ({
 })
 
 // ─── Code Block Helper ──────────────────────────────────────────────────────
-// Shortcut for creating a docs-code-block $ref with lang.
+// Shortcut for creating a docs-code-block $ref with lang, icon, and label.
 
-export const codeBlock = (code: string, lang: string = 'yaml') => ({
-  $ref: 'docs-code-block' as const,
-  vars: { code, lang },
-})
+const LANG_META: Record<string, { icon: string; label: string }> = {
+  bash: { icon: 'terminal', label: 'Terminal' },
+  shell: { icon: 'terminal', label: 'Terminal' },
+  json: { icon: 'braces', label: 'JSON' },
+  yaml: { icon: 'file-text', label: 'YAML' },
+  yml: { icon: 'file-text', label: 'YAML' },
+  typescript: { icon: 'file-code', label: 'TypeScript' },
+  ts: { icon: 'file-code', label: 'TypeScript' },
+  javascript: { icon: 'file-code', label: 'JavaScript' },
+  js: { icon: 'file-code', label: 'JavaScript' },
+  text: { icon: 'file-text', label: 'Text' },
+}
+
+export const codeBlock = (code: string, lang: string = 'yaml') => {
+  const meta = LANG_META[lang] ?? { icon: 'file-text', label: lang.toUpperCase() }
+  return {
+    $ref: 'docs-code-block' as const,
+    vars: { code, lang, langIcon: meta.icon, langLabel: meta.label },
+  }
+}
 
 /** Code block indented to align with step text content (past the numbered circle). */
 export const stepCodeBlock = (code: string, lang: string = 'yaml') => ({
@@ -207,12 +232,13 @@ export const stepCodeBlock = (code: string, lang: string = 'yaml') => ({
 export const calloutTip = (title: string, body: string) => ({
   $ref: 'docs-callout' as const,
   vars: {
-    icon: '\u{1F4A1}',
+    iconName: 'lightbulb',
     title,
     body,
     borderColor: 'border-sovereignty-accent',
     bgColor: 'bg-sovereignty-accent/5',
     titleColor: 'text-sovereignty-accent',
+    iconColor: 'text-sovereignty-accent',
     textColor: 'text-sovereignty-gray-300',
   },
 })
@@ -220,12 +246,13 @@ export const calloutTip = (title: string, body: string) => ({
 export const calloutWarning = (title: string, body: string) => ({
   $ref: 'docs-callout' as const,
   vars: {
-    icon: '\u26A0\uFE0F',
+    iconName: 'triangle-alert',
     title,
     body,
     borderColor: 'border-yellow-500',
     bgColor: 'bg-yellow-500/5',
     titleColor: 'text-yellow-400',
+    iconColor: 'text-yellow-400',
     textColor: 'text-sovereignty-gray-300',
   },
 })
@@ -321,7 +348,12 @@ export const endpointRow = (
 })
 
 /** Wraps a list of endpointRow() calls with a sub-section title and consistent spacing. */
-export const endpointGroup = (title: string, description: string, rows: readonly object[]) => ({
+export const endpointGroup = (
+  title: string,
+  description: string,
+  rows: readonly object[],
+  anchor?: string
+) => ({
   type: 'div' as const,
   props: { className: 'space-y-1 mt-4 first:mt-0' },
   children: [
@@ -333,6 +365,7 @@ export const endpointGroup = (title: string, description: string, rows: readonly
             content: title,
             props: {
               className: 'text-lg font-semibold text-sovereignty-light mb-1',
+              ...(anchor ? { id: anchor } : {}),
             },
           },
         ]
@@ -379,23 +412,64 @@ const INACTIVE_CLASS =
 
 function buildSidebarLinks(activeId: string): readonly object[] {
   return DOCS_SIDEBAR_SECTIONS.flatMap((section) => [
-    // Section header label (omitted when no label — standalone links get spacing only)
+    // Section header label with optional icon (omitted when no label — standalone links get spacing only)
     ...(section.label
       ? [
           {
-            type: 'span' as const,
-            content: section.label,
+            type: 'div' as const,
             props: {
-              className:
-                'block text-[11px] font-semibold uppercase tracking-wider text-sovereignty-gray-500 px-3 pt-5 pb-1 first:pt-0',
+              className: 'flex items-center gap-1.5 px-3 pt-5 pb-1 first:pt-0',
             },
+            children: [
+              ...(section.icon
+                ? [
+                    {
+                      type: 'icon' as const,
+                      props: {
+                        name: section.icon,
+                        size: 12,
+                        className: 'text-sovereignty-gray-500',
+                      },
+                    },
+                  ]
+                : []),
+              {
+                type: 'span' as const,
+                content: section.label,
+                props: {
+                  className:
+                    'text-[11px] font-semibold uppercase tracking-wider text-sovereignty-gray-500',
+                },
+              },
+            ],
           },
         ]
       : [
           {
             type: 'div' as const,
             props: { className: 'pt-4' },
-            children: [] as readonly object[],
+            children: [
+              ...(section.icon
+                ? [
+                    {
+                      type: 'div' as const,
+                      props: {
+                        className: 'flex items-center gap-1.5 px-3 pb-1',
+                      },
+                      children: [
+                        {
+                          type: 'icon' as const,
+                          props: {
+                            name: section.icon,
+                            size: 12,
+                            className: 'text-sovereignty-gray-500',
+                          },
+                        },
+                      ],
+                    },
+                  ]
+                : []),
+            ],
           },
         ]),
     // Section page links
@@ -428,8 +502,13 @@ function buildPrevNext(activeId: string) {
         children: [
           {
             type: 'span' as const,
-            content: '\u2190',
             props: { className: 'transition-transform group-hover:-translate-x-1' },
+            children: [
+              {
+                type: 'icon' as const,
+                props: { name: 'chevron-left', size: 16 },
+              },
+            ],
           },
           {
             type: 'span' as const,
@@ -456,8 +535,13 @@ function buildPrevNext(activeId: string) {
           },
           {
             type: 'span' as const,
-            content: '\u2192',
             props: { className: 'transition-transform group-hover:translate-x-1' },
+            children: [
+              {
+                type: 'icon' as const,
+                props: { name: 'chevron-right', size: 16 },
+              },
+            ],
           },
         ],
       }
@@ -474,9 +558,10 @@ function buildPrevNext(activeId: string) {
 }
 
 // ─── TOC Scroll Tracking Script ─────────────────────────────────────────────
-// Uses IntersectionObserver to highlight the currently visible section in the
-// right-side "On this page" table of contents. Activates the link whose target
-// section is most recently scrolled into the top portion of the viewport.
+// Uses a scroll listener to highlight the currently visible section in the
+// right-side "On this page" table of contents. Finds the last heading whose
+// top is above a threshold (100px from viewport top) to determine the active
+// section. Falls back to the first section when scrolled to the very top.
 
 const tocScrollTrackingScript = {
   code: [
@@ -487,30 +572,39 @@ const tocScrollTrackingScript = {
     'if(!links.length)return;',
     'var ids=[];',
     'links.forEach(function(l){ids.push(l.getAttribute("data-toc-anchor"))});',
+    'var els=[];',
+    'ids.forEach(function(id){var el=document.getElementById(id);if(el)els.push({id:id,el:el})});',
+    'if(!els.length)return;',
     'var activeId=null;',
     'function setActive(id){',
     'if(id===activeId)return;',
     'activeId=id;',
     'links.forEach(function(l){',
     'var a=l.getAttribute("data-toc-anchor");',
+    'var isChild=l.hasAttribute("data-toc-child");',
+    'var inactiveClass=isChild?"text-sovereignty-gray-500":"text-sovereignty-gray-400";',
     'if(a===id){',
-    'l.classList.remove("text-sovereignty-gray-400");',
+    'l.classList.remove(inactiveClass);',
     'l.classList.add("text-sovereignty-accent","font-medium");',
     '}else{',
     'l.classList.remove("text-sovereignty-accent","font-medium");',
-    'l.classList.add("text-sovereignty-gray-400");',
+    'l.classList.add(inactiveClass);',
     '}',
     '});',
     '}',
-    'var observer=new IntersectionObserver(function(entries){',
-    'entries.forEach(function(e){',
-    'if(e.isIntersecting){setActive(e.target.id)}',
-    '});',
-    '},{rootMargin:"-80px 0px -70% 0px",threshold:0});',
-    'ids.forEach(function(id){',
-    'var el=document.getElementById(id);',
-    'if(el)observer.observe(el);',
-    '});',
+    'var ticking=false;',
+    'function update(){',
+    'var found=null;',
+    'for(var i=0;i<els.length;i++){',
+    'if(els[i].el.getBoundingClientRect().top<=100)found=els[i].id;',
+    '}',
+    'setActive(found||els[0].id);',
+    'ticking=false;',
+    '}',
+    'window.addEventListener("scroll",function(){',
+    'if(!ticking){ticking=true;requestAnimationFrame(update)}',
+    '},{passive:true});',
+    'update();',
     '})();',
   ].join(''),
   position: 'body-end' as const,
@@ -519,6 +613,36 @@ const tocScrollTrackingScript = {
 // ─── TOC Builder ────────────────────────────────────────────────────────────
 // Builds the right-side "On this page" navigation from TocEntry array.
 // Returns an empty array when there are no entries (page has no sections).
+
+function buildTocLink(entry: TocEntry, isChild: boolean = false): object {
+  const className = isChild
+    ? 'block py-0.5 text-[12px] leading-snug text-sovereignty-gray-500 hover:text-sovereignty-accent transition-colors duration-150'
+    : 'block py-1 text-[13px] leading-snug text-sovereignty-gray-400 hover:text-sovereignty-accent transition-colors duration-150'
+  const props: Record<string, string> = {
+    href: `#${entry.anchor}`,
+    'data-toc-anchor': entry.anchor,
+    className,
+    ...(isChild ? { 'data-toc-child': '' } : {}),
+  }
+  return {
+    type: 'link' as const,
+    content: entry.label,
+    props,
+  }
+}
+
+function buildTocEntries(entries: readonly TocEntry[]): readonly object[] {
+  return entries.flatMap((entry) => {
+    const parentLink = buildTocLink(entry)
+    if (!entry.children || entry.children.length === 0) return [parentLink]
+    const childLinks = {
+      type: 'div' as const,
+      props: { className: 'pl-3 space-y-0.5' },
+      children: entry.children.map((child) => buildTocLink(child, true)),
+    }
+    return [parentLink, childLinks]
+  })
+}
 
 function buildTocColumn(entries: readonly TocEntry[]): readonly object[] {
   if (entries.length === 0) return []
@@ -545,16 +669,7 @@ function buildTocColumn(entries: readonly TocEntry[]): readonly object[] {
           props: {
             className: 'border-l border-sovereignty-gray-800 pl-3 space-y-1',
           },
-          children: entries.map((entry) => ({
-            type: 'link' as const,
-            content: entry.label,
-            props: {
-              href: `#${entry.anchor}`,
-              'data-toc-anchor': entry.anchor,
-              className:
-                'block py-1 text-[13px] leading-snug text-sovereignty-gray-400 hover:text-sovereignty-accent transition-colors duration-150',
-            },
-          })),
+          children: buildTocEntries(entries),
         },
       ],
     },
@@ -621,13 +736,27 @@ export function docsPage(options: DocsPageOptions): Page {
                 children: [
                   {
                     type: 'button',
-                    content: '$t:docs.sidebar.toggle',
                     props: {
                       id: 'docs-sidebar-toggle',
                       type: 'button',
                       className:
                         'w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-sovereignty-gray-300 bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg hover:bg-sovereignty-gray-800 transition-colors',
                     },
+                    children: [
+                      {
+                        type: 'span' as const,
+                        content: '$t:docs.sidebar.toggle',
+                        props: {},
+                      },
+                      {
+                        type: 'icon' as const,
+                        props: {
+                          name: 'chevron-down',
+                          size: 16,
+                          className: 'text-sovereignty-gray-500',
+                        },
+                      },
+                    ],
                   },
                 ],
               },
@@ -690,6 +819,9 @@ export function docsPage(options: DocsPageOptions): Page {
 
       // ── Footer ──────────────────────────────────────────────────────────
       footerI18n,
+
+      // ── Built with Sovrium Badge ──────────────────────────────────────────
+      { component: 'sovrium-badge' },
     ],
   } as Page
 }

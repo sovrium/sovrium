@@ -76,29 +76,33 @@ export const docsIntroduction = docsPage({
           props: { className: 'grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4' },
           children: [
             {
-              $ref: 'docs-info-card',
+              $ref: 'docs-info-card-icon',
               vars: {
+                iconName: 'shield',
                 title: '$t:docs.introduction.why.point1.title',
                 description: '$t:docs.introduction.why.point1.description',
               },
             },
             {
-              $ref: 'docs-info-card',
+              $ref: 'docs-info-card-icon',
               vars: {
+                iconName: 'file-cog',
                 title: '$t:docs.introduction.why.point2.title',
                 description: '$t:docs.introduction.why.point2.description',
               },
             },
             {
-              $ref: 'docs-info-card',
+              $ref: 'docs-info-card-icon',
               vars: {
+                iconName: 'rocket',
                 title: '$t:docs.introduction.why.point3.title',
                 description: '$t:docs.introduction.why.point3.description',
               },
             },
             {
-              $ref: 'docs-info-card',
+              $ref: 'docs-info-card-icon',
               vars: {
+                iconName: 'git-branch',
                 title: '$t:docs.introduction.why.point4.title',
                 description: '$t:docs.introduction.why.point4.description',
               },

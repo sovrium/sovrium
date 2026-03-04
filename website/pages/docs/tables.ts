@@ -24,8 +24,30 @@ export const docsTables = docsPage({
     { label: '$t:docs.tables.structure.title', anchor: 'table-structure' },
     { label: '$t:docs.tables.tableProps.title', anchor: 'table-properties' },
     { label: '$t:docs.tables.baseFields.title', anchor: 'base-fields' },
-    { label: '$t:docs.tables.fieldTypes.title', anchor: 'field-types' },
-    { label: '$t:docs.tables.relational.title', anchor: 'relational-fields' },
+    {
+      label: '$t:docs.tables.fieldTypes.title',
+      anchor: 'field-types',
+      children: [
+        { label: '$t:docs.tables.fieldTypes.text', anchor: 'field-text' },
+        { label: '$t:docs.tables.fieldTypes.numeric', anchor: 'field-numeric' },
+        { label: '$t:docs.tables.fieldTypes.selection', anchor: 'field-selection' },
+        { label: '$t:docs.tables.fieldTypes.dateTime', anchor: 'field-datetime' },
+        { label: '$t:docs.tables.fieldTypes.user', anchor: 'field-user' },
+        { label: '$t:docs.tables.fieldTypes.media', anchor: 'field-media' },
+        { label: '$t:docs.tables.fieldTypes.computed', anchor: 'field-computed' },
+        { label: '$t:docs.tables.fieldTypes.advanced', anchor: 'field-advanced' },
+      ],
+    },
+    {
+      label: '$t:docs.tables.relational.title',
+      anchor: 'relational-fields',
+      children: [
+        { label: 'relationship', anchor: 'rel-relationship' },
+        { label: 'lookup', anchor: 'rel-lookup' },
+        { label: 'rollup', anchor: 'rel-rollup' },
+        { label: 'count', anchor: 'rel-count' },
+      ],
+    },
     { label: '$t:docs.tables.permissions.title', anchor: 'permissions' },
     { label: '$t:docs.tables.indexes.title', anchor: 'indexes-constraints' },
   ],
@@ -133,15 +155,11 @@ export const docsTables = docsPage({
           content: '$t:docs.tables.fieldTypes.text.description',
           props: { className: 'text-sm text-sovereignty-gray-400 mb-2' },
         },
-        badgeGroup('$t:docs.tables.fieldTypes.text', [
-          'single-line-text',
-          'long-text',
-          'rich-text',
-          'email',
-          'url',
-          'phone-number',
-          'barcode',
-        ]),
+        badgeGroup(
+          '$t:docs.tables.fieldTypes.text',
+          ['single-line-text', 'long-text', 'rich-text', 'email', 'url', 'phone-number', 'barcode'],
+          'field-text'
+        ),
         propertyTable([
           { name: 'rich-text.maxLength', description: '$t:docs.tables.fieldTypes.text.maxLength' },
           {
@@ -161,14 +179,11 @@ export const docsTables = docsPage({
           content: '$t:docs.tables.fieldTypes.numeric.description',
           props: { className: 'text-sm text-sovereignty-gray-400 mb-2 mt-6' },
         },
-        badgeGroup('$t:docs.tables.fieldTypes.numeric', [
-          'integer',
-          'decimal',
-          'currency',
-          'percentage',
-          'rating',
-          'progress',
-        ]),
+        badgeGroup(
+          '$t:docs.tables.fieldTypes.numeric',
+          ['integer', 'decimal', 'currency', 'percentage', 'rating', 'progress'],
+          'field-numeric'
+        ),
         propertyTable([
           { name: 'min / max', description: '$t:docs.tables.fieldTypes.numeric.minMax' },
           { name: 'precision', description: '$t:docs.tables.fieldTypes.numeric.precision' },
@@ -203,12 +218,11 @@ export const docsTables = docsPage({
           content: '$t:docs.tables.fieldTypes.selection.description',
           props: { className: 'text-sm text-sovereignty-gray-400 mb-2 mt-6' },
         },
-        badgeGroup('$t:docs.tables.fieldTypes.selection', [
-          'single-select',
-          'multi-select',
-          'checkbox',
-          'status',
-        ]),
+        badgeGroup(
+          '$t:docs.tables.fieldTypes.selection',
+          ['single-select', 'multi-select', 'checkbox', 'status'],
+          'field-selection'
+        ),
         propertyTable([
           { name: 'options', description: '$t:docs.tables.fieldTypes.selection.options' },
           {
@@ -235,7 +249,11 @@ export const docsTables = docsPage({
           content: '$t:docs.tables.fieldTypes.dateTime.description',
           props: { className: 'text-sm text-sovereignty-gray-400 mb-2 mt-6' },
         },
-        badgeGroup('$t:docs.tables.fieldTypes.dateTime', ['date', 'datetime', 'time', 'duration']),
+        badgeGroup(
+          '$t:docs.tables.fieldTypes.dateTime',
+          ['date', 'datetime', 'time', 'duration'],
+          'field-datetime'
+        ),
         propertyTable([
           {
             name: 'dateFormat',
@@ -260,15 +278,19 @@ export const docsTables = docsPage({
         ]),
 
         // User & Audit Fields
-        badgeGroup('$t:docs.tables.fieldTypes.user', [
-          'user',
-          'created-by',
-          'created-at',
-          'updated-by',
-          'updated-at',
-          'deleted-by',
-          'deleted-at',
-        ]),
+        badgeGroup(
+          '$t:docs.tables.fieldTypes.user',
+          [
+            'user',
+            'created-by',
+            'created-at',
+            'updated-by',
+            'updated-at',
+            'deleted-by',
+            'deleted-at',
+          ],
+          'field-user'
+        ),
         {
           type: 'paragraph',
           content: '$t:docs.tables.fieldTypes.user.description',
@@ -276,10 +298,11 @@ export const docsTables = docsPage({
         },
 
         // Media Fields
-        badgeGroup('$t:docs.tables.fieldTypes.media', [
-          'single-attachment',
-          'multiple-attachments',
-        ]),
+        badgeGroup(
+          '$t:docs.tables.fieldTypes.media',
+          ['single-attachment', 'multiple-attachments'],
+          'field-media'
+        ),
         propertyTable([
           {
             name: 'allowedFileTypes',
@@ -299,7 +322,11 @@ export const docsTables = docsPage({
         ]),
 
         // Computed Fields
-        badgeGroup('$t:docs.tables.fieldTypes.computed', ['formula', 'autonumber']),
+        badgeGroup(
+          '$t:docs.tables.fieldTypes.computed',
+          ['formula', 'autonumber'],
+          'field-computed'
+        ),
         propertyTable([
           { name: 'formula', description: '$t:docs.tables.fieldTypes.computed.formula' },
           { name: 'resultType', description: '$t:docs.tables.fieldTypes.computed.resultType' },
@@ -314,13 +341,11 @@ export const docsTables = docsPage({
         ),
 
         // Advanced Fields
-        badgeGroup('$t:docs.tables.fieldTypes.advanced', [
-          'json',
-          'array',
-          'geolocation',
-          'color',
-          'button',
-        ]),
+        badgeGroup(
+          '$t:docs.tables.fieldTypes.advanced',
+          ['json', 'array', 'geolocation', 'color', 'button'],
+          'field-advanced'
+        ),
         propertyTable([
           { name: 'json.schema', description: '$t:docs.tables.fieldTypes.advanced.jsonSchema' },
           { name: 'array.itemType', description: '$t:docs.tables.fieldTypes.advanced.itemType' },
@@ -348,6 +373,7 @@ export const docsTables = docsPage({
           type: 'h4',
           content: 'relationship',
           props: {
+            id: 'rel-relationship',
             className: 'text-base font-semibold text-sovereignty-light mt-4 mb-2 font-mono',
           },
         },
@@ -396,6 +422,7 @@ export const docsTables = docsPage({
           type: 'h4',
           content: 'lookup',
           props: {
+            id: 'rel-lookup',
             className: 'text-base font-semibold text-sovereignty-light mt-6 mb-2 font-mono',
           },
         },
@@ -421,6 +448,7 @@ export const docsTables = docsPage({
           type: 'h4',
           content: 'rollup',
           props: {
+            id: 'rel-rollup',
             className: 'text-base font-semibold text-sovereignty-light mt-6 mb-2 font-mono',
           },
         },
@@ -451,6 +479,7 @@ export const docsTables = docsPage({
           type: 'h4',
           content: 'count',
           props: {
+            id: 'rel-count',
             className: 'text-base font-semibold text-sovereignty-light mt-6 mb-2 font-mono',
           },
         },

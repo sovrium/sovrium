@@ -93,36 +93,12 @@ export const fr: Record<string, string> = {
   'home.problem.stat3.value': '87%',
   'home.problem.stat3.label':
     'Des responsables IT pr\u00E9voient de r\u00E9duire la prolif\u00E9ration SaaS',
-  'home.problem.stat3.source': 'Source : Zylo 2024 SaaS Management Index',
-  'home.problem.hidden.title': 'Les co\u00FBts cach\u00E9s de la d\u00E9pendance au SaaS',
-  'home.problem.hidden.cost1.title': 'D\u00E9pendance fournisseur \u2014 ',
-  'home.problem.hidden.cost1.description':
-    'Vos donn\u00E9es, workflows et habitudes d\u2019\u00E9quipe sont pris au pi\u00E8ge dans la plateforme d\u2019un autre.',
-  'home.problem.hidden.cost2.title': 'Tarification par utilisateur \u2014 ',
-  'home.problem.hidden.cost2.description':
-    'Les co\u00FBts augmentent avec les effectifs, pas la valeur. Agrandir votre \u00E9quipe signifie augmenter votre facture SaaS.',
-  'home.problem.hidden.cost3.title': 'Surcharge fonctionnelle \u2014 ',
-  'home.problem.hidden.cost3.description':
-    'Vous payez des milliers de fonctionnalit\u00E9s que vous n\u2019utilisez jamais, tandis que celles dont vous avez besoin sont derri\u00E8re des offres enterprise.',
 
   // ── Home: Solution Overview ─────────────────────────────────────────
   'home.solution.title': 'Une config. Une application compl\u00E8te.',
   'home.solution.description':
     'Sovrium transforme un simple fichier de configuration en une application m\u00E9tier compl\u00E8te \u2014 authentification, base de donn\u00E9es, API, pages et panneau d\u2019administration inclus.',
   'home.solution.code.alsoWorks': 'Fonctionne aussi avec des configs YAML et JSON :',
-  'home.solution.howItWorks.title': 'Comment \u00E7a marche',
-  'home.solution.howItWorks.step1.title': 'Configurer',
-  'home.solution.howItWorks.step1.description':
-    'D\u00E9finissez votre sch\u00E9ma d\u2019application en TypeScript, YAML ou JSON.',
-  'home.solution.howItWorks.step2.title': 'D\u00E9ployer',
-  'home.solution.howItWorks.step2.description':
-    'Ex\u00E9cutez sur votre serveur, votre cloud, votre portable.',
-  'home.solution.howItWorks.step3.title': 'Poss\u00E9der',
-  'home.solution.howItWorks.step3.description':
-    'Acc\u00E8s complet au code source, contr\u00F4le total des donn\u00E9es.',
-  'home.solution.howItWorks.step4.title': '\u00C9voluer',
-  'home.solution.howItWorks.step4.description':
-    'Ajoutez des fonctionnalit\u00E9s en mettant \u00E0 jour votre config. Sans douleur de migration.',
 
   // ── Home: Comparison ────────────────────────────────────────────────
   'home.comparison.title': 'L\u2019avantage de l\u2019auto-h\u00E9bergement',
@@ -179,17 +155,14 @@ export const fr: Record<string, string> = {
   'home.features.data.point1': '\u2022 41 types de champs avec relations, lookups & formules',
   'home.features.data.point2': '\u2022 API REST auto-g\u00E9n\u00E9r\u00E9e avec docs OpenAPI',
   'home.features.data.point3': '\u2022 Tri, filtrage, pagination & op\u00E9rations en masse',
-  'home.features.data.point4': '\u2022 SDK client typ\u00E9 inclus',
   'home.features.auth.title': '\uD83D\uDD10 Auth & contr\u00F4le d\u2019acc\u00E8s',
   'home.features.auth.point1': '\u2022 Email/mot de passe, OAuth social & liens magiques',
   'home.features.auth.point2': '\u2022 Acc\u00E8s par r\u00F4le (admin, membre, lecteur)',
   'home.features.auth.point3': '\u2022 Authentification \u00E0 deux facteurs & passkeys',
-  'home.features.auth.point4': '\u2022 Gestion des sessions & rate limiting',
   'home.features.ui.title': '\uD83C\uDFA8 UI & th\u00E8mes',
   'home.features.ui.point1': '\u2022 62 types de composants avec pages React SSR',
   'home.features.ui.point2': '\u2022 Sch\u00E9mas de couleurs & typographie personnalis\u00E9s',
   'home.features.ui.point3': '\u2022 Mode sombre & multi-langue (i18n)',
-  'home.features.ui.point4': '\u2022 Layouts responsifs avec th\u00E9matisation CSS variables',
 
   // ── Home: Getting Started ───────────────────────────────────────────
   'home.gettingStarted.title': 'D\u00E9marrez en quelques minutes',
@@ -837,6 +810,7 @@ export const fr: Record<string, string> = {
   'docs.toc.heading': 'Sur cette page',
   'docs.sidebar.section.getStarted': 'Pour commencer',
   'docs.sidebar.section.appSchema': 'Schéma applicatif',
+  'docs.sidebar.section.resources': 'Ressources',
   'docs.sidebar.introduction': 'Introduction',
   'docs.sidebar.introduction.href': '/fr/docs',
   'docs.sidebar.installation': 'Installation',
