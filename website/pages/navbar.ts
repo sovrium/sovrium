@@ -82,6 +82,12 @@ export const searchScript = {
     'var css=document.createElement("link");',
     'css.rel="stylesheet";css.href="/pagefind/pagefind-ui.css";',
     'document.head.appendChild(css);',
+    'var fix=document.createElement("style");',
+    'fix.textContent="',
+    '#search-container .pagefind-ui__search-input{width:100%!important;box-sizing:border-box!important}',
+    '#search-container .pagefind-ui__form{width:100%}',
+    '#search-container .pagefind-ui__drawer{max-height:50vh;overflow-y:auto}',
+    '";document.head.appendChild(fix);',
     'var js=document.createElement("script");',
     'js.src="/pagefind/pagefind-ui.js";',
     'js.onload=function(){',
@@ -161,16 +167,16 @@ export function createSearchModal() {
             props: {
               'data-search-panel': 'true',
               className:
-                'w-full max-w-2xl bg-sovereignty-darker border border-sovereignty-gray-800 rounded-xl shadow-2xl overflow-hidden transition-all duration-200',
+                'w-full max-w-2xl bg-sovereignty-darker border border-sovereignty-gray-800 rounded-xl shadow-2xl transition-all duration-200',
               style:
-                'opacity:0;transform:scale(0.95);--pagefind-ui-scale:0.9;--pagefind-ui-primary:#3b82f6;--pagefind-ui-text:#e8ecf4;--pagefind-ui-background:#050810;--pagefind-ui-border:#1f2937;--pagefind-ui-tag:#111827;--pagefind-ui-border-width:1px;--pagefind-ui-border-radius:8px;--pagefind-ui-image-border-radius:8px;--pagefind-ui-image-box-ratio:0;--pagefind-ui-font:Inter,system-ui,-apple-system,sans-serif',
+                'opacity:0;transform:scale(0.95);max-height:80vh;display:flex;flex-direction:column;--pagefind-ui-scale:0.9;--pagefind-ui-primary:#3b82f6;--pagefind-ui-text:#e8ecf4;--pagefind-ui-background:#050810;--pagefind-ui-border:#1f2937;--pagefind-ui-tag:#111827;--pagefind-ui-border-width:1px;--pagefind-ui-border-radius:8px;--pagefind-ui-image-border-radius:8px;--pagefind-ui-image-box-ratio:0;--pagefind-ui-font:Inter,system-ui,-apple-system,sans-serif',
             },
             children: [
               // Header with close button
               {
                 type: 'flex' as const,
                 props: {
-                  className: 'items-center justify-between px-5 pt-4 pb-2',
+                  className: 'items-center justify-between px-5 pt-4 pb-2 shrink-0',
                 },
                 children: [
                   {
@@ -212,12 +218,15 @@ export function createSearchModal() {
                   },
                 ],
               },
-              // Pagefind UI container
+              // Pagefind UI container — force block display so it fills the panel width
+              // (the rendering system defaults empty divs to inline-block)
+              // overflow-y:auto + min-height:0 makes this the scrollable region within the flex panel
               {
                 type: 'div' as const,
                 props: {
                   id: 'search-container',
                   className: 'px-5 pb-5',
+                  style: 'display:block;width:100%;overflow-y:auto;min-height:0',
                 },
               },
             ],
