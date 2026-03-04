@@ -5,7 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { calloutWarning, codeBlock, docsPage, propertyTable, sectionHeader } from './shared'
+import {
+  calloutWarning,
+  codeBlock,
+  docsPage,
+  propertyTable,
+  sectionHeader,
+  subsectionHeader,
+} from './shared'
 
 export const docsAuth = docsPage({
   activeId: 'auth',
@@ -19,7 +26,14 @@ export const docsAuth = docsPage({
     { label: '$t:docs.auth.roles.title', anchor: 'roles' },
     { label: '$t:docs.auth.twoFactor.title', anchor: 'two-factor' },
     { label: '$t:docs.auth.emails.title', anchor: 'email-templates' },
-    { label: '$t:docs.auth.env.title', anchor: 'environment-variables' },
+    {
+      label: '$t:docs.auth.env.title',
+      anchor: 'environment-variables',
+      children: [
+        { label: '$t:docs.auth.env.admin.title', anchor: 'env-admin' },
+        { label: '$t:docs.auth.env.smtp.title', anchor: 'env-smtp' },
+      ],
+    },
   ],
   content: [
     // ── Title ────────────────────────────────────────────────────────────
@@ -180,6 +194,34 @@ export const docsAuth = docsPage({
           { name: 'BASE_URL', description: '$t:docs.auth.env.baseUrl' },
           { name: '{PROVIDER}_CLIENT_ID', description: '$t:docs.auth.env.clientId' },
           { name: '{PROVIDER}_CLIENT_SECRET', description: '$t:docs.auth.env.clientSecret' },
+        ]),
+
+        // Default admin user
+        subsectionHeader(
+          '$t:docs.auth.env.admin.title',
+          '$t:docs.auth.env.admin.description',
+          'env-admin'
+        ),
+        propertyTable([
+          { name: 'AUTH_ADMIN_EMAIL', description: '$t:docs.auth.env.admin.email' },
+          { name: 'AUTH_ADMIN_PASSWORD', description: '$t:docs.auth.env.admin.password' },
+          { name: 'AUTH_ADMIN_NAME', description: '$t:docs.auth.env.admin.name' },
+        ]),
+
+        // SMTP / email
+        subsectionHeader(
+          '$t:docs.auth.env.smtp.title',
+          '$t:docs.auth.env.smtp.description',
+          'env-smtp'
+        ),
+        propertyTable([
+          { name: 'SMTP_HOST', description: '$t:docs.auth.env.smtp.host' },
+          { name: 'SMTP_PORT', description: '$t:docs.auth.env.smtp.port' },
+          { name: 'SMTP_SECURE', description: '$t:docs.auth.env.smtp.secure' },
+          { name: 'SMTP_USER', description: '$t:docs.auth.env.smtp.user' },
+          { name: 'SMTP_PASS', description: '$t:docs.auth.env.smtp.pass' },
+          { name: 'SMTP_FROM', description: '$t:docs.auth.env.smtp.from' },
+          { name: 'SMTP_FROM_NAME', description: '$t:docs.auth.env.smtp.fromName' },
         ]),
       ],
     },

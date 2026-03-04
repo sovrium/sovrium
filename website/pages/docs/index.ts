@@ -7,6 +7,7 @@
 
 export { docsAnalytics } from './analytics'
 export { docsApiReference } from './api-reference'
+export { docsCli } from './cli'
 export { docsScalar } from './scalar'
 export { docsAuth } from './auth'
 export { docsJsonSchema } from './json-schema'
@@ -18,3 +19,4 @@ export { docsPages } from './pages-components'
 export { docsQuickStart } from './quick-start'
 export { docsTables } from './tables'
 export { docsTheme } from './theme'
+export { docsTypescript } from './typescript'

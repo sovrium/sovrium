@@ -326,7 +326,7 @@ export const docs: Record<string, string> = {
   'docs.quickStart.tip.title': 'Add more as you go',
   'docs.quickStart.tip.body':
     'Start small with just tables. Then progressively add theme, auth, pages, and analytics as your needs grow.',
-  'docs.quickStart.whatsNext.title': 'What’s next?',
+  'docs.quickStart.whatsNext.title': "What's next?",
   'docs.quickStart.whatsNext.description':
     'Now that your app is running, explore the schema reference to add more capabilities:',
   'docs.quickStart.whatsNext.overview': 'Schema Overview — All 10 root properties explained',
@@ -801,9 +801,9 @@ export const docs: Record<string, string> = {
   'docs.auth.emails.title': 'Email Templates',
   'docs.auth.emails.description':
     'Customizable emails for verification, password reset, and magic link. Supports $name, $url, $email variable substitution in subject and body.',
-  'docs.auth.emails.var.name': 'The recipient’s display name.',
+  'docs.auth.emails.var.name': "The recipient's display name.",
   'docs.auth.emails.var.url': 'The action URL (verification link, reset link, or magic link).',
-  'docs.auth.emails.var.email': 'The recipient’s email address.',
+  'docs.auth.emails.var.email': "The recipient's email address.",
   'docs.auth.emails.var.org': 'The organization name (for invitation emails).',
   'docs.auth.emails.var.inviter': 'The name of the person who sent the invitation.',
   'docs.auth.env.title': 'Environment Variables',
@@ -813,9 +813,29 @@ export const docs: Record<string, string> = {
     'Secret key for signing tokens and encrypting sessions. Must be a strong random string.',
   'docs.auth.env.baseUrl':
     'Base URL of your application (e.g., https://myapp.com). Used for callback URLs.',
-  'docs.auth.env.clientId': 'OAuth client ID from the provider’s developer console.',
+  'docs.auth.env.clientId': "OAuth client ID from the provider's developer console.",
   'docs.auth.env.clientSecret':
-    'OAuth client secret from the provider’s developer console. Keep this confidential.',
+    "OAuth client secret from the provider's developer console. Keep this confidential.",
+  'docs.auth.env.admin.title': 'Default Admin User',
+  'docs.auth.env.admin.description':
+    'Optional environment variables to create a default admin user on first startup.',
+  'docs.auth.env.admin.email': 'Email address for the default admin user.',
+  'docs.auth.env.admin.password':
+    'Password for the default admin user. Must be at least 8 characters.',
+  'docs.auth.env.admin.name':
+    'Display name for the default admin user. Optional, defaults to "Admin".',
+  'docs.auth.env.smtp.title': 'Email (SMTP)',
+  'docs.auth.env.smtp.description':
+    'SMTP configuration for sending authentication emails (verification, password reset, magic link). Falls back to Mailpit (localhost:1025) in development if not configured.',
+  'docs.auth.env.smtp.host': 'SMTP server hostname (e.g., smtp.gmail.com). Required in production.',
+  'docs.auth.env.smtp.port': 'SMTP server port. Default: 587.',
+  'docs.auth.env.smtp.secure':
+    'Use SSL/TLS connection. Default: false for port 587, true for port 465.',
+  'docs.auth.env.smtp.user': 'SMTP authentication username.',
+  'docs.auth.env.smtp.pass': 'SMTP authentication password or app-specific password.',
+  'docs.auth.env.smtp.from':
+    'Default sender email address (e.g., noreply@yourdomain.com). Default: noreply@sovrium.com.',
+  'docs.auth.env.smtp.fromName': 'Default sender display name. Default: Sovrium.',
   'docs.languages.title': 'Languages',
   'docs.languages.description':
     'Multi-language support with translation keys, browser language detection, and automatic URL-based language routing (/en/..., /fr/...). Reference translations in pages using the $t: prefix.',
@@ -901,4 +921,154 @@ export const docs: Record<string, string> = {
     'Sovrium analytics are cookie-free, GDPR-compliant by default. All data stays on your server — no third-party services involved.',
   'docs.analytics.details':
     'When enabled, Sovrium injects a lightweight tracking script that records page views, sessions, referrers, and device information. Analytics data is collected at /api/analytics/collect and stored locally.',
+  // ── CLI Reference ──────────────────────────────────────────────────────
+  'docs.sidebar.cli': 'CLI Reference',
+  'docs.sidebar.cli.href': '/en/docs/cli',
+  'docs.cli.meta.title': 'CLI Reference - Sovrium Docs',
+  'docs.cli.meta.description':
+    'Complete reference for the Sovrium command-line interface. Commands, flags, environment variables, and usage examples.',
+  'docs.cli.header.title': 'CLI Reference',
+  'docs.cli.header.description':
+    'The Sovrium CLI provides two commands: start a development server and build a static site. Configuration is loaded from a file or environment variable.',
+  'docs.cli.usage.title': 'Usage',
+  'docs.cli.usage.description':
+    'The CLI accepts a command followed by an optional config file path and flags.',
+  'docs.cli.commands.title': 'Commands',
+  'docs.cli.commands.description':
+    'Sovrium has two commands. If no command is specified, start is used by default.',
+  'docs.cli.commands.start.title': 'sovrium start',
+  'docs.cli.commands.start.description':
+    'Start a development server that serves your application. This is the default command \u2014 running sovrium app.yaml is equivalent to sovrium start app.yaml.',
+  'docs.cli.commands.build.title': 'sovrium build',
+  'docs.cli.commands.build.description':
+    'Generate a static site from your configuration. Produces HTML, CSS, and assets ready for deployment to any static hosting provider.',
+  'docs.cli.commands.help.title': 'sovrium --help',
+  'docs.cli.commands.help.description':
+    'Display the help message with a summary of commands, options, and examples.',
+  'docs.cli.flags.title': 'Flags',
+  'docs.cli.flags.description': 'Flags can be placed anywhere in the command.',
+  'docs.cli.flags.watch.name': '--watch, -w',
+  'docs.cli.flags.watch.description':
+    'Watch the config file for changes and hot-reload the server automatically. Only available with the start command.',
+  'docs.cli.flags.help.name': '--help, -h',
+  'docs.cli.flags.help.description': 'Show the help message and exit.',
+  'docs.cli.configFormats.title': 'Configuration Sources',
+  'docs.cli.configFormats.description':
+    'Sovrium can load configuration from a file path or from the APP_SCHEMA environment variable. A file path takes precedence when both are provided.',
+  'docs.cli.configFormats.file.title': 'File path',
+  'docs.cli.configFormats.file.description':
+    'Pass a path to a JSON or YAML configuration file as the second argument.',
+  'docs.cli.configFormats.env.title': 'Environment variable',
+  'docs.cli.configFormats.env.description':
+    'Set the APP_SCHEMA variable to provide configuration without a file. Supports inline JSON, inline YAML, or a remote URL.',
+  'docs.cli.envVars.title': 'Environment Variables',
+  'docs.cli.envVars.description':
+    'Environment variables control server behavior and build output. They are read at startup.',
+  'docs.cli.envVars.start.title': 'start command',
+  'docs.cli.envVars.start.description': 'Environment variables available with sovrium start.',
+  'docs.cli.envVars.start.appSchema': 'App schema as inline JSON, inline YAML, or a remote URL.',
+  'docs.cli.envVars.start.port':
+    'Server port number (0\u201365535). 0 selects an available port. Default: 3000.',
+  'docs.cli.envVars.start.baseUrl':
+    'Base URL of the application. Used for authentication callback URLs.',
+  'docs.cli.envVars.start.hostname': 'Server hostname. Default: localhost.',
+  'docs.cli.envVars.start.databaseUrl':
+    'PostgreSQL connection string. Required when using tables or authentication.',
+  'docs.cli.envVars.start.authSecret':
+    'Secret key for signing auth tokens and encrypting sessions.',
+  'docs.cli.envVars.build.title': 'build command',
+  'docs.cli.envVars.build.description': 'Environment variables available with sovrium build.',
+  'docs.cli.envVars.build.appSchema': 'App schema as inline JSON, inline YAML, or a remote URL.',
+  'docs.cli.envVars.build.outputDir': 'Output directory. Default: ./dist.',
+  'docs.cli.envVars.build.baseUrl': 'Base URL for sitemap generation (e.g., https://example.com).',
+  'docs.cli.envVars.build.basePath': 'Path prefix for subdirectory deployments (e.g., /my-app).',
+  'docs.cli.envVars.build.deployment': 'Deployment target: github-pages or generic.',
+  'docs.cli.envVars.build.languages': 'Comma-separated language codes (e.g., en,fr,de).',
+  'docs.cli.envVars.build.defaultLanguage': 'Default language code (e.g., en).',
+  'docs.cli.envVars.build.generateSitemap': 'Generate sitemap.xml file. Default: false.',
+  'docs.cli.envVars.build.generateRobots': 'Generate robots.txt file. Default: false.',
+  'docs.cli.envVars.build.hydration': 'Enable client-side hydration. Default: false.',
+  'docs.cli.envVars.build.generateManifest': 'Generate manifest.json for PWA. Default: false.',
+  'docs.cli.envVars.build.bundleOptimization':
+    'Optimization strategy: split (code splitting) or none.',
+  'docs.cli.envVars.build.publicDir': 'Directory containing static assets to copy into the output.',
+  'docs.cli.examples.title': 'Examples',
+  'docs.cli.examples.description': 'Common CLI usage patterns.',
+  'docs.cli.watchMode.title': 'Watch Mode',
+  'docs.cli.watchMode.description':
+    'Watch mode monitors your config file and automatically reloads the server when changes are detected.',
+  'docs.cli.watchMode.tip.title': 'Error recovery',
+  'docs.cli.watchMode.tip.body':
+    'If the updated config file is invalid, the reload fails gracefully and the previous server continues running. Fix the config and save to retry.',
+  'docs.cli.exitCodes.title': 'Exit Codes',
+  'docs.cli.exitCodes.description': 'The CLI uses standard exit codes.',
+  'docs.cli.exitCodes.zero': '0 \u2014 Success',
+  'docs.cli.exitCodes.one': '1 \u2014 Error (invalid config, missing file, unknown command)',
+
+  // ── TypeScript Integration ─────────────────────────────────────────────
+  'docs.sidebar.typescript': 'TypeScript API',
+  'docs.sidebar.typescript.href': '/en/docs/typescript',
+  'docs.typescript.meta.title': 'TypeScript API - Sovrium Docs',
+  'docs.typescript.meta.description':
+    'Use Sovrium programmatically with TypeScript. Import the start and build functions with full type safety.',
+  'docs.typescript.header.title': 'TypeScript API',
+  'docs.typescript.header.description':
+    'Use Sovrium as a library in your TypeScript project. Import the start and build functions for full programmatic control with typed configuration.',
+  'docs.typescript.why.title': 'Why TypeScript?',
+  'docs.typescript.why.description':
+    'Using Sovrium programmatically gives you advantages beyond the CLI.',
+  'docs.typescript.why.point1.title': 'Type safety',
+  'docs.typescript.why.point1.description':
+    'The App type provides autocomplete for every property and field type. Catch errors at compile time, not runtime.',
+  'docs.typescript.why.point2.title': 'Programmatic control',
+  'docs.typescript.why.point2.description':
+    'Generate configuration dynamically, compose schemas, and integrate Sovrium into existing applications.',
+  'docs.typescript.why.point3.title': 'IDE integration',
+  'docs.typescript.why.point3.description':
+    'Full IntelliSense in VS Code and JetBrains \u2014 hover docs, go-to-definition, and type errors.',
+  'docs.typescript.start.title': 'start(app, options?)',
+  'docs.typescript.start.description':
+    'Start a development server from a typed configuration object. Returns a server instance with a stop() method.',
+  'docs.typescript.start.options.title': 'StartOptions',
+  'docs.typescript.start.options.description': 'Optional second argument to configure the server.',
+  'docs.typescript.start.options.port':
+    'Port number (0\u201365535). 0 selects an available port. Default: 3000.',
+  'docs.typescript.start.options.hostname': 'Server hostname. Default: localhost.',
+  'docs.typescript.start.options.publicDir':
+    'Static file directory. Files are served at their relative path.',
+  'docs.typescript.build.title': 'build(app, options?)',
+  'docs.typescript.build.description': 'Generate a static site from a typed configuration object.',
+  'docs.typescript.build.options.title': 'GenerateStaticOptions',
+  'docs.typescript.build.options.description': 'Optional second argument to control static output.',
+  'docs.typescript.build.options.outputDir': 'Output directory. Default: ./static.',
+  'docs.typescript.build.options.baseUrl': 'Base URL for sitemap and canonical links.',
+  'docs.typescript.build.options.basePath': 'Path prefix for subdirectory deployments.',
+  'docs.typescript.build.options.deployment': 'Target platform: github-pages or generic.',
+  'docs.typescript.build.options.languages': 'Array of language codes for generation.',
+  'docs.typescript.build.options.defaultLanguage': 'Default language code.',
+  'docs.typescript.build.options.generateSitemap': 'Generate sitemap.xml. Default: false.',
+  'docs.typescript.build.options.generateRobotsTxt': 'Generate robots.txt. Default: false.',
+  'docs.typescript.build.options.hydration': 'Enable client-side hydration. Default: false.',
+  'docs.typescript.build.options.generateManifest':
+    'Generate manifest.json for PWA. Default: false.',
+  'docs.typescript.build.options.bundleOptimization': 'Splitting strategy: split or none.',
+  'docs.typescript.build.options.publicDir': 'Static asset directory to copy into output.',
+  'docs.typescript.watchMode.title': 'Watch Mode',
+  'docs.typescript.watchMode.description':
+    "In development, use Bun's built-in watch mode to automatically restart your script when files change.",
+  'docs.typescript.watchMode.tip.title': 'Reload vs watch',
+  'docs.typescript.watchMode.tip.body':
+    "bun --watch restarts the entire process when any imported file changes. For config-only changes, the CLI's --watch flag is more efficient.",
+  'docs.typescript.appType.title': 'App Type',
+  'docs.typescript.appType.description':
+    'The App type defines the complete structure of a Sovrium configuration. Import it from sovrium for type annotations.',
+  'docs.typescript.appType.tip.title': 'Incremental complexity',
+  'docs.typescript.appType.tip.body':
+    'Only name is required. Add tables, theme, pages, auth, languages, components, and analytics as you need them.',
+  'docs.typescript.examples.title': 'Examples',
+  'docs.typescript.examples.description': 'Common usage patterns with Sovrium in TypeScript.',
+  'docs.typescript.examples.minimal.title': 'Minimal server',
+  'docs.typescript.examples.tables.title': 'With data tables',
+  'docs.typescript.examples.build.title': 'Static site generation',
+  'docs.typescript.examples.dynamic.title': 'Dynamic configuration',
 }

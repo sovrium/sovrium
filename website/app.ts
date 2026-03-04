@@ -16,6 +16,7 @@ import {
   docsAnalytics,
   docsApiReference,
   docsAuth,
+  docsCli,
   docsScalar,
   docsInstallation,
   docsIntroduction,
@@ -26,6 +27,7 @@ import {
   docsQuickStart,
   docsTables,
   docsTheme,
+  docsTypescript,
 } from './pages/docs'
 import { home } from './pages/home'
 import { partner } from './pages/partner'
@@ -142,6 +144,8 @@ export const app: App = {
     docsIntroduction,
     docsInstallation,
     docsQuickStart,
+    docsCli,
+    docsTypescript,
     docsOverview,
     docsTables,
     docsTheme,
