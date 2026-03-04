@@ -34,7 +34,7 @@ test.describe('CLI Structured Error Logging', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-LOG-ERROR-001: server 500 errors include method and path in log',
     { tag: '@spec' },
     async () => {
@@ -58,7 +58,7 @@ test.describe('CLI Structured Error Logging', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-LOG-ERROR-002: page rendering errors use logError format',
     { tag: '@spec' },
     async () => {
@@ -122,7 +122,7 @@ test.describe('CLI Structured Error Logging', () => {
   // @regression test - ONE optimized integration test
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-LOG-ERROR-REGRESSION: error logging regression workflow',
     { tag: '@regression' },
     async () => {
