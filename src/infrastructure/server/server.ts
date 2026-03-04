@@ -9,6 +9,7 @@ import { Effect, Config } from 'effect'
 import { Hono } from 'hono'
 import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
 import { compileCSS } from '@/infrastructure/css/compiler'
+import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
 import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics-repository-live'
 import {
@@ -184,7 +185,7 @@ const startBunServer = (
 const getPackageVersion = (): Effect.Effect<string, never> =>
   Effect.tryPromise({
     try: async () => {
-      const pkg = (await Bun.file('./package.json').json()) as { version: string }
+      const pkg = (await Bun.file(resolvePackagePath('package.json')).json()) as { version: string }
       return pkg.version
     },
     catch: () => '0.0.0',
