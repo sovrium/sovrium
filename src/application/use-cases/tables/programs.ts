@@ -139,25 +139,16 @@ interface ListTrashConfig {
 }
 
 /**
- * Extract deletedBy user object from a raw trash record.
+ * Extract deletedBy user ID from a raw trash record.
  * The listTrash query joins auth.user and returns deleted_by_user object.
+ * We extract only the user ID string to match the flat authorship format.
  */
-function extractDeletedByUser(
-  rawRecord: Readonly<Record<string, unknown>>
-): Readonly<{ id: string; name?: string; email?: string }> | undefined {
+function extractDeletedByUserId(rawRecord: Readonly<Record<string, unknown>>): string | undefined {
   const deletedByUser = rawRecord['deleted_by_user']
   if (!deletedByUser || typeof deletedByUser !== 'object') return undefined
   const userObj = deletedByUser as Record<string, unknown>
   if (!userObj['id']) return undefined
-  return {
-    id: String(userObj['id']),
-    ...(userObj['name'] !== undefined && userObj['name'] !== null
-      ? { name: String(userObj['name']) }
-      : {}),
-    ...(userObj['email'] !== undefined && userObj['email'] !== null
-      ? { email: String(userObj['email']) }
-      : {}),
-  }
+  return String(userObj['id'])
 }
 
 export function createListTrashProgram(
@@ -186,8 +177,8 @@ export function createListTrashProgram(
       const originalId = rawRecord?.id
       const id = typeof originalId === 'number' ? originalId : record.id
 
-      // Extract deletedBy user object from the raw record's join result
-      const deletedBy = rawRecord ? extractDeletedByUser(rawRecord) : undefined
+      // Extract deletedBy user ID from the raw record's join result
+      const deletedBy = rawRecord ? extractDeletedByUserId(rawRecord) : undefined
 
       return {
         ...record,
