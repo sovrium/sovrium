@@ -87,6 +87,24 @@ const GET_STARTED_PAGES: readonly DocsPageEntry[] = [
     sidebarHref: '$t:docs.sidebar.quickStart.href',
     section: 'get-started',
   },
+  {
+    id: 'cli',
+    sidebarLabel: '$t:docs.sidebar.cli',
+    sidebarHref: '$t:docs.sidebar.cli.href',
+    section: 'get-started',
+  },
+  {
+    id: 'typescript',
+    sidebarLabel: '$t:docs.sidebar.typescript',
+    sidebarHref: '$t:docs.sidebar.typescript.href',
+    section: 'get-started',
+  },
+  {
+    id: 'env-vars',
+    sidebarLabel: '$t:docs.sidebar.envVars',
+    sidebarHref: '$t:docs.sidebar.envVars.href',
+    section: 'get-started',
+  },
 ]
 
 const APP_SCHEMA_PAGES: readonly DocsPageEntry[] = [
@@ -94,12 +112,6 @@ const APP_SCHEMA_PAGES: readonly DocsPageEntry[] = [
     id: 'overview',
     sidebarLabel: '$t:docs.sidebar.overview',
     sidebarHref: '$t:docs.sidebar.overview.href',
-    section: 'app-schema',
-  },
-  {
-    id: 'tables',
-    sidebarLabel: '$t:docs.sidebar.tables',
-    sidebarHref: '$t:docs.sidebar.tables.href',
     section: 'app-schema',
   },
   {
@@ -112,6 +124,12 @@ const APP_SCHEMA_PAGES: readonly DocsPageEntry[] = [
     id: 'pages',
     sidebarLabel: '$t:docs.sidebar.pages',
     sidebarHref: '$t:docs.sidebar.pages.href',
+    section: 'app-schema',
+  },
+  {
+    id: 'tables',
+    sidebarLabel: '$t:docs.sidebar.tables',
+    sidebarHref: '$t:docs.sidebar.tables.href',
     section: 'app-schema',
   },
   {
@@ -326,7 +344,8 @@ export const calloutWarning = (title: string, body: string) => ({
 })
 
 // ─── Property Table Helper ──────────────────────────────────────────────────
-// Builds a table with property-row refs for clean property documentation.
+// Builds a two-column grid table for property documentation.
+// Uses a fixed 35%/65% column split so descriptions always get the majority of space.
 
 export const propertyTable = (rows: ReadonlyArray<{ name: string; description: string }>) => ({
   type: 'div' as const,
@@ -338,8 +357,8 @@ export const propertyTable = (rows: ReadonlyArray<{ name: string; description: s
     {
       type: 'div' as const,
       props: {
-        className:
-          'grid grid-cols-[140px_1fr] sm:grid-cols-[180px_1fr] gap-2 py-2 px-4 border-b border-sovereignty-gray-800',
+        className: 'grid gap-x-3 py-2 px-4 border-b border-sovereignty-gray-800',
+        style: { gridTemplateColumns: '35% 1fr' },
       },
       children: [
         {
@@ -753,6 +772,8 @@ function buildTocColumn(entries: readonly TocEntry[]): readonly object[] {
         id: 'docs-toc',
         'aria-label': 'Table of contents',
         className: 'xl:w-48 flex-shrink-0 xl:sticky xl:top-20 xl:self-start hidden xl:block',
+        style:
+          'height:calc(100vh - 5.5rem);overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.08) transparent',
       },
       children: [
         {
@@ -897,18 +918,20 @@ export function docsPage(options: DocsPageOptions): Page {
                     ],
                   },
 
-                  // ── Desktop Sidebar (always visible) ──────────────────
+                  // ── Desktop Sidebar (always visible, sticky + scrollable) ──
                   {
                     type: 'nav',
                     props: {
                       className:
                         'lg:w-56 flex-shrink-0 lg:sticky lg:top-20 lg:self-start hidden lg:block',
+                      style:
+                        'height:calc(100vh - 5.5rem);overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.08) transparent',
                     },
                     children: [
                       {
                         type: 'div',
                         props: {
-                          className: 'border-l border-sovereignty-gray-800 pl-2 space-y-1',
+                          className: 'border-l border-sovereignty-gray-800 pl-2 space-y-1 pb-8',
                         },
                         children: buildSidebarLinks(activeId),
                       },

@@ -54,6 +54,7 @@ export interface ServerConfig {
   readonly port?: number
   readonly hostname?: string
   readonly publicDir?: string
+  readonly silent?: boolean
   readonly renderHomePage: (app: App, detectedLanguage?: string) => string
   readonly renderPage: (app: App, path: string, detectedLanguage?: string) => string | undefined
   readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string
@@ -283,9 +284,11 @@ export const createServer = (
       { label: `Server ready in ${formatDuration(durationMs)}`, type: 'success' },
     ]
 
-    // Render startup summary
-    const version = yield* getPackageVersion()
-    yield* renderStartupSummary({ version, phases, url, durationMs })
+    // Render startup summary (suppressed during static site generation)
+    if (!config.silent) {
+      const version = yield* getPackageVersion()
+      yield* renderStartupSummary({ version, phases, url, durationMs })
+    }
 
     return {
       server,

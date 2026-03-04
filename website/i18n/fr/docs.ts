@@ -826,17 +826,6 @@ export const docs: Record<string, string> = {
   'docs.auth.emails.var.email': 'L’adresse email du destinataire.',
   'docs.auth.emails.var.org': 'Le nom de l’organisation (pour les emails d’invitation).',
   'docs.auth.emails.var.inviter': 'Le nom de la personne qui a envoyé l’invitation.',
-  'docs.auth.env.title': 'Variables d’environnement',
-  'docs.auth.env.description':
-    'Variables d’environnement requises pour l’authentification. Définissez-les dans votre fichier .env ou l’environnement serveur.',
-  'docs.auth.env.secret':
-    'Clé secrète pour signer les jetons et chiffrer les sessions. Doit être une chaîne aléatoire forte.',
-  'docs.auth.env.baseUrl':
-    'URL de base de votre application (ex. : https://myapp.com). Utilisée pour les URL de callback.',
-  'docs.auth.env.clientId':
-    'Identifiant client OAuth depuis la console développeur du fournisseur.',
-  'docs.auth.env.clientSecret':
-    'Secret client OAuth depuis la console développeur du fournisseur. Gardez-le confidentiel.',
   'docs.languages.title': 'Langues',
   'docs.languages.description':
     'Support multilingue avec clés de traduction, détection de la langue du navigateur et routage automatique par URL (/en/..., /fr/...). Référencez les traductions dans les pages avec le préfixe $t:.',
@@ -923,4 +912,315 @@ export const docs: Record<string, string> = {
     'Les analytiques Sovrium sont sans cookies, conformes RGPD par défaut. Toutes les données restent sur votre serveur — aucun service tiers impliqué.',
   'docs.analytics.details':
     'Lorsqu’activé, Sovrium injecte un script de suivi léger qui enregistre les pages vues, les sessions, les référents et les informations sur l’appareil. Les données analytiques sont collectées à /api/analytics/collect et stockées localement.',
+  // ── CLI Reference ──────────────────────────────────────────────────────
+  'docs.sidebar.cli': 'Référence CLI',
+  'docs.sidebar.cli.href': '/fr/docs/cli',
+  'docs.cli.meta.title': 'Référence CLI - Sovrium Docs',
+  'docs.cli.meta.description':
+    "Référence complète de l'interface en ligne de commande Sovrium. Commandes, options, variables d'environnement et exemples.",
+  'docs.cli.header.title': 'Référence CLI',
+  'docs.cli.header.description':
+    "La CLI Sovrium fournit deux commandes : démarrer un serveur de développement et générer un site statique. La configuration est chargée depuis un fichier ou une variable d'environnement.",
+  'docs.cli.usage.title': 'Utilisation',
+  'docs.cli.usage.description':
+    "La CLI accepte une commande suivie d'un chemin de fichier de configuration optionnel et d'options.",
+  'docs.cli.commands.title': 'Commandes',
+  'docs.cli.commands.description':
+    "Sovrium possède deux commandes. Si aucune commande n'est spécifiée, start est utilisée par défaut.",
+  'docs.cli.commands.start.title': 'sovrium start',
+  'docs.cli.commands.start.description':
+    "Démarre un serveur de développement qui sert votre application. C'est la commande par défaut \u2014 sovrium app.yaml est équivalent à sovrium start app.yaml.",
+  'docs.cli.commands.build.title': 'sovrium build',
+  'docs.cli.commands.build.description':
+    'Génère un site statique à partir de votre configuration. Produit du HTML, du CSS et des ressources prêts pour le déploiement.',
+  'docs.cli.commands.help.title': 'sovrium --help',
+  'docs.cli.commands.help.description':
+    "Affiche le message d'aide avec un résumé des commandes, options et exemples.",
+  'docs.cli.flags.title': 'Options',
+  'docs.cli.flags.description': "Les options peuvent être placées n'importe où dans la commande.",
+  'docs.cli.flags.watch.name': '--watch, -w',
+  'docs.cli.flags.watch.description':
+    'Surveille le fichier de configuration et recharge automatiquement le serveur. Disponible uniquement avec la commande start.',
+  'docs.cli.flags.help.name': '--help, -h',
+  'docs.cli.flags.help.description': "Affiche le message d'aide et quitte.",
+  'docs.cli.configFormats.title': 'Sources de configuration',
+  'docs.cli.configFormats.description':
+    "Sovrium peut charger la configuration depuis un fichier ou depuis la variable d'environnement APP_SCHEMA. Le fichier a la priorité lorsque les deux sont fournis.",
+  'docs.cli.configFormats.file.title': 'Chemin de fichier',
+  'docs.cli.configFormats.file.description':
+    'Passez un chemin vers un fichier JSON ou YAML comme deuxième argument.',
+  'docs.cli.configFormats.env.title': "Variable d'environnement",
+  'docs.cli.configFormats.env.description':
+    'Définissez la variable APP_SCHEMA pour fournir la configuration sans fichier. Supporte le JSON en ligne, le YAML en ligne ou une URL distante.',
+  'docs.cli.examples.title': 'Exemples',
+  'docs.cli.examples.description': "Cas d'utilisation courants de la CLI.",
+  'docs.cli.watchMode.title': 'Mode surveillance',
+  'docs.cli.watchMode.description':
+    'Le mode surveillance surveille votre fichier de configuration et recharge automatiquement le serveur lorsque des modifications sont détectées.',
+  'docs.cli.watchMode.tip.title': "Récupération d'erreur",
+  'docs.cli.watchMode.tip.body':
+    'Si le fichier de configuration mis à jour est invalide, le rechargement échoue et le serveur précédent continue de fonctionner. Corrigez et sauvegardez pour réessayer.',
+  'docs.cli.exitCodes.title': 'Codes de sortie',
+  'docs.cli.exitCodes.description': 'La CLI utilise les codes de sortie standard.',
+  'docs.cli.exitCodes.zero': '0 \u2014 Succès',
+  'docs.cli.exitCodes.one':
+    '1 \u2014 Erreur (configuration invalide, fichier manquant, commande inconnue)',
+
+  // ── Environment Variables ──────────────────────────────────────────────
+  'docs.sidebar.envVars': "Variables d'environnement",
+  'docs.sidebar.envVars.href': '/fr/docs/env-vars',
+  'docs.envVars.meta.title': "Variables d'environnement - Sovrium Docs",
+  'docs.envVars.meta.description':
+    "Référence complète de toutes les variables d'environnement utilisées par Sovrium. Couvre l'application, le serveur, la base de données, l'authentification, l'email, le build et le débogage.",
+  'docs.envVars.header.title': "Variables d'environnement",
+  'docs.envVars.header.description':
+    "Sovrium lit la configuration depuis les variables d'environnement au démarrage. Définissez-les dans un fichier .env ou dans votre environnement serveur. Toutes les variables sont optionnelles sauf mention contraire.",
+  'docs.envVars.app.title': 'Application',
+  'docs.envVars.app.description':
+    "Configuration principale de l'application. APP_SCHEMA est le moyen principal de fournir un schéma sans argument de fichier.",
+  'docs.envVars.app.appSchema':
+    "Schéma de l'application en JSON inline, YAML inline ou URL distante. Alternative au chemin de fichier en ligne de commande.",
+  'docs.envVars.server.title': 'Serveur',
+  'docs.envVars.server.description': 'Options réseau du serveur pour la commande start.',
+  'docs.envVars.server.port':
+    'Numéro de port du serveur (0\u201365535). 0 sélectionne un port disponible. Par défaut\u00a0: 3000.',
+  'docs.envVars.server.hostname': "Nom d'hôte du serveur. Par défaut\u00a0: localhost.",
+  'docs.envVars.server.baseUrl':
+    "URL de base de l'application (ex.\u00a0: https://myapp.com). Utilisée pour les callbacks d'authentification et les liens email.",
+  'docs.envVars.server.nodeEnv':
+    'Environnement d\'exécution. Mettre "production" pour les cookies sécurisés, les vérifications CSRF et la validation SMTP stricte. Par défaut\u00a0: development.',
+  'docs.envVars.database.title': 'Base de données',
+  'docs.envVars.database.description':
+    "Paramètres de connexion PostgreSQL. Requis lors de l'utilisation de tables ou de l'authentification.",
+  'docs.envVars.database.databaseUrl':
+    'Chaîne de connexion PostgreSQL (ex.\u00a0: postgresql://user:password@localhost:5432/dbname). Requis quand le schéma définit des tables ou une authentification.',
+  'docs.envVars.auth.title': 'Authentification',
+  'docs.envVars.auth.description':
+    "Variables pour l'intégration Better Auth. Requises quand le schéma définit une section auth.",
+  'docs.envVars.auth.secret':
+    'Clé secrète pour la signature des tokens et le chiffrement des sessions. Doit être une chaîne aléatoire forte (32+ caractères recommandés).',
+  'docs.envVars.auth.admin.title': 'Utilisateur admin par défaut',
+  'docs.envVars.auth.admin.description':
+    "Variables optionnelles pour créer un utilisateur admin par défaut au premier démarrage. Les trois doivent être définies pour que l'admin soit créé.",
+  'docs.envVars.auth.admin.email': "Adresse email de l'utilisateur admin par défaut.",
+  'docs.envVars.auth.admin.password':
+    "Mot de passe de l'utilisateur admin par défaut. Doit contenir au moins 8 caractères.",
+  'docs.envVars.auth.admin.name':
+    'Nom affiché de l\'utilisateur admin par défaut. Optionnel, par défaut\u00a0: "Admin".',
+  'docs.envVars.auth.oauth.title': 'Fournisseurs OAuth',
+  'docs.envVars.auth.oauth.description':
+    'Identifiants pour chaque fournisseur OAuth configuré dans le schéma auth. Remplacez {PROVIDER} par le nom du fournisseur en majuscules.',
+  'docs.envVars.auth.oauth.clientId':
+    'Identifiant client OAuth de la console développeur du fournisseur.',
+  'docs.envVars.auth.oauth.clientSecret':
+    'Secret client OAuth de la console développeur du fournisseur. Gardez-le confidentiel.',
+  'docs.envVars.auth.oauth.tip.title': 'Fournisseurs supportés',
+  'docs.envVars.auth.oauth.tip.body':
+    'Sovrium supporte Google, GitHub, Microsoft, Slack, GitLab et Facebook. Par exemple, définissez GOOGLE_CLIENT_ID et GOOGLE_CLIENT_SECRET pour Google OAuth.',
+  'docs.envVars.smtp.title': 'Email (SMTP)',
+  'docs.envVars.smtp.description':
+    "Configuration SMTP pour l'envoi d'emails d'authentification (vérification, réinitialisation de mot de passe, lien magique). En développement, utilise Mailpit sur localhost:1025 si SMTP_HOST n'est pas défini.",
+  'docs.envVars.smtp.host':
+    "Nom d'hôte du serveur SMTP (ex.\u00a0: smtp.gmail.com). Requis en production.",
+  'docs.envVars.smtp.port': 'Port du serveur SMTP. Par défaut\u00a0: 587.',
+  'docs.envVars.smtp.secure':
+    'Utiliser une connexion SSL/TLS. Par défaut\u00a0: false pour le port 587, true pour le port 465.',
+  'docs.envVars.smtp.user': "Nom d'utilisateur pour l'authentification SMTP.",
+  'docs.envVars.smtp.pass': "Mot de passe d'authentification SMTP ou mot de passe d'application.",
+  'docs.envVars.smtp.from':
+    "Adresse email de l'expéditeur par défaut (ex.\u00a0: noreply@votredomaine.com). Par défaut\u00a0: noreply@sovrium.com.",
+  'docs.envVars.smtp.fromName':
+    "Nom d'affichage de l'expéditeur par défaut. Par défaut\u00a0: Sovrium.",
+  'docs.envVars.smtp.tip.title': 'Développement local',
+  'docs.envVars.smtp.tip.body':
+    "Quand SMTP_HOST n'est pas configuré en mode développement, Sovrium utilise automatiquement Mailpit (localhost:1025). Installez Mailpit pour consulter les emails envoyés dans une interface web locale.",
+  'docs.envVars.build.title': 'Build',
+  'docs.envVars.build.description': 'Options pour la commande build qui génère un site statique.',
+  'docs.envVars.build.outputDir': 'Répertoire de sortie. Par défaut\u00a0: ./dist.',
+  'docs.envVars.build.baseUrl':
+    'URL de base pour le sitemap et les liens canoniques (ex.\u00a0: https://example.com).',
+  'docs.envVars.build.basePath':
+    'Préfixe de chemin pour les déploiements en sous-répertoire (ex.\u00a0: /my-app).',
+  'docs.envVars.build.deployment': 'Cible de déploiement\u00a0: github-pages ou generic.',
+  'docs.envVars.build.languages':
+    'Codes de langue séparés par des virgules à construire (ex.\u00a0: en,fr,de).',
+  'docs.envVars.build.defaultLanguage': 'Code de langue par défaut (ex.\u00a0: en).',
+  'docs.envVars.build.generateSitemap': 'Générer sitemap.xml. Par défaut\u00a0: false.',
+  'docs.envVars.build.generateRobots': 'Générer robots.txt. Par défaut\u00a0: false.',
+  'docs.envVars.build.hydration': "Activer l'hydratation côté client. Par défaut\u00a0: false.",
+  'docs.envVars.build.generateManifest': 'Générer manifest.json pour PWA. Par défaut\u00a0: false.',
+  'docs.envVars.build.bundleOptimization':
+    "Stratégie d'optimisation\u00a0: split (découpage de code) ou none.",
+  'docs.envVars.build.publicDir':
+    'Répertoire contenant les ressources statiques à copier dans la sortie.',
+  'docs.envVars.debug.title': 'Débogage',
+  'docs.envVars.debug.description':
+    'Variables de diagnostic et de test. Non nécessaires en fonctionnement normal.',
+  'docs.envVars.debug.logLevel':
+    'Mettre "debug" pour la journalisation détaillée (logs de requêtes, diagnostics de compilation CSS). Par défaut\u00a0: suit NODE_ENV.',
+  'docs.envVars.debug.effectDevtools':
+    "Mettre \"1\" pour activer l'intégration Effect DevTools pour l'inspection à l'exécution.",
+  'docs.envVars.debug.rateLimitWindow':
+    'Fenêtre de limitation de débit en secondes. Utilisé dans les tests pour une exécution plus rapide. Par défaut\u00a0: 60.',
+
+  // ── TypeScript Integration ─────────────────────────────────────────────
+  'docs.sidebar.typescript': 'API TypeScript',
+  'docs.sidebar.typescript.href': '/fr/docs/typescript',
+  'docs.typescript.meta.title': 'API TypeScript - Sovrium Docs',
+  'docs.typescript.meta.description':
+    'Utilisez Sovrium de manière programmatique avec TypeScript. Importez les fonctions start et build avec typage complet.',
+  'docs.typescript.header.title': 'API TypeScript',
+  'docs.typescript.header.description':
+    'Utilisez Sovrium comme bibliothèque dans votre projet TypeScript. Importez les fonctions start et build pour un contrôle programmatique complet avec configuration typée.',
+  'docs.typescript.why.title': 'Pourquoi TypeScript\u00a0?',
+  'docs.typescript.why.description':
+    'Utiliser Sovrium de manière programmatique offre des avantages au-delà de la CLI.',
+  'docs.typescript.why.point1.title': 'Sécurité des types',
+  'docs.typescript.why.point1.description':
+    "Le type App fournit l'autocomplétion pour chaque propriété et type de champ. Détectez les erreurs à la compilation.",
+  'docs.typescript.why.point2.title': 'Contrôle programmatique',
+  'docs.typescript.why.point2.description':
+    'Générez la configuration dynamiquement, composez des schémas et intégrez Sovrium dans des applications existantes.',
+  'docs.typescript.why.point3.title': 'Intégration IDE',
+  'docs.typescript.why.point3.description':
+    'IntelliSense complet dans VS Code et JetBrains \u2014 documentation au survol, aller à la définition et erreurs de type.',
+  'docs.typescript.start.title': 'start(app, options?)',
+  'docs.typescript.start.description':
+    "Démarre un serveur de développement à partir d'un objet de configuration typé. Retourne une instance serveur avec une méthode stop().",
+  'docs.typescript.start.options.title': 'StartOptions',
+  'docs.typescript.start.options.description':
+    'Deuxième argument optionnel pour configurer le serveur.',
+  'docs.typescript.start.options.port':
+    'Numéro de port (0\u201365535). 0 sélectionne un port disponible. Par défaut\u00a0: 3000.',
+  'docs.typescript.start.options.hostname': "Nom d'hôte du serveur. Par défaut\u00a0: localhost.",
+  'docs.typescript.start.options.publicDir':
+    'Répertoire de fichiers statiques. Les fichiers sont servis à leur chemin relatif.',
+  'docs.typescript.build.title': 'build(app, options?)',
+  'docs.typescript.build.description':
+    "Génère un site statique à partir d'un objet de configuration typé.",
+  'docs.typescript.build.options.title': 'GenerateStaticOptions',
+  'docs.typescript.build.options.description':
+    'Deuxième argument optionnel pour contrôler la sortie statique.',
+  'docs.typescript.build.options.outputDir': 'Répertoire de sortie. Par défaut\u00a0: ./static.',
+  'docs.typescript.build.options.baseUrl': 'URL de base pour le sitemap et les liens canoniques.',
+  'docs.typescript.build.options.basePath':
+    'Préfixe de chemin pour les déploiements en sous-répertoire.',
+  'docs.typescript.build.options.deployment': 'Plateforme cible\u00a0: github-pages ou generic.',
+  'docs.typescript.build.options.languages': 'Tableau de codes de langue pour la génération.',
+  'docs.typescript.build.options.defaultLanguage': 'Code de langue par défaut.',
+  'docs.typescript.build.options.generateSitemap': 'Générer sitemap.xml. Par défaut\u00a0: false.',
+  'docs.typescript.build.options.generateRobotsTxt': 'Générer robots.txt. Par défaut\u00a0: false.',
+  'docs.typescript.build.options.hydration':
+    "Activer l'hydratation côté client. Par défaut\u00a0: false.",
+  'docs.typescript.build.options.generateManifest':
+    'Générer manifest.json pour PWA. Par défaut\u00a0: false.',
+  'docs.typescript.build.options.bundleOptimization':
+    'Stratégie de découpage\u00a0: split ou none.',
+  'docs.typescript.build.options.publicDir': 'Répertoire de ressources statiques à copier.',
+  'docs.typescript.watchMode.title': 'Mode surveillance',
+  'docs.typescript.watchMode.description':
+    'En développement, utilisez le mode surveillance intégré de Bun pour redémarrer automatiquement votre script.',
+  'docs.typescript.watchMode.tip.title': 'Rechargement vs surveillance',
+  'docs.typescript.watchMode.tip.body':
+    'bun --watch redémarre tout le processus quand un fichier importé change. Pour les changements de configuration uniquement, le --watch de la CLI est plus efficace.',
+  'docs.typescript.appType.title': 'Type App',
+  'docs.typescript.appType.description':
+    "Le type App définit la structure complète d'une configuration Sovrium. Importez-le depuis sovrium pour les annotations de type.",
+  'docs.typescript.appType.props.name':
+    "Nom de l'application. Minuscules, compatible npm (ex\u00a0: my-app, @org/app).",
+  'docs.typescript.appType.props.version': 'Version SemVer (ex\u00a0: 1.0.0).',
+  'docs.typescript.appType.props.description': "Description de l'application sur une seule ligne.",
+  'docs.typescript.appType.props.tables':
+    'Tableau de définitions de tables avec champs, index et contraintes.',
+  'docs.typescript.appType.props.theme':
+    'Jetons de design\u00a0: couleurs, polices, espacement, animations, breakpoints, ombres, borderRadius.',
+  'docs.typescript.appType.props.pages':
+    'Tableau de configurations de pages avec métadonnées, sections et scripts.',
+  'docs.typescript.appType.props.auth':
+    "Configuration d'authentification\u00a0: stratégies, rôles, plugins (admin, organisation).",
+  'docs.typescript.appType.props.languages':
+    'Configuration multilingue\u00a0: langues supportées, langue par défaut, traductions.',
+  'docs.typescript.appType.props.components':
+    'Tableau de composants réutilisables avec substitution de variables.',
+  'docs.typescript.appType.props.analytics':
+    'Analytiques intégrées respectueuses de la vie privée. Passez true pour les valeurs par défaut ou un objet.',
+  'docs.typescript.appType.tip.title': 'Complexité progressive',
+  'docs.typescript.appType.tip.body':
+    'Seul name est requis. Ajoutez tables, theme, pages, auth, languages, components et analytics selon vos besoins.',
+
+  // ── Type Reference ────────────────────────────────────────────────────
+  'docs.typescript.typeRef.title': 'Référence des types',
+  'docs.typescript.typeRef.description':
+    'Tous les types TypeScript exportés par le package sovrium. Importez-les avec import type { ... } from "sovrium".',
+
+  'docs.typescript.typeRef.simpleServer.description':
+    "Retourné par start(). Interface légère vers le serveur en cours d'exécution.",
+  'docs.typescript.typeRef.simpleServer.url':
+    'URL du serveur incluant le protocole et le port (ex\u00a0: "http://localhost:3000").',
+  'docs.typescript.typeRef.simpleServer.stop':
+    "Arrête le serveur proprement. Retourne une Promise qui se résout quand l'arrêt est terminé.",
+
+  'docs.typescript.typeRef.appEncoded.description':
+    'La forme brute acceptée par start() et build() avant validation Effect Schema. Structurellement identique à App mais sans les transformations du schéma.',
+  'docs.typescript.typeRef.appEncoded.tip.title': 'App vs AppEncoded',
+  'docs.typescript.typeRef.appEncoded.tip.body':
+    'Utilisez App pour annoter les objets de configuration validés. Utilisez AppEncoded pour typer les entrées brutes qui seront passées à start() ou build() pour validation.',
+
+  'docs.typescript.typeRef.page.description':
+    'Une configuration de page validée. Les pages définissent des routes, des métadonnées, des sections de mise en page et des scripts optionnels.',
+  'docs.typescript.typeRef.page.id': 'Identifiant unique optionnel pour les références internes.',
+  'docs.typescript.typeRef.page.name':
+    'Nom lisible de la page utilisé pour l\'identification (ex\u00a0: "home", "about").',
+  'docs.typescript.typeRef.page.path':
+    'Chemin URL où la page est servie (ex\u00a0: "/", "/about", "/products/pricing").',
+  'docs.typescript.typeRef.page.meta':
+    'Métadonnées SEO\u00a0: titre, description, Open Graph, Twitter Card, données structurées, hints de performance.',
+  'docs.typescript.typeRef.page.sections':
+    'Tableau de sections de contenu. Chaque section est un composant direct ou une $ref vers un template.',
+  'docs.typescript.typeRef.page.scripts':
+    'Scripts côté client\u00a0: feature flags, scripts externes, scripts inline.',
+  'docs.typescript.typeRef.page.vars':
+    'Variables au niveau de la page pour la substitution $variable dans les sections.',
+
+  'docs.typescript.typeRef.pageEncoded.description':
+    "La forme brute d'une page avant validation Effect Schema. Même relation que AppEncoded par rapport à App.",
+
+  'docs.typescript.typeRef.componentTemplate.description':
+    'Un template de composant UI réutilisable avec des placeholders $variable. Défini dans app.components[] et référencé par les pages via la syntaxe $ref.',
+  'docs.typescript.typeRef.componentTemplate.name':
+    'Identifiant unique en kebab-case (ex\u00a0: "hero-card", "feature-row").',
+  'docs.typescript.typeRef.componentTemplate.type':
+    'Type de composant\u00a0: container, flex, grid, card, text, button, heading, paragraph, etc.',
+  'docs.typescript.typeRef.componentTemplate.props':
+    'Propriétés du composant. Les valeurs peuvent contenir des placeholders $variable.',
+  'docs.typescript.typeRef.componentTemplate.children':
+    'Composants enfants imbriqués. Les enfants peuvent aussi contenir des placeholders $variable.',
+  'docs.typescript.typeRef.componentTemplate.content':
+    'Contenu textuel. Peut contenir des placeholders $variable pour la substitution dynamique.',
+
+  'docs.typescript.typeRef.generateStaticResult.description':
+    'Retourné par build(). Contient le chemin du répertoire de sortie et la liste des fichiers générés.',
+  'docs.typescript.typeRef.generateStaticResult.outputDir':
+    'Chemin absolu vers le répertoire de sortie (ex\u00a0: "./static").',
+  'docs.typescript.typeRef.generateStaticResult.files':
+    'Tableau des chemins de fichiers générés durant le build (HTML, CSS, assets).',
+
+  // ── Runtime Schemas ───────────────────────────────────────────────────
+  'docs.typescript.runtimeSchemas.title': "Schémas d'exécution",
+  'docs.typescript.runtimeSchemas.description':
+    "Sovrium exporte des objets Effect Schema pour la validation à l'exécution. Utilisez-les pour valider des entrées inconnues de manière programmatique.",
+  'docs.typescript.runtimeSchemas.appSchema':
+    "Effect Schema pour la configuration complète de l'application. Valide name, tables, theme, pages, auth, etc.",
+  'docs.typescript.runtimeSchemas.pageSchema':
+    "Effect Schema pour la configuration d'une page. Valide name, path, meta, sections, scripts.",
+  'docs.typescript.runtimeSchemas.tip.title': "Quand utiliser les schémas d'exécution",
+  'docs.typescript.runtimeSchemas.tip.body':
+    "Utilisez AppSchema et PageSchema quand vous devez valider une configuration provenant de sources externes (fichiers, APIs, saisie utilisateur). Pour les objets typés dans votre propre code, les types App et Page offrent la sécurité à la compilation sans surcoût à l'exécution.",
+
+  'docs.typescript.examples.title': 'Exemples',
+  'docs.typescript.examples.description': "Cas d'utilisation courants avec Sovrium en TypeScript.",
+  'docs.typescript.examples.minimal.title': 'Serveur minimal',
+  'docs.typescript.examples.tables.title': 'Avec des tables de données',
+  'docs.typescript.examples.build.title': 'Génération de site statique',
+  'docs.typescript.examples.dynamic.title': 'Configuration dynamique',
 }

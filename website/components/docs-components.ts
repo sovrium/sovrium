@@ -347,19 +347,21 @@ export const docsScreenshot: ComponentTemplate = {
 
 // ─── docs-property-row: Single row for property references ───────────────────
 // vars: { name, description }
+// Uses a fixed 35%/65% column split matching the propertyTable header in shared.ts.
 export const docsPropertyRow: ComponentTemplate = {
   name: 'docs-property-row',
   type: 'div',
   props: {
-    className:
-      'grid grid-cols-[140px_1fr] sm:grid-cols-[180px_1fr] gap-2 py-3 px-4 border-b border-sovereignty-gray-800 last:border-0',
+    className: 'grid gap-x-3 py-2.5 px-4 border-b border-sovereignty-gray-800 last:border-0',
+    style: { gridTemplateColumns: '35% 1fr' },
   },
   children: [
     {
       type: 'span',
       content: '$name',
       props: {
-        className: 'font-mono text-sm text-sovereignty-accent font-semibold',
+        className: 'font-mono text-sm text-sovereignty-accent font-semibold min-w-0',
+        style: { wordBreak: 'break-all' },
       },
     },
     {

@@ -103,6 +103,7 @@ export const BuiltInAnalyticsSchema = Schema.Union(
   })
 ).pipe(
   Schema.annotations({
+    identifier: 'BuiltInAnalytics',
     title: 'Built-in Analytics Configuration',
     description:
       'First-party, privacy-friendly analytics engine. No cookies, no external dependencies, GDPR-compliant.',

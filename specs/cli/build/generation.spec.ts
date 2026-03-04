@@ -15,7 +15,7 @@ import { test, expect } from '@/specs/fixtures'
  *
  * Source: src/infrastructure/static-generation/generator.ts
  * Domain: cli/build
- * Spec Count: 6
+ * Spec Count: 7
  *
  * Static Generation Behavior:
  * - Generates HTML files for all pages
@@ -427,10 +427,73 @@ test.describe('Static Site Generation', () => {
     }
   )
 
+  test(
+    'CLI-BUILD-GENERATION-008: should not show server startup logs during build',
+    { tag: '@spec' },
+    async ({ generateStaticSite: _generateStaticSite }) => {
+      // GIVEN: a minimal app configuration
+      const appSchema = {
+        name: 'silent-build-test',
+        pages: [
+          {
+            name: 'home',
+            path: '/',
+            meta: { lang: 'en', title: 'Home', description: 'Home page' },
+            sections: [],
+          },
+        ],
+      }
+
+      // WHEN: running the build command and capturing output
+      const { spawn } = await import('node:child_process')
+      const { mkdtemp } = await import('node:fs/promises')
+      const { tmpdir } = await import('node:os')
+
+      const tempDir = await mkdtemp(join(tmpdir(), 'sovrium-silent-'))
+      const outputDir = join(tempDir, 'dist')
+
+      const output = await new Promise<string>((resolve, reject) => {
+        const outputBuffer: string[] = []
+        const proc = spawn('bun', ['run', 'src/cli.ts', 'build'], {
+          env: {
+            ...process.env,
+            APP_SCHEMA: JSON.stringify(appSchema),
+            SOVRIUM_OUTPUT_DIR: outputDir,
+          },
+          stdio: 'pipe',
+        })
+
+        proc.stdout?.on('data', (data: Buffer) => outputBuffer.push(data.toString()))
+        proc.stderr?.on('data', (data: Buffer) => outputBuffer.push(data.toString()))
+
+        proc.on('exit', (code) => {
+          if (code === 0) {
+            resolve(outputBuffer.join(''))
+          } else {
+            reject(new Error(`Build failed with code ${code}: ${outputBuffer.join('')}`))
+          }
+        })
+        proc.on('error', (error) => reject(error))
+      })
+
+      // THEN: build output should NOT contain server startup log lines
+      expect(output).not.toContain('Server ready')
+      expect(output).not.toContain('Sovrium v')
+      expect(output).not.toContain('DATABASE_URL not set')
+
+      // THEN: build output SHOULD contain build-relevant messages
+      expect(output).toContain('Generating')
+
+      // Cleanup
+      const { rm } = await import('node:fs/promises')
+      await rm(tempDir, { recursive: true, force: true })
+    }
+  )
+
   // ============================================================================
   // REGRESSION TEST (@regression)
   // ONE OPTIMIZED test verifying static site generation workflow
-  // Generated from 6 @spec tests - covers: HTML generation, CSS compilation,
+  // Generated from 7 @spec tests - covers: HTML generation, CSS compilation,
   // directory structure, nested paths, and formatting
   // ============================================================================
 

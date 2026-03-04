@@ -19,7 +19,6 @@ export const docsAuth = docsPage({
     { label: '$t:docs.auth.roles.title', anchor: 'roles' },
     { label: '$t:docs.auth.twoFactor.title', anchor: 'two-factor' },
     { label: '$t:docs.auth.emails.title', anchor: 'email-templates' },
-    { label: '$t:docs.auth.env.title', anchor: 'environment-variables' },
   ],
   content: [
     // ── Title ────────────────────────────────────────────────────────────
@@ -161,25 +160,6 @@ export const docsAuth = docsPage({
           { name: '$email', description: '$t:docs.auth.emails.var.email' },
           { name: '$organizationName', description: '$t:docs.auth.emails.var.org' },
           { name: '$inviterName', description: '$t:docs.auth.emails.var.inviter' },
-        ]),
-      ],
-    },
-
-    // ── Environment Variables ───────────────────────────────────────────
-    {
-      type: 'div',
-      props: {},
-      children: [
-        sectionHeader(
-          '$t:docs.auth.env.title',
-          '$t:docs.auth.env.description',
-          'environment-variables'
-        ),
-        propertyTable([
-          { name: 'AUTH_SECRET', description: '$t:docs.auth.env.secret' },
-          { name: 'BASE_URL', description: '$t:docs.auth.env.baseUrl' },
-          { name: '{PROVIDER}_CLIENT_ID', description: '$t:docs.auth.env.clientId' },
-          { name: '{PROVIDER}_CLIENT_SECRET', description: '$t:docs.auth.env.clientSecret' },
         ]),
       ],
     },
