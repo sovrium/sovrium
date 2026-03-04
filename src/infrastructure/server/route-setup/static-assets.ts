@@ -9,6 +9,7 @@ import { Console, Effect } from 'effect'
 import { type Context, type Hono } from 'hono'
 import { generateTrackingScript } from '@/infrastructure/analytics/tracking-script'
 import { compileCSS } from '@/infrastructure/css/compiler'
+import { clientScriptPath } from '@/infrastructure/utils/package-paths'
 import type { App } from '@/domain/models/app'
 
 const isProduction = process.env.NODE_ENV === 'production'
@@ -125,24 +126,15 @@ export function setupJavaScriptRoutes(honoApp: Readonly<Hono>): Readonly<Hono> {
   return honoApp
     .get(
       '/assets/language-switcher.js',
-      createJavaScriptHandler(
-        'language-switcher.js',
-        './src/presentation/scripts/client/language-switcher.js'
-      )
+      createJavaScriptHandler('language-switcher.js', clientScriptPath('language-switcher.js'))
     )
     .get(
       '/assets/banner-dismiss.js',
-      createJavaScriptHandler(
-        'banner-dismiss.js',
-        './src/presentation/scripts/client/banner-dismiss.js'
-      )
+      createJavaScriptHandler('banner-dismiss.js', clientScriptPath('banner-dismiss.js'))
     )
     .get(
       '/assets/scroll-animation.js',
-      createJavaScriptHandler(
-        'scroll-animation.js',
-        './src/presentation/scripts/client/scroll-animation.js'
-      )
+      createJavaScriptHandler('scroll-animation.js', clientScriptPath('scroll-animation.js'))
     )
 }
 

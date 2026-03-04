@@ -13,9 +13,10 @@ import { registerHealthRoutes } from './openapi-routes/health-routes'
 import { registerRecordRoutes } from './openapi-routes/record-routes'
 import { registerTableRoutes } from './openapi-routes/table-routes'
 import { registerViewRoutes } from './openapi-routes/view-routes'
+import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
 
-// Read version from package.json at module load (avoids JSON import lint issues)
-const { version: APP_VERSION } = await Bun.file('package.json').json()
+// Read version from Sovrium's own package.json (not the consumer's)
+const { version: APP_VERSION } = await Bun.file(resolvePackagePath('package.json')).json()
 
 /**
  * OpenAPI Schema Generator

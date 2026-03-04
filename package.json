@@ -50,6 +50,7 @@
     "drizzle/**",
     "src/**/*.ts",
     "src/**/*.tsx",
+    "src/**/*.js",
     "src/**/*.css",
     "!src/**/*.test.ts",
     "!src/**/*.test.tsx",
