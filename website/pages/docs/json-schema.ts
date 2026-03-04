@@ -18,6 +18,12 @@ const explorerSchemaUrl = 'https://sovrium.com/schemas/latest/app.schema.json'
 const encodedExplorerSchemaUrl = encodeURIComponent(explorerSchemaUrl)
 const explorerUrl = `https://json-schema.app/view/%23?url=${encodedExplorerSchemaUrl}`
 
+/** Deep-link to a specific root property in the JSON Schema viewer.
+ *  json-schema.app uses JSON Pointer path segments after /view/ :
+ *  e.g. /view/%23/properties/tables?url=… navigates directly to the "tables" property. */
+const propertyExplorerUrl = (propertyName: string) =>
+  `https://json-schema.app/view/%23/properties/${encodeURIComponent(propertyName)}?url=${encodedExplorerSchemaUrl}`
+
 // ─── Schema Root Properties Preview ─────────────────────────────────────────
 
 const schemaProperties = [
@@ -132,13 +138,10 @@ export const docsJsonSchema = docsPage({
         ),
         // Explorer preview card with schema structure + CTA
         {
-          type: 'link',
+          type: 'div',
           props: {
-            href: explorerUrl,
-            target: '_blank',
-            rel: 'noopener noreferrer',
             className:
-              'group block rounded-lg border border-sovereignty-gray-800 hover:border-sovereignty-accent/50 bg-sovereignty-gray-900/50 overflow-hidden transition-all duration-300',
+              'rounded-lg border border-sovereignty-gray-800 bg-sovereignty-gray-900/50 overflow-hidden',
           },
           children: [
             // Top bar mimicking an app chrome
@@ -169,10 +172,13 @@ export const docsJsonSchema = docsPage({
                   props: { className: 'ml-auto' },
                   children: [
                     {
-                      type: 'span',
+                      type: 'link',
                       props: {
+                        href: explorerUrl,
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
                         className:
-                          'inline-flex items-center gap-1.5 text-xs text-sovereignty-gray-400 group-hover:text-sovereignty-accent transition-colors',
+                          'inline-flex items-center gap-1.5 text-xs text-sovereignty-gray-400 hover:text-sovereignty-accent transition-colors',
                       },
                       children: [
                         {
@@ -214,16 +220,19 @@ export const docsJsonSchema = docsPage({
                     },
                   ],
                 },
-                // Properties grid
+                // Properties grid – each card deep-links to its property in the viewer
                 {
                   type: 'div',
                   props: { className: 'grid grid-cols-2 sm:grid-cols-5 gap-3' },
                   children: [
                     ...schemaProperties.map((prop) => ({
-                      type: 'div' as const,
+                      type: 'link' as const,
                       props: {
+                        href: propertyExplorerUrl(prop.name),
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
                         className:
-                          'p-3 rounded-md border border-sovereignty-gray-800 bg-sovereignty-darker/50 group-hover:border-sovereignty-gray-700 transition-colors',
+                          'block p-3 rounded-md border border-sovereignty-gray-800 bg-sovereignty-darker/50 hover:border-sovereignty-accent/50 hover:bg-sovereignty-accent/5 transition-colors duration-200',
                       },
                       children: [
                         {
@@ -258,18 +267,21 @@ export const docsJsonSchema = docsPage({
                     })),
                   ],
                 },
-                // Bottom CTA hint
+                // Bottom CTA – open full schema explorer
                 {
                   type: 'div',
                   props: { className: 'mt-5 text-center' },
                   children: [
                     {
-                      type: 'span',
-                      content: '$t:docs.jsonSchema.explorer.expandHint',
+                      type: 'link',
                       props: {
+                        href: explorerUrl,
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
                         className:
-                          'text-sm text-sovereignty-gray-400 group-hover:text-sovereignty-accent transition-colors',
+                          'text-sm text-sovereignty-gray-400 hover:text-sovereignty-accent transition-colors duration-200',
                       },
+                      content: '$t:docs.jsonSchema.explorer.expandHint',
                     },
                   ],
                 },
