@@ -59,11 +59,57 @@ const version = await getVersion()
 // Generate JSON Schema from Effect Schema
 const jsonSchema = JSONSchema.make(AppSchema)
 
+// ---------------------------------------------------------------------------
+// Post-processing: fix patternProperties with empty-string keys
+// ---------------------------------------------------------------------------
+// Effect Schema's Record({ key, value }) generates:
+//   patternProperties: { "": <value schema> }  +  propertyNames: { pattern: "..." }
+//
+// While semantically correct (empty-string regex matches all, constrained by
+// propertyNames), many JSON Schema viewers (json-schema.app, Swagger UI) don't
+// handle this well. We transform it into:
+//   patternProperties: { "<pattern>": <value schema> }
+
+const fixEmptyPatternProperties = (node: unknown): unknown => {
+  if (node === null || typeof node !== 'object') return node
+
+  if (Array.isArray(node)) return node.map(fixEmptyPatternProperties)
+
+  const obj = node as Record<string, unknown>
+  const result: Record<string, unknown> = {}
+
+  for (const [key, value] of Object.entries(obj)) {
+    result[key] = fixEmptyPatternProperties(value)
+  }
+
+  // Fix: merge propertyNames.pattern into patternProperties key
+  const patternProps = result['patternProperties'] as Record<string, unknown> | undefined
+  const propertyNames = result['propertyNames'] as Record<string, unknown> | undefined
+
+  if (
+    patternProps &&
+    typeof patternProps === 'object' &&
+    '' in patternProps &&
+    propertyNames &&
+    typeof propertyNames === 'object' &&
+    typeof propertyNames['pattern'] === 'string'
+  ) {
+    const { pattern } = propertyNames
+    const valueSchema = patternProps['']
+    const { '': _, ...rest } = patternProps
+    result['patternProperties'] = { ...rest, [pattern]: valueSchema }
+    // Remove propertyNames since the constraint is now in the patternProperties key
+    delete result['propertyNames']
+  }
+
+  return result
+}
+
 // Add JSON Schema metadata
 const schemaWithMetadata = {
   $id: `https://sovrium.com/schemas/${version}/app.schema.json`,
   $schema: 'http://json-schema.org/draft-07/schema#',
-  ...jsonSchema,
+  ...fixEmptyPatternProperties(jsonSchema),
 }
 
 // Output path
