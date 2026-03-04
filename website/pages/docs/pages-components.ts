@@ -75,7 +75,11 @@ export const docsPages = docsPage({
       type: 'div',
       props: {},
       children: [
-        sectionHeader('$t:docs.pages.meta.title', '$t:docs.pages.meta.description', 'meta-seo'),
+        sectionHeader(
+          '$t:docs.pages.metaSeo.title',
+          '$t:docs.pages.metaSeo.description',
+          'meta-seo'
+        ),
         propertyTable([
           { name: 'meta.title', description: '$t:docs.pages.meta.props.title' },
           { name: 'meta.description', description: '$t:docs.pages.meta.props.description' },

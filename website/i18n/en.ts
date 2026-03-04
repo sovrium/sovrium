@@ -18,6 +18,9 @@ export const en: Record<string, string> = {
   'nav.partner.href': '/en/partner',
   'nav.about': 'About',
   'nav.about.href': '/en/about',
+  'nav.search': 'Search',
+  'nav.search.title': 'Search documentation',
+  'nav.search.shortcut': '\u2318K',
   'nav.cta': 'Get Started',
   'nav.cta.href': '/en/docs',
   'nav.lang.label': 'FR',
@@ -60,22 +63,22 @@ export const en: Record<string, string> = {
   // ── Home: Meta ──────────────────────────────────────────────────────
   'home.meta.title': 'Sovrium \u2014 One Config. Complete App. Full Control.',
   'home.meta.description':
-    'Open-source, self-hosted platform that turns a single config file into a complete business application. 100% data ownership, zero vendor lock-in.',
+    'Source-available, self-hosted platform that turns a single config file into a complete business application. 100% data ownership, zero vendor lock-in.',
   'home.meta.og.title': 'Sovrium \u2014 One Config. Complete App. Full Control.',
   'home.meta.og.description':
-    'Open-source, self-hosted platform that turns a single config file into a complete business application. 100% data ownership, zero vendor lock-in.',
+    'Source-available, self-hosted platform that turns a single config file into a complete business application. 100% data ownership, zero vendor lock-in.',
   'home.meta.twitter.title': 'Sovrium \u2014 One Config. Complete App. Full Control.',
   'home.meta.twitter.description':
-    'Open-source, self-hosted platform that turns a single config file into a complete business application. 100% data ownership, zero vendor lock-in.',
+    'Source-available, self-hosted platform that turns a single config file into a complete business application. 100% data ownership, zero vendor lock-in.',
 
   // ── Home: Hero ──────────────────────────────────────────────────────
   'home.hero.title': 'One Config. Complete App. Full Control.',
-  'home.hero.subtitle': 'Open-source. Self-hosted. Configuration-driven.',
+  'home.hero.subtitle': 'Source-available. Self-hosted. Configuration-driven.',
   'home.hero.description':
     'Define tables, auth, pages, and theme in one file. Deploy on your infrastructure. No per-seat pricing. No vendor lock-in.',
   'home.hero.cta.primary': 'Get Started',
   'home.hero.cta.secondary': 'Star on GitHub',
-  'home.hero.trust': 'Open source \u00B7 BSL 1.1 \u00B7 Built with Bun, Effect.ts, Hono & React 19',
+  'home.hero.trust': 'Source-available \u00B7 BSL 1.1 \u00B7 Built with Bun, Effect.ts, Hono & React 19',
 
   // ── Home: Problem Statement ─────────────────────────────────────────
   'home.problem.title': 'The SaaS Trap',
@@ -383,7 +386,7 @@ export const en: Record<string, string> = {
   // ── Company: CTA ───────────────────────────────────────────────────
   'about.cta.title': 'Join the Movement',
   'about.cta.description':
-    'Sovrium is open source and actively developed. Star the repo, contribute code, or build with us.',
+    'Sovrium is source-available and actively developed. Star the repo, contribute code, or build with us.',
   'about.cta.github': 'View on GitHub',
   'about.cta.partner': 'Work With Us',
   'about.cta.partner.href': '/en/partner',
@@ -592,7 +595,7 @@ export const en: Record<string, string> = {
   'privacy.s2.selfHosted.item4': '\u2022 Monitor your usage or deployments',
   'privacy.s2.selfHosted.note':
     'You are the data controller for all data processed by your Sovrium installation.',
-  'privacy.s2.github.title': '2.4 GitHub and Open Source',
+  'privacy.s2.github.title': '2.4 GitHub and Source Code',
   'privacy.s2.github.p1':
     'When you interact with our GitHub repository (issues, pull requests, discussions), GitHub collects data according to their privacy policy. We may see public information you share on GitHub.',
   'privacy.s2.facebook.title': '2.5 Facebook and Social Login',
@@ -953,7 +956,7 @@ export const en: Record<string, string> = {
   // ── Docs: Get Started — Introduction ────────────────────────────
   'docs.introduction.header.title': 'Introduction',
   'docs.introduction.header.description':
-    'Sovrium is an open-source, self-hosted platform that turns a single configuration file into a complete web application.',
+    'Sovrium is a source-available, self-hosted platform that turns a single configuration file into a complete web application.',
   'docs.introduction.what.title': 'What is Sovrium?',
   'docs.introduction.what.description':
     'Sovrium is a configuration-driven application platform. You describe your application in a YAML or JSON file \u2014 data models, authentication, pages, themes, analytics \u2014 and Sovrium turns it into a running, full-stack web application.',
@@ -971,7 +974,7 @@ export const en: Record<string, string> = {
   'docs.introduction.why.point3.title': 'Progressive complexity',
   'docs.introduction.why.point3.description':
     'Start with just a name. Add tables, theme, pages, auth, and analytics as your needs grow.',
-  'docs.introduction.why.point4.title': 'Open source',
+  'docs.introduction.why.point4.title': 'Source-available',
   'docs.introduction.why.point4.description':
     'Business Source License 1.1. Free for internal use. Becomes Apache 2.0 in 2029.',
   'docs.introduction.how.title': 'How it works',
@@ -1460,8 +1463,8 @@ export const en: Record<string, string> = {
   'docs.pages.pageProps.scripts': 'Array of script URLs or inline code to inject into the page.',
 
   // Meta & SEO
-  'docs.pages.meta.title': 'Meta & SEO',
-  'docs.pages.meta.description':
+  'docs.pages.metaSeo.title': 'Meta & SEO',
+  'docs.pages.metaSeo.description':
     'Comprehensive metadata for search engines, social sharing, and browser display.',
   'docs.pages.meta.props.title':
     'Page title shown in browser tab and search results. Supports $t: translations.',

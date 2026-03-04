@@ -18,6 +18,9 @@ export const fr: Record<string, string> = {
   'nav.partner.href': '/fr/partner',
   'nav.about': '\u00C0 propos',
   'nav.about.href': '/fr/about',
+  'nav.search': 'Rechercher',
+  'nav.search.title': 'Rechercher dans la documentation',
+  'nav.search.shortcut': '\u2318K',
   'nav.cta': 'Commencer',
   'nav.cta.href': '/fr/docs',
   'nav.lang.label': 'EN',
@@ -1519,8 +1522,8 @@ export const fr: Record<string, string> = {
     'Tableau d\u2019URLs de scripts ou de code inline \u00E0 injecter dans la page.',
 
   // Meta & SEO
-  'docs.pages.meta.title': 'Meta & SEO',
-  'docs.pages.meta.description':
+  'docs.pages.metaSeo.title': 'Meta & SEO',
+  'docs.pages.metaSeo.description':
     'M\u00E9tadonn\u00E9es compl\u00E8tes pour les moteurs de recherche, le partage social et l\u2019affichage navigateur.',
   'docs.pages.meta.props.title':
     'Titre de la page affich\u00E9 dans l\u2019onglet du navigateur et les r\u00E9sultats de recherche. Supporte les traductions $t:.',
@@ -1651,7 +1654,8 @@ export const fr: Record<string, string> = {
     'Cl\u00E9 secr\u00E8te pour signer les jetons et chiffrer les sessions. Doit \u00EAtre une cha\u00EEne al\u00E9atoire forte.',
   'docs.auth.env.baseUrl':
     'URL de base de votre application (ex.\u00A0: https://myapp.com). Utilis\u00E9e pour les URL de callback.',
-  'docs.auth.env.clientId': 'Identifiant client OAuth depuis la console d\u00E9veloppeur du fournisseur.',
+  'docs.auth.env.clientId':
+    'Identifiant client OAuth depuis la console d\u00E9veloppeur du fournisseur.',
   'docs.auth.env.clientSecret':
     'Secret client OAuth depuis la console d\u00E9veloppeur du fournisseur. Gardez-le confidentiel.',
 
@@ -1662,6 +1666,24 @@ export const fr: Record<string, string> = {
   'docs.languages.defining.title': 'D\u00E9finir les langues',
   'docs.languages.defining.description':
     'D\u00E9finissez une langue par d\u00E9faut et listez les langues support\u00E9es avec code, locale, libell\u00E9 et direction du texte.',
+  'docs.languages.props.default':
+    'Code ISO 639-1 de la langue par d\u00E9faut (ex.\u00A0: "en"). Utilis\u00E9 quand aucune langue n\u2019est d\u00E9tect\u00E9e.',
+  'docs.languages.props.supported':
+    'Tableau d\u2019objets d\u2019entr\u00E9e de langue. Chacun d\u00E9finit une langue support\u00E9e.',
+  'docs.languages.entryProps.title': 'Propri\u00E9t\u00E9s d\u2019entr\u00E9e de langue',
+  'docs.languages.entryProps.description':
+    'Chaque entr\u00E9e du tableau supported d\u00E9crit une langue avec ces propri\u00E9t\u00E9s.',
+  'docs.languages.entryProps.code':
+    'Code ISO 639-1 de la langue (ex.\u00A0: "en", "fr", "ar"). Utilis\u00E9 dans le routage URL (/en/, /fr/).',
+  'docs.languages.entryProps.locale':
+    'Identifiant de locale complet (ex.\u00A0: "en-US", "fr-FR", "ar-SA"). Utilis\u00E9 pour le formatage des nombres et dates.',
+  'docs.languages.entryProps.label':
+    'Nom lisible de la langue affich\u00E9 dans les s\u00E9lecteurs de langue (ex.\u00A0: "English", "Fran\u00E7ais").',
+  'docs.languages.entryProps.direction':
+    'Direction du texte\u00A0: "ltr" (gauche \u00E0 droite) pour la plupart des langues, "rtl" (droite \u00E0 gauche) pour l\u2019arabe, l\u2019h\u00E9breu, etc.',
+  'docs.languages.rtl.title': 'Support RTL',
+  'docs.languages.rtl.description':
+    'D\u00E9finissez direction: rtl pour les langues droite-\u00E0-gauche comme l\u2019arabe ou l\u2019h\u00E9breu. Sovrium inverse automatiquement la mise en page, aligne le texte \u00E0 droite et applique l\u2019attribut dir="rtl" \u00E0 la racine HTML.',
   'docs.languages.translations.title': 'Cl\u00E9s de traduction',
   'docs.languages.translations.description':
     'D\u00E9finissez des paires cl\u00E9-valeur pour chaque langue. Les cl\u00E9s utilisent la notation point\u00E9e pour l\u2019organisation.',
@@ -1692,9 +1714,24 @@ export const fr: Record<string, string> = {
   'docs.analytics.title': 'Analytiques',
   'docs.analytics.description':
     'Analytiques int\u00E9gr\u00E9es, respectueuses de la vie priv\u00E9e, sans cookies, sans services externes et enti\u00E8rement conformes au RGPD. Toutes les donn\u00E9es restent sur votre serveur.',
+  'docs.analytics.howItWorks.title': 'Comment \u00E7a marche',
+  'docs.analytics.howItWorks.description':
+    'Les analytiques Sovrium suivent un pipeline simple en trois \u00E9tapes \u2014 aucun service externe requis.',
+  'docs.analytics.howItWorks.collect.title': 'Collecter',
+  'docs.analytics.howItWorks.collect.description':
+    'Un script l\u00E9ger enregistre les pages vues, sessions, r\u00E9f\u00E9rents et infos appareil via /api/analytics/collect.',
+  'docs.analytics.howItWorks.store.title': 'Stocker',
+  'docs.analytics.howItWorks.store.description':
+    'Toutes les donn\u00E9es sont stock\u00E9es localement dans votre base de donn\u00E9es. Pas de cookies, pas de fingerprinting, pas d\u2019appels externes.',
+  'docs.analytics.howItWorks.query.title': 'Interroger',
+  'docs.analytics.howItWorks.query.description':
+    'Acc\u00E9dez \u00E0 vos analytiques via le tableau de bord admin ou l\u2019API. Les donn\u00E9es restent sur votre serveur.',
   'docs.analytics.quickEnable.title': 'Activation rapide',
   'docs.analytics.quickEnable.description':
     'Activez analytics \u00E0 true pour des param\u00E8tres par d\u00E9faut \u2014 aucune configuration n\u00E9cessaire.',
+  'docs.analytics.booleanVsObject.title': 'Bool\u00E9en vs Objet',
+  'docs.analytics.booleanVsObject.description':
+    'analytics: true active les param\u00E8tres par d\u00E9faut (r\u00E9tention 90 jours, DNT respect\u00E9, sessions de 30 min). Utilisez un objet pour personnaliser des param\u00E8tres sp\u00E9cifiques tout en gardant les valeurs par d\u00E9faut pour le reste.',
   'docs.analytics.advanced.title': 'Configuration avanc\u00E9e',
   'docs.analytics.advanced.description':
     'Affinez le comportement des analytiques avec r\u00E9tention, vie priv\u00E9e et options de session.',
