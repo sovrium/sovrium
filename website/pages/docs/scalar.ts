@@ -49,8 +49,8 @@ const scalarCustomStyles = [
       '  font-family: Inter, system-ui, -apple-system, sans-serif !important;',
       '}',
       // Full-page layout: Scalar fills viewport and handles its own scrolling
-      'html, body { margin: 0; padding: 0; height: 100%; overflow: auto; }',
-      '#scalar-api-reference { height: 100vh; overflow: hidden; }',
+      'html, body { margin: 0; padding: 0; height: 100%; }',
+      '#scalar-api-reference { min-height: 100vh; }',
       // Remove Scalar's own header/top bar
       '.scalar-api-reference .scalar-api-reference__header { display: none !important; }',
     ].join('\n'),
@@ -135,7 +135,7 @@ export const docsScalar: Page = {
           props: {
             id: 'scalar-api-reference',
             className: 'w-full',
-            style: 'height:100vh',
+            style: 'min-height:100vh',
           },
           children: [
             // Loading placeholder
