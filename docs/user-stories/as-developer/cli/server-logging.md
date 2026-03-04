@@ -47,14 +47,14 @@ Clean, structured startup output inspired by Vite/Next.js/Astro. Treats logs as 
 
 | ID     | Criterion                                                       | E2E Spec                    | Status |
 | ------ | --------------------------------------------------------------- | --------------------------- | ------ |
-| AC-001 | Displays `Sovrium v{version}` header on startup                 | `CLI-LOG-OUTPUT-001`        | .fixme |
-| AC-002 | Shows only completed phases (not internal step-by-step details) | `CLI-LOG-OUTPUT-002`        | .fixme |
-| AC-003 | Displays total startup time in human-readable format (ms or s)  | `CLI-LOG-OUTPUT-003`        | .fixme |
-| AC-004 | Shows server URL as final prominent line with `→` prefix        | `CLI-LOG-OUTPUT-004`        | .fixme |
-| AC-005 | Shows CSS size in KB (not raw bytes)                            | `CLI-LOG-OUTPUT-005`        | .fixme |
-| AC-006 | Minimal app (no DB, no auth) shows only relevant phases         | `CLI-LOG-OUTPUT-006`        | .fixme |
-| AC-007 | Full app shows all phases (DB, migrations, schema, auth, CSS)   | `CLI-LOG-OUTPUT-007`        | .fixme |
-| AC-008 | Regression test covering end-to-end startup workflow            | `CLI-LOG-OUTPUT-REGRESSION` | .fixme |
+| AC-001 | Displays `Sovrium v{version}` header on startup                 | `CLI-LOG-OUTPUT-001`        | ✅     |
+| AC-002 | Shows only completed phases (not internal step-by-step details) | `CLI-LOG-OUTPUT-002`        | ✅     |
+| AC-003 | Displays total startup time in human-readable format (ms or s)  | `CLI-LOG-OUTPUT-003`        | ✅     |
+| AC-004 | Shows server URL as final prominent line with `→` prefix        | `CLI-LOG-OUTPUT-004`        | ✅     |
+| AC-005 | Shows CSS size in KB (not raw bytes)                            | `CLI-LOG-OUTPUT-005`        | ✅     |
+| AC-006 | Minimal app (no DB, no auth) shows only relevant phases         | `CLI-LOG-OUTPUT-006`        | ✅     |
+| AC-007 | Full app shows all phases (DB, migrations, schema, auth, CSS)   | `CLI-LOG-OUTPUT-007`        | ✅     |
+| AC-008 | Regression test covering end-to-end startup workflow            | `CLI-LOG-OUTPUT-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -80,10 +80,10 @@ Clean, structured startup output inspired by Vite/Next.js/Astro. Treats logs as 
 
 | ID     | Criterion                                                                   | E2E Spec                      | Status |
 | ------ | --------------------------------------------------------------------------- | ----------------------------- | ------ |
-| AC-001 | SMTP not configured warning appears with ⚠ prefix and Mailpit fallback info | `CLI-LOG-WARNINGS-001`        | .fixme |
-| AC-002 | DATABASE_URL not set warning appears when no DB configured                  | `CLI-LOG-WARNINGS-002`        | .fixme |
-| AC-003 | Warnings appear before success phases (structured order)                    | `CLI-LOG-WARNINGS-003`        | .fixme |
-| AC-004 | Regression test covering warning scenarios                                  | `CLI-LOG-WARNINGS-REGRESSION` | .fixme |
+| AC-001 | SMTP not configured warning appears with ⚠ prefix and Mailpit fallback info | `CLI-LOG-WARNINGS-001`        | ✅     |
+| AC-002 | DATABASE_URL not set warning appears when no DB configured                  | `CLI-LOG-WARNINGS-002`        | ✅     |
+| AC-003 | Warnings appear before success phases (structured order)                    | `CLI-LOG-WARNINGS-003`        | ✅     |
+| AC-004 | Regression test covering warning scenarios                                  | `CLI-LOG-WARNINGS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -107,11 +107,11 @@ Clean, structured startup output inspired by Vite/Next.js/Astro. Treats logs as 
 
 | ID     | Criterion                                             | E2E Spec                     | Status |
 | ------ | ----------------------------------------------------- | ---------------------------- | ------ |
-| AC-001 | LOG_LEVEL=debug shows CSS compiler diagnostics        | `CLI-LOG-VERBOSE-001`        | .fixme |
-| AC-002 | LOG_LEVEL=debug shows schema initializer step details | `CLI-LOG-VERBOSE-002`        | .fixme |
-| AC-003 | LOG_LEVEL=debug shows bootstrap admin details         | `CLI-LOG-VERBOSE-003`        | .fixme |
-| AC-004 | Default log level hides debug messages                | `CLI-LOG-VERBOSE-004`        | .fixme |
-| AC-005 | Regression test covering verbose mode                 | `CLI-LOG-VERBOSE-REGRESSION` | .fixme |
+| AC-001 | LOG_LEVEL=debug shows CSS compiler diagnostics        | `CLI-LOG-VERBOSE-001`        | ✅     |
+| AC-002 | LOG_LEVEL=debug shows schema initializer step details | `CLI-LOG-VERBOSE-002`        | ✅     |
+| AC-003 | LOG_LEVEL=debug shows bootstrap admin details         | `CLI-LOG-VERBOSE-003`        | ✅     |
+| AC-004 | Default log level hides debug messages                | `CLI-LOG-VERBOSE-004`        | ✅     |
+| AC-005 | Regression test covering verbose mode                 | `CLI-LOG-VERBOSE-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -138,12 +138,12 @@ Clean, structured startup output inspired by Vite/Next.js/Astro. Treats logs as 
 
 | ID     | Criterion                                                  | E2E Spec                     | Status |
 | ------ | ---------------------------------------------------------- | ---------------------------- | ------ |
-| AC-001 | CSS cache hit produces no console output                   | `CLI-LOG-RUNTIME-001`        | .fixme |
-| AC-002 | CSS compilation (first compile) logs at debug level only   | `CLI-LOG-RUNTIME-002`        | .fixme |
-| AC-003 | JS asset serving produces no console output                | `CLI-LOG-RUNTIME-003`        | .fixme |
-| AC-004 | CSS errors still log at error level                        | `CLI-LOG-RUNTIME-004`        | .fixme |
-| AC-005 | No "Press Ctrl+C to stop the server" message after startup | `CLI-LOG-RUNTIME-005`        | .fixme |
-| AC-006 | Regression test covering runtime silence                   | `CLI-LOG-RUNTIME-REGRESSION` | .fixme |
+| AC-001 | CSS cache hit produces no console output                   | `CLI-LOG-RUNTIME-001`        | ✅     |
+| AC-002 | CSS compilation (first compile) logs at debug level only   | `CLI-LOG-RUNTIME-002`        | ✅     |
+| AC-003 | JS asset serving produces no console output                | `CLI-LOG-RUNTIME-003`        | ✅     |
+| AC-004 | CSS errors still log at error level                        | `CLI-LOG-RUNTIME-004`        | ✅     |
+| AC-005 | No "Press Ctrl+C to stop the server" message after startup | `CLI-LOG-RUNTIME-005`        | ✅     |
+| AC-006 | Regression test covering runtime silence                   | `CLI-LOG-RUNTIME-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -170,11 +170,11 @@ Clean, structured startup output inspired by Vite/Next.js/Astro. Treats logs as 
 
 | ID     | Criterion                                                             | E2E Spec                    | Status |
 | ------ | --------------------------------------------------------------------- | --------------------------- | ------ |
-| AC-001 | `LOG_LEVEL=debug` logs method, path, status, and duration per request | `CLI-LOG-ACCESS-001`        | .fixme |
-| AC-002 | Static asset paths (`/assets/*`) excluded from access log             | `CLI-LOG-ACCESS-002`        | .fixme |
-| AC-003 | Default log level produces no access log                              | `CLI-LOG-ACCESS-003`        | .fixme |
-| AC-004 | Format: `<-- METHOD /path STATUS TIMEms`                              | `CLI-LOG-ACCESS-004`        | .fixme |
-| AC-005 | Regression test covering access log scenarios                         | `CLI-LOG-ACCESS-REGRESSION` | .fixme |
+| AC-001 | `LOG_LEVEL=debug` logs method, path, status, and duration per request | `CLI-LOG-ACCESS-001`        | ✅     |
+| AC-002 | Static asset paths (`/assets/*`) excluded from access log             | `CLI-LOG-ACCESS-002`        | ✅     |
+| AC-003 | Default log level produces no access log                              | `CLI-LOG-ACCESS-003`        | ✅     |
+| AC-004 | Format: `<-- METHOD /path STATUS TIMEms`                              | `CLI-LOG-ACCESS-004`        | ✅     |
+| AC-005 | Regression test covering access log scenarios                         | `CLI-LOG-ACCESS-REGRESSION` | ✅     |
 
 ### Implementation References
 
@@ -200,10 +200,10 @@ Clean, structured startup output inspired by Vite/Next.js/Astro. Treats logs as 
 
 | ID     | Criterion                                                  | E2E Spec                   | Status |
 | ------ | ---------------------------------------------------------- | -------------------------- | ------ |
-| AC-001 | Server 500 errors include method and path in log           | `CLI-LOG-ERROR-001`        | .fixme |
-| AC-002 | Page rendering errors use `logError` (not `Console.error`) | `CLI-LOG-ERROR-002`        | .fixme |
-| AC-003 | Auth errors don't leak passwords or tokens                 | `CLI-LOG-ERROR-003`        | .fixme |
-| AC-004 | Regression test covering error logging scenarios           | `CLI-LOG-ERROR-REGRESSION` | .fixme |
+| AC-001 | Server 500 errors include method and path in log           | `CLI-LOG-ERROR-001`        | ✅     |
+| AC-002 | Page rendering errors use `logError` (not `Console.error`) | `CLI-LOG-ERROR-002`        | ✅     |
+| AC-003 | Auth errors don't leak passwords or tokens                 | `CLI-LOG-ERROR-003`        | ✅     |
+| AC-004 | Regression test covering error logging scenarios           | `CLI-LOG-ERROR-REGRESSION` | ✅     |
 
 ### Implementation References
 
