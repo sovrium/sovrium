@@ -5,131 +5,393 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { favicons } from '../favicons'
-import { footerI18n } from '../footer'
-import { createNavbar, langSwitchScript, mobileMenuScript } from '../navbar'
-import type { Page } from '@/index'
-
-// ─── Scalar Initialization Script ─────────────────────────────────────────────
-// Loads Scalar API Reference from CDN and initializes it with sovereignty theme.
-
-const scalarInitScript = {
-  code: [
-    '(function(){',
-    'var el=document.getElementById("scalar-api-reference");',
-    'if(!el)return;',
-    'var s=document.createElement("script");',
-    's.src="https://cdn.jsdelivr.net/npm/@scalar/api-reference";',
-    's.defer=true;',
-    's.onload=function(){',
-    'if(typeof Scalar==="undefined"||!Scalar.createApiReference)return;',
-    'Scalar.createApiReference("#scalar-api-reference",{',
-    'spec:{url:"/api/openapi.json"},',
-    'theme:"none",',
-    'darkMode:true,',
-    'hideDownloadButton:false,',
-    'metaData:{title:"Sovrium API Reference"},',
-    '});',
-    '};',
-    'document.body.appendChild(s);',
-    '})();',
-  ].join(''),
-  position: 'body-end' as const,
-}
-
-// ─── Custom Styles for Scalar ─────────────────────────────────────────────────
-// Override Scalar CSS variables to match sovereignty theme.
-
-const scalarCustomStyles = [
-  {
-    type: 'style' as const,
-    content: [
-      '#scalar-api-reference{',
-      '--scalar-background-1:#050810;',
-      '--scalar-background-2:#0a0e1a;',
-      '--scalar-background-3:#111827;',
-      '--scalar-color-1:#e8ecf4;',
-      '--scalar-color-2:#d1d5db;',
-      '--scalar-color-3:#9ca3af;',
-      '--scalar-color-accent:#3b82f6;',
-      '--scalar-button-1:#3b82f6;',
-      '--scalar-button-1-hover:#2563eb;',
-      '--scalar-font:Inter,system-ui,-apple-system,sans-serif;',
-      '--scalar-font-code:"Fira Code",Monaco,"Courier New",monospace;',
-      'min-height:80vh;',
-      '}',
-    ].join(''),
-  },
-]
+import {
+  badgeGroup,
+  calloutWarning,
+  codeBlock,
+  docsPage,
+  endpointGroup,
+  endpointRow,
+  sectionHeader,
+} from './shared'
 
 // ─── Page Definition ──────────────────────────────────────────────────────────
 
-export const docsApiReference: Page = {
-  name: 'docs-api-reference',
+export const docsApiReference = docsPage({
+  activeId: 'api-reference',
   path: '/docs/api-reference',
-  meta: {
-    title: '$t:docs.apiReference.meta.title',
-    description: '$t:docs.apiReference.meta.description',
-    favicons,
-    customElements: scalarCustomStyles,
-  },
-  scripts: {
-    inlineScripts: [mobileMenuScript, langSwitchScript, scalarInitScript],
-  },
-  sections: [
-    // ── Navbar ──────────────────────────────────────────────────────────
-    createNavbar('docs'),
-
-    // ── Early Preview Banner ────────────────────────────────────────────
+  metaTitle: '$t:docs.apiReference.meta.title',
+  metaDescription: '$t:docs.apiReference.meta.description',
+  content: [
+    // ── Title ────────────────────────────────────────────────────────────
     {
       type: 'div',
-      props: {
-        className:
-          'bg-sovereignty-accent/10 border-b border-sovereignty-accent/20 text-center py-2 px-4',
-      },
+      props: {},
       children: [
         {
-          type: 'span',
-          content: '$t:docs.apiReference.earlyPreview',
-          props: { className: 'text-xs text-sovereignty-accent font-medium' },
+          type: 'h1',
+          content: '$t:docs.apiReference.title',
+          props: {
+            className: 'text-3xl sm:text-4xl font-bold mb-4 text-sovereignty-light',
+          },
+        },
+        {
+          type: 'paragraph',
+          content: '$t:docs.apiReference.description',
+          props: { className: 'text-base text-sovereignty-gray-300 max-w-3xl leading-relaxed' },
         },
       ],
     },
 
-    // ── Scalar API Reference Container ──────────────────────────────────
+    // ── Early Preview Callout ──────────────────────────────────────────
+    calloutWarning(
+      '$t:docs.apiReference.earlyPreview.title',
+      '$t:docs.apiReference.earlyPreview.body'
+    ),
+
+    // ── Interactive Explorer CTA ──────────────────────────────────────
     {
-      type: 'section',
+      type: 'div',
       props: {
-        className: 'bg-sovereignty-darker text-sovereignty-light',
+        className:
+          'flex flex-col sm:flex-row items-start sm:items-center gap-4 p-5 rounded-lg border border-sovereignty-accent/30 bg-sovereignty-accent/5',
       },
       children: [
         {
           type: 'div',
-          props: { id: 'scalar-api-reference' },
+          props: { className: 'flex-1' },
           children: [
-            // Loading state (replaced by Scalar on init)
+            {
+              type: 'h3',
+              content: '$t:docs.apiReference.cta.title',
+              props: { className: 'text-base font-semibold text-sovereignty-light mb-1' },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:docs.apiReference.cta.description',
+              props: { className: 'text-sm text-sovereignty-gray-400' },
+            },
+          ],
+        },
+        {
+          type: 'link',
+          props: {
+            href: 'https://sandbox.scalar.com/?url=https://sovrium.com/docs/openapi.json',
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            className:
+              'inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-sovereignty-accent text-white font-medium text-sm hover:bg-sovereignty-accent/90 transition-colors shrink-0',
+          },
+          children: [
+            { type: 'span', content: '$t:docs.apiReference.cta.button', props: {} },
+            {
+              type: 'span',
+              content: '\u2197',
+              props: { className: 'text-xs' },
+            },
+          ],
+        },
+      ],
+    },
+
+    // ── Base URL ──────────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.apiReference.baseUrl.title',
+          '$t:docs.apiReference.baseUrl.description',
+          'base-url'
+        ),
+        codeBlock('http://localhost:3000/api', 'text'),
+      ],
+    },
+
+    // ── Health ────────────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.apiReference.health.title',
+          '$t:docs.apiReference.health.description',
+          'health'
+        ),
+        endpointGroup('', '', [
+          endpointRow('GET', '/api/health', '$t:docs.apiReference.health.get'),
+        ]),
+      ],
+    },
+
+    // ── Tables ────────────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.apiReference.tables.title',
+          '$t:docs.apiReference.tables.description',
+          'tables'
+        ),
+        endpointGroup('', '', [
+          endpointRow('GET', '/api/tables', '$t:docs.apiReference.tables.list'),
+          endpointRow('GET', '/api/tables/{tableId}', '$t:docs.apiReference.tables.get'),
+          endpointRow(
+            'GET',
+            '/api/tables/{tableId}/permissions',
+            '$t:docs.apiReference.tables.permissions'
+          ),
+        ]),
+      ],
+    },
+
+    // ── Records ───────────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.apiReference.records.title',
+          '$t:docs.apiReference.records.description',
+          'records'
+        ),
+        endpointGroup('$t:docs.apiReference.records.crud.title', '', [
+          endpointRow('GET', '/api/tables/{tableId}/records', '$t:docs.apiReference.records.list'),
+          endpointRow(
+            'POST',
+            '/api/tables/{tableId}/records',
+            '$t:docs.apiReference.records.create'
+          ),
+          endpointRow(
+            'GET',
+            '/api/tables/{tableId}/records/{recordId}',
+            '$t:docs.apiReference.records.get'
+          ),
+          endpointRow(
+            'PATCH',
+            '/api/tables/{tableId}/records/{recordId}',
+            '$t:docs.apiReference.records.update'
+          ),
+          endpointRow(
+            'DELETE',
+            '/api/tables/{tableId}/records/{recordId}',
+            '$t:docs.apiReference.records.delete'
+          ),
+        ]),
+        endpointGroup('$t:docs.apiReference.records.batch.title', '', [
+          endpointRow(
+            'POST',
+            '/api/tables/{tableId}/records/batch',
+            '$t:docs.apiReference.records.batchCreate'
+          ),
+          endpointRow(
+            'PATCH',
+            '/api/tables/{tableId}/records/batch',
+            '$t:docs.apiReference.records.batchUpdate'
+          ),
+          endpointRow(
+            'DELETE',
+            '/api/tables/{tableId}/records/batch',
+            '$t:docs.apiReference.records.batchDelete'
+          ),
+          endpointRow(
+            'POST',
+            '/api/tables/{tableId}/records/upsert',
+            '$t:docs.apiReference.records.upsert'
+          ),
+        ]),
+        endpointGroup('$t:docs.apiReference.records.lifecycle.title', '', [
+          endpointRow('GET', '/api/tables/{tableId}/trash', '$t:docs.apiReference.records.trash'),
+          endpointRow(
+            'POST',
+            '/api/tables/{tableId}/records/{recordId}/restore',
+            '$t:docs.apiReference.records.restore'
+          ),
+          endpointRow(
+            'POST',
+            '/api/tables/{tableId}/records/batch/restore',
+            '$t:docs.apiReference.records.batchRestore'
+          ),
+          endpointRow(
+            'GET',
+            '/api/tables/{tableId}/records/{recordId}/history',
+            '$t:docs.apiReference.records.history'
+          ),
+        ]),
+        endpointGroup('$t:docs.apiReference.records.comments.title', '', [
+          endpointRow(
+            'GET',
+            '/api/tables/{tableId}/records/{recordId}/comments',
+            '$t:docs.apiReference.records.commentsList'
+          ),
+          endpointRow(
+            'POST',
+            '/api/tables/{tableId}/records/{recordId}/comments',
+            '$t:docs.apiReference.records.commentsCreate'
+          ),
+          endpointRow(
+            'GET',
+            '.../{recordId}/comments/{commentId}',
+            '$t:docs.apiReference.records.commentsGet'
+          ),
+          endpointRow(
+            'PATCH',
+            '.../{recordId}/comments/{commentId}',
+            '$t:docs.apiReference.records.commentsUpdate'
+          ),
+          endpointRow(
+            'DELETE',
+            '.../{recordId}/comments/{commentId}',
+            '$t:docs.apiReference.records.commentsDelete'
+          ),
+        ]),
+      ],
+    },
+
+    // ── Views ─────────────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.apiReference.views.title',
+          '$t:docs.apiReference.views.description',
+          'views'
+        ),
+        endpointGroup('', '', [
+          endpointRow('GET', '/api/tables/{tableId}/views', '$t:docs.apiReference.views.list'),
+          endpointRow(
+            'GET',
+            '/api/tables/{tableId}/views/{viewId}',
+            '$t:docs.apiReference.views.get'
+          ),
+          endpointRow(
+            'GET',
+            '/api/tables/{tableId}/views/{viewId}/records',
+            '$t:docs.apiReference.views.records'
+          ),
+        ]),
+      ],
+    },
+
+    // ── Activity ──────────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.apiReference.activity.title',
+          '$t:docs.apiReference.activity.description',
+          'activity'
+        ),
+        endpointGroup('', '', [
+          endpointRow('GET', '/api/activity', '$t:docs.apiReference.activity.list'),
+          endpointRow('GET', '/api/activity/{activityId}', '$t:docs.apiReference.activity.get'),
+        ]),
+      ],
+    },
+
+    // ── Analytics ─────────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.apiReference.analyticsEndpoints.title',
+          '$t:docs.apiReference.analyticsEndpoints.description',
+          'analytics-endpoints'
+        ),
+        endpointGroup('', '', [
+          endpointRow(
+            'POST',
+            '/api/analytics/collect',
+            '$t:docs.apiReference.analyticsEndpoints.collect'
+          ),
+          endpointRow(
+            'GET',
+            '/api/analytics/overview',
+            '$t:docs.apiReference.analyticsEndpoints.overview'
+          ),
+          endpointRow(
+            'GET',
+            '/api/analytics/pages',
+            '$t:docs.apiReference.analyticsEndpoints.pages'
+          ),
+          endpointRow(
+            'GET',
+            '/api/analytics/referrers',
+            '$t:docs.apiReference.analyticsEndpoints.referrers'
+          ),
+          endpointRow(
+            'GET',
+            '/api/analytics/devices',
+            '$t:docs.apiReference.analyticsEndpoints.devices'
+          ),
+          endpointRow(
+            'GET',
+            '/api/analytics/campaigns',
+            '$t:docs.apiReference.analyticsEndpoints.campaigns'
+          ),
+        ]),
+      ],
+    },
+
+    // ── Authentication ────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.apiReference.auth.title',
+          '$t:docs.apiReference.auth.description',
+          'authentication'
+        ),
+        {
+          type: 'div',
+          props: {
+            className:
+              'p-4 rounded-lg border border-sovereignty-gray-800 bg-sovereignty-gray-900/30',
+          },
+          children: [
+            {
+              type: 'paragraph',
+              content: '$t:docs.apiReference.auth.summary',
+              props: { className: 'text-sm text-sovereignty-gray-300 leading-relaxed' },
+            },
             {
               type: 'div',
-              props: {
-                className: 'flex items-center justify-center min-h-[60vh]',
-              },
+              props: { className: 'flex flex-wrap gap-3 mt-3' },
               children: [
                 {
-                  type: 'div',
-                  props: { className: 'text-center' },
+                  type: 'link',
+                  props: {
+                    href: '$t:docs.sidebar.auth.href',
+                    className:
+                      'text-sm text-sovereignty-accent hover:text-sovereignty-accent/80 transition-colors',
+                  },
                   children: [
                     {
-                      type: 'div',
-                      props: {
-                        className:
-                          'animate-spin rounded-full h-8 w-8 border-b-2 border-sovereignty-accent mx-auto mb-4',
-                      },
-                      children: [],
+                      type: 'span',
+                      content: '$t:docs.apiReference.auth.configLink',
+                      props: {},
                     },
+                  ],
+                },
+                {
+                  type: 'link',
+                  props: {
+                    href: 'https://sandbox.scalar.com/?url=https://sovrium.com/docs/openapi.json',
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                    className:
+                      'text-sm text-sovereignty-accent hover:text-sovereignty-accent/80 transition-colors',
+                  },
+                  children: [
                     {
-                      type: 'paragraph',
-                      content: '$t:docs.apiReference.loading',
-                      props: { className: 'text-sovereignty-gray-400 text-sm' },
+                      type: 'span',
+                      content: '$t:docs.apiReference.auth.scalarLink',
+                      props: {},
                     },
                   ],
                 },
@@ -140,7 +402,62 @@ export const docsApiReference: Page = {
       ],
     },
 
-    // ── Footer ──────────────────────────────────────────────────────────
-    footerI18n,
+    // ── Cross-Cutting Features ────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.apiReference.features.title',
+          '$t:docs.apiReference.features.description',
+          'features'
+        ),
+        badgeGroup('', [
+          'Pagination',
+          'Soft Deletes',
+          'RBAC',
+          'Rate Limiting',
+          'Field-Level Permissions',
+          'OpenAPI 3.1',
+        ]),
+      ],
+    },
+
+    // ── OpenAPI Schema ────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.apiReference.openapi.title',
+          '$t:docs.apiReference.openapi.description',
+          'openapi-schema'
+        ),
+        codeBlock('curl https://your-instance.com/docs/openapi.json', 'bash'),
+        {
+          type: 'div',
+          props: { className: 'mt-3' },
+          children: [
+            {
+              type: 'link',
+              props: {
+                href: '/docs/openapi.json',
+                target: '_blank',
+                className:
+                  'inline-flex items-center gap-2 text-sm text-sovereignty-accent hover:text-sovereignty-accent/80 transition-colors',
+              },
+              children: [
+                {
+                  type: 'span',
+                  content: '$t:docs.apiReference.openapi.download',
+                  props: {},
+                },
+                { type: 'span', content: '\u2197', props: { className: 'text-xs' } },
+              ],
+            },
+          ],
+        },
+      ],
+    },
   ],
-} as Page
+})

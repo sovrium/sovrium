@@ -908,10 +908,99 @@ export const fr: Record<string, string> = {
     'Activez des analytiques respectueuses de la vie priv\u00E9e, sans cookies, avec r\u00E9tention et sessions configurables.',
   'docs.apiReference.meta.title': 'R\u00E9f\u00E9rence API - Docs Sovrium',
   'docs.apiReference.meta.description':
-    'Documentation interactive de l\u2019API Sovrium. Explorez les endpoints sant\u00E9, authentification et administration.',
-  'docs.apiReference.earlyPreview':
-    'Acc\u00E8s anticip\u00E9 \u2014 L\u2019API est en cours d\u2019\u00E9volution. Les endpoints peuvent changer avant la v1.0.',
-  'docs.apiReference.loading': 'Chargement de la r\u00E9f\u00E9rence API\u2026',
+    'R\u00E9f\u00E9rence compl\u00E8te de l\u2019API REST Sovrium. Parcourez 55+ endpoints pour les tables, enregistrements, vues, activit\u00E9, analytiques et authentification.',
+  'docs.apiReference.title': 'R\u00E9f\u00E9rence API',
+  'docs.apiReference.description':
+    'Sovrium expose une API REST compl\u00E8te pour g\u00E9rer les tables, enregistrements, vues, journaux d\u2019activit\u00E9, analytiques et authentification. Tous les endpoints acceptent et retournent du JSON.',
+  'docs.apiReference.earlyPreview.title': 'Acc\u00E8s anticip\u00E9',
+  'docs.apiReference.earlyPreview.body':
+    'L\u2019API est en cours d\u2019\u00E9volution. Les endpoints peuvent changer avant la v1.0.',
+  'docs.apiReference.cta.title': 'Explorateur interactif d\u2019API',
+  'docs.apiReference.cta.description':
+    'Testez les endpoints directement dans votre navigateur avec l\u2019explorateur interactif Scalar.',
+  'docs.apiReference.cta.button': 'Ouvrir l\u2019explorateur interactif',
+  'docs.apiReference.baseUrl.title': 'URL de base',
+  'docs.apiReference.baseUrl.description':
+    'Tous les endpoints sont relatifs \u00E0 l\u2019URL de base de votre instance Sovrium.',
+  // Health
+  'docs.apiReference.health.title': 'Sant\u00E9',
+  'docs.apiReference.health.description':
+    'Endpoint de v\u00E9rification de l\u2019\u00E9tat du serveur.',
+  'docs.apiReference.health.get': 'V\u00E9rifier l\u2019\u00E9tat du serveur',
+  // Tables
+  'docs.apiReference.tables.title': 'Tables',
+  'docs.apiReference.tables.description':
+    'Consultez les d\u00E9finitions de tables, y compris les sch\u00E9mas de champs et les r\u00E8gles de permissions.',
+  'docs.apiReference.tables.list': 'Lister toutes les tables',
+  'docs.apiReference.tables.get': 'Obtenir une table par ID',
+  'docs.apiReference.tables.permissions': 'Obtenir les permissions d\u2019une table',
+  // Records
+  'docs.apiReference.records.title': 'Enregistrements',
+  'docs.apiReference.records.description':
+    'CRUD complet, op\u00E9rations par lot, cycle de vie de suppression douce, historique des r\u00E9visions et commentaires.',
+  'docs.apiReference.records.crud.title': 'CRUD',
+  'docs.apiReference.records.list': 'Lister les enregistrements',
+  'docs.apiReference.records.create': 'Cr\u00E9er un enregistrement',
+  'docs.apiReference.records.get': 'Obtenir un enregistrement par ID',
+  'docs.apiReference.records.update': 'Modifier un enregistrement',
+  'docs.apiReference.records.delete': 'Supprimer un enregistrement (soft)',
+  'docs.apiReference.records.batch.title': 'Op\u00E9rations par lot',
+  'docs.apiReference.records.batchCreate': 'Cr\u00E9er plusieurs enregistrements',
+  'docs.apiReference.records.batchUpdate': 'Modifier plusieurs enregistrements',
+  'docs.apiReference.records.batchDelete': 'Supprimer plusieurs enregistrements (soft)',
+  'docs.apiReference.records.upsert': 'Cr\u00E9er ou modifier un enregistrement',
+  'docs.apiReference.records.lifecycle.title': 'Corbeille & Historique',
+  'docs.apiReference.records.trash': 'Lister les enregistrements supprim\u00E9s',
+  'docs.apiReference.records.restore': 'Restaurer un enregistrement',
+  'docs.apiReference.records.batchRestore': 'Restaurer plusieurs enregistrements',
+  'docs.apiReference.records.history': 'Obtenir l\u2019historique des r\u00E9visions',
+  'docs.apiReference.records.comments.title': 'Commentaires',
+  'docs.apiReference.records.commentsList': 'Lister les commentaires d\u2019un enregistrement',
+  'docs.apiReference.records.commentsCreate': 'Ajouter un commentaire',
+  'docs.apiReference.records.commentsGet': 'Obtenir un commentaire par ID',
+  'docs.apiReference.records.commentsUpdate': 'Modifier un commentaire',
+  'docs.apiReference.records.commentsDelete': 'Supprimer un commentaire',
+  // Views
+  'docs.apiReference.views.title': 'Vues',
+  'docs.apiReference.views.description':
+    'Vues pr\u00E9configur\u00E9es qui filtrent, trient et regroupent les enregistrements d\u2019une table.',
+  'docs.apiReference.views.list': 'Lister les vues d\u2019une table',
+  'docs.apiReference.views.get': 'Obtenir une vue par ID',
+  'docs.apiReference.views.records': 'Obtenir les enregistrements via une vue',
+  // Activity
+  'docs.apiReference.activity.title': 'Activit\u00E9',
+  'docs.apiReference.activity.description':
+    'Journal d\u2019audit des modifications sur toutes les tables.',
+  'docs.apiReference.activity.list': 'Lister les entr\u00E9es d\u2019activit\u00E9',
+  'docs.apiReference.activity.get': 'Obtenir le d\u00E9tail d\u2019une activit\u00E9',
+  // Analytics
+  'docs.apiReference.analyticsEndpoints.title': 'Analytiques',
+  'docs.apiReference.analyticsEndpoints.description':
+    'Analytiques d\u2019utilisation respectueuses de la vie priv\u00E9e, sans cookies.',
+  'docs.apiReference.analyticsEndpoints.collect': 'Enregistrer un \u00E9v\u00E9nement de page vue',
+  'docs.apiReference.analyticsEndpoints.overview': 'Obtenir l\u2019aper\u00E7u analytique',
+  'docs.apiReference.analyticsEndpoints.pages': 'Obtenir les pages les plus vues',
+  'docs.apiReference.analyticsEndpoints.referrers': 'Obtenir les principaux r\u00E9f\u00E9rents',
+  'docs.apiReference.analyticsEndpoints.devices': 'Obtenir la r\u00E9partition par appareil',
+  'docs.apiReference.analyticsEndpoints.campaigns': 'Obtenir les statistiques de campagnes',
+  // Authentication
+  'docs.apiReference.auth.title': 'Authentification',
+  'docs.apiReference.auth.description':
+    'G\u00E9r\u00E9e par Better Auth avec 28+ endpoints pour connexion, inscription, sessions, OAuth, 2FA et gestion des utilisateurs.',
+  'docs.apiReference.auth.summary':
+    'L\u2019authentification est g\u00E9r\u00E9e par Better Auth et inclut la connexion email/mot de passe, les fournisseurs OAuth, la gestion des sessions, la r\u00E9initialisation de mot de passe, la v\u00E9rification d\u2019email, l\u2019authentification \u00E0 deux facteurs et les endpoints d\u2019administration. Consultez la documentation de configuration ou explorez tous les endpoints dans l\u2019explorateur interactif.',
+  'docs.apiReference.auth.configLink': 'Configuration Auth \u2192',
+  'docs.apiReference.auth.scalarLink':
+    'Voir tous les endpoints auth dans l\u2019explorateur \u2197',
+  // Cross-Cutting Features
+  'docs.apiReference.features.title': 'Fonctionnalit\u00E9s transversales',
+  'docs.apiReference.features.description':
+    'Capacit\u00E9s qui s\u2019appliquent \u00E0 tous les endpoints de l\u2019API.',
+  // OpenAPI Schema
+  'docs.apiReference.openapi.title': 'Sch\u00E9ma OpenAPI',
+  'docs.apiReference.openapi.description':
+    'T\u00E9l\u00E9chargez la sp\u00E9cification OpenAPI 3.1 pour l\u2019utiliser avec n\u2019importe quel client API ou g\u00E9n\u00E9rateur de code.',
+  'docs.apiReference.openapi.download': 'T\u00E9l\u00E9charger openapi.json',
   'docs.resources.meta.title': 'Ressources - Docs Sovrium',
   'docs.resources.meta.description':
     'R\u00E9f\u00E9rences LLM, JSON Schema, d\u00E9p\u00F4t GitHub et ressources suppl\u00E9mentaires.',
@@ -957,9 +1046,9 @@ export const fr: Record<string, string> = {
     'Installez Sovrium globalement ou comme d\u00E9pendance de projet avec Bun.',
   'docs.installation.prerequisites.title': 'Pr\u00E9requis',
   'docs.installation.prerequisites.descriptionBefore': 'Sovrium n\u00E9cessite ',
-  'docs.installation.prerequisites.descriptionLink': 'Bun 1.0+',
+  'docs.installation.prerequisites.descriptionLink': 'Bun 1.3+',
   'docs.installation.prerequisites.descriptionAfter':
-    '. Une base de donn\u00E9es PostgreSQL est optionnelle, n\u00E9cessaire uniquement pour la persistance des donn\u00E9es (tables, auth).',
+    '. Une base de donn\u00E9es PostgreSQL 15+ est optionnelle, n\u00E9cessaire uniquement pour la persistance des donn\u00E9es (tables, auth).',
   'docs.installation.global.title': 'Installation globale',
   'docs.installation.global.description':
     'Installez Sovrium globalement pour utiliser la commande sovrium partout\u00A0:',
@@ -1090,46 +1179,255 @@ export const fr: Record<string, string> = {
   'docs.tables.structure.title': 'Structure d\u2019une table',
   'docs.tables.structure.description':
     'Chaque table a un id, un name, un tableau de fields, et des permissions et index optionnels.',
+
+  // Propri\u00E9t\u00E9s de table
+  'docs.tables.tableProps.title': 'Propri\u00E9t\u00E9s de table',
+  'docs.tables.tableProps.description':
+    'Chaque table dans le tableau tables accepte les propri\u00E9t\u00E9s suivantes.',
+  'docs.tables.tableProps.id': 'Identifiant entier unique de la table.',
+  'docs.tables.tableProps.name':
+    'Nom de la table. Lettres minuscules, chiffres et underscores (^[a-z][a-z0-9_]*). Max 63 caract\u00E8res.',
+  'docs.tables.tableProps.fields':
+    'Tableau de d\u00E9finitions de champs. Au moins un champ est requis.',
+  'docs.tables.tableProps.primaryKey':
+    'Colonne(s) utilis\u00E9e(s) comme cl\u00E9 primaire. Par d\u00E9faut, une colonne id auto-g\u00E9n\u00E9r\u00E9e.',
+  'docs.tables.tableProps.indexes':
+    'Tableau de d\u00E9finitions d\u2019index pour les performances de requ\u00EAtes et l\u2019unicit\u00E9.',
+  'docs.tables.tableProps.uniqueConstraints':
+    'Tableau de contraintes d\u2019unicit\u00E9 multi-colonnes.',
+  'docs.tables.tableProps.foreignKeys':
+    'D\u00E9finitions explicites de cl\u00E9s \u00E9trang\u00E8res pour l\u2019int\u00E9grit\u00E9 r\u00E9f\u00E9rentielle inter-tables.',
+  'docs.tables.tableProps.constraints':
+    'Tableau de contraintes de v\u00E9rification avec expressions SQL pour la validation des donn\u00E9es.',
+  'docs.tables.tableProps.views':
+    'Vues enregistr\u00E9es avec filtres, tri et champs visibles pr\u00E9configur\u00E9s.',
+  'docs.tables.tableProps.permissions':
+    'Objet de permissions RBAC contr\u00F4lant les op\u00E9rations create, read, update, delete et comment.',
+  'docs.tables.tableProps.allowDestructive':
+    'Bool\u00E9en. Lorsque true, autorise les migrations de sch\u00E9ma destructrices (suppression de colonnes, changements de type). Par d\u00E9faut\u00A0: false.',
+
+  // Propri\u00E9t\u00E9s de base des champs
   'docs.tables.baseFields.title': 'Propri\u00E9t\u00E9s de base des champs',
   'docs.tables.baseFields.description':
-    'Chaque champ a ces propri\u00E9t\u00E9s de base\u00A0: id (entier unique), name (identifiant), type (un des 41 types), et optionnellement required, unique, description et defaultValue.',
+    'Chaque champ a ces propri\u00E9t\u00E9s de base\u00A0: id (entier unique), name (identifiant), type (un des 41 types), et optionnellement required, unique, indexed, description et defaultValue.',
   'docs.tables.baseFields.id': 'Identifiant entier unique du champ dans la table.',
   'docs.tables.baseFields.name':
-    'Nom du champ utilis\u00E9 comme identifiant de colonne. Suit les conventions de nommage.',
+    'Nom du champ utilis\u00E9 comme identifiant de colonne. Minuscules, chiffres, underscores (^[a-z][a-z0-9_]*).',
   'docs.tables.baseFields.type':
     'Un des 41 types de champs disponibles (ex.\u00A0: single-line-text, integer, checkbox).',
   'docs.tables.baseFields.required':
     'Bool\u00E9en. Lorsque true, le champ doit avoir une valeur pour chaque enregistrement.',
   'docs.tables.baseFields.unique':
     'Bool\u00E9en. Lorsque true, deux enregistrements ne peuvent pas avoir la m\u00EAme valeur.',
+  'docs.tables.baseFields.indexed':
+    'Bool\u00E9en. Lorsque true, cr\u00E9e un index de base de donn\u00E9es sur ce champ pour des requ\u00EAtes plus rapides.',
   'docs.tables.baseFields.descriptionProp':
     'Description lisible optionnelle affich\u00E9e comme infobulle dans l\u2019interface.',
   'docs.tables.baseFields.defaultValue':
     'Valeur par d\u00E9faut attribu\u00E9e lorsqu\u2019un enregistrement est cr\u00E9\u00E9 sans sp\u00E9cifier ce champ.',
+
+  // Types de champs
   'docs.tables.fieldTypes.title': '41 types de champs',
   'docs.tables.fieldTypes.description':
     'Les types de champs sont organis\u00E9s en 9 cat\u00E9gories\u00A0:',
+  'docs.tables.fieldTypes.text': 'Champs texte',
   'docs.tables.fieldTypes.text.description':
     'Champs pour le contenu textuel \u2014 des \u00E9tiquettes courtes au texte riche format\u00E9 et aux cha\u00EEnes structur\u00E9es.',
+  'docs.tables.fieldTypes.text.maxLength':
+    'Nombre maximum de caract\u00E8res pour les champs rich-text. Valid\u00E9 \u00E0 la saisie.',
+  'docs.tables.fieldTypes.text.fullTextSearch':
+    'Bool\u00E9en. Active l\u2019indexation de recherche plein texte pour les champs rich-text et long-text.',
+  'docs.tables.fieldTypes.text.barcodeFormat':
+    'Format d\u2019encodage du code-barres\u00A0: CODE128, EAN13, QR, UPC, etc.',
+  'docs.tables.fieldTypes.numeric': 'Champs num\u00E9riques',
   'docs.tables.fieldTypes.numeric.description':
-    'Champs pour les nombres, devises, pourcentages et notations avec options de formatage.',
+    'Champs pour les nombres, devises, pourcentages, notations et indicateurs de progression.',
+  'docs.tables.fieldTypes.numeric.minMax':
+    'Valeurs minimale et maximale autoris\u00E9es. S\u2019applique aux champs integer, decimal, currency et percentage.',
+  'docs.tables.fieldTypes.numeric.precision':
+    'Nombre de d\u00E9cimales pour les champs decimal et currency (0\u201320).',
+  'docs.tables.fieldTypes.numeric.currency':
+    'Code devise ISO 4217 (ex.\u00A0: USD, EUR, GBP). Requis pour les champs currency.',
+  'docs.tables.fieldTypes.numeric.symbolPosition':
+    'Position du symbole mon\u00E9taire\u00A0: "before" ($100) ou "after" (100\u20AC). Par d\u00E9faut\u00A0: before.',
+  'docs.tables.fieldTypes.numeric.thousandsSep':
+    'Bool\u00E9en. Active le s\u00E9parateur de milliers (1\u00A0000 vs 1000). Par d\u00E9faut\u00A0: true.',
+  'docs.tables.fieldTypes.numeric.negativeFormat':
+    'Format d\u2019affichage des n\u00E9gatifs\u00A0: "minus" (-100), "parentheses" ((100)) ou "red" (\u221E100 en rouge).',
+  'docs.tables.fieldTypes.numeric.ratingMax':
+    'Valeur maximale de notation (1\u201310). Par d\u00E9faut\u00A0: 5.',
+  'docs.tables.fieldTypes.numeric.ratingStyle':
+    'Style visuel de notation\u00A0: "stars", "hearts", "thumbs" ou "numeric".',
+  'docs.tables.fieldTypes.numeric.progressColor':
+    'Couleur de la barre de progression. Accepte toute valeur CSS de couleur.',
+  'docs.tables.fieldTypes.selection': 'Champs de s\u00E9lection',
   'docs.tables.fieldTypes.selection.description':
     'Champs pour choisir parmi des options pr\u00E9d\u00E9finies \u2014 s\u00E9lection simple ou multiple avec \u00E9tiquettes color\u00E9es.',
-  'docs.tables.fieldTypes.text': 'Champs texte',
-  'docs.tables.fieldTypes.numeric': 'Champs num\u00E9riques',
-  'docs.tables.fieldTypes.selection': 'Champs de s\u00E9lection',
+  'docs.tables.fieldTypes.selection.options':
+    'Tableau d\u2019objets d\u00E9finissant les choix disponibles.',
+  'docs.tables.fieldTypes.selection.optionLabel': 'Texte affich\u00E9 pour l\u2019option. Requis.',
+  'docs.tables.fieldTypes.selection.optionColor':
+    'Couleur du badge pour l\u2019option\u00A0: gray, red, orange, yellow, green, blue, purple, pink.',
+  'docs.tables.fieldTypes.selection.maxSelections':
+    'Nombre maximum de choix pour les champs multi-select. Pas de limite par d\u00E9faut.',
   'docs.tables.fieldTypes.dateTime': 'Champs date & heure',
+  'docs.tables.fieldTypes.dateTime.description':
+    'Champs pour les dates, heures, horodatages et valeurs de dur\u00E9e.',
+  'docs.tables.fieldTypes.dateTime.dateFormat':
+    'Format d\u2019affichage des dates\u00A0: "YYYY-MM-DD", "MM/DD/YYYY", "DD/MM/YYYY", etc.',
+  'docs.tables.fieldTypes.dateTime.timeFormat':
+    'Format d\u2019affichage de l\u2019heure\u00A0: "12h" ou "24h".',
+  'docs.tables.fieldTypes.dateTime.includeTime':
+    'Bool\u00E9en. Lorsque true, les champs date capturent aussi l\u2019heure.',
+  'docs.tables.fieldTypes.dateTime.timezone':
+    'Identifiant de fuseau horaire IANA (ex.\u00A0: "Europe/Paris"). Par d\u00E9faut UTC.',
+  'docs.tables.fieldTypes.dateTime.durationFormat':
+    'Format d\u2019affichage pour les champs duration\u00A0: "hours:minutes", "minutes", "seconds", etc.',
   'docs.tables.fieldTypes.user': 'Champs utilisateur & audit',
-  'docs.tables.fieldTypes.relational': 'Champs relationnels',
+  'docs.tables.fieldTypes.user.description':
+    'Champs auto-remplis tra\u00E7ant qui a cr\u00E9\u00E9/modifi\u00E9/supprim\u00E9 un enregistrement et quand. N\u00E9cessite que auth soit configur\u00E9.',
   'docs.tables.fieldTypes.media': 'Champs pi\u00E8ces jointes',
+  'docs.tables.fieldTypes.media.allowedFileTypes':
+    'Tableau de types MIME autoris\u00E9s (ex.\u00A0: ["image/png", "application/pdf"]). Vide = tous les types.',
+  'docs.tables.fieldTypes.media.maxFileSize':
+    'Taille maximale de fichier en octets. Exemple\u00A0: 10485760 pour 10 Mo.',
+  'docs.tables.fieldTypes.media.maxFiles':
+    'Nombre maximum de fichiers pour les champs multiple-attachments.',
+  'docs.tables.fieldTypes.media.storage':
+    'Backend de stockage\u00A0: "local" (d\u00E9faut) ou "s3" pour le stockage cloud.',
+  'docs.tables.fieldTypes.media.generateThumbnail':
+    'Bool\u00E9en. Lorsque true, g\u00E9n\u00E8re automatiquement des miniatures d\u2019images \u00E0 l\u2019upload.',
+  'docs.tables.fieldTypes.media.storeMetadata':
+    'Bool\u00E9en. Lorsque true, stocke les m\u00E9tadonn\u00E9es du fichier (dimensions, EXIF, dur\u00E9e).',
   'docs.tables.fieldTypes.computed': 'Champs calcul\u00E9s',
+  'docs.tables.fieldTypes.computed.formula':
+    'Expression r\u00E9f\u00E9ren\u00E7ant d\u2019autres champs. Exemple\u00A0: "price * quantity".',
+  'docs.tables.fieldTypes.computed.resultType':
+    'Type de sortie attendu de la formule\u00A0: "string", "integer", "decimal", "boolean" ou "date".',
+  'docs.tables.fieldTypes.computed.format':
+    'Format d\u2019affichage du r\u00E9sultat calcul\u00E9 (ex.\u00A0: "0\u00A00,00" pour les nombres).',
+  'docs.tables.fieldTypes.computed.prefix':
+    'Texte ajout\u00E9 avant les valeurs autonumber (ex.\u00A0: "TKT-", "FAC-").',
+  'docs.tables.fieldTypes.computed.startFrom':
+    'Valeur de d\u00E9part de la s\u00E9quence autonumber. Par d\u00E9faut\u00A0: 1.',
+  'docs.tables.fieldTypes.computed.digits':
+    'Nombre minimum de chiffres pour autonumber, compl\u00E9t\u00E9 par des z\u00E9ros. Exemple\u00A0: 5 \u2192 "00001".',
   'docs.tables.fieldTypes.advanced': 'Champs avanc\u00E9s',
+  'docs.tables.fieldTypes.advanced.jsonSchema':
+    'Objet JSON Schema pour valider le contenu des champs json.',
+  'docs.tables.fieldTypes.advanced.itemType':
+    'Type de donn\u00E9es des \u00E9l\u00E9ments d\u2019un tableau\u00A0: "string", "number", "boolean" ou "object".',
+  'docs.tables.fieldTypes.advanced.maxItems':
+    'Nombre maximum d\u2019\u00E9l\u00E9ments dans un champ array.',
+  'docs.tables.fieldTypes.advanced.buttonLabel':
+    'Texte affich\u00E9 sur le bouton. Supporte la syntaxe de traduction $t:.',
+  'docs.tables.fieldTypes.advanced.buttonAction':
+    'Action d\u00E9clench\u00E9e au clic\u00A0: "openUrl", "runScript" ou "callWebhook".',
+  'docs.tables.fieldTypes.advanced.buttonUrl':
+    'URL \u00E0 ouvrir ou webhook \u00E0 appeler. Supporte les variables de template {field_name}.',
+  'docs.tables.fieldTypes.relational': 'Champs relationnels',
+
+  // Champs relationnels
+  'docs.tables.relational.title': 'Champs relationnels',
+  'docs.tables.relational.description':
+    'Quatre types de champs permettent les relations inter-tables\u00A0: relationship, lookup, rollup et count. Ils forment une cha\u00EEne \u2014 relationship d\u00E9finit le lien, puis lookup, rollup et count en d\u00E9rivent les donn\u00E9es.',
+  'docs.tables.relational.relationship.description':
+    'Cr\u00E9e un lien par cl\u00E9 \u00E9trang\u00E8re vers une autre table. Fondation de toutes les fonctionnalit\u00E9s relationnelles.',
+  'docs.tables.relational.relationship.relatedTable':
+    'Nom de la table cible \u00E0 relier. Doit correspondre \u00E0 un nom de table existant.',
+  'docs.tables.relational.relationship.relationType':
+    'Cardinalit\u00E9\u00A0: "one-to-one", "many-to-one", "one-to-many" ou "many-to-many".',
+  'docs.tables.relational.relationship.foreignKey':
+    'Nom personnalis\u00E9 de la colonne de cl\u00E9 \u00E9trang\u00E8re. Auto-g\u00E9n\u00E9r\u00E9 si omis.',
+  'docs.tables.relational.relationship.displayField':
+    'Champ de la table li\u00E9e affich\u00E9 dans l\u2019interface (ex.\u00A0: "name" au lieu de "id").',
+  'docs.tables.relational.relationship.onDelete':
+    'Action r\u00E9f\u00E9rentielle \u00E0 la suppression\u00A0: "cascade", "set-null", "restrict" ou "no-action".',
+  'docs.tables.relational.relationship.onUpdate':
+    'Action r\u00E9f\u00E9rentielle \u00E0 la mise \u00E0 jour\u00A0: "cascade", "set-null", "restrict" ou "no-action".',
+  'docs.tables.relational.relationship.reciprocalField':
+    'Nom du champ pour la relation inverse sur la table li\u00E9e.',
+  'docs.tables.relational.relationship.allowMultiple':
+    'Bool\u00E9en. Pour many-to-many, permet de s\u00E9lectionner plusieurs enregistrements li\u00E9s.',
+  'docs.tables.relational.lookup.description':
+    'Lit la valeur d\u2019un champ d\u2019un enregistrement li\u00E9 via une relation existante. Lecture seule et mise \u00E0 jour automatique.',
+  'docs.tables.relational.lookup.relationshipField':
+    'Nom du champ relationship \u00E0 traverser (doit exister dans la m\u00EAme table).',
+  'docs.tables.relational.lookup.relatedField':
+    'Nom du champ sur la table li\u00E9e dont afficher la valeur.',
+  'docs.tables.relational.lookup.filters':
+    'Expression de filtre optionnelle pour restreindre les enregistrements li\u00E9s inclus.',
+  'docs.tables.relational.rollup.description':
+    'Agr\u00E8ge les valeurs de plusieurs enregistrements li\u00E9s (sum, avg, count, min, max, etc.).',
+  'docs.tables.relational.rollup.relationshipField':
+    'Nom du champ relationship connectant \u00E0 la table li\u00E9e.',
+  'docs.tables.relational.rollup.relatedField': 'Champ sur la table li\u00E9e \u00E0 agr\u00E9ger.',
+  'docs.tables.relational.rollup.aggregation':
+    'Fonction d\u2019agr\u00E9gation\u00A0: "sum", "avg", "min", "max", "count", "concat" ou "array".',
+  'docs.tables.relational.rollup.format':
+    'Format d\u2019affichage du r\u00E9sultat agr\u00E9g\u00E9 (ex.\u00A0: "$0\u00A00,00" pour les sommes en devise).',
+  'docs.tables.relational.rollup.filters':
+    'Filtre optionnel pour n\u2019inclure que les enregistrements correspondants dans l\u2019agr\u00E9gation.',
+  'docs.tables.relational.count.description':
+    'Compte le nombre d\u2019enregistrements li\u00E9s. Un rollup simplifi\u00E9 avec agr\u00E9gation toujours d\u00E9finie sur count.',
+  'docs.tables.relational.count.relationshipField':
+    'Nom du champ relationship \u00E0 partir duquel compter les enregistrements.',
+  'docs.tables.relational.count.conditions':
+    'Expression de filtre optionnelle pour ne compter que les enregistrements correspondants.',
+  'docs.tables.relational.tip.title': 'Cha\u00EEne relationnelle',
+  'docs.tables.relational.tip.body':
+    'Commencez par un champ relationship pour cr\u00E9er le lien, puis utilisez lookup, rollup ou count pour d\u00E9river les donn\u00E9es sans duplication. Exemple\u00A0: orders \u2192 customer (relationship) \u2192 customer_email (lookup).',
+
+  // Permissions
   'docs.tables.permissions.title': 'Permissions (RBAC)',
   'docs.tables.permissions.description':
-    'Les permissions de table utilisent le contr\u00F4le d\u2019acc\u00E8s par r\u00F4le. Chaque permission (create, read, update, delete, comment) accepte\u00A0: "all" (public), "authenticated" (utilisateurs connect\u00E9s), ou un tableau de noms de r\u00F4les.',
+    'Les permissions de table utilisent le contr\u00F4le d\u2019acc\u00E8s par r\u00F4le. Chaque permission accepte\u00A0: "all" (public), "authenticated" (utilisateurs connect\u00E9s), ou un tableau de noms de r\u00F4les.',
+  'docs.tables.permissions.props.create':
+    'Qui peut cr\u00E9er de nouveaux enregistrements. Par d\u00E9faut\u00A0: "authenticated".',
+  'docs.tables.permissions.props.read':
+    'Qui peut consulter les enregistrements. Par d\u00E9faut\u00A0: "all".',
+  'docs.tables.permissions.props.update':
+    'Qui peut modifier les enregistrements existants. Par d\u00E9faut\u00A0: "authenticated".',
+  'docs.tables.permissions.props.delete':
+    'Qui peut supprimer des enregistrements. Par d\u00E9faut\u00A0: "authenticated".',
+  'docs.tables.permissions.props.comment':
+    'Qui peut ajouter des commentaires aux enregistrements. Par d\u00E9faut\u00A0: "authenticated".',
+  'docs.tables.permissions.props.fields':
+    'Objet mappant les noms de champs aux permissions read/update par champ. Permet un contr\u00F4le d\u2019acc\u00E8s granulaire.',
+  'docs.tables.permissions.props.inherit':
+    'Bool\u00E9en. Lorsque true, h\u00E9rite les permissions d\u2019une table parente ou des d\u00E9fauts globaux.',
+  'docs.tables.permissions.props.override':
+    'Bool\u00E9en. Lorsque true, ces permissions remplacent celles h\u00E9rit\u00E9es.',
   'docs.tables.permissions.tip.title': 'Trois niveaux d\u2019acc\u00E8s',
   'docs.tables.permissions.tip.body':
     '"all" pour un acc\u00E8s public, "authenticated" pour tout utilisateur connect\u00E9, ou un tableau de noms de r\u00F4les comme [admin, member] pour des r\u00F4les sp\u00E9cifiques.',
+  'docs.tables.permissions.security.title': 'Bonne pratique de s\u00E9curit\u00E9',
+  'docs.tables.permissions.security.body':
+    'Les acc\u00E8s non autoris\u00E9s renvoient 404 (et non 403) pour emp\u00EAcher les attaquants de d\u00E9couvrir quelles ressources existent. Cela suit les recommandations OWASP pour la pr\u00E9vention de l\u2019\u00E9num\u00E9ration de ressources.',
+
+  // Index & Contraintes
+  'docs.tables.indexes.title': 'Index & Contraintes',
+  'docs.tables.indexes.description':
+    'Optimisez les requ\u00EAtes avec des index et garantissez l\u2019int\u00E9grit\u00E9 des donn\u00E9es avec des contraintes d\u2019unicit\u00E9 et de v\u00E9rification.',
+  'docs.tables.indexes.indexesTitle': 'Index',
+  'docs.tables.indexes.indexName':
+    'Nom lisible optionnel pour l\u2019index (ex.\u00A0: "idx_email").',
+  'docs.tables.indexes.indexFields':
+    'Tableau de noms de champs \u00E0 indexer. Les index composites listent plusieurs champs.',
+  'docs.tables.indexes.indexUnique':
+    'Bool\u00E9en. Lorsque true, garantit l\u2019unicit\u00E9 sur les colonnes index\u00E9es.',
+  'docs.tables.indexes.indexWhere':
+    'Condition d\u2019index partiel sous forme d\u2019expression SQL. Seules les lignes correspondantes sont index\u00E9es.',
+  'docs.tables.indexes.uniqueTitle': 'Contraintes d\u2019unicit\u00E9',
+  'docs.tables.indexes.uniqueName':
+    'Nom de la contrainte d\u2019unicit\u00E9 (ex.\u00A0: "uq_email_org").',
+  'docs.tables.indexes.uniqueFields':
+    'Tableau de noms de champs devant \u00EAtre uniques ensemble (unicit\u00E9 composite).',
+  'docs.tables.indexes.constraintsTitle': 'Contraintes de v\u00E9rification',
+  'docs.tables.indexes.constraintName':
+    'Nom de la contrainte de v\u00E9rification (ex.\u00A0: "chk_positive_price").',
+  'docs.tables.indexes.constraintCheck':
+    'Expression bool\u00E9enne SQL devant \u00EAtre vraie pour chaque ligne (ex.\u00A0: "price > 0").',
 
   // ── Docs: Section 5 — Theme ───────────────────────────────────────
   'docs.theme.title': 'Th\u00E8me',

@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { calloutTip, codeBlock, docsPage } from './shared'
+import { calloutTip, codeBlock, docsPage, propertyTable, sectionHeader } from './shared'
 
 export const docsOverview = docsPage({
   activeId: 'overview',
@@ -171,6 +171,104 @@ export const docsOverview = docsPage({
             },
           ],
         },
+      ],
+    },
+
+    // ── Property Details ──────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.overview.details.title',
+          '$t:docs.overview.details.description',
+          'property-details'
+        ),
+
+        // name
+        {
+          type: 'h4',
+          content: 'name',
+          props: {
+            className: 'text-base font-semibold text-sovereignty-light mt-2 mb-2 font-mono',
+          },
+        },
+        {
+          type: 'paragraph',
+          content: '$t:docs.overview.details.name.description',
+          props: { className: 'text-sm text-sovereignty-gray-400 mb-2' },
+        },
+        propertyTable([
+          { name: 'Pattern', description: '$t:docs.overview.details.name.pattern' },
+          { name: 'Max length', description: '$t:docs.overview.details.name.maxLength' },
+          { name: 'Scoped', description: '$t:docs.overview.details.name.scoped' },
+        ]),
+        codeBlock(
+          '# Valid names\nname: my-app\nname: task-tracker-v2\nname: "@acme/dashboard"',
+          'yaml'
+        ),
+
+        // version
+        {
+          type: 'h4',
+          content: 'version',
+          props: {
+            className: 'text-base font-semibold text-sovereignty-light mt-6 mb-2 font-mono',
+          },
+        },
+        {
+          type: 'paragraph',
+          content: '$t:docs.overview.details.version.description',
+          props: { className: 'text-sm text-sovereignty-gray-400 mb-2' },
+        },
+        codeBlock(
+          'version: 1.0.0           # Stable release\nversion: 2.0.0-beta.1    # Pre-release\nversion: 1.0.0+build.42  # Build metadata',
+          'yaml'
+        ),
+
+        // description
+        {
+          type: 'h4',
+          content: 'description',
+          props: {
+            className: 'text-base font-semibold text-sovereignty-light mt-6 mb-2 font-mono',
+          },
+        },
+        {
+          type: 'paragraph',
+          content: '$t:docs.overview.details.description.body',
+          props: { className: 'text-sm text-sovereignty-gray-400 mb-2' },
+        },
+        propertyTable([
+          { name: 'Format', description: '$t:docs.overview.details.description.format' },
+          { name: 'Max length', description: '$t:docs.overview.details.description.maxLength' },
+          { name: 'Unicode', description: '$t:docs.overview.details.description.unicode' },
+        ]),
+      ],
+    },
+
+    // ── Configuration Formats ─────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.overview.formats.title',
+          '$t:docs.overview.formats.description',
+          'config-formats'
+        ),
+        codeBlock(
+          '# YAML format (recommended)\nname: my-app\nversion: 1.0.0\ntables:\n  - id: 1\n    name: tasks\n    fields:\n      - { id: 1, name: title, type: single-line-text }',
+          'yaml'
+        ),
+        codeBlock(
+          '// JSON format\n{\n  "name": "my-app",\n  "version": "1.0.0",\n  "tables": [\n    {\n      "id": 1,\n      "name": "tasks",\n      "fields": [\n        { "id": 1, "name": "title", "type": "single-line-text" }\n      ]\n    }\n  ]\n}',
+          'json'
+        ),
+        calloutTip(
+          '$t:docs.overview.formats.tip.title',
+          '$t:docs.overview.formats.tip.body'
+        ),
       ],
     },
   ],

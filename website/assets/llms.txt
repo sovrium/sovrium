@@ -14,7 +14,7 @@ Sovrium turns declarative configuration into production-ready applications with 
 ### Get Started
 
 - [Introduction](https://sovrium.com/en/docs): What is Sovrium, why use it, how it works
-- [Installation](https://sovrium.com/en/docs/installation): Prerequisites (Bun 1.0+), global/project install, database setup
+- [Installation](https://sovrium.com/en/docs/installation): Prerequisites (Bun 1.3+, PostgreSQL 15+), global/project install, database setup
 - [Quick Start](https://sovrium.com/en/docs/quick-start): Two paths — YAML + CLI or TypeScript + Bun — from zero to running app
 
 ### App Schema Reference
@@ -36,8 +36,8 @@ Sovrium turns declarative configuration into production-ready applications with 
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) 1.0+ (JavaScript/TypeScript runtime)
-- PostgreSQL (required for tables and auth; not needed for static sites)
+- [Bun](https://bun.sh) 1.3+ (JavaScript/TypeScript runtime)
+- PostgreSQL 15+ (required for tables and auth; not needed for static sites)
 
 ### Install
 

@@ -95,7 +95,7 @@ Most business applications share the same building blocks: data tables, user aut
 
 ### Prerequisites
 
-Sovrium requires [Bun 1.0+](https://bun.sh). A PostgreSQL database is optional, needed only for data persistence (tables, auth).
+Sovrium requires [Bun 1.3+](https://bun.sh). A PostgreSQL 15+ database is optional, needed only for data persistence (tables, auth).
 
 ### Global installation
 
@@ -1956,7 +1956,7 @@ Sovrium exposes a REST API with interactive documentation via Scalar UI. Availab
 
 > **Early Preview**: The API surface is evolving. Endpoints may change before v1.0.
 
-The API documentation is generated from the OpenAPI schema at `/api/openapi.json`.
+The API documentation is generated from the OpenAPI schema at `/docs/openapi.json`.
 
 ---
 

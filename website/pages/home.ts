@@ -1098,7 +1098,7 @@ export const home: Page = {
                 },
                 {
                   type: 'badge',
-                  content: 'PostgreSQL',
+                  content: 'PostgreSQL 15+',
                   props: {
                     className:
                       'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',

@@ -876,10 +876,95 @@ export const en: Record<string, string> = {
     'Enable privacy-friendly, cookie-free analytics with configurable retention and session options.',
   'docs.apiReference.meta.title': 'API Reference - Sovrium Docs',
   'docs.apiReference.meta.description':
-    'Interactive API documentation for Sovrium. Explore health, authentication, and admin endpoints.',
-  'docs.apiReference.earlyPreview':
-    'Early Preview \u2014 The API surface is evolving. Endpoints may change before v1.0.',
-  'docs.apiReference.loading': 'Loading API reference\u2026',
+    'Complete REST API reference for Sovrium. Browse 55+ endpoints for tables, records, views, activity, analytics, and authentication.',
+  'docs.apiReference.title': 'API Reference',
+  'docs.apiReference.description':
+    'Sovrium exposes a complete REST API for managing tables, records, views, activity logs, analytics, and authentication. All endpoints accept and return JSON.',
+  'docs.apiReference.earlyPreview.title': 'Early Preview',
+  'docs.apiReference.earlyPreview.body':
+    'The API surface is evolving. Endpoints may change before v1.0.',
+  'docs.apiReference.cta.title': 'Interactive API Explorer',
+  'docs.apiReference.cta.description':
+    'Try endpoints directly in your browser with the Scalar-powered interactive explorer.',
+  'docs.apiReference.cta.button': 'Open Interactive Explorer',
+  'docs.apiReference.baseUrl.title': 'Base URL',
+  'docs.apiReference.baseUrl.description':
+    'All endpoints are relative to your Sovrium instance base URL.',
+  // Health
+  'docs.apiReference.health.title': 'Health',
+  'docs.apiReference.health.description': 'Server health check endpoint.',
+  'docs.apiReference.health.get': 'Check server status',
+  // Tables
+  'docs.apiReference.tables.title': 'Tables',
+  'docs.apiReference.tables.description':
+    'Read table definitions, including field schemas and permission rules.',
+  'docs.apiReference.tables.list': 'List all tables',
+  'docs.apiReference.tables.get': 'Get table by ID',
+  'docs.apiReference.tables.permissions': 'Get table permissions',
+  // Records
+  'docs.apiReference.records.title': 'Records',
+  'docs.apiReference.records.description':
+    'Full CRUD, batch operations, soft-delete lifecycle, revision history, and record comments.',
+  'docs.apiReference.records.crud.title': 'CRUD',
+  'docs.apiReference.records.list': 'List records',
+  'docs.apiReference.records.create': 'Create a record',
+  'docs.apiReference.records.get': 'Get record by ID',
+  'docs.apiReference.records.update': 'Update a record',
+  'docs.apiReference.records.delete': 'Soft-delete a record',
+  'docs.apiReference.records.batch.title': 'Batch Operations',
+  'docs.apiReference.records.batchCreate': 'Create multiple records',
+  'docs.apiReference.records.batchUpdate': 'Update multiple records',
+  'docs.apiReference.records.batchDelete': 'Soft-delete multiple records',
+  'docs.apiReference.records.upsert': 'Create or update a record',
+  'docs.apiReference.records.lifecycle.title': 'Trash & History',
+  'docs.apiReference.records.trash': 'List trashed records',
+  'docs.apiReference.records.restore': 'Restore a deleted record',
+  'docs.apiReference.records.batchRestore': 'Restore multiple records',
+  'docs.apiReference.records.history': 'Get record revision history',
+  'docs.apiReference.records.comments.title': 'Comments',
+  'docs.apiReference.records.commentsList': 'List comments on a record',
+  'docs.apiReference.records.commentsCreate': 'Add a comment',
+  'docs.apiReference.records.commentsGet': 'Get comment by ID',
+  'docs.apiReference.records.commentsUpdate': 'Update a comment',
+  'docs.apiReference.records.commentsDelete': 'Delete a comment',
+  // Views
+  'docs.apiReference.views.title': 'Views',
+  'docs.apiReference.views.description':
+    'Pre-configured views that filter, sort, and group records from a table.',
+  'docs.apiReference.views.list': 'List views for a table',
+  'docs.apiReference.views.get': 'Get view by ID',
+  'docs.apiReference.views.records': 'Get records through a view',
+  // Activity
+  'docs.apiReference.activity.title': 'Activity',
+  'docs.apiReference.activity.description': 'Audit log of data changes across all tables.',
+  'docs.apiReference.activity.list': 'List activity entries',
+  'docs.apiReference.activity.get': 'Get activity detail',
+  // Analytics
+  'docs.apiReference.analyticsEndpoints.title': 'Analytics',
+  'docs.apiReference.analyticsEndpoints.description':
+    'Privacy-friendly, cookie-free usage analytics.',
+  'docs.apiReference.analyticsEndpoints.collect': 'Collect a page view event',
+  'docs.apiReference.analyticsEndpoints.overview': 'Get analytics overview',
+  'docs.apiReference.analyticsEndpoints.pages': 'Get top pages',
+  'docs.apiReference.analyticsEndpoints.referrers': 'Get top referrers',
+  'docs.apiReference.analyticsEndpoints.devices': 'Get device breakdown',
+  'docs.apiReference.analyticsEndpoints.campaigns': 'Get campaign stats',
+  // Authentication
+  'docs.apiReference.auth.title': 'Authentication',
+  'docs.apiReference.auth.description':
+    'Powered by Better Auth with 28+ endpoints for sign-in, sign-up, sessions, OAuth, 2FA, and admin user management.',
+  'docs.apiReference.auth.summary':
+    'Authentication is handled by Better Auth and includes email/password sign-in, social OAuth providers, session management, password reset, email verification, two-factor authentication, and admin endpoints. See the Auth configuration docs or explore all endpoints in the interactive API explorer.',
+  'docs.apiReference.auth.configLink': 'Auth Configuration \u2192',
+  'docs.apiReference.auth.scalarLink': 'View all auth endpoints in Explorer \u2197',
+  // Cross-Cutting Features
+  'docs.apiReference.features.title': 'Cross-Cutting Features',
+  'docs.apiReference.features.description': 'Capabilities that apply across all API endpoints.',
+  // OpenAPI Schema
+  'docs.apiReference.openapi.title': 'OpenAPI Schema',
+  'docs.apiReference.openapi.description':
+    'Download the OpenAPI 3.1 specification for use with any API client or code generator.',
+  'docs.apiReference.openapi.download': 'Download openapi.json',
   'docs.resources.meta.title': 'Resources - Sovrium Docs',
   'docs.resources.meta.description':
     'LLM references, JSON Schema, GitHub repository, and additional resources for the Sovrium schema.',
@@ -924,9 +1009,9 @@ export const en: Record<string, string> = {
     'Install Sovrium globally or as a project dependency using Bun.',
   'docs.installation.prerequisites.title': 'Prerequisites',
   'docs.installation.prerequisites.descriptionBefore': 'Sovrium requires ',
-  'docs.installation.prerequisites.descriptionLink': 'Bun 1.0+',
+  'docs.installation.prerequisites.descriptionLink': 'Bun 1.3+',
   'docs.installation.prerequisites.descriptionAfter':
-    '. A PostgreSQL database is optional, needed only for data persistence (tables, auth).',
+    '. A PostgreSQL 15+ database is optional, needed only for data persistence (tables, auth).',
   'docs.installation.global.title': 'Global installation',
   'docs.installation.global.description':
     'Install Sovrium globally to use the sovrium command from anywhere:',
@@ -1051,44 +1136,244 @@ export const en: Record<string, string> = {
   'docs.tables.structure.title': 'Table Structure',
   'docs.tables.structure.description':
     'Each table has an id, name, fields array, and optional permissions and indexes.',
+
+  // Table Properties
+  'docs.tables.tableProps.title': 'Table Properties',
+  'docs.tables.tableProps.description':
+    'Each table in the tables array accepts the following properties.',
+  'docs.tables.tableProps.id': 'Unique integer identifier for the table.',
+  'docs.tables.tableProps.name':
+    'Table name. Lowercase letters, digits, and underscores (^[a-z][a-z0-9_]*). Max 63 characters.',
+  'docs.tables.tableProps.fields': 'Array of field definitions. At least one field is required.',
+  'docs.tables.tableProps.primaryKey':
+    'Column(s) used as primary key. Defaults to an auto-generated id column.',
+  'docs.tables.tableProps.indexes':
+    'Array of index definitions for query performance and uniqueness enforcement.',
+  'docs.tables.tableProps.uniqueConstraints': 'Array of multi-column uniqueness constraints.',
+  'docs.tables.tableProps.foreignKeys':
+    'Explicit foreign key definitions for cross-table referential integrity.',
+  'docs.tables.tableProps.constraints':
+    'Array of check constraints with SQL expressions for data validation.',
+  'docs.tables.tableProps.views':
+    'Saved views with pre-configured filters, sorting, and visible fields.',
+  'docs.tables.tableProps.permissions':
+    'RBAC permissions object controlling create, read, update, delete, and comment operations.',
+  'docs.tables.tableProps.allowDestructive':
+    'Boolean. When true, allows destructive schema migrations (column drops, type changes). Defaults to false.',
+
+  // Base Field Properties
   'docs.tables.baseFields.title': 'Base Field Properties',
   'docs.tables.baseFields.description':
-    'Every field has these base properties: id (unique integer), name (identifier), type (one of 41 types), and optional required, unique, description, and defaultValue.',
+    'Every field has these base properties: id (unique integer), name (identifier), type (one of 41 types), and optional required, unique, indexed, description, and defaultValue.',
   'docs.tables.baseFields.id': 'Unique integer identifier for the field within the table.',
   'docs.tables.baseFields.name':
-    'Field name used as the column identifier. Follows naming conventions.',
+    'Field name used as the column identifier. Lowercase, digits, underscores (^[a-z][a-z0-9_]*).',
   'docs.tables.baseFields.type':
     'One of the 41 available field types (e.g., single-line-text, integer, checkbox).',
   'docs.tables.baseFields.required':
     'Boolean. When true, the field must have a value for every record.',
   'docs.tables.baseFields.unique': 'Boolean. When true, no two records can have the same value.',
+  'docs.tables.baseFields.indexed':
+    'Boolean. When true, creates a database index on this field for faster queries.',
   'docs.tables.baseFields.descriptionProp':
     'Optional human-readable description shown as a tooltip in the UI.',
   'docs.tables.baseFields.defaultValue':
     'Default value assigned when a record is created without specifying this field.',
+
+  // Field Types
   'docs.tables.fieldTypes.title': '41 Field Types',
   'docs.tables.fieldTypes.description': 'Field types are organized into 9 categories:',
+  'docs.tables.fieldTypes.text': 'Text Fields',
   'docs.tables.fieldTypes.text.description':
     'Fields for textual content \u2014 from short labels to rich formatted text and structured strings.',
+  'docs.tables.fieldTypes.text.maxLength':
+    'Maximum character count for rich-text fields. Validates on input.',
+  'docs.tables.fieldTypes.text.fullTextSearch':
+    'Boolean. Enables full-text search indexing for rich-text and long-text fields.',
+  'docs.tables.fieldTypes.text.barcodeFormat':
+    'Barcode encoding format: CODE128, EAN13, QR, UPC, etc.',
+  'docs.tables.fieldTypes.numeric': 'Numeric Fields',
   'docs.tables.fieldTypes.numeric.description':
     'Fields for numbers, currencies, percentages, ratings, and progress indicators.',
+  'docs.tables.fieldTypes.numeric.minMax':
+    'Minimum and maximum allowed values. Applies to integer, decimal, currency, and percentage.',
+  'docs.tables.fieldTypes.numeric.precision':
+    'Number of decimal places for decimal and currency fields (0\u201320).',
+  'docs.tables.fieldTypes.numeric.currency':
+    'ISO 4217 currency code (e.g., USD, EUR, GBP). Required for currency fields.',
+  'docs.tables.fieldTypes.numeric.symbolPosition':
+    'Currency symbol placement: "before" ($100) or "after" (100\u20AC). Default: before.',
+  'docs.tables.fieldTypes.numeric.thousandsSep':
+    'Boolean. Enable thousands grouping separator (1,000 vs 1000). Default: true.',
+  'docs.tables.fieldTypes.numeric.negativeFormat':
+    'Display format for negatives: "minus" (-100), "parentheses" ((100)), or "red" (\u221E100 in red).',
+  'docs.tables.fieldTypes.numeric.ratingMax': 'Maximum rating value (1\u201310). Default: 5.',
+  'docs.tables.fieldTypes.numeric.ratingStyle':
+    'Visual style for rating display: "stars", "hearts", "thumbs", or "numeric".',
+  'docs.tables.fieldTypes.numeric.progressColor':
+    'Color of the progress bar. Accepts any CSS color value.',
+  'docs.tables.fieldTypes.selection': 'Selection Fields',
   'docs.tables.fieldTypes.selection.description':
     'Fields for choosing from predefined options \u2014 single or multi-select with colored labels.',
-  'docs.tables.fieldTypes.text': 'Text Fields',
-  'docs.tables.fieldTypes.numeric': 'Numeric Fields',
-  'docs.tables.fieldTypes.selection': 'Selection Fields',
+  'docs.tables.fieldTypes.selection.options':
+    'Array of option objects defining the available choices.',
+  'docs.tables.fieldTypes.selection.optionLabel': 'Display text for the option. Required.',
+  'docs.tables.fieldTypes.selection.optionColor':
+    'Badge color for the option: gray, red, orange, yellow, green, blue, purple, pink.',
+  'docs.tables.fieldTypes.selection.maxSelections':
+    'Maximum number of choices for multi-select fields. No limit by default.',
   'docs.tables.fieldTypes.dateTime': 'Date & Time Fields',
+  'docs.tables.fieldTypes.dateTime.description':
+    'Fields for dates, times, timestamps, and duration values.',
+  'docs.tables.fieldTypes.dateTime.dateFormat':
+    'Display format for dates: "YYYY-MM-DD", "MM/DD/YYYY", "DD/MM/YYYY", etc.',
+  'docs.tables.fieldTypes.dateTime.timeFormat': 'Time display format: "12h" or "24h".',
+  'docs.tables.fieldTypes.dateTime.includeTime':
+    'Boolean. When true, date fields also capture time.',
+  'docs.tables.fieldTypes.dateTime.timezone':
+    'IANA timezone identifier (e.g., "America/New_York"). Defaults to UTC.',
+  'docs.tables.fieldTypes.dateTime.durationFormat':
+    'Display format for duration fields: "hours:minutes", "minutes", "seconds", etc.',
   'docs.tables.fieldTypes.user': 'User & Audit Fields',
-  'docs.tables.fieldTypes.relational': 'Relational Fields',
+  'docs.tables.fieldTypes.user.description':
+    'Auto-populated fields tracking who created/updated/deleted a record and when. Requires auth to be configured.',
   'docs.tables.fieldTypes.media': 'Attachment Fields',
+  'docs.tables.fieldTypes.media.allowedFileTypes':
+    'Array of allowed MIME types (e.g., ["image/png", "application/pdf"]). Empty = all types.',
+  'docs.tables.fieldTypes.media.maxFileSize':
+    'Maximum file size in bytes. Example: 10485760 for 10 MB.',
+  'docs.tables.fieldTypes.media.maxFiles':
+    'Maximum number of files for multiple-attachments fields.',
+  'docs.tables.fieldTypes.media.storage':
+    'Storage backend: "local" (default) or "s3" for cloud storage.',
+  'docs.tables.fieldTypes.media.generateThumbnail':
+    'Boolean. When true, automatically generates image thumbnails on upload.',
+  'docs.tables.fieldTypes.media.storeMetadata':
+    'Boolean. When true, stores file metadata (dimensions, EXIF, duration).',
   'docs.tables.fieldTypes.computed': 'Computed Fields',
+  'docs.tables.fieldTypes.computed.formula':
+    'Expression string referencing other fields. Example: "price * quantity".',
+  'docs.tables.fieldTypes.computed.resultType':
+    'Expected output type of the formula: "string", "integer", "decimal", "boolean", or "date".',
+  'docs.tables.fieldTypes.computed.format':
+    'Display format for the computed result (e.g., "0,0.00" for numbers).',
+  'docs.tables.fieldTypes.computed.prefix':
+    'Text prepended to autonumber values (e.g., "TKT-", "INV-").',
+  'docs.tables.fieldTypes.computed.startFrom':
+    'Starting value for autonumber sequence. Default: 1.',
+  'docs.tables.fieldTypes.computed.digits':
+    'Minimum digits for autonumber, zero-padded. Example: 5 \u2192 "00001".',
   'docs.tables.fieldTypes.advanced': 'Advanced Fields',
+  'docs.tables.fieldTypes.advanced.jsonSchema':
+    'JSON Schema object for validating json field contents.',
+  'docs.tables.fieldTypes.advanced.itemType':
+    'Data type for array elements: "string", "number", "boolean", or "object".',
+  'docs.tables.fieldTypes.advanced.maxItems': 'Maximum number of elements in an array field.',
+  'docs.tables.fieldTypes.advanced.buttonLabel':
+    'Text displayed on the button. Supports $t: translation syntax.',
+  'docs.tables.fieldTypes.advanced.buttonAction':
+    'Action triggered on click: "openUrl", "runScript", or "callWebhook".',
+  'docs.tables.fieldTypes.advanced.buttonUrl':
+    'URL to open or webhook to call. Supports {field_name} template variables.',
+  'docs.tables.fieldTypes.relational': 'Relational Fields',
+
+  // Relational Fields
+  'docs.tables.relational.title': 'Relational Fields',
+  'docs.tables.relational.description':
+    'Four field types enable cross-table relationships: relationship, lookup, rollup, and count. These form a chain \u2014 relationship defines the link, then lookup, rollup, and count derive data from it.',
+  'docs.tables.relational.relationship.description':
+    'Creates a foreign-key link to another table. Foundation for all relational features.',
+  'docs.tables.relational.relationship.relatedTable':
+    'Name of the target table to link to. Must match an existing table name.',
+  'docs.tables.relational.relationship.relationType':
+    'Cardinality: "one-to-one", "many-to-one", "one-to-many", or "many-to-many".',
+  'docs.tables.relational.relationship.foreignKey':
+    'Custom foreign key column name. Auto-generated if omitted.',
+  'docs.tables.relational.relationship.displayField':
+    'Field from the related table shown in the UI (e.g., "name" instead of "id").',
+  'docs.tables.relational.relationship.onDelete':
+    'Referential action on delete: "cascade", "set-null", "restrict", or "no-action".',
+  'docs.tables.relational.relationship.onUpdate':
+    'Referential action on update: "cascade", "set-null", "restrict", or "no-action".',
+  'docs.tables.relational.relationship.reciprocalField':
+    'Field name for the inverse relationship on the related table.',
+  'docs.tables.relational.relationship.allowMultiple':
+    'Boolean. For many-to-many, allows selecting multiple related records.',
+  'docs.tables.relational.lookup.description':
+    'Reads a field value from a related record via an existing relationship. Read-only and auto-updated.',
+  'docs.tables.relational.lookup.relationshipField':
+    'Name of the relationship field to traverse (must exist in the same table).',
+  'docs.tables.relational.lookup.relatedField':
+    'Field name on the related table whose value to display.',
+  'docs.tables.relational.lookup.filters':
+    'Optional filter expression to narrow which related records are included.',
+  'docs.tables.relational.rollup.description':
+    'Aggregates values from multiple related records (sum, avg, count, min, max, etc.).',
+  'docs.tables.relational.rollup.relationshipField':
+    'Name of the relationship field connecting to the related table.',
+  'docs.tables.relational.rollup.relatedField': 'Field on the related table to aggregate.',
+  'docs.tables.relational.rollup.aggregation':
+    'Aggregation function: "sum", "avg", "min", "max", "count", "concat", or "array".',
+  'docs.tables.relational.rollup.format':
+    'Display format for the aggregated result (e.g., "$0,0.00" for currency sums).',
+  'docs.tables.relational.rollup.filters':
+    'Optional filter to include only matching related records in the aggregation.',
+  'docs.tables.relational.count.description':
+    'Counts the number of related records. A simplified rollup with aggregation always set to count.',
+  'docs.tables.relational.count.relationshipField':
+    'Name of the relationship field to count records from.',
+  'docs.tables.relational.count.conditions':
+    'Optional filter expression to count only matching records.',
+  'docs.tables.relational.tip.title': 'Relational chain',
+  'docs.tables.relational.tip.body':
+    'Start with a relationship field to create the link, then use lookup, rollup, or count to derive data without duplication. Example: orders \u2192 customer (relationship) \u2192 customer_email (lookup).',
+
+  // Permissions
   'docs.tables.permissions.title': 'Permissions (RBAC)',
   'docs.tables.permissions.description':
-    'Table permissions use role-based access control. Each permission (create, read, update, delete, comment) accepts: "all" (public), "authenticated" (logged-in users), or an array of role names.',
+    'Table permissions use role-based access control. Each permission accepts: "all" (public), "authenticated" (logged-in users), or an array of role names.',
+  'docs.tables.permissions.props.create': 'Who can create new records. Default: "authenticated".',
+  'docs.tables.permissions.props.read': 'Who can view records. Default: "all".',
+  'docs.tables.permissions.props.update':
+    'Who can modify existing records. Default: "authenticated".',
+  'docs.tables.permissions.props.delete': 'Who can remove records. Default: "authenticated".',
+  'docs.tables.permissions.props.comment':
+    'Who can add comments to records. Default: "authenticated".',
+  'docs.tables.permissions.props.fields':
+    'Object mapping field names to per-field read/update permissions. Enables fine-grained access control.',
+  'docs.tables.permissions.props.inherit':
+    'Boolean. When true, inherits permissions from a parent table or global defaults.',
+  'docs.tables.permissions.props.override':
+    'Boolean. When true, these permissions override any inherited ones.',
   'docs.tables.permissions.tip.title': 'Three access levels',
   'docs.tables.permissions.tip.body':
     '"all" for public access, "authenticated" for any logged-in user, or an array of role names like [admin, member] for specific roles.',
+  'docs.tables.permissions.security.title': 'Security best practice',
+  'docs.tables.permissions.security.body':
+    'Unauthorized access returns 404 (not 403) to prevent attackers from discovering which resources exist. This follows OWASP recommendations for resource enumeration prevention.',
+
+  // Indexes & Constraints
+  'docs.tables.indexes.title': 'Indexes & Constraints',
+  'docs.tables.indexes.description':
+    'Optimize queries with indexes and enforce data integrity with uniqueness and check constraints.',
+  'docs.tables.indexes.indexesTitle': 'Indexes',
+  'docs.tables.indexes.indexName':
+    'Optional human-readable name for the index (e.g., "idx_email").',
+  'docs.tables.indexes.indexFields':
+    'Array of field names to index. Composite indexes list multiple fields.',
+  'docs.tables.indexes.indexUnique':
+    'Boolean. When true, enforces uniqueness across the indexed columns.',
+  'docs.tables.indexes.indexWhere':
+    'Partial index condition as SQL expression. Only rows matching the condition are indexed.',
+  'docs.tables.indexes.uniqueTitle': 'Unique Constraints',
+  'docs.tables.indexes.uniqueName': 'Name for the unique constraint (e.g., "uq_email_org").',
+  'docs.tables.indexes.uniqueFields':
+    'Array of field names that must be unique together (composite uniqueness).',
+  'docs.tables.indexes.constraintsTitle': 'Check Constraints',
+  'docs.tables.indexes.constraintName':
+    'Name for the check constraint (e.g., "chk_positive_price").',
+  'docs.tables.indexes.constraintCheck':
+    'SQL boolean expression that must be true for every row (e.g., "price > 0").',
 
   // ── Docs: Section 5 — Theme ───────────────────────────────────────
   'docs.theme.title': 'Theme',

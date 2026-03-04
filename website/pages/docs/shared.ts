@@ -257,6 +257,78 @@ export const propertyTable = (rows: ReadonlyArray<{ name: string; description: s
   ],
 })
 
+// ─── Endpoint Row Helper ────────────────────────────────────────────────────
+// Renders a single API endpoint as a flex row with colored method badge + path + description.
+
+const METHOD_COLORS: Record<string, string> = {
+  GET: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  POST: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+  PATCH: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
+  DELETE: 'bg-red-500/15 text-red-400 border-red-500/30',
+}
+
+export const endpointRow = (
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+  path: string,
+  description: string
+) => ({
+  type: 'div' as const,
+  props: {
+    className: 'flex items-start gap-3 py-2 px-3 rounded-md hover:bg-sovereignty-gray-900/50',
+  },
+  children: [
+    {
+      type: 'span' as const,
+      content: method,
+      props: {
+        className: `inline-flex items-center justify-center w-16 shrink-0 text-[11px] font-bold tracking-wider rounded border px-1.5 py-0.5 ${METHOD_COLORS[method] ?? ''}`,
+      },
+    },
+    {
+      type: 'span' as const,
+      content: path,
+      props: {
+        className: 'font-mono text-sm text-sovereignty-light shrink-0',
+      },
+    },
+    {
+      type: 'span' as const,
+      content: description,
+      props: {
+        className: 'text-sm text-sovereignty-gray-400 ml-auto text-right',
+      },
+    },
+  ],
+})
+
+/** Wraps a list of endpointRow() calls with a sub-section title and consistent spacing. */
+export const endpointGroup = (title: string, description: string, rows: readonly object[]) => ({
+  type: 'div' as const,
+  props: { className: 'space-y-1' },
+  children: [
+    {
+      type: 'h3' as const,
+      content: title,
+      props: {
+        className: 'text-lg font-semibold text-sovereignty-light mb-1',
+      },
+    },
+    {
+      type: 'paragraph' as const,
+      content: description,
+      props: { className: 'text-sm text-sovereignty-gray-400 mb-3' },
+    },
+    {
+      type: 'div' as const,
+      props: {
+        className:
+          'border border-sovereignty-gray-800 rounded-lg bg-sovereignty-gray-900/30 divide-y divide-sovereignty-gray-800/50',
+      },
+      children: rows,
+    },
+  ],
+})
+
 // ─── Section Header Helper ──────────────────────────────────────────────────
 
 export const sectionHeader = (title: string, description: string, anchor: string) => ({
