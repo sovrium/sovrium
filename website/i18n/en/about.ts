@@ -44,23 +44,23 @@ export const about: Record<string, string> = {
   'about.principles.title': 'What We Stand For',
   'about.principles.subtitle':
     'Five principles that guide every decision, from architecture to community.',
-  'about.principles.sovereignty.icon': '🛡️',
+  'about.principles.sovereignty.icon': 'shield',
   'about.principles.sovereignty.title': 'Data Ownership',
   'about.principles.sovereignty.description':
     'Your data stays on your infrastructure. No third-party analytics, no usage tracking, no surprise changes to how your information is stored or shared.',
-  'about.principles.transparency.icon': '🔍',
+  'about.principles.transparency.icon': 'search',
   'about.principles.transparency.title': 'Transparency',
   'about.principles.transparency.description':
     'The source code is available. The roadmap is public. Pricing is straightforward. If something changes, you will know about it before it affects you.',
-  'about.principles.simplicity.icon': '✨',
+  'about.principles.simplicity.icon': 'sparkles',
   'about.principles.simplicity.title': 'Simplicity',
   'about.principles.simplicity.description':
     'Business applications should be configured, not programmed. One config file, one command, one platform — choose your format, get a complete app in seconds.',
-  'about.principles.minimalDeps.icon': '⚙️',
+  'about.principles.minimalDeps.icon': 'settings',
   'about.principles.minimalDeps.title': 'Minimal Dependencies',
   'about.principles.minimalDeps.description':
     'One runtime (Bun), one database (PostgreSQL), zero vendor SDKs. Fewer moving parts means fewer things that can break.',
-  'about.principles.ownership.icon': '🏡',
+  'about.principles.ownership.icon': 'home',
   'about.principles.ownership.title': 'Full Ownership',
   'about.principles.ownership.description':
     'Everything we build belongs to you. Full source access, full data portability, and configuration templates that become reusable organizational assets.',

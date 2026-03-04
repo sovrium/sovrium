@@ -95,6 +95,16 @@ export const methodologyCard: ComponentTemplate = {
   },
   children: [
     {
+      type: 'div',
+      props: { className: 'mb-3 text-sovereignty-accent' },
+      children: [
+        {
+          type: 'icon' as const,
+          props: { name: '$t:partner.methodology.$num.icon', size: 24, strokeWidth: 1.5 },
+        },
+      ],
+    },
+    {
       type: 'h4',
       content: '$t:partner.methodology.$num.title',
       props: { className: 'text-lg font-semibold mb-2 text-sovereignty-light' },

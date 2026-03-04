@@ -54,22 +54,27 @@ export const partner: Record<string, string> = {
     'Ongoing support and evolution as your needs grow. We stay with you for the long run.',
   'partner.methodology.title': 'Our Methodology',
   'partner.methodology.subtitle': '5 principles that guide every project we deliver.',
+  'partner.methodology.1.icon': 'settings',
   'partner.methodology.1.title':
-    '⚙️ We automate processes, build internal tools, and leverage AI to amplify your team',
+    'We automate processes, build internal tools, and leverage AI to amplify your team',
   'partner.methodology.1.description':
     'We analyze your workflows to identify repetitive tasks, design end-to-end automations, and integrate AI where it accelerates delivery.',
+  'partner.methodology.2.icon': 'message-circle',
   'partner.methodology.2.title':
-    '💬 We are available to answer your questions, needs, and technical support',
+    'We are available to answer your questions, needs, and technical support',
   'partner.methodology.2.description':
     'Our team is here to understand your specific needs and support you in your projects.',
-  'partner.methodology.3.title': '🥇 We use the best of Code, No Code, and AI',
+  'partner.methodology.3.icon': 'award',
+  'partner.methodology.3.title': 'We use the best of Code, No Code, and AI',
   'partner.methodology.3.description':
     'We combine traditional code, No Code platforms, and AI-powered tools to deliver the right solution for each use case.',
+  'partner.methodology.4.icon': 'monitor',
   'partner.methodology.4.title':
-    '💻 We work remotely and asynchronously, using video conferencing when necessary',
+    'We work remotely and asynchronously, using video conferencing when necessary',
   'partner.methodology.4.description':
     'Our remote work approach is based on clear and effective communication.',
-  'partner.methodology.5.title': '⏱️ You pay for the time we spend on all your requests',
+  'partner.methodology.5.icon': 'clock',
+  'partner.methodology.5.title': 'You pay for the time we spend on all your requests',
   'partner.methodology.5.description':
     'Our billing system is transparent and based on actual time spent on your projects.',
   'partner.testimonials.title': 'What Our Clients Say',

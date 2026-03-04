@@ -20,8 +20,13 @@ export const valueCard: ComponentTemplate = {
   children: [
     {
       type: 'div',
-      props: { className: 'text-3xl mb-4' },
-      content: '$t:about.principles.$key.icon',
+      props: { className: 'mb-4 text-sovereignty-accent' },
+      children: [
+        {
+          type: 'icon' as const,
+          props: { name: '$t:about.principles.$key.icon', size: 28, strokeWidth: 1.5 },
+        },
+      ],
     },
     {
       type: 'h3',

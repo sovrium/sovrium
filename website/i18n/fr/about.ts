@@ -44,23 +44,23 @@ export const about: Record<string, string> = {
   'about.principles.title': 'Ce que nous défendons',
   'about.principles.subtitle':
     "Cinq principes qui guident chaque décision, de l'architecture à la communauté.",
-  'about.principles.sovereignty.icon': '🛡️',
+  'about.principles.sovereignty.icon': 'shield',
   'about.principles.sovereignty.title': 'Maîtrise des données',
   'about.principles.sovereignty.description':
     "Vos données restent sur votre infrastructure. Pas d'analytics tiers, pas de tracking d'usage, pas de changements surprises sur le stockage ou le partage de vos informations.",
-  'about.principles.transparency.icon': '🔍',
+  'about.principles.transparency.icon': 'search',
   'about.principles.transparency.title': 'Transparence',
   'about.principles.transparency.description':
     'Le code source est disponible. La feuille de route est publique. Les tarifs sont clairs. Si quelque chose change, vous le saurez avant que cela ne vous affecte.',
-  'about.principles.simplicity.icon': '✨',
+  'about.principles.simplicity.icon': 'sparkles',
   'about.principles.simplicity.title': 'Simplicité',
   'about.principles.simplicity.description':
     'Les applications métier doivent être configurées, pas programmées. Un fichier de config, une commande, une plateforme — choisissez votre format, obtenez une app complète en secondes.',
-  'about.principles.minimalDeps.icon': '⚙️',
+  'about.principles.minimalDeps.icon': 'settings',
   'about.principles.minimalDeps.title': 'Dépendances minimales',
   'about.principles.minimalDeps.description':
     "Un runtime (Bun), une base de données (PostgreSQL), zéro SDK fournisseur. Moins de pièces en mouvement, c'est moins de choses qui peuvent casser.",
-  'about.principles.ownership.icon': '🏡',
+  'about.principles.ownership.icon': 'home',
   'about.principles.ownership.title': 'Propriété complète',
   'about.principles.ownership.description':
     'Tout ce que nous construisons vous appartient. Accès complet au source, portabilité totale des données, et des templates de configuration qui deviennent des actifs réutilisables.',

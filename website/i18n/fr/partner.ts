@@ -54,22 +54,27 @@ export const partner: Record<string, string> = {
     'Support continu et évolution au fil de vos besoins. Nous restons à vos côtés sur le long terme.',
   'partner.methodology.title': 'Notre méthodologie',
   'partner.methodology.subtitle': '5 principes qui guident chaque projet que nous livrons.',
+  'partner.methodology.1.icon': 'settings',
   'partner.methodology.1.title':
-    '⚙️ Nous automatisons les processus, construisons des outils internes et exploitons l’IA pour amplifier votre équipe',
+    'Nous automatisons les processus, construisons des outils internes et exploitons l’IA pour amplifier votre équipe',
   'partner.methodology.1.description':
     'Nous analysons vos workflows pour identifier les tâches répétitives, concevons des automatisations de bout en bout et intégrons l’IA là où elle accélère la livraison.',
+  'partner.methodology.2.icon': 'message-circle',
   'partner.methodology.2.title':
-    '💬 Nous sommes disponibles pour répondre à vos questions, besoins et support technique',
+    'Nous sommes disponibles pour répondre à vos questions, besoins et support technique',
   'partner.methodology.2.description':
     'Notre équipe est là pour comprendre vos besoins spécifiques et vous accompagner dans vos projets.',
-  'partner.methodology.3.title': '🥇 Nous utilisons le meilleur du Code, du No Code et de l’IA',
+  'partner.methodology.3.icon': 'award',
+  'partner.methodology.3.title': 'Nous utilisons le meilleur du Code, du No Code et de l’IA',
   'partner.methodology.3.description':
     'Nous combinons le code traditionnel, les plateformes No Code et les outils d’IA pour délivrer la bonne solution à chaque cas d’usage.',
+  'partner.methodology.4.icon': 'monitor',
   'partner.methodology.4.title':
-    '💻 Nous travaillons à distance et de manière asynchrone, en utilisant la visioconférence lorsque nécessaire',
+    'Nous travaillons à distance et de manière asynchrone, en utilisant la visioconférence lorsque nécessaire',
   'partner.methodology.4.description':
     'Notre approche du travail à distance repose sur une communication claire et efficace.',
-  'partner.methodology.5.title': '⏱️ Vous payez le temps que nous consacrons à toutes vos demandes',
+  'partner.methodology.5.icon': 'clock',
+  'partner.methodology.5.title': 'Vous payez le temps que nous consacrons à toutes vos demandes',
   'partner.methodology.5.description':
     'Notre système de facturation est transparent et basé sur le temps réellement passé sur vos projets.',
   'partner.testimonials.title': 'Ce que disent nos clients',

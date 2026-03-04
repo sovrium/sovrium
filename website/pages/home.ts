@@ -558,9 +558,24 @@ export const home: Page = {
                   },
                   children: [
                     {
-                      type: 'h3',
-                      content: '$t:home.features.data.title',
-                      props: { className: 'text-xl font-semibold mb-3' },
+                      type: 'div',
+                      props: { className: 'flex items-center gap-3 mb-3' },
+                      children: [
+                        {
+                          type: 'icon' as const,
+                          props: {
+                            name: '$t:home.features.data.icon',
+                            size: 22,
+                            strokeWidth: 1.5,
+                            className: 'text-sovereignty-accent flex-shrink-0',
+                          },
+                        },
+                        {
+                          type: 'h3',
+                          content: '$t:home.features.data.title',
+                          props: { className: 'text-xl font-semibold' },
+                        },
+                      ],
                     },
                     {
                       type: 'div',
@@ -583,9 +598,24 @@ export const home: Page = {
                   },
                   children: [
                     {
-                      type: 'h3',
-                      content: '$t:home.features.auth.title',
-                      props: { className: 'text-xl font-semibold mb-3' },
+                      type: 'div',
+                      props: { className: 'flex items-center gap-3 mb-3' },
+                      children: [
+                        {
+                          type: 'icon' as const,
+                          props: {
+                            name: '$t:home.features.auth.icon',
+                            size: 22,
+                            strokeWidth: 1.5,
+                            className: 'text-sovereignty-accent flex-shrink-0',
+                          },
+                        },
+                        {
+                          type: 'h3',
+                          content: '$t:home.features.auth.title',
+                          props: { className: 'text-xl font-semibold' },
+                        },
+                      ],
                     },
                     {
                       type: 'div',
@@ -608,9 +638,24 @@ export const home: Page = {
                   },
                   children: [
                     {
-                      type: 'h3',
-                      content: '$t:home.features.ui.title',
-                      props: { className: 'text-xl font-semibold mb-3' },
+                      type: 'div',
+                      props: { className: 'flex items-center gap-3 mb-3' },
+                      children: [
+                        {
+                          type: 'icon' as const,
+                          props: {
+                            name: '$t:home.features.ui.icon',
+                            size: 22,
+                            strokeWidth: 1.5,
+                            className: 'text-sovereignty-accent flex-shrink-0',
+                          },
+                        },
+                        {
+                          type: 'h3',
+                          content: '$t:home.features.ui.title',
+                          props: { className: 'text-xl font-semibold' },
+                        },
+                      ],
                     },
                     {
                       type: 'div',
