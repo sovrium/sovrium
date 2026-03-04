@@ -103,6 +103,13 @@ export const footerI18n = {
                   },
                 },
                 {
+                  type: 'paragraph' as const,
+                  content: '$t:footer.tagline',
+                  props: {
+                    className: 'text-sovereignty-gray-300 text-sm font-medium italic mt-3 max-w-xs',
+                  },
+                },
+                {
                   type: 'flex' as const,
                   props: { className: 'gap-4 mt-4' },
                   children: [

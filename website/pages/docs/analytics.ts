@@ -12,6 +12,7 @@ export const docsAnalytics = docsPage({
   path: '/docs/analytics',
   metaTitle: '$t:docs.analytics.meta.title',
   metaDescription: '$t:docs.analytics.meta.description',
+  keywords: 'sovrium, analytics, tracking, page views, privacy, data retention, configuration',
   toc: [
     { label: '$t:docs.analytics.howItWorks.title', anchor: 'how-it-works' },
     { label: '$t:docs.analytics.quickEnable.title', anchor: 'quick-enable' },

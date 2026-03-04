@@ -12,6 +12,8 @@ export const docsTheme = docsPage({
   path: '/docs/theme',
   metaTitle: '$t:docs.theme.meta.title',
   metaDescription: '$t:docs.theme.meta.description',
+  keywords:
+    'sovrium, theme, design tokens, colors, fonts, spacing, animations, breakpoints, shadows, CSS',
   toc: [
     { label: '$t:docs.theme.colors.title', anchor: 'colors' },
     { label: '$t:docs.theme.fonts.title', anchor: 'fonts' },

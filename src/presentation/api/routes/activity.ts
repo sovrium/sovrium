@@ -115,7 +115,7 @@ function buildPaginatedResponse(
  * Handle GET /api/activity/:activityId - Get activity log details
  */
 async function handleGetActivityById(c: Context) {
-  const activityId = c.req.param('activityId')
+  const activityId = c.req.param('activityId')!
 
   const program = GetActivityById(activityId).pipe(Effect.provide(DatabaseLive))
 

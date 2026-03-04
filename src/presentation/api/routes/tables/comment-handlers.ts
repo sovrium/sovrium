@@ -70,8 +70,8 @@ function handleCommentError(c: Context, error: unknown) {
  */
 export async function handleCreateComment(c: Context, app: App) {
   const { session, userRole } = getTableContext(c)
-  const tableId = c.req.param('tableId')
-  const recordId = c.req.param('recordId')
+  const tableId = c.req.param('tableId')!
+  const recordId = c.req.param('recordId')!
 
   // Find table by ID
   const table = app.tables?.find((t) => String(t.id) === String(tableId))
@@ -146,8 +146,8 @@ function handleDeleteCommentError(c: Context, error: unknown) {
  */
 export async function handleDeleteComment(c: Context, app: App) {
   const { session } = getTableContext(c)
-  const tableId = c.req.param('tableId')
-  const commentId = c.req.param('commentId')
+  const tableId = c.req.param('tableId')!
+  const commentId = c.req.param('commentId')!
 
   // Find table by ID
   const table = app.tables?.find((t) => String(t.id) === String(tableId))
@@ -178,8 +178,8 @@ export async function handleDeleteComment(c: Context, app: App) {
  */
 export async function handleGetComment(c: Context, app: App) {
   const { session, userRole } = getTableContext(c)
-  const tableId = c.req.param('tableId')
-  const commentId = c.req.param('commentId')
+  const tableId = c.req.param('tableId')!
+  const commentId = c.req.param('commentId')!
 
   // Find table by ID
   const table = app.tables?.find((t) => String(t.id) === String(tableId))
@@ -269,8 +269,8 @@ function handleUpdateCommentError(c: Context, error: unknown) {
  */
 export async function handleUpdateComment(c: Context, app: App) {
   const { session } = getTableContext(c)
-  const tableId = c.req.param('tableId')
-  const commentId = c.req.param('commentId')
+  const tableId = c.req.param('tableId')!
+  const commentId = c.req.param('commentId')!
 
   // Find table by ID
   const table = app.tables?.find((t) => String(t.id) === String(tableId))
@@ -327,8 +327,8 @@ function parseSortOrder(sortParam: string | undefined): 'asc' | 'desc' | undefin
  */
 export async function handleListComments(c: Context, app: App) {
   const { session, userRole } = getTableContext(c)
-  const tableId = c.req.param('tableId')
-  const recordId = c.req.param('recordId')
+  const tableId = c.req.param('tableId')!
+  const recordId = c.req.param('recordId')!
 
   // Find table by ID
   const table = app.tables?.find((t) => String(t.id) === String(tableId))

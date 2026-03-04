@@ -22,6 +22,8 @@ export const docsApiReference = docsPage({
   path: '/docs/api-reference',
   metaTitle: '$t:docs.apiReference.meta.title',
   metaDescription: '$t:docs.apiReference.meta.description',
+  keywords:
+    'sovrium, API reference, REST API, endpoints, CRUD, records, tables, authentication, OpenAPI',
   toc: [
     { label: '$t:docs.apiReference.baseUrl.title', anchor: 'base-url' },
     { label: '$t:docs.apiReference.health.title', anchor: 'health' },

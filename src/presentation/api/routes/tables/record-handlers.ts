@@ -241,7 +241,7 @@ export async function handleCreateRecord(c: Context, app: App) {
 export async function handleGetRecord(c: Context, app: App) {
   // Session, tableName, and userRole are guaranteed by middleware chain
   const { session, tableName, userRole } = getTableContext(c)
-  const recordId = c.req.param('recordId')
+  const recordId = c.req.param('recordId')!
   const includeDeleted = c.req.query('includeDeleted') === 'true'
 
   const table = app.tables?.find((t) => t.name === tableName)
@@ -351,7 +351,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
     return handleNoAllowedFields({
       session,
       tableName,
-      recordId: c.req.param('recordId'),
+      recordId: c.req.param('recordId')!,
       forbiddenFields,
       c,
     })
@@ -360,7 +360,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
   return executeUpdate({
     session,
     tableName,
-    recordId: c.req.param('recordId'),
+    recordId: c.req.param('recordId')!,
     allowedData,
     app,
     userRole,
@@ -429,7 +429,7 @@ export async function handleDeleteRecord(c: Context, app: App) {
     )
   }
 
-  const recordId = c.req.param('recordId')
+  const recordId = c.req.param('recordId')!
   const permanent = c.req.query('permanent') === 'true'
 
   // Permanent delete requires admin role
@@ -468,7 +468,7 @@ export async function handleRestoreRecord(c: Context, app: App) {
     )
   }
 
-  const recordId = c.req.param('recordId')
+  const recordId = c.req.param('recordId')!
 
   const result = await runTableProgram(restoreRecordProgram(session, tableName, recordId))
 

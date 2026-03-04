@@ -20,6 +20,8 @@ export const docsPages = docsPage({
   path: '/docs/pages',
   metaTitle: '$t:docs.pages.meta.title',
   metaDescription: '$t:docs.pages.meta.description',
+  keywords:
+    'sovrium, pages, components, sections, layout, navigation, SEO, meta tags, component types, UI',
   toc: [
     { label: '$t:docs.pages.structure.title', anchor: 'page-structure' },
     { label: '$t:docs.pages.pageProps.title', anchor: 'page-properties' },

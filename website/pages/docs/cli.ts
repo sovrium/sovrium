@@ -83,6 +83,7 @@ export const docsCli = docsPage({
   path: '/docs/cli',
   metaTitle: '$t:docs.cli.meta.title',
   metaDescription: '$t:docs.cli.meta.description',
+  keywords: 'sovrium, CLI, command line, start, build, static, dev server, commands',
   toc: [
     { label: '$t:docs.cli.usage.title', anchor: 'usage' },
     {

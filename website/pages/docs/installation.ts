@@ -12,6 +12,7 @@ export const docsInstallation = docsPage({
   path: '/docs/installation',
   metaTitle: '$t:docs.installation.meta.title',
   metaDescription: '$t:docs.installation.meta.description',
+  keywords: 'sovrium, installation, setup, bun, npm, database, PostgreSQL, getting started',
   toc: [
     { label: '$t:docs.installation.global.title', anchor: 'global-installation' },
     { label: '$t:docs.installation.project.title', anchor: 'project-dependency' },

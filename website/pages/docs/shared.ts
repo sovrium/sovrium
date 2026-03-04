@@ -803,12 +803,13 @@ interface DocsPageOptions {
   readonly path: string
   readonly metaTitle: string
   readonly metaDescription: string
+  readonly keywords?: string
   readonly content: readonly object[]
   readonly toc?: readonly TocEntry[]
 }
 
 export function docsPage(options: DocsPageOptions): PageConfig {
-  const { activeId, path, metaTitle, metaDescription, content, toc = [] } = options
+  const { activeId, path, metaTitle, metaDescription, keywords, content, toc = [] } = options
   const tocColumn = buildTocColumn(toc)
   const hasToc = tocColumn.length > 0
 
@@ -818,6 +819,8 @@ export function docsPage(options: DocsPageOptions): PageConfig {
     meta: {
       title: metaTitle,
       description: metaDescription,
+      ...(keywords ? { keywords } : {}),
+      canonical: `https://sovrium.com${path}`,
       author: 'ESSENTIAL SERVICES',
       favicons,
       openGraph: {

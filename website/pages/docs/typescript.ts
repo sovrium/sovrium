@@ -223,6 +223,8 @@ export const docsTypescript = docsPage({
   path: '/docs/typescript',
   metaTitle: '$t:docs.typescript.meta.title',
   metaDescription: '$t:docs.typescript.meta.description',
+  keywords:
+    'sovrium, TypeScript, type safety, app schema, type inference, configuration types, SDK',
   toc: [
     { label: '$t:docs.typescript.why.title', anchor: 'why-typescript' },
     {

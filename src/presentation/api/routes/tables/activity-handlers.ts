@@ -23,8 +23,8 @@ export async function handleGetRecordHistory(c: Context, app: App) {
     return c.json({ success: false, message: 'Authentication required', code: 'UNAUTHORIZED' }, 401)
   }
 
-  const tableId = c.req.param('tableId')
-  const recordId = c.req.param('recordId')
+  const tableId = c.req.param('tableId')!
+  const recordId = c.req.param('recordId')!
 
   // Parse pagination query params
   const limitParam = c.req.query('limit')

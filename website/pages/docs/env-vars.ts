@@ -54,6 +54,8 @@ export const docsEnvVars = docsPage({
   path: '/docs/env-vars',
   metaTitle: '$t:docs.envVars.meta.title',
   metaDescription: '$t:docs.envVars.meta.description',
+  keywords:
+    'sovrium, environment variables, configuration, database URL, auth secret, SMTP, server settings',
   toc: [
     { label: '$t:docs.envVars.app.title', anchor: 'application' },
     { label: '$t:docs.envVars.server.title', anchor: 'server' },

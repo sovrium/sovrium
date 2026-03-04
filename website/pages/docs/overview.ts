@@ -12,6 +12,8 @@ export const docsOverview = docsPage({
   path: '/docs/overview',
   metaTitle: '$t:docs.overview.meta.title',
   metaDescription: '$t:docs.overview.meta.description',
+  keywords:
+    'sovrium, app schema, overview, configuration, JSON, YAML, root properties, schema structure',
   toc: [
     { label: '$t:docs.overview.details.title', anchor: 'property-details' },
     { label: '$t:docs.overview.formats.title', anchor: 'config-formats' },

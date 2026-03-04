@@ -21,6 +21,8 @@ export const docsTables = docsPage({
   path: '/docs/tables',
   metaTitle: '$t:docs.tables.meta.title',
   metaDescription: '$t:docs.tables.meta.description',
+  keywords:
+    'sovrium, tables, fields, field types, data model, indexes, views, permissions, database schema',
   toc: [
     { label: '$t:docs.tables.structure.title', anchor: 'table-structure' },
     { label: '$t:docs.tables.tableProps.title', anchor: 'table-properties' },

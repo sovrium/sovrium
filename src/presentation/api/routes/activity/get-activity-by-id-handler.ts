@@ -28,7 +28,7 @@ import type { Context } from 'hono'
  * @returns JSON response with activity details or error
  */
 export async function getActivityByIdHandler(c: Context) {
-  const activityId = c.req.param('activityId')
+  const activityId = c.req.param('activityId')!
 
   const program = GetActivityById(activityId).pipe(Effect.provide(DatabaseLive))
 

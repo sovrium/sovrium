@@ -12,6 +12,8 @@ export const docsLanguages = docsPage({
   path: '/docs/languages',
   metaTitle: '$t:docs.languages.meta.title',
   metaDescription: '$t:docs.languages.meta.description',
+  keywords:
+    'sovrium, languages, internationalization, i18n, translations, multilingual, localization',
   toc: [
     { label: '$t:docs.languages.defining.title', anchor: 'defining-languages' },
     { label: '$t:docs.languages.entryProps.title', anchor: 'language-entry' },

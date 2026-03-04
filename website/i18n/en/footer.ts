@@ -8,6 +8,7 @@
 export const footer: Record<string, string> = {
   'footer.description':
     'A self-hosted, configuration-driven platform that puts you back in control of your software.',
+  'footer.tagline': 'Own your data. Own your tools. Own your future.',
   'footer.col.product': 'Product',
   'footer.col.product.docs': 'Documentation',
   'footer.col.product.docs.href': '/en/docs',

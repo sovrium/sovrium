@@ -63,6 +63,8 @@ export const docsJsonSchema = docsPage({
   path: '/docs/json-schema',
   metaTitle: '$t:docs.jsonSchema.meta.title',
   metaDescription: '$t:docs.jsonSchema.meta.description',
+  keywords:
+    'sovrium, JSON Schema, schema validation, IDE autocomplete, editor integration, schema explorer',
   toc: [
     { label: '$t:docs.jsonSchema.explorer.title', anchor: 'schema-explorer' },
     { label: '$t:docs.jsonSchema.urls.title', anchor: 'schema-urls' },

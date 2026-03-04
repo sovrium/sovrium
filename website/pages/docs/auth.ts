@@ -12,6 +12,8 @@ export const docsAuth = docsPage({
   path: '/docs/auth',
   metaTitle: '$t:docs.auth.meta.title',
   metaDescription: '$t:docs.auth.meta.description',
+  keywords:
+    'sovrium, authentication, OAuth, email password, magic link, roles, RBAC, two-factor, SSO',
   toc: [
     { label: '$t:docs.auth.basic.title', anchor: 'basic-setup' },
     { label: '$t:docs.auth.strategies.title', anchor: 'strategies' },

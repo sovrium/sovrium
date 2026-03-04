@@ -12,6 +12,8 @@ export const docsIntroduction = docsPage({
   path: '/docs',
   metaTitle: '$t:docs.introduction.meta.title',
   metaDescription: '$t:docs.introduction.meta.description',
+  keywords:
+    'sovrium, documentation, getting started, configuration-driven, self-hosted, application platform',
   toc: [
     { label: '$t:docs.introduction.what.title', anchor: 'what-is-sovrium' },
     { label: '$t:docs.introduction.why.title', anchor: 'why-sovrium' },

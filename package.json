@@ -5,7 +5,7 @@
   "description": "Configuration-driven web application platform built with Bun, Effect, React, and Tailwind CSS",
   "module": "src/index.ts",
   "bin": {
-    "sovrium": "./src/cli.ts"
+    "sovrium": "src/cli.ts"
   },
   "author": {
     "name": "Thomas JEANNEAU",
@@ -20,7 +20,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/sovrium/sovrium.git"
+    "url": "git+https://github.com/sovrium/sovrium.git"
   },
   "bugs": {
     "url": "https://github.com/sovrium/sovrium/issues"
@@ -161,7 +161,7 @@
     "dompurify": "^3.3.1",
     "drizzle-orm": "^0.45.1",
     "effect": "^3.19.19",
-    "hono": "^4.12.4",
+    "hono": "^4.12.5",
     "js-yaml": "^4.1.1",
     "lucide-react": "^0.575.0",
     "nanoid": "^5.1.6",
