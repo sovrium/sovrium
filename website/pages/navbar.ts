@@ -10,7 +10,7 @@ import { join } from 'node:path'
 
 /**
  * Sovrium version read from package.json at module load time.
- * Displayed as a subtle badge in the navbar next to the Docs link.
+ * Used by docs pages (e.g. schema paths) and brand charter page.
  */
 const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf-8')) as {
   version: string
@@ -18,7 +18,7 @@ const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'),
 /** Version without `v` prefix — for schema paths like `/schemas/0.1.0/...` */
 export const rawVersion = packageJson.version
 
-/** Version with `v` prefix — for display (e.g. navbar badge) */
+/** Version with `v` prefix — for display (e.g. brand charter, docs hero) */
 export const version = `v${rawVersion}`
 
 /**
@@ -253,8 +253,13 @@ export const langSwitchScript = {
 /**
  * Inline script that powers the mobile hamburger menu toggle.
  *
- * On click of `#mobile-menu-btn`, toggles `#mobile-menu` visibility and
- * swaps between the `menu` (hamburger) and `x` (close) Lucide icons.
+ * On click of `#mobile-menu-btn`, toggles `#mobile-menu` visibility with
+ * a maxHeight slide animation, and swaps between the `menu` (hamburger)
+ * and `x` (close) Lucide icons.
+ *
+ * The menu uses absolute positioning with overflow-hidden on the outer
+ * container (animated via maxHeight) and a full-viewport-height inner
+ * container. Body scroll is locked when the menu is open.
  *
  * The button contains two SVG icons rendered via the `icon` component type:
  * - `#mobile-menu-icon` (menu/hamburger) — visible when menu is closed
@@ -276,15 +281,19 @@ export const mobileMenuScript = {
     'btn.addEventListener("click",function(){',
     'var isHidden=menu.classList.contains("hidden");',
     'if(isHidden){',
+    // Open: remove hidden, expand to full viewport height, lock body scroll
     'menu.classList.remove("hidden");',
-    'menu.style.maxHeight=menu.scrollHeight+"px";',
+    'menu.style.maxHeight="100dvh";',
     'btn.setAttribute("aria-expanded","true");',
+    'document.body.style.overflow="hidden";',
     'if(menuIcon)menuIcon.style.display="none";',
     'if(closeIcon)closeIcon.style.display="block";',
     '}else{',
+    // Close: collapse to 0, then hide after transition, unlock body scroll
     'menu.style.maxHeight="0px";',
     'setTimeout(function(){menu.classList.add("hidden");menu.style.maxHeight=""},300);',
     'btn.setAttribute("aria-expanded","false");',
+    'document.body.style.overflow="";',
     'if(menuIcon)menuIcon.style.display="block";',
     'if(closeIcon)closeIcon.style.display="none";',
     '}',
@@ -295,15 +304,28 @@ export const mobileMenuScript = {
 }
 
 /**
+ * GitHub octocat SVG as a base64 data URI (white fill, used in both desktop and mobile).
+ */
+const githubIconSrc =
+  'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAyNCIgaGVpZ2h0PSIxMDI0IiB2aWV3Qm94PSIwIDAgMTAyNCAxMDI0IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTggMEMzLjU4IDAgMCAzLjU4IDAgOEMwIDExLjU0IDIuMjkgMTQuNTMgNS40NyAxNS41OUM1Ljg3IDE1LjY2IDYuMDIgMTUuNDIgNi4wMiAxNS4yMUM2LjAyIDE1LjAyIDYuMDEgMTQuMzkgNi4wMSAxMy43MkM0IDE0LjA5IDMuNDggMTMuMjMgMy4zMiAxMi43OEMzLjIzIDEyLjU1IDIuODQgMTEuODQgMi41IDExLjY1QzIuMjIgMTEuNSAxLjgyIDExLjEzIDIuNDkgMTEuMTJDMy4xMiAxMS4xMSAzLjU3IDExLjcgMy43MiAxMS45NEM0LjQ0IDEzLjE1IDUuNTkgMTIuODEgNi4wNSAxMi42QzYuMTIgMTIuMDggNi4zMyAxMS43MyA2LjU2IDExLjUzQzQuNzggMTEuMzMgMi45MiAxMC42NCAyLjkyIDcuNThDMi45MiA2LjcxIDMuMjMgNS45OSAzLjc0IDUuNDNDMy42NiA1LjIzIDMuMzggNC40MSAzLjgyIDMuMzFDMy44MiAzLjMxIDQuNDkgMy4xIDYuMDIgNC4xM0M2LjY2IDMuOTUgNy4zNCAzLjg2IDguMDIgMy44NkM4LjcgMy44NiA5LjM4IDMuOTUgMTAuMDIgNC4xM0MxMS41NSAzLjA5IDEyLjIyIDMuMzEgMTIuMjIgMy4zMUMxMi42NiA0LjQxIDEyLjM4IDUuMjMgMTIuMyA1LjQzQzEyLjgxIDUuOTkgMTMuMTIgNi43IDEzLjEyIDcuNThDMTMuMTIgMTAuNjUgMTEuMjUgMTEuMzMgOS40NyAxMS41M0M5Ljc2IDExLjc4IDEwLjAxIDEyLjI2IDEwLjAxIDEzLjAxQzEwLjAxIDE0LjA4IDEwIDE0Ljk0IDEwIDE1LjIxQzEwIDE1LjQyIDEwLjE1IDE1LjY3IDEwLjU1IDE1LjU5QzEzLjcxIDE0LjUzIDE2IDExLjUzIDE2IDhDMTYgMy41OCAxMi40MiAwIDggMFoiIHRyYW5zZm9ybT0ic2NhbGUoNjQpIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K'
+
+/**
  * Creates the shared navbar section for all website pages (except brand-charter).
+ *
+ * Desktop layout (left to right):
+ * ```
+ * [Logo] [Search docs...  ⌘K] .......... [Docs] [Services] [About] [GitHub] [Get Started] [🌐]
+ * ```
  *
  * Contains:
  * - Sovrium horizontal logo (light variant on dark background, links to home)
+ * - Wide search button next to logo (triggers Pagefind search modal)
  * - Desktop navigation links (Docs, Services, About) - visible on md+ screens
+ * - GitHub icon link
  * - "Get Started" CTA button (accent-colored, links to docs)
+ * - Globe icon language switcher (far right)
  * - Mobile hamburger button - visible on small screens
- * - Mobile dropdown menu with nav links + language switcher
- * - Language switcher (toggles between EN/FR)
+ * - Mobile dropdown menu with search first, nav links, language switcher
  *
  * Uses `$t:nav.*` i18n tokens defined in `website/app.ts`.
  *
@@ -339,54 +361,96 @@ export function createNavbar(activePage?: NavPage) {
               className: 'flex items-center justify-between h-16',
             },
             children: [
-              // Logo (links to home)
+              // ── Left group: Logo + Search ──────────────────────────
               {
-                type: 'link' as const,
+                type: 'flex' as const,
                 props: {
-                  href: '/',
-                  className: 'flex items-center shrink-0',
+                  className: 'flex items-center gap-4 shrink-0',
                 },
                 children: [
+                  // Logo (links to home)
                   {
-                    type: 'image' as const,
+                    type: 'link' as const,
                     props: {
-                      src: '/logos/sovrium-horizontal-light.svg',
-                      alt: 'Sovrium',
-                      className: 'h-8 w-auto',
+                      href: '/',
+                      className: 'flex items-center shrink-0',
                     },
+                    children: [
+                      {
+                        type: 'image' as const,
+                        props: {
+                          src: '/logos/sovrium-horizontal-light.svg',
+                          alt: 'Sovrium',
+                          className: 'h-8 w-auto',
+                        },
+                      },
+                    ],
+                  },
+
+                  // Search button (desktop) — wide input-like appearance
+                  // Hidden on mobile (search is first item in mobile menu instead)
+                  {
+                    type: 'button' as const,
+                    props: {
+                      id: 'search-btn',
+                      type: 'button',
+                      className:
+                        'hidden md:flex items-center gap-2 h-9 px-3 rounded-lg border border-sovereignty-gray-700 bg-sovereignty-gray-900/50 text-sovereignty-gray-500 hover:text-sovereignty-gray-300 hover:border-sovereignty-gray-500 hover:bg-sovereignty-gray-900/70 transition-colors duration-200 cursor-pointer md:w-48 lg:w-64',
+                      'aria-label': 'Search documentation',
+                    },
+                    children: [
+                      {
+                        type: 'icon' as const,
+                        props: {
+                          name: 'search',
+                          size: 15,
+                          className: 'shrink-0 text-sovereignty-gray-500',
+                        },
+                      },
+                      {
+                        type: 'span' as const,
+                        content: '$t:nav.search.placeholder',
+                        props: {
+                          className:
+                            'text-sm font-normal flex-1 text-left hidden lg:inline truncate',
+                        },
+                      },
+                      {
+                        type: 'span' as const,
+                        content: '$t:nav.search',
+                        props: {
+                          className: 'text-sm font-normal lg:hidden',
+                        },
+                      },
+                      {
+                        type: 'span' as const,
+                        content: '$t:nav.search.shortcut',
+                        props: {
+                          className:
+                            'text-[10px] text-sovereignty-gray-600 border border-sovereignty-gray-700 rounded px-1.5 py-0.5 ml-auto shrink-0 font-medium',
+                        },
+                      },
+                    ],
                   },
                 ],
               },
 
-              // Desktop navigation links + language switcher (hidden on mobile)
+              // ── Right group: Nav links + GitHub + CTA + Language ───
               {
                 type: 'flex' as const,
                 props: {
-                  className: 'hidden md:flex items-center gap-8',
+                  className: 'hidden md:flex items-center gap-6',
                 },
                 children: [
-                  // Docs link with version badge
+                  // Navigation links (plain text, no version badge)
                   {
                     type: 'link' as const,
+                    content: '$t:nav.docs',
                     props: {
                       href: '$t:nav.docs.href',
-                      className: `${desktopClass('docs')} flex items-center gap-2`,
+                      className: desktopClass('docs'),
                       ...(activePage === 'docs' ? { 'aria-current': 'page' } : {}),
                     },
-                    children: [
-                      {
-                        type: 'span' as const,
-                        content: '$t:nav.docs',
-                      },
-                      {
-                        type: 'span' as const,
-                        content: version,
-                        props: {
-                          className:
-                            'text-[10px] leading-none font-medium px-1.5 py-0.5 rounded-full bg-sovereignty-gray-800 text-sovereignty-gray-400 border border-sovereignty-gray-700',
-                        },
-                      },
-                    ],
                   },
                   {
                     type: 'link' as const,
@@ -407,60 +471,6 @@ export function createNavbar(activePage?: NavPage) {
                     },
                   },
 
-                  // Vertical separator
-                  {
-                    type: 'div' as const,
-                    props: {
-                      className: 'w-px h-4 bg-sovereignty-gray-700',
-                      'aria-hidden': 'true',
-                    },
-                  },
-
-                  // Language switcher link
-                  {
-                    type: 'link' as const,
-                    content: '$t:nav.lang.label',
-                    props: {
-                      href: '#',
-                      className: navLinkInactiveClass,
-                      'data-lang-switch': '$t:nav.lang.code',
-                      'aria-label': 'Switch language',
-                    },
-                  },
-
-                  // Search button (desktop)
-                  {
-                    type: 'button' as const,
-                    props: {
-                      id: 'search-btn',
-                      type: 'button',
-                      className:
-                        'inline-flex items-center gap-2 h-8 px-3 rounded-lg border border-sovereignty-gray-700 bg-sovereignty-gray-900/50 text-sovereignty-gray-400 hover:text-sovereignty-light hover:border-sovereignty-gray-500 transition-colors duration-200 cursor-pointer',
-                      'aria-label': 'Search documentation',
-                    },
-                    children: [
-                      {
-                        type: 'icon' as const,
-                        props: { name: 'search', size: 14 },
-                      },
-                      {
-                        type: 'span' as const,
-                        content: '$t:nav.search',
-                        props: {
-                          className: 'text-xs font-medium',
-                        },
-                      },
-                      {
-                        type: 'span' as const,
-                        content: '$t:nav.search.shortcut',
-                        props: {
-                          className:
-                            'text-[10px] text-sovereignty-gray-500 border border-sovereignty-gray-700 rounded px-1 py-px ml-1',
-                        },
-                      },
-                    ],
-                  },
-
                   // GitHub icon link
                   {
                     type: 'link' as const,
@@ -476,7 +486,7 @@ export function createNavbar(activePage?: NavPage) {
                       {
                         type: 'img' as const,
                         props: {
-                          src: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAyNCIgaGVpZ2h0PSIxMDI0IiB2aWV3Qm94PSIwIDAgMTAyNCAxMDI0IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTggMEMzLjU4IDAgMCAzLjU4IDAgOEMwIDExLjU0IDIuMjkgMTQuNTMgNS40NyAxNS41OUM1Ljg3IDE1LjY2IDYuMDIgMTUuNDIgNi4wMiAxNS4yMUM2LjAyIDE1LjAyIDYuMDEgMTQuMzkgNi4wMSAxMy43MkM0IDE0LjA5IDMuNDggMTMuMjMgMy4zMiAxMi43OEMzLjIzIDEyLjU1IDIuODQgMTEuODQgMi41IDExLjY1QzIuMjIgMTEuNSAxLjgyIDExLjEzIDIuNDkgMTEuMTJDMy4xMiAxMS4xMSAzLjU3IDExLjcgMy43MiAxMS45NEM0LjQ0IDEzLjE1IDUuNTkgMTIuODEgNi4wNSAxMi42QzYuMTIgMTIuMDggNi4zMyAxMS43MyA2LjU2IDExLjUzQzQuNzggMTEuMzMgMi45MiAxMC42NCAyLjkyIDcuNThDMi45MiA2LjcxIDMuMjMgNS45OSAzLjc0IDUuNDNDMy42NiA1LjIzIDMuMzggNC40MSAzLjgyIDMuMzFDMy44MiAzLjMxIDQuNDkgMy4xIDYuMDIgNC4xM0M2LjY2IDMuOTUgNy4zNCAzLjg2IDguMDIgMy44NkM4LjcgMy44NiA5LjM4IDMuOTUgMTAuMDIgNC4xM0MxMS41NSAzLjA5IDEyLjIyIDMuMzEgMTIuMjIgMy4zMUMxMi42NiA0LjQxIDEyLjM4IDUuMjMgMTIuMyA1LjQzQzEyLjgxIDUuOTkgMTMuMTIgNi43IDEzLjEyIDcuNThDMTMuMTIgMTAuNjUgMTEuMjUgMTEuMzMgOS40NyAxMS41M0M5Ljc2IDExLjc4IDEwLjAxIDEyLjI2IDEwLjAxIDEzLjAxQzEwLjAxIDE0LjA4IDEwIDE0Ljk0IDEwIDE1LjIxQzEwIDE1LjQyIDEwLjE1IDE1LjY3IDEwLjU1IDE1LjU5QzEzLjcxIDE0LjUzIDE2IDExLjUzIDE2IDhDMTYgMy41OCAxMi40MiAwIDggMFoiIHRyYW5zZm9ybT0ic2NhbGUoNjQpIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
+                          src: githubIconSrc,
                           alt: 'GitHub',
                           className: 'h-5 w-5',
                         },
@@ -493,6 +503,25 @@ export function createNavbar(activePage?: NavPage) {
                       className:
                         'bg-sovereignty-accent hover:bg-sovereignty-accent/90 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors duration-200',
                     },
+                  },
+
+                  // Globe language switcher icon
+                  {
+                    type: 'link' as const,
+                    props: {
+                      href: '#',
+                      className:
+                        'inline-flex items-center justify-center w-8 h-8 rounded-md text-sovereignty-gray-500 hover:text-sovereignty-light hover:bg-sovereignty-gray-800 transition-colors duration-150',
+                      'data-lang-switch': '$t:nav.lang.code',
+                      'aria-label': 'Switch language',
+                      title: '$t:nav.lang.label',
+                    },
+                    children: [
+                      {
+                        type: 'icon' as const,
+                        props: { name: 'globe', size: 16 },
+                      },
+                    ],
                   },
                 ],
               },
@@ -539,141 +568,209 @@ export function createNavbar(activePage?: NavPage) {
           },
 
           // Mobile dropdown menu (hidden by default, toggled via mobileMenuScript)
-          // Uses absolute positioning to overlay content instead of pushing it down.
+          // Uses absolute positioning with explicit viewport-height sizing.
+          // The `height: 100dvh` combined with `top: 100%` (below the navbar)
+          // ensures the opaque dark background covers all page content.
+          // overflow-hidden on the outer div clips at maxHeight (animated by JS);
+          // overflow-y-auto on the inner div allows scrolling within the menu.
           {
             type: 'div' as const,
             props: {
               className:
-                'hidden md:hidden absolute top-full left-0 w-full bg-sovereignty-darker border-b border-sovereignty-gray-800 shadow-lg overflow-hidden transition-all duration-300 ease-in-out z-50',
+                'hidden md:hidden absolute top-full left-0 w-full shadow-xl overflow-hidden z-50',
+              style: 'background-color:#050810;transition:max-height 300ms ease-in-out',
               id: 'mobile-menu',
             },
             children: [
               {
                 type: 'div' as const,
                 props: {
-                  className: 'max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pb-4 pt-2 space-y-1',
+                  className: 'max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-4 overflow-y-auto',
+                  style: 'height:calc(100dvh - 4rem)',
                 },
                 children: [
-                  // Docs link with version badge (mobile)
-                  {
-                    type: 'link' as const,
-                    props: {
-                      href: '$t:nav.docs.href',
-                      className: `${mobileClass('docs')} flex items-center gap-2`,
-                      ...(activePage === 'docs' ? { 'aria-current': 'page' } : {}),
-                    },
-                    children: [
-                      {
-                        type: 'span' as const,
-                        content: '$t:nav.docs',
-                      },
-                      {
-                        type: 'span' as const,
-                        content: version,
-                        props: {
-                          className:
-                            'text-[10px] leading-none font-medium px-1.5 py-0.5 rounded-full bg-sovereignty-gray-800 text-sovereignty-gray-400 border border-sovereignty-gray-700',
-                        },
-                      },
-                    ],
-                  },
-                  {
-                    type: 'link' as const,
-                    content: '$t:nav.partner',
-                    props: {
-                      href: '$t:nav.partner.href',
-                      className: mobileClass('partner'),
-                      ...(activePage === 'partner' ? { 'aria-current': 'page' } : {}),
-                    },
-                  },
-                  {
-                    type: 'link' as const,
-                    content: '$t:nav.about',
-                    props: {
-                      href: '$t:nav.about.href',
-                      className: mobileClass('about'),
-                      ...(activePage === 'about' ? { 'aria-current': 'page' } : {}),
-                    },
-                  },
-
-                  // Search button (mobile)
-                  {
-                    type: 'button' as const,
-                    props: {
-                      'data-search-btn': 'true',
-                      type: 'button',
-                      className:
-                        'flex items-center gap-3 text-sovereignty-gray-300 hover:text-sovereignty-light hover:bg-sovereignty-gray-800 transition-colors duration-150 text-base font-medium px-4 py-3 rounded-lg w-full bg-transparent p-0 cursor-pointer',
-                    },
-                    children: [
-                      {
-                        type: 'icon' as const,
-                        props: { name: 'search', size: 18 },
-                      },
-                      {
-                        type: 'span' as const,
-                        content: '$t:nav.search',
-                      },
-                    ],
-                  },
-
-                  // GitHub link (mobile)
-                  {
-                    type: 'link' as const,
-                    props: {
-                      href: 'https://github.com/sovrium/sovrium',
-                      target: '_blank',
-                      rel: 'noopener noreferrer',
-                      className:
-                        'flex items-center gap-3 text-sovereignty-gray-300 hover:text-sovereignty-light hover:bg-sovereignty-gray-800 transition-colors duration-150 text-base font-medium px-4 py-3 rounded-lg',
-                      'aria-label': 'Sovrium on GitHub',
-                    },
-                    children: [
-                      {
-                        type: 'img' as const,
-                        props: {
-                          src: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAyNCIgaGVpZ2h0PSIxMDI0IiB2aWV3Qm94PSIwIDAgMTAyNCAxMDI0IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cGF0aCBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGNsaXAtcnVsZT0iZXZlbm9kZCIgZD0iTTggMEMzLjU4IDAgMCAzLjU4IDAgOEMwIDExLjU0IDIuMjkgMTQuNTMgNS40NyAxNS41OUM1Ljg3IDE1LjY2IDYuMDIgMTUuNDIgNi4wMiAxNS4yMUM2LjAyIDE1LjAyIDYuMDEgMTQuMzkgNi4wMSAxMy43MkM0IDE0LjA5IDMuNDggMTMuMjMgMy4zMiAxMi43OEMzLjIzIDEyLjU1IDIuODQgMTEuODQgMi41IDExLjY1QzIuMjIgMTEuNSAxLjgyIDExLjEzIDIuNDkgMTEuMTJDMy4xMiAxMS4xMSAzLjU3IDExLjcgMy43MiAxMS45NEM0LjQ0IDEzLjE1IDUuNTkgMTIuODEgNi4wNSAxMi42QzYuMTIgMTIuMDggNi4zMyAxMS43MyA2LjU2IDExLjUzQzQuNzggMTEuMzMgMi45MiAxMC42NCAyLjkyIDcuNThDMi45MiA2LjcxIDMuMjMgNS45OSAzLjc0IDUuNDNDMy42NiA1LjIzIDMuMzggNC40MSAzLjgyIDMuMzFDMy44MiAzLjMxIDQuNDkgMy4xIDYuMDIgNC4xM0M2LjY2IDMuOTUgNy4zNCAzLjg2IDguMDIgMy44NkM4LjcgMy44NiA5LjM4IDMuOTUgMTAuMDIgNC4xM0MxMS41NSAzLjA5IDEyLjIyIDMuMzEgMTIuMjIgMy4zMUMxMi42NiA0LjQxIDEyLjM4IDUuMjMgMTIuMyA1LjQzQzEyLjgxIDUuOTkgMTMuMTIgNi43IDEzLjEyIDcuNThDMTMuMTIgMTAuNjUgMTEuMjUgMTEuMzMgOS40NyAxMS41M0M5Ljc2IDExLjc4IDEwLjAxIDEyLjI2IDEwLjAxIDEzLjAxQzEwLjAxIDE0LjA4IDEwIDE0Ljk0IDEwIDE1LjIxQzEwIDE1LjQyIDEwLjE1IDE1LjY3IDEwLjU1IDE1LjU5QzEzLjcxIDE0LjUzIDE2IDExLjUzIDE2IDhDMTYgMy41OCAxMi40MiAwIDggMFoiIHRyYW5zZm9ybT0ic2NhbGUoNjQpIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K',
-                          alt: 'GitHub',
-                          className: 'h-5 w-5',
-                        },
-                      },
-                      {
-                        type: 'span' as const,
-                        content: 'GitHub',
-                      },
-                    ],
-                  },
-
-                  // CTA button (mobile)
-                  {
-                    type: 'link' as const,
-                    content: '$t:nav.cta',
-                    props: {
-                      href: '$t:nav.cta.href',
-                      className:
-                        'block bg-sovereignty-accent hover:bg-sovereignty-accent/90 text-white text-base font-medium px-4 py-3 rounded-lg transition-colors duration-200 text-center',
-                    },
-                  },
-
-                  // Horizontal separator
+                  // ── Group 1: Search (first item in mobile menu) ────
                   {
                     type: 'div' as const,
                     props: {
-                      className: 'h-px bg-sovereignty-gray-800 my-2',
+                      className: 'mb-3',
+                    },
+                    children: [
+                      {
+                        type: 'button' as const,
+                        props: {
+                          'data-search-btn': 'true',
+                          type: 'button',
+                          className:
+                            'flex items-center gap-3 w-full h-12 px-4 rounded-lg border border-sovereignty-gray-700 bg-sovereignty-gray-900/50 text-sovereignty-gray-400 hover:text-sovereignty-light hover:border-sovereignty-gray-500 transition-colors duration-150 cursor-pointer',
+                        },
+                        children: [
+                          {
+                            type: 'icon' as const,
+                            props: {
+                              name: 'search',
+                              size: 18,
+                              className: 'shrink-0',
+                            },
+                          },
+                          {
+                            type: 'span' as const,
+                            content: '$t:nav.search.placeholder',
+                            props: {
+                              className: 'text-base font-medium flex-1 text-left',
+                            },
+                          },
+                          {
+                            type: 'span' as const,
+                            content: '$t:nav.search.shortcut',
+                            props: {
+                              className:
+                                'text-[10px] text-sovereignty-gray-600 border border-sovereignty-gray-700 rounded px-1.5 py-0.5 font-medium',
+                            },
+                          },
+                        ],
+                      },
+                    ],
+                  },
+
+                  // ── Group 2: Navigation links ──────────────────────
+                  {
+                    type: 'nav' as const,
+                    props: {
+                      className: 'space-y-1',
+                      'aria-label': 'Mobile navigation',
+                    },
+                    children: [
+                      {
+                        type: 'link' as const,
+                        content: '$t:nav.docs',
+                        props: {
+                          href: '$t:nav.docs.href',
+                          className: mobileClass('docs'),
+                          ...(activePage === 'docs' ? { 'aria-current': 'page' } : {}),
+                        },
+                      },
+                      {
+                        type: 'link' as const,
+                        content: '$t:nav.partner',
+                        props: {
+                          href: '$t:nav.partner.href',
+                          className: mobileClass('partner'),
+                          ...(activePage === 'partner' ? { 'aria-current': 'page' } : {}),
+                        },
+                      },
+                      {
+                        type: 'link' as const,
+                        content: '$t:nav.about',
+                        props: {
+                          href: '$t:nav.about.href',
+                          className: mobileClass('about'),
+                          ...(activePage === 'about' ? { 'aria-current': 'page' } : {}),
+                        },
+                      },
+                    ],
+                  },
+
+                  // ── Separator ──────────────────────────────────────
+                  {
+                    type: 'div' as const,
+                    props: {
+                      className: 'h-px bg-sovereignty-gray-800 my-3',
                       'aria-hidden': 'true',
                     },
                   },
 
-                  // Language switcher link (mobile)
+                  // ── Group 3: Utility links (GitHub) ────────────────
                   {
-                    type: 'link' as const,
-                    content: '$t:nav.lang.label',
+                    type: 'div' as const,
                     props: {
-                      href: '#',
-                      className: mobileNavLinkInactiveClass,
-                      'data-lang-switch': '$t:nav.lang.code',
-                      'aria-label': 'Switch language',
+                      className: 'space-y-1',
                     },
+                    children: [
+                      // GitHub link (mobile)
+                      {
+                        type: 'link' as const,
+                        props: {
+                          href: 'https://github.com/sovrium/sovrium',
+                          target: '_blank',
+                          rel: 'noopener noreferrer',
+                          className:
+                            'flex items-center gap-3 text-sovereignty-gray-300 hover:text-sovereignty-light hover:bg-sovereignty-gray-800 transition-colors duration-150 text-base font-medium px-4 py-3 rounded-lg',
+                          'aria-label': 'Sovrium on GitHub',
+                        },
+                        children: [
+                          {
+                            type: 'img' as const,
+                            props: {
+                              src: githubIconSrc,
+                              alt: 'GitHub',
+                              className: 'h-5 w-5',
+                            },
+                          },
+                          {
+                            type: 'span' as const,
+                            content: 'GitHub',
+                          },
+                        ],
+                      },
+                    ],
+                  },
+
+                  // ── Separator ──────────────────────────────────────
+                  {
+                    type: 'div' as const,
+                    props: {
+                      className: 'h-px bg-sovereignty-gray-800 my-3',
+                      'aria-hidden': 'true',
+                    },
+                  },
+
+                  // ── Group 4: CTA + Language switcher ───────────────
+                  {
+                    type: 'div' as const,
+                    props: {
+                      className: 'space-y-3',
+                    },
+                    children: [
+                      // CTA button (mobile)
+                      {
+                        type: 'link' as const,
+                        content: '$t:nav.cta',
+                        props: {
+                          href: '$t:nav.cta.href',
+                          className:
+                            'block bg-sovereignty-accent hover:bg-sovereignty-accent/90 text-white text-base font-medium px-4 py-3 rounded-lg transition-colors duration-200 text-center',
+                        },
+                      },
+
+                      // Language switcher (mobile) — inline row
+                      {
+                        type: 'div' as const,
+                        props: {
+                          className: 'flex items-center justify-between px-4',
+                        },
+                        children: [
+                          {
+                            type: 'span' as const,
+                            content: '$t:nav.lang.switch.label',
+                            props: {
+                              className: 'text-sm text-sovereignty-gray-500',
+                            },
+                          },
+                          {
+                            type: 'link' as const,
+                            content: '$t:nav.lang.label',
+                            props: {
+                              href: '#',
+                              className:
+                                'text-sm font-medium text-sovereignty-gray-300 hover:text-sovereignty-light transition-colors duration-150 px-3 py-1.5 rounded-md border border-sovereignty-gray-700 hover:border-sovereignty-gray-500',
+                              'data-lang-switch': '$t:nav.lang.code',
+                              'aria-label': 'Switch language',
+                            },
+                          },
+                        ],
+                      },
+                    ],
                   },
                 ],
               },

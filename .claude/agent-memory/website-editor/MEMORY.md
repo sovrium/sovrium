@@ -49,10 +49,29 @@
 - Active links get `aria-current="page"` for accessibility
 - Desktop: `hidden md:flex` on nav links container
 - Mobile: hamburger button (`button` type, `id="mobile-menu-btn"`) with Lucide `menu`/`x` icons
-- Mobile menu: `div` with `id="mobile-menu"`, absolute overlay (not in-flow), animated via `maxHeight`
-- Section has `relative`, mobile menu has `absolute top-full left-0 w-full z-50` to overlay content
-- Scripts: `mobileMenuScript` + `langSwitchScript` in every page's `scripts.inlineScripts`
 - Icon toggle: JS swaps `display:none/block` between `#mobile-menu-icon` and `#mobile-close-icon`
+- Scripts: `mobileMenuScript` + `langSwitchScript` + `searchScript` in every page's `scripts.inlineScripts`
+
+### Mobile Menu Structure (Updated 2026-03-04)
+- Outer div: `absolute top-full left-0 w-full overflow-hidden z-50` with inline `background-color:#050810`
+- Inner div: `overflow-y-auto` with inline `height:calc(100dvh - 4rem)` to fill viewport below navbar
+- **3 groups** separated by `h-px bg-sovereignty-gray-800 my-3` dividers:
+  - Group 1: `<nav aria-label="Mobile navigation">` with Docs, Services, About links
+  - Group 2: `<div>` with Search button + GitHub link (utility links)
+  - Group 3: `<div>` with CTA button + language switcher (inline row: "Language"/"Langue" label + bordered button)
+- Animation: `maxHeight` transition (300ms ease-in-out) via inline style on outer div
+- JS opens: `maxHeight="100dvh"`, `body.overflow="hidden"`
+- JS closes: `maxHeight="0px"`, setTimeout 300ms to add `hidden`, `body.overflow=""`
+- i18n key `nav.lang.switch.label`: "Language" (en) / "Langue" (fr)
+
+### Mobile Menu CSS Gotchas (CRITICAL)
+- `fixed` positioning DOES NOT WORK inside `sticky` parent (navbar section has `sticky top-0`)
+  - `sticky` creates a containing block that traps `fixed` children
+  - Use `absolute` positioning instead and size with `100dvh` to cover viewport
+- `bg-sovereignty-darker` Tailwind class may not apply correctly when toggling `hidden`
+  - Use inline `style="background-color:#050810"` for guaranteed opaque background
+- `transition-all` Tailwind class on the outer div conflicts with `hidden` toggling
+  - Use inline `style` for specific `transition:max-height 300ms ease-in-out` instead
 
 ## Base Button Style Override (RESOLVED 2026-02-23)
 - **FIXED**: Bare `button` type selector was REMOVED from `@layer components` in `component-layer-generators.ts`

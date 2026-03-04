@@ -54,7 +54,8 @@ export const docsInstallation = docsPage({
               content: '$t:docs.installation.prerequisites.title',
               props: {
                 id: 'prerequisites',
-                className: 'text-2xl font-bold text-sovereignty-light mb-2 scroll-mt-20',
+                className: 'text-2xl font-bold text-sovereignty-light mb-2',
+                style: 'scroll-margin-top:5rem',
               },
             },
             {

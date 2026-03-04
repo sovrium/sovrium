@@ -296,7 +296,8 @@ export const docsSectionHeader: ComponentTemplate = {
       content: '$title',
       props: {
         id: '$anchor',
-        className: 'text-2xl font-bold text-sovereignty-light mb-2 scroll-mt-20',
+        className: 'text-2xl font-bold text-sovereignty-light mb-2',
+        style: 'scroll-margin-top:5rem',
       },
     },
     {

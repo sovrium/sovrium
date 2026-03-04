@@ -21,10 +21,12 @@ export const en: Record<string, string> = {
   'nav.search': 'Search',
   'nav.search.title': 'Search documentation',
   'nav.search.shortcut': '\u2318K',
+  'nav.search.placeholder': 'Search docs...',
   'nav.cta': 'Get Started',
   'nav.cta.href': '/en/docs',
   'nav.lang.label': 'FR',
   'nav.lang.code': 'fr',
+  'nav.lang.switch.label': 'Language',
 
   // ════════════════════════════════════════════════════════════════════
   //  GLOBAL FOOTER
@@ -94,7 +96,7 @@ export const en: Record<string, string> = {
   'home.solution.title': 'One Config. Full Application.',
   'home.solution.description':
     'Sovrium turns a simple configuration file into a complete business application \u2014 authentication, database, API, pages, and admin panel included.',
-  'home.solution.code.alsoWorks': 'Also works with YAML and JSON configs:',
+  'home.solution.code.alsoWorks': 'Start from any format:',
 
   // ── Home: Comparison (micro-table in Problem section) ───────────────
   'home.comparison.table.header.saas': 'Traditional SaaS',
@@ -754,6 +756,11 @@ export const en: Record<string, string> = {
   // ── Docs: Navigation ──────────────────────────────────────────────
   'nav.docs': 'Docs',
   'nav.docs.href': '/en/docs',
+
+  // ── Docs: Development Banner ──────────────────────────────────────
+  'docs.banner.title': 'Sovrium v0.1.0 — Active Development',
+  'docs.banner.body':
+    'This project is under active development. APIs, configuration format, and features may change between versions.',
 
   // ── Docs: Sidebar ─────────────────────────────────────────────────
   'docs.sidebar.toggle': 'Menu',

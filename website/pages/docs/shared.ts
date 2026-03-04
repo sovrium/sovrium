@@ -180,8 +180,8 @@ export const badgeGroup = (title: string, items: readonly string[], anchor?: str
       type: 'h4' as const,
       content: title,
       props: {
-        className: 'text-sm font-semibold text-sovereignty-light mb-2 scroll-mt-20',
-        ...(anchor ? { id: anchor } : {}),
+        className: 'text-sm font-semibold text-sovereignty-light mb-2',
+        ...(anchor ? { id: anchor, style: 'scroll-margin-top:5rem' } : {}),
       },
     },
     {
@@ -364,8 +364,8 @@ export const endpointGroup = (
             type: 'h3' as const,
             content: title,
             props: {
-              className: 'text-lg font-semibold text-sovereignty-light mb-1 scroll-mt-20',
-              ...(anchor ? { id: anchor } : {}),
+              className: 'text-lg font-semibold text-sovereignty-light mb-1',
+              ...(anchor ? { id: anchor, style: 'scroll-margin-top:5rem' } : {}),
             },
           },
         ]
@@ -805,7 +805,49 @@ export function docsPage(options: DocsPageOptions): Page {
                   {
                     type: 'div',
                     props: { className: 'flex-1 min-w-0 space-y-12' },
-                    children: [...content, buildPrevNext(activeId)],
+                    children: [
+                      // Development status banner (visible on all docs pages)
+                      {
+                        type: 'div',
+                        props: {
+                          className:
+                            'flex items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3',
+                        },
+                        children: [
+                          {
+                            type: 'icon',
+                            props: {
+                              name: 'construction',
+                              size: 18,
+                              className: 'text-amber-400 flex-shrink-0 mt-0.5',
+                            },
+                          },
+                          {
+                            type: 'div',
+                            props: { className: 'min-w-0' },
+                            children: [
+                              {
+                                type: 'span',
+                                content: '$t:docs.banner.title',
+                                props: {
+                                  className: 'block text-sm font-semibold text-amber-400',
+                                },
+                              },
+                              {
+                                type: 'span',
+                                content: '$t:docs.banner.body',
+                                props: {
+                                  className:
+                                    'block text-sm text-sovereignty-gray-400 mt-0.5 leading-relaxed',
+                                },
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                      ...content,
+                      buildPrevNext(activeId),
+                    ],
                   },
 
                   // ── Table of Contents (right sidebar) ─────────────────
