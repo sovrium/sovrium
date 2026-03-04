@@ -6,7 +6,7 @@
  */
 
 export const docs: Record<string, string> = {
-  'docs.banner.title': 'Sovrium v0.2.0 — Active Development',
+  'docs.banner.title': 'Sovrium v0.2.2 — Active Development',
   'docs.banner.body':
     'This project is under active development. APIs, configuration format, and features may change between versions.',
   'docs.sidebar.toggle': 'Menu',
