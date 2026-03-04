@@ -85,6 +85,37 @@ Each layer constrains the next. A well-written user story leads to a clear schem
 
 Traditional code contributions (bug fixes, refactoring, performance improvements) are still welcome via standard pull requests. The spec-driven workflow applies primarily to new features.
 
+### Using Claude Code for Specification Work
+
+We recommend using [Claude Code](https://docs.anthropic.com/en/docs/claude-code) with the **product-specs-architect** agent to write specification artifacts. This agent is purpose-built to guide you through the full spec workflow:
+
+1. **Competitive research** — Researches how platforms like Airtable, Retool, and Notion implement similar features
+2. **User story authoring** — Creates structured user stories in `docs/user-stories/` with acceptance criteria
+3. **Schema design** — Generates Effect Schemas (`src/domain/models/app/`) and Zod API schemas (`src/domain/models/api/`)
+4. **E2E test creation** — Writes Playwright test specs with `.fixme()` markers, realistic test data, and GIVEN-WHEN-THEN structure
+5. **Quality validation** — Runs `bun run quality --skip-e2e` and `bun run progress` to ensure everything passes
+
+#### How to Use It
+
+From the project root, invoke the agent in Claude Code:
+
+```
+@.claude/agents/product-specs-architect.md Design the specification for [your feature]
+```
+
+Or simply describe what you want to build — Claude Code will route to the agent automatically when the task involves specification work.
+
+#### What the Agent Produces
+
+| Artifact       | Output                                                   | Ready for      |
+| -------------- | -------------------------------------------------------- | -------------- |
+| User stories   | `docs/user-stories/as-developer/{category}/{feature}.md` | Review & merge |
+| Domain schemas | `src/domain/models/app/{feature}.ts`                     | Review & merge |
+| API schemas    | `src/domain/models/api/{feature}.ts`                     | Review & merge |
+| E2E test specs | `specs/app/{feature}.spec.ts` with `.fixme()` markers    | TDD pipeline   |
+
+After your spec PR is merged, the TDD automation pipeline picks up the `.fixme()` tests and generates the implementation automatically.
+
 ## Development Workflow
 
 ### Branch Naming
