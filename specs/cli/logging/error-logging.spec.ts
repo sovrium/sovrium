@@ -82,7 +82,7 @@ test.describe('CLI Structured Error Logging', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-LOG-ERROR-003: auth errors do not leak passwords or tokens',
     { tag: '@spec' },
     async () => {

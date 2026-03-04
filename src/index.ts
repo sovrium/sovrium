@@ -18,7 +18,7 @@
 
 import { Console, Effect, Schema } from 'effect'
 import { generateStatic as generateStaticUseCase } from '@/application/use-cases/server/generate-static'
-import { startServer } from '@/application/use-cases/server/start-server'
+import { normalizeAppConfig, startServer } from '@/application/use-cases/server/start-server'
 import { AppSchema } from '@/domain/models/app'
 import { createAppLayer } from '@/infrastructure/layers/app-layer'
 import { withGracefulShutdown } from '@/infrastructure/server/lifecycle'
@@ -104,12 +104,15 @@ const toSimpleServer = (server: Readonly<ServerInstance>): SimpleServer => ({
  * ```
  */
 export const start = async (app: AppEncoded, options: StartOptions = {}): Promise<SimpleServer> => {
+  // Normalize app configuration to handle shorthand formats before validation
+  const normalizedApp = normalizeAppConfig(app)
+
   // Parse app configuration once to extract auth config
-  const validatedApp: App = Schema.decodeUnknownSync(AppSchema)(app)
+  const validatedApp: App = Schema.decodeUnknownSync(AppSchema)(normalizedApp)
 
   const program = Effect.gen(function* () {
     // Start the server (dependencies injected via AppLayer with auth config)
-    const server = yield* startServer(app, options)
+    const server = yield* startServer(normalizedApp, options)
 
     // Setup graceful shutdown in background (forked so it doesn't block)
     yield* Effect.fork(withGracefulShutdown(server))

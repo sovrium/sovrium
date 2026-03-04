@@ -45,6 +45,61 @@ export interface StartOptions {
 }
 
 /**
+ * Strategy shorthand mapping from string shorthand to full strategy type name
+ *
+ * Supports legacy/shorthand formats for auth strategies:
+ * - 'emailPassword' → { type: 'emailAndPassword' }
+ * - 'magicLink' → { type: 'magicLink' }
+ */
+const STRATEGY_SHORTHAND_MAP: Readonly<Record<string, string>> = {
+  emailPassword: 'emailAndPassword',
+  magicLink: 'magicLink',
+}
+
+/**
+ * Normalize auth strategies from shorthand string format to full object format
+ *
+ * Accepts:
+ * - String shorthand: 'emailPassword' → { type: 'emailAndPassword' }
+ * - Full object: { type: 'emailAndPassword' } → unchanged
+ */
+const normalizeAuthStrategy = (strategy: unknown): unknown => {
+  if (typeof strategy === 'string') {
+    const type = STRATEGY_SHORTHAND_MAP[strategy]
+    return type !== undefined ? { type } : { type: strategy }
+  }
+  return strategy
+}
+
+/**
+ * Normalize app configuration to handle shorthand formats
+ *
+ * Converts legacy/shorthand auth strategy formats to the full object format
+ * expected by the schema. This allows users to write:
+ *   strategies: ['emailPassword']
+ * instead of:
+ *   strategies: [{ type: 'emailAndPassword' }]
+ */
+export const normalizeAppConfig = (app: unknown): unknown => {
+  if (typeof app !== 'object' || app === null) return app
+
+  const { auth, ...restApp } = app as Record<string, unknown>
+
+  if (typeof auth !== 'object' || auth === null) return app
+
+  const { strategies, ...restAuth } = auth as Record<string, unknown>
+
+  if (!Array.isArray(strategies)) return app
+
+  const normalizedStrategies = strategies.map(normalizeAuthStrategy)
+
+  return {
+    ...restApp,
+    auth: { ...restAuth, strategies: normalizedStrategies },
+  }
+}
+
+/**
  * Use case for starting an Sovrium web server
  *
  * This orchestrates the server startup process:
@@ -81,9 +136,12 @@ export const startServer = (
   ServerFactory | PageRenderer | Auth | AuthRepository | Logger
 > =>
   Effect.gen(function* () {
+    // Normalize app configuration to handle shorthand formats before validation
+    const normalizedApp = normalizeAppConfig(app)
+
     // Validate app configuration using domain model schema
     const validatedApp = yield* Effect.try({
-      try: (): App => Schema.decodeUnknownSync(AppSchema)(app),
+      try: (): App => Schema.decodeUnknownSync(AppSchema)(normalizedApp),
       catch: (error) => new AppValidationError(error),
     })
 
