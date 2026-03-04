@@ -65,7 +65,9 @@ export const MultipleAttachmentsFieldSchema = BaseFieldSchema.pipe(
               Schema.annotations({ description: 'Maximum file size in bytes per file' })
             )
           ),
-          allowedTypes: Schema.optional(Schema.Array(Schema.String)),
+          allowedTypes: Schema.optional(
+            Schema.Array(Schema.String).pipe(Schema.annotations({ title: 'Allowed MIME Types' }))
+          ),
         })
       ),
     })

@@ -160,6 +160,7 @@ export const LanguagesSchema = Schema.Struct({
   supported: Schema.Array(LanguageConfigSchema).pipe(
     Schema.minItems(1),
     Schema.annotations({
+      title: 'Supported Languages',
       description: 'List of supported languages',
     })
   ),

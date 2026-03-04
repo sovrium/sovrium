@@ -33,6 +33,7 @@ export const TablePermissionSchema = Schema.Union(
   Schema.Array(Schema.String).pipe(
     Schema.minItems(1),
     Schema.annotations({
+      title: 'Role List',
       description: 'Array of role names that have access (e.g., admin, editor). At least one role.',
       examples: [['admin'], ['admin', 'editor'], ['admin', 'member', 'viewer']],
     })

@@ -45,7 +45,10 @@ export const IndexesSchema = Schema.Array(
     ),
     fields: Schema.Array(
       Schema.String.pipe(Schema.minLength(1, { message: () => 'This field is required' }))
-    ).pipe(Schema.minItems(1, { message: () => 'At least one field is required' })),
+    ).pipe(
+      Schema.minItems(1, { message: () => 'At least one field is required' }),
+      Schema.annotations({ title: 'Index Fields' })
+    ),
     unique: Schema.optional(Schema.Boolean),
     where: Schema.optional(
       Schema.String.pipe(
@@ -57,7 +60,7 @@ export const IndexesSchema = Schema.Array(
         })
       )
     ),
-  })
+  }).pipe(Schema.annotations({ title: 'Index' }))
 ).pipe(
   Schema.filter((indexes) => {
     const names = indexes.map((index) => index.name)

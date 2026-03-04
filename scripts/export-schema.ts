@@ -105,11 +105,43 @@ const fixEmptyPatternProperties = (node: unknown): unknown => {
   return result
 }
 
+// ---------------------------------------------------------------------------
+// Post-processing: strip constraint-label titles
+// ---------------------------------------------------------------------------
+// Effect's filter/constraint pipes (minLength, maxLength, nonEmptyString, int,
+// greaterThanOrEqualTo, etc.) auto-generate titles like "maxLength(63)" or "int"
+// when no explicit title annotation follows them. These leak into JSON Schema
+// and display poorly in viewers like json-schema.app.
+//
+// We strip titles that match known constraint label patterns, leaving only
+// intentional human-readable titles.
+
+const CONSTRAINT_TITLE_PATTERN =
+  /^(maxLength|minLength|minItems|maxItems|nonEmptyString|nonEmpty|int|positive|negative|nonNegative|nonPositive|finite|between|greaterThan|greaterThanOrEqualTo|lessThan|lessThanOrEqualTo|pattern|unknown)\b/
+
+const stripConstraintTitles = (node: unknown): unknown => {
+  if (node === null || typeof node !== 'object') return node
+
+  if (Array.isArray(node)) return node.map(stripConstraintTitles)
+
+  const obj = node as Record<string, unknown>
+  const result: Record<string, unknown> = {}
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (key === 'title' && typeof value === 'string' && CONSTRAINT_TITLE_PATTERN.test(value)) {
+      continue // Skip constraint-label titles
+    }
+    result[key] = stripConstraintTitles(value)
+  }
+
+  return result
+}
+
 // Add JSON Schema metadata
 const schemaWithMetadata = {
   $id: `https://sovrium.com/schemas/${version}/app.schema.json`,
   $schema: 'http://json-schema.org/draft-07/schema#',
-  ...(fixEmptyPatternProperties(jsonSchema) as Record<string, unknown>),
+  ...(stripConstraintTitles(fixEmptyPatternProperties(jsonSchema)) as Record<string, unknown>),
 }
 
 // Output path

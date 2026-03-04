@@ -23,6 +23,7 @@ export const CountFieldSchema = BaseFieldSchema.pipe(
       conditions: Schema.optional(
         Schema.Array(ViewFilterConditionSchema).pipe(
           Schema.annotations({
+            title: 'Count Conditions',
             description: 'Filter conditions to apply when counting linked records',
           })
         )

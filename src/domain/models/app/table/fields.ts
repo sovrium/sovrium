@@ -108,6 +108,7 @@ export const FieldsSchema = Schema.Array(
   )
 ).pipe(
   Schema.minItems(1),
+  Schema.annotations({ title: 'Table Fields' }),
   Schema.filter((fields) => {
     const ids = fields.map((field) => field.id)
     const uniqueIds = new Set(ids)

@@ -57,6 +57,7 @@ export const createOptionsSchema = (fieldType: 'single-select' | 'multi-select')
   Schema.Array(Schema.String).pipe(
     Schema.minItems(1),
     Schema.annotations({
+      title: 'Options',
       message: () => `At least one option is required for ${fieldType} field`,
     }),
     Schema.filter((options) => {
@@ -97,9 +98,10 @@ export const createStatusOptionsSchema = () =>
           })
         )
       ),
-    })
+    }).pipe(Schema.annotations({ title: 'Status Option' }))
   ).pipe(
     Schema.minItems(1, { message: () => 'at least one option required' }),
+    Schema.annotations({ title: 'Status Options' }),
     Schema.filter((options) => {
       const values = options.map((opt) => opt.value)
       const uniqueValues = new Set(values)

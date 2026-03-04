@@ -52,8 +52,11 @@ export const UniqueConstraintsSchema = Schema.Array(
     ),
     fields: Schema.Array(
       Schema.String.pipe(Schema.minLength(1, { message: () => 'This field is required' }))
-    ).pipe(Schema.minItems(1, { message: () => 'At least one field is required' })),
-  })
+    ).pipe(
+      Schema.minItems(1, { message: () => 'At least one field is required' }),
+      Schema.annotations({ title: 'Constraint Fields' })
+    ),
+  }).pipe(Schema.annotations({ title: 'Unique Constraint' }))
 ).pipe(
   Schema.filter((constraints) => {
     const names = constraints.map((constraint) => constraint.name)

@@ -41,7 +41,9 @@ export const MultiSelectFieldSchema = BaseFieldSchema.pipe(
           })
         )
       ),
-      default: Schema.optional(Schema.Array(Schema.String)),
+      default: Schema.optional(
+        Schema.Array(Schema.String).pipe(Schema.annotations({ title: 'Default Selections' }))
+      ),
     })
   ),
   Schema.filter((field) => {

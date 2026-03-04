@@ -90,7 +90,10 @@ export const ResourceActionPermissionsSchema = Schema.Record({
   ),
   value: Schema.Array(ActionWithWildcardSchema).pipe(
     Schema.minItems(1),
-    Schema.annotations({ description: 'Allowed actions for this resource' })
+    Schema.annotations({
+      title: 'Allowed Actions',
+      description: 'Allowed actions for this resource',
+    })
   ),
 }).pipe(
   Schema.annotations({

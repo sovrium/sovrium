@@ -44,7 +44,7 @@ export const PrimaryKeySchema = Schema.Struct({
   fields: Schema.optional(
     Schema.Array(
       Schema.String.pipe(Schema.minLength(1, { message: () => 'This field is required' }))
-    )
+    ).pipe(Schema.annotations({ title: 'Primary Key Fields' }))
   ),
 }).pipe(
   Schema.annotations({

@@ -153,6 +153,7 @@ export const ComponentSchema: Schema.Schema<any, any, never> = Schema.Struct({
     ).pipe(
       Schema.annotations({
         identifier: 'Children',
+        title: 'Child Components',
         description: 'Array of child components or text strings',
       })
     )
