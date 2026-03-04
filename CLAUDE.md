@@ -244,6 +244,14 @@ npm publish --provenance --access public  # Must run manually after push
 - `release:` → **Triggers CI release gate** (e.g., `release: publish`). `feat:/fix:` commits alone do NOT trigger a release — only a `release:` HEAD commit does.
 - `docs:`, `style:`, `refactor:`, `test:`, `chore:`, `ci:`, `build:` → No version bump (appear in changelog only if mixed with releasable commits)
 
+#### Claude Code Commit Type Rules (CRITICAL — prevents version inflation)
+- **Default to non-bumping types**: When unsure, use `chore:`, `refactor:`, `docs:`, `style:`, `test:`, `ci:`, or `build:` — these do NOT trigger version bumps
+- **`feat:` is ONLY for new user-facing features** — a capability that didn't exist before. NOT for: refactoring, improving existing code, adding tests, updating configs, fixing types, improving DX, or internal changes
+- **`fix:` is ONLY for correcting broken behavior** — something that was working incorrectly. NOT for: code cleanup, improving error messages, updating dependencies, adjusting styles, or preventive improvements
+- **When the user asks to commit**, suggest the appropriate non-bumping type and explain why. Only use `feat:`/`fix:` if the user explicitly confirms the change warrants a version bump
+- **Examples of WRONG commit types**: `feat: update eslint config` (should be `chore:`), `fix: improve error handling` (should be `refactor:`), `feat: add tests for auth` (should be `test:`), `fix: update documentation` (should be `docs:`)
+- **Release is always manual**: The user decides when and what version to release via `bun run release patch/minor/major` or a `release:` commit. Never suggest or create release commits
+
 ## Architecture Principles
 
 ### Layer-Based Architecture (4 Layers)
