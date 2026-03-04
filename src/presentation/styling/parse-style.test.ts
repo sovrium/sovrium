@@ -128,10 +128,10 @@ describe('Parse Style', () => {
       const result = parseStyle(styleString)
 
       // Then
-      // Note: The current implementation splits on ':' which truncates data URLs
-      // This is a known limitation of the simple parser
+      // The parser splits on the first colon only, preserving colons in values
+      // However, semicolons in data URLs are still split (known limitation)
       expect(result).toEqual({
-        backgroundImage: 'url(data',
+        backgroundImage: 'url(data:image/png',
       })
     })
 
@@ -174,7 +174,7 @@ describe('Parse Style', () => {
       })
     })
 
-    test('should handle CSS custom properties', () => {
+    test('should preserve CSS custom properties as-is', () => {
       // Given
       const styleString = '--custom-color: #fff; --spacing-unit: 8px'
 
@@ -182,10 +182,43 @@ describe('Parse Style', () => {
       const result = parseStyle(styleString)
 
       // Then
-      // Note: The camelCase conversion treats '--' as hyphens to convert
+      // CSS custom properties (--*) are preserved without camelCase conversion
       expect(result).toEqual({
-        '-CustomColor': '#fff',
-        '-SpacingUnit': '8px',
+        '--custom-color': '#fff',
+        '--spacing-unit': '8px',
+      })
+    })
+
+    test('should preserve Pagefind UI CSS custom properties', () => {
+      // Given
+      const styleString =
+        '--pagefind-ui-scale:0.9;--pagefind-ui-primary:#3b82f6;--pagefind-ui-text:#e8ecf4;--pagefind-ui-background:#050810'
+
+      // When
+      const result = parseStyle(styleString)
+
+      // Then
+      expect(result).toEqual({
+        '--pagefind-ui-scale': '0.9',
+        '--pagefind-ui-primary': '#3b82f6',
+        '--pagefind-ui-text': '#e8ecf4',
+        '--pagefind-ui-background': '#050810',
+      })
+    })
+
+    test('should handle mixed standard properties and CSS custom properties', () => {
+      // Given
+      const styleString = 'opacity:0;transform:scale(0.95);--custom-var:#fff;color:red'
+
+      // When
+      const result = parseStyle(styleString)
+
+      // Then
+      expect(result).toEqual({
+        opacity: '0',
+        transform: 'scale(0.95)',
+        '--custom-var': '#fff',
+        color: 'red',
       })
     })
 

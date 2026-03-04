@@ -196,18 +196,26 @@ export function parseStyle(styleString: string): Record<string, string> {
 
   // Use reduce for immutable accumulation instead of for-of loop with mutations
   return declarations.reduce<Record<string, string>>((acc, declaration) => {
-    const [property, value] = declaration.split(':').map((s) => s.trim())
-    if (property && value) {
-      // Convert kebab-case to camelCase (e.g., background-color → backgroundColor)
-      const camelCaseProperty = property.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
+    const colonIndex = declaration.indexOf(':')
+    if (colonIndex === -1) return acc
 
-      // Normalize animation names to kebab-case
-      const normalizedValue =
-        camelCaseProperty === 'animation' ? normalizeAnimationValue(value) : value
+    const property = declaration.slice(0, colonIndex).trim()
+    const value = declaration.slice(colonIndex + 1).trim()
+    if (!property || !value) return acc
 
-      return { ...acc, [camelCaseProperty]: normalizedValue }
+    // CSS custom properties (--*) must be preserved as-is, not converted to camelCase
+    if (property.startsWith('--')) {
+      return { ...acc, [property]: value }
     }
-    return acc
+
+    // Convert kebab-case to camelCase (e.g., background-color → backgroundColor)
+    const camelCaseProperty = property.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase())
+
+    // Normalize animation names to kebab-case
+    const normalizedValue =
+      camelCaseProperty === 'animation' ? normalizeAnimationValue(value) : value
+
+    return { ...acc, [camelCaseProperty]: normalizedValue }
   }, {})
 }
 
