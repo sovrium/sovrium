@@ -18,20 +18,11 @@ import {
 
 const importExample = [
   "import { start, build } from 'sovrium'",
-  'import type {',
-  '  AppConfig,',
-  '  PageConfig,',
-  '  TableConfig,',
-  '  ComponentConfig,',
-  '  ThemeConfig,',
-  '  AuthConfig,',
-  '  LanguageConfig,',
-  '  AnalyticsConfig,',
-  '  SimpleServer,',
-  '  StartOptions,',
-  '  GenerateStaticOptions,',
-  '  GenerateStaticResult,',
-  "} from 'sovrium'",
+  "import type { AppConfig, SimpleServer } from 'sovrium'",
+  '',
+  '// All config types are available:',
+  '// PageConfig, TableConfig, ThemeConfig, AuthConfig,',
+  '// ComponentConfig, LanguageConfig, AnalyticsConfig, ...',
 ].join('\n')
 
 const minimalStart = [
