@@ -287,11 +287,7 @@ export const docsTables = docsPage({
         ]),
 
         // Media Fields
-        subsectionHeader(
-          '$t:docs.tables.fieldTypes.media',
-          '',
-          'field-media'
-        ),
+        subsectionHeader('$t:docs.tables.fieldTypes.media', '', 'field-media'),
         badgeGroup('', ['single-attachment', 'multiple-attachments']),
         propertyTable([
           {
@@ -312,11 +308,7 @@ export const docsTables = docsPage({
         ]),
 
         // Computed Fields
-        subsectionHeader(
-          '$t:docs.tables.fieldTypes.computed',
-          '',
-          'field-computed'
-        ),
+        subsectionHeader('$t:docs.tables.fieldTypes.computed', '', 'field-computed'),
         badgeGroup('', ['formula', 'autonumber']),
         propertyTable([
           { name: 'formula', description: '$t:docs.tables.fieldTypes.computed.formula' },
@@ -332,11 +324,7 @@ export const docsTables = docsPage({
         ),
 
         // Advanced Fields
-        subsectionHeader(
-          '$t:docs.tables.fieldTypes.advanced',
-          '',
-          'field-advanced'
-        ),
+        subsectionHeader('$t:docs.tables.fieldTypes.advanced', '', 'field-advanced'),
         badgeGroup('', ['json', 'array', 'geolocation', 'color', 'button']),
         propertyTable([
           { name: 'json.schema', description: '$t:docs.tables.fieldTypes.advanced.jsonSchema' },
