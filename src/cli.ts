@@ -183,7 +183,7 @@ const handleStartCommand = async (filePath?: string, watchMode = false): Promise
 
   // If watch mode enabled, set up file watcher
   if (watchMode && filePath) {
-    console.log(`\n👀 Watching ${filePath} for changes...\n`)
+    console.log(`\n  [watch] Watching ${filePath} for changes\n`)
 
     // Track current server instance (mutable for watch mode)
     // eslint-disable-next-line functional/no-let
@@ -193,15 +193,17 @@ const handleStartCommand = async (filePath?: string, watchMode = false): Promise
 
     watch(filePath, async (eventType) => {
       if (eventType === 'change') {
-        console.log(`\n🔄 Config changed, reloading...`)
+        console.log(`\n  [watch] Config changed, reloading`)
 
         try {
           // eslint-disable-next-line functional/no-expression-statements
           currentServer = await reloadServer(filePath, currentServer, options)
 
-          console.log(`✅ Server reloaded successfully\n`)
+          console.log(`  [watch] Server reloaded successfully\n`)
         } catch (error) {
-          console.error(`❌ Reload failed: ${error instanceof Error ? error.message : error}\n`)
+          console.error(
+            `  [watch] Reload failed: ${error instanceof Error ? error.message : error}\n`
+          )
           // Keep the old server running on error
         }
       }

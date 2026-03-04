@@ -67,7 +67,7 @@ test.describe('CLI Start Command - Watch Mode', () => {
             const text = data.toString()
             outputBuffer.push(text)
             // Wait for watch message
-            if (text.includes('👀 Watching')) {
+            if (text.includes('[watch] Watching')) {
               serverProcess.kill()
               resolve(outputBuffer.join(''))
             }
@@ -83,7 +83,7 @@ test.describe('CLI Start Command - Watch Mode', () => {
         })
 
         // THEN: Watch mode is activated and displays watch message
-        expect(output).toContain('👀 Watching')
+        expect(output).toContain('[watch] Watching')
         expect(output).toContain(configPath)
       } finally {
         await cleanupTempConfigFile(configPath)
@@ -117,7 +117,7 @@ description: Testing -w flag
           const handleOutput = (data: Buffer) => {
             const text = data.toString()
             outputBuffer.push(text)
-            if (text.includes('👀 Watching')) {
+            if (text.includes('[watch] Watching')) {
               serverProcess.kill()
               resolve(outputBuffer.join(''))
             }
@@ -133,7 +133,7 @@ description: Testing -w flag
         })
 
         // THEN: Watch mode is activated with short flag
-        expect(output).toContain('👀 Watching')
+        expect(output).toContain('[watch] Watching')
       } finally {
         await cleanupTempConfigFile(configPath)
       }
@@ -169,7 +169,7 @@ description: Testing -w flag
             outputBuffer.push(text)
 
             // Wait for watch mode to be ready
-            if (!watchMessageSeen && text.includes('👀 Watching')) {
+            if (!watchMessageSeen && text.includes('[watch] Watching')) {
               watchMessageSeen = true
               // WHEN: Config file is modified with new content
               setTimeout(async () => {
@@ -185,7 +185,7 @@ description: Testing -w flag
             }
 
             // Wait for reload completion
-            if (watchMessageSeen && text.includes('✅ Server reloaded')) {
+            if (watchMessageSeen && text.includes('[watch] Server reloaded')) {
               serverProcess.kill()
               resolve(outputBuffer.join(''))
             }
@@ -201,8 +201,8 @@ description: Testing -w flag
         })
 
         // THEN: Server detects change and reloads successfully
-        expect(reloadOutput).toContain('🔄 Config changed, reloading')
-        expect(reloadOutput).toContain('✅ Server reloaded successfully')
+        expect(reloadOutput).toContain('[watch] Config changed, reloading')
+        expect(reloadOutput).toContain('[watch] Server reloaded successfully')
       } finally {
         await cleanupTempConfigFile(configPath)
       }
@@ -237,7 +237,7 @@ description: Original YAML description
             const text = data.toString()
             outputBuffer.push(text)
 
-            if (!watchMessageSeen && text.includes('👀 Watching')) {
+            if (!watchMessageSeen && text.includes('[watch] Watching')) {
               watchMessageSeen = true
               // WHEN: YAML config file is modified
               setTimeout(async () => {
@@ -253,7 +253,7 @@ version: 2.0.0
               }, 500)
             }
 
-            if (watchMessageSeen && text.includes('✅ Server reloaded')) {
+            if (watchMessageSeen && text.includes('[watch] Server reloaded')) {
               serverProcess.kill()
               resolve(outputBuffer.join(''))
             }
@@ -269,8 +269,8 @@ version: 2.0.0
         })
 
         // THEN: Server detects YAML change and reloads
-        expect(reloadOutput).toContain('🔄 Config changed, reloading')
-        expect(reloadOutput).toContain('✅ Server reloaded successfully')
+        expect(reloadOutput).toContain('[watch] Config changed, reloading')
+        expect(reloadOutput).toContain('[watch] Server reloaded successfully')
       } finally {
         await cleanupTempConfigFile(configPath)
       }
@@ -305,7 +305,7 @@ version: 2.0.0
             const text = data.toString()
             outputBuffer.push(text)
 
-            if (!watchMessageSeen && text.includes('👀 Watching')) {
+            if (!watchMessageSeen && text.includes('[watch] Watching')) {
               watchMessageSeen = true
               // WHEN: Config file is changed to invalid JSON (missing closing brace)
               setTimeout(async () => {
@@ -321,7 +321,7 @@ version: 2.0.0
             }
 
             // Wait for error message
-            if (watchMessageSeen && text.includes('❌ Reload failed')) {
+            if (watchMessageSeen && text.includes('[watch] Reload failed')) {
               setTimeout(() => {
                 serverProcess.kill()
                 resolve(outputBuffer.join(''))
@@ -339,9 +339,9 @@ version: 2.0.0
         })
 
         // THEN: Server displays error but keeps running (doesn't crash)
-        expect(errorOutput).toContain('🔄 Config changed, reloading')
-        expect(errorOutput).toContain('❌ Reload failed')
-        expect(errorOutput).not.toContain('✅ Server reloaded')
+        expect(errorOutput).toContain('[watch] Config changed, reloading')
+        expect(errorOutput).toContain('[watch] Reload failed')
+        expect(errorOutput).not.toContain('[watch] Server reloaded')
         // Server process should still be running (killed by timeout, not by crash)
       } finally {
         await cleanupTempConfigFile(configPath)
@@ -377,7 +377,7 @@ version: 2.0.0
             const text = data.toString()
             outputBuffer.push(text)
 
-            if (!watchMessageSeen && text.includes('👀 Watching')) {
+            if (!watchMessageSeen && text.includes('[watch] Watching')) {
               watchMessageSeen = true
               // WHEN: Config file is modified with new content
               setTimeout(async () => {
@@ -392,7 +392,7 @@ version: 2.0.0
               }, 500)
             }
 
-            if (watchMessageSeen && text.includes('✅ Server reloaded')) {
+            if (watchMessageSeen && text.includes('[watch] Server reloaded')) {
               serverProcess.kill()
               resolve(outputBuffer.join(''))
             }
@@ -407,21 +407,21 @@ version: 2.0.0
           }, 10_000)
         })
 
-        // THEN: Messages appear in correct order with proper emoji indicators
+        // THEN: Messages appear in correct order with [watch] prefix
         // Watch mode activation
-        expect(output).toContain('👀 Watching')
+        expect(output).toContain('[watch] Watching')
         expect(output).toContain('for changes')
 
         // Change detection
-        expect(output).toContain('🔄 Config changed, reloading')
+        expect(output).toContain('[watch] Config changed, reloading')
 
         // Success confirmation
-        expect(output).toContain('✅ Server reloaded successfully')
+        expect(output).toContain('[watch] Server reloaded successfully')
 
         // Verify message order (watch → change → success)
-        const watchIndex = output.indexOf('👀 Watching')
-        const changeIndex = output.indexOf('🔄 Config changed')
-        const successIndex = output.indexOf('✅ Server reloaded')
+        const watchIndex = output.indexOf('[watch] Watching')
+        const changeIndex = output.indexOf('[watch] Config changed')
+        const successIndex = output.indexOf('[watch] Server reloaded')
 
         expect(watchIndex).toBeLessThan(changeIndex)
         expect(changeIndex).toBeLessThan(successIndex)
@@ -450,7 +450,7 @@ version: 2.0.0
 
         // THEN: Server starts normally without watch mode messages
         expect(result.output).not.toContain('Watch mode: enabled')
-        expect(result.output).not.toContain('👀 Watching')
+        expect(result.output).not.toContain('[watch] Watching')
         expect(result.output).toMatch(/Sovrium v\d+\.\d+\.\d+/)
       } finally {
         await cleanupTempConfigFile(configPath)
@@ -489,7 +489,7 @@ version: 2.0.0
             const handleOutput = (data: Buffer) => {
               const text = data.toString()
               outputBuffer.push(text)
-              if (text.includes('👀 Watching')) {
+              if (text.includes('[watch] Watching')) {
                 serverProcess.kill()
                 resolve(outputBuffer.join(''))
               }
@@ -504,7 +504,7 @@ version: 2.0.0
             }, 5000)
           })
 
-          expect(output).toContain('👀 Watching')
+          expect(output).toContain('[watch] Watching')
         } finally {
           await cleanupTempConfigFile(configPath)
         }
@@ -531,7 +531,7 @@ description: Testing -w flag
             const handleOutput = (data: Buffer) => {
               const text = data.toString()
               outputBuffer.push(text)
-              if (text.includes('👀 Watching')) {
+              if (text.includes('[watch] Watching')) {
                 serverProcess.kill()
                 resolve(outputBuffer.join(''))
               }
@@ -546,7 +546,7 @@ description: Testing -w flag
             }, 5000)
           })
 
-          expect(output).toContain('👀 Watching')
+          expect(output).toContain('[watch] Watching')
         } finally {
           await cleanupTempConfigFile(configPath)
         }
@@ -576,7 +576,7 @@ description: Testing -w flag
               const text = data.toString()
               outputBuffer.push(text)
 
-              if (!watchMessageSeen && text.includes('👀 Watching')) {
+              if (!watchMessageSeen && text.includes('[watch] Watching')) {
                 watchMessageSeen = true
                 setTimeout(async () => {
                   await writeFile(
@@ -590,7 +590,7 @@ description: Testing -w flag
                 }, 500)
               }
 
-              if (watchMessageSeen && text.includes('✅ Server reloaded')) {
+              if (watchMessageSeen && text.includes('[watch] Server reloaded')) {
                 serverProcess.kill()
                 resolve(outputBuffer.join(''))
               }
@@ -605,8 +605,8 @@ description: Testing -w flag
             }, 10_000)
           })
 
-          expect(reloadOutput).toContain('🔄 Config changed, reloading')
-          expect(reloadOutput).toContain('✅ Server reloaded successfully')
+          expect(reloadOutput).toContain('[watch] Config changed, reloading')
+          expect(reloadOutput).toContain('[watch] Server reloaded successfully')
         } finally {
           await cleanupTempConfigFile(configPath)
         }
@@ -636,7 +636,7 @@ description: Original YAML description
               const text = data.toString()
               outputBuffer.push(text)
 
-              if (!watchMessageSeen && text.includes('👀 Watching')) {
+              if (!watchMessageSeen && text.includes('[watch] Watching')) {
                 watchMessageSeen = true
                 setTimeout(async () => {
                   await writeFile(
@@ -651,7 +651,7 @@ version: 2.0.0
                 }, 500)
               }
 
-              if (watchMessageSeen && text.includes('✅ Server reloaded')) {
+              if (watchMessageSeen && text.includes('[watch] Server reloaded')) {
                 serverProcess.kill()
                 resolve(outputBuffer.join(''))
               }
@@ -666,8 +666,8 @@ version: 2.0.0
             }, 10_000)
           })
 
-          expect(reloadOutput).toContain('🔄 Config changed, reloading')
-          expect(reloadOutput).toContain('✅ Server reloaded successfully')
+          expect(reloadOutput).toContain('[watch] Config changed, reloading')
+          expect(reloadOutput).toContain('[watch] Server reloaded successfully')
         } finally {
           await cleanupTempConfigFile(configPath)
         }
@@ -697,7 +697,7 @@ version: 2.0.0
               const text = data.toString()
               outputBuffer.push(text)
 
-              if (!watchMessageSeen && text.includes('👀 Watching')) {
+              if (!watchMessageSeen && text.includes('[watch] Watching')) {
                 watchMessageSeen = true
                 setTimeout(async () => {
                   await writeFile(
@@ -711,7 +711,7 @@ version: 2.0.0
                 }, 500)
               }
 
-              if (watchMessageSeen && text.includes('❌ Reload failed')) {
+              if (watchMessageSeen && text.includes('[watch] Reload failed')) {
                 setTimeout(() => {
                   serverProcess.kill()
                   resolve(outputBuffer.join(''))
@@ -728,9 +728,9 @@ version: 2.0.0
             }, 10_000)
           })
 
-          expect(errorOutput).toContain('🔄 Config changed, reloading')
-          expect(errorOutput).toContain('❌ Reload failed')
-          expect(errorOutput).not.toContain('✅ Server reloaded')
+          expect(errorOutput).toContain('[watch] Config changed, reloading')
+          expect(errorOutput).toContain('[watch] Reload failed')
+          expect(errorOutput).not.toContain('[watch] Server reloaded')
         } finally {
           await cleanupTempConfigFile(configPath)
         }
@@ -760,7 +760,7 @@ version: 2.0.0
               const text = data.toString()
               outputBuffer.push(text)
 
-              if (!watchMessageSeen && text.includes('👀 Watching')) {
+              if (!watchMessageSeen && text.includes('[watch] Watching')) {
                 watchMessageSeen = true
                 setTimeout(async () => {
                   await writeFile(
@@ -774,7 +774,7 @@ version: 2.0.0
                 }, 500)
               }
 
-              if (watchMessageSeen && text.includes('✅ Server reloaded')) {
+              if (watchMessageSeen && text.includes('[watch] Server reloaded')) {
                 serverProcess.kill()
                 resolve(outputBuffer.join(''))
               }
@@ -789,13 +789,13 @@ version: 2.0.0
             }, 10_000)
           })
 
-          expect(output).toContain('👀 Watching')
-          expect(output).toContain('🔄 Config changed, reloading')
-          expect(output).toContain('✅ Server reloaded successfully')
+          expect(output).toContain('[watch] Watching')
+          expect(output).toContain('[watch] Config changed, reloading')
+          expect(output).toContain('[watch] Server reloaded successfully')
 
-          const watchIndex = output.indexOf('👀 Watching')
-          const changeIndex = output.indexOf('🔄 Config changed')
-          const successIndex = output.indexOf('✅ Server reloaded')
+          const watchIndex = output.indexOf('[watch] Watching')
+          const changeIndex = output.indexOf('[watch] Config changed')
+          const successIndex = output.indexOf('[watch] Server reloaded')
 
           expect(watchIndex).toBeLessThan(changeIndex)
           expect(changeIndex).toBeLessThan(successIndex)
@@ -817,7 +817,7 @@ version: 2.0.0
           const result = await captureCliOutput(configPath)
 
           expect(result.output).not.toContain('Watch mode: enabled')
-          expect(result.output).not.toContain('👀 Watching')
+          expect(result.output).not.toContain('[watch] Watching')
           expect(result.output).toMatch(/Sovrium v\d+\.\d+\.\d+/)
         } finally {
           await cleanupTempConfigFile(configPath)
