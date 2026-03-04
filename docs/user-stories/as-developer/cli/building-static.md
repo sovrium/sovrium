@@ -69,7 +69,7 @@ theme:
 | AC-005 | Handles nested page paths correctly                                             | `CLI-BUILD-GENERATION-005`        | ✅     |
 | AC-006 | Generates well-formatted HTML                                                   | `CLI-BUILD-GENERATION-006`        | ✅     |
 | AC-007 | User can complete full static generation workflow (regression)                  | `CLI-BUILD-GENERATION-REGRESSION` | ✅     |
-| AC-008 | Build output shows only build-relevant phases, not internal server startup logs | `CLI-BUILD-GENERATION-008`        |        |
+| AC-008 | Build output shows only build-relevant phases, not internal server startup logs | `CLI-BUILD-GENERATION-008`        | ✅     |
 
 ### Implementation References
 
