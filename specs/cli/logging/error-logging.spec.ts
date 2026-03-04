@@ -91,7 +91,7 @@ test.describe('CLI Structured Error Logging', () => {
         JSON.stringify({
           name: 'error-sanitize-test',
           auth: {
-            strategies: ['emailPassword'],
+            strategies: [{ type: 'emailAndPassword' }],
           },
         }),
         'json'

@@ -114,33 +114,29 @@ test.describe('CLI Request Access Log', () => {
     }
   )
 
-  test(
-    'CLI-LOG-ACCESS-004: access log format includes duration',
-    { tag: '@spec' },
-    async () => {
-      // GIVEN: Server running with LOG_LEVEL=debug
-      const configPath = await createTempConfigFile(
-        JSON.stringify({ name: 'access-format-test' }),
-        'json'
+  test('CLI-LOG-ACCESS-004: access log format includes duration', { tag: '@spec' }, async () => {
+    // GIVEN: Server running with LOG_LEVEL=debug
+    const configPath = await createTempConfigFile(
+      JSON.stringify({ name: 'access-format-test' }),
+      'json'
+    )
+
+    try {
+      // WHEN: Making a page request
+      const { runtimeOutput } = await captureRuntimeOutput(
+        configPath,
+        async (url) => {
+          await fetch(url)
+        },
+        { env: { LOG_LEVEL: 'debug' } }
       )
 
-      try {
-        // WHEN: Making a page request
-        const { runtimeOutput } = await captureRuntimeOutput(
-          configPath,
-          async (url) => {
-            await fetch(url)
-          },
-          { env: { LOG_LEVEL: 'debug' } }
-        )
-
-        // THEN: Access log matches format: <-- METHOD /path STATUS TIMEms
-        expect(runtimeOutput).toMatch(/<-- GET \/ \d{3} \d+ms/)
-      } finally {
-        await cleanupTempConfigFile(configPath)
-      }
+      // THEN: Access log matches format: <-- METHOD /path STATUS TIMEms
+      expect(runtimeOutput).toMatch(/<-- GET \/ \d{3} \d+ms/)
+    } finally {
+      await cleanupTempConfigFile(configPath)
     }
-  )
+  })
 
   // ============================================================================
   // @regression test - ONE optimized integration test

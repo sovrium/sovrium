@@ -110,41 +110,30 @@ test.describe('CLI Runtime Silent Behavior', () => {
     }
   )
 
-  test(
-    'CLI-LOG-RUNTIME-004: CSS errors still log at error level',
-    { tag: '@spec' },
-    async () => {
-      // Structural validation: verify logError is used in static-assets.ts
-      // This is a code-level check — CSS compilation errors are hard to trigger in E2E
-      // The implementation uses logError('[CSS] Compilation failed', error)
-      // which produces [ERROR] [CSS] Compilation failed in the output
-      expect(true).toBe(true)
+  test('CLI-LOG-RUNTIME-004: CSS errors still log at error level', { tag: '@spec' }, async () => {
+    // Structural validation: verify logError is used in static-assets.ts
+    // This is a code-level check — CSS compilation errors are hard to trigger in E2E
+    // The implementation uses logError('[CSS] Compilation failed', error)
+    // which produces [ERROR] [CSS] Compilation failed in the output
+    expect(true).toBe(true)
+  })
+
+  test('CLI-LOG-RUNTIME-005: no "Press Ctrl+C" message in output', { tag: '@spec' }, async () => {
+    // GIVEN: Server running with minimal config
+    const configPath = await createTempConfigFile(JSON.stringify({ name: 'no-ctrlc-test' }), 'json')
+
+    try {
+      // WHEN: Capturing full startup output
+      const { startupOutput } = await captureRuntimeOutput(configPath, async () => {
+        // No requests needed — just checking startup output
+      })
+
+      // THEN: Output does NOT contain "Press Ctrl+C"
+      expect(startupOutput).not.toContain('Press Ctrl+C')
+    } finally {
+      await cleanupTempConfigFile(configPath)
     }
-  )
-
-  test(
-    'CLI-LOG-RUNTIME-005: no "Press Ctrl+C" message in output',
-    { tag: '@spec' },
-    async () => {
-      // GIVEN: Server running with minimal config
-      const configPath = await createTempConfigFile(
-        JSON.stringify({ name: 'no-ctrlc-test' }),
-        'json'
-      )
-
-      try {
-        // WHEN: Capturing full startup output
-        const { startupOutput } = await captureRuntimeOutput(configPath, async () => {
-          // No requests needed — just checking startup output
-        })
-
-        // THEN: Output does NOT contain "Press Ctrl+C"
-        expect(startupOutput).not.toContain('Press Ctrl+C')
-      } finally {
-        await cleanupTempConfigFile(configPath)
-      }
-    }
-  )
+  })
 
   // ============================================================================
   // @regression test - ONE optimized integration test
