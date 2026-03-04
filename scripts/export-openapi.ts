@@ -81,11 +81,11 @@ function mergeOpenAPISchemas(
 
   return {
     ...primary,
-    paths: { ...primaryPaths, ...secondaryPaths },
+    paths: { ...secondaryPaths, ...primaryPaths },
     components: {
-      ...primaryComponents,
       ...secondaryComponents,
-      schemas: { ...primarySchemas, ...secondarySchemas },
+      ...primaryComponents,
+      schemas: { ...secondarySchemas, ...primarySchemas },
     },
     tags: mergedTags,
   }

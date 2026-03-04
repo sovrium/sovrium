@@ -12,61 +12,69 @@ import { z } from 'zod'
  *
  * Represents a validation error on a specific field.
  */
-export const fieldErrorSchema = z.object({
-  field: z.string().describe('Field name that failed validation'),
-  message: z.string().describe('Human-readable error message'),
-  code: z.string().optional().describe('Machine-readable error code'),
-})
+export const fieldErrorSchema = z
+  .object({
+    field: z.string().describe('Field name that failed validation'),
+    message: z.string().describe('Human-readable error message'),
+    code: z.string().optional().describe('Machine-readable error code'),
+  })
+  .openapi('FieldError')
 
 /**
  * Validation error response schema
  *
  * Used for 400 Bad Request responses with field-level errors.
  */
-export const validationErrorResponseSchema = z.object({
-  success: z.literal(false).describe('Operation failed'),
-  message: z.string().describe('General error message'),
-  code: z.literal('VALIDATION_ERROR').describe('Error type code'),
-  errors: z.array(fieldErrorSchema).describe('List of field-level validation errors'),
-})
+export const validationErrorResponseSchema = z
+  .object({
+    success: z.literal(false).describe('Operation failed'),
+    message: z.string().describe('General error message'),
+    code: z.literal('VALIDATION_ERROR').describe('Error type code'),
+    errors: z.array(fieldErrorSchema).describe('List of field-level validation errors'),
+  })
+  .openapi('ValidationErrorResponse')
 
 /**
  * Generic error response schema
  *
  * Used for non-validation errors (401, 403, 404, 500, etc).
  */
-export const errorResponseSchema = z.object({
-  success: z.literal(false).describe('Operation failed'),
-  error: z.string().optional().describe('Error type identifier'),
-  message: z.string().describe('Human-readable error message'),
-  code: z
-    .enum([
-      'UNAUTHORIZED',
-      'FORBIDDEN',
-      'NOT_FOUND',
-      'VALIDATION_ERROR',
-      'CONFLICT',
-      'RATE_LIMITED',
-      'INTERNAL_ERROR',
-      'SERVICE_UNAVAILABLE',
-    ])
-    .describe('Machine-readable error code'),
-  details: z.array(z.string()).optional().describe('Optional error details'),
-})
+export const errorResponseSchema = z
+  .object({
+    success: z.literal(false).describe('Operation failed'),
+    error: z.string().optional().describe('Error type identifier'),
+    message: z.string().describe('Human-readable error message'),
+    code: z
+      .enum([
+        'UNAUTHORIZED',
+        'FORBIDDEN',
+        'NOT_FOUND',
+        'VALIDATION_ERROR',
+        'CONFLICT',
+        'RATE_LIMITED',
+        'INTERNAL_ERROR',
+        'SERVICE_UNAVAILABLE',
+      ])
+      .describe('Machine-readable error code'),
+    details: z.array(z.string()).optional().describe('Optional error details'),
+  })
+  .openapi('ErrorResponse')
 
 /**
  * Better Auth error response schema
  *
  * Better Auth returns errors in this format.
  */
-export const betterAuthErrorSchema = z.object({
-  error: z
-    .object({
-      message: z.string().describe('Error message'),
-      status: z.number().optional().describe('HTTP status code'),
-    })
-    .describe('Error details'),
-})
+export const betterAuthErrorSchema = z
+  .object({
+    error: z
+      .object({
+        message: z.string().describe('Error message'),
+        status: z.number().optional().describe('HTTP status code'),
+      })
+      .describe('Error details'),
+  })
+  .openapi('BetterAuthError')
 
 /**
  * Combined API error schema

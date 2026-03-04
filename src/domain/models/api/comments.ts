@@ -14,26 +14,30 @@ import { z } from 'zod'
 /**
  * Comment user metadata schema
  */
-export const commentUserSchema = z.object({
-  id: z.string().describe('User identifier'),
-  name: z.string().describe('User display name'),
-  email: z.string().describe('User email address'),
-  image: z.string().nullable().optional().describe('User avatar URL'),
-})
+export const commentUserSchema = z
+  .object({
+    id: z.string().describe('User identifier'),
+    name: z.string().describe('User display name'),
+    email: z.string().describe('User email address'),
+    image: z.string().nullable().optional().describe('User avatar URL'),
+  })
+  .openapi('CommentUser')
 
 /**
  * Comment response schema
  */
-export const commentSchema = z.object({
-  id: z.string().describe('Comment identifier'),
-  content: z.string().describe('Comment content'),
-  userId: z.string().describe('Author user ID'),
-  recordId: z.union([z.string(), z.number()]).describe('Parent record ID'),
-  tableId: z.union([z.string(), z.number()]).describe('Parent table ID'),
-  createdAt: z.string().describe('ISO 8601 creation timestamp'),
-  updatedAt: z.string().describe('ISO 8601 last update timestamp'),
-  user: commentUserSchema.describe('Comment author details'),
-})
+export const commentSchema = z
+  .object({
+    id: z.string().describe('Comment identifier'),
+    content: z.string().describe('Comment content'),
+    userId: z.string().describe('Author user ID'),
+    recordId: z.union([z.string(), z.number()]).describe('Parent record ID'),
+    tableId: z.union([z.string(), z.number()]).describe('Parent table ID'),
+    createdAt: z.string().describe('ISO 8601 creation timestamp'),
+    updatedAt: z.string().describe('ISO 8601 last update timestamp'),
+    user: commentUserSchema.describe('Comment author details'),
+  })
+  .openapi('Comment')
 
 /**
  * Comment pagination schema
@@ -85,26 +89,28 @@ export const updateCommentResponseSchema = commentSchema.describe('Updated comme
 /**
  * Record history entry schema
  */
-export const recordHistoryEntrySchema = z.object({
-  id: z.string().describe('Activity log identifier'),
-  userId: z.string().optional().describe('User who performed the action'),
-  action: z.enum(['create', 'update', 'delete', 'restore']).describe('Action type'),
-  tableName: z.string().describe('Name of the affected table'),
-  recordId: z.union([z.string(), z.number()]).describe('ID of the affected record'),
-  changes: z
-    .record(z.string(), z.unknown())
-    .nullable()
-    .describe('Field changes (null for delete/restore)'),
-  createdAt: z.string().describe('ISO 8601 timestamp'),
-  user: z
-    .object({
-      id: z.string().describe('User identifier'),
-      name: z.string().describe('User display name'),
-      email: z.string().describe('User email address'),
-    })
-    .nullable()
-    .describe('User details (null for system activities)'),
-})
+export const recordHistoryEntrySchema = z
+  .object({
+    id: z.string().describe('Activity log identifier'),
+    userId: z.string().optional().describe('User who performed the action'),
+    action: z.enum(['create', 'update', 'delete', 'restore']).describe('Action type'),
+    tableName: z.string().describe('Name of the affected table'),
+    recordId: z.union([z.string(), z.number()]).describe('ID of the affected record'),
+    changes: z
+      .record(z.string(), z.unknown())
+      .nullable()
+      .describe('Field changes (null for delete/restore)'),
+    createdAt: z.string().describe('ISO 8601 timestamp'),
+    user: z
+      .object({
+        id: z.string().describe('User identifier'),
+        name: z.string().describe('User display name'),
+        email: z.string().describe('User email address'),
+      })
+      .nullable()
+      .describe('User details (null for system activities)'),
+  })
+  .openapi('RecordHistoryEntry')
 
 /**
  * Get record history response schema

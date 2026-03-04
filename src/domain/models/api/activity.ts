@@ -14,34 +14,40 @@ import { z } from 'zod'
 /**
  * Activity log user reference schema
  */
-export const activityLogUserSchema = z.object({
-  id: z.string().describe('User identifier'),
-  name: z.string().describe('User display name'),
-  email: z.string().describe('User email address'),
-})
+export const activityLogUserSchema = z
+  .object({
+    id: z.string().describe('User identifier'),
+    name: z.string().describe('User display name'),
+    email: z.string().describe('User email address'),
+  })
+  .openapi('ActivityLogUser')
 
 /**
  * Activity log entry schema (list view)
  */
-export const activityLogSchema = z.object({
-  id: z.string().describe('Activity log identifier'),
-  createdAt: z.string().describe('ISO 8601 timestamp of the activity'),
-  userId: z.string().optional().describe('User who performed the action'),
-  action: z.enum(['create', 'update', 'delete', 'restore']).describe('Action type'),
-  tableName: z.string().describe('Name of the affected table'),
-  recordId: z.union([z.string(), z.number()]).describe('ID of the affected record'),
-  user: activityLogUserSchema.nullable().describe('User details (null for system activities)'),
-})
+export const activityLogSchema = z
+  .object({
+    id: z.string().describe('Activity log identifier'),
+    createdAt: z.string().describe('ISO 8601 timestamp of the activity'),
+    userId: z.string().optional().describe('User who performed the action'),
+    action: z.enum(['create', 'update', 'delete', 'restore']).describe('Action type'),
+    tableName: z.string().describe('Name of the affected table'),
+    recordId: z.union([z.string(), z.number()]).describe('ID of the affected record'),
+    user: activityLogUserSchema.nullable().describe('User details (null for system activities)'),
+  })
+  .openapi('ActivityLog')
 
 /**
  * Activity log detail schema (single view, includes changes)
  */
-export const activityLogDetailSchema = activityLogSchema.extend({
-  changes: z
-    .record(z.string(), z.unknown())
-    .nullable()
-    .describe('Field changes (null for delete actions)'),
-})
+export const activityLogDetailSchema = activityLogSchema
+  .extend({
+    changes: z
+      .record(z.string(), z.unknown())
+      .nullable()
+      .describe('Field changes (null for delete actions)'),
+  })
+  .openapi('ActivityLogDetail')
 
 /**
  * Activity log pagination schema

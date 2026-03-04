@@ -31,12 +31,14 @@ export const userSchema = z
 /**
  * User with role schema (for admin endpoints)
  */
-export const userWithRoleSchema = userSchema.extend({
-  role: z.enum(['user', 'admin']).describe('User role'),
-  banned: z.boolean().optional().describe('Whether user is banned'),
-  banReason: z.string().nullable().optional().describe('Reason for ban'),
-  banExpiresAt: z.iso.datetime().nullable().optional().describe('Ban expiration'),
-})
+export const userWithRoleSchema = userSchema
+  .extend({
+    role: z.enum(['user', 'admin']).describe('User role'),
+    banned: z.boolean().optional().describe('Whether user is banned'),
+    banReason: z.string().nullable().optional().describe('Reason for ban'),
+    banExpiresAt: z.iso.datetime().nullable().optional().describe('Ban expiration'),
+  })
+  .openapi('UserWithRole')
 
 // ============================================================================
 // Session Schemas
@@ -61,10 +63,12 @@ export const sessionSchema = z
 /**
  * Session with user schema
  */
-export const sessionWithUserSchema = z.object({
-  session: sessionSchema,
-  user: userSchema,
-})
+export const sessionWithUserSchema = z
+  .object({
+    session: sessionSchema,
+    user: userSchema,
+  })
+  .openapi('SessionWithUser')
 
 // ============================================================================
 // Auth Response Schemas
@@ -103,12 +107,9 @@ export const signOutResponseSchema = z.object({
  * Session response schema
  *
  * Returned when fetching current session.
- * Alias for sessionWithUserSchema for API clarity.
+ * Reuses sessionWithUserSchema so the OpenAPI output emits a $ref.
  */
-export const getSessionResponseSchema = z.object({
-  session: sessionSchema,
-  user: userSchema,
-})
+export const getSessionResponseSchema = sessionWithUserSchema
 
 /**
  * List sessions response schema

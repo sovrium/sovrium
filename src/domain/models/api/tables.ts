@@ -17,42 +17,48 @@ import { paginationSchema, timestampSchema } from './common'
  *
  * Common properties for all field types.
  */
-export const baseFieldSchema = z.object({
-  id: z.string().describe('Field identifier'),
-  name: z.string().describe('Field name'),
-  type: z.string().describe('Field type'),
-  required: z.boolean().optional().describe('Whether field is required'),
-  unique: z.boolean().optional().describe('Whether field must be unique'),
-  indexed: z.boolean().optional().describe('Whether field is indexed'),
-  description: z.string().optional().describe('Field description'),
-})
+export const baseFieldSchema = z
+  .object({
+    id: z.string().describe('Field identifier'),
+    name: z.string().describe('Field name'),
+    type: z.string().describe('Field type'),
+    required: z.boolean().optional().describe('Whether field is required'),
+    unique: z.boolean().optional().describe('Whether field must be unique'),
+    indexed: z.boolean().optional().describe('Whether field is indexed'),
+    description: z.string().optional().describe('Field description'),
+  })
+  .openapi('Field')
 
 /**
  * Field value schema (for record data)
  *
  * Represents a value in a record field.
  */
-export const fieldValueSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.null(),
-  z.array(z.unknown()),
-  z.record(z.string(), z.unknown()),
-])
+export const fieldValueSchema = z
+  .union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(z.unknown()),
+    z.record(z.string(), z.unknown()),
+  ])
+  .openapi('FieldValue')
 
 /**
  * Formatted field value schema (for display formatting)
  *
  * When format=display is requested, fields may include both value and displayValue.
  */
-export const formattedFieldValueSchema = z.union([
-  fieldValueSchema,
-  z.object({
-    value: fieldValueSchema,
-    displayValue: z.string().optional(),
-  }),
-])
+export const formattedFieldValueSchema = z
+  .union([
+    fieldValueSchema,
+    z.object({
+      value: fieldValueSchema,
+      displayValue: z.string().optional(),
+    }),
+  ])
+  .openapi('FormattedFieldValue')
 
 // ============================================================================
 // Table Schemas
@@ -90,6 +96,7 @@ export const tableSchema = z
       .describe('Table permissions'),
   })
   .extend(timestampSchema.shape)
+  .openapi('Table')
 
 /**
  * Table summary schema (for list endpoints)
@@ -103,6 +110,7 @@ export const tableSummarySchema = z
     recordCount: z.number().optional().describe('Number of records'),
   })
   .extend(timestampSchema.shape)
+  .openapi('TableSummary')
 
 // ============================================================================
 // Record Schemas
@@ -118,11 +126,13 @@ export const tableSummarySchema = z
 /**
  * User reference schema for authorship fields
  */
-export const userRefSchema = z.object({
-  id: z.string().describe('User identifier'),
-  name: z.string().optional().describe('User display name'),
-  email: z.string().optional().describe('User email address'),
-})
+export const userRefSchema = z
+  .object({
+    id: z.string().describe('User identifier'),
+    name: z.string().optional().describe('User display name'),
+    email: z.string().optional().describe('User email address'),
+  })
+  .openapi('UserRef')
 
 export const recordSchema = z
   .object({
@@ -135,6 +145,7 @@ export const recordSchema = z
     deletedBy: userRefSchema.optional().describe('User who deleted the record'),
   })
   .extend(timestampSchema.shape)
+  .openapi('Record')
 
 // ============================================================================
 // Table API Response Schemas
@@ -321,6 +332,7 @@ export const viewSchema = z
     groupBy: z.string().optional().describe('Group by field'),
   })
   .extend(timestampSchema.shape)
+  .openapi('View')
 
 /**
  * List views response schema
@@ -394,21 +406,25 @@ export const getViewRecordsResponseSchema = z.object({
 /**
  * Table permission schema
  */
-export const tablePermissionSchema = z.object({
-  read: z.boolean().describe('Can read records'),
-  create: z.boolean().describe('Can create records'),
-  update: z.boolean().describe('Can update records'),
-  delete: z.boolean().describe('Can delete records'),
-  manage: z.boolean().describe('Can manage table schema'),
-})
+export const tablePermissionSchema = z
+  .object({
+    read: z.boolean().describe('Can read records'),
+    create: z.boolean().describe('Can create records'),
+    update: z.boolean().describe('Can update records'),
+    delete: z.boolean().describe('Can delete records'),
+    manage: z.boolean().describe('Can manage table schema'),
+  })
+  .openapi('TablePermission')
 
 /**
  * Field permission schema
  */
-export const fieldPermissionSchema = z.object({
-  read: z.boolean().describe('Can read field'),
-  write: z.boolean().describe('Can write field'),
-})
+export const fieldPermissionSchema = z
+  .object({
+    read: z.boolean().describe('Can read field'),
+    write: z.boolean().describe('Can write field'),
+  })
+  .openapi('FieldPermission')
 
 /**
  * Get table permissions response schema

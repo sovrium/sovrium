@@ -12,15 +12,17 @@ import { z } from 'zod'
  *
  * Common pagination fields used across list endpoints.
  */
-export const paginationSchema = z.object({
-  page: z.number().int().min(1).describe('Current page number (1-indexed)'),
-  limit: z.number().int().min(1).max(100).describe('Items per page'),
-  offset: z.number().int().min(0).describe('Offset from start of results'),
-  total: z.number().int().min(0).describe('Total number of items'),
-  totalPages: z.number().int().min(0).describe('Total number of pages'),
-  hasNextPage: z.boolean().describe('Whether there are more pages'),
-  hasPreviousPage: z.boolean().describe('Whether there are previous pages'),
-})
+export const paginationSchema = z
+  .object({
+    page: z.number().int().min(1).describe('Current page number (1-indexed)'),
+    limit: z.number().int().min(1).max(100).describe('Items per page'),
+    offset: z.number().int().min(0).describe('Offset from start of results'),
+    total: z.number().int().min(0).describe('Total number of items'),
+    totalPages: z.number().int().min(0).describe('Total number of pages'),
+    hasNextPage: z.boolean().describe('Whether there are more pages'),
+    hasPreviousPage: z.boolean().describe('Whether there are previous pages'),
+  })
+  .openapi('Pagination')
 
 /**
  * Pagination query parameters schema
@@ -37,19 +39,23 @@ export const paginationQuerySchema = z.object({
  *
  * Common timestamp fields for audit trails.
  */
-export const timestampSchema = z.object({
-  createdAt: z.iso.datetime().describe('ISO 8601 creation timestamp'),
-  updatedAt: z.iso.datetime().describe('ISO 8601 last update timestamp'),
-})
+export const timestampSchema = z
+  .object({
+    createdAt: z.iso.datetime().describe('ISO 8601 creation timestamp'),
+    updatedAt: z.iso.datetime().describe('ISO 8601 last update timestamp'),
+  })
+  .openapi('Timestamps')
 
 /**
  * Success response wrapper schema
  *
  * Standard wrapper for successful responses.
  */
-export const successResponseSchema = z.object({
-  success: z.literal(true).describe('Operation success indicator'),
-})
+export const successResponseSchema = z
+  .object({
+    success: z.literal(true).describe('Operation success indicator'),
+  })
+  .openapi('SuccessResponse')
 
 /**
  * TypeScript types inferred from schemas

@@ -8,6 +8,7 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
 import { registerActivityRoutes } from './openapi-routes/activity-routes'
+import { registerAuthRoutes } from './openapi-routes/auth-routes'
 import { registerAnalyticsRoutes } from './openapi-routes/analytics-routes'
 import { registerBatchRoutes } from './openapi-routes/batch-routes'
 import { registerHealthRoutes } from './openapi-routes/health-routes'
@@ -55,6 +56,7 @@ const createOpenApiApp = () => {
   registerViewRoutes(app)
   registerActivityRoutes(app)
   registerAnalyticsRoutes(app)
+  registerAuthRoutes(app)
 
   return app
 }

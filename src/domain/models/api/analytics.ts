@@ -72,12 +72,14 @@ export type AnalyticsQueryParams = z.infer<typeof analyticsQuerySchema>
 /**
  * Time series data point
  */
-export const timeSeriesPointSchema = z.object({
-  period: z.string().describe('Time period start (ISO 8601)'),
-  pageViews: z.number().int().describe('Total page views in period'),
-  uniqueVisitors: z.number().int().describe('Unique visitors in period'),
-  sessions: z.number().int().describe('Unique sessions in period'),
-})
+export const timeSeriesPointSchema = z
+  .object({
+    period: z.string().describe('Time period start (ISO 8601)'),
+    pageViews: z.number().int().describe('Total page views in period'),
+    uniqueVisitors: z.number().int().describe('Unique visitors in period'),
+    sessions: z.number().int().describe('Unique sessions in period'),
+  })
+  .openapi('TimeSeriesPoint')
 
 export type TimeSeriesPoint = z.infer<typeof timeSeriesPointSchema>
 
