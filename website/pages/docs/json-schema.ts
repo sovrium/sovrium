@@ -19,21 +19,26 @@ const encodedExplorerSchemaUrl = encodeURIComponent(explorerSchemaUrl)
 const explorerUrl = `https://json-schema.app/view/%23?url=${encodedExplorerSchemaUrl}`
 
 /** Deep-link to a specific root property in the JSON Schema viewer.
- *  json-schema.app uses JSON Pointer path segments after /view/ :
- *  e.g. /view/%23/properties/tables?url=… navigates directly to the "tables" property.
+ *  json-schema.app requires full JSON Pointer paths through $defs, since the
+ *  root schema is defined at $defs/App (not at the top level).
  *
- *  Properties that are bare $ref (e.g. pages → $defs/Pages) must link to the
- *  $defs entry instead, because json-schema.app cannot resolve a pointer that
- *  lands on a raw $ref node. */
+ *  - Inline properties (name, version, description) use: #/$defs/App/properties/{name}
+ *  - $ref properties link to their resolved $defs target directly
+ *  - For array wrappers (e.g. Pages), we link to the singular item def (Page)
+ *    so the user lands on the actual object schema, not the array container. */
 const refOnlyProperties: Record<string, string> = {
-  pages: '#/$defs/Pages',
+  tables: '#/$defs/DataTables',
+  theme: '#/$defs/Theme',
+  pages: '#/$defs/Page',
+  auth: '#/$defs/Auth',
+  languages: '#/$defs/Languages',
+  components: '#/$defs/Components',
+  analytics: '#/$defs/BuiltInAnalytics',
 }
 const propertyExplorerUrl = (propertyName: string) => {
   const ref = refOnlyProperties[propertyName]
-  if (ref) {
-    return `https://json-schema.app/view/%23/${encodeURIComponent(ref)}?url=${encodedExplorerSchemaUrl}`
-  }
-  return `https://json-schema.app/view/%23/properties/${encodeURIComponent(propertyName)}?url=${encodedExplorerSchemaUrl}`
+  const pointer = ref ?? `#/$defs/App/properties/${propertyName}`
+  return `https://json-schema.app/view/%23/${encodeURIComponent(pointer)}?url=${encodedExplorerSchemaUrl}`
 }
 
 // ─── Schema Root Properties Preview ─────────────────────────────────────────
