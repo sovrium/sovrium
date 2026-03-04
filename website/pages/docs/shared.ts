@@ -344,42 +344,45 @@ export const calloutWarning = (title: string, body: string) => ({
 })
 
 // ─── Property Table Helper ──────────────────────────────────────────────────
-// Builds a semantic HTML <table> for property documentation.
-// Uses dangerouslySetInnerHTML via the content-starts-with-'<' rendering path.
+// Builds a two-column grid table for property documentation.
+// Uses a fixed 35%/65% column split so descriptions always get the majority of space.
 
-const escapeHtml = (str: string): string =>
-  str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-
-export const propertyTable = (rows: ReadonlyArray<{ name: string; description: string }>) => {
-  const tableRows = rows
-    .map(
-      (row) =>
-        `<tr class="border-b border-sovereignty-gray-800 last:border-0">` +
-        `<td class="py-2.5 px-4 align-top font-mono text-sm text-sovereignty-accent font-semibold" style="word-break:break-all">${escapeHtml(row.name)}</td>` +
-        `<td class="py-2.5 px-4 align-top text-sm text-sovereignty-gray-400">${escapeHtml(row.description)}</td>` +
-        `</tr>`
-    )
-    .join('')
-
-  const html =
-    `<table class="w-full" style="table-layout:fixed">` +
-    `<colgroup><col style="width:35%"><col style="width:65%"></colgroup>` +
-    `<thead><tr class="border-b border-sovereignty-gray-800">` +
-    `<th class="py-2 px-4 text-left text-xs font-semibold text-sovereignty-gray-500 uppercase tracking-wider">Property</th>` +
-    `<th class="py-2 px-4 text-left text-xs font-semibold text-sovereignty-gray-500 uppercase tracking-wider">Description</th>` +
-    `</tr></thead>` +
-    `<tbody>${tableRows}</tbody>` +
-    `</table>`
-
-  return {
-    type: 'div' as const,
-    props: {
-      className:
-        'overflow-x-auto my-4 border border-sovereignty-gray-800 rounded-lg bg-sovereignty-gray-900',
+export const propertyTable = (rows: ReadonlyArray<{ name: string; description: string }>) => ({
+  type: 'div' as const,
+  props: {
+    className:
+      'overflow-x-auto my-4 border border-sovereignty-gray-800 rounded-lg bg-sovereignty-gray-900',
+  },
+  children: [
+    {
+      type: 'div' as const,
+      props: {
+        className: 'grid gap-x-3 py-2 px-4 border-b border-sovereignty-gray-800',
+        style: { gridTemplateColumns: '35% 1fr' },
+      },
+      children: [
+        {
+          type: 'span' as const,
+          content: 'Property',
+          props: {
+            className: 'text-xs font-semibold text-sovereignty-gray-500 uppercase tracking-wider',
+          },
+        },
+        {
+          type: 'span' as const,
+          content: 'Description',
+          props: {
+            className: 'text-xs font-semibold text-sovereignty-gray-500 uppercase tracking-wider',
+          },
+        },
+      ],
     },
-    content: html,
-  }
-}
+    ...rows.map((row) => ({
+      $ref: 'docs-property-row' as const,
+      vars: { name: row.name, description: row.description },
+    })),
+  ],
+})
 
 // ─── Endpoint Row Helper ────────────────────────────────────────────────────
 // Renders a single API endpoint as a flex row with colored method badge + path + description.
