@@ -97,7 +97,7 @@ export const docsApiReference = docsPage({
         {
           type: 'link',
           props: {
-            href: 'https://sandbox.scalar.com/?url=https://sovrium.com/docs/openapi.json',
+            href: 'https://client.scalar.com/?url=https://sovrium.com/docs/openapi.json',
             target: '_blank',
             rel: 'noopener noreferrer',
             className:
@@ -426,7 +426,7 @@ export const docsApiReference = docsPage({
                 {
                   type: 'link',
                   props: {
-                    href: 'https://sandbox.scalar.com/?url=https://sovrium.com/docs/openapi.json',
+                    href: 'https://client.scalar.com/?url=https://sovrium.com/docs/openapi.json',
                     target: '_blank',
                     rel: 'noopener noreferrer',
                     className:
