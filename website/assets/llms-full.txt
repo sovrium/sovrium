@@ -36,7 +36,8 @@
 
 ### References
 - [API Reference](#api-reference)
-- [Additional Resources](#additional-resources)
+- [JSON Schema](#json-schema)
+- [Resources](#resources)
 - [Complete Examples](#complete-examples)
 
 ---
@@ -1952,24 +1953,106 @@ Components support breakpoint-specific behavior:
 
 ## API Reference
 
-Sovrium exposes a REST API with interactive documentation via Scalar UI. Available at `/docs/api-reference` when the server is running. Explore health, authentication, and admin endpoints.
+Sovrium exposes a REST API with interactive documentation via Scalar UI. The OpenAPI schema is generated from the runtime implementation and available at `/docs/openapi.json`.
 
 > **Early Preview**: The API surface is evolving. Endpoints may change before v1.0.
 
-The API documentation is generated from the OpenAPI schema at `/docs/openapi.json`.
+### Endpoint Categories
+
+| Category | Base Path | Description |
+|----------|-----------|-------------|
+| **Infrastructure** | `/api/health` | Health check and server status |
+| **Tables** | `/api/tables` | Table metadata, schema, and permissions |
+| **Records** | `/api/tables/{tableId}/records` | CRUD, batch operations, comments, history, trash, restore |
+| **Views** | `/api/tables/{tableId}/views` | View management and filtered record access |
+| **Activity** | `/api/activity` | Activity log and audit trail |
+| **Analytics** | `/api/analytics` | Collection, overview, pages, referrers, devices, campaigns |
+| **Authentication** | `/api/auth` | Sign-up, sign-in, sessions, OAuth, 2FA, password reset (Better Auth) |
+
+### Key Endpoints
+
+**Records** — Full CRUD with batch support:
+- `GET/POST /api/tables/{tableId}/records` — List and create records
+- `GET/PATCH/DELETE /api/tables/{tableId}/records/{recordId}` — Read, update, delete a record
+- `POST /api/tables/{tableId}/records/batch` — Batch create, update, delete
+- `POST /api/tables/{tableId}/records/upsert` — Upsert records
+- `POST /api/tables/{tableId}/records/{recordId}/restore` — Restore soft-deleted records
+- `GET /api/tables/{tableId}/trash` — List soft-deleted records
+
+**Record Comments & History**:
+- `GET/POST /api/tables/{tableId}/records/{recordId}/comments` — List and add comments
+- `GET /api/tables/{tableId}/records/{recordId}/history` — Record change history
+
+**Analytics**:
+- `POST /api/analytics/collect` — Collect page view data
+- `GET /api/analytics/overview` — Traffic overview
+- `GET /api/analytics/pages` — Page-level analytics
+- `GET /api/analytics/referrers` — Referrer sources
+- `GET /api/analytics/devices` — Device and browser breakdown
+- `GET /api/analytics/campaigns` — Campaign tracking
+
+Interactive explorer: https://sovrium.com/en/docs/api-reference
 
 ---
 
-## Additional Resources
+## JSON Schema
+
+The Sovrium app schema is published as a JSON Schema (Draft-07) for validation, editor support, and programmatic integration.
+
+### Schema URLs
+
+| URL | Description |
+|-----|-------------|
+| `https://sovrium.com/schemas/0.1.0/app.schema.json` | Versioned schema (stable, pinned to release) |
+| `https://sovrium.com/schemas/latest/app.schema.json` | Latest schema (always points to current version) |
+
+### Editor Integration
+
+**VS Code** — Add to `.vscode/settings.json`:
+```json
+{
+  "yaml.schemas": {
+    "https://sovrium.com/schemas/latest/app.schema.json": ["app.yaml", "app.yml"]
+  },
+  "json.schemas": [
+    {
+      "url": "https://sovrium.com/schemas/latest/app.schema.json",
+      "fileMatch": ["app.json"]
+    }
+  ]
+}
+```
+
+**JetBrains** (IntelliJ, WebStorm) — Go to Settings → Languages & Frameworks → Schemas and DTDs → JSON Schema Mappings, add URL with file pattern `app.yaml`.
+
+### Programmatic Validation
+
+```typescript
+import Ajv from 'ajv'
+
+const ajv = new Ajv({ allErrors: true })
+const schema = await fetch('https://sovrium.com/schemas/latest/app.schema.json').then(r => r.json())
+const validate = ajv.compile(schema)
+
+const config = { name: 'my-app', tables: [/* ... */] }
+if (!validate(config)) {
+  console.error(validate.errors)
+}
+```
+
+Interactive schema explorer: https://json-schema.app/view/%23?url=https%3A%2F%2Fsovrium.com%2Fschemas%2F0.1.0%2Fapp.schema.json
+
+---
+
+## Resources
 
 | Resource | URL | Description |
 |----------|-----|-------------|
-| LLM Quick Reference | https://sovrium.com/llms.txt | Concise schema overview optimized for LLMs (~140 lines) |
-| LLM Full Reference | https://sovrium.com/llms-full.txt | This document — complete documentation for LLMs |
-| JSON Schema | https://sovrium.com/schemas/0.1.0/app.schema.json | Machine-readable JSON Schema (Draft-07) for validation and editor support |
-| Schema Explorer | https://json-schema.app/view/%23?url=https%3A%2F%2Fsovrium.com%2Fschemas%2F0.1.0%2Fapp.schema.json | Interactive visual explorer for the JSON Schema |
+| LLM Quick Reference | https://sovrium.com/llms.txt | Concise link index optimized for LLMs |
+| JSON Schema | https://sovrium.com/schemas/0.1.0/app.schema.json | Machine-readable JSON Schema (Draft-07) |
+| Schema Explorer | https://json-schema.app/view/%23?url=https%3A%2F%2Fsovrium.com%2Fschemas%2F0.1.0%2Fapp.schema.json | Interactive visual schema explorer |
 | API Reference | https://sovrium.com/en/docs/api-reference | Interactive REST API documentation (Scalar UI) |
-| GitHub | https://github.com/sovrium/sovrium | Source code, issues, and contribution guidelines |
+| GitHub | https://github.com/sovrium/sovrium | Source code, issues, and contributions |
 | Vision | https://github.com/sovrium/sovrium/blob/main/VISION.md | Product vision and roadmap |
 | License | https://github.com/sovrium/sovrium/blob/main/LICENSE.md | Business Source License 1.1 |
 | Trademark | https://github.com/sovrium/sovrium/blob/main/TRADEMARK.md | Trademark usage guidelines |
