@@ -806,36 +806,6 @@ export const docs: Record<string, string> = {
   'docs.auth.emails.var.email': "The recipient's email address.",
   'docs.auth.emails.var.org': 'The organization name (for invitation emails).',
   'docs.auth.emails.var.inviter': 'The name of the person who sent the invitation.',
-  'docs.auth.env.title': 'Environment Variables',
-  'docs.auth.env.description':
-    'Required environment variables for authentication. Set these in your .env file or server environment.',
-  'docs.auth.env.secret':
-    'Secret key for signing tokens and encrypting sessions. Must be a strong random string.',
-  'docs.auth.env.baseUrl':
-    'Base URL of your application (e.g., https://myapp.com). Used for callback URLs.',
-  'docs.auth.env.clientId': "OAuth client ID from the provider's developer console.",
-  'docs.auth.env.clientSecret':
-    "OAuth client secret from the provider's developer console. Keep this confidential.",
-  'docs.auth.env.admin.title': 'Default Admin User',
-  'docs.auth.env.admin.description':
-    'Optional environment variables to create a default admin user on first startup.',
-  'docs.auth.env.admin.email': 'Email address for the default admin user.',
-  'docs.auth.env.admin.password':
-    'Password for the default admin user. Must be at least 8 characters.',
-  'docs.auth.env.admin.name':
-    'Display name for the default admin user. Optional, defaults to "Admin".',
-  'docs.auth.env.smtp.title': 'Email (SMTP)',
-  'docs.auth.env.smtp.description':
-    'SMTP configuration for sending authentication emails (verification, password reset, magic link). Falls back to Mailpit (localhost:1025) in development if not configured.',
-  'docs.auth.env.smtp.host': 'SMTP server hostname (e.g., smtp.gmail.com). Required in production.',
-  'docs.auth.env.smtp.port': 'SMTP server port. Default: 587.',
-  'docs.auth.env.smtp.secure':
-    'Use SSL/TLS connection. Default: false for port 587, true for port 465.',
-  'docs.auth.env.smtp.user': 'SMTP authentication username.',
-  'docs.auth.env.smtp.pass': 'SMTP authentication password or app-specific password.',
-  'docs.auth.env.smtp.from':
-    'Default sender email address (e.g., noreply@yourdomain.com). Default: noreply@sovrium.com.',
-  'docs.auth.env.smtp.fromName': 'Default sender display name. Default: Sovrium.',
   'docs.languages.title': 'Languages',
   'docs.languages.description':
     'Multi-language support with translation keys, browser language detection, and automatic URL-based language routing (/en/..., /fr/...). Reference translations in pages using the $t: prefix.',
@@ -961,37 +931,6 @@ export const docs: Record<string, string> = {
   'docs.cli.configFormats.env.title': 'Environment variable',
   'docs.cli.configFormats.env.description':
     'Set the APP_SCHEMA variable to provide configuration without a file. Supports inline JSON, inline YAML, or a remote URL.',
-  'docs.cli.envVars.title': 'Environment Variables',
-  'docs.cli.envVars.description':
-    'Environment variables control server behavior and build output. They are read at startup.',
-  'docs.cli.envVars.start.title': 'start command',
-  'docs.cli.envVars.start.description': 'Environment variables available with sovrium start.',
-  'docs.cli.envVars.start.appSchema': 'App schema as inline JSON, inline YAML, or a remote URL.',
-  'docs.cli.envVars.start.port':
-    'Server port number (0\u201365535). 0 selects an available port. Default: 3000.',
-  'docs.cli.envVars.start.baseUrl':
-    'Base URL of the application. Used for authentication callback URLs.',
-  'docs.cli.envVars.start.hostname': 'Server hostname. Default: localhost.',
-  'docs.cli.envVars.start.databaseUrl':
-    'PostgreSQL connection string. Required when using tables or authentication.',
-  'docs.cli.envVars.start.authSecret':
-    'Secret key for signing auth tokens and encrypting sessions.',
-  'docs.cli.envVars.build.title': 'build command',
-  'docs.cli.envVars.build.description': 'Environment variables available with sovrium build.',
-  'docs.cli.envVars.build.appSchema': 'App schema as inline JSON, inline YAML, or a remote URL.',
-  'docs.cli.envVars.build.outputDir': 'Output directory. Default: ./dist.',
-  'docs.cli.envVars.build.baseUrl': 'Base URL for sitemap generation (e.g., https://example.com).',
-  'docs.cli.envVars.build.basePath': 'Path prefix for subdirectory deployments (e.g., /my-app).',
-  'docs.cli.envVars.build.deployment': 'Deployment target: github-pages or generic.',
-  'docs.cli.envVars.build.languages': 'Comma-separated language codes (e.g., en,fr,de).',
-  'docs.cli.envVars.build.defaultLanguage': 'Default language code (e.g., en).',
-  'docs.cli.envVars.build.generateSitemap': 'Generate sitemap.xml file. Default: false.',
-  'docs.cli.envVars.build.generateRobots': 'Generate robots.txt file. Default: false.',
-  'docs.cli.envVars.build.hydration': 'Enable client-side hydration. Default: false.',
-  'docs.cli.envVars.build.generateManifest': 'Generate manifest.json for PWA. Default: false.',
-  'docs.cli.envVars.build.bundleOptimization':
-    'Optimization strategy: split (code splitting) or none.',
-  'docs.cli.envVars.build.publicDir': 'Directory containing static assets to copy into the output.',
   'docs.cli.examples.title': 'Examples',
   'docs.cli.examples.description': 'Common CLI usage patterns.',
   'docs.cli.watchMode.title': 'Watch Mode',
@@ -1004,6 +943,96 @@ export const docs: Record<string, string> = {
   'docs.cli.exitCodes.description': 'The CLI uses standard exit codes.',
   'docs.cli.exitCodes.zero': '0 \u2014 Success',
   'docs.cli.exitCodes.one': '1 \u2014 Error (invalid config, missing file, unknown command)',
+
+  // ── Environment Variables ──────────────────────────────────────────────
+  'docs.sidebar.envVars': 'Environment Variables',
+  'docs.sidebar.envVars.href': '/en/docs/env-vars',
+  'docs.envVars.meta.title': 'Environment Variables - Sovrium Docs',
+  'docs.envVars.meta.description':
+    'Complete reference for all environment variables used by Sovrium. Covers application, server, database, authentication, email, build, and debug settings.',
+  'docs.envVars.header.title': 'Environment Variables',
+  'docs.envVars.header.description':
+    'Sovrium reads configuration from environment variables at startup. Set them in a .env file or your server environment. All variables are optional unless noted otherwise.',
+  'docs.envVars.app.title': 'Application',
+  'docs.envVars.app.description':
+    'Core application configuration. APP_SCHEMA is the primary way to provide a schema without a file argument.',
+  'docs.envVars.app.appSchema':
+    'App schema as inline JSON, inline YAML, or a remote URL. Alternative to passing a file path on the command line.',
+  'docs.envVars.server.title': 'Server',
+  'docs.envVars.server.description': 'Server networking options for the start command.',
+  'docs.envVars.server.port':
+    'Server port number (0\u201365535). 0 selects an available port. Default: 3000.',
+  'docs.envVars.server.hostname': 'Server hostname. Default: localhost.',
+  'docs.envVars.server.baseUrl':
+    'Base URL of the application (e.g., https://myapp.com). Used for authentication callback URLs and email links.',
+  'docs.envVars.server.nodeEnv':
+    'Runtime environment. Set to "production" for secure cookies, CSRF checks, and strict SMTP validation. Default: development.',
+  'docs.envVars.database.title': 'Database',
+  'docs.envVars.database.description':
+    'PostgreSQL connection settings. Required when using tables or authentication.',
+  'docs.envVars.database.databaseUrl':
+    'PostgreSQL connection string (e.g., postgresql://user:password@localhost:5432/dbname). Required when the schema defines tables or auth.',
+  'docs.envVars.auth.title': 'Authentication',
+  'docs.envVars.auth.description':
+    'Variables for Better Auth integration. Required when the schema defines an auth section.',
+  'docs.envVars.auth.secret':
+    'Secret key for signing tokens and encrypting sessions. Must be a strong random string (32+ characters recommended).',
+  'docs.envVars.auth.admin.title': 'Default Admin User',
+  'docs.envVars.auth.admin.description':
+    'Optional variables to create a default admin user on first startup. All three must be set for the admin user to be created.',
+  'docs.envVars.auth.admin.email': 'Email address for the default admin user.',
+  'docs.envVars.auth.admin.password':
+    'Password for the default admin user. Must be at least 8 characters.',
+  'docs.envVars.auth.admin.name':
+    'Display name for the default admin user. Optional, defaults to "Admin".',
+  'docs.envVars.auth.oauth.title': 'OAuth Providers',
+  'docs.envVars.auth.oauth.description':
+    'Credentials for each OAuth provider configured in the auth schema. Replace {PROVIDER} with the uppercase provider name.',
+  'docs.envVars.auth.oauth.clientId': "OAuth client ID from the provider's developer console.",
+  'docs.envVars.auth.oauth.clientSecret':
+    "OAuth client secret from the provider's developer console. Keep this confidential.",
+  'docs.envVars.auth.oauth.tip.title': 'Supported providers',
+  'docs.envVars.auth.oauth.tip.body':
+    'Sovrium supports Google, GitHub, Microsoft, Slack, GitLab, and Facebook. For example, set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET for Google OAuth.',
+  'docs.envVars.smtp.title': 'Email (SMTP)',
+  'docs.envVars.smtp.description':
+    'SMTP configuration for sending authentication emails (verification, password reset, magic link). In development, falls back to Mailpit on localhost:1025 if SMTP_HOST is not set.',
+  'docs.envVars.smtp.host': 'SMTP server hostname (e.g., smtp.gmail.com). Required in production.',
+  'docs.envVars.smtp.port': 'SMTP server port. Default: 587.',
+  'docs.envVars.smtp.secure':
+    'Use SSL/TLS connection. Default: false for port 587, true for port 465.',
+  'docs.envVars.smtp.user': 'SMTP authentication username.',
+  'docs.envVars.smtp.pass': 'SMTP authentication password or app-specific password.',
+  'docs.envVars.smtp.from':
+    'Default sender email address (e.g., noreply@yourdomain.com). Default: noreply@sovrium.com.',
+  'docs.envVars.smtp.fromName': 'Default sender display name. Default: Sovrium.',
+  'docs.envVars.smtp.tip.title': 'Local development',
+  'docs.envVars.smtp.tip.body':
+    'When SMTP_HOST is not configured in development mode, Sovrium automatically falls back to Mailpit (localhost:1025). Install Mailpit to view sent emails in a local web UI.',
+  'docs.envVars.build.title': 'Build',
+  'docs.envVars.build.description': 'Options for the build command that generates a static site.',
+  'docs.envVars.build.outputDir': 'Output directory. Default: ./dist.',
+  'docs.envVars.build.baseUrl':
+    'Base URL for sitemap generation and canonical links (e.g., https://example.com).',
+  'docs.envVars.build.basePath': 'Path prefix for subdirectory deployments (e.g., /my-app).',
+  'docs.envVars.build.deployment': 'Deployment target: github-pages or generic.',
+  'docs.envVars.build.languages': 'Comma-separated language codes to build (e.g., en,fr,de).',
+  'docs.envVars.build.defaultLanguage': 'Default language code (e.g., en).',
+  'docs.envVars.build.generateSitemap': 'Generate sitemap.xml. Default: false.',
+  'docs.envVars.build.generateRobots': 'Generate robots.txt. Default: false.',
+  'docs.envVars.build.hydration': 'Enable client-side hydration. Default: false.',
+  'docs.envVars.build.generateManifest': 'Generate manifest.json for PWA. Default: false.',
+  'docs.envVars.build.bundleOptimization': 'Optimization strategy: split (code splitting) or none.',
+  'docs.envVars.build.publicDir': 'Directory containing static assets to copy into the output.',
+  'docs.envVars.debug.title': 'Debug',
+  'docs.envVars.debug.description':
+    'Diagnostic and testing variables. Not needed in normal operation.',
+  'docs.envVars.debug.logLevel':
+    'Set to "debug" for verbose logging (request logs, CSS compilation diagnostics). Default: follows NODE_ENV.',
+  'docs.envVars.debug.effectDevtools':
+    'Set to "1" to enable Effect DevTools integration for runtime inspection.',
+  'docs.envVars.debug.rateLimitWindow':
+    'Rate limit window in seconds. Used in tests for faster execution. Default: 60.',
 
   // ── TypeScript Integration ─────────────────────────────────────────────
   'docs.sidebar.typescript': 'TypeScript API',
@@ -1062,9 +1091,97 @@ export const docs: Record<string, string> = {
   'docs.typescript.appType.title': 'App Type',
   'docs.typescript.appType.description':
     'The App type defines the complete structure of a Sovrium configuration. Import it from sovrium for type annotations.',
+  'docs.typescript.appType.props.name':
+    'Application name. Lowercase, npm-compatible (e.g. my-app, @org/app).',
+  'docs.typescript.appType.props.version': 'SemVer version string (e.g. 1.0.0).',
+  'docs.typescript.appType.props.description': 'Single-line application description.',
+  'docs.typescript.appType.props.tables':
+    'Array of data table definitions with fields, indexes, and constraints.',
+  'docs.typescript.appType.props.theme':
+    'Design tokens: colors, fonts, spacing, animations, breakpoints, shadows, borderRadius.',
+  'docs.typescript.appType.props.pages':
+    'Array of page configurations with metadata, sections, and scripts.',
+  'docs.typescript.appType.props.auth':
+    'Authentication config: strategies, roles, plugins (admin, organization).',
+  'docs.typescript.appType.props.languages':
+    'Multi-language config: supported languages, default language, translations.',
+  'docs.typescript.appType.props.components':
+    'Array of reusable component templates with variable substitution.',
+  'docs.typescript.appType.props.analytics':
+    'Built-in privacy-friendly analytics. Set to true for defaults or pass an object.',
   'docs.typescript.appType.tip.title': 'Incremental complexity',
   'docs.typescript.appType.tip.body':
     'Only name is required. Add tables, theme, pages, auth, languages, components, and analytics as you need them.',
+
+  // ── Type Reference ────────────────────────────────────────────────────
+  'docs.typescript.typeRef.title': 'Type Reference',
+  'docs.typescript.typeRef.description':
+    'All TypeScript types exported from the sovrium package. Import them with import type { ... } from "sovrium".',
+
+  'docs.typescript.typeRef.simpleServer.description':
+    'Returned by start(). A lightweight interface to the running server.',
+  'docs.typescript.typeRef.simpleServer.url':
+    'Server URL including protocol and port (e.g. "http://localhost:3000").',
+  'docs.typescript.typeRef.simpleServer.stop':
+    'Gracefully stop the server. Returns a Promise that resolves when shutdown is complete.',
+
+  'docs.typescript.typeRef.appEncoded.description':
+    'The raw input shape accepted by start() and build() before Effect Schema validation. Structurally identical to App but without schema transformations applied.',
+  'docs.typescript.typeRef.appEncoded.tip.title': 'App vs AppEncoded',
+  'docs.typescript.typeRef.appEncoded.tip.body':
+    'Use App when annotating validated configuration objects. Use AppEncoded when typing raw input that will be passed to start() or build() for validation.',
+
+  'docs.typescript.typeRef.page.description':
+    'A validated page configuration. Pages define routes, metadata, layout sections, and optional scripts.',
+  'docs.typescript.typeRef.page.id': 'Optional unique identifier for internal references.',
+  'docs.typescript.typeRef.page.name':
+    'Human-readable page name used for identification (e.g. "home", "about").',
+  'docs.typescript.typeRef.page.path':
+    'URL path where the page is served (e.g. "/", "/about", "/products/pricing").',
+  'docs.typescript.typeRef.page.meta':
+    'SEO metadata: title, description, Open Graph, Twitter Card, structured data, performance hints.',
+  'docs.typescript.typeRef.page.sections':
+    'Array of content sections. Each section is a direct component or a $ref to a component template.',
+  'docs.typescript.typeRef.page.scripts':
+    'Client-side scripts: feature flags, external scripts, inline scripts.',
+  'docs.typescript.typeRef.page.vars':
+    'Page-level variables for $variable substitution in sections.',
+
+  'docs.typescript.typeRef.pageEncoded.description':
+    'The raw input shape for a page before Effect Schema validation. Same relationship as AppEncoded to App.',
+
+  'docs.typescript.typeRef.componentTemplate.description':
+    'A reusable UI component template with $variable placeholders. Defined in app.components[] and referenced by pages via $ref syntax.',
+  'docs.typescript.typeRef.componentTemplate.name':
+    'Unique identifier in kebab-case (e.g. "hero-card", "feature-row").',
+  'docs.typescript.typeRef.componentTemplate.type':
+    'Component type: container, flex, grid, card, text, button, heading, paragraph, etc.',
+  'docs.typescript.typeRef.componentTemplate.props':
+    'Component properties. Values may contain $variable placeholders.',
+  'docs.typescript.typeRef.componentTemplate.children':
+    'Nested child components. Children may also contain $variable placeholders.',
+  'docs.typescript.typeRef.componentTemplate.content':
+    'Text content. May contain $variable placeholders for dynamic substitution.',
+
+  'docs.typescript.typeRef.generateStaticResult.description':
+    'Returned by build(). Contains the output directory path and the list of generated files.',
+  'docs.typescript.typeRef.generateStaticResult.outputDir':
+    'Absolute path to the output directory (e.g. "./static").',
+  'docs.typescript.typeRef.generateStaticResult.files':
+    'Array of file paths generated during the build (HTML, CSS, assets).',
+
+  // ── Runtime Schemas ───────────────────────────────────────────────────
+  'docs.typescript.runtimeSchemas.title': 'Runtime Schemas',
+  'docs.typescript.runtimeSchemas.description':
+    'Sovrium exports Effect Schema objects for runtime validation. Use these to validate unknown input programmatically.',
+  'docs.typescript.runtimeSchemas.appSchema':
+    'Effect Schema for the full app configuration. Validates name, tables, theme, pages, auth, etc.',
+  'docs.typescript.runtimeSchemas.pageSchema':
+    'Effect Schema for a single page configuration. Validates name, path, meta, sections, scripts.',
+  'docs.typescript.runtimeSchemas.tip.title': 'When to use runtime schemas',
+  'docs.typescript.runtimeSchemas.tip.body':
+    'Use AppSchema and PageSchema when you need to validate configuration from external sources (files, APIs, user input). For typed objects in your own code, the App and Page types provide compile-time safety without runtime overhead.',
+
   'docs.typescript.examples.title': 'Examples',
   'docs.typescript.examples.description': 'Common usage patterns with Sovrium in TypeScript.',
   'docs.typescript.examples.minimal.title': 'Minimal server',

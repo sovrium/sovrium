@@ -17,8 +17,15 @@ import {
 // ─── Code Snippets ──────────────────────────────────────────────────────────
 
 const importExample = [
-  "import { start, build } from 'sovrium'",
-  "import type { App } from 'sovrium'",
+  "import { start, build, AppSchema, PageSchema } from 'sovrium'",
+  'import type {',
+  '  App, AppEncoded,',
+  '  Page, PageEncoded,',
+  '  ComponentTemplate,',
+  '  SimpleServer,',
+  '  StartOptions,',
+  '  GenerateStaticOptions, GenerateStaticResult,',
+  "} from 'sovrium'",
 ].join('\n')
 
 const minimalStart = [
@@ -28,7 +35,7 @@ const minimalStart = [
   "  name: 'my-app',",
   '})',
   '',
-  'console.log(`Server running on port ${server.port}`)',
+  'console.log(`Server running at ${server.url}`)',
 ].join('\n')
 
 const startWithOptions = [
@@ -124,9 +131,90 @@ const appTypeExample = [
   '  pages: [/* ... */],',
   '  auth: {/* ... */},',
   '  languages: {/* ... */},',
-  '  components: {/* ... */},',
+  '  components: [/* ... */],',
   '  analytics: true,',
   '}',
+].join('\n')
+
+const simpleServerExample = [
+  "import { start } from 'sovrium'",
+  "import type { SimpleServer } from 'sovrium'",
+  '',
+  "const server: SimpleServer = await start({ name: 'my-app' })",
+  'console.log(server.url) // "http://localhost:3000"',
+  'await server.stop()     // graceful shutdown',
+].join('\n')
+
+const appEncodedExample = [
+  "import type { AppEncoded } from 'sovrium'",
+  '',
+  '// AppEncoded accepts raw input before validation',
+  '// (same shape as App but without Effect Schema transformations)',
+  "const raw: AppEncoded = { name: 'my-app', tables: [/* ... */] }",
+].join('\n')
+
+const pageTypeExample = [
+  "import type { Page } from 'sovrium'",
+  '',
+  'const page: Page = {',
+  "  name: 'home',",
+  "  path: '/',",
+  '  meta: {',
+  "    lang: 'en-US',",
+  "    title: 'Welcome',",
+  "    description: 'Welcome to our platform',",
+  '  },',
+  '  sections: [',
+  "    { type: 'heading', content: 'Hello World' },",
+  '    {',
+  "      $ref: '#/components/hero',",
+  "      $vars: { title: 'Welcome', ctaLabel: 'Get Started' },",
+  '    },',
+  '  ],',
+  '  scripts: { features: { analytics: true } },',
+  "  vars: { siteName: 'Sovrium' },",
+  '}',
+].join('\n')
+
+const componentTemplateExample = [
+  "import type { ComponentTemplate } from 'sovrium'",
+  '',
+  'const heroCard: ComponentTemplate = {',
+  "  name: 'hero-card',",
+  "  type: 'card',",
+  "  props: { className: 'bg-$color' },",
+  '  children: [',
+  "    { type: 'icon', props: { name: '$icon', size: 4 } },",
+  "    { type: 'text', props: { level: 'span' }, content: '$label' },",
+  '  ],',
+  '}',
+].join('\n')
+
+const generateStaticResultExample = [
+  "import { build } from 'sovrium'",
+  "import type { GenerateStaticResult } from 'sovrium'",
+  '',
+  "const result: GenerateStaticResult = await build({ name: 'my-site', pages: [/* ... */] })",
+  'console.log(result.outputDir)     // "./static"',
+  'console.log(result.files.length)  // number of generated files',
+].join('\n')
+
+const runtimeSchemaExample = [
+  "import { AppSchema, PageSchema } from 'sovrium'",
+  "import { Schema } from 'effect'",
+  '',
+  '// Validate unknown input at runtime',
+  'const app = Schema.decodeUnknownSync(AppSchema)({',
+  "  name: 'my-app',",
+  '  tables: [/* ... */],',
+  '})',
+  '',
+  '// Validate a page configuration',
+  'const page = Schema.decodeUnknownSync(PageSchema)({',
+  "  name: 'home',",
+  "  path: '/',",
+  '  sections: [],',
+  '})',
 ].join('\n')
 
 // ─── Page Definition ────────────────────────────────────────────────────────
@@ -149,6 +237,19 @@ export const docsTypescript = docsPage({
       children: [{ label: '$t:docs.typescript.build.options.title', anchor: 'build-options' }],
     },
     { label: '$t:docs.typescript.appType.title', anchor: 'app-type' },
+    {
+      label: '$t:docs.typescript.typeRef.title',
+      anchor: 'type-reference',
+      children: [
+        { label: 'SimpleServer', anchor: 'type-simple-server' },
+        { label: 'AppEncoded', anchor: 'type-app-encoded' },
+        { label: 'Page', anchor: 'type-page' },
+        { label: 'PageEncoded', anchor: 'type-page-encoded' },
+        { label: 'ComponentTemplate', anchor: 'type-component-template' },
+        { label: 'GenerateStaticResult', anchor: 'type-generate-static-result' },
+      ],
+    },
+    { label: '$t:docs.typescript.runtimeSchemas.title', anchor: 'runtime-schemas' },
     { label: '$t:docs.typescript.watchMode.title', anchor: 'watch-mode' },
     { label: '$t:docs.typescript.examples.title', anchor: 'examples' },
   ],
@@ -343,8 +444,135 @@ export const docsTypescript = docsPage({
           '$t:docs.typescript.appType.description',
           'app-type'
         ),
+        propertyTable([
+          { name: 'name', description: '$t:docs.typescript.appType.props.name' },
+          { name: 'version?', description: '$t:docs.typescript.appType.props.version' },
+          { name: 'description?', description: '$t:docs.typescript.appType.props.description' },
+          { name: 'tables?', description: '$t:docs.typescript.appType.props.tables' },
+          { name: 'theme?', description: '$t:docs.typescript.appType.props.theme' },
+          { name: 'pages?', description: '$t:docs.typescript.appType.props.pages' },
+          { name: 'auth?', description: '$t:docs.typescript.appType.props.auth' },
+          { name: 'languages?', description: '$t:docs.typescript.appType.props.languages' },
+          { name: 'components?', description: '$t:docs.typescript.appType.props.components' },
+          { name: 'analytics?', description: '$t:docs.typescript.appType.props.analytics' },
+        ]),
         codeBlock(appTypeExample, 'typescript'),
         calloutTip('$t:docs.typescript.appType.tip.title', '$t:docs.typescript.appType.tip.body'),
+      ],
+    },
+
+    // ── Type Reference ──────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.typescript.typeRef.title',
+          '$t:docs.typescript.typeRef.description',
+          'type-reference'
+        ),
+
+        // SimpleServer
+        subsectionHeader(
+          'SimpleServer',
+          '$t:docs.typescript.typeRef.simpleServer.description',
+          'type-simple-server'
+        ),
+        propertyTable([
+          { name: 'url', description: '$t:docs.typescript.typeRef.simpleServer.url' },
+          { name: 'stop()', description: '$t:docs.typescript.typeRef.simpleServer.stop' },
+        ]),
+        codeBlock(simpleServerExample, 'typescript'),
+
+        // AppEncoded
+        subsectionHeader(
+          'AppEncoded',
+          '$t:docs.typescript.typeRef.appEncoded.description',
+          'type-app-encoded'
+        ),
+        codeBlock(appEncodedExample, 'typescript'),
+        calloutTip(
+          '$t:docs.typescript.typeRef.appEncoded.tip.title',
+          '$t:docs.typescript.typeRef.appEncoded.tip.body'
+        ),
+
+        // Page
+        subsectionHeader('Page', '$t:docs.typescript.typeRef.page.description', 'type-page'),
+        propertyTable([
+          { name: 'id?', description: '$t:docs.typescript.typeRef.page.id' },
+          { name: 'name', description: '$t:docs.typescript.typeRef.page.name' },
+          { name: 'path', description: '$t:docs.typescript.typeRef.page.path' },
+          { name: 'meta?', description: '$t:docs.typescript.typeRef.page.meta' },
+          { name: 'sections', description: '$t:docs.typescript.typeRef.page.sections' },
+          { name: 'scripts?', description: '$t:docs.typescript.typeRef.page.scripts' },
+          { name: 'vars?', description: '$t:docs.typescript.typeRef.page.vars' },
+        ]),
+        codeBlock(pageTypeExample, 'typescript'),
+
+        // PageEncoded
+        subsectionHeader(
+          'PageEncoded',
+          '$t:docs.typescript.typeRef.pageEncoded.description',
+          'type-page-encoded'
+        ),
+
+        // ComponentTemplate
+        subsectionHeader(
+          'ComponentTemplate',
+          '$t:docs.typescript.typeRef.componentTemplate.description',
+          'type-component-template'
+        ),
+        propertyTable([
+          { name: 'name', description: '$t:docs.typescript.typeRef.componentTemplate.name' },
+          { name: 'type', description: '$t:docs.typescript.typeRef.componentTemplate.type' },
+          { name: 'props?', description: '$t:docs.typescript.typeRef.componentTemplate.props' },
+          {
+            name: 'children?',
+            description: '$t:docs.typescript.typeRef.componentTemplate.children',
+          },
+          {
+            name: 'content?',
+            description: '$t:docs.typescript.typeRef.componentTemplate.content',
+          },
+        ]),
+        codeBlock(componentTemplateExample, 'typescript'),
+
+        // GenerateStaticResult
+        subsectionHeader(
+          'GenerateStaticResult',
+          '$t:docs.typescript.typeRef.generateStaticResult.description',
+          'type-generate-static-result'
+        ),
+        propertyTable([
+          {
+            name: 'outputDir',
+            description: '$t:docs.typescript.typeRef.generateStaticResult.outputDir',
+          },
+          { name: 'files', description: '$t:docs.typescript.typeRef.generateStaticResult.files' },
+        ]),
+        codeBlock(generateStaticResultExample, 'typescript'),
+      ],
+    },
+
+    // ── Runtime Schemas ─────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.typescript.runtimeSchemas.title',
+          '$t:docs.typescript.runtimeSchemas.description',
+          'runtime-schemas'
+        ),
+        propertyTable([
+          { name: 'AppSchema', description: '$t:docs.typescript.runtimeSchemas.appSchema' },
+          { name: 'PageSchema', description: '$t:docs.typescript.runtimeSchemas.pageSchema' },
+        ]),
+        codeBlock(runtimeSchemaExample, 'typescript'),
+        calloutTip(
+          '$t:docs.typescript.runtimeSchemas.tip.title',
+          '$t:docs.typescript.runtimeSchemas.tip.body'
+        ),
       ],
     },
 

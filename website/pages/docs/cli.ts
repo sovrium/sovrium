@@ -103,14 +103,6 @@ export const docsCli = docsPage({
         { label: '$t:docs.cli.configFormats.env.title', anchor: 'config-env' },
       ],
     },
-    {
-      label: '$t:docs.cli.envVars.title',
-      anchor: 'env-vars',
-      children: [
-        { label: '$t:docs.cli.envVars.start.title', anchor: 'env-start' },
-        { label: '$t:docs.cli.envVars.build.title', anchor: 'env-build' },
-      ],
-    },
     { label: '$t:docs.cli.watchMode.title', anchor: 'watch-mode' },
     { label: '$t:docs.cli.examples.title', anchor: 'examples' },
     { label: '$t:docs.cli.exitCodes.title', anchor: 'exit-codes' },
@@ -225,67 +217,6 @@ export const docsCli = docsPage({
         ),
         codeBlock(envExamples, 'bash'),
         calloutTip('$t:docs.installation.config.tip.title', '$t:docs.installation.config.tip.body'),
-      ],
-    },
-
-    // ── Environment Variables ────────────────────────────────────────────
-    {
-      type: 'div',
-      props: {},
-      children: [
-        sectionHeader('$t:docs.cli.envVars.title', '$t:docs.cli.envVars.description', 'env-vars'),
-
-        // Start env vars
-        subsectionHeader(
-          '$t:docs.cli.envVars.start.title',
-          '$t:docs.cli.envVars.start.description',
-          'env-start'
-        ),
-        propertyTable([
-          { name: 'APP_SCHEMA', description: '$t:docs.cli.envVars.start.appSchema' },
-          { name: 'PORT', description: '$t:docs.cli.envVars.start.port' },
-          { name: 'BASE_URL', description: '$t:docs.cli.envVars.start.baseUrl' },
-          { name: 'HOSTNAME', description: '$t:docs.cli.envVars.start.hostname' },
-          { name: 'DATABASE_URL', description: '$t:docs.cli.envVars.start.databaseUrl' },
-          { name: 'AUTH_SECRET', description: '$t:docs.cli.envVars.start.authSecret' },
-        ]),
-
-        // Build env vars
-        subsectionHeader(
-          '$t:docs.cli.envVars.build.title',
-          '$t:docs.cli.envVars.build.description',
-          'env-build'
-        ),
-        propertyTable([
-          { name: 'APP_SCHEMA', description: '$t:docs.cli.envVars.build.appSchema' },
-          { name: 'SOVRIUM_OUTPUT_DIR', description: '$t:docs.cli.envVars.build.outputDir' },
-          { name: 'SOVRIUM_BASE_URL', description: '$t:docs.cli.envVars.build.baseUrl' },
-          { name: 'SOVRIUM_BASE_PATH', description: '$t:docs.cli.envVars.build.basePath' },
-          { name: 'SOVRIUM_DEPLOYMENT', description: '$t:docs.cli.envVars.build.deployment' },
-          { name: 'SOVRIUM_LANGUAGES', description: '$t:docs.cli.envVars.build.languages' },
-          {
-            name: 'SOVRIUM_DEFAULT_LANGUAGE',
-            description: '$t:docs.cli.envVars.build.defaultLanguage',
-          },
-          {
-            name: 'SOVRIUM_GENERATE_SITEMAP',
-            description: '$t:docs.cli.envVars.build.generateSitemap',
-          },
-          {
-            name: 'SOVRIUM_GENERATE_ROBOTS',
-            description: '$t:docs.cli.envVars.build.generateRobots',
-          },
-          { name: 'SOVRIUM_HYDRATION', description: '$t:docs.cli.envVars.build.hydration' },
-          {
-            name: 'SOVRIUM_GENERATE_MANIFEST',
-            description: '$t:docs.cli.envVars.build.generateManifest',
-          },
-          {
-            name: 'SOVRIUM_BUNDLE_OPTIMIZATION',
-            description: '$t:docs.cli.envVars.build.bundleOptimization',
-          },
-          { name: 'SOVRIUM_PUBLIC_DIR', description: '$t:docs.cli.envVars.build.publicDir' },
-        ]),
       ],
     },
 

@@ -352,14 +352,14 @@ export const docsPropertyRow: ComponentTemplate = {
   type: 'div',
   props: {
     className:
-      'grid grid-cols-[140px_1fr] sm:grid-cols-[180px_1fr] gap-2 py-3 px-4 border-b border-sovereignty-gray-800 last:border-0',
+      'grid grid-cols-[minmax(120px,auto)_1fr] gap-4 py-3 px-4 border-b border-sovereignty-gray-800 last:border-0',
   },
   children: [
     {
       type: 'span',
       content: '$name',
       props: {
-        className: 'font-mono text-sm text-sovereignty-accent font-semibold',
+        className: 'font-mono text-sm text-sovereignty-accent font-semibold break-all min-w-0',
       },
     },
     {

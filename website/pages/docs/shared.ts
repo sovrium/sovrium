@@ -99,6 +99,12 @@ const GET_STARTED_PAGES: readonly DocsPageEntry[] = [
     sidebarHref: '$t:docs.sidebar.typescript.href',
     section: 'get-started',
   },
+  {
+    id: 'env-vars',
+    sidebarLabel: '$t:docs.sidebar.envVars',
+    sidebarHref: '$t:docs.sidebar.envVars.href',
+    section: 'get-started',
+  },
 ]
 
 const APP_SCHEMA_PAGES: readonly DocsPageEntry[] = [
@@ -106,12 +112,6 @@ const APP_SCHEMA_PAGES: readonly DocsPageEntry[] = [
     id: 'overview',
     sidebarLabel: '$t:docs.sidebar.overview',
     sidebarHref: '$t:docs.sidebar.overview.href',
-    section: 'app-schema',
-  },
-  {
-    id: 'tables',
-    sidebarLabel: '$t:docs.sidebar.tables',
-    sidebarHref: '$t:docs.sidebar.tables.href',
     section: 'app-schema',
   },
   {
@@ -124,6 +124,12 @@ const APP_SCHEMA_PAGES: readonly DocsPageEntry[] = [
     id: 'pages',
     sidebarLabel: '$t:docs.sidebar.pages',
     sidebarHref: '$t:docs.sidebar.pages.href',
+    section: 'app-schema',
+  },
+  {
+    id: 'tables',
+    sidebarLabel: '$t:docs.sidebar.tables',
+    sidebarHref: '$t:docs.sidebar.tables.href',
     section: 'app-schema',
   },
   {
@@ -338,44 +344,42 @@ export const calloutWarning = (title: string, body: string) => ({
 })
 
 // ─── Property Table Helper ──────────────────────────────────────────────────
-// Builds a table with property-row refs for clean property documentation.
+// Builds a semantic HTML <table> for property documentation.
+// Uses dangerouslySetInnerHTML via the content-starts-with-'<' rendering path.
 
-export const propertyTable = (rows: ReadonlyArray<{ name: string; description: string }>) => ({
-  type: 'div' as const,
-  props: {
-    className:
-      'overflow-x-auto my-4 border border-sovereignty-gray-800 rounded-lg bg-sovereignty-gray-900',
-  },
-  children: [
-    {
-      type: 'div' as const,
-      props: {
-        className:
-          'grid grid-cols-[140px_1fr] sm:grid-cols-[180px_1fr] gap-2 py-2 px-4 border-b border-sovereignty-gray-800',
-      },
-      children: [
-        {
-          type: 'span' as const,
-          content: 'Property',
-          props: {
-            className: 'text-xs font-semibold text-sovereignty-gray-500 uppercase tracking-wider',
-          },
-        },
-        {
-          type: 'span' as const,
-          content: 'Description',
-          props: {
-            className: 'text-xs font-semibold text-sovereignty-gray-500 uppercase tracking-wider',
-          },
-        },
-      ],
+const escapeHtml = (str: string): string =>
+  str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+export const propertyTable = (rows: ReadonlyArray<{ name: string; description: string }>) => {
+  const tableRows = rows
+    .map(
+      (row) =>
+        `<tr class="border-b border-sovereignty-gray-800 last:border-0">` +
+        `<td class="py-2.5 px-4 align-top font-mono text-sm text-sovereignty-accent font-semibold" style="word-break:break-all">${escapeHtml(row.name)}</td>` +
+        `<td class="py-2.5 px-4 align-top text-sm text-sovereignty-gray-400">${escapeHtml(row.description)}</td>` +
+        `</tr>`
+    )
+    .join('')
+
+  const html =
+    `<table class="w-full" style="table-layout:fixed">` +
+    `<colgroup><col style="width:35%"><col style="width:65%"></colgroup>` +
+    `<thead><tr class="border-b border-sovereignty-gray-800">` +
+    `<th class="py-2 px-4 text-left text-xs font-semibold text-sovereignty-gray-500 uppercase tracking-wider">Property</th>` +
+    `<th class="py-2 px-4 text-left text-xs font-semibold text-sovereignty-gray-500 uppercase tracking-wider">Description</th>` +
+    `</tr></thead>` +
+    `<tbody>${tableRows}</tbody>` +
+    `</table>`
+
+  return {
+    type: 'div' as const,
+    props: {
+      className:
+        'overflow-x-auto my-4 border border-sovereignty-gray-800 rounded-lg bg-sovereignty-gray-900',
     },
-    ...rows.map((row) => ({
-      $ref: 'docs-property-row' as const,
-      vars: { name: row.name, description: row.description },
-    })),
-  ],
-})
+    content: html,
+  }
+}
 
 // ─── Endpoint Row Helper ────────────────────────────────────────────────────
 // Renders a single API endpoint as a flex row with colored method badge + path + description.
