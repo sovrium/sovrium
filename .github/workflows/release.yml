@@ -184,5 +184,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_PAT_WORKFLOW }}
         run: |
           echo "Triggering website deploy with documentation sync..."
-          gh workflow run deploy-website.yml --ref main
+          gh workflow run deploy-website.yml --ref main --repo sovrium/sovrium
           echo "Website deploy workflow dispatched"
