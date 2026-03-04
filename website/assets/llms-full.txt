@@ -2,8 +2,8 @@
 
 > Sovrium is a self-hosted, configuration-driven application platform. Define your entire app — data models, authentication, pages, themes, analytics — in a single YAML or JSON file. This document is the complete reference for LLMs, covering getting started guides, the full app schema reference, and additional resources.
 
-**Schema Version**: 0.2.0
-**JSON Schema**: https://sovrium.com/schemas/0.2.0/app.schema.json
+**Schema Version**: 0.2.1
+**JSON Schema**: https://sovrium.com/schemas/0.2.1/app.schema.json
 **License**: Business Source License 1.1 (BSL 1.1)
 
 ---
@@ -14,6 +14,9 @@
 - [Introduction](#introduction)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [CLI Reference](#cli-reference)
+- [TypeScript API](#typescript-api)
+- [Environment Variables](#environment-variables)
 
 ### App Schema Reference
 - [Schema Overview](#schema-overview)
@@ -287,6 +290,485 @@ bun run index.ts
 - **Tables & Fields** — 41 field types, permissions, indexes
 - **Theme** — Colors, fonts, spacing, and design tokens
 - **Pages** — 62 component types for server-rendered pages
+
+---
+
+## CLI Reference
+
+The Sovrium CLI provides two commands: start a development server and build a static site. Configuration is loaded from a file or environment variable.
+
+### Usage
+
+```bash
+sovrium [command] [config] [flags]
+
+sovrium start app.yaml          # Start dev server
+sovrium build app.yaml          # Build static site
+sovrium --help                  # Show help
+```
+
+### Commands
+
+Sovrium has two commands. If no command is specified, `start` is used by default.
+
+**sovrium start** — Start a development server that serves your application. Running `sovrium app.yaml` is equivalent to `sovrium start app.yaml`.
+
+```bash
+# Start from a JSON file
+sovrium start app.json
+
+# Start from a YAML file
+sovrium start app.yaml
+
+# Implicit start (default command)
+sovrium app.yaml
+
+# Start with watch mode (hot reload)
+sovrium start app.yaml --watch
+sovrium start app.yaml -w
+
+# Start on a custom port
+PORT=8080 sovrium start app.yaml
+```
+
+**sovrium build** — Generate a static site from your configuration. Produces HTML, CSS, and assets ready for deployment to any static hosting provider.
+
+```bash
+# Basic static build
+sovrium build app.yaml
+
+# Build for GitHub Pages
+SOVRIUM_DEPLOYMENT=github-pages sovrium build app.yaml
+
+# Build with sitemap and custom output
+SOVRIUM_OUTPUT_DIR=./public \
+  SOVRIUM_BASE_URL=https://example.com \
+  SOVRIUM_GENERATE_SITEMAP=true \
+  SOVRIUM_GENERATE_ROBOTS=true \
+  sovrium build app.yaml
+```
+
+**sovrium --help** — Display the help message with a summary of commands, options, and examples.
+
+### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--watch`, `-w` | Watch the config file for changes and hot-reload the server automatically. Only available with the start command. |
+| `--help`, `-h` | Show the help message and exit. |
+
+### Configuration Sources
+
+Sovrium can load configuration from a file path or from the `APP_SCHEMA` environment variable. A file path takes precedence when both are provided.
+
+**File path** — Pass a path to a JSON or YAML configuration file as the second argument.
+
+```bash
+sovrium start app.yaml
+sovrium build config.json
+```
+
+**Environment variable** — Set the `APP_SCHEMA` variable to provide configuration without a file. Supports inline JSON, inline YAML, or a remote URL.
+
+```bash
+# Inline JSON
+APP_SCHEMA='{"name":"my-app"}' sovrium start
+
+# Inline YAML
+APP_SCHEMA='name: my-app' sovrium start
+
+# Remote URL
+APP_SCHEMA='https://example.com/app.yaml' sovrium start
+```
+
+### Watch Mode
+
+Watch mode monitors your config file and automatically reloads the server when changes are detected.
+
+```bash
+# Start with file watching
+sovrium start app.yaml --watch
+
+# Edit app.yaml in another terminal...
+# Server reloads automatically
+```
+
+> **Tip**: If the updated config file is invalid, the reload fails gracefully and the previous server continues running. Fix the config and save to retry.
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | Error (invalid config, missing file, unknown command) |
+
+---
+
+## TypeScript API
+
+Use Sovrium as a library in your TypeScript project. Import `start`, `build`, and the `AppConfig` type for full programmatic control with typed configuration.
+
+```typescript
+import { start, build } from 'sovrium'
+import type {
+  AppConfig,
+  PageConfig,
+  TableConfig,
+  ComponentConfig,
+  ThemeConfig,
+  AuthConfig,
+  LanguageConfig,
+  AnalyticsConfig,
+  SimpleServer,
+  StartOptions,
+  GenerateStaticOptions,
+  GenerateStaticResult,
+} from 'sovrium'
+```
+
+### Why TypeScript?
+
+Using Sovrium programmatically gives you advantages beyond the CLI:
+
+- **Type safety** — The `AppConfig` type provides autocomplete for every property and field type. Catch errors at compile time, not runtime.
+- **Programmatic control** — Generate configuration dynamically, compose schemas, and integrate Sovrium into existing applications.
+- **IDE integration** — Full IntelliSense in VS Code and JetBrains — hover docs, go-to-definition, and type errors.
+
+### start(app, options?)
+
+Start a development server from a typed configuration object. Returns a server instance with a `stop()` method.
+
+```typescript
+import { start } from 'sovrium'
+
+const server = await start({
+  name: 'my-app',
+})
+
+console.log(`Server running at ${server.url}`)
+```
+
+**StartOptions** — Optional second argument to configure the server.
+
+| Property | Description |
+|----------|-------------|
+| `port` | Port number (0-65535). 0 selects an available port. Default: 3000. |
+| `hostname` | Server hostname. Default: localhost. |
+| `publicDir` | Static file directory. Files are served at their relative path. |
+
+```typescript
+import { start } from 'sovrium'
+
+const server = await start(
+  {
+    name: 'my-app',
+    tables: [
+      {
+        id: 1,
+        name: 'tasks',
+        fields: [
+          { id: 1, name: 'title', type: 'single-line-text', required: true },
+          { id: 2, name: 'done', type: 'checkbox' },
+        ],
+      },
+    ],
+  },
+  {
+    port: 8080,
+    hostname: '0.0.0.0',
+    publicDir: './public',
+  }
+)
+```
+
+### build(app, options?)
+
+Generate a static site from a typed configuration object.
+
+**GenerateStaticOptions** — Optional second argument to control static output.
+
+| Property | Description |
+|----------|-------------|
+| `outputDir` | Output directory. Default: ./static. |
+| `baseUrl` | Base URL for sitemap and canonical links. |
+| `basePath` | Path prefix for subdirectory deployments. |
+| `deployment` | Target platform: `github-pages` or `generic`. |
+| `languages` | Array of language codes for generation. |
+| `defaultLanguage` | Default language code. |
+| `generateSitemap` | Generate sitemap.xml. Default: false. |
+| `generateRobotsTxt` | Generate robots.txt. Default: false. |
+| `hydration` | Enable client-side hydration. Default: false. |
+| `generateManifest` | Generate manifest.json for PWA. Default: false. |
+| `bundleOptimization` | Splitting strategy: `split` or `none`. |
+| `publicDir` | Static asset directory to copy into output. |
+
+```typescript
+import { build } from 'sovrium'
+
+await build(
+  {
+    name: 'my-site',
+    pages: [
+      {
+        name: 'home',
+        path: '/',
+        sections: [
+          { type: 'heading', content: 'Welcome' },
+          { type: 'paragraph', content: 'Built with Sovrium.' },
+        ],
+      },
+    ],
+  },
+  {
+    outputDir: './dist',
+    baseUrl: 'https://example.com',
+    deployment: 'github-pages',
+    generateSitemap: true,
+    generateRobotsTxt: true,
+  }
+)
+```
+
+### AppConfig
+
+The primary type for typing your configuration objects. Import it from `sovrium` to get full autocomplete and type checking.
+
+| Property | Description |
+|----------|-------------|
+| `name` | Application name. Lowercase, npm-compatible (e.g. my-app, @org/app). |
+| `version?` | SemVer version string (e.g. 1.0.0). |
+| `description?` | Single-line application description. |
+| `tables?` | Array of data table definitions with fields, indexes, and constraints. |
+| `theme?` | Design tokens: colors, fonts, spacing, animations, breakpoints, shadows, borderRadius. |
+| `pages?` | Array of page configurations with metadata, sections, and scripts. |
+| `auth?` | Authentication config: strategies, roles, plugins (admin, organization). |
+| `languages?` | Multi-language config: supported languages, default language, translations. |
+| `components?` | Array of reusable component templates with variable substitution. |
+| `analytics?` | Built-in privacy-friendly analytics. Set to `true` for defaults or pass an object. |
+
+> **Tip**: Only `name` is required. Add tables, theme, pages, auth, languages, components, and analytics as you need them.
+
+### Type Reference
+
+Additional TypeScript types exported from the `sovrium` package. Import them with `import type { ... } from 'sovrium'`.
+
+**SimpleServer** — Returned by `start()`. A lightweight interface to the running server.
+
+| Property | Description |
+|----------|-------------|
+| `url` | Server URL including protocol and port (e.g. "http://localhost:3000"). |
+| `stop()` | Gracefully stop the server. Returns a Promise that resolves when shutdown is complete. |
+
+**PageConfig** — Configuration for a single page. Element of `AppConfig['pages']`.
+
+**TableConfig** — Configuration for a single data table. Element of `AppConfig['tables']`.
+
+**ComponentConfig** — Reusable component template with variable placeholders. Element of `AppConfig['components']`.
+
+**ThemeConfig** — Design tokens for colors, typography, spacing, shadows, and more.
+
+**AuthConfig** — Authentication strategies, roles, and plugin configuration.
+
+**LanguageConfig** — Multi-language support with translations and language detection.
+
+**AnalyticsConfig** — Built-in privacy-friendly analytics. Use `true` for defaults or an object for custom settings.
+
+**GenerateStaticResult** — Returned by `build()`. Contains the output directory path and the list of generated files.
+
+| Property | Description |
+|----------|-------------|
+| `outputDir` | Absolute path to the output directory (e.g. "./static"). |
+| `files` | Array of file paths generated during the build (HTML, CSS, assets). |
+
+### Watch Mode
+
+In development, use Bun's built-in watch mode to automatically restart your script when files change:
+
+```bash
+bun --watch index.ts
+```
+
+> **Tip**: `bun --watch` restarts the entire process when any imported file changes. For config-only changes, the CLI's `--watch` flag is more efficient.
+
+### Examples
+
+**Minimal server**
+
+```typescript
+import { start } from 'sovrium'
+
+const server = await start({
+  name: 'my-app',
+})
+
+console.log(`Server running at ${server.url}`)
+```
+
+**Dynamic configuration**
+
+```typescript
+import { start } from 'sovrium'
+import type { AppConfig, PageConfig, TableConfig, ThemeConfig } from 'sovrium'
+
+// Compose config from typed sub-configs
+const theme: ThemeConfig = {
+  colors: { primary: process.env.BRAND_COLOR ?? '#3b82f6' },
+}
+
+const tables: TableConfig[] = ['users', 'posts'].map((name, i) => ({
+  id: i + 1,
+  name,
+  fields: [
+    { id: 1, name: 'title', type: 'single-line-text' as const, required: true },
+    { id: 2, name: 'created_at', type: 'datetime' as const },
+  ],
+}))
+
+const pages: PageConfig[] = [{ name: 'home', path: '/', sections: [] }]
+
+const app: AppConfig = {
+  name: 'dynamic-app',
+  tables,
+  pages,
+  theme,
+}
+
+await start(app)
+```
+
+---
+
+## Environment Variables
+
+Sovrium reads configuration from environment variables at startup. Set them in a `.env` file or your server environment. All variables are optional unless noted otherwise.
+
+```bash
+# .env
+
+# Application
+APP_SCHEMA='app.yaml'
+
+# Server
+PORT=3000
+BASE_URL=http://localhost:3000
+
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+
+# Authentication
+AUTH_SECRET=your-secret-key-here
+
+# Default Admin
+AUTH_ADMIN_EMAIL=admin@example.com
+AUTH_ADMIN_PASSWORD=secure-admin-password
+
+# OAuth (Google example)
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+
+# Email (SMTP)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+```
+
+### Application
+
+Core application configuration. `APP_SCHEMA` is the primary way to provide a schema without a file argument.
+
+| Variable | Description |
+|----------|-------------|
+| `APP_SCHEMA` | App schema as inline JSON, inline YAML, or a remote URL. Alternative to passing a file path on the command line. |
+
+### Server
+
+Server networking options for the `start` command.
+
+| Variable | Description |
+|----------|-------------|
+| `PORT` | Server port number (0-65535). 0 selects an available port. Default: 3000. |
+| `HOSTNAME` | Server hostname. Default: localhost. |
+| `BASE_URL` | Base URL of the application (e.g., https://myapp.com). Used for authentication callback URLs and email links. |
+| `NODE_ENV` | Runtime environment. Set to "production" for secure cookies, CSRF checks, and strict SMTP validation. Default: development. |
+
+### Database
+
+PostgreSQL connection settings. Required when using tables or authentication.
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string (e.g., postgresql://user:password@localhost:5432/dbname). Required when the schema defines tables or auth. |
+
+### Authentication
+
+Variables for Better Auth integration. Required when the schema defines an `auth` section.
+
+| Variable | Description |
+|----------|-------------|
+| `AUTH_SECRET` | Secret key for signing tokens and encrypting sessions. Must be a strong random string (32+ characters recommended). |
+
+**Default Admin User** — Optional variables to create a default admin user on first startup. All three must be set for the admin user to be created.
+
+| Variable | Description |
+|----------|-------------|
+| `AUTH_ADMIN_EMAIL` | Email address for the default admin user. |
+| `AUTH_ADMIN_PASSWORD` | Password for the default admin user. Must be at least 8 characters. |
+| `AUTH_ADMIN_NAME` | Display name for the default admin user. Optional, defaults to "Admin". |
+
+**OAuth Providers** — Credentials for each OAuth provider configured in the auth schema. Replace `{PROVIDER}` with the uppercase provider name.
+
+| Variable | Description |
+|----------|-------------|
+| `{PROVIDER}_CLIENT_ID` | OAuth client ID from the provider's developer console. |
+| `{PROVIDER}_CLIENT_SECRET` | OAuth client secret from the provider's developer console. Keep this confidential. |
+
+> **Tip**: Sovrium supports Google, GitHub, Microsoft, Slack, GitLab, and Facebook. For example, set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` for Google OAuth.
+
+### Email (SMTP)
+
+SMTP configuration for sending authentication emails (verification, password reset, magic link). In development, falls back to Mailpit on localhost:1025 if `SMTP_HOST` is not set.
+
+| Variable | Description |
+|----------|-------------|
+| `SMTP_HOST` | SMTP server hostname (e.g., smtp.gmail.com). Required in production. |
+| `SMTP_PORT` | SMTP server port. Default: 587. |
+| `SMTP_SECURE` | Use SSL/TLS connection. Default: false for port 587, true for port 465. |
+| `SMTP_USER` | SMTP authentication username. |
+| `SMTP_PASS` | SMTP authentication password or app-specific password. |
+| `SMTP_FROM` | Default sender email address (e.g., noreply@yourdomain.com). Default: noreply@sovrium.com. |
+| `SMTP_FROM_NAME` | Default sender display name. Default: Sovrium. |
+
+> **Tip**: When `SMTP_HOST` is not configured in development mode, Sovrium automatically falls back to Mailpit (localhost:1025). Install Mailpit to view sent emails in a local web UI.
+
+### Build
+
+Options for the `build` command that generates a static site.
+
+| Variable | Description |
+|----------|-------------|
+| `SOVRIUM_OUTPUT_DIR` | Output directory. Default: ./dist. |
+| `SOVRIUM_BASE_URL` | Base URL for sitemap generation and canonical links (e.g., https://example.com). |
+| `SOVRIUM_BASE_PATH` | Path prefix for subdirectory deployments (e.g., /my-app). |
+| `SOVRIUM_DEPLOYMENT` | Deployment target: `github-pages` or `generic`. |
+| `SOVRIUM_LANGUAGES` | Comma-separated language codes to build (e.g., en,fr,de). |
+| `SOVRIUM_DEFAULT_LANGUAGE` | Default language code (e.g., en). |
+| `SOVRIUM_GENERATE_SITEMAP` | Generate sitemap.xml. Default: false. |
+| `SOVRIUM_GENERATE_ROBOTS` | Generate robots.txt. Default: false. |
+| `SOVRIUM_HYDRATION` | Enable client-side hydration. Default: false. |
+| `SOVRIUM_GENERATE_MANIFEST` | Generate manifest.json for PWA. Default: false. |
+| `SOVRIUM_BUNDLE_OPTIMIZATION` | Optimization strategy: `split` (code splitting) or `none`. |
+| `SOVRIUM_PUBLIC_DIR` | Directory containing static assets to copy into the output. |
+
+### Debug
+
+Diagnostic and testing variables. Not needed in normal operation.
+
+| Variable | Description |
+|----------|-------------|
+| `LOG_LEVEL` | Set to "debug" for verbose logging (request logs, CSS compilation diagnostics). Default: follows NODE_ENV. |
+| `EFFECT_DEVTOOLS` | Set to "1" to enable Effect DevTools integration for runtime inspection. |
+| `RATE_LIMIT_WINDOW_SECONDS` | Rate limit window in seconds. Used in tests for faster execution. Default: 60. |
 
 ---
 
@@ -2003,7 +2485,7 @@ The Sovrium app schema is published as a JSON Schema (Draft-07) for validation, 
 
 | URL | Description |
 |-----|-------------|
-| `https://sovrium.com/schemas/0.2.0/app.schema.json` | Versioned schema (stable, pinned to release) |
+| `https://sovrium.com/schemas/0.2.1/app.schema.json` | Versioned schema (stable, pinned to release) |
 | `https://sovrium.com/schemas/latest/app.schema.json` | Latest schema (always points to current version) |
 
 ### Editor Integration
@@ -2040,7 +2522,7 @@ if (!validate(config)) {
 }
 ```
 
-Interactive schema explorer: https://json-schema.app/view/%23?url=https%3A%2F%2Fsovrium.com%2Fschemas%2F0.2.0%2Fapp.schema.json
+Interactive schema explorer: https://json-schema.app/view/%23?url=https%3A%2F%2Fsovrium.com%2Fschemas%2F0.2.1%2Fapp.schema.json
 
 ---
 
@@ -2049,8 +2531,8 @@ Interactive schema explorer: https://json-schema.app/view/%23?url=https%3A%2F%2F
 | Resource | URL | Description |
 |----------|-----|-------------|
 | LLM Quick Reference | https://sovrium.com/llms.txt | Concise link index optimized for LLMs |
-| JSON Schema | https://sovrium.com/schemas/0.2.0/app.schema.json | Machine-readable JSON Schema (Draft-07) |
-| Schema Explorer | https://json-schema.app/view/%23?url=https%3A%2F%2Fsovrium.com%2Fschemas%2F0.2.0%2Fapp.schema.json | Interactive visual schema explorer |
+| JSON Schema | https://sovrium.com/schemas/0.2.1/app.schema.json | Machine-readable JSON Schema (Draft-07) |
+| Schema Explorer | https://json-schema.app/view/%23?url=https%3A%2F%2Fsovrium.com%2Fschemas%2F0.2.1%2Fapp.schema.json | Interactive visual schema explorer |
 | API Reference | https://sovrium.com/en/docs/api-reference | Interactive REST API documentation (Scalar UI) |
 | GitHub | https://github.com/sovrium/sovrium | Source code, issues, and contributions |
 | Vision | https://github.com/sovrium/sovrium/blob/main/VISION.md | Product vision and roadmap |
@@ -2207,4 +2689,4 @@ analytics:
 
 ---
 
-*Generated for Sovrium v0.2.0 — https://sovrium.com*
+*Generated for Sovrium v0.2.1 — https://sovrium.com*

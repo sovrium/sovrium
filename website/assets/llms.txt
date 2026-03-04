@@ -6,8 +6,8 @@ Sovrium turns declarative configuration into production-ready applications with 
 
 ## Docs
 
-- [Full LLM Reference](https://sovrium.com/llms-full.txt): Complete documentation for LLMs (~2200 lines)
-- [JSON Schema](https://sovrium.com/schemas/0.2.0/app.schema.json): Machine-readable JSON Schema (Draft-07) for validation and editor support
+- [Full LLM Reference](https://sovrium.com/llms-full.txt): Complete documentation for LLMs (~2700 lines)
+- [JSON Schema](https://sovrium.com/schemas/0.2.1/app.schema.json): Machine-readable JSON Schema (Draft-07) for validation and editor support
 - [API Reference](https://sovrium.com/en/docs/api-reference): Interactive REST API documentation (Scalar UI) — 60+ endpoints across 7 categories
 - [GitHub](https://github.com/sovrium/sovrium): Source code repository
 - [License](https://github.com/sovrium/sovrium/blob/main/LICENSE.md): Business Source License 1.1
@@ -17,6 +17,9 @@ Sovrium turns declarative configuration into production-ready applications with 
 - [Introduction](https://sovrium.com/en/docs): What is Sovrium, why use it, how it works
 - [Installation](https://sovrium.com/en/docs/installation): Prerequisites (Bun 1.3+, PostgreSQL 15+), global/project install, database setup
 - [Quick Start](https://sovrium.com/en/docs/quick-start): Two paths — YAML + CLI or TypeScript + Bun — from zero to running app
+- [CLI Reference](https://sovrium.com/en/docs/cli): Commands (start, build), flags (--watch, --help), configuration sources, exit codes
+- [TypeScript API](https://sovrium.com/en/docs/typescript): Programmatic usage — start(), build(), AppConfig type, full type reference
+- [Environment Variables](https://sovrium.com/en/docs/env-vars): All env vars — application, server, database, auth, SMTP, build, debug
 
 ### App Schema Reference
 
