@@ -16,6 +16,7 @@ import {
   docsAnalytics,
   docsApiReference,
   docsAuth,
+  docsScalar,
   docsInstallation,
   docsIntroduction,
   docsJsonSchema,
@@ -149,6 +150,7 @@ export const app: App = {
     docsLanguages,
     docsAnalytics,
     docsApiReference,
+    docsScalar,
     docsJsonSchema,
   ],
 }

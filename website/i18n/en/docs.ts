@@ -80,10 +80,13 @@ export const docs: Record<string, string> = {
   'docs.apiReference.earlyPreview.title': 'Early Preview',
   'docs.apiReference.earlyPreview.body':
     'The API surface is evolving. Endpoints may change before v1.0.',
+  'docs.apiReference.earlyPreview.badge': 'Early Preview — API may change before v1.0',
+  'docs.apiReference.backToDocs': 'Back to Docs',
   'docs.apiReference.cta.title': 'Interactive API Explorer',
   'docs.apiReference.cta.description':
-    'Try endpoints directly in your browser with the Scalar-powered interactive explorer.',
-  'docs.apiReference.cta.button': 'Open Interactive Explorer',
+    'Browse and test every endpoint interactively with the Scalar API client. Includes request builder, response viewer, and code generation.',
+  'docs.apiReference.cta.button': 'Open API Explorer',
+  'docs.apiReference.cta.href': '/en/docs/scalar',
   'docs.apiReference.baseUrl.title': 'Base URL',
   'docs.apiReference.baseUrl.description':
     'All endpoints are relative to your Sovrium instance base URL.',
@@ -153,6 +156,10 @@ export const docs: Record<string, string> = {
   'docs.apiReference.openapi.description':
     'Download the OpenAPI 3.1 specification for use with any API client or code generator.',
   'docs.apiReference.openapi.download': 'Download openapi.json',
+  'docs.scalar.meta.title': 'API Explorer - Sovrium Docs',
+  'docs.scalar.meta.description':
+    'Interactive REST API explorer for Sovrium. Browse, test, and generate code for 55+ endpoints.',
+  'docs.scalar.loading': 'Loading API Explorer...',
   'docs.jsonSchema.meta.title': 'JSON Schema - Sovrium Docs',
   'docs.jsonSchema.meta.description':
     'Explore the Sovrium app configuration JSON Schema. Browse interactively, integrate with your editor, and validate config files programmatically.',

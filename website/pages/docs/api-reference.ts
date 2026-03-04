@@ -97,7 +97,7 @@ export const docsApiReference = docsPage({
         {
           type: 'link',
           props: {
-            href: 'https://client.scalar.com/?url=https://sovrium.com/docs/openapi.json',
+            href: '$t:docs.apiReference.cta.href',
             target: '_blank',
             rel: 'noopener noreferrer',
             className:
@@ -426,7 +426,7 @@ export const docsApiReference = docsPage({
                 {
                   type: 'link',
                   props: {
-                    href: 'https://client.scalar.com/?url=https://sovrium.com/docs/openapi.json',
+                    href: '$t:docs.apiReference.cta.href',
                     target: '_blank',
                     rel: 'noopener noreferrer',
                     className:

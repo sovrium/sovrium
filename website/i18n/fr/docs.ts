@@ -84,6 +84,10 @@ export const docs: Record<string, string> = {
   'docs.apiReference.cta.description':
     'Testez les endpoints directement dans votre navigateur avec l’explorateur interactif Scalar.',
   'docs.apiReference.cta.button': 'Ouvrir l’explorateur interactif',
+  'docs.apiReference.earlyPreview.badge':
+    'Acc\u00e8s anticip\u00e9 \u2014 L\u2019API peut changer avant la v1.0',
+  'docs.apiReference.backToDocs': 'Retour aux Docs',
+  'docs.apiReference.cta.href': '/fr/docs/scalar',
   'docs.apiReference.baseUrl.title': 'URL de base',
   'docs.apiReference.baseUrl.description':
     'Tous les endpoints sont relatifs à l’URL de base de votre instance Sovrium.',
@@ -155,6 +159,10 @@ export const docs: Record<string, string> = {
   'docs.apiReference.openapi.description':
     'Téléchargez la spécification OpenAPI 3.1 pour l’utiliser avec n’importe quel client API ou générateur de code.',
   'docs.apiReference.openapi.download': 'Télécharger openapi.json',
+  'docs.scalar.meta.title': 'Explorateur API - Docs Sovrium',
+  'docs.scalar.meta.description':
+    'Explorateur REST API interactif pour Sovrium. Parcourez, testez et g\u00e9n\u00e9rez du code pour 55+ endpoints.',
+  'docs.scalar.loading': 'Chargement de l\u2019explorateur API...',
   'docs.jsonSchema.meta.title': 'JSON Schema - Docs Sovrium',
   'docs.jsonSchema.meta.description':
     'Explorez le JSON Schema de configuration Sovrium. Naviguez interactivement, intégrez à votre éditeur et validez vos fichiers de configuration.',

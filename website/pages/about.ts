@@ -32,14 +32,14 @@ export const about: Page = {
       description: '$t:about.meta.og.description',
       type: 'website',
       url: 'https://sovrium.com/about',
-      image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
+      image: 'https://sovrium.com/og-image.png',
       siteName: 'Sovrium',
     },
     twitter: {
       card: 'summary_large_image',
       title: '$t:about.meta.twitter.title',
       description: '$t:about.meta.twitter.description',
-      image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
+      image: 'https://sovrium.com/og-image.png',
     },
     schema: {
       organization: {

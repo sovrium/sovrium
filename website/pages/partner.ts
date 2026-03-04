@@ -51,14 +51,14 @@ export const partner: Page = {
       description: '$t:partner.meta.og.description',
       type: 'website',
       url: 'https://sovrium.com/partner',
-      image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
+      image: 'https://sovrium.com/og-image.png',
       siteName: 'Sovrium',
     },
     twitter: {
       card: 'summary_large_image',
       title: '$t:partner.meta.twitter.title',
       description: '$t:partner.meta.twitter.description',
-      image: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
+      image: 'https://sovrium.com/og-image.png',
     },
   },
   scripts: {
