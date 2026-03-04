@@ -395,7 +395,7 @@ export function createNavbar(activePage?: NavPage) {
                       id: 'search-btn',
                       type: 'button',
                       className:
-                        'hidden md:flex items-center gap-2 h-9 px-3 rounded-lg border border-sovereignty-gray-700 bg-sovereignty-gray-900/50 text-sovereignty-gray-500 hover:text-sovereignty-gray-300 hover:border-sovereignty-gray-500 hover:bg-sovereignty-gray-900/70 transition-colors duration-200 cursor-pointer md:w-48 lg:w-64',
+                        'hidden md:flex items-center gap-2 h-9 px-3 rounded-lg border border-sovereignty-gray-700 bg-sovereignty-gray-900/50 text-sovereignty-gray-500 hover:text-sovereignty-gray-300 hover:border-sovereignty-gray-500 hover:bg-sovereignty-gray-900/70 transition-colors duration-200 cursor-pointer',
                       'aria-label': 'Search documentation',
                     },
                     children: [
@@ -505,21 +505,29 @@ export function createNavbar(activePage?: NavPage) {
                     },
                   },
 
-                  // Globe language switcher icon
+                  // Globe language switcher icon (hidden at md, shown at lg+)
                   {
-                    type: 'link' as const,
+                    type: 'div' as const,
                     props: {
-                      href: '#',
-                      className:
-                        'inline-flex items-center justify-center w-8 h-8 rounded-md text-sovereignty-gray-500 hover:text-sovereignty-light hover:bg-sovereignty-gray-800 transition-colors duration-150',
-                      'data-lang-switch': '$t:nav.lang.code',
-                      'aria-label': 'Switch language',
-                      title: '$t:nav.lang.label',
+                      className: 'hidden lg:block',
                     },
                     children: [
                       {
-                        type: 'icon' as const,
-                        props: { name: 'globe', size: 16 },
+                        type: 'link' as const,
+                        props: {
+                          href: '#',
+                          className:
+                            'inline-flex items-center justify-center w-8 h-8 rounded-md text-sovereignty-gray-500 hover:text-sovereignty-light hover:bg-sovereignty-gray-800 transition-colors duration-150',
+                          'data-lang-switch': '$t:nav.lang.code',
+                          'aria-label': 'Switch language',
+                          title: '$t:nav.lang.label',
+                        },
+                        children: [
+                          {
+                            type: 'icon' as const,
+                            props: { name: 'globe', size: 16 },
+                          },
+                        ],
                       },
                     ],
                   },

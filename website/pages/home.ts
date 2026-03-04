@@ -377,8 +377,6 @@ export const home: Page = {
                 langIcon: 'file-text',
                 langLabel: 'YAML',
                 code: [
-                  '# app.yaml — database, auth, pages, theme in one file',
-                  '',
                   'name: company-crm',
                   'version: 1.0.0',
                   '',
@@ -436,7 +434,6 @@ export const home: Page = {
                 langIcon: 'terminal',
                 langLabel: 'Terminal',
                 code: [
-                  '# Start from any config format',
                   'sovrium start app.yaml            # YAML (recommended)',
                   'sovrium start app.json            # JSON',
                   'bun run app.ts                    # TypeScript with full type safety',

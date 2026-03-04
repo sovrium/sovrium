@@ -38,31 +38,38 @@
 - For buttons with complex inner structure: use `button` type with `span` children
 - For SVG-like elements: use CSS-styled `span` elements (e.g., hamburger bars with `bg-current`)
 
-## Responsive Navbar
+## Responsive Navbar (Updated 2026-03-04)
 - Navbar created via `createNavbar(activePage?)` factory in `website/pages/navbar.ts`
 - `NavPage` type: `'docs' | 'partner' | 'about'` -- pass to highlight corresponding link
-- Deprecated `navbar` const still exported (calls `createNavbar()` with no active page)
 - **Active state (desktop)**: `text-sovereignty-light` (bright white, no hover classes)
 - **Active state (mobile)**: `text-sovereignty-light bg-sovereignty-gray-800` (bright white + bg)
 - **Inactive state (desktop)**: `text-sovereignty-gray-400 hover:text-sovereignty-light`
 - **Inactive state (mobile)**: `text-sovereignty-gray-300 hover:text-sovereignty-light hover:bg-sovereignty-gray-800`
 - Active links get `aria-current="page"` for accessibility
-- Desktop: `hidden md:flex` on nav links container
-- Mobile: hamburger button (`button` type, `id="mobile-menu-btn"`) with Lucide `menu`/`x` icons
-- Icon toggle: JS swaps `display:none/block` between `#mobile-menu-icon` and `#mobile-close-icon`
-- Scripts: `mobileMenuScript` + `langSwitchScript` + `searchScript` in every page's `scripts.inlineScripts`
 
-### Mobile Menu Structure (Updated 2026-03-04)
+### Desktop Navbar Layout (lg+ 1024px)
+- Left group: Logo + Search button (wide, input-like, `hidden md:flex`)
+- Right group: Docs | Services | About | GitHub icon | Get Started CTA | Globe lang switcher
+- Globe icon: wrapped in `hidden lg:block` div (hidden at md, shown at lg+)
+- Search text: "Search docs..." (lg+) / "Search" (md only) via `hidden lg:inline` / `lg:hidden`
+
+### Desktop Navbar Layout (md 768px)
+- Same as lg+ but: globe icon hidden, search shows short text only
+- No version badge on Docs link (removed), no vertical separator
+
+### Mobile Menu Structure
 - Outer div: `absolute top-full left-0 w-full overflow-hidden z-50` with inline `background-color:#050810`
 - Inner div: `overflow-y-auto` with inline `height:calc(100dvh - 4rem)` to fill viewport below navbar
-- **3 groups** separated by `h-px bg-sovereignty-gray-800 my-3` dividers:
-  - Group 1: `<nav aria-label="Mobile navigation">` with Docs, Services, About links
-  - Group 2: `<div>` with Search button + GitHub link (utility links)
-  - Group 3: `<div>` with CTA button + language switcher (inline row: "Language"/"Langue" label + bordered button)
+- **4 groups** separated by `h-px bg-sovereignty-gray-800 my-3` dividers:
+  - Group 1: Search button (full-width, first item, `data-search-btn`)
+  - Group 2: `<nav aria-label="Mobile navigation">` with Docs, Services, About links
+  - Group 3: GitHub link with icon + text
+  - Group 4: CTA button + language switcher row ("Language"/"Langue" label + bordered button)
 - Animation: `maxHeight` transition (300ms ease-in-out) via inline style on outer div
 - JS opens: `maxHeight="100dvh"`, `body.overflow="hidden"`
 - JS closes: `maxHeight="0px"`, setTimeout 300ms to add `hidden`, `body.overflow=""`
 - i18n key `nav.lang.switch.label`: "Language" (en) / "Langue" (fr)
+- Scripts: `mobileMenuScript` + `langSwitchScript` + `searchScript` in every page's `scripts.inlineScripts`
 
 ### Mobile Menu CSS Gotchas (CRITICAL)
 - `fixed` positioning DOES NOT WORK inside `sticky` parent (navbar section has `sticky top-0`)
@@ -72,6 +79,16 @@
   - Use inline `style="background-color:#050810"` for guaranteed opaque background
 - `transition-all` Tailwind class on the outer div conflicts with `hidden` toggling
   - Use inline `style` for specific `transition:max-height 300ms ease-in-out` instead
+
+## CSS Compiler Responsive Utility Limitations (CRITICAL - Discovered 2026-03-04)
+- The custom CSS compiler generates responsive `@media` rules at: `sm:` (40rem), `md:` (48rem), `lg:` (64rem), `xl:` (80rem), `2xl:` (96rem)
+- **BUT only generates responsive variants for utilities actually used in existing component source code**
+- Available at `md:`: `block`, `flex`, `inline`, `none` (display); NO `inline-flex`
+- Available at `lg:`: `block`, `grid`, `inline`, `none` (display); NO `flex`, NO `inline-flex`
+- Responsive width utilities like `md:w-48`, `lg:w-64` are NOT generated (use inline `style` instead)
+- **Workaround for hidden→visible**: Use `hidden md:flex` (works) not `hidden md:inline-flex` (not generated)
+- **Workaround for lg-only visibility**: Wrap element in a `div` with `hidden lg:block` class
+- **Workaround for responsive widths**: Use inline `style="min-width:Xpx"` instead of `md:w-N lg:w-N`
 
 ## Base Button Style Override (RESOLVED 2026-02-23)
 - **FIXED**: Bare `button` type selector was REMOVED from `@layer components` in `component-layer-generators.ts`
