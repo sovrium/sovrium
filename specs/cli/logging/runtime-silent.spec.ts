@@ -34,7 +34,7 @@ test.describe('CLI Runtime Silent Behavior', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-LOG-RUNTIME-001: CSS request produces no console output',
     { tag: '@spec' },
     async () => {
@@ -58,7 +58,7 @@ test.describe('CLI Runtime Silent Behavior', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-LOG-RUNTIME-002: CSS compilation logs at debug level only',
     { tag: '@spec' },
     async () => {
@@ -86,7 +86,7 @@ test.describe('CLI Runtime Silent Behavior', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-LOG-RUNTIME-003: JS asset serving produces no console output',
     { tag: '@spec' },
     async () => {
@@ -110,7 +110,7 @@ test.describe('CLI Runtime Silent Behavior', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-LOG-RUNTIME-004: CSS errors still log at error level',
     { tag: '@spec' },
     async () => {
@@ -122,7 +122,7 @@ test.describe('CLI Runtime Silent Behavior', () => {
     }
   )
 
-  test.fixme(
+  test(
     'CLI-LOG-RUNTIME-005: no "Press Ctrl+C" message in output',
     { tag: '@spec' },
     async () => {
@@ -150,7 +150,7 @@ test.describe('CLI Runtime Silent Behavior', () => {
   // @regression test - ONE optimized integration test
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-LOG-RUNTIME-REGRESSION: runtime silence regression workflow',
     { tag: '@regression' },
     async () => {
