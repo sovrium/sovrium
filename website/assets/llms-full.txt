@@ -2,8 +2,8 @@
 
 > Sovrium is a self-hosted, configuration-driven application platform. Define your entire app — data models, authentication, pages, themes, analytics — in a single YAML or JSON file. This document is the complete reference for LLMs, covering getting started guides, the full app schema reference, and additional resources.
 
-**Schema Version**: 0.1.0
-**JSON Schema**: https://sovrium.com/schemas/0.1.0/app.schema.json
+**Schema Version**: 0.2.0
+**JSON Schema**: https://sovrium.com/schemas/0.2.0/app.schema.json
 **License**: Business Source License 1.1 (BSL 1.1)
 
 ---
@@ -2003,7 +2003,7 @@ The Sovrium app schema is published as a JSON Schema (Draft-07) for validation, 
 
 | URL | Description |
 |-----|-------------|
-| `https://sovrium.com/schemas/0.1.0/app.schema.json` | Versioned schema (stable, pinned to release) |
+| `https://sovrium.com/schemas/0.2.0/app.schema.json` | Versioned schema (stable, pinned to release) |
 | `https://sovrium.com/schemas/latest/app.schema.json` | Latest schema (always points to current version) |
 
 ### Editor Integration
@@ -2040,7 +2040,7 @@ if (!validate(config)) {
 }
 ```
 
-Interactive schema explorer: https://json-schema.app/view/%23?url=https%3A%2F%2Fsovrium.com%2Fschemas%2F0.1.0%2Fapp.schema.json
+Interactive schema explorer: https://json-schema.app/view/%23?url=https%3A%2F%2Fsovrium.com%2Fschemas%2F0.2.0%2Fapp.schema.json
 
 ---
 
@@ -2049,8 +2049,8 @@ Interactive schema explorer: https://json-schema.app/view/%23?url=https%3A%2F%2F
 | Resource | URL | Description |
 |----------|-----|-------------|
 | LLM Quick Reference | https://sovrium.com/llms.txt | Concise link index optimized for LLMs |
-| JSON Schema | https://sovrium.com/schemas/0.1.0/app.schema.json | Machine-readable JSON Schema (Draft-07) |
-| Schema Explorer | https://json-schema.app/view/%23?url=https%3A%2F%2Fsovrium.com%2Fschemas%2F0.1.0%2Fapp.schema.json | Interactive visual schema explorer |
+| JSON Schema | https://sovrium.com/schemas/0.2.0/app.schema.json | Machine-readable JSON Schema (Draft-07) |
+| Schema Explorer | https://json-schema.app/view/%23?url=https%3A%2F%2Fsovrium.com%2Fschemas%2F0.2.0%2Fapp.schema.json | Interactive visual schema explorer |
 | API Reference | https://sovrium.com/en/docs/api-reference | Interactive REST API documentation (Scalar UI) |
 | GitHub | https://github.com/sovrium/sovrium | Source code, issues, and contributions |
 | Vision | https://github.com/sovrium/sovrium/blob/main/VISION.md | Product vision and roadmap |
@@ -2207,4 +2207,4 @@ analytics:
 
 ---
 
-*Generated for Sovrium v0.1.0 — https://sovrium.com*
+*Generated for Sovrium v0.2.0 — https://sovrium.com*

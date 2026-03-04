@@ -96,6 +96,7 @@
     "db:studio": "drizzle-kit studio",
     "db:drop": "drizzle-kit drop",
     "db:check": "drizzle-kit check",
+    "sync:website": "bun run scripts/sync-website-docs.ts",
     "website": "bun --watch run website/start.ts",
     "website:build": "bun run website/build.ts",
     "analyze-commits": "bun run scripts/analyze-commits.ts",

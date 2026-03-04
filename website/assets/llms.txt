@@ -7,7 +7,7 @@ Sovrium turns declarative configuration into production-ready applications with 
 ## Docs
 
 - [Full LLM Reference](https://sovrium.com/llms-full.txt): Complete documentation for LLMs (~2200 lines)
-- [JSON Schema](https://sovrium.com/schemas/0.1.0/app.schema.json): Machine-readable JSON Schema (Draft-07) for validation and editor support
+- [JSON Schema](https://sovrium.com/schemas/0.2.0/app.schema.json): Machine-readable JSON Schema (Draft-07) for validation and editor support
 - [API Reference](https://sovrium.com/en/docs/api-reference): Interactive REST API documentation (Scalar UI) — 60+ endpoints across 7 categories
 - [GitHub](https://github.com/sovrium/sovrium): Source code repository
 - [License](https://github.com/sovrium/sovrium/blob/main/LICENSE.md): Business Source License 1.1

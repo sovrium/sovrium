@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Sovrium API",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "REST API specification for Sovrium application.\n\n**Generated Schema**: This schema is automatically generated from the runtime implementation. It reflects the currently implemented endpoints and their schemas.\n\n**Design Specs**: Hand-written OpenAPI specs in `docs/specifications/app/` define the complete API design. Comparing this generated schema with the design specs shows implementation progress."
   },
   "servers": [

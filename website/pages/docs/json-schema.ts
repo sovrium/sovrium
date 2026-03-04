@@ -10,7 +10,7 @@ import { calloutTip, codeBlock, docsPage, sectionHeader, subsectionHeader } from
 
 // ─── Schema Explorer URL ────────────────────────────────────────────────────
 // Use the `latest` alias for the explorer link so it always resolves to an existing
-// schema file. The versioned URL (e.g., /schemas/0.1.1/) may not exist yet if the
+// schema file. The versioned URL (e.g., /schemas/0.2.0/) may not exist yet if the
 // website is built after a version bump but before the sync-docs workflow deploys the
 // new schema. The `latest` symlink is always kept in sync during deployment.
 

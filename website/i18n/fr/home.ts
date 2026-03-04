@@ -63,7 +63,7 @@ export const home: Record<string, string> = {
   'home.features.auth.title': '🔐 Auth & contrôle d’accès',
   'home.features.auth.point1': '• Email/mot de passe, OAuth social & liens magiques',
   'home.features.auth.point2': '• Accès par rôle (admin, membre, lecteur)',
-  'home.features.auth.point3': '• Authentification à deux facteurs & passkeys',
+  'home.features.auth.point3': '• Authentification à deux facteurs',
   'home.features.ui.title': '🎨 UI & thèmes',
   'home.features.ui.point1': '• 62 types de composants avec pages React SSR',
   'home.features.ui.point2': '• Schémas de couleurs & typographie personnalisés',
