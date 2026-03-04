@@ -6,6 +6,7 @@
  */
 
 export const nav: Record<string, string> = {
+  'nav.home.href': '/en',
   'nav.partner': 'Services',
   'nav.partner.href': '/en/partner',
   'nav.about': 'About',

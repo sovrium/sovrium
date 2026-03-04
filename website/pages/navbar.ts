@@ -377,11 +377,11 @@ export function createNavbar(activePage?: NavPage) {
                   className: 'flex items-center gap-4 shrink-0',
                 },
                 children: [
-                  // Logo (links to home)
+                  // Logo (links to home in current language)
                   {
                     type: 'link' as const,
                     props: {
-                      href: '/',
+                      href: '$t:nav.home.href',
                       className: 'flex items-center shrink-0',
                     },
                     children: [
