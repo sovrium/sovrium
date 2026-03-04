@@ -4,8 +4,8 @@
 
 | Doc File | Quality | Notes |
 |----------|---------|-------|
-| `docs/infrastructure/cicd/workflows.md` | Good | 2026-03-03: Fixed 3 stale semantic-release refs; fixed Bun version update instructions; added analyze-commits dry-run; corrected manual release flow |
-| `docs/infrastructure/release/release-script.md` | Good | 2026-03-03: Added critical note that manual release requires manual publish (CI exits early — tag already exists); updated comparison table; corrected developer workflow |
+| `docs/infrastructure/cicd/workflows.md` | Good | 2026-03-04: CRITICAL fix — Release workflow requires explicit `release:` HEAD commit (not any conventional commit push); replaced misleading simplified test.yml YAML; rewrote Workflow Orchestration with correct 2-path flow |
+| `docs/infrastructure/release/release-script.md` | Good | 2026-03-04: CRITICAL fix — Documented `release:` commit as explicit trigger; rewrote developer workflow with correct 2-path flow; corrected why CI exits early (0 commits since new tag, not tag-exists) |
 | `docs/infrastructure/runtime/bun.md` | Good | Version updated 1.3.9→1.3.10 |
 | `docs/infrastructure/language/typescript.md` | Good | Removed false tsc wrapper v2.0.4 claim; target string vs array fixed |
 | `docs/infrastructure/quality/eslint.md` | Good | Versions updated (9.39.1→9.39.2, typescript-eslint updated) |
@@ -57,6 +57,8 @@ Last verified against package.json (bun@1.3.10):
 10. **Better Auth twoFactor()**: Called with NO arguments — modelName option removed
 11. **Better Auth Drizzle schema keys**: Must use model names (user, session, account) NOT table names (GitHub #5879)
 12. **Better Auth usePlural**: Must be false (not true)
+13. **Release trigger misunderstood**: docs said "push conventional commits → CI releases". WRONG. `release.yml` only runs when HEAD starts with `release:`. Conventional commits determine bump level, not release trigger. Both automated and manual release paths use a `release:` HEAD commit.
+14. **CI "exits early" reason**: When manual script runs, CI exits because analyze-commits finds 0 commits since the new tag — NOT because the tag already exists (that claim appeared in old docs).
 
 ## Key File Paths
 

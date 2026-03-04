@@ -33,81 +33,51 @@ All workflow files are located in `.github/workflows/`:
 
 The Test workflow runs quality checks and tests on every push to main and on pull requests targeting main. This ensures code quality before it gets merged or released.
 
-### Configuration
-
-```yaml
-name: Test
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: package.json # Uses version from packageManager field
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Lint code
-        run: bun run lint
-
-      - name: Check formatting
-        run: bun run format:check
-
-      - name: Type check
-        run: bun run typecheck
-
-      - name: Run unit tests
-        run: bun test .test.ts .test.tsx
-
-      - name: Install Playwright browsers
-        run: bunx playwright install --with-deps chromium
-
-      - name: Run E2E tests
-        run: bun test:e2e
-```
-
 ### What the Test Workflow Does
 
-1. **Checkout** - Fetches the repository code
-2. **Setup Bun** - Installs Bun using version from package.json
-3. **Install Dependencies** - Runs `bun install --frozen-lockfile`
-4. **Lint** - Checks code quality with ESLint
-5. **Format Check** - Verifies code formatting with Prettier
-6. **Type Check** - Validates TypeScript types with tsc
-7. **Unit Tests** - Runs Bun unit tests
-8. **E2E Tests** - Installs Playwright browsers and runs E2E tests
+The actual `test.yml` is significantly more complex than a simple sequential pipeline. Key jobs:
 
-### Fail-Fast Strategy
+1. **detect-change-type** (PR only) - Detects TDD automation PRs and test-only changes for reduced CI scope
+2. **quality** (push/PR) - Lint → format check → typecheck → unit tests
+3. **e2e** (push/PR) - Sharded Playwright E2E tests (8 shards × 2 workers) with retry logic
+4. **tdd-handling** - Auto-merge on success for TDD PRs, dispatch Claude Code on failure
 
-Tests run sequentially and fail fast:
+**Key configuration**:
 
-- If linting fails, subsequent steps don't run
-- If type checking fails, tests don't run
-- If unit tests fail, E2E tests don't run
+- Bun version from `packageManager` field in `package.json` (via `bun-version-file: package.json`)
+- E2E sharding: 8 shards × 2 workers = 16 effective parallel workers
+- Concurrency: Cancel in-progress for PRs (fast feedback), keep running for main pushes
+- Permissions: `contents: read`, `actions: write`, `issues: write`, `pull-requests: write`
 
-This saves Test time and resources by stopping at the first failure.
+**Quality steps** (sequential, fail-fast):
+
+```
+bun run lint          # ESLint
+bun run format:check  # Prettier
+bun run typecheck     # tsc --noEmit
+bun test .test.ts .test.tsx  # Bun unit tests
+```
+
+> For the full workflow YAML, see `.github/workflows/test.yml`
 
 ## Release Workflow (release.yml)
 
 ### Purpose
 
-The release workflow **automatically** analyzes conventional commits, determines the version bump, publishes to npm, and creates a GitHub Release. It runs after the Test workflow completes successfully on main.
+The release workflow analyzes conventional commits since the last tag, determines the version bump, publishes to npm, and creates a GitHub Release. It runs after the Test workflow completes successfully on main — but **only** when the HEAD commit message starts with `release:`.
+
+### Trigger Condition (Critical)
+
+The Release workflow only runs when **both** conditions are true:
+
+1. The Test workflow completed with `success` on the `main` branch
+2. The HEAD commit message starts with `release:` (e.g., `release: publish`)
+
+This is an explicit opt-in gate. Pushing `feat:` or `fix:` commits alone does **not** trigger a release.
 
 ### How It Works
 
-1. **Trigger Check** - Only runs if Test succeeded, not `[skip ci]`, not `chore(release):`
+1. **Trigger Check** - Test succeeded AND HEAD starts with `release:`
 2. **Checkout** - Fetches full git history (for commit analysis)
 3. **Setup Bun + Node.js** - Bun for scripts, Node.js for `npm publish --provenance`
 4. **Analyze Commits** - `scripts/analyze-commits.ts` parses git log since last tag
@@ -155,35 +125,43 @@ The release workflow **automatically** analyzes conventional commits, determines
 
 ## Workflow Orchestration
 
-The workflows run in sequence:
+The workflows run in sequence. A release requires an explicit `release:` commit as the trigger.
+
+### Primary Path (Automated Release)
 
 ```
-git push origin main (conventional commits)
-       ↓
-Test Workflow runs (quality checks + tests)
-       ↓ (if successful)
-Release Workflow runs:
-  → Analyze commits (feat: → minor, fix: → patch, etc.)
-  → If releasable: bump version, export schemas, update CHANGELOG
-  → Commit "chore(release): X.Y.Z [skip ci]" + tag
-  → npm publish + GitHub Release
-       ↓
-Website sync triggered
+1. Push conventional commits (these do NOT trigger release alone)
+   git commit -m "feat(auth): add OAuth2"
+   git push origin main
+         ↓ Test runs (quality + tests)
+
+2. When ready to release, push a "release:" trigger commit
+   git commit --allow-empty -m "release: publish"
+   git push origin main
+         ↓ Test runs (quality + tests)
+         ↓ (HEAD starts with "release:" → Release workflow triggers)
+   Release Workflow:
+     → Analyze commits since last tag (feat: → minor, fix: → patch, etc.)
+     → If no releasable commits → exit early (no publish)
+     → Bump version, export schemas, update CHANGELOG
+     → Commit "chore(release): X.Y.Z [skip ci]" + tag vX.Y.Z
+     → npm publish + GitHub Release
+         ↓
+   Website sync triggered (non-blocking)
 ```
 
-### Manual Override
-
-For emergencies, the manual release script handles local versioning:
+### Manual Override Path
 
 ```
 bun run release patch --message "Hotfix"
+  (creates local commit "release: X.Y.Z" + tag vX.Y.Z)
        ↓
 git push origin main --follow-tags
        ↓
-Test → Release workflow runs but exits early:
-  analyze-commits.ts finds 0 commits since the new tag → bump = null → skip
+Test → Release workflow triggers (HEAD is "release: X.Y.Z")
+  → analyze-commits finds 0 commits since new tag → exits early (no publish)
        ↓
-You must publish manually (CI won't):
+You must publish manually:
   npm publish --provenance --access public
   gh release create "vX.Y.Z" --title "vX.Y.Z" --notes "..."
 ```
@@ -206,12 +184,13 @@ See `@docs/infrastructure/release/release-script.md` for the complete manual rel
 
 ### Release Workflow Triggers
 
-- **After Test completes** - Only runs if Test workflow succeeds on main
-- **Skip conditions**:
+- **Required condition**: Test workflow succeeded on main AND HEAD commit starts with `release:`
+- **Skip conditions** (even if HEAD starts with `release:`):
   - Test workflow failed
-  - Commit message contains `[skip ci]`
-  - Commit message starts with `chore(release):`
   - No releasable commits since last tag (`feat:`, `fix:`, `perf:`, or breaking changes)
+- **Anti-loop guards** (prevent infinite CI loops):
+  - Release commit uses `chore(release): X.Y.Z [skip ci]` — `[skip ci]` prevents test.yml from re-triggering
+  - `chore(release):` prefix does not start with `release:` → Release workflow condition fails even without `[skip ci]`
 
 ## Using [skip ci] in Commits
 
@@ -231,21 +210,24 @@ git commit -m "docs: update README [skip ci]"
 
 ## Local Workflow Testing
 
-### Test Test Steps Locally
+### Replicate Test Steps Locally
 
 ```bash
-# Run the same checks that Test runs
+# Run the quality checks that CI runs (equivalent to the quality job)
+bun run quality           # Full quality pipeline (recommended)
+
+# Or run individual steps:
 bun run lint
 bun run format:check
 bun run typecheck
 bun test .test.ts .test.tsx    # Unit tests (pattern-filtered)
-bun test:e2e                   # E2E tests (Playwright)
+bun test:e2e                   # E2E tests (all — use test:e2e:regression for agents)
 ```
 
-### Test Release Process Locally
+### Preview Release Locally
 
 ```bash
-# Preview what CI would release (simulates automated commit analysis)
+# Preview what CI would release (simulates commit analysis from last tag)
 bun run analyze-commits --dry-run
 
 # Preview specific tag range

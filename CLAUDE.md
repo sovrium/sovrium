@@ -237,12 +237,12 @@ npm publish --provenance --access public  # Must run manually after push
 - **See**: `@docs/architecture/testing-strategy/14-using-test-steps-for-readability.md` for comprehensive guide with architectural rationale, patterns, and adoption metrics
 
 ### Commit Messages (Conventional Commits - REQUIRED)
-- `feat:` → Triggers **minor** release in CI (new features)
-- `fix:`, `perf:` → Triggers **patch** release in CI (bug fixes, performance)
-- `!` (e.g., `feat!:`) or `BREAKING CHANGE:` in body → Triggers **major** release
+- `feat:` → Determines **minor** bump when CI analyzes commits at release time
+- `fix:`, `perf:` → Determines **patch** bump when CI analyzes commits at release time
+- `!` (e.g., `feat!:`) or `BREAKING CHANGE:` in body → Determines **major** bump
 - `chore(release):` → Created by CI automated release — **never create manually**
-- `release:` → **Triggers CI release** (e.g., `release: publish`) OR created by `bun run release` manual script
-- `docs:`, `style:`, `refactor:`, `test:`, `chore:`, `ci:`, `build:` → No version bump
+- `release:` → **Triggers CI release gate** (e.g., `release: publish`). `feat:/fix:` commits alone do NOT trigger a release — only a `release:` HEAD commit does.
+- `docs:`, `style:`, `refactor:`, `test:`, `chore:`, `ci:`, `build:` → No version bump (appear in changelog only if mixed with releasable commits)
 
 ## Architecture Principles
 
