@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { z } from 'zod'
+import { z } from '@hono/zod-openapi'
 
 // ============================================================================
 // Activity Log Schemas
