@@ -53,18 +53,17 @@ jobs:
         id: analyze
         run: |
           RESULT=$(bun run scripts/analyze-commits.ts)
-          echo "result=$RESULT" >> "$GITHUB_OUTPUT"
 
           # Extract fields for subsequent steps
           BUMP=$(echo "$RESULT" | jq -r '.bump')
           NEW_VERSION=$(echo "$RESULT" | jq -r '.newVersion')
           CHANGELOG=$(echo "$RESULT" | jq -r '.changelog')
 
-          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
-          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-
-          # Multiline output for changelog
+          # Group all GITHUB_OUTPUT writes into a single redirect
           {
+            echo "result=$RESULT"
+            echo "bump=$BUMP"
+            echo "new_version=$NEW_VERSION"
             echo "changelog<<CHANGELOG_EOF"
             echo "$CHANGELOG"
             echo "CHANGELOG_EOF"
