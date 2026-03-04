@@ -6,6 +6,7 @@ Thank you for your interest in contributing to Sovrium! We welcome contributions
 
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
+- [How Development Works](#how-development-works)
 - [Development Workflow](#development-workflow)
 - [Commit Guidelines](#commit-guidelines)
 - [Contributor License Agreement (CLA)](#contributor-license-agreement-cla)
@@ -24,7 +25,8 @@ By participating in this project, you agree to maintain a respectful, inclusive,
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) v1.3.3 or higher
+- [Bun](https://bun.sh) v1.3.10 or higher
+- [PostgreSQL](https://www.postgresql.org/) 15 or higher
 - Git
 - A GitHub account
 
@@ -46,50 +48,80 @@ By participating in this project, you agree to maintain a respectful, inclusive,
    ```
 5. **Verify your setup**:
    ```bash
-   bun run lint && bun run typecheck && bun test:unit
+   bun run quality --skip-e2e --skip-coverage
    ```
+
+## How Development Works
+
+Sovrium uses **spec-driven development**. Instead of writing application code directly, contributors define _what_ the system should do through specifications. A TDD automation pipeline then handles the implementation.
+
+### What Contributors Write
+
+| Artifact           | Location                 | Purpose                                        |
+| ------------------ | ------------------------ | ---------------------------------------------- |
+| **User Stories**   | `docs/user-stories/`     | Feature requirements in structured markdown    |
+| **Domain Schemas** | `src/domain/models/app/` | Effect Schemas defining data structures        |
+| **API Schemas**    | `src/domain/models/api/` | Zod schemas for OpenAPI contracts              |
+| **E2E Test Specs** | `specs/`                 | Playwright tests that define expected behavior |
+
+### The TDD Pipeline
+
+When E2E test specs contain `.fixme()` markers, the TDD automation pipeline picks them up:
+
+1. **PR Creator** scans `specs/` for `.fixme()` tests and opens a TDD pull request
+2. **Claude Code** implements the minimum code needed to make the tests pass
+3. **CI validates** the implementation against the full quality pipeline
+4. **Auto-merge** happens when all tests are GREEN
+
+Contributors focus on writing precise, well-structured specs. The pipeline turns them into working code.
+
+### Source of Truth Hierarchy
+
+User Stories → Domain Schemas → API Schemas → E2E Tests → Implementation
+
+Each layer constrains the next. A well-written user story leads to a clear schema, which leads to a focused test, which leads to correct code.
+
+### Direct Code Contributions
+
+Traditional code contributions (bug fixes, refactoring, performance improvements) are still welcome via standard pull requests. The spec-driven workflow applies primarily to new features.
 
 ## Development Workflow
 
-### Creating a Feature Branch
+### Branch Naming
 
 ```bash
-git checkout -b feat/your-feature-name
-# or
-git checkout -b fix/your-bug-fix
+git checkout -b feat/your-feature-name   # New feature specs
+git checkout -b fix/your-bug-fix         # Bug fixes
+git checkout -b docs/your-doc-change     # Documentation
 ```
 
-### Making Changes
+### Writing Specifications
 
-1. **Follow coding standards** - See [CLAUDE.md](CLAUDE.md) for detailed guidelines:
-   - No semicolons (Prettier enforced)
-   - Single quotes
-   - 100 character line width
-   - TypeScript strict mode
-   - Functional programming patterns (ESLint enforced)
+1. **Start with a user story** in `docs/user-stories/` describing the feature from the user's perspective
+2. **Design domain schemas** in `src/domain/models/app/` using Effect Schema
+3. **Define API contracts** in `src/domain/models/api/` using Zod (for OpenAPI compatibility)
+4. **Write E2E test specs** in `specs/` using Playwright — mark tests with `.fixme()` to signal they need implementation
 
-2. **Write tests**:
-   - Unit tests: Co-located with source files (`*.test.ts`)
-   - E2E tests: In `tests/` directory (`*.spec.ts`)
-   - Aim for high coverage of new code
+### Coding Standards
 
-3. **Keep commits focused** - One logical change per commit
+See [CLAUDE.md](CLAUDE.md) for detailed guidelines:
+
+- No semicolons (Prettier enforced)
+- Single quotes, 100 character line width
+- TypeScript strict mode
+- Functional programming patterns (ESLint enforced)
 
 ### Running Quality Checks
 
-Before committing, always run:
+Before committing, run the quality pipeline:
 
 ```bash
-# Run all checks
-bun run lint && bun run format && bun run typecheck && bun test:unit
-
-# Or individually
-bun run lint          # ESLint
-bun run format        # Prettier formatting
-bun run typecheck     # TypeScript type checking
-bun test:unit         # Unit tests
-bun test:e2e          # E2E tests
+bun run quality              # Full pipeline (format, lint, types, tests, E2E)
+bun run quality --skip-e2e   # Skip E2E tests (faster for spec-only changes)
+bun run progress             # Validate specs and user stories
 ```
+
+The `quality` command runs Prettier, ESLint, TypeScript, unit tests, Knip, and E2E tests in sequence. No need to run them individually.
 
 ## Commit Guidelines
 
@@ -122,8 +154,8 @@ We use **[Conventional Commits](https://www.conventionalcommits.org/)** for auto
 ### Examples
 
 ```bash
-# Feature (minor version bump)
-git commit -m "feat(tables): add multi-select field support"
+# Feature spec (minor version bump)
+git commit -m "feat(tables): add multi-select field spec and E2E tests"
 
 # Bug fix (patch version bump)
 git commit -m "fix(auth): resolve session expiration bug"
@@ -161,11 +193,11 @@ You grant **ESSENTIAL SERVICES** and recipients of software distributed by ESSEN
 
 By contributing, you certify that:
 
-- ✅ You have the right to grant the above licenses
-- ✅ Your contribution is your original creation or you have rights to submit it
-- ✅ Your contribution does not violate any third-party rights
-- ✅ You are aware that Sovrium is fair-code licensed and may be commercially licensed
-- ✅ You understand that ESSENTIAL SERVICES may earn revenue from commercial licenses
+- You have the right to grant the above licenses
+- Your contribution is your original creation or you have rights to submit it
+- Your contribution does not violate any third-party rights
+- You are aware that Sovrium is fair-code licensed and may be commercially licensed
+- You understand that ESSENTIAL SERVICES may earn revenue from commercial licenses
 
 ### Why We Need a CLA
 
@@ -182,12 +214,9 @@ The CLA allows us to:
 
 ### Before Submitting
 
-1. ✅ Ensure all tests pass (`bun test:all`)
-2. ✅ Run code quality checks (`bun run lint && bun run format && bun run typecheck`)
-3. ✅ Update documentation if needed
-4. ✅ Add tests for new features
-5. ✅ Follow commit message conventions
-6. ✅ Rebase on latest `main` branch
+1. Run the quality pipeline: `bun run quality`
+2. Follow commit message conventions
+3. Rebase on latest `main` branch
 
 ### Submitting Your PR
 
@@ -199,55 +228,21 @@ The CLA allows us to:
 
 2. **Create Pull Request** on GitHub with:
    - Clear title following conventional commits format
-   - Description of changes and motivation
+   - Description of what the specs define and why
    - Link to related issues (if applicable)
-   - Screenshots/examples for UI changes
 
-3. **PR Template** (fill this in):
-
-   ```markdown
-   ## Description
-
-   [Describe what this PR does]
-
-   ## Motivation
-
-   [Why is this change needed?]
-
-   ## Type of Change
-
-   - [ ] Bug fix (non-breaking change which fixes an issue)
-   - [ ] New feature (non-breaking change which adds functionality)
-   - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-   - [ ] Documentation update
-
-   ## How Has This Been Tested?
-
-   - [ ] Unit tests
-   - [ ] E2E tests
-   - [ ] Manual testing
-
-   ## Checklist
-
-   - [ ] My code follows the project's style guidelines
-   - [ ] I have performed a self-review of my code
-   - [ ] I have commented my code where necessary
-   - [ ] I have updated the documentation accordingly
-   - [ ] My changes generate no new warnings
-   - [ ] I have added tests that prove my fix is effective or that my feature works
-   - [ ] New and existing unit tests pass locally with my changes
-   - [ ] I agree to the Contributor License Agreement (CLA)
-   ```
+3. **For spec PRs with `.fixme()` tests**: After your PR is merged to `main`, the TDD pipeline will automatically detect the `.fixme()` markers and create a separate implementation PR.
 
 ### Review Process
 
-1. **Automated Checks**: GitHub Actions will run tests and quality checks
-2. **Code Review**: Maintainers will review your code
+1. **Automated Checks**: GitHub Actions runs the full quality pipeline
+2. **Code Review**: Maintainers review your specs and schemas
 3. **Feedback**: Address any requested changes
 4. **Approval**: Once approved, a maintainer will merge your PR
 
 ### After Merging
 
+- Spec PRs with `.fixme()` tests trigger the TDD pipeline for automated implementation
 - Your contribution will be included in the next release
 - You'll be credited in the release notes and contributors list
 - Commercial licenses may include your code (per the CLA)
@@ -261,9 +256,9 @@ The CLA allows us to:
 
 ---
 
-**Thank you for contributing to Sovrium!** 🎉
+**Thank you for contributing to Sovrium!**
 
 Your contributions help build a sustainable, community-driven project that balances open collaboration with commercial viability.
 
-**Copyright**: © 2025 ESSENTIAL SERVICES
+**Copyright**: © 2025-2026 ESSENTIAL SERVICES
 **License**: Business Source License 1.1 (BSL 1.1)
