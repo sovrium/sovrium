@@ -1,3 +1,26 @@
+## [0.2.0](https://github.com/sovrium/sovrium/compare/v0.1.1...v0.2.0) (2026-03-04)
+
+### Features
+
+- **website**: add OG image, Scalar API explorer page, and update meta tags ([61d7a78f8](https://github.com/sovrium/sovrium/commit/61d7a78f8))
+- **website**: deep-link schema properties to JSON Schema viewer ([51721653e](https://github.com/sovrium/sovrium/commit/51721653e))
+- **openapi**: normalize Better Auth endpoints in merged spec ([c69f977c4](https://github.com/sovrium/sovrium/commit/c69f977c4))
+
+### Bug Fixes
+
+- **website**: enable scrolling on Scalar API explorer page ([bf6b7792f](https://github.com/sovrium/sovrium/commit/bf6b7792f))
+- **website**: increase OG image text size for social network readability ([ea616382a](https://github.com/sovrium/sovrium/commit/ea616382a))
+- **website**: use actual Sovrium logo in OG image and improve Scalar init ([23fdab11d](https://github.com/sovrium/sovrium/commit/23fdab11d))
+- **website**: search modal input full width and scrollable results ([2f11f3e8f](https://github.com/sovrium/sovrium/commit/2f11f3e8f))
+- resolve quality pipeline failures (unit test, knip) ([595437189](https://github.com/sovrium/sovrium/commit/595437189))
+- **website**: use latest alias for JSON Schema explorer URL ([508aa1d9d](https://github.com/sovrium/sovrium/commit/508aa1d9d))
+- **website**: switch Scalar sandbox to client for OpenAPI viewer ([5b819756f](https://github.com/sovrium/sovrium/commit/5b819756f))
+- **website**: shorten FR about meta description to fit 160 char limit ([804b78b94](https://github.com/sovrium/sovrium/commit/804b78b94))
+
+### Styles
+
+- reformat generated schema JSON files ([ef07b86ec](https://github.com/sovrium/sovrium/commit/ef07b86ec))
+
 ## [0.1.1](https://github.com/sovrium/sovrium/compare/v0.1.0...v0.1.1) (2026-03-04)
 
 Website improvements: about page deduplication, docs sidebar restructure, SEO metadata, badge additions
