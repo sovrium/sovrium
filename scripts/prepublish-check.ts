@@ -22,7 +22,7 @@
  *   4. exports field exists
  *   5. No test files in package
  *   6. No CHANGELOG.md in package
- *   7. No development schemas in package
+ *   7. No schemas in package (generated artifacts, consumers regenerate via `bun run export:schema`)
  *   8. Unpacked size under threshold
  */
 
@@ -206,13 +206,15 @@ function checkNoChangelog(pack: PackInfo): CheckResult {
   }
 }
 
-function checkNoDevSchemas(pack: PackInfo): CheckResult {
-  const devSchemas = pack.files.filter((f) => f.startsWith('schemas/development/'))
-  const passed = devSchemas.length === 0
+function checkNoSchemas(pack: PackInfo): CheckResult {
+  const schemas = pack.files.filter((f) => f.startsWith('schemas/'))
+  const passed = schemas.length === 0
   return {
-    label: 'No development schemas',
+    label: 'No schemas in package',
     passed,
-    detail: passed ? 'Excluded' : `Found ${devSchemas.length} dev schema file(s)`,
+    detail: passed
+      ? 'Excluded (consumers regenerate via bun run export:schema)'
+      : `Found ${schemas.length} schema file(s) — remove schemas/** from files array`,
   }
 }
 
@@ -250,7 +252,7 @@ async function main() {
     checkExports(pkg),
     checkNoTestFiles(pack),
     checkNoChangelog(pack),
-    checkNoDevSchemas(pack),
+    checkNoSchemas(pack),
     checkSize(pack, maxSize),
   ]
 

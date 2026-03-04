@@ -48,8 +48,6 @@
   ],
   "files": [
     "drizzle/**",
-    "schemas/**",
-    "!schemas/development/**",
     "src/**/*.ts",
     "src/**/*.tsx",
     "src/**/*.css",

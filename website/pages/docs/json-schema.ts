@@ -9,10 +9,14 @@ import { rawVersion } from '../navbar'
 import { calloutTip, codeBlock, docsPage, sectionHeader, subsectionHeader } from './shared'
 
 // ─── Schema Explorer URL ────────────────────────────────────────────────────
+// Use the `latest` alias for the explorer link so it always resolves to an existing
+// schema file. The versioned URL (e.g., /schemas/0.1.1/) may not exist yet if the
+// website is built after a version bump but before the sync-docs workflow deploys the
+// new schema. The `latest` symlink is always kept in sync during deployment.
 
-const schemaUrl = `https://sovrium.com/schemas/${rawVersion}/app.schema.json`
-const encodedSchemaUrl = encodeURIComponent(schemaUrl)
-const explorerUrl = `https://json-schema.app/view/%23?url=${encodedSchemaUrl}`
+const explorerSchemaUrl = 'https://sovrium.com/schemas/latest/app.schema.json'
+const encodedExplorerSchemaUrl = encodeURIComponent(explorerSchemaUrl)
+const explorerUrl = `https://json-schema.app/view/%23?url=${encodedExplorerSchemaUrl}`
 
 // ─── Schema Root Properties Preview ─────────────────────────────────────────
 
