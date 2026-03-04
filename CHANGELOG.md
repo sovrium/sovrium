@@ -1,3 +1,7 @@
+## [0.1.1](https://github.com/sovrium/sovrium/compare/v0.1.0...v0.1.1) (2026-03-04)
+
+Website improvements: about page deduplication, docs sidebar restructure, SEO metadata, badge additions
+
 ## [0.1.0](https://github.com/sovrium/sovrium/compare/v0.0.2...v0.1.0) (2026-03-03)
 
 ### Features
