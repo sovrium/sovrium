@@ -48,9 +48,9 @@ const scalarCustomStyles = [
       '  --scalar-button-1-hover: #2563eb !important;',
       '  font-family: Inter, system-ui, -apple-system, sans-serif !important;',
       '}',
-      // Full-page layout: no scrollbar on body, Scalar fills viewport
-      'html, body { margin: 0; padding: 0; overflow: hidden; height: 100%; }',
-      '#scalar-api-reference { height: 100vh; }',
+      // Full-page layout: Scalar fills viewport and handles its own scrolling
+      'html, body { margin: 0; padding: 0; height: 100%; overflow: auto; }',
+      '#scalar-api-reference { height: 100vh; overflow: hidden; }',
       // Remove Scalar's own header/top bar
       '.scalar-api-reference .scalar-api-reference__header { display: none !important; }',
     ].join('\n'),
@@ -62,7 +62,7 @@ const scalarCustomStyles = [
 const scalarInitScript = {
   code: [
     '(function(){',
-    'if(typeof Scalar==="undefined"){console.warn("Scalar not loaded");return}',
+    'function init(){',
     'Scalar.createApiReference("#scalar-api-reference",{',
     'url:"/docs/openapi.json",',
     'darkMode:true,',
@@ -72,7 +72,14 @@ const scalarInitScript = {
     'searchHotKey:"k",',
     'defaultHttpClient:{targetKey:"javascript",clientKey:"fetch"},',
     'metaData:{title:"Sovrium API Reference"}',
-    '});',
+    '});}',
+    'if(typeof Scalar!=="undefined"){init();return}',
+    'var attempts=0;',
+    'var timer=setInterval(function(){',
+    'attempts++;',
+    'if(typeof Scalar!=="undefined"){clearInterval(timer);init()}',
+    'else if(attempts>100){clearInterval(timer);console.error("Scalar CDN failed to load")}',
+    '},100);',
     '})();',
   ].join(''),
   position: 'body-end' as const,
