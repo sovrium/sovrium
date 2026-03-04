@@ -141,14 +141,15 @@ const REFERENCES_PAGES: readonly DocsPageEntry[] = [
     sidebarHref: '$t:docs.sidebar.apiReference.href',
     section: 'references',
   },
+  {
+    id: 'json-schema',
+    sidebarLabel: '$t:docs.sidebar.jsonSchema',
+    sidebarHref: '$t:docs.sidebar.jsonSchema.href',
+    section: 'references',
+  },
 ]
 
 const REFERENCES_EXTERNAL_LINKS: readonly DocsSidebarExternalLink[] = [
-  {
-    label: '$t:docs.sidebar.jsonSchema',
-    href: '/schemas/latest/app.schema.json',
-    external: true,
-  },
   {
     label: '$t:docs.sidebar.llmReference',
     href: '/llms.txt',

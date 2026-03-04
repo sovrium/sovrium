@@ -8,6 +8,7 @@
 export { docsAnalytics } from './analytics'
 export { docsApiReference } from './api-reference'
 export { docsAuth } from './auth'
+export { docsJsonSchema } from './json-schema'
 export { docsInstallation } from './installation'
 export { docsIntroduction } from './introduction'
 export { docsLanguages } from './languages'

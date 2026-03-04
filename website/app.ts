@@ -18,6 +18,7 @@ import {
   docsAuth,
   docsInstallation,
   docsIntroduction,
+  docsJsonSchema,
   docsLanguages,
   docsOverview,
   docsPages,
@@ -148,5 +149,6 @@ export const app: App = {
     docsLanguages,
     docsAnalytics,
     docsApiReference,
+    docsJsonSchema,
   ],
 }
