@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process'
 import { build } from '@/index'
 import { app } from './app'
 
@@ -12,3 +13,9 @@ await build(app, {
   languages: ['en', 'fr'],
   defaultLanguage: 'en',
 })
+
+// Run Pagefind to index the built HTML and generate search assets.
+// The search index is written to ./website/build/pagefind/ and loaded
+// lazily by the search modal on first interaction.
+// eslint-disable-next-line functional/no-expression-statements -- Post-build indexing step
+execSync('bunx pagefind --site ./website/build', { stdio: 'inherit' })

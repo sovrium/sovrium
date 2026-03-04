@@ -49,6 +49,186 @@ const mobileNavLinkActiveClass =
 export type NavPage = 'docs' | 'partner' | 'about'
 
 /**
+ * Inline script that powers the Pagefind search modal.
+ *
+ * Features:
+ * - Opens on click of `#search-btn` or `[data-search-btn]`
+ * - Opens on `Cmd+K` (macOS) / `Ctrl+K` (Windows/Linux)
+ * - Closes on `Escape`, backdrop click, or close button
+ * - Lazy-loads Pagefind UI JS/CSS on first open
+ * - Auto-focuses the search input when modal opens
+ * - Prevents body scroll when modal is open
+ *
+ * Import and add to the page's `scripts.inlineScripts` array.
+ */
+export const searchScript = {
+  code: [
+    '(function(){',
+    'var modal=document.getElementById("search-modal");',
+    'var container=document.getElementById("search-container");',
+    'if(!modal||!container)return;',
+    'var loaded=false;',
+    'function open(){',
+    'modal.classList.remove("hidden");',
+    'modal.setAttribute("aria-hidden","false");',
+    'document.body.style.overflow="hidden";',
+    'requestAnimationFrame(function(){',
+    'modal.querySelector("[data-search-backdrop]").style.opacity="1";',
+    'modal.querySelector("[data-search-panel]").style.opacity="1";',
+    'modal.querySelector("[data-search-panel]").style.transform="scale(1)";',
+    '});',
+    'if(!loaded){',
+    'loaded=true;',
+    'var css=document.createElement("link");',
+    'css.rel="stylesheet";css.href="/pagefind/pagefind-ui.css";',
+    'document.head.appendChild(css);',
+    'var js=document.createElement("script");',
+    'js.src="/pagefind/pagefind-ui.js";',
+    'js.onload=function(){',
+    'new PagefindUI({element:container,showSubResults:true,showImages:false});',
+    'setTimeout(function(){var i=container.querySelector("input");if(i)i.focus()},100);',
+    '};',
+    'document.body.appendChild(js);',
+    '}else{',
+    'setTimeout(function(){var i=container.querySelector("input");if(i){i.focus();i.select()}},50);',
+    '}',
+    '}',
+    'function close(){',
+    'modal.querySelector("[data-search-backdrop]").style.opacity="0";',
+    'modal.querySelector("[data-search-panel]").style.opacity="0";',
+    'modal.querySelector("[data-search-panel]").style.transform="scale(0.95)";',
+    'setTimeout(function(){',
+    'modal.classList.add("hidden");',
+    'modal.setAttribute("aria-hidden","true");',
+    'document.body.style.overflow="";',
+    '},200);',
+    '}',
+    'document.querySelectorAll("#search-btn,[data-search-btn]").forEach(function(b){',
+    'b.addEventListener("click",function(e){e.preventDefault();open()});',
+    '});',
+    'modal.querySelector("[data-search-backdrop]").addEventListener("click",close);',
+    'modal.querySelector("[data-search-close]").addEventListener("click",close);',
+    'document.addEventListener("keydown",function(e){',
+    'if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();open()}',
+    'if(e.key==="Escape"&&!modal.classList.contains("hidden"))close();',
+    '});',
+    '})();',
+  ].join(''),
+  position: 'body-end' as const,
+}
+
+/**
+ * Creates the search modal overlay section.
+ *
+ * This should be placed as a top-level section in every page's `sections` array,
+ * after the navbar. The modal is hidden by default and shown via `searchScript`.
+ *
+ * Uses a dark backdrop overlay with a centered search panel styled to match
+ * the sovereignty dark theme. Pagefind UI CSS variables are overridden inline
+ * to match the brand colors.
+ */
+export function createSearchModal() {
+  return {
+    type: 'div' as const,
+    props: {
+      id: 'search-modal',
+      className: 'hidden fixed inset-0 z-[100]',
+      'aria-hidden': 'true',
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-label': 'Search',
+      'data-pagefind-ignore': 'all',
+    },
+    children: [
+      // Backdrop
+      {
+        type: 'div' as const,
+        props: {
+          'data-search-backdrop': 'true',
+          className: 'fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200',
+          style: 'opacity:0',
+        },
+      },
+      // Panel
+      {
+        type: 'div' as const,
+        props: {
+          className: 'fixed inset-0 flex items-start justify-center pt-[15vh] px-4',
+        },
+        children: [
+          {
+            type: 'div' as const,
+            props: {
+              'data-search-panel': 'true',
+              className:
+                'w-full max-w-2xl bg-sovereignty-darker border border-sovereignty-gray-800 rounded-xl shadow-2xl overflow-hidden transition-all duration-200',
+              style:
+                'opacity:0;transform:scale(0.95);--pagefind-ui-scale:0.9;--pagefind-ui-primary:#3b82f6;--pagefind-ui-text:#e8ecf4;--pagefind-ui-background:#050810;--pagefind-ui-border:#1f2937;--pagefind-ui-tag:#111827;--pagefind-ui-border-width:1px;--pagefind-ui-border-radius:8px;--pagefind-ui-image-border-radius:8px;--pagefind-ui-image-box-ratio:0;--pagefind-ui-font:Inter,system-ui,-apple-system,sans-serif',
+            },
+            children: [
+              // Header with close button
+              {
+                type: 'flex' as const,
+                props: {
+                  className: 'items-center justify-between px-5 pt-4 pb-2',
+                },
+                children: [
+                  {
+                    type: 'span' as const,
+                    content: '$t:nav.search.title',
+                    props: {
+                      className: 'text-sm font-medium text-sovereignty-gray-400',
+                    },
+                  },
+                  {
+                    type: 'flex' as const,
+                    props: { className: 'items-center gap-3' },
+                    children: [
+                      {
+                        type: 'span' as const,
+                        content: '$t:nav.search.shortcut',
+                        props: {
+                          className:
+                            'hidden sm:inline text-[11px] text-sovereignty-gray-500 border border-sovereignty-gray-700 rounded px-1.5 py-0.5',
+                        },
+                      },
+                      {
+                        type: 'button' as const,
+                        props: {
+                          'data-search-close': 'true',
+                          type: 'button',
+                          className:
+                            'inline-flex items-center justify-center w-7 h-7 rounded bg-transparent hover:bg-sovereignty-gray-800 p-0 text-sovereignty-gray-500 hover:text-sovereignty-light transition-colors duration-150',
+                          'aria-label': 'Close search',
+                        },
+                        children: [
+                          {
+                            type: 'icon' as const,
+                            props: { name: 'x', size: 16 },
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              // Pagefind UI container
+              {
+                type: 'div' as const,
+                props: {
+                  id: 'search-container',
+                  className: 'px-5 pb-5',
+                },
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }
+}
+
+/**
  * Inline script that enables the language switcher link in the navbar.
  *
  * On page load, finds every `[data-lang-switch]` anchor and sets its `href`
@@ -146,6 +326,7 @@ export function createNavbar(activePage?: NavPage) {
     props: {
       className:
         'bg-sovereignty-darker border-b border-sovereignty-gray-800 sticky top-0 z-50 relative',
+      'data-pagefind-ignore': 'all',
     },
     children: [
       {
@@ -245,6 +426,39 @@ export function createNavbar(activePage?: NavPage) {
                       'data-lang-switch': '$t:nav.lang.code',
                       'aria-label': 'Switch language',
                     },
+                  },
+
+                  // Search button (desktop)
+                  {
+                    type: 'button' as const,
+                    props: {
+                      id: 'search-btn',
+                      type: 'button',
+                      className:
+                        'inline-flex items-center gap-2 h-8 px-3 rounded-lg border border-sovereignty-gray-700 bg-sovereignty-gray-900/50 text-sovereignty-gray-400 hover:text-sovereignty-light hover:border-sovereignty-gray-500 transition-colors duration-200 cursor-pointer',
+                      'aria-label': 'Search documentation',
+                    },
+                    children: [
+                      {
+                        type: 'icon' as const,
+                        props: { name: 'search', size: 14 },
+                      },
+                      {
+                        type: 'span' as const,
+                        content: '$t:nav.search',
+                        props: {
+                          className: 'text-xs font-medium',
+                        },
+                      },
+                      {
+                        type: 'span' as const,
+                        content: '$t:nav.search.shortcut',
+                        props: {
+                          className:
+                            'text-[10px] text-sovereignty-gray-500 border border-sovereignty-gray-700 rounded px-1 py-px ml-1',
+                        },
+                      },
+                    ],
                   },
 
                   // GitHub icon link
@@ -380,6 +594,27 @@ export function createNavbar(activePage?: NavPage) {
                       className: mobileClass('about'),
                       ...(activePage === 'about' ? { 'aria-current': 'page' } : {}),
                     },
+                  },
+
+                  // Search button (mobile)
+                  {
+                    type: 'button' as const,
+                    props: {
+                      'data-search-btn': 'true',
+                      type: 'button',
+                      className:
+                        'flex items-center gap-3 text-sovereignty-gray-300 hover:text-sovereignty-light hover:bg-sovereignty-gray-800 transition-colors duration-150 text-base font-medium px-4 py-3 rounded-lg w-full bg-transparent p-0 cursor-pointer',
+                    },
+                    children: [
+                      {
+                        type: 'icon' as const,
+                        props: { name: 'search', size: 18 },
+                      },
+                      {
+                        type: 'span' as const,
+                        content: '$t:nav.search',
+                      },
+                    ],
                   },
 
                   // GitHub link (mobile)

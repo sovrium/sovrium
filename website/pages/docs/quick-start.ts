@@ -85,6 +85,10 @@ export const docsQuickStart = docsPage({
   path: '/docs/quick-start',
   metaTitle: '$t:docs.quickStart.meta.title',
   metaDescription: '$t:docs.quickStart.meta.description',
+  toc: [
+    { label: '$t:docs.quickStart.chooseApproach', anchor: 'choose-approach' },
+    { label: '$t:docs.quickStart.whatsNext.title', anchor: 'whats-next' },
+  ],
   content: [
     // ── Header ──────────────────────────────────────────────────────────
     {

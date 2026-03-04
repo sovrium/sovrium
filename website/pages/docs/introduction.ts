@@ -12,6 +12,12 @@ export const docsIntroduction = docsPage({
   path: '/docs',
   metaTitle: '$t:docs.introduction.meta.title',
   metaDescription: '$t:docs.introduction.meta.description',
+  toc: [
+    { label: '$t:docs.introduction.what.title', anchor: 'what-is-sovrium' },
+    { label: '$t:docs.introduction.why.title', anchor: 'why-sovrium' },
+    { label: '$t:docs.introduction.how.title', anchor: 'how-it-works' },
+    { label: '$t:docs.introduction.next.title', anchor: 'next-steps' },
+  ],
   content: [
     // ── Header ──────────────────────────────────────────────────────────
     {

@@ -78,7 +78,8 @@ export const en: Record<string, string> = {
     'Define tables, auth, pages, and theme in one file. Deploy on your infrastructure. No per-seat pricing. No vendor lock-in.',
   'home.hero.cta.primary': 'Get Started',
   'home.hero.cta.secondary': 'Star on GitHub',
-  'home.hero.trust': 'Source-available \u00B7 BSL 1.1 \u00B7 Built with Bun, Effect.ts, Hono & React 19',
+  'home.hero.trust':
+    'Source-available \u00B7 BSL 1.1 \u00B7 Built with Bun, Effect.ts, Hono & React 19',
 
   // ── Home: Problem Statement ─────────────────────────────────────────
   'home.problem.title': 'The SaaS Trap',
@@ -800,6 +801,7 @@ export const en: Record<string, string> = {
 
   // ── Docs: Sidebar ─────────────────────────────────────────────────
   'docs.sidebar.toggle': 'Menu',
+  'docs.toc.heading': 'On this page',
   'docs.sidebar.section.getStarted': 'Get Started',
   'docs.sidebar.section.appSchema': 'App Schema',
   'docs.sidebar.introduction': 'Introduction',

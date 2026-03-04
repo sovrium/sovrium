@@ -12,6 +12,15 @@ export const docsPages = docsPage({
   path: '/docs/pages',
   metaTitle: '$t:docs.pages.meta.title',
   metaDescription: '$t:docs.pages.meta.description',
+  toc: [
+    { label: '$t:docs.pages.structure.title', anchor: 'page-structure' },
+    { label: '$t:docs.pages.pageProps.title', anchor: 'page-properties' },
+    { label: '$t:docs.pages.metaSeo.title', anchor: 'meta-seo' },
+    { label: '$t:docs.pages.componentModel.title', anchor: 'component-model' },
+    { label: '$t:docs.pages.componentTypes.title', anchor: 'component-types' },
+    { label: '$t:docs.pages.interactions.title', anchor: 'interactions' },
+    { label: '$t:docs.pages.templates.title', anchor: 'templates' },
+  ],
   content: [
     // ── Title ────────────────────────────────────────────────────────────
     {

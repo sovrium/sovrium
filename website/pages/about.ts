@@ -7,7 +7,13 @@
 
 import { favicons } from './favicons'
 import { footerI18n } from './footer'
-import { createNavbar, langSwitchScript, mobileMenuScript } from './navbar'
+import {
+  createNavbar,
+  createSearchModal,
+  langSwitchScript,
+  mobileMenuScript,
+  searchScript,
+} from './navbar'
 import type { Page } from '@/index'
 
 export const about: Page = {
@@ -16,7 +22,8 @@ export const about: Page = {
   meta: {
     title: '$t:about.meta.title',
     description: '$t:about.meta.description',
-    keywords: 'sovrium, about, vision, team, ESSENTIAL SERVICES, digital sovereignty, open source',
+    keywords:
+      'sovrium, about, vision, team, ESSENTIAL SERVICES, digital sovereignty, source-available',
     author: 'ESSENTIAL SERVICES',
     canonical: 'https://sovrium.com/about',
     favicons,
@@ -43,7 +50,7 @@ export const about: Page = {
         url: 'https://sovrium.com',
         logo: 'https://sovrium.com/logos/sovrium-horizontal-dark.svg',
         description:
-          'ESSENTIAL SERVICES builds Sovrium, an open-source configuration-driven application platform for digital sovereignty.',
+          'ESSENTIAL SERVICES builds Sovrium, a source-available configuration-driven application platform for digital sovereignty.',
         founder: {
           '@type': 'Person',
           name: 'Thomas Jeanneau',
@@ -56,11 +63,14 @@ export const about: Page = {
     },
   },
   scripts: {
-    inlineScripts: [langSwitchScript, mobileMenuScript],
+    inlineScripts: [langSwitchScript, mobileMenuScript, searchScript],
   },
   sections: [
     // Navigation Bar
     createNavbar('about'),
+
+    // Search Modal
+    createSearchModal(),
 
     // --- Section 1: Hero ---------------------------------------------------
     {
@@ -388,12 +398,12 @@ export const about: Page = {
       ],
     },
 
-    // --- Section 7: Open Source CTA ----------------------------------------
+    // --- Section 7: Source-Available CTA ------------------------------------
     {
       type: 'section',
       props: {
         className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
-        id: 'open-source',
+        id: 'source-available',
       },
       children: [
         {

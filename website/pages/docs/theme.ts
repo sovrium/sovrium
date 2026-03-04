@@ -12,6 +12,13 @@ export const docsTheme = docsPage({
   path: '/docs/theme',
   metaTitle: '$t:docs.theme.meta.title',
   metaDescription: '$t:docs.theme.meta.description',
+  toc: [
+    { label: '$t:docs.theme.colors.title', anchor: 'colors' },
+    { label: '$t:docs.theme.fonts.title', anchor: 'fonts' },
+    { label: '$t:docs.theme.spacing.title', anchor: 'spacing' },
+    { label: '$t:docs.theme.advanced.title', anchor: 'advanced' },
+    { label: '$t:docs.theme.fullExample.title', anchor: 'full-example' },
+  ],
   content: [
     // ── Title ────────────────────────────────────────────────────────────
     {

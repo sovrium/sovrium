@@ -12,6 +12,13 @@ export const docsInstallation = docsPage({
   path: '/docs/installation',
   metaTitle: '$t:docs.installation.meta.title',
   metaDescription: '$t:docs.installation.meta.description',
+  toc: [
+    { label: '$t:docs.installation.global.title', anchor: 'global-installation' },
+    { label: '$t:docs.installation.project.title', anchor: 'project-dependency' },
+    { label: '$t:docs.installation.verify.title', anchor: 'verify-installation' },
+    { label: '$t:docs.installation.config.title', anchor: 'create-config' },
+    { label: '$t:docs.installation.database.title', anchor: 'database-setup' },
+  ],
   content: [
     // ── Header ──────────────────────────────────────────────────────────
     {

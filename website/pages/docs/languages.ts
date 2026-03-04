@@ -12,6 +12,13 @@ export const docsLanguages = docsPage({
   path: '/docs/languages',
   metaTitle: '$t:docs.languages.meta.title',
   metaDescription: '$t:docs.languages.meta.description',
+  toc: [
+    { label: '$t:docs.languages.defining.title', anchor: 'defining-languages' },
+    { label: '$t:docs.languages.entryProps.title', anchor: 'language-entry' },
+    { label: '$t:docs.languages.translations.title', anchor: 'translation-keys' },
+    { label: '$t:docs.languages.usage.title', anchor: 'using-translations' },
+    { label: '$t:docs.languages.adding.title', anchor: 'adding-language' },
+  ],
   content: [
     // ── Title ────────────────────────────────────────────────────────────
     {

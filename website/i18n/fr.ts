@@ -63,24 +63,25 @@ export const fr: Record<string, string> = {
   // ── Home: Meta ──────────────────────────────────────────────────────
   'home.meta.title': 'Sovrium \u2014 Une config. Une app compl\u00E8te. Contr\u00F4le total.',
   'home.meta.description':
-    'Plateforme open-source auto-h\u00E9berg\u00E9e qui transforme un fichier de config en application m\u00E9tier compl\u00E8te. 100% propri\u00E9taire de vos donn\u00E9es, z\u00E9ro d\u00E9pendance fournisseur.',
+    'Plateforme source-available auto-h\u00E9berg\u00E9e : un fichier de config, une application m\u00E9tier compl\u00E8te. Propri\u00E9taire de vos donn\u00E9es, z\u00E9ro vendor lock-in.',
   'home.meta.og.title': 'Sovrium \u2014 Une config. Une app compl\u00E8te. Contr\u00F4le total.',
   'home.meta.og.description':
-    'Plateforme open-source auto-h\u00E9berg\u00E9e qui transforme un fichier de config en application m\u00E9tier compl\u00E8te. 100% propri\u00E9taire de vos donn\u00E9es, z\u00E9ro d\u00E9pendance fournisseur.',
+    'Plateforme source-available auto-h\u00E9berg\u00E9e qui transforme un fichier de config en application m\u00E9tier compl\u00E8te. 100% propri\u00E9taire de vos donn\u00E9es, z\u00E9ro d\u00E9pendance fournisseur.',
   'home.meta.twitter.title':
     'Sovrium \u2014 Une config. Une app compl\u00E8te. Contr\u00F4le total.',
   'home.meta.twitter.description':
-    'Plateforme open-source auto-h\u00E9berg\u00E9e qui transforme un fichier de config en application m\u00E9tier compl\u00E8te. 100% propri\u00E9taire de vos donn\u00E9es, z\u00E9ro d\u00E9pendance fournisseur.',
+    'Plateforme source-available auto-h\u00E9berg\u00E9e qui transforme un fichier de config en application m\u00E9tier compl\u00E8te. 100% propri\u00E9taire de vos donn\u00E9es, z\u00E9ro d\u00E9pendance fournisseur.',
 
   // ── Home: Hero ──────────────────────────────────────────────────────
   'home.hero.title': 'Une config. Une app compl\u00E8te. Contr\u00F4le total.',
-  'home.hero.subtitle': 'Open-source. Auto-h\u00E9berg\u00E9. Pilot\u00E9 par la configuration.',
+  'home.hero.subtitle':
+    'Source-available. Auto-h\u00E9berg\u00E9. Pilot\u00E9 par la configuration.',
   'home.hero.description':
     'D\u00E9finissez vos tables, auth, pages et th\u00E8me dans un seul fichier. D\u00E9ployez sur votre infrastructure. Sans tarification par utilisateur. Sans d\u00E9pendance fournisseur.',
   'home.hero.cta.primary': 'Commencer',
   'home.hero.cta.secondary': '\u00C9toiler sur GitHub',
   'home.hero.trust':
-    'Open source \u00B7 BSL 1.1 \u00B7 Construit avec Bun, Effect.ts, Hono & React 19',
+    'Source-available \u00B7 BSL 1.1 \u00B7 Construit avec Bun, Effect.ts, Hono & React 19',
 
   // ── Home: Problem Statement ─────────────────────────────────────────
   'home.problem.title': 'Le pi\u00E8ge du SaaS',
@@ -398,7 +399,7 @@ export const fr: Record<string, string> = {
   // ── Company: CTA ───────────────────────────────────────────────────
   'about.cta.title': 'Rejoignez le mouvement',
   'about.cta.description':
-    'Sovrium est open source et en d\u00E9veloppement actif. Mettez une \u00E9toile au repo, contribuez du code, ou construisez avec nous.',
+    'Sovrium est source-available et en d\u00E9veloppement actif. Mettez une \u00E9toile au repo, contribuez du code, ou construisez avec nous.',
   'about.cta.github': 'Voir sur GitHub',
   'about.cta.partner': 'Travailler avec nous',
   'about.cta.partner.href': '/fr/partner',
@@ -615,7 +616,7 @@ export const fr: Record<string, string> = {
   'privacy.s2.selfHosted.item4': '\u2022 Surveillons votre utilisation ou vos d\u00E9ploiements',
   'privacy.s2.selfHosted.note':
     'Vous \u00EAtes le responsable du traitement de toutes les donn\u00E9es trait\u00E9es par votre installation Sovrium.',
-  'privacy.s2.github.title': '2.4 GitHub et Open Source',
+  'privacy.s2.github.title': '2.4 GitHub et code source',
   'privacy.s2.github.p1':
     'Lorsque vous interagissez avec notre d\u00E9p\u00F4t GitHub (issues, pull requests, discussions), GitHub collecte des donn\u00E9es conform\u00E9ment \u00E0 sa politique de confidentialit\u00E9. Nous pouvons voir les informations publiques que vous partagez sur GitHub.',
   'privacy.s2.facebook.title': '2.5 Facebook et connexion sociale',
@@ -833,6 +834,7 @@ export const fr: Record<string, string> = {
 
   // ── Docs: Sidebar ─────────────────────────────────────────────────
   'docs.sidebar.toggle': 'Menu',
+  'docs.toc.heading': 'Sur cette page',
   'docs.sidebar.section.getStarted': 'Pour commencer',
   'docs.sidebar.section.appSchema': 'Schéma applicatif',
   'docs.sidebar.introduction': 'Introduction',
@@ -993,7 +995,7 @@ export const fr: Record<string, string> = {
   // ── Docs: Get Started — Introduction ────────────────────────────
   'docs.introduction.header.title': 'Introduction',
   'docs.introduction.header.description':
-    'Sovrium est une plateforme open-source, auto-h\u00E9berg\u00E9e, qui transforme un seul fichier de configuration en une application web compl\u00E8te.',
+    'Sovrium est une plateforme source-available, auto-h\u00E9berg\u00E9e, qui transforme un seul fichier de configuration en une application web compl\u00E8te.',
   'docs.introduction.what.title': 'Qu\u2019est-ce que Sovrium\u00A0?',
   'docs.introduction.what.description':
     'Sovrium est une plateforme applicative pilot\u00E9e par la configuration. Vous d\u00E9crivez votre application dans un fichier YAML ou JSON \u2014 mod\u00E8les de donn\u00E9es, authentification, pages, th\u00E8mes, analytiques \u2014 et Sovrium la transforme en application web full-stack fonctionnelle.',
@@ -1011,7 +1013,7 @@ export const fr: Record<string, string> = {
   'docs.introduction.why.point3.title': 'Complexit\u00E9 progressive',
   'docs.introduction.why.point3.description':
     'Commencez avec juste un nom. Ajoutez tables, th\u00E8me, pages, auth et analytiques selon vos besoins.',
-  'docs.introduction.why.point4.title': 'Open source',
+  'docs.introduction.why.point4.title': 'Source-available',
   'docs.introduction.why.point4.description':
     'Business Source License 1.1. Gratuit pour usage interne. Devient Apache 2.0 en 2029.',
   'docs.introduction.how.title': 'Comment \u00E7a marche',

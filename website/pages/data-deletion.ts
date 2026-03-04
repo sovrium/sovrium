@@ -7,7 +7,13 @@
 
 import { favicons } from './favicons'
 import { footerI18n } from './footer'
-import { createNavbar, langSwitchScript, mobileMenuScript } from './navbar'
+import {
+  createNavbar,
+  createSearchModal,
+  langSwitchScript,
+  mobileMenuScript,
+  searchScript,
+} from './navbar'
 import type { Page } from '@/index'
 
 export const dataDeletion: Page = {
@@ -34,11 +40,14 @@ export const dataDeletion: Page = {
     favicons,
   },
   scripts: {
-    inlineScripts: [langSwitchScript, mobileMenuScript],
+    inlineScripts: [langSwitchScript, mobileMenuScript, searchScript],
   },
   sections: [
     // Navigation Bar
     createNavbar(),
+
+    // Search Modal
+    createSearchModal(),
 
     // Header
     {

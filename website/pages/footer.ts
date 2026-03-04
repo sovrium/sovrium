@@ -62,6 +62,7 @@ export const footerI18n = {
   props: {
     className:
       'py-16 bg-sovereignty-darker border-t border-sovereignty-gray-800 text-sovereignty-light',
+    'data-pagefind-ignore': 'all',
   },
   children: [
     {

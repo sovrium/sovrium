@@ -49,7 +49,7 @@
 
 ### What is Sovrium?
 
-Sovrium is an open-source, self-hosted platform that turns a single configuration file into a complete web application. You describe your application in a YAML or JSON file — data models, authentication, pages, themes, analytics — and Sovrium turns it into a running, full-stack web application.
+Sovrium is a source-available, self-hosted platform that turns a single configuration file into a complete web application. You describe your application in a YAML or JSON file — data models, authentication, pages, themes, analytics — and Sovrium turns it into a running, full-stack web application.
 
 No boilerplate code, no framework setup, no build pipeline. Just one file that declares what your app should be.
 
@@ -81,7 +81,7 @@ Most business applications share the same building blocks: data tables, user aut
 - **No vendor lock-in**: Self-hosted on your infrastructure. Your data stays yours.
 - **Configuration over code**: Declare what you need instead of writing boilerplate. 41 field types, 62 component types, built-in auth.
 - **Progressive complexity**: Start with just a name. Add tables, theme, pages, auth, and analytics as your needs grow.
-- **Open source**: Business Source License 1.1. Free for internal use. Becomes Apache 2.0 in 2029.
+- **Source-available**: Business Source License 1.1. Free for internal use. Becomes Apache 2.0 in 2029.
 
 ### How it works
 

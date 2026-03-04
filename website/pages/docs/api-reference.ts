@@ -22,6 +22,18 @@ export const docsApiReference = docsPage({
   path: '/docs/api-reference',
   metaTitle: '$t:docs.apiReference.meta.title',
   metaDescription: '$t:docs.apiReference.meta.description',
+  toc: [
+    { label: '$t:docs.apiReference.baseUrl.title', anchor: 'base-url' },
+    { label: '$t:docs.apiReference.health.title', anchor: 'health' },
+    { label: '$t:docs.apiReference.tables.title', anchor: 'tables' },
+    { label: '$t:docs.apiReference.records.title', anchor: 'records' },
+    { label: '$t:docs.apiReference.views.title', anchor: 'views' },
+    { label: '$t:docs.apiReference.activity.title', anchor: 'activity' },
+    { label: '$t:docs.apiReference.analyticsEndpoints.title', anchor: 'analytics-endpoints' },
+    { label: '$t:docs.apiReference.auth.title', anchor: 'authentication' },
+    { label: '$t:docs.apiReference.features.title', anchor: 'features' },
+    { label: '$t:docs.apiReference.openapi.title', anchor: 'openapi-schema' },
+  ],
   content: [
     // ── Title ────────────────────────────────────────────────────────────
     {

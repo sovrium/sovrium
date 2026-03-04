@@ -12,6 +12,10 @@ export const docsOverview = docsPage({
   path: '/docs/overview',
   metaTitle: '$t:docs.overview.meta.title',
   metaDescription: '$t:docs.overview.meta.description',
+  toc: [
+    { label: '$t:docs.overview.details.title', anchor: 'property-details' },
+    { label: '$t:docs.overview.formats.title', anchor: 'config-formats' },
+  ],
   content: [
     // ── Header ──────────────────────────────────────────────────────────
     {

@@ -137,6 +137,7 @@
     "globals": "^17.4.0",
     "knip": "^5.85.0",
     "otplib": "^13.3.0",
+    "pagefind": "^1.4.0",
     "pg": "^8.19.0",
     "playwright": "^1.58.2",
     "prettier-plugin-tailwindcss": "^0.7.2",

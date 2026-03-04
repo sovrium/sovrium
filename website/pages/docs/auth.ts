@@ -12,6 +12,15 @@ export const docsAuth = docsPage({
   path: '/docs/auth',
   metaTitle: '$t:docs.auth.meta.title',
   metaDescription: '$t:docs.auth.meta.description',
+  toc: [
+    { label: '$t:docs.auth.basic.title', anchor: 'basic-setup' },
+    { label: '$t:docs.auth.strategies.title', anchor: 'strategies' },
+    { label: '$t:docs.auth.oauth.title', anchor: 'oauth' },
+    { label: '$t:docs.auth.roles.title', anchor: 'roles' },
+    { label: '$t:docs.auth.twoFactor.title', anchor: 'two-factor' },
+    { label: '$t:docs.auth.emails.title', anchor: 'email-templates' },
+    { label: '$t:docs.auth.env.title', anchor: 'environment-variables' },
+  ],
   content: [
     // ── Title ────────────────────────────────────────────────────────────
     {

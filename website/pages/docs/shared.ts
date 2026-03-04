@@ -7,7 +7,13 @@
 
 import { favicons } from '../favicons'
 import { footerI18n } from '../footer'
-import { createNavbar, langSwitchScript, mobileMenuScript } from '../navbar'
+import {
+  createNavbar,
+  createSearchModal,
+  langSwitchScript,
+  mobileMenuScript,
+  searchScript,
+} from '../navbar'
 import { shikiHighlightScript, shikiCustomStyles } from '../shiki'
 import type { Page } from '@/index'
 
@@ -28,6 +34,13 @@ const docsSidebarToggleScript = {
     '})();',
   ].join(''),
   position: 'body-end' as const,
+}
+
+// ─── TOC (Table of Contents) Types ──────────────────────────────────────────
+
+export interface TocEntry {
+  readonly label: string
+  readonly anchor: string
 }
 
 // ─── Docs Pages Definition ──────────────────────────────────────────────────
@@ -460,6 +473,94 @@ function buildPrevNext(activeId: string) {
   }
 }
 
+// ─── TOC Scroll Tracking Script ─────────────────────────────────────────────
+// Uses IntersectionObserver to highlight the currently visible section in the
+// right-side "On this page" table of contents. Activates the link whose target
+// section is most recently scrolled into the top portion of the viewport.
+
+const tocScrollTrackingScript = {
+  code: [
+    '(function(){',
+    'var toc=document.getElementById("docs-toc");',
+    'if(!toc)return;',
+    'var links=toc.querySelectorAll("a[data-toc-anchor]");',
+    'if(!links.length)return;',
+    'var ids=[];',
+    'links.forEach(function(l){ids.push(l.getAttribute("data-toc-anchor"))});',
+    'var activeId=null;',
+    'function setActive(id){',
+    'if(id===activeId)return;',
+    'activeId=id;',
+    'links.forEach(function(l){',
+    'var a=l.getAttribute("data-toc-anchor");',
+    'if(a===id){',
+    'l.classList.remove("text-sovereignty-gray-400");',
+    'l.classList.add("text-sovereignty-accent","font-medium");',
+    '}else{',
+    'l.classList.remove("text-sovereignty-accent","font-medium");',
+    'l.classList.add("text-sovereignty-gray-400");',
+    '}',
+    '});',
+    '}',
+    'var observer=new IntersectionObserver(function(entries){',
+    'entries.forEach(function(e){',
+    'if(e.isIntersecting){setActive(e.target.id)}',
+    '});',
+    '},{rootMargin:"-80px 0px -70% 0px",threshold:0});',
+    'ids.forEach(function(id){',
+    'var el=document.getElementById(id);',
+    'if(el)observer.observe(el);',
+    '});',
+    '})();',
+  ].join(''),
+  position: 'body-end' as const,
+}
+
+// ─── TOC Builder ────────────────────────────────────────────────────────────
+// Builds the right-side "On this page" navigation from TocEntry array.
+// Returns an empty array when there are no entries (page has no sections).
+
+function buildTocColumn(entries: readonly TocEntry[]): readonly object[] {
+  if (entries.length === 0) return []
+
+  return [
+    {
+      type: 'nav' as const,
+      props: {
+        id: 'docs-toc',
+        'aria-label': 'Table of contents',
+        className: 'xl:w-48 flex-shrink-0 xl:sticky xl:top-20 xl:self-start hidden xl:block',
+      },
+      children: [
+        {
+          type: 'span' as const,
+          content: '$t:docs.toc.heading',
+          props: {
+            className:
+              'block text-[11px] font-semibold uppercase tracking-wider text-sovereignty-gray-500 mb-3',
+          },
+        },
+        {
+          type: 'div' as const,
+          props: {
+            className: 'border-l border-sovereignty-gray-800 pl-3 space-y-1',
+          },
+          children: entries.map((entry) => ({
+            type: 'link' as const,
+            content: entry.label,
+            props: {
+              href: `#${entry.anchor}`,
+              'data-toc-anchor': entry.anchor,
+              className:
+                'block py-1 text-[13px] leading-snug text-sovereignty-gray-400 hover:text-sovereignty-accent transition-colors duration-150',
+            },
+          })),
+        },
+      ],
+    },
+  ]
+}
+
 // ─── Page Factory ───────────────────────────────────────────────────────────
 
 interface DocsPageOptions {
@@ -468,10 +569,13 @@ interface DocsPageOptions {
   readonly metaTitle: string
   readonly metaDescription: string
   readonly content: readonly object[]
+  readonly toc?: readonly TocEntry[]
 }
 
 export function docsPage(options: DocsPageOptions): Page {
-  const { activeId, path, metaTitle, metaDescription, content } = options
+  const { activeId, path, metaTitle, metaDescription, content, toc = [] } = options
+  const tocColumn = buildTocColumn(toc)
+  const hasToc = tocColumn.length > 0
 
   return {
     name: `docs-${activeId}`,
@@ -486,15 +590,20 @@ export function docsPage(options: DocsPageOptions): Page {
       inlineScripts: [
         mobileMenuScript,
         langSwitchScript,
+        searchScript,
         docsSidebarToggleScript,
         shikiHighlightScript,
+        ...(hasToc ? [tocScrollTrackingScript] : []),
       ],
     },
     sections: [
       // ── Navbar ──────────────────────────────────────────────────────────
       createNavbar('docs'),
 
-      // ── Main Content (Sidebar + Content) ────────────────────────────────
+      // ── Search Modal ──────────────────────────────────────────────────
+      createSearchModal(),
+
+      // ── Main Content (Sidebar + Content + TOC) ─────────────────────────
       {
         type: 'section',
         props: {
@@ -503,7 +612,7 @@ export function docsPage(options: DocsPageOptions): Page {
         children: [
           {
             type: 'container',
-            props: { className: 'max-w-6xl mx-auto px-4 py-12' },
+            props: { className: 'max-w-7xl mx-auto px-4 py-12' },
             children: [
               // Mobile sidebar toggle button
               {
@@ -569,6 +678,9 @@ export function docsPage(options: DocsPageOptions): Page {
                     props: { className: 'flex-1 min-w-0 space-y-12' },
                     children: [...content, buildPrevNext(activeId)],
                   },
+
+                  // ── Table of Contents (right sidebar) ─────────────────
+                  ...tocColumn,
                 ],
               },
             ],

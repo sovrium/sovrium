@@ -7,7 +7,13 @@
 
 import { favicons } from './favicons'
 import { footerI18n } from './footer'
-import { createNavbar, langSwitchScript, mobileMenuScript } from './navbar'
+import {
+  createNavbar,
+  createSearchModal,
+  langSwitchScript,
+  mobileMenuScript,
+  searchScript,
+} from './navbar'
 import { shikiHighlightScript, shikiCustomStyles } from './shiki'
 import type { Page } from '@/index'
 
@@ -68,17 +74,20 @@ export const home: Page = {
           priceCurrency: 'USD',
         },
         description:
-          'Open-source, configuration-driven application platform. Build complete business apps with a single config file.',
+          'Source-available, configuration-driven application platform. Build complete business apps with a single config file.',
       },
     },
     customElements: shikiCustomStyles,
   },
   scripts: {
-    inlineScripts: [langSwitchScript, mobileMenuScript, shikiHighlightScript],
+    inlineScripts: [langSwitchScript, mobileMenuScript, searchScript, shikiHighlightScript],
   },
   sections: [
     // Navigation Bar
     createNavbar(),
+
+    // Search Modal
+    createSearchModal(),
 
     // Hero Section
     {
@@ -118,7 +127,7 @@ export const home: Page = {
             },
             {
               type: 'flex',
-              props: { className: 'flex-col sm:flex-row justify-center gap-4' },
+              props: { className: 'flex-col sm:flex-row justify-center gap-4 mb-8' },
               children: [
                 {
                   type: 'link',
@@ -137,6 +146,205 @@ export const home: Page = {
                     className:
                       'inline-block border-2 border-sovereignty-accent text-sovereignty-accent px-6 sm:px-8 py-3 sm:py-4 rounded-lg font-semibold hover:bg-sovereignty-accent hover:text-white transition-all duration-200 text-center',
                   },
+                },
+              ],
+            },
+            {
+              type: 'paragraph',
+              content: '$t:home.hero.trust',
+              props: {
+                className: 'text-sm text-sovereignty-gray-400 tracking-wide',
+              },
+            },
+          ],
+        },
+      ],
+    },
+
+    // Problem Statement Section
+    {
+      type: 'section',
+      props: {
+        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
+        id: 'problem',
+      },
+      children: [
+        {
+          type: 'container',
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
+          children: [
+            {
+              type: 'h2',
+              content: '$t:home.problem.title',
+              props: {
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-12 md:mb-16',
+              },
+            },
+
+            // Statistics Grid
+            {
+              type: 'grid',
+              props: { className: 'grid grid-cols-1 md:grid-cols-3 gap-8 mb-16' },
+              children: [
+                {
+                  type: 'card',
+                  props: {
+                    className:
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors duration-300',
+                  },
+                  children: [
+                    {
+                      type: 'h3',
+                      content: '$t:home.problem.stat1.value',
+                      props: {
+                        className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
+                      },
+                    },
+                    {
+                      type: 'paragraph',
+                      content: '$t:home.problem.stat1.label',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                  ],
+                },
+                {
+                  type: 'card',
+                  props: {
+                    className:
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors duration-300',
+                  },
+                  children: [
+                    {
+                      type: 'h3',
+                      content: '$t:home.problem.stat2.value',
+                      props: {
+                        className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
+                      },
+                    },
+                    {
+                      type: 'paragraph',
+                      content: '$t:home.problem.stat2.label',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                  ],
+                },
+                {
+                  type: 'card',
+                  props: {
+                    className:
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors duration-300',
+                  },
+                  children: [
+                    {
+                      type: 'h3',
+                      content: '$t:home.problem.stat3.value',
+                      props: {
+                        className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
+                      },
+                    },
+                    {
+                      type: 'paragraph',
+                      content: '$t:home.problem.stat3.label',
+                      props: { className: 'text-sovereignty-gray-400' },
+                    },
+                  ],
+                },
+              ],
+            },
+
+            // Hidden Costs
+            {
+              type: 'div',
+              props: { className: 'max-w-4xl mx-auto' },
+              children: [
+                {
+                  type: 'h3',
+                  content: '$t:home.problem.hidden.title',
+                  props: { className: 'text-xl sm:text-2xl font-semibold mb-6 md:mb-8' },
+                },
+                {
+                  type: 'div',
+                  props: { className: 'space-y-4' },
+                  children: [
+                    {
+                      type: 'div',
+                      props: { className: 'flex items-start' },
+                      children: [
+                        {
+                          type: 'span',
+                          content: '\u274C',
+                          props: { className: 'mr-3 text-xl' },
+                        },
+                        {
+                          type: 'div',
+                          children: [
+                            {
+                              type: 'span',
+                              content: '$t:home.problem.hidden.cost1.title',
+                              props: { className: 'font-semibold text-sovereignty-light' },
+                            },
+                            {
+                              type: 'span',
+                              content: '$t:home.problem.hidden.cost1.description',
+                              props: { className: 'text-sovereignty-gray-400' },
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      type: 'div',
+                      props: { className: 'flex items-start' },
+                      children: [
+                        {
+                          type: 'span',
+                          content: '\u274C',
+                          props: { className: 'mr-3 text-xl' },
+                        },
+                        {
+                          type: 'div',
+                          children: [
+                            {
+                              type: 'span',
+                              content: '$t:home.problem.hidden.cost2.title',
+                              props: { className: 'font-semibold text-sovereignty-light' },
+                            },
+                            {
+                              type: 'span',
+                              content: '$t:home.problem.hidden.cost2.description',
+                              props: { className: 'text-sovereignty-gray-400' },
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                    {
+                      type: 'div',
+                      props: { className: 'flex items-start' },
+                      children: [
+                        {
+                          type: 'span',
+                          content: '\u274C',
+                          props: { className: 'mr-3 text-xl' },
+                        },
+                        {
+                          type: 'div',
+                          children: [
+                            {
+                              type: 'span',
+                              content: '$t:home.problem.hidden.cost3.title',
+                              props: { className: 'font-semibold text-sovereignty-light' },
+                            },
+                            {
+                              type: 'span',
+                              content: '$t:home.problem.hidden.cost3.description',
+                              props: { className: 'text-sovereignty-gray-400' },
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
                 },
               ],
             },
@@ -336,203 +544,11 @@ export const home: Page = {
       ],
     },
 
-    // Problem Statement Section
-    {
-      type: 'section',
-      props: {
-        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
-        id: 'problem',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
-          children: [
-            {
-              type: 'h2',
-              content: '$t:home.problem.title',
-              props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-12 md:mb-16',
-              },
-            },
-
-            // Statistics Grid
-            {
-              type: 'grid',
-              props: { className: 'grid grid-cols-1 md:grid-cols-3 gap-8 mb-16' },
-              children: [
-                {
-                  type: 'card',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                  children: [
-                    {
-                      type: 'h3',
-                      content: '$t:home.problem.stat1.value',
-                      props: {
-                        className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
-                      },
-                    },
-                    {
-                      type: 'paragraph',
-                      content: '$t:home.problem.stat1.label',
-                      props: { className: 'text-sovereignty-gray-400' },
-                    },
-                  ],
-                },
-                {
-                  type: 'card',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                  children: [
-                    {
-                      type: 'h3',
-                      content: '$t:home.problem.stat2.value',
-                      props: {
-                        className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
-                      },
-                    },
-                    {
-                      type: 'paragraph',
-                      content: '$t:home.problem.stat2.label',
-                      props: { className: 'text-sovereignty-gray-400' },
-                    },
-                  ],
-                },
-                {
-                  type: 'card',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                  children: [
-                    {
-                      type: 'h3',
-                      content: '$t:home.problem.stat3.value',
-                      props: {
-                        className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
-                      },
-                    },
-                    {
-                      type: 'paragraph',
-                      content: '$t:home.problem.stat3.label',
-                      props: { className: 'text-sovereignty-gray-400' },
-                    },
-                  ],
-                },
-              ],
-            },
-
-            // Hidden Costs
-            {
-              type: 'div',
-              props: { className: 'max-w-4xl mx-auto' },
-              children: [
-                {
-                  type: 'h3',
-                  content: '$t:home.problem.hidden.title',
-                  props: { className: 'text-xl sm:text-2xl font-semibold mb-6 md:mb-8' },
-                },
-                {
-                  type: 'div',
-                  props: { className: 'space-y-4' },
-                  children: [
-                    {
-                      type: 'div',
-                      props: { className: 'flex items-start' },
-                      children: [
-                        {
-                          type: 'span',
-                          content: '\u274C',
-                          props: { className: 'mr-3 text-xl' },
-                        },
-                        {
-                          type: 'div',
-                          children: [
-                            {
-                              type: 'span',
-                              content: '$t:home.problem.hidden.cost1.title',
-                              props: { className: 'font-semibold text-sovereignty-light' },
-                            },
-                            {
-                              type: 'span',
-                              content: '$t:home.problem.hidden.cost1.description',
-                              props: { className: 'text-sovereignty-gray-400' },
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                    {
-                      type: 'div',
-                      props: { className: 'flex items-start' },
-                      children: [
-                        {
-                          type: 'span',
-                          content: '\u274C',
-                          props: { className: 'mr-3 text-xl' },
-                        },
-                        {
-                          type: 'div',
-                          children: [
-                            {
-                              type: 'span',
-                              content: '$t:home.problem.hidden.cost2.title',
-                              props: { className: 'font-semibold text-sovereignty-light' },
-                            },
-                            {
-                              type: 'span',
-                              content: '$t:home.problem.hidden.cost2.description',
-                              props: { className: 'text-sovereignty-gray-400' },
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                    {
-                      type: 'div',
-                      props: { className: 'flex items-start' },
-                      children: [
-                        {
-                          type: 'span',
-                          content: '\u274C',
-                          props: { className: 'mr-3 text-xl' },
-                        },
-                        {
-                          type: 'div',
-                          children: [
-                            {
-                              type: 'span',
-                              content: '$t:home.problem.hidden.cost3.title',
-                              props: { className: 'font-semibold text-sovereignty-light' },
-                            },
-                            {
-                              type: 'span',
-                              content: '$t:home.problem.hidden.cost3.description',
-                              props: { className: 'text-sovereignty-gray-400' },
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-
     // Comparison Section
     {
       type: 'section',
       props: {
-        className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
+        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
         id: 'comparison',
       },
       children: [
@@ -558,12 +574,7 @@ export const home: Page = {
               children: [
                 {
                   type: 'h3',
-                  content: '$t:home.comparison.stat1',
-                  props: { className: 'text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2' },
-                },
-                {
-                  type: 'h3',
-                  content: '$t:home.comparison.stat2',
+                  content: '$t:home.comparison.stat',
                   props: { className: 'text-xl sm:text-2xl md:text-3xl font-bold text-white' },
                 },
               ],
@@ -609,7 +620,7 @@ export const home: Page = {
                             {
                               type: 'div',
                               props: { className: 'font-semibold text-sovereignty-gray-400' },
-                              content: 'Airtable/Retool/Notion',
+                              content: '$t:home.comparison.table.header.saas',
                             },
                             // Data Ownership
                             {
@@ -765,7 +776,7 @@ export const home: Page = {
             },
             {
               type: 'grid',
-              props: { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8' },
+              props: { className: 'grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8' },
               children: [
                 {
                   type: 'card',
@@ -833,44 +844,6 @@ export const home: Page = {
                   children: [
                     {
                       type: 'h3',
-                      content: '$t:home.useCases.api.title',
-                      props: { className: 'text-xl font-semibold mb-3' },
-                    },
-                    {
-                      type: 'paragraph',
-                      content: '$t:home.useCases.api.description',
-                      props: { className: 'text-sovereignty-gray-400' },
-                    },
-                  ],
-                },
-                {
-                  type: 'card',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                  children: [
-                    {
-                      type: 'h3',
-                      content: '$t:home.useCases.static.title',
-                      props: { className: 'text-xl font-semibold mb-3' },
-                    },
-                    {
-                      type: 'paragraph',
-                      content: '$t:home.useCases.static.description',
-                      props: { className: 'text-sovereignty-gray-400' },
-                    },
-                  ],
-                },
-                {
-                  type: 'card',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                  children: [
-                    {
-                      type: 'h3',
                       content: '$t:home.useCases.mvp.title',
                       props: { className: 'text-xl font-semibold mb-3' },
                     },
@@ -919,9 +892,36 @@ export const home: Page = {
             // Feature Categories Grid
             {
               type: 'grid',
-              props: { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8' },
+              props: {
+                className: 'grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8',
+              },
               children: [
-                // Authentication
+                // Full-Stack Data Layer
+                {
+                  type: 'card',
+                  props: {
+                    className:
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
+                  },
+                  children: [
+                    {
+                      type: 'h3',
+                      content: '$t:home.features.data.title',
+                      props: { className: 'text-xl font-semibold mb-3' },
+                    },
+                    {
+                      type: 'div',
+                      props: { className: 'space-y-1 text-sm text-sovereignty-gray-400' },
+                      children: [
+                        { type: 'paragraph', content: '$t:home.features.data.point1' },
+                        { type: 'paragraph', content: '$t:home.features.data.point2' },
+                        { type: 'paragraph', content: '$t:home.features.data.point3' },
+                      ],
+                    },
+                  ],
+                },
+
+                // Auth & Access Control
                 {
                   type: 'card',
                   props: {
@@ -941,13 +941,12 @@ export const home: Page = {
                         { type: 'paragraph', content: '$t:home.features.auth.point1' },
                         { type: 'paragraph', content: '$t:home.features.auth.point2' },
                         { type: 'paragraph', content: '$t:home.features.auth.point3' },
-                        { type: 'paragraph', content: '$t:home.features.auth.point4' },
                       ],
                     },
                   ],
                 },
 
-                // Tables & Data
+                // UI & Theming
                 {
                   type: 'card',
                   props: {
@@ -957,200 +956,19 @@ export const home: Page = {
                   children: [
                     {
                       type: 'h3',
-                      content: '$t:home.features.tables.title',
+                      content: '$t:home.features.ui.title',
                       props: { className: 'text-xl font-semibold mb-3' },
                     },
                     {
                       type: 'div',
                       props: { className: 'space-y-1 text-sm text-sovereignty-gray-400' },
                       children: [
-                        { type: 'paragraph', content: '$t:home.features.tables.point1' },
-                        { type: 'paragraph', content: '$t:home.features.tables.point2' },
-                        { type: 'paragraph', content: '$t:home.features.tables.point3' },
-                        { type: 'paragraph', content: '$t:home.features.tables.point4' },
+                        { type: 'paragraph', content: '$t:home.features.ui.point1' },
+                        { type: 'paragraph', content: '$t:home.features.ui.point2' },
+                        { type: 'paragraph', content: '$t:home.features.ui.point3' },
                       ],
                     },
                   ],
-                },
-
-                // Records API
-                {
-                  type: 'card',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                  children: [
-                    {
-                      type: 'h3',
-                      content: '$t:home.features.api.title',
-                      props: { className: 'text-xl font-semibold mb-3' },
-                    },
-                    {
-                      type: 'div',
-                      props: { className: 'space-y-1 text-sm text-sovereignty-gray-400' },
-                      children: [
-                        { type: 'paragraph', content: '$t:home.features.api.point1' },
-                        { type: 'paragraph', content: '$t:home.features.api.point2' },
-                        { type: 'paragraph', content: '$t:home.features.api.point3' },
-                        { type: 'paragraph', content: '$t:home.features.api.point4' },
-                      ],
-                    },
-                  ],
-                },
-
-                // Pages & UI
-                {
-                  type: 'card',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                  children: [
-                    {
-                      type: 'h3',
-                      content: '$t:home.features.pages.title',
-                      props: { className: 'text-xl font-semibold mb-3' },
-                    },
-                    {
-                      type: 'div',
-                      props: { className: 'space-y-1 text-sm text-sovereignty-gray-400' },
-                      children: [
-                        { type: 'paragraph', content: '$t:home.features.pages.point1' },
-                        { type: 'paragraph', content: '$t:home.features.pages.point2' },
-                        { type: 'paragraph', content: '$t:home.features.pages.point3' },
-                        { type: 'paragraph', content: '$t:home.features.pages.point4' },
-                      ],
-                    },
-                  ],
-                },
-
-                // Theming & i18n
-                {
-                  type: 'card',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                  children: [
-                    {
-                      type: 'h3',
-                      content: '$t:home.features.theming.title',
-                      props: { className: 'text-xl font-semibold mb-3' },
-                    },
-                    {
-                      type: 'div',
-                      props: { className: 'space-y-1 text-sm text-sovereignty-gray-400' },
-                      children: [
-                        { type: 'paragraph', content: '$t:home.features.theming.point1' },
-                        { type: 'paragraph', content: '$t:home.features.theming.point2' },
-                        { type: 'paragraph', content: '$t:home.features.theming.point3' },
-                        { type: 'paragraph', content: '$t:home.features.theming.point4' },
-                      ],
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-
-    // Tech Stack Section
-    {
-      type: 'section',
-      props: {
-        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
-        id: 'tech-stack',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
-          children: [
-            {
-              type: 'h2',
-              content: '$t:home.techStack.title',
-              props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
-              },
-            },
-            {
-              type: 'paragraph',
-              content: '$t:home.techStack.subtitle',
-              props: {
-                className:
-                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center mb-12 md:mb-16',
-              },
-            },
-            {
-              type: 'grid',
-              props: { className: 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 md:gap-6' },
-              children: [
-                {
-                  type: 'badge',
-                  content: 'Bun 1.3+',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                },
-                {
-                  type: 'badge',
-                  content: 'PostgreSQL 15+',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                },
-                {
-                  type: 'badge',
-                  content: 'React 19',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                },
-                {
-                  type: 'badge',
-                  content: 'Effect.ts',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                },
-                {
-                  type: 'badge',
-                  content: 'Hono',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                },
-                {
-                  type: 'badge',
-                  content: 'Drizzle ORM',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                },
-                {
-                  type: 'badge',
-                  content: 'Better Auth',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
-                },
-                {
-                  type: 'badge',
-                  content: 'Tailwind CSS',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 text-center p-4 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-                  },
                 },
               ],
             },
@@ -1206,7 +1024,7 @@ export const home: Page = {
                     },
                     {
                       type: 'code',
-                      content: 'bun install sovrium',
+                      content: 'bun add -g sovrium',
                       props: {
                         className:
                           'bg-sovereignty-gray-900 px-3 py-1 rounded text-sm font-mono text-sovereignty-teal',
@@ -1257,7 +1075,7 @@ export const home: Page = {
                     },
                     {
                       type: 'code',
-                      content: 'bun sovrium start',
+                      content: 'sovrium start app.yaml',
                       props: {
                         className:
                           'bg-sovereignty-gray-900 px-3 py-1 rounded text-sm font-mono text-sovereignty-teal',
@@ -1290,6 +1108,15 @@ export const home: Page = {
                   ],
                 },
               ],
+            },
+
+            // Tech Line
+            {
+              type: 'paragraph',
+              content: '$t:home.gettingStarted.techLine',
+              props: {
+                className: 'text-sm text-sovereignty-gray-400 text-center mb-12 md:mb-16',
+              },
             },
 
             // Current Status Card

@@ -20,6 +20,15 @@ export const docsTables = docsPage({
   path: '/docs/tables',
   metaTitle: '$t:docs.tables.meta.title',
   metaDescription: '$t:docs.tables.meta.description',
+  toc: [
+    { label: '$t:docs.tables.structure.title', anchor: 'table-structure' },
+    { label: '$t:docs.tables.tableProps.title', anchor: 'table-properties' },
+    { label: '$t:docs.tables.baseFields.title', anchor: 'base-fields' },
+    { label: '$t:docs.tables.fieldTypes.title', anchor: 'field-types' },
+    { label: '$t:docs.tables.relational.title', anchor: 'relational-fields' },
+    { label: '$t:docs.tables.permissions.title', anchor: 'permissions' },
+    { label: '$t:docs.tables.indexes.title', anchor: 'indexes-constraints' },
+  ],
   content: [
     // ── Title ────────────────────────────────────────────────────────────
     {

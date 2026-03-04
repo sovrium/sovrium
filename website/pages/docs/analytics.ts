@@ -12,6 +12,11 @@ export const docsAnalytics = docsPage({
   path: '/docs/analytics',
   metaTitle: '$t:docs.analytics.meta.title',
   metaDescription: '$t:docs.analytics.meta.description',
+  toc: [
+    { label: '$t:docs.analytics.howItWorks.title', anchor: 'how-it-works' },
+    { label: '$t:docs.analytics.quickEnable.title', anchor: 'quick-enable' },
+    { label: '$t:docs.analytics.advanced.title', anchor: 'advanced-config' },
+  ],
   content: [
     // ── Title ────────────────────────────────────────────────────────────
     {
