@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { valueCard, principleItem } from './about-components'
+import { valueCard } from './about-components'
 import {
   docsBadgeItem,
   docsCallout,
@@ -32,7 +32,6 @@ import type { ComponentTemplate } from '@/index'
 export const components: readonly ComponentTemplate[] = [
   // About page
   valueCard,
-  principleItem,
   // Docs page
   docsBadgeItem,
   docsCallout,

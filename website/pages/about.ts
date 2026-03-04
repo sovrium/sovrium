@@ -72,7 +72,7 @@ export const about: Page = {
     // Search Modal
     createSearchModal(),
 
-    // --- Section 1: Hero ---------------------------------------------------
+    // --- Section 1: Hero (simplified — no tagline) ----------------------------
     {
       type: 'section',
       props: {
@@ -105,15 +105,7 @@ export const about: Page = {
               content: '$t:about.hero.subtitle',
               props: {
                 className:
-                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 max-w-3xl mx-auto mb-8',
-              },
-            },
-            {
-              type: 'paragraph',
-              content: '$t:about.hero.tagline',
-              props: {
-                className:
-                  'text-lg sm:text-xl md:text-2xl font-semibold text-sovereignty-light italic',
+                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 max-w-3xl mx-auto',
               },
             },
           ],
@@ -121,12 +113,12 @@ export const about: Page = {
       ],
     },
 
-    // --- Section 2: Mission ------------------------------------------------
+    // --- Section 2: Founder (expanded from old Team) --------------------------
     {
       type: 'section',
       props: {
         className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
-        id: 'mission',
+        id: 'founder',
       },
       children: [
         {
@@ -135,207 +127,7 @@ export const about: Page = {
           children: [
             {
               type: 'h2',
-              content: '$t:about.mission.title',
-              props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
-              },
-            },
-            {
-              type: 'paragraph',
-              content: '$t:about.mission.description',
-              props: {
-                className:
-                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-300 text-center max-w-3xl mx-auto mb-12 md:mb-16 leading-relaxed',
-              },
-            },
-            {
-              type: 'div',
-              props: {
-                className:
-                  'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 sm:p-10 rounded-lg max-w-3xl mx-auto',
-              },
-              children: [
-                {
-                  type: 'paragraph',
-                  content: '$t:about.mission.statement',
-                  props: {
-                    className:
-                      'text-lg sm:text-xl text-sovereignty-light leading-relaxed text-center italic',
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-
-    // --- Section 3: Origin Story --------------------------------------------
-    {
-      type: 'section',
-      props: {
-        className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
-        id: 'origin',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'max-w-3xl mx-auto px-4 sm:px-6 md:px-8' },
-          children: [
-            {
-              type: 'h2',
-              content: '$t:about.origin.title',
-              props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-6 md:mb-8',
-              },
-            },
-            {
-              type: 'paragraph',
-              content: '$t:about.origin.paragraph1',
-              props: {
-                className: 'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed mb-6',
-              },
-            },
-            {
-              type: 'paragraph',
-              content: '$t:about.origin.paragraph2',
-              props: {
-                className: 'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed mb-6',
-              },
-            },
-            {
-              type: 'paragraph',
-              content: '$t:about.origin.paragraph3',
-              props: {
-                className: 'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed mb-6',
-              },
-            },
-            {
-              type: 'paragraph',
-              content: '$t:about.origin.paragraph4',
-              props: {
-                className: 'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed mb-6',
-              },
-            },
-            {
-              type: 'paragraph',
-              content: '$t:about.origin.paragraph5',
-              props: {
-                className:
-                  'text-base sm:text-lg text-sovereignty-light leading-relaxed mb-8 font-medium',
-              },
-            },
-            {
-              type: 'paragraph',
-              content: '$t:about.origin.signature',
-              props: {
-                className: 'text-sovereignty-accent font-semibold italic',
-              },
-            },
-          ],
-        },
-      ],
-    },
-
-    // --- Section 4: Our Values ---------------------------------------------
-    {
-      type: 'section',
-      props: {
-        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
-        id: 'values',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
-          children: [
-            {
-              type: 'h2',
-              content: '$t:about.values.title',
-              props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
-              },
-            },
-            {
-              type: 'paragraph',
-              content: '$t:about.values.subtitle',
-              props: {
-                className:
-                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center max-w-3xl mx-auto mb-12 md:mb-16',
-              },
-            },
-            {
-              type: 'grid',
-              props: { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
-              children: [
-                { $ref: 'value-card', vars: { key: 'sovereignty' } },
-                { $ref: 'value-card', vars: { key: 'transparency' } },
-                { $ref: 'value-card', vars: { key: 'simplicity' } },
-                { $ref: 'value-card', vars: { key: 'ownership' } },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-
-    // --- Section 5: Core Principles ----------------------------------------
-    {
-      type: 'section',
-      props: {
-        className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
-        id: 'principles',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
-          children: [
-            {
-              type: 'h2',
-              content: '$t:about.principles.title',
-              props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
-              },
-            },
-            {
-              type: 'paragraph',
-              content: '$t:about.principles.subtitle',
-              props: {
-                className:
-                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center max-w-3xl mx-auto mb-12 md:mb-16',
-              },
-            },
-            {
-              type: 'grid',
-              props: { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
-              children: [
-                { $ref: 'principle-item', vars: { key: 'configOverCode' } },
-                { $ref: 'principle-item', vars: { key: 'minimalDeps' } },
-                { $ref: 'principle-item', vars: { key: 'businessFocus' } },
-                { $ref: 'principle-item', vars: { key: 'configReuse' } },
-              ],
-            },
-          ],
-        },
-      ],
-    },
-
-    // --- Section 6: Team ---------------------------------------------------
-    {
-      type: 'section',
-      props: {
-        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
-        id: 'team',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
-          children: [
-            {
-              type: 'h2',
-              content: '$t:about.team.title',
+              content: '$t:about.founder.title',
               props: {
                 className: 'text-2xl sm:text-3xl font-bold text-center mb-12 md:mb-16',
               },
@@ -348,33 +140,57 @@ export const about: Page = {
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 sm:p-10 rounded-lg max-w-md w-full text-center hover:border-sovereignty-accent transition-colors duration-300',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 sm:p-10 rounded-lg max-w-lg w-full hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
-                    // Founder photo
+                    // Photo + name + role
                     {
-                      type: 'img',
-                      props: {
-                        src: '/thomas-jeanneau.jpg',
-                        alt: 'Thomas Jeanneau',
-                        className:
-                          'w-24 h-24 rounded-full object-cover mx-auto mb-6 border-2 border-sovereignty-accent',
-                      },
+                      type: 'div',
+                      props: { className: 'text-center mb-6' },
+                      children: [
+                        {
+                          type: 'img',
+                          props: {
+                            src: '/thomas-jeanneau.jpg',
+                            alt: 'Thomas Jeanneau',
+                            className:
+                              'w-24 h-24 rounded-full object-cover mx-auto mb-4 border-2 border-sovereignty-accent',
+                          },
+                        },
+                        {
+                          type: 'h3',
+                          content: '$t:about.team.founder.name',
+                          props: {
+                            className: 'text-2xl font-bold text-sovereignty-light mb-1',
+                          },
+                        },
+                        {
+                          type: 'paragraph',
+                          content: '$t:about.team.founder.role',
+                          props: {
+                            className: 'text-sovereignty-accent font-medium mb-4',
+                          },
+                        },
+                      ],
                     },
-                    {
-                      type: 'h3',
-                      content: '$t:about.team.founder.name',
-                      props: {
-                        className: 'text-2xl font-bold text-sovereignty-light mb-1',
-                      },
-                    },
+                    // Bio
                     {
                       type: 'paragraph',
-                      content: '$t:about.team.founder.role',
+                      content: '$t:about.founder.bio',
                       props: {
-                        className: 'text-sovereignty-accent font-medium mb-4',
+                        className:
+                          'text-sovereignty-gray-300 leading-relaxed mb-4 text-sm sm:text-base',
                       },
                     },
+                    // Transparency note
+                    {
+                      type: 'paragraph',
+                      content: '$t:about.founder.note',
+                      props: {
+                        className: 'text-sovereignty-gray-400 leading-relaxed text-sm italic mb-6',
+                      },
+                    },
+                    // Social links
                     {
                       type: 'flex',
                       props: { className: 'justify-center gap-4' },
@@ -412,11 +228,179 @@ export const about: Page = {
       ],
     },
 
-    // --- Section 7: Source-Available CTA ------------------------------------
+    // --- Section 3: Origin Story (compressed to 3 paragraphs) -----------------
     {
       type: 'section',
       props: {
         className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
+        id: 'origin',
+      },
+      children: [
+        {
+          type: 'container',
+          props: { className: 'max-w-3xl mx-auto px-4 sm:px-6 md:px-8' },
+          children: [
+            {
+              type: 'h2',
+              content: '$t:about.origin.title',
+              props: {
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6 md:mb-8',
+              },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:about.origin.paragraph1',
+              props: {
+                className: 'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed mb-6',
+              },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:about.origin.paragraph2',
+              props: {
+                className: 'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed mb-6',
+              },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:about.origin.paragraph3',
+              props: {
+                className:
+                  'text-base sm:text-lg text-sovereignty-light leading-relaxed mb-8 font-medium',
+              },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:about.origin.signature',
+              props: {
+                className: 'text-sovereignty-accent font-semibold italic',
+              },
+            },
+          ],
+        },
+      ],
+    },
+
+    // --- Section 4: Principles (unified values + principles) ------------------
+    {
+      type: 'section',
+      props: {
+        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
+        id: 'principles',
+      },
+      children: [
+        {
+          type: 'container',
+          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
+          children: [
+            {
+              type: 'h2',
+              content: '$t:about.principles.title',
+              props: {
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
+              },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:about.principles.subtitle',
+              props: {
+                className:
+                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center max-w-3xl mx-auto mb-12 md:mb-16',
+              },
+            },
+            {
+              type: 'grid',
+              props: { className: 'grid grid-cols-1 md:grid-cols-2 gap-6' },
+              children: [
+                { $ref: 'value-card', vars: { key: 'sovereignty' } },
+                { $ref: 'value-card', vars: { key: 'transparency' } },
+                { $ref: 'value-card', vars: { key: 'simplicity' } },
+                { $ref: 'value-card', vars: { key: 'minimalDeps' } },
+                { $ref: 'value-card', vars: { key: 'ownership' } },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+
+    // --- Section 5: License & Status (new) ------------------------------------
+    {
+      type: 'section',
+      props: {
+        className: 'py-16 md:py-24 bg-sovereignty-dark text-sovereignty-light',
+        id: 'license',
+      },
+      children: [
+        {
+          type: 'container',
+          props: { className: 'max-w-3xl mx-auto px-4 sm:px-6 md:px-8' },
+          children: [
+            {
+              type: 'h2',
+              content: '$t:about.license.title',
+              props: {
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-6 md:mb-8',
+              },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:about.license.bsl',
+              props: {
+                className:
+                  'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed text-center mb-6',
+              },
+            },
+            {
+              type: 'div',
+              props: { className: 'flex justify-center mb-8' },
+              children: [
+                {
+                  type: 'span',
+                  content: '$t:about.license.status',
+                  props: {
+                    className:
+                      'inline-block bg-sovereignty-accent/10 text-sovereignty-accent border border-sovereignty-accent/30 px-4 py-2 rounded-full text-sm font-medium',
+                  },
+                },
+              ],
+            },
+            {
+              type: 'flex',
+              props: { className: 'flex-col sm:flex-row justify-center gap-4' },
+              children: [
+                {
+                  type: 'link',
+                  content: '$t:about.license.github',
+                  props: {
+                    href: 'https://github.com/sovrium/sovrium',
+                    className:
+                      'text-sovereignty-accent hover:text-sovereignty-teal transition-colors duration-150 text-sm font-medium text-center',
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                  },
+                },
+                {
+                  type: 'link',
+                  content: '$t:about.license.docs',
+                  props: {
+                    href: '$t:about.license.docs.href',
+                    className:
+                      'text-sovereignty-accent hover:text-sovereignty-teal transition-colors duration-150 text-sm font-medium text-center',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+
+    // --- Section 6: CTA (reworked) --------------------------------------------
+    {
+      type: 'section',
+      props: {
+        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
         id: 'source-available',
       },
       children: [
@@ -451,22 +435,22 @@ export const about: Page = {
                   children: [
                     {
                       type: 'link',
-                      content: '$t:about.cta.github',
+                      content: '$t:about.cta.docs',
                       props: {
-                        href: 'https://github.com/sovrium/sovrium',
+                        href: '$t:about.cta.docs.href',
                         className:
                           'inline-block bg-white text-sovereignty-accent px-8 py-3 rounded-lg font-semibold hover:bg-sovereignty-gray-100 transition-all duration-200 transform hover:-translate-y-1 text-center',
-                        target: '_blank',
-                        rel: 'noopener noreferrer',
                       },
                     },
                     {
                       type: 'link',
-                      content: '$t:about.cta.partner',
+                      content: '$t:about.cta.github',
                       props: {
-                        href: '$t:about.cta.partner.href',
+                        href: 'https://github.com/sovrium/sovrium',
                         className:
                           'inline-block border-2 border-white text-white px-8 py-3 rounded-lg font-semibold hover:bg-white hover:text-sovereignty-accent transition-all duration-200 text-center',
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
                       },
                     },
                   ],
@@ -478,7 +462,7 @@ export const about: Page = {
       ],
     },
 
-    // --- Section 8: Footer -------------------------------------------------
+    // --- Footer ---------------------------------------------------------------
     footerI18n,
 
     { component: 'sovrium-badge' },

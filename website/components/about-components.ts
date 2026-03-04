@@ -7,9 +7,9 @@
 
 import type { ComponentTemplate } from '@/index'
 
-// ─── value-card: About page value card with icon, title, description ───────
-// Used in about.ts values section (6 cards)
-// vars: { key: 'sovereignty' | 'transparency' | ... }
+// ─── value-card: About page principle card with icon, title, description ─────
+// Used in about.ts principles section (5 cards)
+// vars: { key: 'sovereignty' | 'transparency' | 'simplicity' | 'minimalDeps' | 'ownership' }
 export const valueCard: ComponentTemplate = {
   name: 'value-card',
   type: 'card',
@@ -21,41 +21,17 @@ export const valueCard: ComponentTemplate = {
     {
       type: 'div',
       props: { className: 'text-3xl mb-4' },
-      content: '$t:about.values.$key.icon',
+      content: '$t:about.principles.$key.icon',
     },
     {
       type: 'h3',
-      content: '$t:about.values.$key.title',
+      content: '$t:about.principles.$key.title',
       props: { className: 'text-xl font-semibold mb-3 text-sovereignty-light' },
     },
     {
       type: 'paragraph',
-      content: '$t:about.values.$key.description',
-      props: { className: 'text-sovereignty-gray-400 leading-relaxed' },
-    },
-  ],
-}
-
-// ─── principle-item: About page principle with title and description ───────
-// Used in about.ts principles section (4 items)
-// vars: { key: 'configOverCode' | 'minimalDeps' | ... }
-export const principleItem: ComponentTemplate = {
-  name: 'principle-item',
-  type: 'div',
-  props: {
-    className:
-      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
-  },
-  children: [
-    {
-      type: 'h4',
-      content: '$t:about.principles.$key.title',
-      props: { className: 'text-lg font-semibold mb-2 text-sovereignty-light' },
-    },
-    {
-      type: 'paragraph',
       content: '$t:about.principles.$key.description',
-      props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed' },
+      props: { className: 'text-sovereignty-gray-400 leading-relaxed' },
     },
   ],
 }

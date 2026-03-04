@@ -6,6 +6,7 @@
  */
 
 export const about: Record<string, string> = {
+  // Meta
   'about.meta.title': 'Sovrium — A propos',
   'about.meta.description':
     'Découvrez les personnes et les idées derrière Sovrium. Une plateforme pilotée par la configuration pour construire des outils internes que vous possédez entièrement.',
@@ -15,69 +16,71 @@ export const about: Record<string, string> = {
   'about.meta.twitter.title': 'Sovrium — A propos',
   'about.meta.twitter.description':
     'Les personnes et les idées derrière Sovrium. Une plateforme pour construire des outils internes que vous possédez entièrement.',
+
+  // Hero
   'about.hero.eyebrow': 'ESSENTIAL SERVICES',
   'about.hero.title': 'Un logiciel vraiment à vous',
   'about.hero.subtitle':
     "Sovrium est une plateforme pilotée par la configuration pour construire des outils internes. Vous l'hébergez, vous contrôlez les données, et vous n'êtes jamais enfermé.",
-  'about.hero.tagline': '« Vos données. Vos outils. Votre avenir. »',
-  'about.mission.title': 'Notre Mission',
-  'about.mission.description':
-    'Construire des outils internes oblige souvent à choisir son camp. Le no-code livre vite mais enferme. Le code sur mesure donne le contrôle mais noie sous la maintenance. On pense que vous ne devriez pas avoir à choisir.',
-  'about.mission.statement':
-    "Sovrium donne aux équipes la rapidité du no-code et la flexibilité du code, dans une seule plateforme qu'elles possèdent et hébergent elles-mêmes.",
-  'about.values.title': 'Nos Valeurs',
-  'about.values.subtitle':
-    "Ce qui guide nos décisions, de l'architecture au rapport avec la communauté.",
-  'about.values.sovereignty.icon': '🛡️',
-  'about.values.sovereignty.title': 'Maîtrise des données',
-  'about.values.sovereignty.description':
-    "Vos données restent sur votre infrastructure. Pas d'analytics tiers, pas de tracking d'usage, pas de changements surprises sur le stockage ou le partage de vos informations.",
-  'about.values.transparency.icon': '🔍',
-  'about.values.transparency.title': 'Transparence',
-  'about.values.transparency.description':
-    'Le code source est disponible. La feuille de route est publique. Les tarifs sont clairs. Si quelque chose change, vous le saurez avant que cela ne vous affecte.',
-  'about.values.simplicity.icon': '✨',
-  'about.values.simplicity.title': 'Simplicité',
-  'about.values.simplicity.description':
-    'Un fichier de config, une commande, une plateforme. On travaille dur pour garder les choses simples afin que vous puissiez vous concentrer sur ce qui compte pour votre équipe.',
-  'about.values.ownership.icon': '🏡',
-  'about.values.ownership.title': 'Propriété complète',
-  'about.values.ownership.description':
-    'Tout ce que nous construisons pour vous vous appartient. Accès complet au source, portabilité totale des données, zéro enfermement. Vous pouvez partir quand vous voulez et tout emporter.',
-  'about.principles.title': 'Comment nous construisons',
-  'about.principles.subtitle':
-    'Quatre principes techniques qui façonnent le fonctionnement de Sovrium sous le capot.',
-  'about.principles.configOverCode.title': 'La configuration plutôt que le code',
-  'about.principles.configOverCode.description':
-    'Les applications métier doivent être configurées, pas programmées. TypeScript, YAML ou JSON — choisissez votre format, obtenez une app complète en secondes.',
-  'about.principles.minimalDeps.title': 'Dépendances minimales',
-  'about.principles.minimalDeps.description':
-    "Un runtime (Bun), une base de données (PostgreSQL), zéro SDK fournisseur. Moins de pièces en mouvement, c'est moins de choses qui peuvent casser.",
-  'about.principles.businessFocus.title': 'Orienté métier',
-  'about.principles.businessFocus.description':
-    "Les ingénieurs doivent se concentrer sur la logique métier, pas l'infrastructure. Sovrium gère l'auth, la base de données, l'API et l'UI nativement.",
-  'about.principles.configReuse.title': 'Réutilisabilité des configurations',
-  'about.principles.configReuse.description':
-    'Les templates de configuration deviennent des actifs organisationnels. Construisez CRM, outils projet et portails à partir de configs composables et versionnées.',
-  'about.team.title': "L'équipe",
+
+  // Founder
+  'about.founder.title': 'Qui construit Sovrium',
+  'about.founder.bio':
+    "Thomas a passé des années à construire des outils internes pour des organisations — en no-code, low-code et code. Les schémas récurrents d'enfermement fournisseur, de fragmentation des données et de surcharge de maintenance l'ont conduit à créer Sovrium.",
+  'about.founder.note':
+    "Sovrium est actuellement construit par un seul fondateur. Cela signifie des itérations rapides, une responsabilité directe et aucun compromis de comité. Le code source est disponible pour que vous puissiez l'évaluer vous-même.",
   'about.team.founder.name': 'Thomas Jeanneau',
   'about.team.founder.role': 'Fondateur',
-  'about.cta.title': 'Participez au projet',
-  'about.cta.description':
-    'Sovrium est source-available et en développement actif. Mettez une étoile au repo, ouvrez une issue, ou construisez quelque chose avec.',
-  'about.cta.github': 'Voir sur GitHub',
-  'about.cta.partner': 'Travailler avec nous',
-  'about.cta.partner.href': '/fr/partner',
+
+  // Origin Story (compressed from 5 paragraphs to 3)
   'about.origin.title': 'Pourquoi Sovrium existe',
   'about.origin.paragraph1':
     "J'ai passé des années à construire des outils internes pour des organisations — en no-code, low-code et code. Je livrais vite. Les outils marchaient. Les clients étaient contents, au début.",
   'about.origin.paragraph2':
-    "Avec le temps, les fissures sont apparues. Un éditeur changeait son API sans prévenir et cassait un workflow entier du jour au lendemain. Les coûts augmentaient de façon imprévisible avec l'usage. Faire communiquer cinq outils différents entre eux devenait un chantier de maintenance à part entière. Et les données vivaient sur un patchwork de plateformes SaaS, chacune avec son propre modèle tarifaire et ses propres conditions.",
+    "Avec le temps, les fissures sont apparues. Des éditeurs changeaient leurs API sans prévenir. Les coûts augmentaient de façon imprévisible. Faire communiquer cinq outils entre eux devenait un chantier de maintenance à part entière. Il n'y avait pas de versioning, pas de tests, pas de moyen propre de collaborer. Les organisations avec lesquelles je travaillais avaient une visibilité limitée sur le fonctionnement réel de leurs systèmes — et une capacité limitée à changer de cap.",
   'about.origin.paragraph3':
-    "Il n'y avait pas de versioning sur l'ensemble du système. Pas de tests. Pas de moyen propre de collaborer sur quelque chose construit avec une dizaine d'outils différents. Les organisations avec lesquelles je travaillais avaient une visibilité limitée sur le fonctionnement réel de leurs systèmes centraux — et une capacité limitée à changer de cap quand elles en avaient besoin.",
-  'about.origin.paragraph4':
-    "J'ai réalisé que le problème de fond n'était pas un outil en particulier. On peut construire des applications fonctionnelles et performantes rapidement avec la stack actuelle. Mais les maintenir dans le temps, à l'échelle, sans perdre le contrôle de ses données ni de son budget — c'est là que ça se complique.",
-  'about.origin.paragraph5':
     'Sovrium est ma tentative pour résoudre ce problème. Une plateforme qui combine la rapidité du no-code avec la flexibilité du code. Pilotée par la configuration, auto-hébergée, entièrement versionnable et testable — conçue pour donner aux équipes un vrai contrôle sur les outils dont elles dépendent.',
   'about.origin.signature': '— Thomas Jeanneau, Fondateur',
+
+  // Principles (unified from old Values + Principles)
+  'about.principles.title': 'Ce que nous défendons',
+  'about.principles.subtitle':
+    "Cinq principes qui guident chaque décision, de l'architecture à la communauté.",
+  'about.principles.sovereignty.icon': '🛡️',
+  'about.principles.sovereignty.title': 'Maîtrise des données',
+  'about.principles.sovereignty.description':
+    "Vos données restent sur votre infrastructure. Pas d'analytics tiers, pas de tracking d'usage, pas de changements surprises sur le stockage ou le partage de vos informations.",
+  'about.principles.transparency.icon': '🔍',
+  'about.principles.transparency.title': 'Transparence',
+  'about.principles.transparency.description':
+    'Le code source est disponible. La feuille de route est publique. Les tarifs sont clairs. Si quelque chose change, vous le saurez avant que cela ne vous affecte.',
+  'about.principles.simplicity.icon': '✨',
+  'about.principles.simplicity.title': 'Simplicité',
+  'about.principles.simplicity.description':
+    'Les applications métier doivent être configurées, pas programmées. Un fichier de config, une commande, une plateforme — choisissez votre format, obtenez une app complète en secondes.',
+  'about.principles.minimalDeps.icon': '⚙️',
+  'about.principles.minimalDeps.title': 'Dépendances minimales',
+  'about.principles.minimalDeps.description':
+    "Un runtime (Bun), une base de données (PostgreSQL), zéro SDK fournisseur. Moins de pièces en mouvement, c'est moins de choses qui peuvent casser.",
+  'about.principles.ownership.icon': '🏡',
+  'about.principles.ownership.title': 'Propriété complète',
+  'about.principles.ownership.description':
+    'Tout ce que nous construisons vous appartient. Accès complet au source, portabilité totale des données, et des templates de configuration qui deviennent des actifs réutilisables.',
+
+  // License & Status
+  'about.license.title': 'Source-available',
+  'about.license.bsl':
+    'Sovrium est distribué sous la Business Source License 1.1 (BSL 1.1). Vous pouvez lire, forker et auto-héberger le code librement pour un usage interne. Il se convertit automatiquement en Apache 2.0 le 1er janvier 2029.',
+  'about.license.status': 'Phase 0 — Fondations. En développement actif.',
+  'about.license.github': 'Voir le code source sur GitHub',
+  'about.license.docs': 'Lire la documentation',
+  'about.license.docs.href': '/fr/docs',
+
+  // CTA
+  'about.cta.title': 'Essayez Sovrium',
+  'about.cta.description':
+    'Sovrium est source-available et en développement actif. Lisez la documentation pour commencer, ou explorez le code sur GitHub.',
+  'about.cta.github': 'Voir sur GitHub',
+  'about.cta.docs': 'Lire la documentation',
+  'about.cta.docs.href': '/fr/docs',
 }
