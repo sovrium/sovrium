@@ -74,12 +74,7 @@
             "default": "Generated at runtime"
           }
         },
-        "required": [
-          "name",
-          "email",
-          "createdAt",
-          "updatedAt"
-        ]
+        "required": ["name", "email", "createdAt", "updatedAt"]
       },
       "Session": {
         "type": "object",
@@ -113,13 +108,7 @@
             "type": "string"
           }
         },
-        "required": [
-          "expiresAt",
-          "token",
-          "createdAt",
-          "updatedAt",
-          "userId"
-        ]
+        "required": ["expiresAt", "token", "createdAt", "updatedAt", "userId"]
       },
       "Account": {
         "type": "object",
@@ -169,13 +158,7 @@
             "format": "date-time"
           }
         },
-        "required": [
-          "accountId",
-          "providerId",
-          "userId",
-          "createdAt",
-          "updatedAt"
-        ]
+        "required": ["accountId", "providerId", "userId", "createdAt", "updatedAt"]
       },
       "Verification": {
         "type": "object",
@@ -204,13 +187,7 @@
             "default": "Generated at runtime"
           }
         },
-        "required": [
-          "identifier",
-          "value",
-          "expiresAt",
-          "createdAt",
-          "updatedAt"
-        ]
+        "required": ["identifier", "value", "expiresAt", "createdAt", "updatedAt"]
       },
       "TableSummary": {
         "type": "object",
@@ -246,13 +223,7 @@
             "description": "ISO 8601 last update timestamp"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "fieldCount",
-          "createdAt",
-          "updatedAt"
-        ]
+        "required": ["id", "name", "fieldCount", "createdAt", "updatedAt"]
       },
       "Pagination": {
         "type": "object",
@@ -308,9 +279,7 @@
         "properties": {
           "success": {
             "type": "boolean",
-            "enum": [
-              false
-            ],
+            "enum": [false],
             "description": "Operation failed"
           },
           "error": {
@@ -343,11 +312,7 @@
             "description": "Optional error details"
           }
         },
-        "required": [
-          "success",
-          "message",
-          "code"
-        ]
+        "required": ["success", "message", "code"]
       },
       "Table": {
         "type": "object",
@@ -395,15 +360,11 @@
                   },
                   {
                     "type": "string",
-                    "enum": [
-                      "all"
-                    ]
+                    "enum": ["all"]
                   },
                   {
                     "type": "string",
-                    "enum": [
-                      "authenticated"
-                    ]
+                    "enum": ["authenticated"]
                   }
                 ]
               },
@@ -417,15 +378,11 @@
                   },
                   {
                     "type": "string",
-                    "enum": [
-                      "all"
-                    ]
+                    "enum": ["all"]
                   },
                   {
                     "type": "string",
-                    "enum": [
-                      "authenticated"
-                    ]
+                    "enum": ["authenticated"]
                   }
                 ]
               },
@@ -439,15 +396,11 @@
                   },
                   {
                     "type": "string",
-                    "enum": [
-                      "all"
-                    ]
+                    "enum": ["all"]
                   },
                   {
                     "type": "string",
-                    "enum": [
-                      "authenticated"
-                    ]
+                    "enum": ["authenticated"]
                   }
                 ]
               },
@@ -461,15 +414,11 @@
                   },
                   {
                     "type": "string",
-                    "enum": [
-                      "all"
-                    ]
+                    "enum": ["all"]
                   },
                   {
                     "type": "string",
-                    "enum": [
-                      "authenticated"
-                    ]
+                    "enum": ["authenticated"]
                   }
                 ]
               }
@@ -487,14 +436,7 @@
             "description": "ISO 8601 last update timestamp"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "fields",
-          "views",
-          "createdAt",
-          "updatedAt"
-        ],
+        "required": ["id", "name", "fields", "views", "createdAt", "updatedAt"],
         "description": "Table details"
       },
       "Field": {
@@ -529,11 +471,7 @@
             "description": "Field description"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "type"
-        ]
+        "required": ["id", "name", "type"]
       },
       "FieldPermission": {
         "type": "object",
@@ -547,10 +485,7 @@
             "description": "Can write field"
           }
         },
-        "required": [
-          "read",
-          "write"
-        ]
+        "required": ["read", "write"]
       },
       "Record": {
         "type": "object",
@@ -596,12 +531,7 @@
             "description": "ISO 8601 last update timestamp"
           }
         },
-        "required": [
-          "id",
-          "fields",
-          "createdAt",
-          "updatedAt"
-        ]
+        "required": ["id", "fields", "createdAt", "updatedAt"]
       },
       "FormattedFieldValue": {
         "anyOf": [
@@ -639,9 +569,7 @@
                 "type": "string"
               }
             },
-            "required": [
-              "value"
-            ]
+            "required": ["value"]
           }
         ]
       },
@@ -686,12 +614,7 @@
           },
           "action": {
             "type": "string",
-            "enum": [
-              "create",
-              "update",
-              "delete",
-              "restore"
-            ],
+            "enum": ["create", "update", "delete", "restore"],
             "description": "Action type"
           },
           "tableName": {
@@ -738,23 +661,11 @@
                 "description": "User email address"
               }
             },
-            "required": [
-              "id",
-              "name",
-              "email"
-            ],
+            "required": ["id", "name", "email"],
             "description": "User details (null for system activities)"
           }
         },
-        "required": [
-          "id",
-          "action",
-          "tableName",
-          "recordId",
-          "changes",
-          "createdAt",
-          "user"
-        ]
+        "required": ["id", "action", "tableName", "recordId", "changes", "createdAt", "user"]
       },
       "Comment": {
         "type": "object",
@@ -837,11 +748,7 @@
             "description": "User avatar URL"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "email"
-        ],
+        "required": ["id", "name", "email"],
         "description": "Comment author details"
       },
       "View": {
@@ -895,13 +802,7 @@
             "description": "ISO 8601 last update timestamp"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "tableId",
-          "createdAt",
-          "updatedAt"
-        ]
+        "required": ["id", "name", "tableId", "createdAt", "updatedAt"]
       },
       "ActivityLog": {
         "type": "object",
@@ -920,12 +821,7 @@
           },
           "action": {
             "type": "string",
-            "enum": [
-              "create",
-              "update",
-              "delete",
-              "restore"
-            ],
+            "enum": ["create", "update", "delete", "restore"],
             "description": "Action type"
           },
           "tableName": {
@@ -947,14 +843,7 @@
             "$ref": "#/components/schemas/ActivityLogUser"
           }
         },
-        "required": [
-          "id",
-          "createdAt",
-          "action",
-          "tableName",
-          "recordId",
-          "user"
-        ]
+        "required": ["id", "createdAt", "action", "tableName", "recordId", "user"]
       },
       "ActivityLogUser": {
         "type": "object",
@@ -973,11 +862,7 @@
             "description": "User email address"
           }
         },
-        "required": [
-          "id",
-          "name",
-          "email"
-        ],
+        "required": ["id", "name", "email"],
         "description": "User details (null for system activities)"
       },
       "ActivityLogDetail": {
@@ -997,9 +882,7 @@
                 "description": "Field changes (null for delete actions)"
               }
             },
-            "required": [
-              "changes"
-            ]
+            "required": ["changes"]
           }
         ],
         "description": "Single activity log entry with change details"
@@ -1009,15 +892,11 @@
         "properties": {
           "success": {
             "type": "boolean",
-            "enum": [
-              true
-            ],
+            "enum": [true],
             "description": "Operation success indicator"
           }
         },
-        "required": [
-          "success"
-        ]
+        "required": ["success"]
       },
       "TimeSeriesPoint": {
         "type": "object",
@@ -1039,21 +918,14 @@
             "description": "Unique sessions in period"
           }
         },
-        "required": [
-          "period",
-          "pageViews",
-          "uniqueVisitors",
-          "sessions"
-        ]
+        "required": ["period", "pageViews", "uniqueVisitors", "sessions"]
       },
       "ValidationErrorResponse": {
         "type": "object",
         "properties": {
           "success": {
             "type": "boolean",
-            "enum": [
-              false
-            ],
+            "enum": [false],
             "description": "Operation failed"
           },
           "message": {
@@ -1062,9 +934,7 @@
           },
           "code": {
             "type": "string",
-            "enum": [
-              "VALIDATION_ERROR"
-            ],
+            "enum": ["VALIDATION_ERROR"],
             "description": "Error type code"
           },
           "errors": {
@@ -1075,12 +945,7 @@
             "description": "List of field-level validation errors"
           }
         },
-        "required": [
-          "success",
-          "message",
-          "code",
-          "errors"
-        ]
+        "required": ["success", "message", "code", "errors"]
       },
       "FieldError": {
         "type": "object",
@@ -1098,10 +963,7 @@
             "description": "Machine-readable error code"
           }
         },
-        "required": [
-          "field",
-          "message"
-        ]
+        "required": ["field", "message"]
       },
       "BetterAuthError": {
         "type": "object",
@@ -1118,15 +980,11 @@
                 "description": "HTTP status code"
               }
             },
-            "required": [
-              "message"
-            ],
+            "required": ["message"],
             "description": "Error details"
           }
         },
-        "required": [
-          "error"
-        ]
+        "required": ["error"]
       },
       "GetSessionResponse": {
         "type": "object",
@@ -1172,14 +1030,7 @@
                 "description": "ISO 8601 last update timestamp"
               }
             },
-            "required": [
-              "id",
-              "userId",
-              "token",
-              "expiresAt",
-              "createdAt",
-              "updatedAt"
-            ]
+            "required": ["id", "userId", "token", "expiresAt", "createdAt", "updatedAt"]
           },
           "user": {
             "type": "object",
@@ -1219,20 +1070,10 @@
                 "description": "ISO 8601 last update timestamp"
               }
             },
-            "required": [
-              "id",
-              "email",
-              "name",
-              "emailVerified",
-              "createdAt",
-              "updatedAt"
-            ]
+            "required": ["id", "email", "name", "emailVerified", "createdAt", "updatedAt"]
           }
         },
-        "required": [
-          "session",
-          "user"
-        ]
+        "required": ["session", "user"]
       },
       "UserWithRole": {
         "type": "object",
@@ -1273,10 +1114,7 @@
           },
           "role": {
             "type": "string",
-            "enum": [
-              "user",
-              "admin"
-            ],
+            "enum": ["user", "admin"],
             "description": "User role"
           },
           "banned": {
@@ -1295,15 +1133,7 @@
             "description": "Ban expiration"
           }
         },
-        "required": [
-          "id",
-          "email",
-          "name",
-          "emailVerified",
-          "createdAt",
-          "updatedAt",
-          "role"
-        ]
+        "required": ["id", "email", "name", "emailVerified", "createdAt", "updatedAt", "role"]
       }
     },
     "securitySchemes": {
@@ -1324,9 +1154,7 @@
   "paths": {
     "/api/auth/sign-in/social": {
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Sign in with a social provider",
         "operationId": "socialSignIn",
         "security": [
@@ -1342,109 +1170,66 @@
                 "type": "object",
                 "properties": {
                   "callbackURL": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
+                    "type": ["string", "null"],
                     "description": "Callback URL to redirect to after the user has signed in"
                   },
                   "newUserCallbackURL": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
+                    "type": ["string", "null"]
                   },
                   "errorCallbackURL": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
+                    "type": ["string", "null"],
                     "description": "Callback URL to redirect to if an error happens"
                   },
                   "provider": {
                     "type": "string"
                   },
                   "disableRedirect": {
-                    "type": [
-                      "boolean",
-                      "null"
-                    ],
+                    "type": ["boolean", "null"],
                     "description": "Disable automatic redirection to the provider. Useful for handling the redirection yourself"
                   },
                   "idToken": {
-                    "type": [
-                      "object",
-                      "null"
-                    ],
+                    "type": ["object", "null"],
                     "properties": {
                       "token": {
                         "type": "string",
                         "description": "ID token from the provider"
                       },
                       "nonce": {
-                        "type": [
-                          "string",
-                          "null"
-                        ],
+                        "type": ["string", "null"],
                         "description": "Nonce used to generate the token"
                       },
                       "accessToken": {
-                        "type": [
-                          "string",
-                          "null"
-                        ],
+                        "type": ["string", "null"],
                         "description": "Access token from the provider"
                       },
                       "refreshToken": {
-                        "type": [
-                          "string",
-                          "null"
-                        ],
+                        "type": ["string", "null"],
                         "description": "Refresh token from the provider"
                       },
                       "expiresAt": {
-                        "type": [
-                          "number",
-                          "null"
-                        ],
+                        "type": ["number", "null"],
                         "description": "Expiry date of the token"
                       }
                     },
-                    "required": [
-                      "token"
-                    ]
+                    "required": ["token"]
                   },
                   "scopes": {
-                    "type": [
-                      "array",
-                      "null"
-                    ],
+                    "type": ["array", "null"],
                     "description": "Array of scopes to request from the provider. This will override the default scopes passed."
                   },
                   "requestSignUp": {
-                    "type": [
-                      "boolean",
-                      "null"
-                    ],
+                    "type": ["boolean", "null"],
                     "description": "Explicitly request sign-up. Useful when disableImplicitSignUp is true for this provider"
                   },
                   "loginHint": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
+                    "type": ["string", "null"],
                     "description": "The login hint to use for the authorization code request"
                   },
                   "additionalData": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
+                    "type": ["string", "null"]
                   }
                 },
-                "required": [
-                  "provider"
-                ]
+                "required": ["provider"]
               }
             }
           }
@@ -1470,16 +1255,10 @@
                     },
                     "redirect": {
                       "type": "boolean",
-                      "enum": [
-                        false
-                      ]
+                      "enum": [false]
                     }
                   },
-                  "required": [
-                    "redirect",
-                    "token",
-                    "user"
-                  ]
+                  "required": ["redirect", "token", "user"]
                 }
               }
             }
@@ -1494,9 +1273,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -1512,9 +1289,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -1586,9 +1361,7 @@
     },
     "/api/auth/callback/{id}": {
       "get": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "operationId": "getAuthCallbackId",
         "security": [
           {
@@ -1606,9 +1379,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -1624,9 +1395,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -1696,9 +1465,7 @@
         "summary": "Callback"
       },
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "operationId": "postAuthCallbackId",
         "security": [
           {
@@ -1726,9 +1493,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -1744,9 +1509,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -1818,9 +1581,7 @@
     },
     "/api/auth/get-session": {
       "get": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Get the current session",
         "operationId": "getSession",
         "security": [
@@ -1844,10 +1605,7 @@
                       "$ref": "#/components/schemas/User"
                     }
                   },
-                  "required": [
-                    "session",
-                    "user"
-                  ]
+                  "required": ["session", "user"]
                 }
               }
             }
@@ -1862,9 +1620,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -1880,9 +1636,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -1952,9 +1706,7 @@
         "summary": "Get the current session"
       },
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Get the current session",
         "operationId": "getSession",
         "security": [
@@ -1988,10 +1740,7 @@
                       "$ref": "#/components/schemas/User"
                     }
                   },
-                  "required": [
-                    "session",
-                    "user"
-                  ]
+                  "required": ["session", "user"]
                 }
               }
             }
@@ -2006,9 +1755,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -2024,9 +1771,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -2101,9 +1846,7 @@
         "summary": "Sign out current session",
         "description": "Invalidates the current session.",
         "operationId": "postAuthSignOut",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "Signed out successfully",
@@ -2114,15 +1857,11 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "enum": [
-                        true
-                      ],
+                      "enum": [true],
                       "description": "Sign-out succeeded"
                     }
                   },
-                  "required": [
-                    "success"
-                  ]
+                  "required": ["success"]
                 }
               }
             }
@@ -2135,9 +1874,7 @@
         "summary": "Register a new user",
         "description": "Creates a new user account with email and password.",
         "operationId": "postAuthSignUpEmail",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "User registered successfully",
@@ -2235,14 +1972,7 @@
                           "description": "ISO 8601 last update timestamp"
                         }
                       },
-                      "required": [
-                        "id",
-                        "userId",
-                        "token",
-                        "expiresAt",
-                        "createdAt",
-                        "updatedAt"
-                      ],
+                      "required": ["id", "userId", "token", "expiresAt", "createdAt", "updatedAt"],
                       "description": "Session if auto-login enabled"
                     },
                     "token": {
@@ -2250,9 +1980,7 @@
                       "description": "Bearer token if auto-login enabled"
                     }
                   },
-                  "required": [
-                    "user"
-                  ]
+                  "required": ["user"]
                 }
               }
             }
@@ -2285,9 +2013,7 @@
         "summary": "Sign in with email and password",
         "description": "Authenticates a user and creates a new session.",
         "operationId": "postAuthSignInEmail",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "Sign-in successful",
@@ -2385,14 +2111,7 @@
                           "description": "ISO 8601 last update timestamp"
                         }
                       },
-                      "required": [
-                        "id",
-                        "userId",
-                        "token",
-                        "expiresAt",
-                        "createdAt",
-                        "updatedAt"
-                      ],
+                      "required": ["id", "userId", "token", "expiresAt", "createdAt", "updatedAt"],
                       "description": "New session data"
                     },
                     "token": {
@@ -2400,10 +2119,7 @@
                       "description": "Bearer token for API calls"
                     }
                   },
-                  "required": [
-                    "user",
-                    "session"
-                  ]
+                  "required": ["user", "session"]
                 }
               }
             }
@@ -2436,9 +2152,7 @@
         "summary": "Reset password with token",
         "description": "Resets the password using a token from the reset email.",
         "operationId": "postAuthResetPassword",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "Password reset successful",
@@ -2449,15 +2163,11 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "enum": [
-                        true
-                      ],
+                      "enum": [true],
                       "description": "Password reset successful"
                     }
                   },
-                  "required": [
-                    "success"
-                  ]
+                  "required": ["success"]
                 }
               }
             }
@@ -2477,9 +2187,7 @@
     },
     "/api/auth/verify-password": {
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Verify the current user's password",
         "operationId": "verifyPassword",
         "security": [
@@ -2499,9 +2207,7 @@
                     "description": "The password to verify"
                   }
                 },
-                "required": [
-                  "password"
-                ]
+                "required": ["password"]
               }
             }
           }
@@ -2532,9 +2238,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -2550,9 +2254,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -2627,9 +2329,7 @@
         "summary": "Verify email address",
         "description": "Verifies the email address using a token.",
         "operationId": "postAuthVerifyEmail",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "Email verified",
@@ -2687,9 +2387,7 @@
                       "description": "User with verified email"
                     }
                   },
-                  "required": [
-                    "user"
-                  ]
+                  "required": ["user"]
                 }
               }
             }
@@ -2712,9 +2410,7 @@
         "summary": "Resend verification email",
         "description": "Sends a new verification email to the authenticated user.",
         "operationId": "postAuthSendVerificationEmail",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "Verification email sent",
@@ -2725,15 +2421,11 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "enum": [
-                        true
-                      ],
+                      "enum": [true],
                       "description": "Verification email sent"
                     }
                   },
-                  "required": [
-                    "success"
-                  ]
+                  "required": ["success"]
                 }
               }
             }
@@ -2753,9 +2445,7 @@
     },
     "/api/auth/change-email": {
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "operationId": "changeEmail",
         "security": [
           {
@@ -2774,16 +2464,11 @@
                     "description": "The new email address to set must be a valid email address"
                   },
                   "callbackURL": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
+                    "type": ["string", "null"],
                     "description": "The URL to redirect to after email verification"
                   }
                 },
-                "required": [
-                  "newEmail"
-                ]
+                "required": ["newEmail"]
               }
             }
           }
@@ -2806,17 +2491,12 @@
                     },
                     "message": {
                       "type": "string",
-                      "enum": [
-                        "Email updated",
-                        "Verification email sent"
-                      ],
+                      "enum": ["Email updated", "Verification email sent"],
                       "description": "Status message of the email change process",
                       "nullable": true
                     }
                   },
-                  "required": [
-                    "status"
-                  ]
+                  "required": ["status"]
                 }
               }
             }
@@ -2831,9 +2511,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -2849,9 +2527,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -2926,9 +2602,7 @@
         "summary": "Change password",
         "description": "Changes the password for the authenticated user.",
         "operationId": "postAuthChangePassword",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "Password changed",
@@ -2939,15 +2613,11 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "enum": [
-                        true
-                      ],
+                      "enum": [true],
                       "description": "Password changed successfully"
                     }
                   },
-                  "required": [
-                    "success"
-                  ]
+                  "required": ["success"]
                 }
               }
             }
@@ -2967,9 +2637,7 @@
     },
     "/api/auth/update-session": {
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Update the current session",
         "operationId": "updateSession",
         "security": [
@@ -3014,9 +2682,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -3032,9 +2698,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -3106,9 +2770,7 @@
     },
     "/api/auth/update-user": {
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Update the current user",
         "operationId": "updateUser",
         "security": [
@@ -3163,9 +2825,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -3181,9 +2841,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -3255,9 +2913,7 @@
     },
     "/api/auth/delete-user": {
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Delete the user",
         "operationId": "deleteUser",
         "security": [
@@ -3302,17 +2958,11 @@
                     },
                     "message": {
                       "type": "string",
-                      "enum": [
-                        "User deleted",
-                        "Verification email sent"
-                      ],
+                      "enum": ["User deleted", "Verification email sent"],
                       "description": "Status message of the deletion process"
                     }
                   },
-                  "required": [
-                    "success",
-                    "message"
-                  ]
+                  "required": ["success", "message"]
                 }
               }
             }
@@ -3327,9 +2977,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -3345,9 +2993,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -3422,9 +3068,7 @@
         "summary": "Request password reset",
         "description": "Sends a password reset email. Always returns 200 to prevent email enumeration.",
         "operationId": "postAuthRequestPasswordReset",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "Reset email sent (or silently ignored if email not found)",
@@ -3435,15 +3079,11 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "enum": [
-                        true
-                      ],
+                      "enum": [true],
                       "description": "Password reset email sent"
                     }
                   },
-                  "required": [
-                    "success"
-                  ]
+                  "required": ["success"]
                 }
               }
             }
@@ -3463,9 +3103,7 @@
     },
     "/api/auth/reset-password/{token}": {
       "get": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Redirects the user to the callback URL with the token",
         "operationId": "resetPasswordCallback",
         "security": [
@@ -3519,9 +3157,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -3537,9 +3173,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -3614,9 +3248,7 @@
         "summary": "List all user sessions",
         "description": "Returns all active sessions for the authenticated user.",
         "operationId": "getAuthListSessions",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "List of sessions",
@@ -3668,21 +3300,12 @@
                             "description": "ISO 8601 last update timestamp"
                           }
                         },
-                        "required": [
-                          "id",
-                          "userId",
-                          "token",
-                          "expiresAt",
-                          "createdAt",
-                          "updatedAt"
-                        ]
+                        "required": ["id", "userId", "token", "expiresAt", "createdAt", "updatedAt"]
                       },
                       "description": "List of active sessions"
                     }
                   },
-                  "required": [
-                    "sessions"
-                  ]
+                  "required": ["sessions"]
                 }
               }
             }
@@ -3705,9 +3328,7 @@
         "summary": "Revoke a specific session",
         "description": "Invalidates a specific session by token.",
         "operationId": "postAuthRevokeSession",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "Session revoked",
@@ -3718,15 +3339,11 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "enum": [
-                        true
-                      ],
+                      "enum": [true],
                       "description": "Session revoked successfully"
                     }
                   },
-                  "required": [
-                    "success"
-                  ]
+                  "required": ["success"]
                 }
               }
             }
@@ -3746,9 +3363,7 @@
     },
     "/api/auth/revoke-sessions": {
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Revoke all sessions for the user",
         "operationId": "postAuthRevokeSessions",
         "security": [
@@ -3779,9 +3394,7 @@
                       "description": "Indicates if all sessions were revoked successfully"
                     }
                   },
-                  "required": [
-                    "status"
-                  ]
+                  "required": ["status"]
                 }
               }
             }
@@ -3796,9 +3409,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -3814,9 +3425,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -3888,9 +3497,7 @@
     },
     "/api/auth/revoke-other-sessions": {
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Revoke all other sessions for the user except the current one",
         "operationId": "postAuthRevokeOtherSessions",
         "security": [
@@ -3921,9 +3528,7 @@
                       "description": "Indicates if all other sessions were revoked successfully"
                     }
                   },
-                  "required": [
-                    "status"
-                  ]
+                  "required": ["status"]
                 }
               }
             }
@@ -3938,9 +3543,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -3956,9 +3559,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -4030,9 +3631,7 @@
     },
     "/api/auth/link-social": {
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Link a social account to the user",
         "operationId": "linkSocialAccount",
         "security": [
@@ -4048,90 +3647,53 @@
                 "type": "object",
                 "properties": {
                   "callbackURL": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
+                    "type": ["string", "null"],
                     "description": "The URL to redirect to after the user has signed in"
                   },
                   "provider": {
                     "type": "string"
                   },
                   "idToken": {
-                    "type": [
-                      "object",
-                      "null"
-                    ],
+                    "type": ["object", "null"],
                     "properties": {
                       "token": {
                         "type": "string"
                       },
                       "nonce": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
+                        "type": ["string", "null"]
                       },
                       "accessToken": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
+                        "type": ["string", "null"]
                       },
                       "refreshToken": {
-                        "type": [
-                          "string",
-                          "null"
-                        ]
+                        "type": ["string", "null"]
                       },
                       "scopes": {
-                        "type": [
-                          "array",
-                          "null"
-                        ]
+                        "type": ["array", "null"]
                       }
                     },
-                    "required": [
-                      "token"
-                    ]
+                    "required": ["token"]
                   },
                   "requestSignUp": {
-                    "type": [
-                      "boolean",
-                      "null"
-                    ]
+                    "type": ["boolean", "null"]
                   },
                   "scopes": {
-                    "type": [
-                      "array",
-                      "null"
-                    ],
+                    "type": ["array", "null"],
                     "description": "Additional scopes to request from the provider"
                   },
                   "errorCallbackURL": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
+                    "type": ["string", "null"],
                     "description": "The URL to redirect to if there is an error during the link process"
                   },
                   "disableRedirect": {
-                    "type": [
-                      "boolean",
-                      "null"
-                    ],
+                    "type": ["boolean", "null"],
                     "description": "Disable automatic redirection to the provider. Useful for handling the redirection yourself"
                   },
                   "additionalData": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
+                    "type": ["string", "null"]
                   }
                 },
-                "required": [
-                  "provider"
-                ]
+                "required": ["provider"]
               }
             }
           }
@@ -4156,9 +3718,7 @@
                       "type": "boolean"
                     }
                   },
-                  "required": [
-                    "redirect"
-                  ]
+                  "required": ["redirect"]
                 }
               }
             }
@@ -4173,9 +3733,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -4191,9 +3749,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -4265,9 +3821,7 @@
     },
     "/api/auth/list-accounts": {
       "get": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "List all accounts linked to the user",
         "operationId": "listUserAccounts",
         "security": [
@@ -4336,9 +3890,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -4354,9 +3906,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -4428,9 +3978,7 @@
     },
     "/api/auth/delete-user/callback": {
       "get": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Callback to complete user deletion with verification token",
         "operationId": "getAuthDeleteUserCallback",
         "security": [
@@ -4451,10 +3999,7 @@
             "name": "callbackURL",
             "in": "query",
             "schema": {
-              "type": [
-                "string",
-                "null"
-              ],
+              "type": ["string", "null"],
               "description": "The URL to redirect to after deletion"
             }
           }
@@ -4473,16 +4018,11 @@
                     },
                     "message": {
                       "type": "string",
-                      "enum": [
-                        "User deleted"
-                      ],
+                      "enum": ["User deleted"],
                       "description": "Confirmation message"
                     }
                   },
-                  "required": [
-                    "success",
-                    "message"
-                  ]
+                  "required": ["success", "message"]
                 }
               }
             }
@@ -4497,9 +4037,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -4515,9 +4053,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -4589,9 +4125,7 @@
     },
     "/api/auth/unlink-account": {
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Unlink an account",
         "operationId": "postAuthUnlinkAccount",
         "security": [
@@ -4610,15 +4144,10 @@
                     "type": "string"
                   },
                   "accountId": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
+                    "type": ["string", "null"]
                   }
                 },
-                "required": [
-                  "providerId"
-                ]
+                "required": ["providerId"]
               }
             }
           }
@@ -4649,9 +4178,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -4667,9 +4194,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -4741,9 +4266,7 @@
     },
     "/api/auth/refresh-token": {
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Refresh the access token using a refresh token",
         "operationId": "postAuthRefreshToken",
         "security": [
@@ -4763,23 +4286,15 @@
                     "description": "The provider ID for the OAuth provider"
                   },
                   "accountId": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
+                    "type": ["string", "null"],
                     "description": "The account ID associated with the refresh token"
                   },
                   "userId": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
+                    "type": ["string", "null"],
                     "description": "The user ID associated with the account"
                   }
                 },
-                "required": [
-                  "providerId"
-                ]
+                "required": ["providerId"]
               }
             }
           }
@@ -4830,9 +4345,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -4904,9 +4417,7 @@
     },
     "/api/auth/get-access-token": {
       "post": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Get a valid access token, doing a refresh if needed",
         "operationId": "postAuthGetAccessToken",
         "security": [
@@ -4926,23 +4437,15 @@
                     "description": "The provider ID for the OAuth provider"
                   },
                   "accountId": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
+                    "type": ["string", "null"],
                     "description": "The account ID associated with the refresh token"
                   },
                   "userId": {
-                    "type": [
-                      "string",
-                      "null"
-                    ],
+                    "type": ["string", "null"],
                     "description": "The user ID associated with the account"
                   }
                 },
-                "required": [
-                  "providerId"
-                ]
+                "required": ["providerId"]
               }
             }
           }
@@ -4986,9 +4489,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -5060,9 +4561,7 @@
     },
     "/api/auth/account-info": {
       "get": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Get the account info provided by the provider",
         "operationId": "getAuthAccountInfo",
         "security": [
@@ -5097,10 +4596,7 @@
                           "type": "boolean"
                         }
                       },
-                      "required": [
-                        "id",
-                        "emailVerified"
-                      ]
+                      "required": ["id", "emailVerified"]
                     },
                     "data": {
                       "type": "object",
@@ -5108,10 +4604,7 @@
                       "additionalProperties": true
                     }
                   },
-                  "required": [
-                    "user",
-                    "data"
-                  ],
+                  "required": ["user", "data"],
                   "additionalProperties": false
                 }
               }
@@ -5127,9 +4620,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -5145,9 +4636,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -5219,9 +4708,7 @@
     },
     "/api/auth/ok": {
       "get": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Check if the API is working",
         "operationId": "getAuthOk",
         "security": [
@@ -5242,9 +4729,7 @@
                       "description": "Indicates if the API is working"
                     }
                   },
-                  "required": [
-                    "ok"
-                  ]
+                  "required": ["ok"]
                 }
               }
             }
@@ -5259,9 +4744,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -5277,9 +4760,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -5351,9 +4832,7 @@
     },
     "/api/auth/error": {
       "get": {
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "description": "Displays an error page",
         "operationId": "getAuthError",
         "security": [
@@ -5383,9 +4862,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -5401,9 +4878,7 @@
                       "type": "string"
                     }
                   },
-                  "required": [
-                    "message"
-                  ]
+                  "required": ["message"]
                 }
               }
             },
@@ -5478,9 +4953,7 @@
         "summary": "Health check endpoint",
         "description": "Returns server health status. Used by monitoring tools and E2E tests to verify server is running.",
         "operationId": "healthCheck",
-        "tags": [
-          "infrastructure"
-        ],
+        "tags": ["infrastructure"],
         "responses": {
           "200": {
             "description": "Server is healthy",
@@ -5491,9 +4964,7 @@
                   "properties": {
                     "status": {
                       "type": "string",
-                      "enum": [
-                        "ok"
-                      ],
+                      "enum": ["ok"],
                       "description": "Server health status indicator"
                     },
                     "timestamp": {
@@ -5509,17 +4980,11 @@
                           "description": "Application name from configuration"
                         }
                       },
-                      "required": [
-                        "name"
-                      ],
+                      "required": ["name"],
                       "description": "Application metadata"
                     }
                   },
-                  "required": [
-                    "status",
-                    "timestamp",
-                    "app"
-                  ]
+                  "required": ["status", "timestamp", "app"]
                 }
               }
             }
@@ -5532,9 +4997,7 @@
         "summary": "List all tables",
         "description": "Returns a list of all tables with summary information.",
         "operationId": "listTables",
-        "tags": [
-          "tables"
-        ],
+        "tags": ["tables"],
         "responses": {
           "200": {
             "description": "List of tables",
@@ -5554,9 +5017,7 @@
                       "$ref": "#/components/schemas/Pagination"
                     }
                   },
-                  "required": [
-                    "tables"
-                  ]
+                  "required": ["tables"]
                 }
               }
             }
@@ -5579,9 +5040,7 @@
         "summary": "Get table details",
         "description": "Returns full table definition including fields, views, and permissions.",
         "operationId": "getTable",
-        "tags": [
-          "tables"
-        ],
+        "tags": ["tables"],
         "parameters": [
           {
             "schema": {
@@ -5606,9 +5065,7 @@
                       "$ref": "#/components/schemas/Table"
                     }
                   },
-                  "required": [
-                    "table"
-                  ]
+                  "required": ["table"]
                 }
               }
             }
@@ -5641,9 +5098,7 @@
         "summary": "Get table permissions",
         "description": "Returns the current user's permissions for the table, including field-level access.",
         "operationId": "getTablePermissions",
-        "tags": [
-          "tables"
-        ],
+        "tags": ["tables"],
         "parameters": [
           {
             "schema": {
@@ -5684,12 +5139,7 @@
                           "description": "Can delete records"
                         }
                       },
-                      "required": [
-                        "read",
-                        "create",
-                        "update",
-                        "delete"
-                      ],
+                      "required": ["read", "create", "update", "delete"],
                       "description": "Table-level permissions"
                     },
                     "fields": {
@@ -5700,10 +5150,7 @@
                       "description": "Field-level permissions"
                     }
                   },
-                  "required": [
-                    "table",
-                    "fields"
-                  ]
+                  "required": ["table", "fields"]
                 }
               }
             }
@@ -5736,9 +5183,7 @@
         "summary": "List records",
         "description": "Returns paginated records for a table with optional sorting and filtering.",
         "operationId": "listRecords",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -5783,10 +5228,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "asc",
-                "desc"
-              ],
+              "enum": ["asc", "desc"],
               "description": "Sort order"
             },
             "required": false,
@@ -5797,10 +5239,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "raw",
-                "display"
-              ],
+              "enum": ["raw", "display"],
               "description": "Field value format"
             },
             "required": false,
@@ -5866,9 +5305,7 @@
                       "description": "Aggregation results"
                     }
                   },
-                  "required": [
-                    "records"
-                  ]
+                  "required": ["records"]
                 }
               }
             }
@@ -5899,9 +5336,7 @@
         "summary": "Create a record",
         "description": "Creates a new record in the table with the given field values.",
         "operationId": "createRecord",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -5970,12 +5405,7 @@
                       "description": "ISO 8601 last update timestamp"
                     }
                   },
-                  "required": [
-                    "id",
-                    "fields",
-                    "createdAt",
-                    "updatedAt"
-                  ]
+                  "required": ["id", "fields", "createdAt", "updatedAt"]
                 }
               }
             }
@@ -6018,9 +5448,7 @@
         "summary": "Get a record",
         "description": "Returns a single record by ID with all field values.",
         "operationId": "getRecord",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -6092,12 +5520,7 @@
                       "description": "ISO 8601 last update timestamp"
                     }
                   },
-                  "required": [
-                    "id",
-                    "fields",
-                    "createdAt",
-                    "updatedAt"
-                  ]
+                  "required": ["id", "fields", "createdAt", "updatedAt"]
                 }
               }
             }
@@ -6128,9 +5551,7 @@
         "summary": "Update a record",
         "description": "Updates field values of an existing record.",
         "operationId": "updateRecord",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -6190,9 +5611,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "record"
-                  ]
+                  "required": ["record"]
                 }
               }
             }
@@ -6233,9 +5652,7 @@
         "summary": "Delete a record",
         "description": "Soft-deletes a record. Use the restore endpoint to undo.",
         "operationId": "deleteRecord",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -6268,15 +5685,11 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "enum": [
-                        true
-                      ],
+                      "enum": [true],
                       "description": "Record deleted"
                     }
                   },
-                  "required": [
-                    "success"
-                  ]
+                  "required": ["success"]
                 }
               }
             }
@@ -6309,9 +5722,7 @@
         "summary": "Restore a deleted record",
         "description": "Restores a soft-deleted record back to active state.",
         "operationId": "restoreRecord",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -6344,9 +5755,7 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "enum": [
-                        true
-                      ],
+                      "enum": [true],
                       "description": "Record restored"
                     },
                     "record": {
@@ -6360,10 +5769,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "success",
-                    "record"
-                  ]
+                  "required": ["success", "record"]
                 }
               }
             }
@@ -6396,9 +5802,7 @@
         "summary": "List deleted records",
         "description": "Returns paginated list of soft-deleted records in the trash.",
         "operationId": "listTrashRecords",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -6443,10 +5847,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "asc",
-                "desc"
-              ],
+              "enum": ["asc", "desc"],
               "description": "Sort order"
             },
             "required": false,
@@ -6457,10 +5858,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "raw",
-                "display"
-              ],
+              "enum": ["raw", "display"],
               "description": "Field value format"
             },
             "required": false,
@@ -6526,9 +5924,7 @@
                       "description": "Aggregation results"
                     }
                   },
-                  "required": [
-                    "records"
-                  ]
+                  "required": ["records"]
                 }
               }
             }
@@ -6561,9 +5957,7 @@
         "summary": "Get record history",
         "description": "Returns the audit trail of changes for a specific record.",
         "operationId": "getRecordHistory",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -6617,17 +6011,11 @@
                           "description": "Items skipped"
                         }
                       },
-                      "required": [
-                        "total",
-                        "limit",
-                        "offset"
-                      ],
+                      "required": ["total", "limit", "offset"],
                       "description": "Pagination metadata"
                     }
                   },
-                  "required": [
-                    "history"
-                  ]
+                  "required": ["history"]
                 }
               }
             }
@@ -6660,9 +6048,7 @@
         "summary": "List comments on a record",
         "description": "Returns paginated comments for a specific record.",
         "operationId": "listComments",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -6720,19 +6106,11 @@
                           "description": "Whether more results exist"
                         }
                       },
-                      "required": [
-                        "total",
-                        "limit",
-                        "offset",
-                        "hasMore"
-                      ],
+                      "required": ["total", "limit", "offset", "hasMore"],
                       "description": "Pagination metadata"
                     }
                   },
-                  "required": [
-                    "comments",
-                    "pagination"
-                  ]
+                  "required": ["comments", "pagination"]
                 }
               }
             }
@@ -6763,9 +6141,7 @@
         "summary": "Create a comment",
         "description": "Adds a comment to a record.",
         "operationId": "createComment",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -6801,9 +6177,7 @@
                     "description": "Comment text"
                   }
                 },
-                "required": [
-                  "content"
-                ]
+                "required": ["content"]
               }
             }
           }
@@ -6827,9 +6201,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "comment"
-                  ]
+                  "required": ["comment"]
                 }
               }
             }
@@ -6872,9 +6244,7 @@
         "summary": "Get a comment",
         "description": "Returns a single comment by ID.",
         "operationId": "getComment",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -6951,9 +6321,7 @@
         "summary": "Update a comment",
         "description": "Updates the content of a comment. Only the author can update.",
         "operationId": "updateComment",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -6999,9 +6367,7 @@
                     "description": "Comment text"
                   }
                 },
-                "required": [
-                  "content"
-                ]
+                "required": ["content"]
               }
             }
           }
@@ -7070,9 +6436,7 @@
         "summary": "Delete a comment",
         "description": "Soft-deletes a comment. Only the author or admin can delete.",
         "operationId": "deleteComment",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -7147,9 +6511,7 @@
         "summary": "Batch create records",
         "description": "Creates multiple records in a single request (up to 1000).",
         "operationId": "batchCreateRecords",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -7190,9 +6552,7 @@
                     "default": false
                   }
                 },
-                "required": [
-                  "records"
-                ]
+                "required": ["records"]
               }
             }
           }
@@ -7217,9 +6577,7 @@
                       "description": "Created records (only if returnRecords=true)"
                     }
                   },
-                  "required": [
-                    "created"
-                  ]
+                  "required": ["created"]
                 }
               }
             }
@@ -7260,9 +6618,7 @@
         "summary": "Batch update records",
         "description": "Updates multiple records in a single request (up to 100).",
         "operationId": "batchUpdateRecords",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -7305,9 +6661,7 @@
                           "default": {}
                         }
                       },
-                      "required": [
-                        "id"
-                      ]
+                      "required": ["id"]
                     },
                     "minItems": 1,
                     "maxItems": 100
@@ -7317,9 +6671,7 @@
                     "default": false
                   }
                 },
-                "required": [
-                  "records"
-                ]
+                "required": ["records"]
               }
             }
           }
@@ -7344,9 +6696,7 @@
                       "description": "Updated records (only if returnRecords=true)"
                     }
                   },
-                  "required": [
-                    "updated"
-                  ]
+                  "required": ["updated"]
                 }
               }
             }
@@ -7387,9 +6737,7 @@
         "summary": "Batch delete records",
         "description": "Soft-deletes multiple records in a single request (up to 100).",
         "operationId": "batchDeleteRecords",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -7425,9 +6773,7 @@
                     "maxItems": 100
                   }
                 },
-                "required": [
-                  "ids"
-                ]
+                "required": ["ids"]
               }
             }
           }
@@ -7445,9 +6791,7 @@
                       "description": "Number of records deleted"
                     }
                   },
-                  "required": [
-                    "deleted"
-                  ]
+                  "required": ["deleted"]
                 }
               }
             }
@@ -7490,9 +6834,7 @@
         "summary": "Batch restore deleted records",
         "description": "Restores multiple soft-deleted records in a single request (up to 100).",
         "operationId": "batchRestoreRecords",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -7528,9 +6870,7 @@
                     "maxItems": 100
                   }
                 },
-                "required": [
-                  "ids"
-                ]
+                "required": ["ids"]
               }
             }
           }
@@ -7545,9 +6885,7 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "enum": [
-                        true
-                      ],
+                      "enum": [true],
                       "description": "Batch restore succeeded"
                     },
                     "restored": {
@@ -7555,10 +6893,7 @@
                       "description": "Number of records restored"
                     }
                   },
-                  "required": [
-                    "success",
-                    "restored"
-                  ]
+                  "required": ["success", "restored"]
                 }
               }
             }
@@ -7601,9 +6936,7 @@
         "summary": "Upsert records",
         "description": "Creates or updates records based on merge fields. Existing records matching the merge fields are updated; new records are created.",
         "operationId": "upsertRecords",
-        "tags": [
-          "records"
-        ],
+        "tags": ["records"],
         "parameters": [
           {
             "schema": {
@@ -7651,10 +6984,7 @@
                     "default": false
                   }
                 },
-                "required": [
-                  "records",
-                  "fieldsToMergeOn"
-                ]
+                "required": ["records", "fieldsToMergeOn"]
               }
             }
           }
@@ -7683,11 +7013,7 @@
                       "description": "Number of records updated"
                     }
                   },
-                  "required": [
-                    "records",
-                    "created",
-                    "updated"
-                  ]
+                  "required": ["records", "created", "updated"]
                 }
               }
             }
@@ -7730,9 +7056,7 @@
         "summary": "List views",
         "description": "Returns all views defined for a table.",
         "operationId": "listViews",
-        "tags": [
-          "views"
-        ],
+        "tags": ["views"],
         "parameters": [
           {
             "schema": {
@@ -7761,9 +7085,7 @@
                       "description": "List of views"
                     }
                   },
-                  "required": [
-                    "views"
-                  ]
+                  "required": ["views"]
                 }
               }
             }
@@ -7796,9 +7118,7 @@
         "summary": "Get view details",
         "description": "Returns view configuration including filters, sorts, and visible fields.",
         "operationId": "getView",
-        "tags": [
-          "views"
-        ],
+        "tags": ["views"],
         "parameters": [
           {
             "schema": {
@@ -7855,10 +7175,7 @@
                                 "nullable": true
                               }
                             },
-                            "required": [
-                              "field",
-                              "operator"
-                            ]
+                            "required": ["field", "operator"]
                           }
                         },
                         "or": {
@@ -7876,10 +7193,7 @@
                                 "nullable": true
                               }
                             },
-                            "required": [
-                              "field",
-                              "operator"
-                            ]
+                            "required": ["field", "operator"]
                           }
                         }
                       },
@@ -7895,16 +7209,10 @@
                           },
                           "direction": {
                             "type": "string",
-                            "enum": [
-                              "asc",
-                              "desc"
-                            ]
+                            "enum": ["asc", "desc"]
                           }
                         },
-                        "required": [
-                          "field",
-                          "direction"
-                        ]
+                        "required": ["field", "direction"]
                       },
                       "description": "View sorts"
                     },
@@ -7923,15 +7231,10 @@
                         },
                         "direction": {
                           "type": "string",
-                          "enum": [
-                            "asc",
-                            "desc"
-                          ]
+                          "enum": ["asc", "desc"]
                         }
                       },
-                      "required": [
-                        "field"
-                      ],
+                      "required": ["field"],
                       "description": "Group by configuration"
                     },
                     "isDefault": {
@@ -7939,10 +7242,7 @@
                       "description": "Whether this is the default view"
                     }
                   },
-                  "required": [
-                    "id",
-                    "name"
-                  ]
+                  "required": ["id", "name"]
                 }
               }
             }
@@ -7975,9 +7275,7 @@
         "summary": "Get records through a view",
         "description": "Returns records filtered and sorted according to the view configuration.",
         "operationId": "getViewRecords",
-        "tags": [
-          "views"
-        ],
+        "tags": ["views"],
         "parameters": [
           {
             "schema": {
@@ -8019,9 +7317,7 @@
                       "$ref": "#/components/schemas/Pagination"
                     }
                   },
-                  "required": [
-                    "records"
-                  ]
+                  "required": ["records"]
                 }
               }
             }
@@ -8054,9 +7350,7 @@
         "summary": "List activity logs",
         "description": "Returns paginated activity logs with optional filtering by table or action type.",
         "operationId": "listActivityLogs",
-        "tags": [
-          "activity"
-        ],
+        "tags": ["activity"],
         "parameters": [
           {
             "schema": {
@@ -8091,12 +7385,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "create",
-                "update",
-                "delete",
-                "restore"
-              ],
+              "enum": ["create", "update", "delete", "restore"],
               "description": "Filter by action"
             },
             "required": false,
@@ -8140,19 +7429,11 @@
                           "description": "Total number of pages"
                         }
                       },
-                      "required": [
-                        "total",
-                        "page",
-                        "pageSize",
-                        "totalPages"
-                      ],
+                      "required": ["total", "page", "pageSize", "totalPages"],
                       "description": "Pagination metadata"
                     }
                   },
-                  "required": [
-                    "activities",
-                    "pagination"
-                  ]
+                  "required": ["activities", "pagination"]
                 }
               }
             }
@@ -8175,9 +7456,7 @@
         "summary": "Get activity log details",
         "description": "Returns a single activity log entry with full change details.",
         "operationId": "getActivityLog",
-        "tags": [
-          "activity"
-        ],
+        "tags": ["activity"],
         "parameters": [
           {
             "schema": {
@@ -8229,9 +7508,7 @@
         "summary": "Collect analytics event",
         "description": "Records a page view event. Uses single-letter keys to minimize payload size.",
         "operationId": "collectAnalytics",
-        "tags": [
-          "analytics"
-        ],
+        "tags": ["analytics"],
         "requestBody": {
           "content": {
             "application/json": {
@@ -8284,9 +7561,7 @@
                     "description": "UTM term parameter"
                   }
                 },
-                "required": [
-                  "p"
-                ]
+                "required": ["p"]
               }
             }
           }
@@ -8320,9 +7595,7 @@
         "summary": "Get analytics overview",
         "description": "Returns summary statistics and time series data for the given date range.",
         "operationId": "getAnalyticsOverview",
-        "tags": [
-          "analytics"
-        ],
+        "tags": ["analytics"],
         "parameters": [
           {
             "schema": {
@@ -8347,12 +7620,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "hour",
-                "day",
-                "week",
-                "month"
-              ],
+              "enum": ["hour", "day", "week", "month"],
               "default": "day",
               "description": "Time series granularity"
             },
@@ -8386,11 +7654,7 @@
                           "description": "Total sessions"
                         }
                       },
-                      "required": [
-                        "pageViews",
-                        "uniqueVisitors",
-                        "sessions"
-                      ]
+                      "required": ["pageViews", "uniqueVisitors", "sessions"]
                     },
                     "timeSeries": {
                       "type": "array",
@@ -8400,10 +7664,7 @@
                       "description": "Time series data points"
                     }
                   },
-                  "required": [
-                    "summary",
-                    "timeSeries"
-                  ]
+                  "required": ["summary", "timeSeries"]
                 }
               }
             }
@@ -8436,9 +7697,7 @@
         "summary": "Get top pages",
         "description": "Returns most visited pages with view counts and unique visitors.",
         "operationId": "getAnalyticsTopPages",
-        "tags": [
-          "analytics"
-        ],
+        "tags": ["analytics"],
         "parameters": [
           {
             "schema": {
@@ -8463,12 +7722,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "hour",
-                "day",
-                "week",
-                "month"
-              ],
+              "enum": ["hour", "day", "week", "month"],
               "default": "day",
               "description": "Time series granularity"
             },
@@ -8504,11 +7758,7 @@
                             "description": "Unique visitors"
                           }
                         },
-                        "required": [
-                          "path",
-                          "pageViews",
-                          "uniqueVisitors"
-                        ]
+                        "required": ["path", "pageViews", "uniqueVisitors"]
                       }
                     },
                     "total": {
@@ -8516,10 +7766,7 @@
                       "description": "Total number of pages"
                     }
                   },
-                  "required": [
-                    "pages",
-                    "total"
-                  ]
+                  "required": ["pages", "total"]
                 }
               }
             }
@@ -8542,9 +7789,7 @@
         "summary": "Get top referrers",
         "description": "Returns traffic sources ranked by page views.",
         "operationId": "getAnalyticsTopReferrers",
-        "tags": [
-          "analytics"
-        ],
+        "tags": ["analytics"],
         "parameters": [
           {
             "schema": {
@@ -8569,12 +7814,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "hour",
-                "day",
-                "week",
-                "month"
-              ],
+              "enum": ["hour", "day", "week", "month"],
               "default": "day",
               "description": "Time series granularity"
             },
@@ -8611,11 +7851,7 @@
                             "description": "Unique visitors from this referrer"
                           }
                         },
-                        "required": [
-                          "domain",
-                          "pageViews",
-                          "uniqueVisitors"
-                        ]
+                        "required": ["domain", "pageViews", "uniqueVisitors"]
                       }
                     },
                     "total": {
@@ -8623,10 +7859,7 @@
                       "description": "Total referrer entries"
                     }
                   },
-                  "required": [
-                    "referrers",
-                    "total"
-                  ]
+                  "required": ["referrers", "total"]
                 }
               }
             }
@@ -8649,9 +7882,7 @@
         "summary": "Get device breakdown",
         "description": "Returns visitor breakdown by device type, browser, and operating system.",
         "operationId": "getAnalyticsDevices",
-        "tags": [
-          "analytics"
-        ],
+        "tags": ["analytics"],
         "parameters": [
           {
             "schema": {
@@ -8676,12 +7907,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "hour",
-                "day",
-                "week",
-                "month"
-              ],
+              "enum": ["hour", "day", "week", "month"],
               "default": "day",
               "description": "Time series granularity"
             },
@@ -8717,11 +7943,7 @@
                             "description": "Percentage of total (0-100)"
                           }
                         },
-                        "required": [
-                          "name",
-                          "count",
-                          "percentage"
-                        ]
+                        "required": ["name", "count", "percentage"]
                       },
                       "description": "Device type breakdown"
                     },
@@ -8743,11 +7965,7 @@
                             "description": "Percentage of total (0-100)"
                           }
                         },
-                        "required": [
-                          "name",
-                          "count",
-                          "percentage"
-                        ]
+                        "required": ["name", "count", "percentage"]
                       },
                       "description": "Browser name breakdown"
                     },
@@ -8769,20 +7987,12 @@
                             "description": "Percentage of total (0-100)"
                           }
                         },
-                        "required": [
-                          "name",
-                          "count",
-                          "percentage"
-                        ]
+                        "required": ["name", "count", "percentage"]
                       },
                       "description": "OS name breakdown"
                     }
                   },
-                  "required": [
-                    "deviceTypes",
-                    "browsers",
-                    "operatingSystems"
-                  ]
+                  "required": ["deviceTypes", "browsers", "operatingSystems"]
                 }
               }
             }
@@ -8805,9 +8015,7 @@
         "summary": "Get campaign breakdown",
         "description": "Returns UTM campaign performance data.",
         "operationId": "getAnalyticsCampaigns",
-        "tags": [
-          "analytics"
-        ],
+        "tags": ["analytics"],
         "parameters": [
           {
             "schema": {
@@ -8832,12 +8040,7 @@
           {
             "schema": {
               "type": "string",
-              "enum": [
-                "hour",
-                "day",
-                "week",
-                "month"
-              ],
+              "enum": ["hour", "day", "week", "month"],
               "default": "day",
               "description": "Time series granularity"
             },
@@ -8884,13 +8087,7 @@
                             "description": "Unique visitors"
                           }
                         },
-                        "required": [
-                          "source",
-                          "medium",
-                          "campaign",
-                          "pageViews",
-                          "uniqueVisitors"
-                        ]
+                        "required": ["source", "medium", "campaign", "pageViews", "uniqueVisitors"]
                       },
                       "description": "UTM campaign breakdown"
                     },
@@ -8899,10 +8096,7 @@
                       "description": "Total campaign entries"
                     }
                   },
-                  "required": [
-                    "campaigns",
-                    "total"
-                  ]
+                  "required": ["campaigns", "total"]
                 }
               }
             }
@@ -8925,9 +8119,7 @@
         "summary": "Get current session",
         "description": "Returns the current user session and user data.",
         "operationId": "getAuthSession",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "Current session",
@@ -8957,9 +8149,7 @@
         "summary": "List all users (admin)",
         "description": "Returns paginated list of all users with role information. Requires admin role.",
         "operationId": "getAuthAdminListUsers",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "List of users",
@@ -8988,12 +8178,7 @@
                       "description": "Items per page"
                     }
                   },
-                  "required": [
-                    "users",
-                    "total",
-                    "page",
-                    "limit"
-                  ]
+                  "required": ["users", "total", "page", "limit"]
                 }
               }
             }
@@ -9026,9 +8211,7 @@
         "summary": "Get user details (admin)",
         "description": "Returns detailed user information including role and ban status.",
         "operationId": "getAuthAdminGetUser",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "User details",
@@ -9048,9 +8231,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "user"
-                  ]
+                  "required": ["user"]
                 }
               }
             }
@@ -9083,9 +8264,7 @@
         "summary": "Create user (admin)",
         "description": "Creates a new user account. Password must be 8-128 characters.",
         "operationId": "postAuthAdminCreateUser",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "User created",
@@ -9105,9 +8284,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "user"
-                  ]
+                  "required": ["user"]
                 }
               }
             }
@@ -9140,9 +8317,7 @@
         "summary": "Update user (admin)",
         "description": "Updates user details including name, email, and role.",
         "operationId": "postAuthAdminUpdateUser",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "User updated",
@@ -9162,9 +8337,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "user"
-                  ]
+                  "required": ["user"]
                 }
               }
             }
@@ -9197,9 +8370,7 @@
         "summary": "Delete user (admin)",
         "description": "Permanently deletes a user account.",
         "operationId": "postAuthAdminDeleteUser",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "User deleted",
@@ -9210,15 +8381,11 @@
                   "properties": {
                     "success": {
                       "type": "boolean",
-                      "enum": [
-                        true
-                      ],
+                      "enum": [true],
                       "description": "User deleted"
                     }
                   },
-                  "required": [
-                    "success"
-                  ]
+                  "required": ["success"]
                 }
               }
             }
@@ -9251,9 +8418,7 @@
         "summary": "Ban user (admin)",
         "description": "Bans a user with an optional reason and expiration.",
         "operationId": "postAuthAdminBanUser",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "User banned",
@@ -9273,9 +8438,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "user"
-                  ]
+                  "required": ["user"]
                 }
               }
             }
@@ -9308,9 +8471,7 @@
         "summary": "Unban user (admin)",
         "description": "Removes ban from a user account.",
         "operationId": "postAuthAdminUnbanUser",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "User unbanned",
@@ -9330,9 +8491,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "user"
-                  ]
+                  "required": ["user"]
                 }
               }
             }
@@ -9365,9 +8524,7 @@
         "summary": "Set user role (admin)",
         "description": "Changes a user role to admin or user.",
         "operationId": "postAuthAdminSetRole",
-        "tags": [
-          "auth"
-        ],
+        "tags": ["auth"],
         "responses": {
           "200": {
             "description": "Role updated",
@@ -9387,9 +8544,7 @@
                       ]
                     }
                   },
-                  "required": [
-                    "user"
-                  ]
+                  "required": ["user"]
                 }
               }
             }
