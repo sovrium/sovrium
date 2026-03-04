@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { calloutTip, codeBlock, docsPage, sectionHeader } from './shared'
+import { calloutTip, codeBlock, docsPage, propertyTable, sectionHeader } from './shared'
 
 export const docsTheme = docsPage({
   activeId: 'theme',
@@ -39,6 +39,10 @@ export const docsTheme = docsPage({
       props: {},
       children: [
         sectionHeader('$t:docs.theme.colors.title', '$t:docs.theme.colors.description', 'colors'),
+        propertyTable([
+          { name: '{name}', description: '$t:docs.theme.colors.props.name' },
+          { name: 'CSS output', description: '$t:docs.theme.colors.props.output' },
+        ]),
         codeBlock(
           'theme:\n  colors:\n    primary: "#3b82f6"\n    secondary: "#8b5cf6"\n    accent: "#f59e0b"\n    background: "#0a0e1a"\n    text: "#e8ecf4"\n    muted: "#64748b"',
           'yaml'
@@ -52,6 +56,14 @@ export const docsTheme = docsPage({
       props: {},
       children: [
         sectionHeader('$t:docs.theme.fonts.title', '$t:docs.theme.fonts.description', 'fonts'),
+        propertyTable([
+          { name: 'family', description: '$t:docs.theme.fonts.props.family' },
+          { name: 'fallback', description: '$t:docs.theme.fonts.props.fallback' },
+          { name: 'weights', description: '$t:docs.theme.fonts.props.weights' },
+          { name: 'size', description: '$t:docs.theme.fonts.props.size' },
+          { name: 'lineHeight', description: '$t:docs.theme.fonts.props.lineHeight' },
+          { name: 'googleFontsUrl', description: '$t:docs.theme.fonts.props.googleFontsUrl' },
+        ]),
         codeBlock(
           'theme:\n  fonts:\n    heading:\n      family: Inter\n      weights: [600, 700]\n      lineHeight: "1.2"\n    body:\n      family: Inter\n      size: "16px"\n      googleFontsUrl: "https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700"',
           'yaml'

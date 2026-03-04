@@ -58,34 +58,34 @@ export const en: Record<string, string> = {
   // ════════════════════════════════════════════════════════════════════
 
   // ── Home: Meta ──────────────────────────────────────────────────────
-  'home.meta.title': 'Sovrium \u2014 Build Apps with Configuration, Not Code',
+  'home.meta.title': 'Sovrium \u2014 One Config. Complete App. Full Control.',
   'home.meta.description':
-    'Build complete business applications with a single configuration file. The open-source, self-hosted SaaS alternative \u2014 no vendor lock-in.',
-  'home.meta.og.title': 'Sovrium \u2014 Build Apps with Configuration, Not Code',
+    'Open-source, self-hosted platform that turns a single config file into a complete business application. 100% data ownership, zero vendor lock-in.',
+  'home.meta.og.title': 'Sovrium \u2014 One Config. Complete App. Full Control.',
   'home.meta.og.description':
-    'Open-source, configuration-driven application platform. The self-hosted SaaS alternative with no vendor lock-in.',
-  'home.meta.twitter.title': 'Sovrium \u2014 Build Apps with Configuration, Not Code',
+    'Open-source, self-hosted platform that turns a single config file into a complete business application. 100% data ownership, zero vendor lock-in.',
+  'home.meta.twitter.title': 'Sovrium \u2014 One Config. Complete App. Full Control.',
   'home.meta.twitter.description':
-    'Open-source, configuration-driven application platform. The self-hosted SaaS alternative with no vendor lock-in.',
+    'Open-source, self-hosted platform that turns a single config file into a complete business application. 100% data ownership, zero vendor lock-in.',
 
   // ── Home: Hero ──────────────────────────────────────────────────────
-  'home.hero.title': 'Build complete apps with a single config file',
+  'home.hero.title': 'One Config. Complete App. Full Control.',
   'home.hero.subtitle': 'Open-source. Self-hosted. Configuration-driven.',
   'home.hero.description':
-    'Define your tables, auth, pages, and theme in one file. Sovrium turns it into a full-stack application you own and control.',
+    'Define tables, auth, pages, and theme in one file. Deploy on your infrastructure. No per-seat pricing. No vendor lock-in.',
   'home.hero.cta.primary': 'Get Started',
-  'home.hero.cta.secondary': 'View on GitHub',
+  'home.hero.cta.secondary': 'Star on GitHub',
+  'home.hero.trust': 'Open source \u00B7 BSL 1.1 \u00B7 Built with Bun, Effect.ts, Hono & React 19',
 
   // ── Home: Problem Statement ─────────────────────────────────────────
   'home.problem.title': 'The SaaS Trap',
-  'home.problem.stat1.value': '$10K+',
-  'home.problem.stat1.label': 'Average annual SaaS spend per employee',
-  'home.problem.stat1.source': 'Source: Productiv SaaS Trends 2024',
+  'home.problem.stat1.value': '4+',
+  'home.problem.stat1.label': 'Average SaaS tools per team just to manage data',
   'home.problem.stat2.value': '0%',
-  'home.problem.stat2.label': 'Data portability guarantee on most SaaS platforms',
-  'home.problem.stat3.value': '73%',
-  'home.problem.stat3.label': 'Companies worried about vendor lock-in',
-  'home.problem.stat3.source': 'Source: Flexera 2024 State of ITAM Report',
+  'home.problem.stat2.label': 'Of SaaS platforms let you export your full schema and workflows',
+  'home.problem.stat3.value': '87%',
+  'home.problem.stat3.label': 'Of IT leaders plan to reduce SaaS sprawl',
+  'home.problem.stat3.source': 'Source: Zylo 2024 SaaS Management Index',
   'home.problem.hidden.title': 'The Hidden Costs of SaaS Dependency',
   'home.problem.hidden.cost1.title': 'Vendor Lock-in \u2014 ',
   'home.problem.hidden.cost1.description':
@@ -115,11 +115,11 @@ export const en: Record<string, string> = {
     'Add features by updating your config. No migration pain.',
 
   // ── Home: Comparison ────────────────────────────────────────────────
-  'home.comparison.title': 'Why Not Just Use SaaS?',
-  'home.comparison.stat1': 'Significant cost savings vs equivalent SaaS tools',
-  'home.comparison.stat2': '100% data ownership, forever',
+  'home.comparison.title': 'The Self-Hosted Advantage',
+  'home.comparison.stat': '100% data ownership. Zero per-seat pricing. Full source code access.',
   'home.comparison.table.title': 'Sovrium vs Traditional SaaS',
   'home.comparison.table.header.aspect': 'Aspect',
+  'home.comparison.table.header.saas': 'Traditional SaaS',
   'home.comparison.table.row1.aspect': 'Data Ownership',
   'home.comparison.table.row1.sovrium': '\u2705 100% yours',
   'home.comparison.table.row1.saas': '\u274C Vendor-owned',
@@ -149,56 +149,35 @@ export const en: Record<string, string> = {
   'home.useCases.title': 'Built For Real Work',
   'home.useCases.internal.title': 'Internal Tools',
   'home.useCases.internal.description':
-    'CRM, project management, inventory tracking \u2014 built specifically for how your team works.',
+    'CRM, inventory, project tracking \u2014 built exactly for your team\u2019s workflow, not a generic SaaS template.',
   'home.useCases.portals.title': 'Client Portals',
   'home.useCases.portals.description':
-    'Secure dashboards for clients to view reports, submit requests, and track progress.',
+    'Branded dashboards for clients to view reports and track progress. Deploy in hours, not months.',
   'home.useCases.business.title': 'Business Apps',
   'home.useCases.business.description':
-    'Custom applications for workflows that off-the-shelf SaaS can\u2019t handle.',
-  'home.useCases.api.title': 'API Backends',
-  'home.useCases.api.description':
-    'REST APIs with authentication, validation, and database \u2014 zero boilerplate.',
-  'home.useCases.static.title': 'Static Sites',
-  'home.useCases.static.description':
-    'Marketing pages, documentation sites, and landing pages with i18n support.',
+    'Custom workflows that off-the-shelf tools can\u2019t handle. Your process, your data, your rules.',
   'home.useCases.mvp.title': 'MVPs & Prototypes',
   'home.useCases.mvp.description':
-    'From idea to working product in hours, not weeks. Iterate with config changes.',
+    'From idea to full-stack app in a day. Auth, database, and UI from a single config file.',
 
   // ── Home: Platform Features ─────────────────────────────────────────
   'home.features.title': 'Everything You Need',
   'home.features.subtitle': 'A complete platform, not another framework to learn.',
-  'home.features.auth.title': '\uD83D\uDD10 Authentication',
-  'home.features.auth.point1': '\u2022 Email/password & social OAuth',
+  'home.features.data.title': '\uD83D\uDDC2\uFE0F Full-Stack Data Layer',
+  'home.features.data.point1': '\u2022 41 field types with relations, lookups & formulas',
+  'home.features.data.point2': '\u2022 Auto-generated REST API with OpenAPI docs',
+  'home.features.data.point3': '\u2022 Sorting, filtering, pagination & bulk operations',
+  'home.features.data.point4': '\u2022 Type-safe client SDK included',
+  'home.features.auth.title': '\uD83D\uDD10 Auth & Access Control',
+  'home.features.auth.point1': '\u2022 Email/password, social OAuth & magic links',
   'home.features.auth.point2': '\u2022 Role-based access (admin, member, viewer)',
-  'home.features.auth.point3': '\u2022 Two-factor authentication',
-  'home.features.auth.point4': '\u2022 Session management & passkeys',
-  'home.features.tables.title': '\uD83D\uDDC2\uFE0F Tables & Data',
-  'home.features.tables.point1': '\u2022 41 field types (text, email, integer, \u2026)',
-  'home.features.tables.point2': '\u2022 Automatic CRUD API',
-  'home.features.tables.point3': '\u2022 Relations, lookups & formula fields',
-  'home.features.tables.point4': '\u2022 Sorting, filtering, pagination',
-  'home.features.api.title': '\uD83D\uDD0C Records API',
-  'home.features.api.point1': '\u2022 Auto-generated REST endpoints',
-  'home.features.api.point2': '\u2022 OpenAPI documentation',
-  'home.features.api.point3': '\u2022 Type-safe client SDK',
-  'home.features.api.point4': '\u2022 Filtering, sorting & bulk operations',
-  'home.features.pages.title': '\uD83D\uDCBB Pages & UI',
-  'home.features.pages.point1': '\u2022 Server-rendered React pages',
-  'home.features.pages.point2': '\u2022 62 component types included',
-  'home.features.pages.point3': '\u2022 Responsive by default',
-  'home.features.pages.point4': '\u2022 Custom layouts & navigation',
-  'home.features.theming.title': '\uD83C\uDFA8 Theming & i18n',
-  'home.features.theming.point1': '\u2022 Custom color schemes & typography',
-  'home.features.theming.point2': '\u2022 Dark mode support',
-  'home.features.theming.point3': '\u2022 Multi-language (i18n)',
-  'home.features.theming.point4': '\u2022 CSS variable theming',
-
-  // ── Home: Tech Stack ────────────────────────────────────────────────
-  'home.techStack.title': 'Modern Stack. No Compromises.',
-  'home.techStack.subtitle':
-    'Written in TypeScript, built on battle-tested technologies chosen for performance, reliability, and developer experience.',
+  'home.features.auth.point3': '\u2022 Two-factor authentication & passkeys',
+  'home.features.auth.point4': '\u2022 Session management & rate limiting',
+  'home.features.ui.title': '\uD83C\uDFA8 UI & Theming',
+  'home.features.ui.point1': '\u2022 62 component types with SSR React pages',
+  'home.features.ui.point2': '\u2022 Custom color schemes & typography',
+  'home.features.ui.point3': '\u2022 Dark mode & multi-language (i18n)',
+  'home.features.ui.point4': '\u2022 Responsive layouts with CSS variable theming',
 
   // ── Home: Getting Started ───────────────────────────────────────────
   'home.gettingStarted.title': 'Get Started in Minutes',
@@ -209,9 +188,11 @@ export const en: Record<string, string> = {
   'home.gettingStarted.step4.title': 'Customize',
   'home.gettingStarted.step4.description':
     'Add tables, pages, auth \u2014 all through configuration',
-  'home.gettingStarted.status.title': 'Early Access',
+  'home.gettingStarted.techLine':
+    'Built with Bun, PostgreSQL, React 19, Effect.ts, Hono, Drizzle ORM, Better Auth, and Tailwind CSS.',
+  'home.gettingStarted.status.title': 'Build With Us',
   'home.gettingStarted.status.description':
-    'Sovrium is in active development. Star the repo and follow along as we build the future of self-hosted applications.',
+    'Sovrium is built in the open. Star the repo to track progress, read the docs to start building, or contribute on GitHub.',
   'home.gettingStarted.status.cta': 'Read the Quickstart',
   'home.gettingStarted.status.cta.href': '/en/docs',
   'home.gettingStarted.status.cta.secondary': 'Star on GitHub',
@@ -1129,6 +1110,35 @@ export const en: Record<string, string> = {
   'docs.rootProps.analytics.description':
     'Privacy-friendly, cookie-free, first-party analytics. Set to true for defaults or configure with options.',
 
+  // Property Details
+  'docs.overview.details.title': 'Property Details',
+  'docs.overview.details.description':
+    'Detailed rules and constraints for the three scalar root properties: name, version, and description.',
+  'docs.overview.details.name.description':
+    'The app name follows npm naming conventions. It must be lowercase, URL-safe, and unique within your deployment.',
+  'docs.overview.details.name.pattern':
+    'Regex: ^(?:@[a-z0-9-~][a-z0-9-._~]*/)?[a-z0-9-~][a-z0-9-._~]*$. Lowercase letters, digits, hyphens, dots.',
+  'docs.overview.details.name.maxLength':
+    '214 characters maximum (including @scope/ prefix if scoped).',
+  'docs.overview.details.name.scoped':
+    'Supports npm-style scoped packages: @scope/name (e.g., @acme/dashboard).',
+  'docs.overview.details.version.description':
+    'Follows Semantic Versioning 2.0.0 (semver.org). Format: MAJOR.MINOR.PATCH with optional pre-release and build metadata.',
+  'docs.overview.details.description.body':
+    'A single-line text describing the application. Displayed in the admin UI and metadata.',
+  'docs.overview.details.description.format': 'Single line only. No line breaks (\\n) allowed.',
+  'docs.overview.details.description.maxLength': '2000 characters maximum.',
+  'docs.overview.details.description.unicode':
+    'Full Unicode support including emojis and special characters.',
+
+  // Configuration Formats
+  'docs.overview.formats.title': 'Configuration Formats',
+  'docs.overview.formats.description':
+    'Sovrium accepts both YAML and JSON configuration files. YAML is recommended for readability; JSON works for programmatic generation.',
+  'docs.overview.formats.tip.title': 'YAML vs JSON',
+  'docs.overview.formats.tip.body':
+    'YAML supports comments, is more readable, and requires less syntax. Use JSON when generating configs programmatically or when your tooling prefers it.',
+
   // ── Docs: Section 4 — Tables & Fields ─────────────────────────────
   'docs.tables.title': 'Tables & Fields',
   'docs.tables.description':
@@ -1382,9 +1392,25 @@ export const en: Record<string, string> = {
   'docs.theme.colors.title': 'colors',
   'docs.theme.colors.description':
     'Named color tokens as key-value pairs. Each becomes a CSS variable (--color-{name}) and Tailwind class (bg-{name}, text-{name}).',
+  'docs.theme.colors.props.name':
+    'Token name (e.g., primary, accent). Used to generate CSS variable --color-{name} and Tailwind utilities.',
+  'docs.theme.colors.props.output':
+    'Generates --color-{name} CSS variable plus bg-{name}, text-{name}, border-{name} utility classes.',
   'docs.theme.fonts.title': 'fonts',
   'docs.theme.fonts.description':
     'Typography configuration for heading, body, and mono fonts. Supports family, fallback, weights, size, line height, and Google Fonts URL.',
+  'docs.theme.fonts.props.family':
+    'Font family name (e.g., "Inter", "Roboto"). Maps to CSS font-family.',
+  'docs.theme.fonts.props.fallback':
+    'Fallback font stack used when primary font is unavailable (e.g., "system-ui, sans-serif").',
+  'docs.theme.fonts.props.weights':
+    'Array of numeric font weights to load (e.g., [400, 600, 700]). Optimizes download size.',
+  'docs.theme.fonts.props.size':
+    'Base font size as CSS value (e.g., "16px", "1rem"). Applied to body text.',
+  'docs.theme.fonts.props.lineHeight':
+    'Line height multiplier or CSS value (e.g., "1.5", "1.2"). Controls vertical spacing between lines.',
+  'docs.theme.fonts.props.googleFontsUrl':
+    'Full Google Fonts URL to auto-load custom fonts. Injected as <link> in <head>.',
   'docs.theme.spacing.title': 'spacing',
   'docs.theme.spacing.description':
     'Named spacing tokens as Tailwind class strings. Define container widths, section padding, gaps, and component spacing.',
@@ -1420,6 +1446,59 @@ export const en: Record<string, string> = {
   'docs.pages.structure.title': 'Page Structure',
   'docs.pages.structure.description':
     'Each page has a name, path, SEO metadata, and sections with nested components.',
+
+  // Page Properties
+  'docs.pages.pageProps.title': 'Page Properties',
+  'docs.pages.pageProps.description': 'Each page in the pages array accepts these properties.',
+  'docs.pages.pageProps.name': 'Unique page identifier. Used for internal routing and referencing.',
+  'docs.pages.pageProps.path':
+    'URL path for the page (e.g., "/", "/about", "/blog/:slug"). Supports dynamic segments.',
+  'docs.pages.pageProps.meta':
+    'SEO metadata object: title, description, OpenGraph, Twitter cards, structured data, favicon.',
+  'docs.pages.pageProps.sections':
+    'Array of component nodes forming the page body. Each section is a component tree.',
+  'docs.pages.pageProps.scripts': 'Array of script URLs or inline code to inject into the page.',
+
+  // Meta & SEO
+  'docs.pages.meta.title': 'Meta & SEO',
+  'docs.pages.meta.description':
+    'Comprehensive metadata for search engines, social sharing, and browser display.',
+  'docs.pages.meta.props.title':
+    'Page title shown in browser tab and search results. Supports $t: translations.',
+  'docs.pages.meta.props.description':
+    'Page description for search engines. Recommended 150\u2013160 characters.',
+  'docs.pages.meta.props.openGraph':
+    'OpenGraph metadata for social sharing: title, description, image, type, url.',
+  'docs.pages.meta.props.twitter':
+    'Twitter Card metadata: card (summary, summary_large_image), site, creator.',
+  'docs.pages.meta.props.structuredData':
+    'JSON-LD structured data for rich search results: type, name, description, and custom properties.',
+  'docs.pages.meta.props.favicon': 'Path to the favicon file (e.g., "/favicon.ico", "/icon.svg").',
+  'docs.pages.meta.props.canonical':
+    'Canonical URL to prevent duplicate content issues in search engines.',
+
+  // Component Model
+  'docs.pages.componentModel.title': 'Component Model',
+  'docs.pages.componentModel.description':
+    'Every component in the tree is a node with a type, optional content, props, and children. This recursive model enables arbitrary UI composition.',
+  'docs.pages.componentModel.type':
+    'One of the 62 component types (e.g., "section", "h1", "card", "button").',
+  'docs.pages.componentModel.content':
+    'Text content of the component. Supports $t: translation syntax for i18n.',
+  'docs.pages.componentModel.props':
+    'HTML attributes and CSS classes. className is the most common for Tailwind styling.',
+  'docs.pages.componentModel.children':
+    'Array of nested component nodes, forming a recursive tree structure.',
+  'docs.pages.componentModel.interactions':
+    'Animation and behavior config: hover effects, click actions, scroll triggers, entrance animations.',
+  'docs.pages.componentModel.ref':
+    'Reference to a reusable component template defined in the components array.',
+  'docs.pages.componentModel.vars':
+    'Variables to substitute in the referenced template (e.g., $title, $description).',
+  'docs.pages.componentModel.tip.title': 'Recursive composition',
+  'docs.pages.componentModel.tip.body':
+    'Any component can contain children, which can themselves contain children. This lets you build complex layouts from simple, nested building blocks.',
+
   'docs.pages.componentTypes.title': '62 Component Types',
   'docs.pages.componentTypes.description':
     'Components form a recursive tree \u2014 each can have type, content, props, and children.',
@@ -1471,7 +1550,13 @@ export const en: Record<string, string> = {
     'Start with the simplest auth config \u2014 email and password with a default role.',
   'docs.auth.strategies.title': 'Strategies',
   'docs.auth.strategies.description':
-    'email-password (default), magic-link (passwordless email), and OAuth providers (google, github, apple, microsoft, facebook, twitter, discord, spotify, twitch, gitlab, bitbucket, linkedin, dropbox).',
+    'Choose one or more authentication strategies to offer your users.',
+  'docs.auth.strategies.emailPassword':
+    'Traditional email + password. Supports signup, login, password reset, and email verification.',
+  'docs.auth.strategies.magicLink':
+    'Passwordless authentication via a one-time link sent by email. No password to remember.',
+  'docs.auth.strategies.oauth':
+    'Social login via external providers. Supports: google, github, apple, microsoft, facebook, twitter, discord, spotify, twitch, gitlab, bitbucket, linkedin, dropbox.',
   'docs.auth.oauth.title': 'Adding OAuth',
   'docs.auth.oauth.description':
     'Add social login providers alongside email-password. Multiple strategies can coexist.',
@@ -1490,8 +1575,21 @@ export const en: Record<string, string> = {
   'docs.auth.emails.title': 'Email Templates',
   'docs.auth.emails.description':
     'Customizable emails for verification, password reset, and magic link. Supports $name, $url, $email variable substitution in subject and body.',
-  'docs.auth.emails.variables':
-    'Available variables: $name (user name), $url (action link), $email (user email), $organizationName, $inviterName.',
+  'docs.auth.emails.var.name': 'The recipient\u2019s display name.',
+  'docs.auth.emails.var.url': 'The action URL (verification link, reset link, or magic link).',
+  'docs.auth.emails.var.email': 'The recipient\u2019s email address.',
+  'docs.auth.emails.var.org': 'The organization name (for invitation emails).',
+  'docs.auth.emails.var.inviter': 'The name of the person who sent the invitation.',
+  'docs.auth.env.title': 'Environment Variables',
+  'docs.auth.env.description':
+    'Required environment variables for authentication. Set these in your .env file or server environment.',
+  'docs.auth.env.secret':
+    'Secret key for signing tokens and encrypting sessions. Must be a strong random string.',
+  'docs.auth.env.baseUrl':
+    'Base URL of your application (e.g., https://myapp.com). Used for callback URLs.',
+  'docs.auth.env.clientId': 'OAuth client ID from the provider\u2019s developer console.',
+  'docs.auth.env.clientSecret':
+    'OAuth client secret from the provider\u2019s developer console. Keep this confidential.',
 
   // ── Docs: Section 8 — Languages ───────────────────────────────────
   'docs.languages.title': 'Languages',
@@ -1500,6 +1598,24 @@ export const en: Record<string, string> = {
   'docs.languages.defining.title': 'Defining Languages',
   'docs.languages.defining.description':
     'Set a default language and list supported languages with code, locale, label, and text direction.',
+  'docs.languages.props.default':
+    'ISO 639-1 code for the default language (e.g., "en"). Used when no language is detected.',
+  'docs.languages.props.supported':
+    'Array of language entry objects. Each defines a supported language.',
+  'docs.languages.entryProps.title': 'Language Entry Properties',
+  'docs.languages.entryProps.description':
+    'Each entry in the supported array describes a language with these properties.',
+  'docs.languages.entryProps.code':
+    'ISO 639-1 language code (e.g., "en", "fr", "ar"). Used in URL routing (/en/, /fr/).',
+  'docs.languages.entryProps.locale':
+    'Full locale identifier (e.g., "en-US", "fr-FR", "ar-SA"). Used for number/date formatting.',
+  'docs.languages.entryProps.label':
+    'Human-readable language name shown in language switchers (e.g., "English", "Fran\u00E7ais").',
+  'docs.languages.entryProps.direction':
+    'Text direction: "ltr" (left-to-right) for most languages, "rtl" (right-to-left) for Arabic, Hebrew, etc.',
+  'docs.languages.rtl.title': 'RTL Support',
+  'docs.languages.rtl.description':
+    'Set direction: rtl for right-to-left languages like Arabic or Hebrew. Sovrium automatically mirrors the page layout, aligns text to the right, and applies the dir="rtl" attribute to the HTML root.',
   'docs.languages.translations.title': 'Translation Keys',
   'docs.languages.translations.description':
     'Define key-value pairs for each language. Keys use dot notation for organization.',
@@ -1530,9 +1646,24 @@ export const en: Record<string, string> = {
   'docs.analytics.title': 'Analytics',
   'docs.analytics.description':
     'Built-in, privacy-friendly analytics with no cookies, no external services, and full GDPR compliance. All data stays on your server.',
+  'docs.analytics.howItWorks.title': 'How It Works',
+  'docs.analytics.howItWorks.description':
+    'Sovrium analytics follows a simple three-step pipeline \u2014 no external services required.',
+  'docs.analytics.howItWorks.collect.title': 'Collect',
+  'docs.analytics.howItWorks.collect.description':
+    'A lightweight script records page views, sessions, referrers, and device info via /api/analytics/collect.',
+  'docs.analytics.howItWorks.store.title': 'Store',
+  'docs.analytics.howItWorks.store.description':
+    'All data is stored locally in your database. No cookies, no fingerprinting, no external calls.',
+  'docs.analytics.howItWorks.query.title': 'Query',
+  'docs.analytics.howItWorks.query.description':
+    'Access your analytics via the admin dashboard or API. Data stays on your server.',
   'docs.analytics.quickEnable.title': 'Quick Enable',
   'docs.analytics.quickEnable.description':
     'Set analytics to true for sensible defaults \u2014 no configuration needed.',
+  'docs.analytics.booleanVsObject.title': 'Boolean vs Object',
+  'docs.analytics.booleanVsObject.description':
+    'analytics: true enables defaults (90-day retention, DNT respected, 30-min sessions). Use an object to override specific settings while keeping defaults for the rest.',
   'docs.analytics.advanced.title': 'Advanced Configuration',
   'docs.analytics.advanced.description':
     'Fine-tune analytics behavior with retention, privacy, and session options.',

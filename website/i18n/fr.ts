@@ -58,36 +58,38 @@ export const fr: Record<string, string> = {
   // ════════════════════════════════════════════════════════════════════
 
   // ── Home: Meta ──────────────────────────────────────────────────────
-  'home.meta.title': 'Sovrium \u2014 Cr\u00E9ez des apps par configuration, sans code',
+  'home.meta.title': 'Sovrium \u2014 Une config. Une app compl\u00E8te. Contr\u00F4le total.',
   'home.meta.description':
-    "Créez des apps métier complètes avec un fichier de configuration. L'alternative SaaS open-source et auto-hébergée — sans vendor lock-in.",
-  'home.meta.og.title': 'Sovrium \u2014 Cr\u00E9ez des apps par configuration, sans code',
+    'Plateforme open-source auto-h\u00E9berg\u00E9e qui transforme un fichier de config en application m\u00E9tier compl\u00E8te. 100% propri\u00E9taire de vos donn\u00E9es, z\u00E9ro d\u00E9pendance fournisseur.',
+  'home.meta.og.title': 'Sovrium \u2014 Une config. Une app compl\u00E8te. Contr\u00F4le total.',
   'home.meta.og.description':
-    'Plateforme applicative open-source pilot\u00E9e par la configuration. L\u0027alternative SaaS auto-h\u00E9berg\u00E9e, sans d\u00E9pendance fournisseur.',
-  'home.meta.twitter.title': 'Sovrium \u2014 Cr\u00E9ez des apps par configuration, sans code',
+    'Plateforme open-source auto-h\u00E9berg\u00E9e qui transforme un fichier de config en application m\u00E9tier compl\u00E8te. 100% propri\u00E9taire de vos donn\u00E9es, z\u00E9ro d\u00E9pendance fournisseur.',
+  'home.meta.twitter.title':
+    'Sovrium \u2014 Une config. Une app compl\u00E8te. Contr\u00F4le total.',
   'home.meta.twitter.description':
-    'Plateforme applicative open-source pilot\u00E9e par la configuration. L\u0027alternative SaaS auto-h\u00E9berg\u00E9e, sans d\u00E9pendance fournisseur.',
+    'Plateforme open-source auto-h\u00E9berg\u00E9e qui transforme un fichier de config en application m\u00E9tier compl\u00E8te. 100% propri\u00E9taire de vos donn\u00E9es, z\u00E9ro d\u00E9pendance fournisseur.',
 
   // ── Home: Hero ──────────────────────────────────────────────────────
-  'home.hero.title': 'Cr\u00E9ez des apps compl\u00E8tes avec un seul fichier de config',
+  'home.hero.title': 'Une config. Une app compl\u00E8te. Contr\u00F4le total.',
   'home.hero.subtitle': 'Open-source. Auto-h\u00E9berg\u00E9. Pilot\u00E9 par la configuration.',
   'home.hero.description':
-    'D\u00E9finissez vos tables, auth, pages et th\u00E8me dans un seul fichier. Sovrium le transforme en application full-stack que vous poss\u00E9dez et contr\u00F4lez.',
+    'D\u00E9finissez vos tables, auth, pages et th\u00E8me dans un seul fichier. D\u00E9ployez sur votre infrastructure. Sans tarification par utilisateur. Sans d\u00E9pendance fournisseur.',
   'home.hero.cta.primary': 'Commencer',
-  'home.hero.cta.secondary': 'Voir sur GitHub',
+  'home.hero.cta.secondary': '\u00C9toiler sur GitHub',
+  'home.hero.trust':
+    'Open source \u00B7 BSL 1.1 \u00B7 Construit avec Bun, Effect.ts, Hono & React 19',
 
   // ── Home: Problem Statement ─────────────────────────────────────────
   'home.problem.title': 'Le pi\u00E8ge du SaaS',
-  'home.problem.stat1.value': '10 000 \u20AC+',
-  'home.problem.stat1.label': 'D\u00E9pense SaaS annuelle moyenne par employ\u00E9',
-  'home.problem.stat1.source': 'Source : Productiv SaaS Trends 2024',
+  'home.problem.stat1.value': '4+',
+  'home.problem.stat1.label': 'Outils SaaS par \u00E9quipe juste pour g\u00E9rer les donn\u00E9es',
   'home.problem.stat2.value': '0%',
   'home.problem.stat2.label':
-    'Garantie de portabilit\u00E9 des donn\u00E9es sur la plupart des plateformes SaaS',
-  'home.problem.stat3.value': '73%',
+    'Des plateformes SaaS qui permettent d\u2019exporter sch\u00E9ma et workflows complets',
+  'home.problem.stat3.value': '87%',
   'home.problem.stat3.label':
-    'Des entreprises pr\u00E9occup\u00E9es par la d\u00E9pendance fournisseur',
-  'home.problem.stat3.source': 'Source : Flexera 2024 State of ITAM Report',
+    'Des responsables IT pr\u00E9voient de r\u00E9duire la prolif\u00E9ration SaaS',
+  'home.problem.stat3.source': 'Source : Zylo 2024 SaaS Management Index',
   'home.problem.hidden.title': 'Les co\u00FBts cach\u00E9s de la d\u00E9pendance au SaaS',
   'home.problem.hidden.cost1.title': 'D\u00E9pendance fournisseur \u2014 ',
   'home.problem.hidden.cost1.description':
@@ -119,12 +121,12 @@ export const fr: Record<string, string> = {
     'Ajoutez des fonctionnalit\u00E9s en mettant \u00E0 jour votre config. Sans douleur de migration.',
 
   // ── Home: Comparison ────────────────────────────────────────────────
-  'home.comparison.title': 'Pourquoi ne pas simplement utiliser du SaaS ?',
-  'home.comparison.stat1':
-    '\u00C9conomies significatives par rapport aux outils SaaS \u00E9quivalents',
-  'home.comparison.stat2': '100% de propri\u00E9t\u00E9 des donn\u00E9es, pour toujours',
+  'home.comparison.title': 'L\u2019avantage de l\u2019auto-h\u00E9bergement',
+  'home.comparison.stat':
+    '100% propri\u00E9taire des donn\u00E9es. Z\u00E9ro tarification par utilisateur. Acc\u00E8s complet au code source.',
   'home.comparison.table.title': 'Sovrium vs SaaS traditionnel',
   'home.comparison.table.header.aspect': 'Aspect',
+  'home.comparison.table.header.saas': 'SaaS traditionnel',
   'home.comparison.table.row1.aspect': 'Propri\u00E9t\u00E9 des donn\u00E9es',
   'home.comparison.table.row1.sovrium': '\u2705 100% les v\u00F4tres',
   'home.comparison.table.row1.saas': '\u274C Propri\u00E9t\u00E9 du fournisseur',
@@ -154,58 +156,36 @@ export const fr: Record<string, string> = {
   'home.useCases.title': 'Con\u00E7u pour le travail r\u00E9el',
   'home.useCases.internal.title': 'Outils internes',
   'home.useCases.internal.description':
-    'CRM, gestion de projets, suivi d\u2019inventaire \u2014 con\u00E7us sp\u00E9cifiquement pour le fonctionnement de votre \u00E9quipe.',
+    'CRM, inventaire, suivi de projets \u2014 con\u00E7us exactement pour le workflow de votre \u00E9quipe, pas un template SaaS g\u00E9n\u00E9rique.',
   'home.useCases.portals.title': 'Portails clients',
   'home.useCases.portals.description':
-    'Tableaux de bord s\u00E9curis\u00E9s pour que vos clients consultent des rapports, soumettent des demandes et suivent leur progression.',
+    'Tableaux de bord personnalis\u00E9s pour que vos clients consultent des rapports et suivent leur progression. D\u00E9ploy\u00E9s en heures, pas en mois.',
   'home.useCases.business.title': 'Applications m\u00E9tier',
   'home.useCases.business.description':
-    'Applications personnalis\u00E9es pour des workflows que le SaaS standard ne peut pas g\u00E9rer.',
-  'home.useCases.api.title': 'Backends API',
-  'home.useCases.api.description':
-    'APIs REST avec authentification, validation et base de donn\u00E9es \u2014 z\u00E9ro boilerplate.',
-  'home.useCases.static.title': 'Sites statiques',
-  'home.useCases.static.description':
-    'Pages marketing, sites de documentation et landing pages avec support i18n.',
+    'Des workflows que les outils standard ne peuvent pas g\u00E9rer. Votre processus, vos donn\u00E9es, vos r\u00E8gles.',
   'home.useCases.mvp.title': 'MVPs & Prototypes',
   'home.useCases.mvp.description':
-    'De l\u2019id\u00E9e au produit fonctionnel en heures, pas en semaines. It\u00E9rez par changements de config.',
+    'De l\u2019id\u00E9e \u00E0 l\u2019app full-stack en un jour. Auth, base de donn\u00E9es et UI depuis un seul fichier de config.',
 
   // ── Home: Platform Features ─────────────────────────────────────────
   'home.features.title': 'Tout ce dont vous avez besoin',
   'home.features.subtitle':
     'Une plateforme compl\u00E8te, pas un \u00E9ni\u00E8me framework \u00E0 apprendre.',
-  'home.features.auth.title': '\uD83D\uDD10 Authentification',
-  'home.features.auth.point1': '\u2022 Email/mot de passe & OAuth social',
+  'home.features.data.title': '\uD83D\uDDC2\uFE0F Couche donn\u00E9es compl\u00E8te',
+  'home.features.data.point1': '\u2022 41 types de champs avec relations, lookups & formules',
+  'home.features.data.point2': '\u2022 API REST auto-g\u00E9n\u00E9r\u00E9e avec docs OpenAPI',
+  'home.features.data.point3': '\u2022 Tri, filtrage, pagination & op\u00E9rations en masse',
+  'home.features.data.point4': '\u2022 SDK client typ\u00E9 inclus',
+  'home.features.auth.title': '\uD83D\uDD10 Auth & contr\u00F4le d\u2019acc\u00E8s',
+  'home.features.auth.point1': '\u2022 Email/mot de passe, OAuth social & liens magiques',
   'home.features.auth.point2': '\u2022 Acc\u00E8s par r\u00F4le (admin, membre, lecteur)',
-  'home.features.auth.point3': '\u2022 Authentification \u00E0 deux facteurs',
-  'home.features.auth.point4': '\u2022 Gestion des sessions & passkeys',
-  'home.features.tables.title': '\uD83D\uDDC2\uFE0F Tables & Donn\u00E9es',
-  'home.features.tables.point1': '\u2022 41 types de champs (texte, email, integer, \u2026)',
-  'home.features.tables.point2': '\u2022 API CRUD automatique',
-  'home.features.tables.point3': '\u2022 Relations, lookups & champs formule',
-  'home.features.tables.point4': '\u2022 Tri, filtrage, pagination',
-  'home.features.api.title': '\uD83D\uDD0C API Records',
-  'home.features.api.point1': '\u2022 Endpoints REST auto-g\u00E9n\u00E9r\u00E9s',
-  'home.features.api.point2': '\u2022 Documentation OpenAPI',
-  'home.features.api.point3': '\u2022 SDK client typ\u00E9',
-  'home.features.api.point4': '\u2022 Filtrage, tri & op\u00E9rations en masse',
-  'home.features.pages.title': '\uD83D\uDCBB Pages & UI',
-  'home.features.pages.point1': '\u2022 Pages React rendues c\u00F4t\u00E9 serveur',
-  'home.features.pages.point2': '\u2022 62 types de composants inclus',
-  'home.features.pages.point3': '\u2022 Responsive par d\u00E9faut',
-  'home.features.pages.point4': '\u2022 Layouts personnalis\u00E9s & navigation',
-  'home.features.theming.title': '\uD83C\uDFA8 Th\u00E8mes & i18n',
-  'home.features.theming.point1':
-    '\u2022 Sch\u00E9mas de couleurs & typographie personnalis\u00E9s',
-  'home.features.theming.point2': '\u2022 Support du mode sombre',
-  'home.features.theming.point3': '\u2022 Multi-langue (i18n)',
-  'home.features.theming.point4': '\u2022 Th\u00E9matisation par variables CSS',
-
-  // ── Home: Tech Stack ────────────────────────────────────────────────
-  'home.techStack.title': 'Stack moderne. Sans compromis.',
-  'home.techStack.subtitle':
-    '\u00C9crit en TypeScript, construit sur des technologies \u00E9prouv\u00E9es choisies pour la performance, la fiabilit\u00E9 et l\u2019exp\u00E9rience d\u00E9veloppeur.',
+  'home.features.auth.point3': '\u2022 Authentification \u00E0 deux facteurs & passkeys',
+  'home.features.auth.point4': '\u2022 Gestion des sessions & rate limiting',
+  'home.features.ui.title': '\uD83C\uDFA8 UI & th\u00E8mes',
+  'home.features.ui.point1': '\u2022 62 types de composants avec pages React SSR',
+  'home.features.ui.point2': '\u2022 Sch\u00E9mas de couleurs & typographie personnalis\u00E9s',
+  'home.features.ui.point3': '\u2022 Mode sombre & multi-langue (i18n)',
+  'home.features.ui.point4': '\u2022 Layouts responsifs avec th\u00E9matisation CSS variables',
 
   // ── Home: Getting Started ───────────────────────────────────────────
   'home.gettingStarted.title': 'D\u00E9marrez en quelques minutes',
@@ -217,9 +197,11 @@ export const fr: Record<string, string> = {
   'home.gettingStarted.step4.title': 'Personnaliser',
   'home.gettingStarted.step4.description':
     'Ajoutez des tables, pages, auth \u2014 le tout par configuration',
-  'home.gettingStarted.status.title': 'Acc\u00E8s anticipé',
+  'home.gettingStarted.techLine':
+    'Construit avec Bun, PostgreSQL, React 19, Effect.ts, Hono, Drizzle ORM, Better Auth et Tailwind CSS.',
+  'home.gettingStarted.status.title': 'Construisons ensemble',
   'home.gettingStarted.status.description':
-    'Sovrium est en d\u00E9veloppement actif. Mettez une \u00E9toile au repo et suivez la construction de l\u2019avenir des applications auto-h\u00E9berg\u00E9es.',
+    'Sovrium est construit au grand jour. \u00C9toilez le repo pour suivre la progression, lisez la doc pour commencer, ou contribuez sur GitHub.',
   'home.gettingStarted.status.cta': 'Lire le guide de d\u00E9marrage',
   'home.gettingStarted.status.cta.href': '/fr/docs',
   'home.gettingStarted.status.cta.secondary': '\u00C9toiler sur GitHub',
@@ -1172,6 +1154,36 @@ export const fr: Record<string, string> = {
   'docs.rootProps.analytics.description':
     'Analytiques respectueux de la vie priv\u00E9e, sans cookies, en premi\u00E8re partie. Activez avec true par d\u00E9faut ou configurez avec des options.',
 
+  // D\u00E9tails des propri\u00E9t\u00E9s
+  'docs.overview.details.title': 'D\u00E9tails des propri\u00E9t\u00E9s',
+  'docs.overview.details.description':
+    'R\u00E8gles et contraintes d\u00E9taill\u00E9es pour les trois propri\u00E9t\u00E9s racine scalaires\u00A0: name, version et description.',
+  'docs.overview.details.name.description':
+    'Le nom de l\u2019application suit les conventions de nommage npm. Il doit \u00EAtre en minuscules, URL-safe et unique dans votre d\u00E9ploiement.',
+  'docs.overview.details.name.pattern':
+    'Regex\u00A0: ^(?:@[a-z0-9-~][a-z0-9-._~]*/)?[a-z0-9-~][a-z0-9-._~]*$. Lettres minuscules, chiffres, tirets, points.',
+  'docs.overview.details.name.maxLength':
+    '214 caract\u00E8res maximum (incluant le pr\u00E9fixe @scope/ si \u00E0 port\u00E9e).',
+  'docs.overview.details.name.scoped':
+    'Supporte les packages \u00E0 port\u00E9e npm\u00A0: @scope/name (ex.\u00A0: @acme/dashboard).',
+  'docs.overview.details.version.description':
+    'Suit le Versionnement S\u00E9mantique 2.0.0 (semver.org). Format\u00A0: MAJEUR.MINEUR.CORRECTIF avec pr\u00E9-version et m\u00E9tadonn\u00E9es de build optionnelles.',
+  'docs.overview.details.description.body':
+    'Un texte sur une seule ligne d\u00E9crivant l\u2019application. Affich\u00E9 dans l\u2019interface d\u2019administration et les m\u00E9tadonn\u00E9es.',
+  'docs.overview.details.description.format':
+    'Une seule ligne. Pas de retour \u00E0 la ligne (\\n) autoris\u00E9.',
+  'docs.overview.details.description.maxLength': '2000 caract\u00E8res maximum.',
+  'docs.overview.details.description.unicode':
+    'Support complet d\u2019Unicode incluant emojis et caract\u00E8res sp\u00E9ciaux.',
+
+  // Formats de configuration
+  'docs.overview.formats.title': 'Formats de configuration',
+  'docs.overview.formats.description':
+    'Sovrium accepte les fichiers de configuration YAML et JSON. Le YAML est recommand\u00E9 pour la lisibilit\u00E9\u00A0; le JSON convient \u00E0 la g\u00E9n\u00E9ration programmatique.',
+  'docs.overview.formats.tip.title': 'YAML vs JSON',
+  'docs.overview.formats.tip.body':
+    'Le YAML supporte les commentaires, est plus lisible et n\u00E9cessite moins de syntaxe. Utilisez le JSON pour g\u00E9n\u00E9rer les configs programmatiquement ou quand vos outils le pr\u00E9f\u00E8rent.',
+
   // ── Docs: Section 4 — Tables & Fields ─────────────────────────────
   'docs.tables.title': 'Tables & Champs',
   'docs.tables.description':
@@ -1436,9 +1448,25 @@ export const fr: Record<string, string> = {
   'docs.theme.colors.title': 'colors',
   'docs.theme.colors.description':
     'Jetons de couleur nomm\u00E9s sous forme de paires cl\u00E9-valeur. Chacun devient une variable CSS (--color-{name}) et une classe Tailwind (bg-{name}, text-{name}).',
+  'docs.theme.colors.props.name':
+    'Nom du jeton (ex.\u00A0: primary, accent). Utilis\u00E9 pour g\u00E9n\u00E9rer la variable CSS --color-{name} et les utilitaires Tailwind.',
+  'docs.theme.colors.props.output':
+    'G\u00E9n\u00E8re la variable CSS --color-{name} plus les classes utilitaires bg-{name}, text-{name}, border-{name}.',
   'docs.theme.fonts.title': 'fonts',
   'docs.theme.fonts.description':
     'Configuration typographique pour les polices de titre, corps et monospace. Supporte family, fallback, weights, size, line height et URL Google Fonts.',
+  'docs.theme.fonts.props.family':
+    'Nom de la famille de police (ex.\u00A0: "Inter", "Roboto"). Correspond \u00E0 CSS font-family.',
+  'docs.theme.fonts.props.fallback':
+    'Pile de polices de secours utilis\u00E9e quand la police principale est indisponible (ex.\u00A0: "system-ui, sans-serif").',
+  'docs.theme.fonts.props.weights':
+    'Tableau de graisses num\u00E9riques \u00E0 charger (ex.\u00A0: [400, 600, 700]). Optimise la taille du t\u00E9l\u00E9chargement.',
+  'docs.theme.fonts.props.size':
+    'Taille de police de base en valeur CSS (ex.\u00A0: "16px", "1rem"). Appliqu\u00E9e au texte du corps.',
+  'docs.theme.fonts.props.lineHeight':
+    'Multiplicateur d\u2019interligne ou valeur CSS (ex.\u00A0: "1.5", "1.2"). Contr\u00F4le l\u2019espacement vertical entre les lignes.',
+  'docs.theme.fonts.props.googleFontsUrl':
+    'URL compl\u00E8te Google Fonts pour charger automatiquement des polices personnalis\u00E9es. Inject\u00E9e comme <link> dans <head>.',
   'docs.theme.spacing.title': 'spacing',
   'docs.theme.spacing.description':
     'Jetons d\u2019espacement nomm\u00E9s sous forme de cha\u00EEnes de classes Tailwind. D\u00E9finissez largeurs de conteneur, padding de section, gaps et espacement des composants.',
@@ -1474,6 +1502,63 @@ export const fr: Record<string, string> = {
   'docs.pages.structure.title': 'Structure d\u2019une page',
   'docs.pages.structure.description':
     'Chaque page a un name, un path, des m\u00E9tadonn\u00E9es SEO et des sections avec des composants imbriqu\u00E9s.',
+
+  // Propri\u00E9t\u00E9s de page
+  'docs.pages.pageProps.title': 'Propri\u00E9t\u00E9s de page',
+  'docs.pages.pageProps.description':
+    'Chaque page du tableau pages accepte ces propri\u00E9t\u00E9s.',
+  'docs.pages.pageProps.name':
+    'Identifiant unique de la page. Utilis\u00E9 pour le routage interne et le r\u00E9f\u00E9rencement.',
+  'docs.pages.pageProps.path':
+    'Chemin URL de la page (ex.\u00A0: "/", "/about", "/blog/:slug"). Supporte les segments dynamiques.',
+  'docs.pages.pageProps.meta':
+    'Objet de m\u00E9tadonn\u00E9es SEO\u00A0: title, description, OpenGraph, Twitter cards, donn\u00E9es structur\u00E9es, favicon.',
+  'docs.pages.pageProps.sections':
+    'Tableau de n\u0153uds de composants formant le corps de la page. Chaque section est un arbre de composants.',
+  'docs.pages.pageProps.scripts':
+    'Tableau d\u2019URLs de scripts ou de code inline \u00E0 injecter dans la page.',
+
+  // Meta & SEO
+  'docs.pages.meta.title': 'Meta & SEO',
+  'docs.pages.meta.description':
+    'M\u00E9tadonn\u00E9es compl\u00E8tes pour les moteurs de recherche, le partage social et l\u2019affichage navigateur.',
+  'docs.pages.meta.props.title':
+    'Titre de la page affich\u00E9 dans l\u2019onglet du navigateur et les r\u00E9sultats de recherche. Supporte les traductions $t:.',
+  'docs.pages.meta.props.description':
+    'Description de la page pour les moteurs de recherche. 150\u2013160 caract\u00E8res recommand\u00E9s.',
+  'docs.pages.meta.props.openGraph':
+    'M\u00E9tadonn\u00E9es OpenGraph pour le partage social\u00A0: title, description, image, type, url.',
+  'docs.pages.meta.props.twitter':
+    'M\u00E9tadonn\u00E9es Twitter Card\u00A0: card (summary, summary_large_image), site, creator.',
+  'docs.pages.meta.props.structuredData':
+    'Donn\u00E9es structur\u00E9es JSON-LD pour les r\u00E9sultats de recherche enrichis\u00A0: type, name, description et propri\u00E9t\u00E9s personnalis\u00E9es.',
+  'docs.pages.meta.props.favicon':
+    'Chemin vers le fichier favicon (ex.\u00A0: "/favicon.ico", "/icon.svg").',
+  'docs.pages.meta.props.canonical':
+    'URL canonique pour \u00E9viter les probl\u00E8mes de contenu dupliq\u00E9 dans les moteurs de recherche.',
+
+  // Mod\u00E8le de composant
+  'docs.pages.componentModel.title': 'Mod\u00E8le de composant',
+  'docs.pages.componentModel.description':
+    'Chaque composant dans l\u2019arbre est un n\u0153ud avec un type, un content optionnel, des props et des children. Ce mod\u00E8le r\u00E9cursif permet une composition UI arbitraire.',
+  'docs.pages.componentModel.type':
+    'Un des 62 types de composants (ex.\u00A0: "section", "h1", "card", "button").',
+  'docs.pages.componentModel.content':
+    'Contenu textuel du composant. Supporte la syntaxe de traduction $t: pour l\u2019i18n.',
+  'docs.pages.componentModel.props':
+    'Attributs HTML et classes CSS. className est le plus courant pour le style Tailwind.',
+  'docs.pages.componentModel.children':
+    'Tableau de n\u0153uds de composants imbriqu\u00E9s, formant une structure arborescente r\u00E9cursive.',
+  'docs.pages.componentModel.interactions':
+    'Configuration d\u2019animations et comportements\u00A0: effets de survol, actions au clic, d\u00E9clencheurs de d\u00E9filement, animations d\u2019entr\u00E9e.',
+  'docs.pages.componentModel.ref':
+    'R\u00E9f\u00E9rence \u00E0 un template de composant r\u00E9utilisable d\u00E9fini dans le tableau components.',
+  'docs.pages.componentModel.vars':
+    'Variables \u00E0 substituer dans le template r\u00E9f\u00E9renc\u00E9 (ex.\u00A0: $title, $description).',
+  'docs.pages.componentModel.tip.title': 'Composition r\u00E9cursive',
+  'docs.pages.componentModel.tip.body':
+    'Tout composant peut contenir des children, qui peuvent eux-m\u00EAmes contenir des children. Cela permet de construire des mises en page complexes \u00E0 partir de blocs simples et imbriqu\u00E9s.',
+
   'docs.pages.componentTypes.title': '62 types de composants',
   'docs.pages.componentTypes.description':
     'Les composants forment un arbre r\u00E9cursif \u2014 chacun peut avoir type, content, props et children.',
@@ -1525,7 +1610,13 @@ export const fr: Record<string, string> = {
     'Commencez avec la config auth la plus simple \u2014 email et mot de passe avec un r\u00F4le par d\u00E9faut.',
   'docs.auth.strategies.title': 'Strat\u00E9gies',
   'docs.auth.strategies.description':
-    'email-password (par d\u00E9faut), magic-link (e-mail sans mot de passe), et fournisseurs OAuth (google, github, apple, microsoft, facebook, twitter, discord, spotify, twitch, gitlab, bitbucket, linkedin, dropbox).',
+    'Choisissez une ou plusieurs strat\u00E9gies d\u2019authentification \u00E0 proposer \u00E0 vos utilisateurs.',
+  'docs.auth.strategies.emailPassword':
+    'Email + mot de passe traditionnel. Supporte l\u2019inscription, la connexion, la r\u00E9initialisation du mot de passe et la v\u00E9rification d\u2019email.',
+  'docs.auth.strategies.magicLink':
+    'Authentification sans mot de passe via un lien unique envoy\u00E9 par email. Aucun mot de passe \u00E0 retenir.',
+  'docs.auth.strategies.oauth':
+    'Connexion sociale via des fournisseurs externes. Supporte\u00A0: google, github, apple, microsoft, facebook, twitter, discord, spotify, twitch, gitlab, bitbucket, linkedin, dropbox.',
   'docs.auth.oauth.title': 'Ajout d\u2019OAuth',
   'docs.auth.oauth.description':
     'Ajoutez des fournisseurs de connexion sociale en plus de l\u2019email-password. Plusieurs strat\u00E9gies peuvent coexister.',
@@ -1547,8 +1638,22 @@ export const fr: Record<string, string> = {
   'docs.auth.emails.title': 'Mod\u00E8les d\u2019e-mail',
   'docs.auth.emails.description':
     'E-mails personnalisables pour la v\u00E9rification, la r\u00E9initialisation du mot de passe et le lien magique. Supporte la substitution de variables $name, $url, $email dans le sujet et le corps.',
-  'docs.auth.emails.variables':
-    'Variables disponibles\u00A0: $name (nom utilisateur), $url (lien d\u2019action), $email (email utilisateur), $organizationName, $inviterName.',
+  'docs.auth.emails.var.name': 'Le nom d\u2019affichage du destinataire.',
+  'docs.auth.emails.var.url':
+    'L\u2019URL d\u2019action (lien de v\u00E9rification, lien de r\u00E9initialisation ou lien magique).',
+  'docs.auth.emails.var.email': 'L\u2019adresse email du destinataire.',
+  'docs.auth.emails.var.org': 'Le nom de l\u2019organisation (pour les emails d\u2019invitation).',
+  'docs.auth.emails.var.inviter': 'Le nom de la personne qui a envoy\u00E9 l\u2019invitation.',
+  'docs.auth.env.title': 'Variables d\u2019environnement',
+  'docs.auth.env.description':
+    'Variables d\u2019environnement requises pour l\u2019authentification. D\u00E9finissez-les dans votre fichier .env ou l\u2019environnement serveur.',
+  'docs.auth.env.secret':
+    'Cl\u00E9 secr\u00E8te pour signer les jetons et chiffrer les sessions. Doit \u00EAtre une cha\u00EEne al\u00E9atoire forte.',
+  'docs.auth.env.baseUrl':
+    'URL de base de votre application (ex.\u00A0: https://myapp.com). Utilis\u00E9e pour les URL de callback.',
+  'docs.auth.env.clientId': 'Identifiant client OAuth depuis la console d\u00E9veloppeur du fournisseur.',
+  'docs.auth.env.clientSecret':
+    'Secret client OAuth depuis la console d\u00E9veloppeur du fournisseur. Gardez-le confidentiel.',
 
   // ── Docs: Section 8 — Languages ───────────────────────────────────
   'docs.languages.title': 'Langues',

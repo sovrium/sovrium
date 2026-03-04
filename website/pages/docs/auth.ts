@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { calloutWarning, codeBlock, docsPage, sectionHeader } from './shared'
+import { calloutWarning, codeBlock, docsPage, propertyTable, sectionHeader } from './shared'
 
 export const docsAuth = docsPage({
   activeId: 'auth',
@@ -43,6 +43,24 @@ export const docsAuth = docsPage({
           'auth:\n  strategies:\n    - type: email-password\n  defaultRole: member',
           'yaml'
         ),
+      ],
+    },
+
+    // ── Strategy Comparison ───────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.auth.strategies.title',
+          '$t:docs.auth.strategies.description',
+          'strategies'
+        ),
+        propertyTable([
+          { name: 'email-password', description: '$t:docs.auth.strategies.emailPassword' },
+          { name: 'magic-link', description: '$t:docs.auth.strategies.magicLink' },
+          { name: 'oauth', description: '$t:docs.auth.strategies.oauth' },
+        ]),
       ],
     },
 
@@ -128,11 +146,32 @@ export const docsAuth = docsPage({
           'auth:\n  strategies:\n    - type: email-password\n  emails:\n    verification:\n      subject: "Verify your email, $name"\n      body: "Click here to verify: $url"\n    passwordReset:\n      subject: "Reset your password"\n      body: "Hi $name, reset here: $url"\n    magicLink:\n      subject: "Your sign-in link"\n      body: "Click to sign in: $url"',
           'yaml'
         ),
-        {
-          type: 'paragraph',
-          content: '$t:docs.auth.emails.variables',
-          props: { className: 'text-sm text-sovereignty-gray-400 mt-2' },
-        },
+        propertyTable([
+          { name: '$name', description: '$t:docs.auth.emails.var.name' },
+          { name: '$url', description: '$t:docs.auth.emails.var.url' },
+          { name: '$email', description: '$t:docs.auth.emails.var.email' },
+          { name: '$organizationName', description: '$t:docs.auth.emails.var.org' },
+          { name: '$inviterName', description: '$t:docs.auth.emails.var.inviter' },
+        ]),
+      ],
+    },
+
+    // ── Environment Variables ───────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.auth.env.title',
+          '$t:docs.auth.env.description',
+          'environment-variables'
+        ),
+        propertyTable([
+          { name: 'AUTH_SECRET', description: '$t:docs.auth.env.secret' },
+          { name: 'BASE_URL', description: '$t:docs.auth.env.baseUrl' },
+          { name: '{PROVIDER}_CLIENT_ID', description: '$t:docs.auth.env.clientId' },
+          { name: '{PROVIDER}_CLIENT_SECRET', description: '$t:docs.auth.env.clientSecret' },
+        ]),
       ],
     },
   ],

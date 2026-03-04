@@ -265,10 +265,7 @@ export const docsOverview = docsPage({
           '// JSON format\n{\n  "name": "my-app",\n  "version": "1.0.0",\n  "tables": [\n    {\n      "id": 1,\n      "name": "tasks",\n      "fields": [\n        { "id": 1, "name": "title", "type": "single-line-text" }\n      ]\n    }\n  ]\n}',
           'json'
         ),
-        calloutTip(
-          '$t:docs.overview.formats.tip.title',
-          '$t:docs.overview.formats.tip.body'
-        ),
+        calloutTip('$t:docs.overview.formats.tip.title', '$t:docs.overview.formats.tip.body'),
       ],
     },
   ],

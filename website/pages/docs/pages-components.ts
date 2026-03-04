@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { badgeGroup, codeBlock, docsPage, sectionHeader } from './shared'
+import { badgeGroup, calloutTip, codeBlock, docsPage, propertyTable, sectionHeader } from './shared'
 
 export const docsPages = docsPage({
   activeId: 'pages',
@@ -46,6 +46,74 @@ export const docsPages = docsPage({
         codeBlock(
           'pages:\n  - name: home\n    path: /\n    meta:\n      title: "My App - Home"\n      description: "Welcome to my application"\n      openGraph:\n        title: "My App"\n        description: "A Sovrium-powered application"\n        image: "/og-image.png"\n    sections:\n      - type: section\n        props:\n          className: "py-20 bg-gray-900"\n        children:\n          - type: h1\n            content: "Welcome"\n          - type: paragraph\n            content: "Built with Sovrium"',
           'yaml'
+        ),
+      ],
+    },
+
+    // ── Page Properties ──────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.pages.pageProps.title',
+          '$t:docs.pages.pageProps.description',
+          'page-properties'
+        ),
+        propertyTable([
+          { name: 'name', description: '$t:docs.pages.pageProps.name' },
+          { name: 'path', description: '$t:docs.pages.pageProps.path' },
+          { name: 'meta', description: '$t:docs.pages.pageProps.meta' },
+          { name: 'sections', description: '$t:docs.pages.pageProps.sections' },
+          { name: 'scripts', description: '$t:docs.pages.pageProps.scripts' },
+        ]),
+      ],
+    },
+
+    // ── Meta & SEO ──────────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader('$t:docs.pages.meta.title', '$t:docs.pages.meta.description', 'meta-seo'),
+        propertyTable([
+          { name: 'meta.title', description: '$t:docs.pages.meta.props.title' },
+          { name: 'meta.description', description: '$t:docs.pages.meta.props.description' },
+          { name: 'meta.openGraph', description: '$t:docs.pages.meta.props.openGraph' },
+          { name: 'meta.twitter', description: '$t:docs.pages.meta.props.twitter' },
+          { name: 'meta.structuredData', description: '$t:docs.pages.meta.props.structuredData' },
+          { name: 'meta.favicon', description: '$t:docs.pages.meta.props.favicon' },
+          { name: 'meta.canonical', description: '$t:docs.pages.meta.props.canonical' },
+        ]),
+        codeBlock(
+          'meta:\n  title: "My App - Home"\n  description: "Welcome to my application"\n  canonical: "https://myapp.com"\n  favicon: "/favicon.ico"\n  openGraph:\n    title: "My App"\n    description: "A powerful application"\n    image: "/og-image.png"\n    type: website\n  twitter:\n    card: summary_large_image\n    site: "@myapp"\n  structuredData:\n    type: WebApplication\n    name: "My App"',
+          'yaml'
+        ),
+      ],
+    },
+
+    // ── Component Model ─────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.pages.componentModel.title',
+          '$t:docs.pages.componentModel.description',
+          'component-model'
+        ),
+        propertyTable([
+          { name: 'type', description: '$t:docs.pages.componentModel.type' },
+          { name: 'content', description: '$t:docs.pages.componentModel.content' },
+          { name: 'props', description: '$t:docs.pages.componentModel.props' },
+          { name: 'children', description: '$t:docs.pages.componentModel.children' },
+          { name: 'interactions', description: '$t:docs.pages.componentModel.interactions' },
+          { name: '$ref', description: '$t:docs.pages.componentModel.ref' },
+          { name: 'vars', description: '$t:docs.pages.componentModel.vars' },
+        ]),
+        calloutTip(
+          '$t:docs.pages.componentModel.tip.title',
+          '$t:docs.pages.componentModel.tip.body'
         ),
       ],
     },

@@ -274,28 +274,34 @@ export const endpointRow = (
 ) => ({
   type: 'div' as const,
   props: {
-    className: 'flex items-start gap-3 py-2 px-3 rounded-md hover:bg-sovereignty-gray-900/50',
+    className: 'py-2.5 px-3 rounded-md hover:bg-sovereignty-gray-900/50',
   },
   children: [
     {
-      type: 'span' as const,
-      content: method,
-      props: {
-        className: `inline-flex items-center justify-center w-16 shrink-0 text-[11px] font-bold tracking-wider rounded border px-1.5 py-0.5 ${METHOD_COLORS[method] ?? ''}`,
-      },
+      type: 'div' as const,
+      props: { className: 'flex items-center gap-3' },
+      children: [
+        {
+          type: 'span' as const,
+          content: method,
+          props: {
+            className: `inline-flex items-center justify-center w-16 shrink-0 text-[11px] font-bold tracking-wider rounded border px-1.5 py-0.5 ${METHOD_COLORS[method] ?? ''}`,
+          },
+        },
+        {
+          type: 'span' as const,
+          content: path,
+          props: {
+            className: 'font-mono text-sm text-sovereignty-light break-all',
+          },
+        },
+      ],
     },
     {
-      type: 'span' as const,
-      content: path,
-      props: {
-        className: 'font-mono text-sm text-sovereignty-light shrink-0',
-      },
-    },
-    {
-      type: 'span' as const,
+      type: 'paragraph' as const,
       content: description,
       props: {
-        className: 'text-sm text-sovereignty-gray-400 ml-auto text-right',
+        className: 'text-sm text-sovereignty-gray-400 mt-1 ml-[76px]',
       },
     },
   ],
@@ -304,20 +310,29 @@ export const endpointRow = (
 /** Wraps a list of endpointRow() calls with a sub-section title and consistent spacing. */
 export const endpointGroup = (title: string, description: string, rows: readonly object[]) => ({
   type: 'div' as const,
-  props: { className: 'space-y-1' },
+  props: { className: 'space-y-1 mt-4 first:mt-0' },
   children: [
-    {
-      type: 'h3' as const,
-      content: title,
-      props: {
-        className: 'text-lg font-semibold text-sovereignty-light mb-1',
-      },
-    },
-    {
-      type: 'paragraph' as const,
-      content: description,
-      props: { className: 'text-sm text-sovereignty-gray-400 mb-3' },
-    },
+    // Only render title/description when non-empty
+    ...(title
+      ? [
+          {
+            type: 'h3' as const,
+            content: title,
+            props: {
+              className: 'text-lg font-semibold text-sovereignty-light mb-1',
+            },
+          },
+        ]
+      : []),
+    ...(description
+      ? [
+          {
+            type: 'paragraph' as const,
+            content: description,
+            props: { className: 'text-sm text-sovereignty-gray-400 mb-3' },
+          },
+        ]
+      : []),
     {
       type: 'div' as const,
       props: {

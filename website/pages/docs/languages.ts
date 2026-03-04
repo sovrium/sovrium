@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { calloutTip, codeBlock, docsPage, sectionHeader, step } from './shared'
+import { calloutTip, codeBlock, docsPage, propertyTable, sectionHeader, step } from './shared'
 
 export const docsLanguages = docsPage({
   activeId: 'languages',
@@ -43,10 +43,34 @@ export const docsLanguages = docsPage({
           '$t:docs.languages.defining.description',
           'defining-languages'
         ),
+        propertyTable([
+          { name: 'default', description: '$t:docs.languages.props.default' },
+          { name: 'supported', description: '$t:docs.languages.props.supported' },
+        ]),
         codeBlock(
           'languages:\n  default: en\n  supported:\n    - code: en\n      locale: en-US\n      label: English\n      direction: ltr\n    - code: fr\n      locale: fr-FR\n      label: "Fran\u00E7ais"\n      direction: ltr\n    - code: ar\n      locale: ar-SA\n      label: "\u0627\u0644\u0639\u0631\u0628\u064A\u0629"\n      direction: rtl',
           'yaml'
         ),
+      ],
+    },
+
+    // ── Language Entry Properties ────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.languages.entryProps.title',
+          '$t:docs.languages.entryProps.description',
+          'language-entry'
+        ),
+        propertyTable([
+          { name: 'code', description: '$t:docs.languages.entryProps.code' },
+          { name: 'locale', description: '$t:docs.languages.entryProps.locale' },
+          { name: 'label', description: '$t:docs.languages.entryProps.label' },
+          { name: 'direction', description: '$t:docs.languages.entryProps.direction' },
+        ]),
+        calloutTip('$t:docs.languages.rtl.title', '$t:docs.languages.rtl.description'),
       ],
     },
 

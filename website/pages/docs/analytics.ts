@@ -33,6 +33,46 @@ export const docsAnalytics = docsPage({
       ],
     },
 
+    // ── How It Works ───────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.analytics.howItWorks.title',
+          '$t:docs.analytics.howItWorks.description',
+          'how-it-works'
+        ),
+        {
+          type: 'grid',
+          props: { className: 'grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6' },
+          children: [
+            {
+              $ref: 'docs-info-card',
+              vars: {
+                title: '$t:docs.analytics.howItWorks.collect.title',
+                description: '$t:docs.analytics.howItWorks.collect.description',
+              },
+            },
+            {
+              $ref: 'docs-info-card',
+              vars: {
+                title: '$t:docs.analytics.howItWorks.store.title',
+                description: '$t:docs.analytics.howItWorks.store.description',
+              },
+            },
+            {
+              $ref: 'docs-info-card',
+              vars: {
+                title: '$t:docs.analytics.howItWorks.query.title',
+                description: '$t:docs.analytics.howItWorks.query.description',
+              },
+            },
+          ],
+        },
+      ],
+    },
+
     // ── Quick Enable ─────────────────────────────────────────────────────
     {
       type: 'div',
@@ -43,7 +83,11 @@ export const docsAnalytics = docsPage({
           '$t:docs.analytics.quickEnable.description',
           'quick-enable'
         ),
-        codeBlock('# Enable analytics with defaults\nanalytics: true', 'yaml'),
+        codeBlock('# Boolean shorthand — enables all defaults\nanalytics: true', 'yaml'),
+        calloutTip(
+          '$t:docs.analytics.booleanVsObject.title',
+          '$t:docs.analytics.booleanVsObject.description'
+        ),
       ],
     },
 
