@@ -60,15 +60,16 @@ theme:
 
 ### Acceptance Criteria
 
-| ID     | Criterion                                                      | E2E Spec                          | Status |
-| ------ | -------------------------------------------------------------- | --------------------------------- | ------ |
-| AC-001 | Generates HTML files for all pages                             | `CLI-BUILD-GENERATION-001`        | ✅     |
-| AC-002 | Generates valid HTML with DOCTYPE                              | `CLI-BUILD-GENERATION-002`        | ✅     |
-| AC-003 | Compiles CSS with theme tokens                                 | `CLI-BUILD-GENERATION-003`        | ✅     |
-| AC-004 | Creates proper directory structure                             | `CLI-BUILD-GENERATION-004`        | ✅     |
-| AC-005 | Handles nested page paths correctly                            | `CLI-BUILD-GENERATION-005`        | ✅     |
-| AC-006 | Generates well-formatted HTML                                  | `CLI-BUILD-GENERATION-006`        | ✅     |
-| AC-007 | User can complete full static generation workflow (regression) | `CLI-BUILD-GENERATION-REGRESSION` | ✅     |
+| ID     | Criterion                                                                       | E2E Spec                          | Status |
+| ------ | ------------------------------------------------------------------------------- | --------------------------------- | ------ |
+| AC-001 | Generates HTML files for all pages                                              | `CLI-BUILD-GENERATION-001`        | ✅     |
+| AC-002 | Generates valid HTML with DOCTYPE                                               | `CLI-BUILD-GENERATION-002`        | ✅     |
+| AC-003 | Compiles CSS with theme tokens                                                  | `CLI-BUILD-GENERATION-003`        | ✅     |
+| AC-004 | Creates proper directory structure                                              | `CLI-BUILD-GENERATION-004`        | ✅     |
+| AC-005 | Handles nested page paths correctly                                             | `CLI-BUILD-GENERATION-005`        | ✅     |
+| AC-006 | Generates well-formatted HTML                                                   | `CLI-BUILD-GENERATION-006`        | ✅     |
+| AC-007 | User can complete full static generation workflow (regression)                  | `CLI-BUILD-GENERATION-REGRESSION` | ✅     |
+| AC-008 | Build output shows only build-relevant phases, not internal server startup logs | `CLI-BUILD-GENERATION-008`        |        |
 
 ### Implementation References
 
@@ -238,8 +239,8 @@ dist/
 
 | User Story       | Title                | Spec Count            | Status   |
 | ---------------- | -------------------- | --------------------- | -------- |
-| US-CLI-BUILD-001 | Static Generation    | 6                     | Complete |
+| US-CLI-BUILD-001 | Static Generation    | 7                     | Active   |
 | US-CLI-BUILD-002 | Asset Management     | 4                     | Complete |
 | US-CLI-BUILD-003 | Deployment Files     | 6                     | Complete |
 | US-CLI-BUILD-004 | Multi-Language Build | 4                     | Complete |
-| **Total**        |                      | **20 + 4 regression** |          |
+| **Total**        |                      | **21 + 4 regression** |          |
