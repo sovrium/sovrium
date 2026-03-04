@@ -519,7 +519,8 @@ export function createNavbar(activePage?: NavPage) {
                     },
                   },
 
-                  // Globe language switcher icon (hidden at md, shown at lg+)
+                  // Globe language switcher with target language code (hidden at md, shown at lg+)
+                  // Shows "[globe] FR" on EN pages, "[globe] EN" on FR pages
                   {
                     type: 'div' as const,
                     props: {
@@ -531,15 +532,22 @@ export function createNavbar(activePage?: NavPage) {
                         props: {
                           href: '#',
                           className:
-                            'inline-flex items-center justify-center w-8 h-8 rounded-md text-sovereignty-gray-500 hover:text-sovereignty-light hover:bg-sovereignty-gray-800 transition-colors duration-150',
+                            'inline-flex items-center gap-1.5 h-8 px-2 rounded-md text-sovereignty-gray-500 hover:text-sovereignty-light hover:bg-sovereignty-gray-800 transition-colors duration-150',
                           'data-lang-switch': '$t:nav.lang.code',
-                          'aria-label': 'Switch language',
+                          'aria-label': '$t:nav.lang.switch.aria',
                           title: '$t:nav.lang.label',
                         },
                         children: [
                           {
                             type: 'icon' as const,
                             props: { name: 'globe', size: 16 },
+                          },
+                          {
+                            type: 'span' as const,
+                            content: '$t:nav.lang.label',
+                            props: {
+                              className: 'text-xs font-medium uppercase',
+                            },
                           },
                         ],
                       },

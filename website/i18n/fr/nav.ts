@@ -19,6 +19,7 @@ export const nav: Record<string, string> = {
   'nav.lang.label': 'EN',
   'nav.lang.code': 'en',
   'nav.lang.switch.label': 'Langue',
+  'nav.lang.switch.aria': 'Passer en anglais',
   'nav.docs': 'Docs',
   'nav.docs.href': '/fr/docs',
 }
