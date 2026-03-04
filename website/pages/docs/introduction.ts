@@ -17,6 +17,7 @@ export const docsIntroduction = docsPage({
     { label: '$t:docs.introduction.why.title', anchor: 'why-sovrium' },
     { label: '$t:docs.introduction.how.title', anchor: 'how-it-works' },
     { label: '$t:docs.introduction.next.title', anchor: 'next-steps' },
+    { label: '$t:docs.introduction.help.title', anchor: 'getting-help' },
   ],
   content: [
     // ── Development Status Banner (Introduction page only) ──────────────
@@ -238,6 +239,63 @@ export const docsIntroduction = docsPage({
           'next-steps'
         ),
         calloutTip('$t:docs.installation.header.title', '$t:docs.installation.header.description'),
+      ],
+    },
+
+    // ── Getting Help ──────────────────────────────────────────────────────
+    {
+      type: 'div',
+      props: {},
+      children: [
+        sectionHeader(
+          '$t:docs.introduction.help.title',
+          '$t:docs.introduction.help.description',
+          'getting-help'
+        ),
+        {
+          type: 'div',
+          props: {
+            className: 'rounded-lg p-6 border border-sovereignty-gray-800 bg-sovereignty-gray-900',
+          },
+          children: [
+            {
+              type: 'div',
+              props: { className: 'flex items-start gap-3' },
+              children: [
+                {
+                  type: 'icon',
+                  props: {
+                    name: 'message-circle',
+                    size: 20,
+                    className: 'text-sovereignty-accent flex-shrink-0 mt-0.5',
+                  },
+                },
+                {
+                  type: 'div',
+                  props: {},
+                  children: [
+                    {
+                      type: 'paragraph',
+                      content: '$t:docs.introduction.help.body',
+                      props: { className: 'text-sm text-sovereignty-gray-400 mb-3' },
+                    },
+                    {
+                      type: 'link',
+                      content: '$t:docs.introduction.help.link',
+                      props: {
+                        href: 'https://github.com/sovrium/sovrium/issues',
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                        className:
+                          'text-sm text-sovereignty-accent hover:underline font-medium inline-flex items-center gap-1',
+                      },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
       ],
     },
   ],

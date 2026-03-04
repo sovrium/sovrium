@@ -85,30 +85,26 @@ export const en: Record<string, string> = {
 
   // ── Home: Problem Statement ─────────────────────────────────────────
   'home.problem.title': 'The SaaS Trap',
-  'home.problem.stat1.value': '4+',
-  'home.problem.stat1.label': 'Average SaaS tools per team just to manage data',
-  'home.problem.stat2.value': '0%',
-  'home.problem.stat2.label': 'Of SaaS platforms let you export your full schema and workflows',
-  'home.problem.stat3.value': '87%',
-  'home.problem.stat3.label': 'Of IT leaders plan to reduce SaaS sprawl',
+  'home.problem.hookStat.value': '106 SaaS apps. $21M wasted.',
+  'home.problem.hookStat.label':
+    'The average organization uses 106 SaaS apps and wastes $21M annually on unused licenses.',
+  'home.problem.hookStat.source': 'Productiv, Zylo 2025',
+  'home.problem.lockin.title': 'Lock-in',
+  'home.problem.lockin.description':
+    'Your data lives in silos you don\u2019t control. Proprietary formats, closed APIs, and zero portability mean your business runs on someone else\u2019s terms.',
+  'home.problem.costSpiral.title': 'Cost Spiral',
+  'home.problem.costSpiral.description':
+    'Per-seat pricing compounds against you. What starts at $10/user quietly becomes $50, then $100 \u2014 and you\u2019re too locked in to leave.',
+  'home.problem.platformDecay.title': 'Platform Decay',
+  'home.problem.platformDecay.description':
+    'Free tiers shrink, paywalls expand, switching costs grow. Airtable cut free API calls from unlimited to 1,000. Notion eliminated its AI add-on. This pattern is structural, not accidental.',
+  'home.problem.bridge': 'There\u2019s a better way.',
 
   // ── Home: Solution Overview ─────────────────────────────────────────
   'home.solution.title': 'One Config. Full Application.',
   'home.solution.description':
     'Sovrium turns a simple configuration file into a complete business application \u2014 authentication, database, API, pages, and admin panel included.',
   'home.solution.code.alsoWorks': 'Start from any format:',
-
-  // ── Home: Comparison (micro-table in Problem section) ───────────────
-  'home.comparison.table.header.saas': 'Traditional SaaS',
-  'home.comparison.table.row1.aspect': 'Version Control',
-  'home.comparison.table.row1.sovrium': '\u2705 Git-native',
-  'home.comparison.table.row1.saas': '\u26A0\uFE0F Limited/None',
-  'home.comparison.table.row2.aspect': 'Monthly Cost',
-  'home.comparison.table.row2.sovrium': '\u2705 Server costs only',
-  'home.comparison.table.row2.saas': '\u274C $50\u2013500+/user/mo',
-  'home.comparison.table.row3.aspect': 'Managed Hosting',
-  'home.comparison.table.row3.sovrium': '\u26A0\uFE0F You manage infrastructure',
-  'home.comparison.table.row3.saas': '\u2705 Fully managed for you',
 
   // ── Home: Use Cases ─────────────────────────────────────────────────
   'home.useCases.title': 'Built For Real Work',
@@ -121,9 +117,9 @@ export const en: Record<string, string> = {
   'home.useCases.business.title': 'Business Apps',
   'home.useCases.business.description':
     'Custom workflows that off-the-shelf tools can\u2019t handle. Your process, your data, your rules.',
-  'home.useCases.mvp.title': 'MVPs & Prototypes',
+  'home.useCases.mvp.title': 'Marketing & Docs Sites',
   'home.useCases.mvp.description':
-    'From idea to full-stack app in a day. Auth, database, and UI from a single config file.',
+    'Generate marketing pages and documentation from config. Branded, fast, and always in sync with your product.',
 
   // ── Home: Platform Features ─────────────────────────────────────────
   'home.features.title': 'Everything You Need',
@@ -295,9 +291,9 @@ export const en: Record<string, string> = {
   // ── Company: Mission ───────────────────────────────────────────────
   'about.mission.title': 'Our Mission',
   'about.mission.description':
-    'Modern organizations are drowning in SaaS dependencies \u2014 paying monthly fees, losing data control, and adapting their business to vendor limitations. We are building the alternative.',
+    'Building internal tools should not mean choosing between speed and control. No-code ships fast but locks you in. Custom code gives you freedom but drowns you in maintenance. We believe a third path exists \u2014 one that combines the best of both worlds.',
   'about.mission.statement':
-    'To make every organization sovereign in their information systems \u2014 free from SaaS lock-in, in complete control of their data, and empowered to build business applications through configuration-as-code.',
+    'To give every organization true sovereignty over its information systems \u2014 the speed of no-code, the power of code, with full ownership of data, infrastructure, and destiny.',
 
   // ── Company: Values ────────────────────────────────────────────────
   'about.values.title': 'Our Values',
@@ -337,10 +333,8 @@ export const en: Record<string, string> = {
 
   // ── Company: Team ──────────────────────────────────────────────────
   'about.team.title': 'The Team',
-  'about.team.subtitle':
-    'Sovrium is built by ESSENTIAL SERVICES, a company dedicated to giving organizations control over their software.',
   'about.team.founder.name': 'Thomas Jeanneau',
-  'about.team.founder.role': 'Founder & CEO',
+  'about.team.founder.role': 'Founder',
 
   // ── Company: CTA ───────────────────────────────────────────────────
   'about.cta.title': 'Join the Movement',
@@ -352,10 +346,16 @@ export const en: Record<string, string> = {
 
   // ── Company: Origin Story ─────────────────────────────────────────
   'about.origin.title': 'Why Sovrium Exists',
-  'about.origin.description':
-    'After 8 years building automation tools and internal software for 50+ clients across France and Europe, I saw the same pattern everywhere: organizations trapped in SaaS subscriptions they couldn\u2019t leave, paying for features they didn\u2019t need, with data they couldn\u2019t fully control.',
+  'about.origin.paragraph1':
+    'I spent years building internal tools for organizations \u2014 with no-code, low-code, and code. I shipped fast. The tools worked. Clients were happy, at first.',
   'about.origin.paragraph2':
-    'I started Sovrium to prove that a better model exists \u2014 one where a single configuration file replaces dozens of SaaS subscriptions, and where you own every line of code and every byte of data.',
+    'Then reality kicked in. A vendor changed its API without warning and broke an entire workflow overnight. Costs exploded as soon as we needed real performance. Getting five tools to talk to each other became a full-time job. Technical debt piled up silently. And the data? Scattered across a dozen SaaS platforms, each in a different country, each with its own pricing changes and policy shifts \u2014 none of it truly ours.',
+  'about.origin.paragraph3':
+    'No versioning across the system. No tests. No way to collaborate cleanly on something built from a patchwork of tools. And above all, zero sovereignty over the core system of an organization \u2014 always dependent on decisions made by foreign companies, in foreign jurisdictions, for their own interests.',
+  'about.origin.paragraph4':
+    'I realized the fundamental problem: you can build functional, performant tools quickly with today\u2019s stack. But maintaining them over time, at scale, without losing control or going broke \u2014 that\u2019s where everything falls apart.',
+  'about.origin.paragraph5':
+    'Sovrium is my answer. One platform that combines the speed of no-code with the power of code. Configuration-driven, self-hosted, fully versionable, testable \u2014 and sovereign by design.',
   'about.origin.signature': '\u2014 Thomas Jeanneau, Founder',
 
   // ════════════════════════════════════════════════════════════════════
@@ -767,7 +767,10 @@ export const en: Record<string, string> = {
   'docs.toc.heading': 'On this page',
   'docs.sidebar.section.getStarted': 'Get Started',
   'docs.sidebar.section.appSchema': 'App Schema',
-  'docs.sidebar.section.resources': 'Resources',
+  'docs.sidebar.section.references': 'References',
+  'docs.sidebar.jsonSchema': 'JSON Schema',
+  'docs.sidebar.llmReference': 'LLM Reference',
+  'docs.sidebar.github': 'GitHub',
   'docs.sidebar.introduction': 'Introduction',
   'docs.sidebar.introduction.href': '/en/docs',
   'docs.sidebar.installation': 'Installation',
@@ -790,8 +793,6 @@ export const en: Record<string, string> = {
   'docs.sidebar.analytics.href': '/en/docs/analytics',
   'docs.sidebar.apiReference': 'API Reference',
   'docs.sidebar.apiReference.href': '/en/docs/api-reference',
-  'docs.sidebar.resources': 'Resources',
-  'docs.sidebar.resources.href': '/en/docs/resources',
 
   // ── Docs: Per-Page Meta ──────────────────────────────────────────
   'docs.introduction.meta.title': 'Introduction - Sovrium Docs',
@@ -915,9 +916,6 @@ export const en: Record<string, string> = {
   'docs.apiReference.openapi.description':
     'Download the OpenAPI 3.1 specification for use with any API client or code generator.',
   'docs.apiReference.openapi.download': 'Download openapi.json',
-  'docs.resources.meta.title': 'Resources - Sovrium Docs',
-  'docs.resources.meta.description':
-    'LLM references, JSON Schema, GitHub repository, and additional resources for the Sovrium schema.',
 
   // ── Docs: Get Started — Introduction ────────────────────────────
   'docs.introduction.header.title': 'Introduction',
@@ -952,6 +950,12 @@ export const en: Record<string, string> = {
   'docs.introduction.next.title': 'Next steps',
   'docs.introduction.next.description':
     'Ready to try it? Install Sovrium and build your first app in under 5 minutes.',
+  'docs.introduction.help.title': 'Getting help',
+  'docs.introduction.help.description':
+    'Found a bug, have a question, or want to request a feature?',
+  'docs.introduction.help.body':
+    'Sovrium is open source. If you run into any issues or have ideas for improvement, the best way to reach us is through GitHub Issues.',
+  'docs.introduction.help.link': 'Open an issue on GitHub \u2192',
 
   // ── Docs: Get Started — Installation ────────────────────────────
   'docs.installation.header.title': 'Installation',
@@ -1648,30 +1652,4 @@ export const en: Record<string, string> = {
     'Sovrium analytics are cookie-free, GDPR-compliant by default. All data stays on your server \u2014 no third-party services involved.',
   'docs.analytics.details':
     'When enabled, Sovrium injects a lightweight tracking script that records page views, sessions, referrers, and device information. Analytics data is collected at /api/analytics/collect and stored locally.',
-
-  // ── Docs: Section 10 — Resources ──────────────────────────────────
-  'docs.resources.title': 'Resources',
-  'docs.resources.description': 'Additional references for working with the Sovrium schema.',
-  'docs.resources.llmQuick.label': 'LLM Quick Reference',
-  'docs.resources.llmQuick.description': 'Concise schema overview optimized for LLMs (~40 lines).',
-  'docs.resources.llmFull.label': 'LLM Full Reference',
-  'docs.resources.llmFull.description': 'Complete documentation for LLMs (~2100 lines).',
-  'docs.resources.jsonSchema.label': 'JSON Schema',
-  'docs.resources.jsonSchema.description':
-    'Machine-readable JSON Schema (Draft-07) for validation and editor support.',
-  'docs.resources.jsonSchemaLatest.label': 'JSON Schema (latest)',
-  'docs.resources.jsonSchemaLatest.description':
-    'Stable URL alias that always points to the most recent schema version.',
-  'docs.resources.schemaExplorer.label': 'Schema Explorer',
-  'docs.resources.schemaExplorer.description':
-    'Interactive visual explorer for the Sovrium JSON Schema (json-schema.app).',
-  'docs.resources.apiReference.label': 'API Reference',
-  'docs.resources.apiReference.description':
-    'Interactive documentation for all REST API endpoints (Scalar UI).',
-  'docs.resources.github.label': 'GitHub Repository',
-  'docs.resources.github.description': 'Source code, issues, and contribution guidelines.',
-  'docs.resources.help.title': 'Need Help?',
-  'docs.resources.help.description':
-    'Found a bug, have a question, or want to request a feature? Open an issue on GitHub.',
-  'docs.resources.help.link': 'Open an issue on GitHub \u2192',
 }

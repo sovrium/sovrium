@@ -50,7 +50,14 @@ export interface DocsPageEntry {
   readonly id: string
   readonly sidebarLabel: string
   readonly sidebarHref: string
-  readonly section: 'get-started' | 'app-schema' | 'resources'
+  readonly section: 'get-started' | 'app-schema' | 'references'
+}
+
+/** An external link rendered in the sidebar (not a routable page). */
+export interface DocsSidebarExternalLink {
+  readonly label: string
+  readonly href: string
+  readonly external: true
 }
 
 export interface DocsSidebarSection {
@@ -58,6 +65,7 @@ export interface DocsSidebarSection {
   readonly label?: string
   readonly icon?: string
   readonly pages: readonly DocsPageEntry[]
+  readonly externalLinks?: readonly DocsSidebarExternalLink[]
 }
 
 const GET_STARTED_PAGES: readonly DocsPageEntry[] = [
@@ -126,18 +134,30 @@ const APP_SCHEMA_PAGES: readonly DocsPageEntry[] = [
   },
 ]
 
-const RESOURCES_PAGES: readonly DocsPageEntry[] = [
+const REFERENCES_PAGES: readonly DocsPageEntry[] = [
   {
     id: 'api-reference',
     sidebarLabel: '$t:docs.sidebar.apiReference',
     sidebarHref: '$t:docs.sidebar.apiReference.href',
-    section: 'resources',
+    section: 'references',
+  },
+]
+
+const REFERENCES_EXTERNAL_LINKS: readonly DocsSidebarExternalLink[] = [
+  {
+    label: '$t:docs.sidebar.jsonSchema',
+    href: '/schemas/latest/app.schema.json',
+    external: true,
   },
   {
-    id: 'resources',
-    sidebarLabel: '$t:docs.sidebar.resources',
-    sidebarHref: '$t:docs.sidebar.resources.href',
-    section: 'resources',
+    label: '$t:docs.sidebar.llmReference',
+    href: '/llms.txt',
+    external: true,
+  },
+  {
+    label: '$t:docs.sidebar.github',
+    href: 'https://github.com/sovrium/sovrium',
+    external: true,
   },
 ]
 
@@ -155,10 +175,11 @@ export const DOCS_SIDEBAR_SECTIONS: readonly DocsSidebarSection[] = [
     pages: APP_SCHEMA_PAGES,
   },
   {
-    id: 'resources',
-    label: '$t:docs.sidebar.section.resources',
+    id: 'references',
+    label: '$t:docs.sidebar.section.references',
     icon: 'book-open',
-    pages: RESOURCES_PAGES,
+    pages: REFERENCES_PAGES,
+    externalLinks: REFERENCES_EXTERNAL_LINKS,
   },
 ]
 
@@ -166,7 +187,7 @@ export const DOCS_SIDEBAR_SECTIONS: readonly DocsSidebarSection[] = [
 export const DOCS_PAGES: readonly DocsPageEntry[] = [
   ...GET_STARTED_PAGES,
   ...APP_SCHEMA_PAGES,
-  ...RESOURCES_PAGES,
+  ...REFERENCES_PAGES,
 ]
 
 // ─── Subsection Header Helper ───────────────────────────────────────────────
@@ -516,6 +537,37 @@ function buildSidebarLinks(activeId: string): readonly object[] {
         label: page.sidebarLabel,
         activeClass: page.id === activeId ? ACTIVE_CLASS : INACTIVE_CLASS,
       },
+    })),
+    // External links (rendered with an external-link icon)
+    ...(section.externalLinks ?? []).map((link) => ({
+      type: 'link' as const,
+      props: {
+        href: link.href,
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        className: `block py-2 px-3 text-sm transition-colors rounded ${INACTIVE_CLASS}`,
+      },
+      children: [
+        {
+          type: 'span' as const,
+          props: { className: 'inline-flex items-center gap-1.5' },
+          children: [
+            {
+              type: 'span' as const,
+              content: link.label,
+              props: {},
+            },
+            {
+              type: 'icon' as const,
+              props: {
+                name: 'external-link',
+                size: 12,
+                className: 'opacity-50 flex-shrink-0',
+              },
+            },
+          ],
+        },
+      ],
     })),
   ])
 }

@@ -181,160 +181,118 @@ export const home: Page = {
               },
             },
 
-            // Statistics Grid
+            // Hook Stat — one big impactful number
             {
-              type: 'grid',
-              props: { className: 'grid grid-cols-1 md:grid-cols-3 gap-8 mb-16' },
+              type: 'div',
+              props: { className: 'text-center mb-12 md:mb-16' },
               children: [
                 {
-                  type: 'card',
+                  type: 'h3',
+                  content: '$t:home.problem.hookStat.value',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors duration-300',
+                      'text-3xl sm:text-4xl md:text-5xl font-bold text-sovereignty-accent mb-4',
                   },
-                  children: [
-                    {
-                      type: 'h3',
-                      content: '$t:home.problem.stat1.value',
-                      props: {
-                        className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
-                      },
-                    },
-                    {
-                      type: 'paragraph',
-                      content: '$t:home.problem.stat1.label',
-                      props: { className: 'text-sovereignty-gray-400' },
-                    },
-                  ],
                 },
+                {
+                  type: 'paragraph',
+                  content: '$t:home.problem.hookStat.label',
+                  props: {
+                    className:
+                      'text-base sm:text-lg text-sovereignty-gray-400 max-w-2xl mx-auto mb-2',
+                  },
+                },
+                {
+                  type: 'paragraph',
+                  content: '$t:home.problem.hookStat.source',
+                  props: {
+                    className: 'text-xs text-sovereignty-gray-500 italic',
+                  },
+                },
+              ],
+            },
+
+            // 3 Narrative Pain Cards
+            {
+              type: 'grid',
+              props: { className: 'grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 mb-12 md:mb-16' },
+              children: [
+                // Lock-in
                 {
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors duration-300',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 sm:p-8 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
                       type: 'h3',
-                      content: '$t:home.problem.stat2.value',
+                      content: '$t:home.problem.lockin.title',
                       props: {
-                        className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
+                        className: 'text-xl font-semibold mb-3 text-sovereignty-light',
                       },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:home.problem.stat2.label',
-                      props: { className: 'text-sovereignty-gray-400' },
+                      content: '$t:home.problem.lockin.description',
+                      props: { className: 'text-sovereignty-gray-400 leading-relaxed' },
                     },
                   ],
                 },
+                // Cost Spiral
                 {
                   type: 'card',
                   props: {
                     className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-8 rounded-lg text-center hover:border-sovereignty-accent transition-colors duration-300',
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 sm:p-8 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
                   },
                   children: [
                     {
                       type: 'h3',
-                      content: '$t:home.problem.stat3.value',
+                      content: '$t:home.problem.costSpiral.title',
                       props: {
-                        className: 'text-4xl sm:text-5xl font-bold text-sovereignty-accent mb-2',
+                        className: 'text-xl font-semibold mb-3 text-sovereignty-light',
                       },
                     },
                     {
                       type: 'paragraph',
-                      content: '$t:home.problem.stat3.label',
-                      props: { className: 'text-sovereignty-gray-400' },
+                      content: '$t:home.problem.costSpiral.description',
+                      props: { className: 'text-sovereignty-gray-400 leading-relaxed' },
+                    },
+                  ],
+                },
+                // Platform Decay
+                {
+                  type: 'card',
+                  props: {
+                    className:
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-6 sm:p-8 rounded-lg hover:border-sovereignty-accent transition-colors duration-300',
+                  },
+                  children: [
+                    {
+                      type: 'h3',
+                      content: '$t:home.problem.platformDecay.title',
+                      props: {
+                        className: 'text-xl font-semibold mb-3 text-sovereignty-light',
+                      },
+                    },
+                    {
+                      type: 'paragraph',
+                      content: '$t:home.problem.platformDecay.description',
+                      props: { className: 'text-sovereignty-gray-400 leading-relaxed' },
                     },
                   ],
                 },
               ],
             },
 
-            // Micro-comparison: Sovrium vs SaaS (3 high-impact rows)
+            // Bridge line — transition to Solution
             {
-              type: 'div',
-              props: { className: 'max-w-2xl mx-auto mt-12 md:mt-16' },
-              children: [
-                {
-                  type: 'div',
-                  props: {
-                    className:
-                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg p-4 sm:p-6',
-                  },
-                  children: [
-                    {
-                      type: 'grid',
-                      props: {
-                        className: 'grid grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm',
-                      },
-                      children: [
-                        // Header row
-                        {
-                          type: 'div',
-                          props: { className: 'font-semibold' },
-                        },
-                        {
-                          type: 'div',
-                          props: { className: 'font-semibold text-sovereignty-accent' },
-                          content: 'Sovrium',
-                        },
-                        {
-                          type: 'div',
-                          props: { className: 'font-semibold text-sovereignty-gray-400' },
-                          content: '$t:home.comparison.table.header.saas',
-                        },
-                        // Version Control
-                        {
-                          type: 'div',
-                          content: '$t:home.comparison.table.row1.aspect',
-                        },
-                        {
-                          type: 'div',
-                          props: { className: 'text-green-400' },
-                          content: '$t:home.comparison.table.row1.sovrium',
-                        },
-                        {
-                          type: 'div',
-                          props: { className: 'text-yellow-400' },
-                          content: '$t:home.comparison.table.row1.saas',
-                        },
-                        // Monthly Cost
-                        {
-                          type: 'div',
-                          content: '$t:home.comparison.table.row2.aspect',
-                        },
-                        {
-                          type: 'div',
-                          props: { className: 'text-green-400' },
-                          content: '$t:home.comparison.table.row2.sovrium',
-                        },
-                        {
-                          type: 'div',
-                          props: { className: 'text-red-400' },
-                          content: '$t:home.comparison.table.row2.saas',
-                        },
-                        // Managed Hosting (honest concession)
-                        {
-                          type: 'div',
-                          content: '$t:home.comparison.table.row3.aspect',
-                        },
-                        {
-                          type: 'div',
-                          props: { className: 'text-yellow-400' },
-                          content: '$t:home.comparison.table.row3.sovrium',
-                        },
-                        {
-                          type: 'div',
-                          props: { className: 'text-green-400' },
-                          content: '$t:home.comparison.table.row3.saas',
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
+              type: 'paragraph',
+              content: '$t:home.problem.bridge',
+              props: {
+                className: 'text-xl sm:text-2xl font-semibold text-center text-sovereignty-teal',
+              },
             },
           ],
         },

@@ -87,32 +87,26 @@ export const fr: Record<string, string> = {
 
   // ── Home: Problem Statement ─────────────────────────────────────────
   'home.problem.title': 'Le pi\u00E8ge du SaaS',
-  'home.problem.stat1.value': '4+',
-  'home.problem.stat1.label': 'Outils SaaS par \u00E9quipe juste pour g\u00E9rer les donn\u00E9es',
-  'home.problem.stat2.value': '0%',
-  'home.problem.stat2.label':
-    'Des plateformes SaaS qui permettent d\u2019exporter sch\u00E9ma et workflows complets',
-  'home.problem.stat3.value': '87%',
-  'home.problem.stat3.label':
-    'Des responsables IT pr\u00E9voient de r\u00E9duire la prolif\u00E9ration SaaS',
+  'home.problem.hookStat.value': '106 apps SaaS. 21 M$ gaspill\u00E9s.',
+  'home.problem.hookStat.label':
+    'L\u2019organisation moyenne utilise 106 apps SaaS et gaspille 21 M$ par an en licences inutilis\u00E9es.',
+  'home.problem.hookStat.source': 'Productiv, Zylo 2025',
+  'home.problem.lockin.title': 'Verrouillage',
+  'home.problem.lockin.description':
+    'Vos donn\u00E9es vivent dans des silos que vous ne contr\u00F4lez pas. Formats propri\u00E9taires, API ferm\u00E9es, z\u00E9ro portabilit\u00E9 \u2014 votre entreprise tourne selon les r\u00E8gles d\u2019un autre.',
+  'home.problem.costSpiral.title': 'Spirale des co\u00FBts',
+  'home.problem.costSpiral.description':
+    'La tarification par utilisateur joue contre vous. Ce qui commence \u00E0 10 \u20AC/utilisateur devient discr\u00E8tement 50, puis 100 \u20AC \u2014 et vous \u00EAtes trop verrouill\u00E9 pour partir.',
+  'home.problem.platformDecay.title': 'D\u00E9gradation des plateformes',
+  'home.problem.platformDecay.description':
+    'Les offres gratuites r\u00E9tr\u00E9cissent, les paywalls s\u2019\u00E9tendent, les co\u00FBts de migration explosent. Airtable a r\u00E9duit ses appels API gratuits de illimit\u00E9 \u00E0 1 000. Notion a supprim\u00E9 son add-on IA. Ce sch\u00E9ma est structurel, pas accidentel.',
+  'home.problem.bridge': 'Il y a une meilleure approche.',
 
   // ── Home: Solution Overview ─────────────────────────────────────────
   'home.solution.title': 'Une config. Une application compl\u00E8te.',
   'home.solution.description':
     'Sovrium transforme un simple fichier de configuration en une application m\u00E9tier compl\u00E8te \u2014 authentification, base de donn\u00E9es, API, pages et panneau d\u2019administration inclus.',
   'home.solution.code.alsoWorks': 'Lancez depuis n\u2019importe quel format :',
-
-  // ── Home: Comparison (micro-table in Problem section) ───────────────
-  'home.comparison.table.header.saas': 'SaaS traditionnel',
-  'home.comparison.table.row1.aspect': 'Contr\u00F4le de version',
-  'home.comparison.table.row1.sovrium': '\u2705 Natif Git',
-  'home.comparison.table.row1.saas': '\u26A0\uFE0F Limit\u00E9/Aucun',
-  'home.comparison.table.row2.aspect': 'Co\u00FBt mensuel',
-  'home.comparison.table.row2.sovrium': '\u2705 Co\u00FBts serveur uniquement',
-  'home.comparison.table.row2.saas': '\u274C 50\u2013500+ \u20AC/utilisateur/mois',
-  'home.comparison.table.row3.aspect': 'H\u00E9bergement g\u00E9r\u00E9',
-  'home.comparison.table.row3.sovrium': '\u26A0\uFE0F Vous g\u00E9rez l\u2019infrastructure',
-  'home.comparison.table.row3.saas': '\u2705 Enti\u00E8rement g\u00E9r\u00E9 pour vous',
 
   // ── Home: Use Cases ─────────────────────────────────────────────────
   'home.useCases.title': 'Con\u00E7u pour le travail r\u00E9el',
@@ -125,9 +119,9 @@ export const fr: Record<string, string> = {
   'home.useCases.business.title': 'Applications m\u00E9tier',
   'home.useCases.business.description':
     'Des workflows que les outils standard ne peuvent pas g\u00E9rer. Votre processus, vos donn\u00E9es, vos r\u00E8gles.',
-  'home.useCases.mvp.title': 'MVPs & Prototypes',
+  'home.useCases.mvp.title': 'Sites Marketing & Docs',
   'home.useCases.mvp.description':
-    'De l\u2019id\u00E9e \u00E0 l\u2019app full-stack en un jour. Auth, base de donn\u00E9es et UI depuis un seul fichier de config.',
+    'G\u00E9n\u00E9rez des pages marketing et de documentation depuis la config. Brand\u00E9es, rapides et toujours synchronis\u00E9es avec votre produit.',
 
   // ── Home: Platform Features ─────────────────────────────────────────
   'home.features.title': 'Tout ce dont vous avez besoin',
@@ -303,9 +297,9 @@ export const fr: Record<string, string> = {
   // ── Company: Mission ───────────────────────────────────────────────
   'about.mission.title': 'Notre Mission',
   'about.mission.description':
-    'Les organisations modernes sont submerg\u00E9es par les d\u00E9pendances SaaS \u2014 payant des frais mensuels, perdant le contr\u00F4le de leurs donn\u00E9es et adaptant leur activit\u00E9 aux limitations des fournisseurs. Nous construisons l\u2019alternative.',
+    'Construire des outils internes ne devrait pas forcer \u00e0 choisir entre rapidit\u00e9 et contr\u00f4le. Le no-code livre vite mais enferme. Le code sur mesure lib\u00e8re mais noie sous la maintenance. Nous croyons qu\u2019une troisi\u00e8me voie existe \u2014 celle qui combine le meilleur des deux mondes.',
   'about.mission.statement':
-    'Rendre chaque organisation souveraine dans ses syst\u00E8mes d\u2019information \u2014 libre de toute d\u00E9pendance SaaS, en contr\u00F4le total de ses donn\u00E9es, et capable de construire des applications m\u00E9tier par la configuration-as-code.',
+    'Donner \u00e0 chaque organisation une v\u00e9ritable souverainet\u00e9 sur ses syst\u00e8mes d\u2019information \u2014 la rapidit\u00e9 du no-code, la puissance du code, avec la pleine ma\u00eetrise des donn\u00e9es, de l\u2019infrastructure et du destin.',
 
   // ── Company: Values ────────────────────────────────────────────────
   'about.values.title': 'Nos Valeurs',
@@ -346,10 +340,8 @@ export const fr: Record<string, string> = {
 
   // ── Company: Team ──────────────────────────────────────────────────
   'about.team.title': 'L\u2019\u00E9quipe',
-  'about.team.subtitle':
-    'Sovrium est construit par ESSENTIAL SERVICES, une entreprise d\u00E9di\u00E9e \u00E0 donner aux organisations le contr\u00F4le de leur logiciel.',
   'about.team.founder.name': 'Thomas Jeanneau',
-  'about.team.founder.role': 'Fondateur & CEO',
+  'about.team.founder.role': 'Fondateur',
 
   // ── Company: CTA ───────────────────────────────────────────────────
   'about.cta.title': 'Rejoignez le mouvement',
@@ -361,10 +353,16 @@ export const fr: Record<string, string> = {
 
   // ── Company: Origin Story ─────────────────────────────────────────
   'about.origin.title': 'Pourquoi Sovrium existe',
-  'about.origin.description':
-    'Apr\u00E8s 8 ans \u00E0 construire des outils d\u2019automatisation et des logiciels internes pour plus de 50 clients en France et en Europe, j\u2019ai observ\u00E9 le m\u00EAme sch\u00E9ma partout\u00A0: des organisations pi\u00E9g\u00E9es dans des abonnements SaaS qu\u2019elles ne pouvaient pas quitter, payant pour des fonctionnalit\u00E9s dont elles n\u2019avaient pas besoin, avec des donn\u00E9es qu\u2019elles ne contr\u00F4laient pas pleinement.',
+  'about.origin.paragraph1':
+    'J\u2019ai pass\u00e9 des ann\u00e9es \u00e0 construire des outils internes pour des organisations \u2014 en no-code, low-code et code. Je livrais vite. Les outils marchaient. Les clients \u00e9taient contents, au d\u00e9but.',
   'about.origin.paragraph2':
-    'J\u2019ai cr\u00E9\u00E9 Sovrium pour prouver qu\u2019un meilleur mod\u00E8le existe \u2014 un mod\u00E8le o\u00F9 un seul fichier de configuration remplace des dizaines d\u2019abonnements SaaS, et o\u00F9 vous poss\u00E9dez chaque ligne de code et chaque octet de donn\u00E9es.',
+    'Puis la r\u00e9alit\u00e9 a rattrap\u00e9 tout le monde. Un \u00e9diteur changeait son API sans pr\u00e9venir et cassait un workflow entier du jour au lendemain. Les co\u00fbts explosaient d\u00e8s qu\u2019on demandait de la performance. Faire communiquer cinq outils entre eux devenait un travail \u00e0 plein temps. La dette technique s\u2019accumulait en silence. Et les donn\u00e9es\u00a0? \u00c9parpill\u00e9es sur une dizaine de plateformes SaaS, chacune dans un pays diff\u00e9rent, chacune avec ses changements de tarifs et de politique \u2014 rien de tout \u00e7a ne nous appartenait vraiment.',
+  'about.origin.paragraph3':
+    'Aucun versioning sur l\u2019ensemble du syst\u00e8me. Pas de tests. Aucun moyen de collaborer proprement sur quelque chose construit avec un patchwork d\u2019outils. Et surtout, z\u00e9ro souverainet\u00e9 sur le syst\u00e8me central d\u2019une organisation \u2014 toujours d\u00e9pendant de d\u00e9cisions prises par des entreprises \u00e9trang\u00e8res, dans des juridictions \u00e9trang\u00e8res, pour leurs propres int\u00e9r\u00eats.',
+  'about.origin.paragraph4':
+    'J\u2019ai r\u00e9alis\u00e9 le probl\u00e8me fondamental\u00a0: on peut construire des outils fonctionnels et performants rapidement avec la stack actuelle. Mais les maintenir dans le temps, \u00e0 l\u2019\u00e9chelle, sans perdre le contr\u00f4le ni se ruiner \u2014 c\u2019est l\u00e0 que tout s\u2019effondre.',
+  'about.origin.paragraph5':
+    'Sovrium est ma r\u00e9ponse. Une plateforme qui combine la rapidit\u00e9 du no-code avec la puissance du code. Pilot\u00e9e par la configuration, auto-h\u00e9berg\u00e9e, enti\u00e8rement versionnable, testable \u2014 et souveraine par conception.',
   'about.origin.signature': '\u2014 Thomas Jeanneau, Fondateur',
 
   // ════════════════════════════════════════════════════════════════════
@@ -797,7 +795,10 @@ export const fr: Record<string, string> = {
   'docs.toc.heading': 'Sur cette page',
   'docs.sidebar.section.getStarted': 'Pour commencer',
   'docs.sidebar.section.appSchema': 'Schéma applicatif',
-  'docs.sidebar.section.resources': 'Ressources',
+  'docs.sidebar.section.references': 'R\u00E9f\u00E9rences',
+  'docs.sidebar.jsonSchema': 'JSON Schema',
+  'docs.sidebar.llmReference': 'R\u00E9f\u00E9rence LLM',
+  'docs.sidebar.github': 'GitHub',
   'docs.sidebar.introduction': 'Introduction',
   'docs.sidebar.introduction.href': '/fr/docs',
   'docs.sidebar.installation': 'Installation',
@@ -820,8 +821,6 @@ export const fr: Record<string, string> = {
   'docs.sidebar.analytics.href': '/fr/docs/analytics',
   'docs.sidebar.apiReference': 'R\u00E9f\u00E9rence API',
   'docs.sidebar.apiReference.href': '/fr/docs/api-reference',
-  'docs.sidebar.resources': 'Ressources',
-  'docs.sidebar.resources.href': '/fr/docs/resources',
 
   // ── Docs: Per-Page Meta ──────────────────────────────────────────
   'docs.introduction.meta.title': 'Introduction - Docs Sovrium',
@@ -949,9 +948,6 @@ export const fr: Record<string, string> = {
   'docs.apiReference.openapi.description':
     'T\u00E9l\u00E9chargez la sp\u00E9cification OpenAPI 3.1 pour l\u2019utiliser avec n\u2019importe quel client API ou g\u00E9n\u00E9rateur de code.',
   'docs.apiReference.openapi.download': 'T\u00E9l\u00E9charger openapi.json',
-  'docs.resources.meta.title': 'Ressources - Docs Sovrium',
-  'docs.resources.meta.description':
-    'R\u00E9f\u00E9rences LLM, JSON Schema, d\u00E9p\u00F4t GitHub et ressources suppl\u00E9mentaires.',
 
   // ── Docs: Get Started — Introduction ────────────────────────────
   'docs.introduction.header.title': 'Introduction',
@@ -987,6 +983,12 @@ export const fr: Record<string, string> = {
   'docs.introduction.next.title': '\u00C9tapes suivantes',
   'docs.introduction.next.description':
     'Pr\u00EAt \u00E0 essayer\u00A0? Installez Sovrium et construisez votre premi\u00E8re application en moins de 5 minutes.',
+  'docs.introduction.help.title': 'Obtenir de l\u2019aide',
+  'docs.introduction.help.description':
+    'Vous avez trouv\u00E9 un bug, une question ou une demande de fonctionnalit\u00E9\u00A0?',
+  'docs.introduction.help.body':
+    'Sovrium est open source. Si vous rencontrez un probl\u00E8me ou avez des id\u00E9es d\u2019am\u00E9lioration, le meilleur moyen de nous contacter est via GitHub Issues.',
+  'docs.introduction.help.link': 'Ouvrir une issue sur GitHub \u2192',
 
   // ── Docs: Get Started — Installation ────────────────────────────
   'docs.installation.header.title': 'Installation',
@@ -1711,32 +1713,4 @@ export const fr: Record<string, string> = {
     'Les analytiques Sovrium sont sans cookies, conformes RGPD par d\u00E9faut. Toutes les donn\u00E9es restent sur votre serveur \u2014 aucun service tiers impliqu\u00E9.',
   'docs.analytics.details':
     'Lorsqu\u2019activ\u00E9, Sovrium injecte un script de suivi l\u00E9ger qui enregistre les pages vues, les sessions, les r\u00E9f\u00E9rents et les informations sur l\u2019appareil. Les donn\u00E9es analytiques sont collect\u00E9es \u00E0 /api/analytics/collect et stock\u00E9es localement.',
-
-  // ── Docs: Section 10 — Resources ──────────────────────────────────
-  'docs.resources.title': 'Ressources',
-  'docs.resources.description':
-    'R\u00E9f\u00E9rences suppl\u00E9mentaires pour travailler avec le sch\u00E9ma Sovrium.',
-  'docs.resources.llmQuick.label': 'R\u00E9f\u00E9rence rapide LLM',
-  'docs.resources.llmQuick.description':
-    'Aper\u00E7u concis du sch\u00E9ma optimis\u00E9 pour les LLMs (~40 lignes).',
-  'docs.resources.llmFull.label': 'R\u00E9f\u00E9rence compl\u00E8te LLM',
-  'docs.resources.llmFull.description': 'Documentation compl\u00E8te pour les LLMs (~2100 lignes).',
-  'docs.resources.jsonSchema.label': 'JSON Schema',
-  'docs.resources.jsonSchema.description':
-    'JSON Schema (Draft-07) lisible par machine pour la validation et le support \u00E9diteur.',
-  'docs.resources.jsonSchemaLatest.label': 'JSON Schema (latest)',
-  'docs.resources.jsonSchemaLatest.description':
-    'URL stable qui pointe toujours vers la version la plus r\u00E9cente du sch\u00E9ma.',
-  'docs.resources.schemaExplorer.label': 'Explorateur de sch\u00E9ma',
-  'docs.resources.schemaExplorer.description':
-    'Explorateur visuel interactif du JSON Schema Sovrium (json-schema.app).',
-  'docs.resources.apiReference.label': 'R\u00E9f\u00E9rence API',
-  'docs.resources.apiReference.description':
-    'Documentation interactive de tous les endpoints REST (interface Scalar).',
-  'docs.resources.github.label': 'D\u00E9p\u00F4t GitHub',
-  'docs.resources.github.description': 'Code source, issues et directives de contribution.',
-  'docs.resources.help.title': 'Besoin d\u2019aide\u00A0?',
-  'docs.resources.help.description':
-    'Trouv\u00E9 un bug, une question ou une demande de fonctionnalit\u00E9\u00A0? Ouvrez une issue sur GitHub.',
-  'docs.resources.help.link': 'Ouvrir une issue sur GitHub \u2192',
 }

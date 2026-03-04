@@ -27,10 +27,11 @@ Sovrium turns declarative configuration into production-ready applications with 
 - [Languages](https://sovrium.com/en/docs/languages): Multi-language support, $t: translation syntax, RTL support
 - [Analytics](https://sovrium.com/en/docs/analytics): Privacy-friendly, cookie-free, configurable retention and session tracking
 
-### Resources
+### References
 
 - [API Reference](https://sovrium.com/en/docs/api-reference): Interactive OpenAPI documentation (Scalar)
-- [Resources](https://sovrium.com/en/docs/resources): JSON Schema, LLM references, schema explorer, GitHub
+- [JSON Schema](https://sovrium.com/schemas/latest/app.schema.json): Machine-readable schema (Draft-07)
+- [GitHub](https://github.com/sovrium/sovrium): Source code, issues, and contributions
 
 ## Quick Start
 

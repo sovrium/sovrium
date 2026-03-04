@@ -54,7 +54,7 @@ export const about: Page = {
         founder: {
           '@type': 'Person',
           name: 'Thomas Jeanneau',
-          jobTitle: 'Founder & CEO',
+          jobTitle: 'Founder',
           url: 'https://www.linkedin.com/in/thomasjeanneauentrepreneur/',
         },
         foundingDate: '2025',
@@ -191,7 +191,7 @@ export const about: Page = {
             },
             {
               type: 'paragraph',
-              content: '$t:about.origin.description',
+              content: '$t:about.origin.paragraph1',
               props: {
                 className: 'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed mb-6',
               },
@@ -201,6 +201,28 @@ export const about: Page = {
               content: '$t:about.origin.paragraph2',
               props: {
                 className: 'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed mb-6',
+              },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:about.origin.paragraph3',
+              props: {
+                className: 'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed mb-6',
+              },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:about.origin.paragraph4',
+              props: {
+                className: 'text-base sm:text-lg text-sovereignty-gray-300 leading-relaxed mb-6',
+              },
+            },
+            {
+              type: 'paragraph',
+              content: '$t:about.origin.paragraph5',
+              props: {
+                className:
+                  'text-base sm:text-lg text-sovereignty-light leading-relaxed mb-8 font-medium',
               },
             },
             {
@@ -315,15 +337,7 @@ export const about: Page = {
               type: 'h2',
               content: '$t:about.team.title',
               props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-6',
-              },
-            },
-            {
-              type: 'paragraph',
-              content: '$t:about.team.subtitle',
-              props: {
-                className:
-                  'text-base sm:text-lg md:text-xl text-sovereignty-gray-400 text-center max-w-3xl mx-auto mb-12 md:mb-16',
+                className: 'text-2xl sm:text-3xl font-bold text-center mb-12 md:mb-16',
               },
             },
             {

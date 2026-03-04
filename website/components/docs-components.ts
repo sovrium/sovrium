@@ -189,44 +189,6 @@ export const docsInfoCardIcon: ComponentTemplate = {
   ],
 }
 
-// ─── docs-resource-link: Linked resource card with description ──────────────
-// Used in docs Resources section (7 cards)
-// vars: { label, href, description }
-export const docsResourceLink: ComponentTemplate = {
-  name: 'docs-resource-link',
-  type: 'div',
-  props: {
-    className:
-      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 p-4 rounded-lg hover:border-sovereignty-accent/30 transition-colors',
-  },
-  children: [
-    {
-      type: 'link',
-      props: {
-        href: '$href',
-        className:
-          'inline-flex items-center gap-1.5 font-semibold text-sovereignty-accent hover:underline',
-      },
-      children: [
-        {
-          type: 'span',
-          content: '$label',
-          props: {},
-        },
-        {
-          type: 'icon',
-          props: { name: 'external-link', size: 13, className: 'opacity-60 flex-shrink-0' },
-        },
-      ],
-    },
-    {
-      type: 'paragraph',
-      content: '$description',
-      props: { className: 'text-sm text-sovereignty-gray-400 mt-1' },
-    },
-  ],
-}
-
 // ─── docs-badge-item: Inline monospace badge for field/component types ──────
 // Used in docs-schema.ts Tables & Pages sections (100+ badges)
 // vars: { label: 'single-line-text' }

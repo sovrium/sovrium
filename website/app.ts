@@ -22,7 +22,6 @@ import {
   docsOverview,
   docsPages,
   docsQuickStart,
-  docsResources,
   docsTables,
   docsTheme,
 } from './pages/docs'
@@ -149,6 +148,5 @@ export const app: App = {
     docsLanguages,
     docsAnalytics,
     docsApiReference,
-    docsResources,
   ],
 }

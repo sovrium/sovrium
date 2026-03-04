@@ -34,7 +34,7 @@
 - [Page Scripts](#page-scripts)
 - [Responsive Configuration](#responsive-configuration)
 
-### Resources
+### References
 - [API Reference](#api-reference)
 - [Additional Resources](#additional-resources)
 - [Complete Examples](#complete-examples)
@@ -1946,7 +1946,7 @@ Components support breakpoint-specific behavior:
 
 ---
 
-# Resources
+# References
 
 ---
 

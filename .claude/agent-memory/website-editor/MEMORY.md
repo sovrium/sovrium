@@ -113,6 +113,15 @@
 - **Component type categories** (6): Layout(15), Typography(13), Media(9), Interactive(8), Cards(12), Feedback(5)
 - deploy-website.yml sync-docs prompt: "Currently 41 field types" and "Currently 62 component types"
 
+## Docs Sidebar Structure (Updated 2026-03-04)
+- Sidebar sections defined in `website/pages/docs/shared.ts` via `DOCS_SIDEBAR_SECTIONS`
+- 4 sections: "Getting Started", "App Schema", "Advanced", "References"
+- **References section** (was "Resources"): Contains API Reference page link + 3 external links (JSON Schema, LLM Reference, GitHub)
+- External links use `DocsSidebarExternalLink` interface with `external: true` flag, rendered with `target="_blank"` and external-link icon (size 12)
+- "Getting help" section relocated to Introduction page (`/docs`) -- card with GitHub Issues link
+- `resources.ts` page was deleted (redundant catch-all); `docs-resource-link` component was removed
+- Prev/next navigation built from flat `DOCS_PAGES` array; API Reference is last page (no "next")
+
 ## Page Naming (Updated 2026-03-03)
 - **About page** (`/about`): file `website/pages/about.ts`, export `about`, i18n keys `about.*`
   - Was previously called "Company" (`/company`, `company.*` keys)
