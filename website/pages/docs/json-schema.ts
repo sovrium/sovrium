@@ -20,9 +20,21 @@ const explorerUrl = `https://json-schema.app/view/%23?url=${encodedExplorerSchem
 
 /** Deep-link to a specific root property in the JSON Schema viewer.
  *  json-schema.app uses JSON Pointer path segments after /view/ :
- *  e.g. /view/%23/properties/tables?url=… navigates directly to the "tables" property. */
-const propertyExplorerUrl = (propertyName: string) =>
-  `https://json-schema.app/view/%23/properties/${encodeURIComponent(propertyName)}?url=${encodedExplorerSchemaUrl}`
+ *  e.g. /view/%23/properties/tables?url=… navigates directly to the "tables" property.
+ *
+ *  Properties that are bare $ref (e.g. pages → $defs/Pages) must link to the
+ *  $defs entry instead, because json-schema.app cannot resolve a pointer that
+ *  lands on a raw $ref node. */
+const refOnlyProperties: Record<string, string> = {
+  pages: '#/$defs/Pages',
+}
+const propertyExplorerUrl = (propertyName: string) => {
+  const ref = refOnlyProperties[propertyName]
+  if (ref) {
+    return `https://json-schema.app/view/%23/${encodeURIComponent(ref)}?url=${encodedExplorerSchemaUrl}`
+  }
+  return `https://json-schema.app/view/%23/properties/${encodeURIComponent(propertyName)}?url=${encodedExplorerSchemaUrl}`
+}
 
 // ─── Schema Root Properties Preview ─────────────────────────────────────────
 
