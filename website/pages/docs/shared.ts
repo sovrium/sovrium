@@ -154,25 +154,26 @@ const APP_SCHEMA_PAGES: readonly DocsPageEntry[] = [
 
 const REFERENCES_PAGES: readonly DocsPageEntry[] = [
   {
+    id: 'json-schema',
+    sidebarLabel: '$t:docs.sidebar.jsonSchema',
+    sidebarHref: '$t:docs.sidebar.jsonSchema.href',
+    section: 'references',
+  },
+  {
     id: 'api-reference',
     sidebarLabel: '$t:docs.sidebar.apiReference',
     sidebarHref: '$t:docs.sidebar.apiReference.href',
     section: 'references',
   },
   {
-    id: 'json-schema',
-    sidebarLabel: '$t:docs.sidebar.jsonSchema',
-    sidebarHref: '$t:docs.sidebar.jsonSchema.href',
+    id: 'llm-reference',
+    sidebarLabel: '$t:docs.sidebar.llmReference',
+    sidebarHref: '$t:docs.sidebar.llmReference.href',
     section: 'references',
   },
 ]
 
 const REFERENCES_EXTERNAL_LINKS: readonly DocsSidebarExternalLink[] = [
-  {
-    label: '$t:docs.sidebar.llmReference',
-    href: '/llms.txt',
-    external: true,
-  },
   {
     label: '$t:docs.sidebar.roadmap',
     href: 'https://github.com/sovrium/sovrium/issues/7107',

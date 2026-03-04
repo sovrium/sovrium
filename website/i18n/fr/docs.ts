@@ -220,6 +220,7 @@ export const docs: Record<string, string> = {
   'docs.jsonSchema.validation.tip.body':
     'Ajoutez la validation de schéma à votre pipeline CI pour détecter les erreurs de configuration avant le déploiement. L’URL du schéma peut être récupérée au moment du build ou intégrée à votre projet.',
   'docs.sidebar.jsonSchema.href': '/fr/docs/json-schema',
+  'docs.sidebar.llmReference.href': '/fr/docs/llm-reference',
   'docs.introduction.header.title': 'Introduction',
   'docs.introduction.header.description':
     'Sovrium est une plateforme source-available, auto-hébergée, qui transforme un seul fichier de configuration en une application web complète.',
@@ -1188,4 +1189,58 @@ export const docs: Record<string, string> = {
   'docs.typescript.examples.tables.title': 'Avec des tables de données',
   'docs.typescript.examples.build.title': 'Génération de site statique',
   'docs.typescript.examples.dynamic.title': 'Configuration dynamique',
+
+  // ── Référence LLM ────────────────────────────────────────────────────────
+  'docs.llmReference.meta.title': 'Référence LLM - Docs Sovrium',
+  'docs.llmReference.meta.description':
+    'Fichiers de documentation lisibles par les machines (llms.txt, llms-full.txt) pour les assistants IA, LLMs et outils de développement afin de comprendre et générer des configurations Sovrium.',
+  'docs.llmReference.title': 'Référence LLM',
+  'docs.llmReference.description':
+    "Sovrium fournit des fichiers de documentation lisibles par les machines, conçus pour les grands modèles de langage (LLM) et les assistants de codage IA. Utilisez ces fichiers pour donner aux outils IA un contexte complet sur le schéma applicatif, le CLI, l'API et le format de configuration de Sovrium.",
+  'docs.llmReference.cta.title': 'Télécharger la documentation LLM',
+  'docs.llmReference.cta.description':
+    'Fichiers texte optimisés pour les outils IA comme Claude, ChatGPT, GitHub Copilot et Cursor.',
+  'docs.llmReference.whatIs.title': "Qu'est-ce que llms.txt\u00a0?",
+  'docs.llmReference.whatIs.description':
+    'Un standard émergent pour fournir de la documentation aux assistants IA dans un format adapté aux machines.',
+  'docs.llmReference.whatIs.body':
+    'La convention llms.txt est un standard croissant où les sites web servent des fichiers de documentation en texte brut à des URL bien connues (/llms.txt et /llms-full.txt). Ces fichiers sont spécifiquement formatés pour être consommés par les grands modèles de langage, fournissant des informations structurées sur le projet, ses API, son format de configuration et ses capacités.',
+  'docs.llmReference.whatIs.sovrium':
+    'Sovrium publie deux fichiers llms.txt\u00a0: une référence rapide compacte pour les consultations rapides, et une référence complète exhaustive (~2700 lignes) contenant la documentation intégrale incluant tous les types de champs, types de composants, endpoints API et exemples de configuration.',
+  'docs.llmReference.files.title': 'Fichiers disponibles',
+  'docs.llmReference.files.description':
+    "Deux fichiers de documentation sont disponibles, optimisés pour différents cas d'utilisation.",
+  'docs.llmReference.files.quick.description':
+    "Vue d'ensemble compacte avec des liens vers toutes les sections de documentation. Idéal pour un contexte rapide et la navigation.",
+  'docs.llmReference.files.quick.size':
+    "Environ 40 lignes — s'intègre facilement dans n'importe quelle fenêtre de contexte LLM.",
+  'docs.llmReference.files.quick.usecase':
+    "Utilisez quand vous avez besoin d'un résumé rapide ou souhaitez orienter un outil IA vers des sections spécifiques de la documentation.",
+  'docs.llmReference.files.full.description':
+    "Documentation complète couvrant l'ensemble de la plateforme Sovrium. Idéal pour une assistance IA approfondie.",
+  'docs.llmReference.files.full.size':
+    'Environ 2700 lignes — référence complète en un seul fichier.',
+  'docs.llmReference.files.full.usecase':
+    "Utilisez quand vous souhaitez qu'un assistant IA ait un contexte complet sur Sovrium, génère des configurations ou réponde à des questions détaillées.",
+  'docs.llmReference.usage.title': 'Utilisation avec les outils IA',
+  'docs.llmReference.usage.description':
+    'Comment fournir la documentation Sovrium à votre assistant IA de choix.',
+  'docs.llmReference.usage.fetch': 'Récupérez la documentation directement\u00a0:',
+  'docs.llmReference.usage.chatPrompt':
+    "Collez l'URL ou le contenu dans votre assistant IA avec un prompt comme\u00a0:",
+  'docs.llmReference.usage.tip.title': 'Quel fichier utiliser\u00a0?',
+  'docs.llmReference.usage.tip.body':
+    "Commencez avec llms.txt pour des questions rapides sur ce que Sovrium peut faire. Utilisez llms-full.txt quand vous avez besoin que l'IA génère des configurations complètes, comprenne tous les types de champs ou travaille avec l'API complète.",
+  'docs.llmReference.contents.title': 'Contenu des fichiers',
+  'docs.llmReference.contents.description':
+    'Les deux fichiers sont automatiquement synchronisés à chaque release de Sovrium.',
+  'docs.llmReference.contents.quick.title': 'llms.txt — Référence rapide',
+  'docs.llmReference.contents.quick.body':
+    "Une vue d'ensemble compacte de Sovrium avec des liens directs vers chaque page de documentation, le JSON Schema, la référence API et le dépôt GitHub. Utile pour donner un contexte de navigation à un outil IA sans consommer trop de tokens.",
+  'docs.llmReference.contents.full.title': 'llms-full.txt — Référence complète',
+  'docs.llmReference.contents.full.body':
+    'La documentation complète de Sovrium en un seul fichier texte. Couvre tout, du démarrage à la référence complète du schéma\u00a0:',
+  'docs.llmReference.contents.version.title': 'Synchronisé automatiquement avec les releases',
+  'docs.llmReference.contents.version.body':
+    'Les deux fichiers sont automatiquement mis à jour à chaque release de Sovrium pour refléter la dernière version du schéma, les types de champs, types de composants et endpoints API. La version actuelle est toujours à jour.',
 }

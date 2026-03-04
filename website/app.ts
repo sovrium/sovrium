@@ -22,6 +22,7 @@ import {
   docsInstallation,
   docsIntroduction,
   docsJsonSchema,
+  docsLlmReference,
   docsLanguages,
   docsOverview,
   docsPages,
@@ -158,5 +159,6 @@ export const app: AppConfig = {
     docsApiReference,
     docsScalar,
     docsJsonSchema,
+    docsLlmReference,
   ],
 }
