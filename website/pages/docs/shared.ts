@@ -113,6 +113,12 @@ const APP_SCHEMA_PAGES: readonly DocsPageEntry[] = [
 
 const RESOURCES_PAGES: readonly DocsPageEntry[] = [
   {
+    id: 'api-reference',
+    sidebarLabel: '$t:docs.sidebar.apiReference',
+    sidebarHref: '$t:docs.sidebar.apiReference.href',
+    section: 'resources',
+  },
+  {
     id: 'resources',
     sidebarLabel: '$t:docs.sidebar.resources',
     sidebarHref: '$t:docs.sidebar.resources.href',

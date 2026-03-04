@@ -6,6 +6,7 @@
  */
 
 export { docsAnalytics } from './analytics'
+export { docsApiReference } from './api-reference'
 export { docsAuth } from './auth'
 export { docsInstallation } from './installation'
 export { docsIntroduction } from './introduction'

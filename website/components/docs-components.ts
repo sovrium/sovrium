@@ -127,7 +127,7 @@ export const docsInfoCard: ComponentTemplate = {
 }
 
 // ─── docs-resource-link: Linked resource card with description ──────────────
-// Used in docs-schema.ts Resources section (4 cards)
+// Used in docs Resources section (6 cards)
 // vars: { label, href, description }
 export const docsResourceLink: ComponentTemplate = {
   name: 'docs-resource-link',

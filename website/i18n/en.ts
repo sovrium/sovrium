@@ -838,6 +838,8 @@ export const en: Record<string, string> = {
   'docs.sidebar.languages.href': '/en/docs/languages',
   'docs.sidebar.analytics': 'Analytics',
   'docs.sidebar.analytics.href': '/en/docs/analytics',
+  'docs.sidebar.apiReference': 'API Reference',
+  'docs.sidebar.apiReference.href': '/en/docs/api-reference',
   'docs.sidebar.resources': 'Resources',
   'docs.sidebar.resources.href': '/en/docs/resources',
 
@@ -850,7 +852,7 @@ export const en: Record<string, string> = {
     'Install Sovrium via Bun and create your first configuration file in YAML or JSON.',
   'docs.quickStart.meta.title': 'Quick Start - Sovrium Docs',
   'docs.quickStart.meta.description':
-    'Build your first Sovrium app in 3 steps using YAML or TypeScript. Create a config, add data tables, and start the server.',
+    'Build your first Sovrium app in minutes using YAML or TypeScript. Install, configure, and start the server.',
   'docs.overview.meta.title': 'Schema Overview - Sovrium Docs',
   'docs.overview.meta.description':
     'Complete reference for the 10 root properties of the Sovrium app schema. Define data models, authentication, pages, themes, and analytics.',
@@ -872,6 +874,12 @@ export const en: Record<string, string> = {
   'docs.analytics.meta.title': 'Analytics - Sovrium Docs',
   'docs.analytics.meta.description':
     'Enable privacy-friendly, cookie-free analytics with configurable retention and session options.',
+  'docs.apiReference.meta.title': 'API Reference - Sovrium Docs',
+  'docs.apiReference.meta.description':
+    'Interactive API documentation for Sovrium. Explore health, authentication, and admin endpoints.',
+  'docs.apiReference.earlyPreview':
+    'Early Preview \u2014 The API surface is evolving. Endpoints may change before v1.0.',
+  'docs.apiReference.loading': 'Loading API reference\u2026',
   'docs.resources.meta.title': 'Resources - Sovrium Docs',
   'docs.resources.meta.description':
     'LLM references, JSON Schema, GitHub repository, and additional resources for the Sovrium schema.',
@@ -915,15 +923,18 @@ export const en: Record<string, string> = {
   'docs.installation.header.description':
     'Install Sovrium globally or as a project dependency using Bun.',
   'docs.installation.prerequisites.title': 'Prerequisites',
-  'docs.installation.prerequisites.description':
-    'Sovrium requires Bun 1.0+. A PostgreSQL database is optional, needed only for data persistence (tables, auth).',
+  'docs.installation.prerequisites.descriptionBefore': 'Sovrium requires ',
+  'docs.installation.prerequisites.descriptionLink': 'Bun 1.0+',
+  'docs.installation.prerequisites.descriptionAfter':
+    '. A PostgreSQL database is optional, needed only for data persistence (tables, auth).',
   'docs.installation.global.title': 'Global installation',
   'docs.installation.global.description':
     'Install Sovrium globally to use the sovrium command from anywhere:',
   'docs.installation.project.title': 'Project dependency',
   'docs.installation.project.description': 'Or add Sovrium as a dependency in an existing project:',
   'docs.installation.verify.title': 'Verify installation',
-  'docs.installation.verify.description': 'Run the help command to check that Sovrium is installed correctly:',
+  'docs.installation.verify.description':
+    'Run the help command to check that Sovrium is installed correctly:',
   'docs.installation.config.title': 'Create a config file',
   'docs.installation.config.description':
     'Sovrium reads a YAML or JSON configuration file. Create an app.yaml with the simplest valid config:',
@@ -940,7 +951,7 @@ export const en: Record<string, string> = {
   // ── Docs: Get Started — Quick Start ─────────────────────────────
   'docs.quickStart.header.title': 'Quick Start',
   'docs.quickStart.header.description':
-    'Build your first Sovrium app in 3 steps. From an empty file to a running application in under 5 minutes. Choose the approach that fits your workflow.',
+    'Build your first Sovrium app in minutes. From zero to a running application. Choose the approach that fits your workflow.',
   'docs.quickStart.chooseApproach': 'Choose your approach',
   'docs.quickStart.chooseApproach.description':
     'Sovrium supports two configuration formats. YAML is great for simplicity; TypeScript gives you full type safety and autocompletion.',
@@ -948,30 +959,38 @@ export const en: Record<string, string> = {
   // Option A: YAML + CLI
   'docs.quickStart.yaml.title': 'Option A \u2014 YAML + CLI',
   'docs.quickStart.yaml.description':
-    'The simplest path. Create an app.yaml file and run it with the Sovrium CLI:',
-  'docs.quickStart.yaml.step1.title': 'Create a config file',
+    'The simplest path. Install the Sovrium CLI, write a YAML config, and start the server:',
+  'docs.quickStart.yaml.step1.title': 'Install the CLI',
   'docs.quickStart.yaml.step1.description':
-    'Start with the simplest valid configuration \u2014 just a name.',
-  'docs.quickStart.yaml.step2.title': 'Add data tables',
+    'Install Sovrium globally with Bun to get the sovrium command.',
+  'docs.quickStart.yaml.step2.title': 'Create a config file',
   'docs.quickStart.yaml.step2.description':
-    'Define your data models with typed fields, options, and validation.',
-  'docs.quickStart.yaml.step3.title': 'Start the server',
+    'Create an app.yaml with the simplest valid configuration \u2014 just a name.',
+  'docs.quickStart.yaml.step3.title': 'Add data tables',
   'docs.quickStart.yaml.step3.description':
+    'Define your data models with typed fields, options, and validation.',
+  'docs.quickStart.yaml.step4.title': 'Start the server',
+  'docs.quickStart.yaml.step4.description':
     'Run the dev server and visit http://localhost:3000 to see your app.',
 
   // Option B: TypeScript + Bun
   'docs.quickStart.ts.title': 'Option B \u2014 TypeScript + Bun',
   'docs.quickStart.ts.description':
-    'The power-user path. Import Sovrium as a library in a TypeScript file and run it with Bun:',
-  'docs.quickStart.ts.step1.title': 'Create an app.ts file',
+    'The power-user path. Create a Bun project, add Sovrium as a dependency, and write type-safe code:',
+  'docs.quickStart.ts.step1.title': 'Initialize a project',
   'docs.quickStart.ts.step1.description':
-    'Import the start function and pass a typed configuration object.',
-  'docs.quickStart.ts.step2.title': 'Add data tables',
-  'docs.quickStart.ts.step2.description':
-    'Extend the configuration with typed fields, options, and validation \u2014 with full autocompletion.',
-  'docs.quickStart.ts.step3.title': 'Run with Bun',
+    'Scaffold a new Bun project with bun init and move into the directory.',
+  'docs.quickStart.ts.step2.title': 'Add Sovrium',
+  'docs.quickStart.ts.step2.description': 'Install Sovrium as a project dependency.',
+  'docs.quickStart.ts.step3.title': 'Write your app',
   'docs.quickStart.ts.step3.description':
-    'Execute your TypeScript file directly. Visit http://localhost:3000 to see your app.',
+    'Open index.ts and import the start function with a minimal configuration.',
+  'docs.quickStart.ts.step4.title': 'Add data tables',
+  'docs.quickStart.ts.step4.description':
+    'Extend the configuration with typed fields, options, and validation \u2014 with full autocompletion.',
+  'docs.quickStart.ts.step5.title': 'Run your app',
+  'docs.quickStart.ts.step5.description':
+    'Execute index.ts with Bun. Visit http://localhost:3000 to see your app.',
   'docs.quickStart.ts.tip.title': 'Why TypeScript?',
   'docs.quickStart.ts.tip.body':
     'TypeScript gives you autocompletion for every property, compile-time validation of field types, and the full power of Bun as your runtime. Ideal for developers who prefer code over config files.',
@@ -1255,6 +1274,12 @@ export const en: Record<string, string> = {
   'docs.resources.jsonSchema.label': 'JSON Schema',
   'docs.resources.jsonSchema.description':
     'Machine-readable JSON Schema (Draft-07) for validation and editor support.',
+  'docs.resources.schemaExplorer.label': 'Schema Explorer',
+  'docs.resources.schemaExplorer.description':
+    'Interactive visual explorer for the Sovrium JSON Schema (json-schema.app).',
+  'docs.resources.apiReference.label': 'API Reference',
+  'docs.resources.apiReference.description':
+    'Interactive documentation for all REST API endpoints (Scalar UI).',
   'docs.resources.github.label': 'GitHub Repository',
   'docs.resources.github.description': 'Source code, issues, and contribution guidelines.',
   'docs.resources.help.title': 'Need Help?',

@@ -72,6 +72,22 @@ export const docsResources = docsPage({
             {
               $ref: 'docs-resource-link',
               vars: {
+                label: '$t:docs.resources.schemaExplorer.label',
+                href: `https://json-schema.app/view/%23?url=https%3A%2F%2Fsovrium.com%2Fschemas%2F${rawVersion}%2Fapp.schema.json`,
+                description: '$t:docs.resources.schemaExplorer.description',
+              },
+            },
+            {
+              $ref: 'docs-resource-link',
+              vars: {
+                label: '$t:docs.resources.apiReference.label',
+                href: '$t:docs.sidebar.apiReference.href',
+                description: '$t:docs.resources.apiReference.description',
+              },
+            },
+            {
+              $ref: 'docs-resource-link',
+              vars: {
                 label: '$t:docs.resources.github.label',
                 href: 'https://github.com/sovrium/sovrium',
                 description: '$t:docs.resources.github.description',

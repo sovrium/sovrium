@@ -14,6 +14,7 @@ import { brandCharter } from './pages/brand-charter'
 import { dataDeletion } from './pages/data-deletion'
 import {
   docsAnalytics,
+  docsApiReference,
   docsAuth,
   docsInstallation,
   docsIntroduction,
@@ -147,6 +148,7 @@ export const app: App = {
     docsAuth,
     docsLanguages,
     docsAnalytics,
+    docsApiReference,
     docsResources,
   ],
 }

@@ -74,6 +74,10 @@ const tsWithTables = [
   '})',
 ].join('\n')
 
+const tsInitCmd = 'bun init my-app && cd my-app'
+
+const tsAddCmd = 'bun add sovrium'
+
 // ─── Page Definition ────────────────────────────────────────────────────────
 
 export const docsQuickStart = docsPage({
@@ -139,7 +143,7 @@ export const docsQuickStart = docsPage({
           '$t:docs.quickStart.yaml.step1.title',
           '$t:docs.quickStart.yaml.step1.description'
         ),
-        stepCodeBlock(yamlMinimal, 'yaml'),
+        stepCodeBlock('bun add -g sovrium', 'bash'),
 
         // Step 2
         step(
@@ -147,13 +151,21 @@ export const docsQuickStart = docsPage({
           '$t:docs.quickStart.yaml.step2.title',
           '$t:docs.quickStart.yaml.step2.description'
         ),
-        stepCodeBlock(yamlWithTables, 'yaml'),
+        stepCodeBlock(yamlMinimal, 'yaml'),
 
         // Step 3
         step(
           '3',
           '$t:docs.quickStart.yaml.step3.title',
           '$t:docs.quickStart.yaml.step3.description'
+        ),
+        stepCodeBlock(yamlWithTables, 'yaml'),
+
+        // Step 4
+        step(
+          '4',
+          '$t:docs.quickStart.yaml.step4.title',
+          '$t:docs.quickStart.yaml.step4.description'
         ),
         stepCodeBlock('sovrium start app.yaml', 'bash'),
 
@@ -181,15 +193,23 @@ export const docsQuickStart = docsPage({
 
         // Step 1
         step('1', '$t:docs.quickStart.ts.step1.title', '$t:docs.quickStart.ts.step1.description'),
-        stepCodeBlock(tsMinimal, 'typescript'),
+        stepCodeBlock(tsInitCmd, 'bash'),
 
         // Step 2
         step('2', '$t:docs.quickStart.ts.step2.title', '$t:docs.quickStart.ts.step2.description'),
-        stepCodeBlock(tsWithTables, 'typescript'),
+        stepCodeBlock(tsAddCmd, 'bash'),
 
         // Step 3
         step('3', '$t:docs.quickStart.ts.step3.title', '$t:docs.quickStart.ts.step3.description'),
-        stepCodeBlock('bun run app.ts', 'bash'),
+        stepCodeBlock(tsMinimal, 'typescript'),
+
+        // Step 4
+        step('4', '$t:docs.quickStart.ts.step4.title', '$t:docs.quickStart.ts.step4.description'),
+        stepCodeBlock(tsWithTables, 'typescript'),
+
+        // Step 5
+        step('5', '$t:docs.quickStart.ts.step5.title', '$t:docs.quickStart.ts.step5.description'),
+        stepCodeBlock('bun run index.ts', 'bash'),
 
         calloutTip('$t:docs.quickStart.ts.tip.title', '$t:docs.quickStart.ts.tip.body'),
       ],

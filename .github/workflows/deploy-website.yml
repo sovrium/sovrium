@@ -30,6 +30,7 @@ jobs:
   #   - website/assets/llms-full.txt     (complete LLM schema docs)
   #   - website/pages/docs/               (interactive docs pages)
   #   - website/components/docs-components.ts (docs reusable components)
+  #   - website/assets/schemas/           (JSON Schema served at /schemas/)
   #
   # Only runs on workflow_dispatch (not on push triggers).
   # Non-blocking: build + deploy proceed even if this job fails or is skipped.
@@ -113,6 +114,12 @@ jobs:
 
             ### 4. `website/components/docs-components.ts` (if needed)
             - If docs components reference version numbers or counts, update them too
+
+            ### 5. `website/assets/schemas/${{ steps.version.outputs.version }}/app.schema.json`
+            - Copy the generated JSON Schema from `schemas/${{ steps.version.outputs.version }}/app.schema.json`
+              to `website/assets/schemas/${{ steps.version.outputs.version }}/app.schema.json`
+            - This makes the schema publicly available at `https://sovrium.com/schemas/<version>/app.schema.json`
+            - Create the directory if it does not exist: `mkdir -p website/assets/schemas/${{ steps.version.outputs.version }}`
 
             ## Rules
 

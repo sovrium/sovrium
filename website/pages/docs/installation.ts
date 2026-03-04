@@ -38,11 +38,47 @@ export const docsInstallation = docsPage({
       type: 'div',
       props: {},
       children: [
-        sectionHeader(
-          '$t:docs.installation.prerequisites.title',
-          '$t:docs.installation.prerequisites.description',
-          'prerequisites'
-        ),
+        {
+          type: 'div',
+          props: { className: 'mb-6' },
+          children: [
+            {
+              type: 'h2',
+              content: '$t:docs.installation.prerequisites.title',
+              props: {
+                id: 'prerequisites',
+                className: 'text-2xl font-bold text-sovereignty-light mb-2',
+              },
+            },
+            {
+              type: 'paragraph',
+              props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed' },
+              children: [
+                {
+                  type: 'span',
+                  content: '$t:docs.installation.prerequisites.descriptionBefore',
+                  props: {},
+                },
+                {
+                  type: 'link',
+                  content: '$t:docs.installation.prerequisites.descriptionLink',
+                  props: {
+                    href: 'https://bun.sh',
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                    className:
+                      'text-sovereignty-accent hover:text-sovereignty-accent/80 underline transition-colors duration-150',
+                  },
+                },
+                {
+                  type: 'span',
+                  content: '$t:docs.installation.prerequisites.descriptionAfter',
+                  props: {},
+                },
+              ],
+            },
+          ],
+        },
       ],
     },
 
