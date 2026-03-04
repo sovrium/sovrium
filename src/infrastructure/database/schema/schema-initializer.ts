@@ -9,7 +9,7 @@ import { SQL } from 'bun'
 import { Config, Effect, Console, Data, Runtime, type ConfigError } from 'effect'
 import { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
-import { logInfo } from '@/infrastructure/logging/logger'
+import { logDebug } from '@/infrastructure/logging/logger'
 import {
   needsUsersTable,
   needsUpdatedByTrigger,
@@ -68,22 +68,22 @@ const ensureAuthPrerequisites = (
   hasAuthConfig: boolean
 ): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
-    logInfo('[executeSchemaInit] Checking if Better Auth users table is needed...')
+    logDebug('[executeSchemaInit] Checking if Better Auth users table is needed...')
     const needs = needsUsersTable(tables)
-    logInfo(`[executeSchemaInit] needsUsersTable: ${needs}`)
-    logInfo(`[executeSchemaInit] hasAuthConfig: ${hasAuthConfig}`)
+    logDebug(`[executeSchemaInit] needsUsersTable: ${needs}`)
+    logDebug(`[executeSchemaInit] hasAuthConfig: ${hasAuthConfig}`)
 
     // Only enforce users table existence if auth is configured
     // If auth is NOT configured, authorship fields will be NULL
     if (needs && hasAuthConfig) {
-      logInfo('[executeSchemaInit] Better Auth users table is needed, verifying it exists...')
+      logDebug('[executeSchemaInit] Better Auth users table is needed, verifying it exists...')
       yield* Effect.promise(() => ensureBetterAuthUsersTable(tx))
     } else if (needs && !hasAuthConfig) {
-      logInfo(
+      logDebug(
         '[executeSchemaInit] User fields present but auth not configured - fields will be NULL'
       )
     } else {
-      logInfo('[executeSchemaInit] Better Auth users table not needed')
+      logDebug('[executeSchemaInit] Better Auth users table not needed')
     }
 
     if (needsUpdatedByTrigger(tables)) {
@@ -130,7 +130,7 @@ const createMigrateTables = (
         ? lookupViewModule.getBaseTableName(sanitized)
         : sanitized
       const exists = yield* tableExists(tx, physicalTableName)
-      logInfo(`[Creating/migrating table] ${table.name} (exists: ${exists})`)
+      logDebug(`[Creating/migrating table] ${table.name} (exists: ${exists})`)
       yield* createOrMigrateTableEffect({
         tx,
         table,
@@ -140,7 +140,7 @@ const createMigrateTables = (
         skipForeignKeys: circularTables.has(table.name),
         hasAuthConfig,
       })
-      logInfo(`[Created/migrated table] ${table.name}`)
+      logDebug(`[Created/migrated table] ${table.name}`)
     }
     /* eslint-enable functional/no-loop-statements */
   })
@@ -154,11 +154,11 @@ const addCircularFKConstraints = (
 ): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
     if (circularTables.size === 0) return
-    logInfo(`[Adding FK constraints for circular dependencies]`)
+    logDebug(`[Adding FK constraints for circular dependencies]`)
     /* eslint-disable functional/no-loop-statements */
     for (const table of sortedTables.filter((t) => circularTables.has(t.name))) {
       yield* syncForeignKeyConstraints(tx, table, tableUsesView)
-      logInfo(`[Added FK constraints] ${table.name}`)
+      logDebug(`[Added FK constraints] ${table.name}`)
     }
     /* eslint-enable functional/no-loop-statements */
   })
@@ -188,11 +188,11 @@ const createJunctionTables = (
 ): Effect.Effect<void, SQLExecutionError, never> =>
   Effect.gen(function* () {
     if (junctionTableSpecs.size === 0) return
-    logInfo(`[Creating junction tables] ${Array.from(junctionTableSpecs.keys()).join(', ')}`)
+    logDebug(`[Creating junction tables] ${Array.from(junctionTableSpecs.keys()).join(', ')}`)
     yield* Effect.all(
       Array.from(junctionTableSpecs.values()).map((spec) =>
         executeSQL(tx, spec.ddl).pipe(
-          Effect.tap(() => logInfo(`[Created junction table] ${spec.name}`))
+          Effect.tap(() => logDebug(`[Created junction table] ${spec.name}`))
         )
       ),
       { concurrency: 'unbounded' }
@@ -243,12 +243,12 @@ const executeMigrationSteps = (
     const tableUsesView = buildTableUsesViewMap(tables, lookupViewGenerators)
     const circularTables = detectCircularDependenciesWithOptionalFK(tables)
     if (circularTables.size > 0) {
-      logInfo(`[Circular dependencies detected] ${Array.from(circularTables).join(', ')}`)
+      logDebug(`[Circular dependencies detected] ${Array.from(circularTables).join(', ')}`)
     }
 
     // Sort and log table creation order
     const sortedTables = sortTablesByDependencies(tables)
-    logInfo(`[Table creation order] ${sortedTables.map((t) => t.name).join(' → ')}`)
+    logDebug(`[Table creation order] ${sortedTables.map((t) => t.name).join(' → ')}`)
 
     // Step 6: Create or migrate tables
     yield* createMigrateTables({
@@ -283,7 +283,7 @@ const logRollbackError = (
   runtime: Runtime.Runtime<never>
 ): Effect.Effect<void, never, never> =>
   Effect.gen(function* () {
-    logInfo(`[executeSchemaInit] CATCH HANDLER - Error caught: ${errorMessage}`)
+    logDebug(`[executeSchemaInit] CATCH HANDLER - Error caught: ${errorMessage}`)
     const logDb = new SQL(databaseUrl)
 
     yield* Effect.tryPromise({
@@ -294,20 +294,20 @@ const logRollbackError = (
           await Runtime.runPromise(runtime)(
             logRollbackOperation(logTx, errorMessage).pipe(
               Effect.catchAll((logError) => {
-                logInfo(`[executeSchemaInit] Failed to log rollback: ${logError.message}`)
+                logDebug(`[executeSchemaInit] Failed to log rollback: ${logError.message}`)
                 return Effect.void
               })
             )
           )
         })
-        logInfo('[executeSchemaInit] CATCH HANDLER - Rollback logged and committed')
+        logDebug('[executeSchemaInit] CATCH HANDLER - Rollback logged and committed')
       },
       catch: () => undefined, // Non-fatal
     }).pipe(
       Effect.ensuring(
         Effect.gen(function* () {
           yield* Effect.promise(() => logDb.close())
-          logInfo('[executeSchemaInit] CATCH HANDLER - Log DB connection closed')
+          logDebug('[executeSchemaInit] CATCH HANDLER - Log DB connection closed')
         })
       ),
       Effect.ignore
@@ -357,7 +357,7 @@ const executeSchemaInit = (
           await db.begin(async (tx) => {
             /* eslint-disable-next-line functional/no-expression-statements */
             await Runtime.runPromise(runtime)(executeMigrationSteps(tx, tables, app))
-            logInfo('[executeSchemaInit] Transaction completed successfully (auto-commit)')
+            logDebug('[executeSchemaInit] Transaction completed successfully (auto-commit)')
           })
         },
         catch: (error) =>
@@ -401,7 +401,7 @@ const checkShouldSkipMigration = (
 
         // Early return if checksum doesn't match
         if (result.length === 0 || result[0]?.checksum !== currentChecksum) {
-          logInfo(
+          logDebug(
             '[checkShouldSkipMigration] Schema checksum differs or missing - running full migration'
           )
           return false
@@ -410,7 +410,7 @@ const checkShouldSkipMigration = (
         // Checksum matches, but verify tables actually exist
         // This prevents skipping migration when template DBs have checksum but no tables
         if (tables.length === 0) {
-          logInfo(
+          logDebug(
             '[checkShouldSkipMigration] Schema checksum matches and no tables expected - skipping migration (fast path)'
           )
           return true
@@ -420,7 +420,7 @@ const checkShouldSkipMigration = (
         // Note: Table names come from validated schema, not user input (see SECURITY NOTE above)
         const firstTableName = tables[0]?.name
         if (!firstTableName) {
-          logInfo(
+          logDebug(
             '[checkShouldSkipMigration] Schema checksum matches and tables verified - skipping migration (fast path)'
           )
           return true
@@ -438,19 +438,19 @@ const checkShouldSkipMigration = (
         `)) as readonly { exists: boolean }[]
 
         if (!tableCheck[0]?.exists) {
-          logInfo(
+          logDebug(
             `[checkShouldSkipMigration] Checksum matches but table '${sanitizedTableName}' does not exist - running full migration (template DB detected)`
           )
           return false
         }
 
-        logInfo(
+        logDebug(
           '[checkShouldSkipMigration] Schema checksum matches and tables verified - skipping migration (fast path)'
         )
         return true
       } catch {
         // Table might not exist yet (first run) - proceed with full migration
-        logInfo('[checkShouldSkipMigration] Checksum table not found - running full migration')
+        logDebug('[checkShouldSkipMigration] Checksum table not found - running full migration')
         return false
       } finally {
         /* eslint-disable-next-line functional/no-expression-statements */
@@ -491,8 +491,8 @@ const initializeSchemaInternal = (
   app: App
 ): Effect.Effect<void, SchemaError | ConfigError.ConfigError> =>
   Effect.gen(function* () {
-    logInfo('[initializeSchemaInternal] Starting schema initialization...')
-    logInfo(`[initializeSchemaInternal] App tables count: ${app.tables?.length || 0}`)
+    logDebug('[initializeSchemaInternal] Starting schema initialization...')
+    logDebug(`[initializeSchemaInternal] App tables count: ${app.tables?.length || 0}`)
 
     // Normalize tables to empty array if undefined
     const tables = app.tables ?? []
@@ -502,22 +502,24 @@ const initializeSchemaInternal = (
     // When auth is not configured, these fields will be NULL
     const tablesNeedUsersTable = needsUsersTable(tables)
     const hasAuthConfig = !!app.auth
-    logInfo(`[initializeSchemaInternal] Tables need users table: ${tablesNeedUsersTable}`)
-    logInfo(`[initializeSchemaInternal] Auth config present: ${hasAuthConfig}`)
+    logDebug(`[initializeSchemaInternal] Tables need users table: ${tablesNeedUsersTable}`)
+    logDebug(`[initializeSchemaInternal] Auth config present: ${hasAuthConfig}`)
 
     // No validation error - authorship fields are allowed without auth (they'll be NULL)
 
     // Get database URL from Effect Config (reads from environment)
     const databaseUrlConfig = yield* Config.string('DATABASE_URL').pipe(Config.withDefault(''))
-    logInfo(`[initializeSchemaInternal] DATABASE_URL: ${databaseUrlConfig ? 'present' : 'missing'}`)
+    logDebug(
+      `[initializeSchemaInternal] DATABASE_URL: ${databaseUrlConfig ? 'present' : 'missing'}`
+    )
 
     // Skip if no DATABASE_URL configured
     if (!databaseUrlConfig) {
-      yield* Console.log('No DATABASE_URL found, skipping schema initialization')
+      logDebug('[Schema] No DATABASE_URL found, skipping schema initialization')
       return
     }
 
-    yield* Console.log('Initializing database schema...')
+    logDebug('[Schema] Initializing database schema...')
 
     // Fast path: Check if schema checksum matches (before opening transaction)
     const currentChecksum = generateSchemaChecksum(app)
@@ -530,7 +532,7 @@ const initializeSchemaInternal = (
     // Even if migration is skipped, we need to clean up obsolete views
     // Views might be created manually via SQL and need cleanup
     if (shouldSkipMigration) {
-      yield* Console.log('✓ Schema unchanged, cleaning up obsolete views...')
+      logDebug('[Schema] Schema unchanged, cleaning up obsolete views...')
       // Quick cleanup of views not in schema (separate transaction)
       const db = new SQL({ url: databaseUrlConfig, max: 1 })
       try {
@@ -552,14 +554,14 @@ const initializeSchemaInternal = (
       } finally {
         yield* Effect.promise(() => db.close())
       }
-      yield* Console.log('✓ Schema unchanged, view cleanup complete')
+      logDebug('[Schema] Schema unchanged, view cleanup complete')
       return
     }
 
     // Execute schema initialization with bun:sql (even if tables is empty - to drop obsolete tables)
     yield* executeSchemaInit(databaseUrlConfig, tables, app)
 
-    yield* Console.log('✓ Database schema initialized successfully')
+    logDebug('[Schema] Database schema initialized successfully')
   })
 
 /**

@@ -6,6 +6,7 @@
  */
 
 import { OpenAPIHono } from '@hono/zod-openapi'
+import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
 import { registerActivityRoutes } from './openapi-routes/activity-routes'
 import { registerAnalyticsRoutes } from './openapi-routes/analytics-routes'
 import { registerBatchRoutes } from './openapi-routes/batch-routes'
@@ -13,7 +14,6 @@ import { registerHealthRoutes } from './openapi-routes/health-routes'
 import { registerRecordRoutes } from './openapi-routes/record-routes'
 import { registerTableRoutes } from './openapi-routes/table-routes'
 import { registerViewRoutes } from './openapi-routes/view-routes'
-import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
 
 // Read version from Sovrium's own package.json (not the consumer's)
 const { version: APP_VERSION } = await Bun.file(resolvePackagePath('package.json')).json()

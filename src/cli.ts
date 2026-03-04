@@ -56,6 +56,7 @@
 import { watch } from 'node:fs'
 import { Effect, Console } from 'effect'
 import { start, build, type StartOptions, type GenerateStaticOptions } from '@/index'
+import { logDebug } from '@/infrastructure/logging/logger'
 import { parseAppSchema, loadSchemaFromFileForReload } from '@/presentation/cli'
 
 // Server instance type (returned by start())
@@ -166,17 +167,11 @@ const handleStartCommand = async (filePath?: string, watchMode = false): Promise
   const app = await parseAppSchema('start', filePath)
   const options = parseStartOptions()
 
-  Effect.runSync(
-    Effect.gen(function* () {
-      yield* Console.log('Starting Sovrium server from CLI...')
-      yield* Console.log(`App: ${app.name}${app.description ? ` - ${app.description}` : ''}`)
-      if (filePath) yield* Console.log(`Config: ${filePath}`)
-      if (options.port) yield* Console.log(`Port: ${options.port}`)
-      if (options.hostname) yield* Console.log(`Hostname: ${options.hostname}`)
-      if (watchMode) yield* Console.log(`Watch mode: enabled`)
-      yield* Console.log('')
-    })
-  )
+  logDebug(`[CLI] App: ${app.name}${app.description ? ` - ${app.description}` : ''}`)
+  if (filePath) logDebug(`[CLI] Config: ${filePath}`)
+  if (options.port) logDebug(`[CLI] Port: ${options.port}`)
+  if (options.hostname) logDebug(`[CLI] Hostname: ${options.hostname}`)
+  if (watchMode) logDebug(`[CLI] Watch mode: enabled`)
 
   // Start the server
   const server = await start(app, options).catch((error) => {

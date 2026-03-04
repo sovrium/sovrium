@@ -96,7 +96,7 @@ export {
 } from './email-service'
 
 // Email configuration with Effect logging
-export { getEmailConfigFromEffect } from './email-config'
+export { getEmailConfigFromEffect, type EmailConfigResult } from './email-config'
 
 // Email templates
 export {

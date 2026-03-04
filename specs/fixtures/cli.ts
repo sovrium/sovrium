@@ -16,7 +16,9 @@ import type { CliServerResult } from './types'
  * Helper to extract port from CLI server output
  */
 function extractPortFromCliOutput(output: string): number | null {
-  const match = output.match(/Homepage: http:\/\/localhost:(\d+)/)
+  // Matches URL in both old format ("✓ Homepage: http://localhost:3000")
+  // and new format ("→ http://localhost:3000")
+  const match = output.match(/http:\/\/localhost:(\d+)/)
   return match?.[1] ? parseInt(match[1], 10) : null
 }
 

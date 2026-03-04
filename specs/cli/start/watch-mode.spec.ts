@@ -456,7 +456,7 @@ version: 2.0.0
         // THEN: Server starts normally without watch mode messages
         expect(result.output).not.toContain('Watch mode: enabled')
         expect(result.output).not.toContain('👀 Watching')
-        expect(result.output).toContain('Starting Sovrium server')
+        expect(result.output).toMatch(/Sovrium v\d+\.\d+\.\d+/)
       } finally {
         await cleanupTempConfigFile(configPath)
       }
@@ -826,7 +826,7 @@ version: 2.0.0
 
           expect(result.output).not.toContain('Watch mode: enabled')
           expect(result.output).not.toContain('👀 Watching')
-          expect(result.output).toContain('Starting Sovrium server')
+          expect(result.output).toMatch(/Sovrium v\d+\.\d+\.\d+/)
         } finally {
           await cleanupTempConfigFile(configPath)
         }

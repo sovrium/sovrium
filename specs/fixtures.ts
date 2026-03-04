@@ -540,7 +540,7 @@ export const test = base.extend<ServerFixtures>({
         const checkOutput = (data: Buffer) => {
           const output = data.toString()
           outputBuffer.push(output)
-          const match = output.match(/Homepage: http:\/\/localhost:(\d+)/)
+          const match = output.match(/http:\/\/localhost:(\d+)/)
           if (match?.[1]) {
             resolve(parseInt(match[1], 10))
           }

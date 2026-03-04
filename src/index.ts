@@ -108,8 +108,6 @@ export const start = async (app: AppEncoded, options: StartOptions = {}): Promis
   const validatedApp: App = Schema.decodeUnknownSync(AppSchema)(app)
 
   const program = Effect.gen(function* () {
-    yield* Console.log('Starting Sovrium server...')
-
     // Start the server (dependencies injected via AppLayer with auth config)
     const server = yield* startServer(app, options)
 

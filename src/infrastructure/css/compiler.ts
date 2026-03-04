@@ -6,7 +6,7 @@
  */
 
 import tailwindcss from '@tailwindcss/postcss'
-import { Console, Effect } from 'effect'
+import { Effect } from 'effect'
 import postcss from 'postcss'
 import {
   getOrComputeCachedCSS,
@@ -107,13 +107,11 @@ const compileCSSInternal = (theme?: Theme): Effect.Effect<CompiledCSS, CSSCompil
     // Build SOURCE_CSS with theme
     const sourceCSS = buildSourceCSS(theme)
 
-    // Diagnostic logging for CI debugging
-    yield* Console.log(`CSS Compiler - Source CSS length: ${sourceCSS.length} bytes`)
-    yield* Console.log(
-      `CSS Compiler - Contains @import 'tailwindcss': ${sourceCSS.includes("@import 'tailwindcss'")}`
-    )
-    yield* Console.log(
-      `CSS Compiler - Contains @import 'tw-animate-css': ${sourceCSS.includes("@import 'tw-animate-css'")}`
+    // Diagnostic logging (debug level — visible with LOG_LEVEL=debug)
+    logDebug(`[CSS] Source CSS length: ${sourceCSS.length} bytes`)
+    logDebug(`[CSS] Contains @import 'tailwindcss': ${sourceCSS.includes("@import 'tailwindcss'")}`)
+    logDebug(
+      `[CSS] Contains @import 'tw-animate-css': ${sourceCSS.includes("@import 'tw-animate-css'")}`
     )
 
     // Process CSS through PostCSS with Tailwind plugin
@@ -151,7 +149,7 @@ const compileCSSInternal = (theme?: Theme): Effect.Effect<CompiledCSS, CSSCompil
       },
     })
 
-    yield* Console.log('CSS compiled and cached')
+    logDebug('[CSS] Compiled and cached')
 
     // Create compiled CSS result
     return {
@@ -203,7 +201,7 @@ export const compileCSS = (app?: App): Effect.Effect<CompiledCSS, CSSCompilation
 
     // Log cache status (hit if timestamp is old, compiled if fresh)
     if (Date.now() - result.timestamp > 100) {
-      yield* Console.log('CSS cache hit')
+      logDebug('[CSS] Cache hit')
     }
 
     return result

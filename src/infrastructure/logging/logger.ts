@@ -202,3 +202,74 @@ export const createModuleLogger = (module: string) => ({
   info: (message: string) => logInfo(`[${module}] ${message}`),
   debug: (message: string) => logDebug(`[${module}] ${message}`),
 })
+
+// ============================================================================
+// Startup Summary
+// ============================================================================
+
+/**
+ * A single phase in the startup sequence
+ */
+export interface StartupPhase {
+  readonly label: string
+  readonly detail?: string
+  readonly type: 'success' | 'warning' | 'skip'
+}
+
+/**
+ * Summary of all startup phases, rendered as clean structured output
+ */
+export interface StartupSummary {
+  readonly version: string
+  readonly phases: readonly StartupPhase[]
+  readonly url: string
+  readonly durationMs: number
+}
+
+/**
+ * Format duration for display: <1000ms → "320ms", ≥1000ms → "1.2s"
+ */
+export const formatDuration = (ms: number): string =>
+  ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
+
+/**
+ * Render a clean startup summary to the console
+ *
+ * Output format:
+ * ```
+ *   Sovrium v0.2.0
+ *
+ *   ⚠ Warning message
+ *
+ *   ✓ Success phase
+ *   ✓ Server ready in 320ms
+ *
+ *   → http://localhost:3000
+ * ```
+ */
+export const renderStartupSummary = (summary: StartupSummary): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const warnings = summary.phases.filter((p) => p.type === 'warning')
+    const successes = summary.phases.filter((p) => p.type === 'success')
+
+    // Header
+    yield* Console.log('')
+    yield* Console.log(`  Sovrium v${summary.version}`)
+
+    // Warnings section
+    if (warnings.length > 0) {
+      yield* Console.log('')
+      yield* Effect.forEach(warnings, (phase) => Console.log(`  \u26A0 ${phase.label}`))
+    }
+
+    // Success section
+    if (successes.length > 0) {
+      yield* Console.log('')
+      yield* Effect.forEach(successes, (phase) => Console.log(`  \u2713 ${phase.label}`))
+    }
+
+    // URL
+    yield* Console.log('')
+    yield* Console.log(`  \u2192 ${summary.url}`)
+    yield* Console.log('')
+  })

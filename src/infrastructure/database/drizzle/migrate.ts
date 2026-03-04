@@ -8,7 +8,8 @@
 import { SQL } from 'bun'
 import { drizzle } from 'drizzle-orm/bun-sql'
 import { migrate } from 'drizzle-orm/bun-sql/migrator'
-import { Effect, Console, Data } from 'effect'
+import { Effect, Data } from 'effect'
+import { logDebug } from '@/infrastructure/logging/logger'
 import * as schema from './schema'
 
 /**
@@ -47,7 +48,7 @@ export const runMigrations = (
   databaseUrl: string
 ): Effect.Effect<void, DatabaseConnectionError | MigrationError> =>
   Effect.gen(function* () {
-    yield* Console.log('[runMigrations] Running Drizzle migrations...')
+    logDebug('[Migrations] Running Drizzle migrations...')
 
     const client = new SQL(databaseUrl)
     const db = drizzle({ client, schema })
@@ -73,5 +74,5 @@ export const runMigrations = (
 
     yield* Effect.promise(() => client.close())
 
-    yield* Console.log('[runMigrations] ✓ Drizzle migrations completed')
+    logDebug('[Migrations] Drizzle migrations completed')
   })

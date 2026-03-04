@@ -5,8 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { logError, logWarning } from '../logging'
+import { logError } from '../logging'
 import type { EmailConfig } from './nodemailer'
+
+/**
+ * Result of email configuration resolution
+ */
+export interface EmailConfigResult {
+  readonly config: EmailConfig
+  readonly usingMailpitFallback: boolean
+}
 
 /**
  * SMTP Configuration using type-safe environment variable access
@@ -56,7 +64,7 @@ const getEnvBoolean = (key: string, defaultValue: boolean): boolean => {
  * In production, SMTP_HOST is required. In development, falls back to
  * localhost:1025 (Mailpit) for local email testing.
  */
-export const getEmailConfigFromEffect = (): EmailConfig => {
+export const getEmailConfigFromEffect = (): EmailConfigResult => {
   const host = process.env.SMTP_HOST
   const isProduction = process.env.NODE_ENV === 'production'
 
@@ -64,40 +72,44 @@ export const getEmailConfigFromEffect = (): EmailConfig => {
   if (host) {
     const port = getEnvNumber('SMTP_PORT', 587)
     return {
-      host,
-      port,
-      secure: getEnvBoolean('SMTP_SECURE', false) || port === 465,
-      auth: {
-        user: getEnvString('SMTP_USER', ''),
-        pass: getEnvString('SMTP_PASS', ''),
+      config: {
+        host,
+        port,
+        secure: getEnvBoolean('SMTP_SECURE', false) || port === 465,
+        auth: {
+          user: getEnvString('SMTP_USER', ''),
+          pass: getEnvString('SMTP_PASS', ''),
+        },
+        from: {
+          email: getEnvString('SMTP_FROM', 'noreply@sovrium.com'),
+          name: getEnvString('SMTP_FROM_NAME', 'Sovrium'),
+        },
       },
-      from: {
-        email: getEnvString('SMTP_FROM', 'noreply@sovrium.com'),
-        name: getEnvString('SMTP_FROM_NAME', 'Sovrium'),
-      },
+      usingMailpitFallback: false,
     }
   }
 
-  // Log warnings for missing SMTP config
+  // Log error in production (this is a real issue)
   if (isProduction) {
     logError('[EMAIL] SMTP_HOST not configured in production mode')
-  } else {
-    logWarning('[EMAIL] SMTP_HOST not configured, using 127.0.0.1:1025 (Mailpit)')
   }
 
   // Development fallback - Mailpit on localhost
   // Use explicit IPv4 address to avoid IPv6 resolution issues
   return {
-    host: '127.0.0.1',
-    port: 1025,
-    secure: false,
-    auth: {
-      user: '',
-      pass: '',
+    config: {
+      host: '127.0.0.1',
+      port: 1025,
+      secure: false,
+      auth: {
+        user: '',
+        pass: '',
+      },
+      from: {
+        email: getEnvString('SMTP_FROM', 'noreply@sovrium.local'),
+        name: getEnvString('SMTP_FROM_NAME', 'Sovrium (Dev)'),
+      },
     },
-    from: {
-      email: getEnvString('SMTP_FROM', 'noreply@sovrium.local'),
-      name: getEnvString('SMTP_FROM_NAME', 'Sovrium (Dev)'),
-    },
+    usingMailpitFallback: true,
   }
 }

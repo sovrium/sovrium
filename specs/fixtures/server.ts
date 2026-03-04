@@ -29,7 +29,7 @@ const activeServerProcesses = new Set<ChildProcess>()
  * Helper function to extract port from server output
  */
 function extractPortFromOutput(output: string): number | null {
-  const match = output.match(/Homepage: http:\/\/localhost:(\d+)/)
+  const match = output.match(/http:\/\/localhost:(\d+)/)
   return match?.[1] ? parseInt(match[1], 10) : null
 }
 
@@ -88,7 +88,7 @@ async function waitForServerPort(
           })
       }
 
-      const port = extractPortFromOutput(output)
+      const port = extractPortFromOutput(outputBuffer.join(''))
       if (port) {
         resolve(port)
       }

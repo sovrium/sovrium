@@ -16,7 +16,14 @@ import {
   type AuthConfigRequiredForUserFields,
   type SchemaInitializationError,
 } from '@/infrastructure/database/schema/schema-initializer'
+import { getEmailConfigFromEffect } from '@/infrastructure/email/email-config'
 import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
+import {
+  logDebug,
+  renderStartupSummary,
+  formatDuration,
+  type StartupPhase,
+} from '@/infrastructure/logging/logger'
 import { createApiRoutes } from '@/infrastructure/server/route-setup/api-routes'
 import {
   setupAuthMiddleware,
@@ -124,22 +131,9 @@ export function createHonoApp(config: HonoAppConfig): Readonly<Hono> {
  */
 const createStopEffect = (server: ReturnType<typeof Bun.serve>): Effect.Effect<void, never> =>
   Effect.gen(function* () {
-    yield* Console.log('Stopping server...')
+    logDebug('Stopping server...')
     yield* Effect.sync(() => server.stop())
-    yield* Console.log('Server stopped')
-  })
-
-/**
- * Log server startup information
- */
-const logServerStartup = (url: string): Effect.Effect<void, never> =>
-  Effect.gen(function* () {
-    yield* Console.log('✓ Server started successfully!')
-    yield* Console.log(`✓ Homepage: ${url}`)
-    yield* Console.log(`✓ Health check: ${url}/api/health`)
-    yield* Console.log(`✓ API documentation: ${url}/api/scalar`)
-    yield* Console.log(`✓ OpenAPI schema: ${url}/api/openapi.json`)
-    yield* Console.log(`✓ Compiled CSS: ${url}/assets/output.css`)
+    logDebug('Server stopped')
   })
 
 /**
@@ -163,19 +157,6 @@ const runMigrationsIfConfigured = (
 > => (databaseUrl ? runMigrations(databaseUrl) : Effect.void)
 
 /**
- * Compile CSS and log results
- */
-const compileCSSWithLogging = (
-  app: App
-): Effect.Effect<{ css: string }, CSSCompilationError, never> =>
-  Effect.gen(function* () {
-    yield* Console.log('Compiling CSS...')
-    const cssResult = yield* compileCSS(app)
-    yield* Console.log(`CSS compiled: ${cssResult.css.length} bytes`)
-    return cssResult
-  })
-
-/**
  * Start Bun HTTP server
  */
 const startBunServer = (
@@ -194,29 +175,61 @@ const startBunServer = (
   })
 
 /**
+ * Read package version from package.json
+ */
+const getPackageVersion = (): Effect.Effect<string, never> =>
+  Effect.tryPromise({
+    try: async () => {
+      const pkg = (await Bun.file('./package.json').json()) as { version: string }
+      return pkg.version
+    },
+    catch: () => '0.0.0',
+  }).pipe(Effect.catchAll(() => Effect.succeed('0.0.0')))
+
+/**
+ * Collect startup phases from infrastructure initialization
+ */
+const collectInfraPhases = (
+  app: App
+): Effect.Effect<
+  { readonly phases: readonly StartupPhase[]; readonly cssSizeKB: number },
+  CSSCompilationError | AuthConfigRequiredForUserFields | SchemaInitializationError | Error
+> =>
+  Effect.gen(function* () {
+    // Database phase
+    const databaseUrl = yield* getDatabaseUrl()
+    const databasePhases: readonly StartupPhase[] = !databaseUrl
+      ? [{ label: 'DATABASE_URL not set (skipping database)', type: 'warning' as const }]
+      : yield* runMigrationsIfConfigured(databaseUrl).pipe(
+          Effect.flatMap(() => initializeSchema(app)),
+          Effect.map(() => [{ label: 'Database connected', type: 'success' as const }])
+        )
+
+    // SMTP check (only relevant when auth is configured)
+    const smtpPhases: readonly StartupPhase[] =
+      app.auth && getEmailConfigFromEffect().usingMailpitFallback
+        ? [
+            {
+              label: 'SMTP not configured (using Mailpit at 127.0.0.1:1025)',
+              type: 'warning' as const,
+            },
+          ]
+        : []
+
+    // CSS phase
+    const cssResult = yield* compileCSS(app)
+    const cssSizeKB = Math.round(cssResult.css.length / 1024)
+
+    return { phases: [...databasePhases, ...smtpPhases], cssSizeKB }
+  })
+
+/**
  * Creates and starts a Bun server with Hono
  *
- * This function:
- * 1. Pre-compiles CSS on startup for faster initial requests
- * 2. Creates a Hono app with routes (/, /assets/output.css, /api/*)
- * 3. Starts a Bun HTTP server
- * 4. Returns server instance with stop capability
+ * Collects startup phases and renders a clean summary at the end.
  *
  * @param config - Server configuration with app data and optional port/hostname
  * @returns Effect that yields ServerInstance or ServerCreationError
- *
- * @example
- * ```typescript
- * const program = Effect.gen(function* () {
- *   const server = yield* createServer({
- *     app: { name: 'My App' },
- *     port: 3000
- *   })
- *   console.log(`Server running at ${server.url}`)
- * })
- *
- * Effect.runPromise(program)
- * ```
  */
 // @knip-ignore - Used via dynamic import in StartServer.ts
 export const createServer = (
@@ -230,6 +243,8 @@ export const createServer = (
   | Error
 > =>
   Effect.gen(function* () {
+    const startTime = Date.now()
+
     const {
       app,
       port = 3000,
@@ -241,15 +256,10 @@ export const createServer = (
       renderErrorPage,
     } = config
 
-    // Initialize database
-    const databaseUrl = yield* getDatabaseUrl()
-    yield* runMigrationsIfConfigured(databaseUrl)
-    yield* initializeSchema(app)
+    // Initialize infrastructure and collect phases
+    const { phases: infraPhases, cssSizeKB } = yield* collectInfraPhases(app)
 
-    // Compile CSS
-    yield* compileCSSWithLogging(app)
-
-    // Create Hono app
+    // Create Hono app and start server
     const honoApp = createHonoApp({
       app,
       publicDir,
@@ -259,12 +269,20 @@ export const createServer = (
       renderErrorPage,
     })
 
-    // Start server
     const server = yield* startBunServer(honoApp, port, hostname)
     const url = `http://${hostname}:${server.port}`
+    const durationMs = Date.now() - startTime
 
-    // Log and return
-    yield* logServerStartup(url)
+    // Collect all phases immutably
+    const phases: readonly StartupPhase[] = [
+      ...infraPhases,
+      { label: `CSS compiled (${cssSizeKB} KB)`, type: 'success' },
+      { label: `Server ready in ${formatDuration(durationMs)}`, type: 'success' },
+    ]
+
+    // Render startup summary
+    const version = yield* getPackageVersion()
+    yield* renderStartupSummary({ version, phases, url, durationMs })
 
     return {
       server,

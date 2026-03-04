@@ -62,7 +62,7 @@ export interface EmailConfig {
  * @see ./email-config.ts for Effect-based configuration (preferred for new code)
  */
 export function getEmailConfig(): EmailConfig {
-  return getEmailConfigFromEffect()
+  return getEmailConfigFromEffect().config
 }
 
 /**

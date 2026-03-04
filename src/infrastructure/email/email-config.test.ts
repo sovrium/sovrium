@@ -29,9 +29,10 @@ describe('getEmailConfigFromEffect', () => {
     process.env.SMTP_FROM = 'noreply@example.com'
     process.env.SMTP_FROM_NAME = 'Test App'
 
-    const config = getEmailConfigFromEffect()
+    const result = getEmailConfigFromEffect()
 
-    expect(config).toEqual({
+    expect(result.usingMailpitFallback).toBe(false)
+    expect(result.config).toEqual({
       host: 'smtp.example.com',
       port: 587,
       secure: false,
@@ -49,7 +50,7 @@ describe('getEmailConfigFromEffect', () => {
   test('uses default port 587 when SMTP_PORT not set', () => {
     process.env.SMTP_HOST = 'smtp.example.com'
 
-    const config = getEmailConfigFromEffect()
+    const { config } = getEmailConfigFromEffect()
 
     expect(config.port).toBe(587)
     expect(config.secure).toBe(false)
@@ -59,7 +60,7 @@ describe('getEmailConfigFromEffect', () => {
     process.env.SMTP_HOST = 'smtp.example.com'
     process.env.SMTP_PORT = '465'
 
-    const config = getEmailConfigFromEffect()
+    const { config } = getEmailConfigFromEffect()
 
     expect(config.port).toBe(465)
     expect(config.secure).toBe(true)
@@ -70,7 +71,7 @@ describe('getEmailConfigFromEffect', () => {
     process.env.SMTP_PORT = '587'
     process.env.SMTP_SECURE = 'true'
 
-    const config = getEmailConfigFromEffect()
+    const { config } = getEmailConfigFromEffect()
 
     expect(config.secure).toBe(true)
   })
@@ -80,7 +81,7 @@ describe('getEmailConfigFromEffect', () => {
     process.env.SMTP_PORT = '465'
     process.env.SMTP_SECURE = 'false'
 
-    const config = getEmailConfigFromEffect()
+    const { config } = getEmailConfigFromEffect()
 
     expect(config.secure).toBe(true) // Port 465 takes precedence
   })
@@ -88,7 +89,7 @@ describe('getEmailConfigFromEffect', () => {
   test('uses default from email when SMTP_FROM not set', () => {
     process.env.SMTP_HOST = 'smtp.example.com'
 
-    const config = getEmailConfigFromEffect()
+    const { config } = getEmailConfigFromEffect()
 
     expect(config.from.email).toBe('noreply@sovrium.com')
     expect(config.from.name).toBe('Sovrium')
@@ -97,7 +98,7 @@ describe('getEmailConfigFromEffect', () => {
   test('uses empty auth credentials when not set', () => {
     process.env.SMTP_HOST = 'smtp.example.com'
 
-    const config = getEmailConfigFromEffect()
+    const { config } = getEmailConfigFromEffect()
 
     expect(config.auth.user).toBe('')
     expect(config.auth.pass).toBe('')
@@ -107,9 +108,10 @@ describe('getEmailConfigFromEffect', () => {
     delete process.env.SMTP_HOST
     process.env.NODE_ENV = 'development'
 
-    const config = getEmailConfigFromEffect()
+    const result = getEmailConfigFromEffect()
 
-    expect(config).toEqual({
+    expect(result.usingMailpitFallback).toBe(true)
+    expect(result.config).toEqual({
       host: '127.0.0.1',
       port: 1025,
       secure: false,
@@ -130,7 +132,7 @@ describe('getEmailConfigFromEffect', () => {
     process.env.SMTP_FROM = 'custom@example.com'
     process.env.SMTP_FROM_NAME = 'Custom Dev'
 
-    const config = getEmailConfigFromEffect()
+    const { config } = getEmailConfigFromEffect()
 
     expect(config.from.email).toBe('custom@example.com')
     expect(config.from.name).toBe('Custom Dev')
@@ -140,7 +142,7 @@ describe('getEmailConfigFromEffect', () => {
     process.env.SMTP_HOST = 'smtp.example.com'
     process.env.SMTP_PORT = '2525'
 
-    const config = getEmailConfigFromEffect()
+    const { config } = getEmailConfigFromEffect()
 
     expect(config.port).toBe(2525)
     expect(typeof config.port).toBe('number')
@@ -150,7 +152,7 @@ describe('getEmailConfigFromEffect', () => {
     process.env.SMTP_HOST = 'smtp.example.com'
     process.env.SMTP_SECURE = 'true'
 
-    const config = getEmailConfigFromEffect()
+    const { config } = getEmailConfigFromEffect()
 
     expect(config.secure).toBe(true)
   })
@@ -159,19 +161,20 @@ describe('getEmailConfigFromEffect', () => {
     process.env.SMTP_HOST = 'smtp.example.com'
     process.env.SMTP_SECURE = 'false'
 
-    const config = getEmailConfigFromEffect()
+    const { config } = getEmailConfigFromEffect()
 
     expect(config.secure).toBe(false)
   })
 
-  test('handles missing SMTP_HOST in production (returns Mailpit)', () => {
+  test('handles missing SMTP_HOST in production (returns Mailpit fallback)', () => {
     delete process.env.SMTP_HOST
     process.env.NODE_ENV = 'production'
 
-    const config = getEmailConfigFromEffect()
+    const result = getEmailConfigFromEffect()
 
     // Still returns Mailpit config as fallback
-    expect(config.host).toBe('127.0.0.1')
-    expect(config.port).toBe(1025)
+    expect(result.usingMailpitFallback).toBe(true)
+    expect(result.config.host).toBe('127.0.0.1')
+    expect(result.config.port).toBe(1025)
   })
 })
