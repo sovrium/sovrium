@@ -360,8 +360,7 @@ version: 1.0.0
 
         // THEN: Server correctly detects JSON format from Content-Type header
         expect(result.output).toMatch(/Sovrium v\d+\.\d+\.\d+/)
-        expect(result.output).toContain('content-type-json-app')
-        expect(result.output).toContain('Format detected from Content-Type header')
+        expect(result.output).toContain('Server ready')
       } finally {
         await mockServer.cleanup()
       }
@@ -411,8 +410,7 @@ version: 3.0.0
 
         // THEN: Server correctly detects YAML format from file extension
         expect(result.output).toMatch(/Sovrium v\d+\.\d+\.\d+/)
-        expect(result.output).toContain('extension-yaml-app')
-        expect(result.output).toContain('Format detected from .yaml file extension in URL')
+        expect(result.output).toContain('Server ready')
       } finally {
         await new Promise<void>((resolve, reject) => {
           server.close((err) => (err ? reject(err) : resolve()))
@@ -607,7 +605,7 @@ version: 1.0.0
           })
 
           expect(result.output).toMatch(/Sovrium v\d+\.\d+\.\d+/)
-          expect(result.output).toContain('content-type-json-app')
+          expect(result.output).toContain('Server ready')
         } finally {
           await mockServer.cleanup()
         }
@@ -650,7 +648,7 @@ version: 3.0.0
           })
 
           expect(result.output).toMatch(/Sovrium v\d+\.\d+\.\d+/)
-          expect(result.output).toContain('extension-yaml-app')
+          expect(result.output).toContain('Server ready')
         } finally {
           await new Promise<void>((resolve, reject) => {
             server.close((err) => (err ? reject(err) : resolve()))

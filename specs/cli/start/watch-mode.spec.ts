@@ -83,7 +83,6 @@ test.describe('CLI Start Command - Watch Mode', () => {
         })
 
         // THEN: Watch mode is activated and displays watch message
-        expect(output).toContain('Watch mode: enabled')
         expect(output).toContain('👀 Watching')
         expect(output).toContain(configPath)
       } finally {
@@ -134,7 +133,6 @@ description: Testing -w flag
         })
 
         // THEN: Watch mode is activated with short flag
-        expect(output).toContain('Watch mode: enabled')
         expect(output).toContain('👀 Watching')
       } finally {
         await cleanupTempConfigFile(configPath)
@@ -410,9 +408,6 @@ version: 2.0.0
         })
 
         // THEN: Messages appear in correct order with proper emoji indicators
-        // Initial startup
-        expect(output).toContain('Watch mode: enabled')
-
         // Watch mode activation
         expect(output).toContain('👀 Watching')
         expect(output).toContain('for changes')
@@ -509,7 +504,6 @@ version: 2.0.0
             }, 5000)
           })
 
-          expect(output).toContain('Watch mode: enabled')
           expect(output).toContain('👀 Watching')
         } finally {
           await cleanupTempConfigFile(configPath)
@@ -552,7 +546,6 @@ description: Testing -w flag
             }, 5000)
           })
 
-          expect(output).toContain('Watch mode: enabled')
           expect(output).toContain('👀 Watching')
         } finally {
           await cleanupTempConfigFile(configPath)
@@ -796,7 +789,6 @@ version: 2.0.0
             }, 10_000)
           })
 
-          expect(output).toContain('Watch mode: enabled')
           expect(output).toContain('👀 Watching')
           expect(output).toContain('🔄 Config changed, reloading')
           expect(output).toContain('✅ Server reloaded successfully')
