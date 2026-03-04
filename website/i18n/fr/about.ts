@@ -9,7 +9,7 @@ export const about: Record<string, string> = {
   // Meta
   'about.meta.title': 'Sovrium — À propos',
   'about.meta.description':
-    'Découvrez les personnes et les idées derrière Sovrium. Une plateforme pilotée par la configuration pour construire des outils internes que vous possédez entièrement.',
+    'Les personnes et les idées derrière Sovrium. Une plateforme pilotée par la configuration pour construire des outils internes que vous possédez.',
   'about.meta.og.title': 'Sovrium — À propos',
   'about.meta.og.description':
     'Les personnes et les idées derrière Sovrium. Une plateforme pour construire des outils internes que vous possédez entièrement.',
