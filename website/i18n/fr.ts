@@ -879,7 +879,7 @@ export const fr: Record<string, string> = {
     'D\u00E9couvrez ce qu\u2019est Sovrium, pourquoi il existe, et comment il vous permet de cr\u00E9er des applications compl\u00E8tes \u00E0 partir d\u2019un seul fichier de configuration.',
   'docs.installation.meta.title': 'Installation - Docs Sovrium',
   'docs.installation.meta.description':
-    'Installez Sovrium via npm ou Bun et cr\u00E9ez votre premier fichier de configuration en YAML ou JSON.',
+    'Installez Sovrium via Bun et cr\u00E9ez votre premier fichier de configuration en YAML ou JSON.',
   'docs.quickStart.meta.title': 'D\u00E9marrage rapide - Docs Sovrium',
   'docs.quickStart.meta.description':
     'Construisez votre premi\u00E8re application Sovrium en 3 \u00E9tapes avec YAML ou TypeScript. Cr\u00E9ez une config, ajoutez des tables, et d\u00E9marrez le serveur.',
@@ -946,10 +946,10 @@ export const fr: Record<string, string> = {
   // ── Docs: Get Started — Installation ────────────────────────────
   'docs.installation.header.title': 'Installation',
   'docs.installation.header.description':
-    'Installez Sovrium globalement ou comme d\u00E9pendance de projet. Supporte npm, Bun, yarn et pnpm.',
+    'Installez Sovrium globalement ou comme d\u00E9pendance de projet avec Bun.',
   'docs.installation.prerequisites.title': 'Pr\u00E9requis',
   'docs.installation.prerequisites.description':
-    'Sovrium n\u00E9cessite Node.js 18+ ou Bun 1.0+. Une base de donn\u00E9es PostgreSQL est n\u00E9cessaire pour la persistance des donn\u00E9es (tables, auth).',
+    'Sovrium n\u00E9cessite Bun 1.0+. Une base de donn\u00E9es PostgreSQL est optionnelle, n\u00E9cessaire uniquement pour la persistance des donn\u00E9es (tables, auth).',
   'docs.installation.global.title': 'Installation globale',
   'docs.installation.global.description':
     'Installez Sovrium globalement pour utiliser la commande sovrium partout\u00A0:',
@@ -958,10 +958,10 @@ export const fr: Record<string, string> = {
     'Ou ajoutez Sovrium comme d\u00E9pendance dans un projet existant\u00A0:',
   'docs.installation.verify.title': 'V\u00E9rifier l\u2019installation',
   'docs.installation.verify.description':
-    'V\u00E9rifiez que Sovrium est install\u00E9 correctement\u00A0:',
+    'Lancez la commande d\u2019aide pour v\u00E9rifier que Sovrium est install\u00E9 correctement\u00A0:',
   'docs.installation.config.title': 'Cr\u00E9er un fichier de config',
   'docs.installation.config.description':
-    'Sovrium lit un fichier de configuration YAML ou JSON. Cr\u00E9ez un app.yaml \u00E0 la racine de votre projet\u00A0:',
+    'Sovrium lit un fichier de configuration YAML ou JSON. Cr\u00E9ez un app.yaml avec la config valide la plus simple\u00A0:',
   'docs.installation.config.tip.title': 'YAML ou JSON',
   'docs.installation.config.tip.body':
     'Sovrium supporte les fichiers .yaml/.yml et .json. Le YAML est recommand\u00E9 pour sa lisibilit\u00E9.',
@@ -970,7 +970,7 @@ export const fr: Record<string, string> = {
     'Si votre application utilise des tables ou l\u2019auth, d\u00E9finissez la variable d\u2019environnement DATABASE_URL\u00A0:',
   'docs.installation.database.tip.title': 'Pas de base de donn\u00E9es pour les sites statiques',
   'docs.installation.database.tip.body':
-    'Si vous n\u2019utilisez que pages et theme (pas de tables ni d\u2019auth), Sovrium fonctionne sans base de donn\u00E9es. Lancez sovrium static app.yaml pour g\u00E9n\u00E9rer un site statique.',
+    'Si vous n\u2019utilisez que pages et theme (pas de tables ni d\u2019auth), Sovrium fonctionne sans base de donn\u00E9es. Lancez sovrium build app.yaml pour g\u00E9n\u00E9rer un site statique.',
 
   // ── Docs: Get Started — Quick Start ─────────────────────────────
   'docs.quickStart.header.title': 'D\u00E9marrage rapide',
@@ -1035,7 +1035,7 @@ export const fr: Record<string, string> = {
   'docs.overview.description':
     'Une application Sovrium est un objet de configuration d\u00E9claratif avec 10 propri\u00E9t\u00E9s racine. Seul name est requis \u2014 tout le reste est optionnel, permettant une complexit\u00E9 progressive, d\u2019un simple identifiant d\u2019application \u00E0 une application full-stack.',
   'docs.overview.footnote':
-    'Les fichiers de configuration peuvent \u00EAtre \u00E9crits en YAML ou JSON. Ex\u00E9cutez sovrium start app.yaml pour lancer un serveur de d\u00E9veloppement, ou sovrium static app.yaml pour g\u00E9n\u00E9rer un site statique.',
+    'Les fichiers de configuration peuvent \u00EAtre \u00E9crits en YAML ou JSON. Ex\u00E9cutez sovrium start app.yaml pour lancer un serveur de d\u00E9veloppement, ou sovrium build app.yaml pour g\u00E9n\u00E9rer un site statique.',
   'docs.overview.tip.title': 'Complexit\u00E9 progressive',
   'docs.overview.tip.body':
     'Seul name est requis. Ajoutez tables, theme, pages, auth et d\u2019autres sections au fur et \u00E0 mesure.',

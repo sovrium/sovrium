@@ -847,7 +847,7 @@ export const en: Record<string, string> = {
     'Learn what Sovrium is, why it exists, and how it lets you build complete applications from a single configuration file.',
   'docs.installation.meta.title': 'Installation - Sovrium Docs',
   'docs.installation.meta.description':
-    'Install Sovrium via npm or Bun and create your first configuration file in YAML or JSON.',
+    'Install Sovrium via Bun and create your first configuration file in YAML or JSON.',
   'docs.quickStart.meta.title': 'Quick Start - Sovrium Docs',
   'docs.quickStart.meta.description':
     'Build your first Sovrium app in 3 steps using YAML or TypeScript. Create a config, add data tables, and start the server.',
@@ -913,20 +913,20 @@ export const en: Record<string, string> = {
   // ── Docs: Get Started — Installation ────────────────────────────
   'docs.installation.header.title': 'Installation',
   'docs.installation.header.description':
-    'Install Sovrium globally or as a project dependency. Supports npm, Bun, yarn, and pnpm.',
+    'Install Sovrium globally or as a project dependency using Bun.',
   'docs.installation.prerequisites.title': 'Prerequisites',
   'docs.installation.prerequisites.description':
-    'Sovrium requires Node.js 18+ or Bun 1.0+. A PostgreSQL database is needed for data persistence (tables, auth).',
+    'Sovrium requires Bun 1.0+. A PostgreSQL database is optional, needed only for data persistence (tables, auth).',
   'docs.installation.global.title': 'Global installation',
   'docs.installation.global.description':
     'Install Sovrium globally to use the sovrium command from anywhere:',
   'docs.installation.project.title': 'Project dependency',
   'docs.installation.project.description': 'Or add Sovrium as a dependency in an existing project:',
   'docs.installation.verify.title': 'Verify installation',
-  'docs.installation.verify.description': 'Check that Sovrium is installed correctly:',
+  'docs.installation.verify.description': 'Run the help command to check that Sovrium is installed correctly:',
   'docs.installation.config.title': 'Create a config file',
   'docs.installation.config.description':
-    'Sovrium reads a YAML or JSON configuration file. Create an app.yaml in your project root:',
+    'Sovrium reads a YAML or JSON configuration file. Create an app.yaml with the simplest valid config:',
   'docs.installation.config.tip.title': 'YAML or JSON',
   'docs.installation.config.tip.body':
     'Sovrium supports both .yaml/.yml and .json files. YAML is recommended for readability.',
@@ -935,7 +935,7 @@ export const en: Record<string, string> = {
     'If your app uses tables or auth, set the DATABASE_URL environment variable:',
   'docs.installation.database.tip.title': 'No database needed for static sites',
   'docs.installation.database.tip.body':
-    'If you only use pages and theme (no tables or auth), Sovrium works without a database. Run sovrium static app.yaml to generate a static site.',
+    'If you only use pages and theme (no tables or auth), Sovrium works without a database. Run sovrium build app.yaml to generate a static site.',
 
   // ── Docs: Get Started — Quick Start ─────────────────────────────
   'docs.quickStart.header.title': 'Quick Start',
@@ -996,7 +996,7 @@ export const en: Record<string, string> = {
   'docs.overview.description':
     'A Sovrium app is a declarative configuration object with 10 root properties. Only name is required \u2014 everything else is optional, enabling progressive complexity from a minimal app identifier to a full-stack application.',
   'docs.overview.footnote':
-    'Configuration files can be written in YAML or JSON. Run sovrium start app.yaml to launch a dev server, or sovrium static app.yaml to generate a static site.',
+    'Configuration files can be written in YAML or JSON. Run sovrium start app.yaml to launch a dev server, or sovrium build app.yaml to generate a static site.',
   'docs.overview.tip.title': 'Progressive complexity',
   'docs.overview.tip.body':
     'Only name is required. Add tables, theme, pages, auth, and other sections as your app grows.',

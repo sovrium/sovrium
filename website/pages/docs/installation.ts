@@ -56,10 +56,7 @@ export const docsInstallation = docsPage({
           '$t:docs.installation.global.description',
           'global-installation'
         ),
-        codeBlock(
-          '# With npm\nnpm install -g sovrium\n\n# With Bun (recommended)\nbun add -g sovrium',
-          'bash'
-        ),
+        codeBlock('bun add -g sovrium', 'bash'),
       ],
     },
 
@@ -73,10 +70,7 @@ export const docsInstallation = docsPage({
           '$t:docs.installation.project.description',
           'project-dependency'
         ),
-        codeBlock(
-          '# With npm\nnpm install sovrium\n\n# With Bun (recommended)\nbun add sovrium\n\n# With yarn\nyarn add sovrium\n\n# With pnpm\npnpm add sovrium',
-          'bash'
-        ),
+        codeBlock('bun add sovrium', 'bash'),
       ],
     },
 
@@ -90,7 +84,7 @@ export const docsInstallation = docsPage({
           '$t:docs.installation.verify.description',
           'verify-installation'
         ),
-        codeBlock('sovrium --version', 'bash'),
+        codeBlock('sovrium --help', 'bash'),
       ],
     },
 
@@ -104,10 +98,7 @@ export const docsInstallation = docsPage({
           '$t:docs.installation.config.description',
           'create-config'
         ),
-        codeBlock(
-          'name: my-app\nversion: 1.0.0\ndescription: My first Sovrium application',
-          'yaml'
-        ),
+        codeBlock('name: my-app', 'yaml'),
         calloutTip('$t:docs.installation.config.tip.title', '$t:docs.installation.config.tip.body'),
       ],
     },

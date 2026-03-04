@@ -37,7 +37,7 @@ analytics: {...}    # Privacy-friendly, cookie-free analytics
 
 1. Write your configuration in YAML or JSON
 2. Run `sovrium start app.yaml` to launch the dev server
-3. Run `sovrium static app.yaml` to generate a static site
+3. Run `sovrium build app.yaml` to generate a static site
 
 ---
 
