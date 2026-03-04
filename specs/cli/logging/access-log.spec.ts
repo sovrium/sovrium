@@ -34,7 +34,7 @@ test.describe('CLI Request Access Log', () => {
   // @spec tests - EXHAUSTIVE coverage (one test per acceptance criterion)
   // ============================================================================
 
-  test.fixme(
+  test(
     'CLI-LOG-ACCESS-001: LOG_LEVEL=debug shows request log with method, path, status, duration',
     { tag: '@spec' },
     async () => {
