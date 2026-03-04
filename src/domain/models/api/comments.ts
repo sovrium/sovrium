@@ -60,7 +60,7 @@ export const listCommentsResponseSchema = z.object({
  *
  * GET /api/tables/:tableId/records/:recordId/comments/:commentId
  */
-export const getCommentResponseSchema = commentSchema
+export const getCommentResponseSchema = commentSchema.describe('Single comment details')
 
 /**
  * Create comment response schema
@@ -76,7 +76,7 @@ export const createCommentResponseSchema = z.object({
  *
  * PATCH /api/tables/:tableId/records/:recordId/comments/:commentId
  */
-export const updateCommentResponseSchema = commentSchema
+export const updateCommentResponseSchema = commentSchema.describe('Updated comment details')
 
 // ============================================================================
 // Record History Schemas

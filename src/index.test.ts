@@ -199,8 +199,8 @@ describe('Programmatic API - start()', () => {
       description: 'Testing default port and hostname',
     }
 
-    // WHEN: Starting server without options (using defaults)
-    const server = await start(app) // No options parameter
+    // WHEN: Starting server without options (using defaults, port 0 for auto-select)
+    const server = await start(app, { port: 0 })
 
     try {
       // THEN: Server starts with default configuration

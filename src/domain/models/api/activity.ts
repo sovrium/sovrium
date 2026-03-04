@@ -72,7 +72,9 @@ export const listActivityLogsResponseSchema = z.object({
  *
  * GET /api/activity/:activityId
  */
-export const getActivityLogResponseSchema = activityLogDetailSchema
+export const getActivityLogResponseSchema = activityLogDetailSchema.describe(
+  'Single activity log entry with change details'
+)
 
 // ============================================================================
 // TypeScript Types

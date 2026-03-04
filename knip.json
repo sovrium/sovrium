@@ -14,7 +14,7 @@
     "scripts/**/*.ts",
     "specs/fixtures/**/*.ts"
   ],
-  "ignore": ["**/*.test.ts", "**/*.spec.ts", "scripts/tdd-automation/core/pre-validate.ts"],
+  "ignore": ["**/*.spec.ts"],
   "ignoreDependencies": [
     "tailwindcss",
     "tw-animate-css",
@@ -25,8 +25,9 @@
     "@eslint/compat",
     "@apidevtools/json-schema-ref-parser",
     "@types/dompurify",
-    "@hono/zod-validator",
-    "nanoid"
+    "nanoid",
+    "@tanstack/react-query-devtools",
+    "pagefind"
   ],
   "ignoreBinaries": ["pull_with_retry", "actionlint", "printf"],
   "ignoreExportsUsedInFile": true
