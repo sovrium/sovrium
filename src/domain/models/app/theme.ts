@@ -58,6 +58,7 @@ export const ThemeSchema = Schema.Struct({
   borderRadius: Schema.optional(BorderRadiusConfigSchema),
 }).pipe(
   Schema.annotations({
+    identifier: 'Theme',
     title: 'Theme Configuration',
     description: 'Design tokens for colors, typography, spacing, and animations',
   })
