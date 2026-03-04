@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { calloutTip, codeBlock, docsPage, sectionHeader } from './shared'
+import { calloutTip, codeBlock, docsPage, sectionHeader, subsectionHeader } from './shared'
 
 export const docsInstallation = docsPage({
   activeId: 'installation',

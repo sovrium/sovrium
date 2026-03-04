@@ -42,18 +42,7 @@ export const docsOverview = docsPage({
       type: 'div',
       props: {},
       children: [
-        {
-          type: 'h2',
-          content: '$t:docs.overview.title',
-          props: {
-            className: 'text-2xl font-bold mb-2 text-sovereignty-light',
-          },
-        },
-        {
-          type: 'paragraph',
-          content: '$t:docs.overview.description',
-          props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed mb-6' },
-        },
+        sectionHeader('$t:docs.overview.title', '$t:docs.overview.description', 'schema-structure'),
         codeBlock(
           'name: my-app                  # App identifier (required)\nversion: 1.0.0               # SemVer version\ndescription: My application   # One-line description\ntables: [...]                 # Data models with 41 field types\ntheme: {...}                  # Design tokens (colors, fonts, etc.)\npages: [...]                  # Server-rendered pages (62 component types)\nauth: {...}                   # Authentication & authorization\nlanguages: {...}              # Multi-language support ($t: syntax)\ncomponents: [...]             # Reusable UI templates ($ref, $variable)\nanalytics: {...}              # Privacy-friendly, cookie-free analytics',
           'yaml'
@@ -67,18 +56,11 @@ export const docsOverview = docsPage({
       type: 'div',
       props: {},
       children: [
-        {
-          type: 'h2',
-          content: '$t:docs.rootProps.title',
-          props: {
-            className: 'text-2xl font-bold mb-2 text-sovereignty-light',
-          },
-        },
-        {
-          type: 'paragraph',
-          content: '$t:docs.rootProps.description',
-          props: { className: 'text-sm text-sovereignty-gray-400 leading-relaxed mb-6' },
-        },
+        sectionHeader(
+          '$t:docs.rootProps.title',
+          '$t:docs.rootProps.description',
+          'root-properties'
+        ),
         {
           type: 'div',
           props: { className: 'grid grid-cols-1 sm:grid-cols-2 gap-4' },

@@ -442,15 +442,29 @@ export function createNavbar(activePage?: NavPage) {
                   className: 'hidden md:flex items-center gap-6',
                 },
                 children: [
-                  // Navigation links (plain text, no version badge)
+                  // Navigation links
                   {
-                    type: 'link' as const,
-                    content: '$t:nav.docs',
-                    props: {
-                      href: '$t:nav.docs.href',
-                      className: desktopClass('docs'),
-                      ...(activePage === 'docs' ? { 'aria-current': 'page' } : {}),
-                    },
+                    type: 'div' as const,
+                    props: { className: 'flex items-center gap-1.5' },
+                    children: [
+                      {
+                        type: 'link' as const,
+                        content: '$t:nav.docs',
+                        props: {
+                          href: '$t:nav.docs.href',
+                          className: desktopClass('docs'),
+                          ...(activePage === 'docs' ? { 'aria-current': 'page' } : {}),
+                        },
+                      },
+                      {
+                        type: 'span' as const,
+                        content: version,
+                        props: {
+                          className:
+                            'text-[10px] font-medium text-sovereignty-gray-500 bg-sovereignty-gray-800 px-1.5 py-0.5 rounded-full leading-none',
+                        },
+                      },
+                    ],
                   },
                   {
                     type: 'link' as const,

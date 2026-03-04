@@ -19,6 +19,45 @@ export const docsIntroduction = docsPage({
     { label: '$t:docs.introduction.next.title', anchor: 'next-steps' },
   ],
   content: [
+    // ── Development Status Banner (Introduction page only) ──────────────
+    {
+      type: 'div',
+      props: {
+        className:
+          'flex items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3',
+      },
+      children: [
+        {
+          type: 'icon',
+          props: {
+            name: 'construction',
+            size: 18,
+            className: 'text-amber-400 flex-shrink-0 mt-0.5',
+          },
+        },
+        {
+          type: 'div',
+          props: { className: 'min-w-0' },
+          children: [
+            {
+              type: 'span',
+              content: '$t:docs.banner.title',
+              props: {
+                className: 'block text-sm font-semibold text-amber-400',
+              },
+            },
+            {
+              type: 'span',
+              content: '$t:docs.banner.body',
+              props: {
+                className: 'block text-sm text-sovereignty-gray-400 mt-0.5 leading-relaxed',
+              },
+            },
+          ],
+        },
+      ],
+    },
+
     // ── Header ──────────────────────────────────────────────────────────
     {
       type: 'div',

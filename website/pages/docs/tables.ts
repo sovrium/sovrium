@@ -13,6 +13,7 @@ import {
   docsPage,
   propertyTable,
   sectionHeader,
+  subsectionHeader,
 } from './shared'
 
 export const docsTables = docsPage({
@@ -150,16 +151,20 @@ export const docsTables = docsPage({
         ),
 
         // Text Fields
-        {
-          type: 'paragraph',
-          content: '$t:docs.tables.fieldTypes.text.description',
-          props: { className: 'text-sm text-sovereignty-gray-400 mb-2' },
-        },
-        badgeGroup(
+        subsectionHeader(
           '$t:docs.tables.fieldTypes.text',
-          ['single-line-text', 'long-text', 'rich-text', 'email', 'url', 'phone-number', 'barcode'],
+          '$t:docs.tables.fieldTypes.text.description',
           'field-text'
         ),
+        badgeGroup('', [
+          'single-line-text',
+          'long-text',
+          'rich-text',
+          'email',
+          'url',
+          'phone-number',
+          'barcode',
+        ]),
         propertyTable([
           { name: 'rich-text.maxLength', description: '$t:docs.tables.fieldTypes.text.maxLength' },
           {
@@ -174,16 +179,12 @@ export const docsTables = docsPage({
         ),
 
         // Numeric Fields
-        {
-          type: 'paragraph',
-          content: '$t:docs.tables.fieldTypes.numeric.description',
-          props: { className: 'text-sm text-sovereignty-gray-400 mb-2 mt-6' },
-        },
-        badgeGroup(
+        subsectionHeader(
           '$t:docs.tables.fieldTypes.numeric',
-          ['integer', 'decimal', 'currency', 'percentage', 'rating', 'progress'],
+          '$t:docs.tables.fieldTypes.numeric.description',
           'field-numeric'
         ),
+        badgeGroup('', ['integer', 'decimal', 'currency', 'percentage', 'rating', 'progress']),
         propertyTable([
           { name: 'min / max', description: '$t:docs.tables.fieldTypes.numeric.minMax' },
           { name: 'precision', description: '$t:docs.tables.fieldTypes.numeric.precision' },
@@ -213,16 +214,12 @@ export const docsTables = docsPage({
         ),
 
         // Selection Fields
-        {
-          type: 'paragraph',
-          content: '$t:docs.tables.fieldTypes.selection.description',
-          props: { className: 'text-sm text-sovereignty-gray-400 mb-2 mt-6' },
-        },
-        badgeGroup(
+        subsectionHeader(
           '$t:docs.tables.fieldTypes.selection',
-          ['single-select', 'multi-select', 'checkbox', 'status'],
+          '$t:docs.tables.fieldTypes.selection.description',
           'field-selection'
         ),
+        badgeGroup('', ['single-select', 'multi-select', 'checkbox', 'status']),
         propertyTable([
           { name: 'options', description: '$t:docs.tables.fieldTypes.selection.options' },
           {
@@ -244,16 +241,12 @@ export const docsTables = docsPage({
         ),
 
         // Date & Time Fields
-        {
-          type: 'paragraph',
-          content: '$t:docs.tables.fieldTypes.dateTime.description',
-          props: { className: 'text-sm text-sovereignty-gray-400 mb-2 mt-6' },
-        },
-        badgeGroup(
+        subsectionHeader(
           '$t:docs.tables.fieldTypes.dateTime',
-          ['date', 'datetime', 'time', 'duration'],
+          '$t:docs.tables.fieldTypes.dateTime.description',
           'field-datetime'
         ),
+        badgeGroup('', ['date', 'datetime', 'time', 'duration']),
         propertyTable([
           {
             name: 'dateFormat',

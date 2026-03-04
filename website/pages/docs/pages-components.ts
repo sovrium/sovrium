@@ -5,7 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { badgeGroup, calloutTip, codeBlock, docsPage, propertyTable, sectionHeader } from './shared'
+import {
+  badgeGroup,
+  calloutTip,
+  codeBlock,
+  docsPage,
+  propertyTable,
+  sectionHeader,
+  subsectionHeader,
+} from './shared'
 
 export const docsPages = docsPage({
   activeId: 'pages',
@@ -178,115 +186,114 @@ export const docsPages = docsPage({
         ),
 
         // Layout
-        {
-          type: 'paragraph',
-          content: '$t:docs.pages.componentTypes.layout.description',
-          props: { className: 'text-sm text-sovereignty-gray-400 mb-2' },
-        },
-        badgeGroup(
+        subsectionHeader(
           '$t:docs.pages.componentTypes.layout',
-          [
-            'section',
-            'container',
-            'flex',
-            'grid',
-            'responsive-grid',
-            'div',
-            'span',
-            'header',
-            'footer',
-            'main',
-            'article',
-            'aside',
-            'nav',
-            'modal',
-            'sidebar',
-          ],
+          '$t:docs.pages.componentTypes.layout.description',
           'comp-layout'
         ),
+        badgeGroup('', [
+          'section',
+          'container',
+          'flex',
+          'grid',
+          'responsive-grid',
+          'div',
+          'span',
+          'header',
+          'footer',
+          'main',
+          'article',
+          'aside',
+          'nav',
+          'modal',
+          'sidebar',
+        ]),
         codeBlock(
           'sections:\n  - type: section\n    props:\n      className: "py-20 bg-gray-900"\n    children:\n      - type: container\n        props:\n          className: "max-w-4xl mx-auto px-4"\n        children:\n          - type: grid\n            props:\n              className: "grid grid-cols-3 gap-8"',
           'yaml'
         ),
 
         // Typography
-        {
-          type: 'paragraph',
-          content: '$t:docs.pages.componentTypes.typography.description',
-          props: { className: 'text-sm text-sovereignty-gray-400 mb-2 mt-6' },
-        },
-        badgeGroup(
+        subsectionHeader(
           '$t:docs.pages.componentTypes.typography',
-          [
-            'heading',
-            'h1',
-            'h2',
-            'h3',
-            'h4',
-            'h5',
-            'h6',
-            'text',
-            'single-line-text',
-            'paragraph',
-            'p',
-            'code',
-            'pre',
-          ],
+          '$t:docs.pages.componentTypes.typography.description',
           'comp-typography'
         ),
+        badgeGroup('', [
+          'heading',
+          'h1',
+          'h2',
+          'h3',
+          'h4',
+          'h5',
+          'h6',
+          'text',
+          'single-line-text',
+          'paragraph',
+          'p',
+          'code',
+          'pre',
+        ]),
 
         // Media
-        {
-          type: 'paragraph',
-          content: '$t:docs.pages.componentTypes.media.description',
-          props: { className: 'text-sm text-sovereignty-gray-400 mb-2 mt-6' },
-        },
-        badgeGroup(
+        subsectionHeader(
           '$t:docs.pages.componentTypes.media',
-          ['image', 'img', 'icon', 'avatar', 'thumbnail', 'hero-image', 'video', 'audio', 'iframe'],
+          '$t:docs.pages.componentTypes.media.description',
           'comp-media'
         ),
+        badgeGroup('', [
+          'image',
+          'img',
+          'icon',
+          'avatar',
+          'thumbnail',
+          'hero-image',
+          'video',
+          'audio',
+          'iframe',
+        ]),
         codeBlock(
           'children:\n  - type: image\n    props:\n      src: "/hero.jpg"\n      alt: "Hero image"\n      className: "w-full rounded-lg"',
           'yaml'
         ),
 
         // Interactive
-        {
-          type: 'paragraph',
-          content: '$t:docs.pages.componentTypes.interactive.description',
-          props: { className: 'text-sm text-sovereignty-gray-400 mb-2 mt-6' },
-        },
-        badgeGroup(
+        subsectionHeader(
           '$t:docs.pages.componentTypes.interactive',
-          ['button', 'link', 'a', 'accordion', 'dropdown', 'navigation', 'form', 'input'],
+          '$t:docs.pages.componentTypes.interactive.description',
           'comp-interactive'
         ),
+        badgeGroup('', [
+          'button',
+          'link',
+          'a',
+          'accordion',
+          'dropdown',
+          'navigation',
+          'form',
+          'input',
+        ]),
 
-        // Remaining categories
-        badgeGroup(
-          '$t:docs.pages.componentTypes.display',
-          [
-            'card',
-            'card-with-header',
-            'card-header',
-            'card-body',
-            'card-footer',
-            'badge',
-            'hero',
-            'hero-section',
-            'timeline',
-            'list',
-            'list-item',
-            'speech-bubble',
-          ],
-          'comp-display'
-        ),
-        badgeGroup(
-          '$t:docs.pages.componentTypes.feedback',
-          ['toast', 'alert', 'spinner', 'fab', 'customHTML'],
-          'comp-feedback'
-        ),
+        // Display
+        subsectionHeader('$t:docs.pages.componentTypes.display', '', 'comp-display'),
+        badgeGroup('', [
+          'card',
+          'card-with-header',
+          'card-header',
+          'card-body',
+          'card-footer',
+          'badge',
+          'hero',
+          'hero-section',
+          'timeline',
+          'list',
+          'list-item',
+          'speech-bubble',
+        ]),
+
+        // Feedback
+        subsectionHeader('$t:docs.pages.componentTypes.feedback', '', 'comp-feedback'),
+        badgeGroup('', ['toast', 'alert', 'spinner', 'fab', 'customHTML']),
       ],
     },
 
