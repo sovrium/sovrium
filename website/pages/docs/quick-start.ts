@@ -140,7 +140,7 @@ export const docsQuickStart = docsPage({
           content: '$t:docs.quickStart.yaml.title',
           props: {
             id: 'option-yaml',
-            className: 'text-xl font-bold mb-2 text-sovereignty-light',
+            className: 'text-xl font-bold mb-2 text-sovereignty-light scroll-mt-20',
           },
         },
         {
@@ -195,7 +195,7 @@ export const docsQuickStart = docsPage({
           content: '$t:docs.quickStart.ts.title',
           props: {
             id: 'option-typescript',
-            className: 'text-xl font-bold mb-2 text-sovereignty-light',
+            className: 'text-xl font-bold mb-2 text-sovereignty-light scroll-mt-20',
           },
         },
         {

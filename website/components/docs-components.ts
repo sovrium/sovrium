@@ -41,12 +41,12 @@ export const docsCodeBlock: ComponentTemplate = {
       type: 'div',
       props: {
         className:
-          'flex items-center gap-1.5 px-4 py-1.5 border-b border-sovereignty-gray-800 text-sovereignty-gray-500',
+          'flex items-center gap-2 px-4 py-1.5 border-b border-sovereignty-gray-800 text-sovereignty-gray-500',
       },
       children: [
         {
           type: 'icon',
-          props: { name: '$langIcon', size: 12 },
+          props: { name: '$langIcon', size: 13, className: 'flex-shrink-0' },
         },
         {
           type: 'span',
@@ -215,7 +215,7 @@ export const docsResourceLink: ComponentTemplate = {
         },
         {
           type: 'icon',
-          props: { name: 'external-link', size: 12, className: 'opacity-60' },
+          props: { name: 'external-link', size: 13, className: 'opacity-60 flex-shrink-0' },
         },
       ],
     },
@@ -296,7 +296,7 @@ export const docsSectionHeader: ComponentTemplate = {
       content: '$title',
       props: {
         id: '$anchor',
-        className: 'text-2xl font-bold text-sovereignty-light mb-2',
+        className: 'text-2xl font-bold text-sovereignty-light mb-2 scroll-mt-20',
       },
     },
     {

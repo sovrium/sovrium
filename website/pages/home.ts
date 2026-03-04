@@ -251,6 +251,91 @@ export const home: Page = {
                 },
               ],
             },
+
+            // Micro-comparison: Sovrium vs SaaS (3 high-impact rows)
+            {
+              type: 'div',
+              props: { className: 'max-w-2xl mx-auto mt-12 md:mt-16' },
+              children: [
+                {
+                  type: 'div',
+                  props: {
+                    className:
+                      'bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg p-4 sm:p-6',
+                  },
+                  children: [
+                    {
+                      type: 'grid',
+                      props: {
+                        className: 'grid grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm',
+                      },
+                      children: [
+                        // Header row
+                        {
+                          type: 'div',
+                          props: { className: 'font-semibold' },
+                        },
+                        {
+                          type: 'div',
+                          props: { className: 'font-semibold text-sovereignty-accent' },
+                          content: 'Sovrium',
+                        },
+                        {
+                          type: 'div',
+                          props: { className: 'font-semibold text-sovereignty-gray-400' },
+                          content: '$t:home.comparison.table.header.saas',
+                        },
+                        // Version Control
+                        {
+                          type: 'div',
+                          content: '$t:home.comparison.table.row1.aspect',
+                        },
+                        {
+                          type: 'div',
+                          props: { className: 'text-green-400' },
+                          content: '$t:home.comparison.table.row1.sovrium',
+                        },
+                        {
+                          type: 'div',
+                          props: { className: 'text-yellow-400' },
+                          content: '$t:home.comparison.table.row1.saas',
+                        },
+                        // Monthly Cost
+                        {
+                          type: 'div',
+                          content: '$t:home.comparison.table.row2.aspect',
+                        },
+                        {
+                          type: 'div',
+                          props: { className: 'text-green-400' },
+                          content: '$t:home.comparison.table.row2.sovrium',
+                        },
+                        {
+                          type: 'div',
+                          props: { className: 'text-red-400' },
+                          content: '$t:home.comparison.table.row2.saas',
+                        },
+                        // Managed Hosting (honest concession)
+                        {
+                          type: 'div',
+                          content: '$t:home.comparison.table.row3.aspect',
+                        },
+                        {
+                          type: 'div',
+                          props: { className: 'text-yellow-400' },
+                          content: '$t:home.comparison.table.row3.sovrium',
+                        },
+                        {
+                          type: 'div',
+                          props: { className: 'text-green-400' },
+                          content: '$t:home.comparison.table.row3.saas',
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
           ],
         },
       ],
@@ -322,217 +407,6 @@ export const home: Page = {
                   'bun run app.ts               # TypeScript with type safety',
                 ].join('\n'),
               },
-            },
-          ],
-        },
-      ],
-    },
-
-    // Comparison Section
-    {
-      type: 'section',
-      props: {
-        className: 'py-16 md:py-24 bg-sovereignty-darker text-sovereignty-light',
-        id: 'comparison',
-      },
-      children: [
-        {
-          type: 'container',
-          props: { className: 'max-w-6xl mx-auto px-4 sm:px-6 md:px-8' },
-          children: [
-            {
-              type: 'h2',
-              content: '$t:home.comparison.title',
-              props: {
-                className: 'text-2xl sm:text-3xl font-bold text-center mb-12 md:mb-16',
-              },
-            },
-
-            // Key Stat
-            {
-              type: 'card',
-              props: {
-                className:
-                  'bg-gradient-to-r from-sovereignty-accent to-sovereignty-teal p-6 sm:p-8 rounded-lg text-center mb-12 md:mb-16',
-              },
-              children: [
-                {
-                  type: 'h3',
-                  content: '$t:home.comparison.stat',
-                  props: { className: 'text-xl sm:text-2xl md:text-3xl font-bold text-white' },
-                },
-              ],
-            },
-
-            // Comparison Table vs SaaS
-            {
-              type: 'div',
-              props: { className: 'mb-12' },
-              children: [
-                {
-                  type: 'h3',
-                  content: '$t:home.comparison.table.title',
-                  props: { className: 'text-xl sm:text-2xl font-semibold mb-6' },
-                },
-                {
-                  type: 'div',
-                  props: { className: 'overflow-x-auto -mx-4 sm:mx-0' },
-                  children: [
-                    {
-                      type: 'div',
-                      props: {
-                        className:
-                          'bg-sovereignty-gray-900 border border-sovereignty-gray-800 rounded-lg p-4 sm:p-6 min-w-[600px] sm:min-w-0',
-                      },
-                      children: [
-                        {
-                          type: 'grid',
-                          props: {
-                            className: 'grid grid-cols-3 gap-3 sm:gap-4 text-xs sm:text-sm',
-                          },
-                          children: [
-                            {
-                              type: 'div',
-                              props: { className: 'font-semibold' },
-                              content: '$t:home.comparison.table.header.aspect',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'font-semibold text-sovereignty-accent' },
-                              content: 'Sovrium',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'font-semibold text-sovereignty-gray-400' },
-                              content: '$t:home.comparison.table.header.saas',
-                            },
-                            // Data Ownership
-                            {
-                              type: 'div',
-                              content: '$t:home.comparison.table.row1.aspect',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-green-400' },
-                              content: '$t:home.comparison.table.row1.sovrium',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-red-400' },
-                              content: '$t:home.comparison.table.row1.saas',
-                            },
-                            // Source Code
-                            {
-                              type: 'div',
-                              content: '$t:home.comparison.table.row2.aspect',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-green-400' },
-                              content: '$t:home.comparison.table.row2.sovrium',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-red-400' },
-                              content: '$t:home.comparison.table.row2.saas',
-                            },
-                            // Monthly Cost
-                            {
-                              type: 'div',
-                              content: '$t:home.comparison.table.row3.aspect',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-green-400' },
-                              content: '$t:home.comparison.table.row3.sovrium',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-red-400' },
-                              content: '$t:home.comparison.table.row3.saas',
-                            },
-                            // Vendor Lock-in
-                            {
-                              type: 'div',
-                              content: '$t:home.comparison.table.row4.aspect',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-green-400' },
-                              content: '$t:home.comparison.table.row4.sovrium',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-red-400' },
-                              content: '$t:home.comparison.table.row4.saas',
-                            },
-                            // Customization
-                            {
-                              type: 'div',
-                              content: '$t:home.comparison.table.row5.aspect',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-green-400' },
-                              content: '$t:home.comparison.table.row5.sovrium',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-yellow-400' },
-                              content: '$t:home.comparison.table.row5.saas',
-                            },
-                            // Version Control
-                            {
-                              type: 'div',
-                              content: '$t:home.comparison.table.row6.aspect',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-green-400' },
-                              content: '$t:home.comparison.table.row6.sovrium',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-yellow-400' },
-                              content: '$t:home.comparison.table.row6.saas',
-                            },
-                            // Privacy
-                            {
-                              type: 'div',
-                              content: '$t:home.comparison.table.row7.aspect',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-green-400' },
-                              content: '$t:home.comparison.table.row7.sovrium',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-red-400' },
-                              content: '$t:home.comparison.table.row7.saas',
-                            },
-                            // Managed Hosting (honest row — SaaS advantage)
-                            {
-                              type: 'div',
-                              content: '$t:home.comparison.table.row8.aspect',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-yellow-400' },
-                              content: '$t:home.comparison.table.row8.sovrium',
-                            },
-                            {
-                              type: 'div',
-                              props: { className: 'text-green-400' },
-                              content: '$t:home.comparison.table.row8.saas',
-                            },
-                          ],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              ],
             },
           ],
         },

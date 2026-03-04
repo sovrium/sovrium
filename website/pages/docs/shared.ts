@@ -180,7 +180,7 @@ export const badgeGroup = (title: string, items: readonly string[], anchor?: str
       type: 'h4' as const,
       content: title,
       props: {
-        className: 'text-sm font-semibold text-sovereignty-light mb-2',
+        className: 'text-sm font-semibold text-sovereignty-light mb-2 scroll-mt-20',
         ...(anchor ? { id: anchor } : {}),
       },
     },
@@ -364,7 +364,7 @@ export const endpointGroup = (
             type: 'h3' as const,
             content: title,
             props: {
-              className: 'text-lg font-semibold text-sovereignty-light mb-1',
+              className: 'text-lg font-semibold text-sovereignty-light mb-1 scroll-mt-20',
               ...(anchor ? { id: anchor } : {}),
             },
           },
@@ -418,7 +418,7 @@ function buildSidebarLinks(activeId: string): readonly object[] {
           {
             type: 'div' as const,
             props: {
-              className: 'flex items-center gap-1.5 px-3 pt-5 pb-1 first:pt-0',
+              className: 'flex items-center gap-2 px-3 pt-5 pb-1 first:pt-0',
             },
             children: [
               ...(section.icon
@@ -427,8 +427,8 @@ function buildSidebarLinks(activeId: string): readonly object[] {
                       type: 'icon' as const,
                       props: {
                         name: section.icon,
-                        size: 12,
-                        className: 'text-sovereignty-gray-500',
+                        size: 14,
+                        className: 'text-sovereignty-gray-500 flex-shrink-0',
                       },
                     },
                   ]
@@ -454,15 +454,15 @@ function buildSidebarLinks(activeId: string): readonly object[] {
                     {
                       type: 'div' as const,
                       props: {
-                        className: 'flex items-center gap-1.5 px-3 pb-1',
+                        className: 'flex items-center gap-2 px-3 pb-1',
                       },
                       children: [
                         {
                           type: 'icon' as const,
                           props: {
                             name: section.icon,
-                            size: 12,
-                            className: 'text-sovereignty-gray-500',
+                            size: 14,
+                            className: 'text-sovereignty-gray-500 flex-shrink-0',
                           },
                         },
                       ],

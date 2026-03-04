@@ -374,7 +374,8 @@ export const docsTables = docsPage({
           content: 'relationship',
           props: {
             id: 'rel-relationship',
-            className: 'text-base font-semibold text-sovereignty-light mt-4 mb-2 font-mono',
+            className:
+              'text-base font-semibold text-sovereignty-light mt-4 mb-2 font-mono scroll-mt-20',
           },
         },
         {
@@ -423,7 +424,8 @@ export const docsTables = docsPage({
           content: 'lookup',
           props: {
             id: 'rel-lookup',
-            className: 'text-base font-semibold text-sovereignty-light mt-6 mb-2 font-mono',
+            className:
+              'text-base font-semibold text-sovereignty-light mt-6 mb-2 font-mono scroll-mt-20',
           },
         },
         {
@@ -449,7 +451,8 @@ export const docsTables = docsPage({
           content: 'rollup',
           props: {
             id: 'rel-rollup',
-            className: 'text-base font-semibold text-sovereignty-light mt-6 mb-2 font-mono',
+            className:
+              'text-base font-semibold text-sovereignty-light mt-6 mb-2 font-mono scroll-mt-20',
           },
         },
         {
@@ -480,7 +483,8 @@ export const docsTables = docsPage({
           content: 'count',
           props: {
             id: 'rel-count',
-            className: 'text-base font-semibold text-sovereignty-light mt-6 mb-2 font-mono',
+            className:
+              'text-base font-semibold text-sovereignty-light mt-6 mb-2 font-mono scroll-mt-20',
           },
         },
         {
