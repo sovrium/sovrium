@@ -107,9 +107,10 @@ export const signOutResponseSchema = z.object({
  * Session response schema
  *
  * Returned when fetching current session.
- * Reuses sessionWithUserSchema so the OpenAPI output emits a $ref.
+ * Wraps sessionWithUserSchema with a distinct OpenAPI name so Knip
+ * does not flag it as a duplicate export while OpenAPI emits a $ref.
  */
-export const getSessionResponseSchema = sessionWithUserSchema
+export const getSessionResponseSchema = sessionWithUserSchema.openapi('GetSessionResponse')
 
 /**
  * List sessions response schema
