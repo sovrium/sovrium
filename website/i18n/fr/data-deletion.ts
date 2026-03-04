@@ -75,7 +75,7 @@ export const dataDeletion: Record<string, string> = {
     'Pour les demandes de suppression de données ou les questions concernant vos données :',
   'dataDeletion.s5.item1': '• E-mail : privacy@sovrium.com',
   'dataDeletion.s5.item2': '• Société : ESSENTIAL SERVICES, SAS au capital de 10 000 €',
-  'dataDeletion.s5.item3': '• RCS Paris — SIREN : 834 241 481',
+  'dataDeletion.s5.item3': '• RCS Paris - SIREN : 834 241 481',
   'dataDeletion.s5.item4': '• SIRET : 834 241 481 00029',
   'dataDeletion.s5.item5': '• TVA : FR04834241481',
   'dataDeletion.s5.item6': '• Adresse : 128 Rue La Boétie, 75008 Paris, France',

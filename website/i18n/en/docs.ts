@@ -6,7 +6,7 @@
  */
 
 export const docs: Record<string, string> = {
-  'docs.banner.title': 'Sovrium v0.2.2 — Active Development',
+  'docs.banner.title': 'Sovrium v0.2.2 - Active Development',
   'docs.banner.body':
     'This project is under active development. APIs, configuration format, and features may change between versions.',
   'docs.sidebar.toggle': 'Menu',
@@ -80,7 +80,7 @@ export const docs: Record<string, string> = {
   'docs.apiReference.earlyPreview.title': 'Early Preview',
   'docs.apiReference.earlyPreview.body':
     'The API surface is evolving. Endpoints may change before v1.0.',
-  'docs.apiReference.earlyPreview.badge': 'Early Preview — API may change before v1.0',
+  'docs.apiReference.earlyPreview.badge': 'Early Preview - API may change before v1.0',
   'docs.apiReference.backToDocs': 'Back to Docs',
   'docs.apiReference.cta.title': 'Interactive API Explorer',
   'docs.apiReference.cta.description':
@@ -221,7 +221,7 @@ export const docs: Record<string, string> = {
     'Sovrium is a source-available, self-hosted platform that turns a single configuration file into a complete web application.',
   'docs.introduction.what.title': 'What is Sovrium?',
   'docs.introduction.what.description':
-    'Sovrium is a configuration-driven application platform. You describe your application in a YAML or JSON file — data models, authentication, pages, themes, analytics — and Sovrium turns it into a running, full-stack web application.',
+    'Sovrium is a configuration-driven application platform. You describe your application in a YAML or JSON file (data models, authentication, pages, themes, analytics) and Sovrium turns it into a running, full-stack web application.',
   'docs.introduction.what.detail':
     'No boilerplate code, no framework setup, no build pipeline. Just one file that declares what your app should be.',
   'docs.introduction.why.title': 'Why Sovrium?',
@@ -288,7 +288,7 @@ export const docs: Record<string, string> = {
   'docs.quickStart.chooseApproach': 'Choose your approach',
   'docs.quickStart.chooseApproach.description':
     'Sovrium supports two configuration formats. YAML is great for simplicity; TypeScript gives you full type safety and autocompletion.',
-  'docs.quickStart.yaml.title': 'Option A — YAML + CLI',
+  'docs.quickStart.yaml.title': 'Option A: YAML + CLI',
   'docs.quickStart.yaml.description':
     'The simplest path. Install the Sovrium CLI, write a YAML config, and start the server:',
   'docs.quickStart.yaml.step1.title': 'Install the CLI',
@@ -296,14 +296,14 @@ export const docs: Record<string, string> = {
     'Install Sovrium globally with Bun to get the sovrium command.',
   'docs.quickStart.yaml.step2.title': 'Create a config file',
   'docs.quickStart.yaml.step2.description':
-    'Create an app.yaml with the simplest valid configuration — just a name.',
+    'Create an app.yaml with the simplest valid configuration: just a name.',
   'docs.quickStart.yaml.step3.title': 'Add data tables',
   'docs.quickStart.yaml.step3.description':
     'Define your data models with typed fields, options, and validation.',
   'docs.quickStart.yaml.step4.title': 'Start the server',
   'docs.quickStart.yaml.step4.description':
     'Run the dev server and visit http://localhost:3000 to see your app.',
-  'docs.quickStart.ts.title': 'Option B — TypeScript + Bun',
+  'docs.quickStart.ts.title': 'Option B: TypeScript + Bun',
   'docs.quickStart.ts.description':
     'The power-user path. Create a Bun project, add Sovrium as a dependency, and write type-safe code:',
   'docs.quickStart.ts.step1.title': 'Initialize a project',
@@ -316,7 +316,7 @@ export const docs: Record<string, string> = {
     'Open index.ts and import the start function with a minimal configuration.',
   'docs.quickStart.ts.step4.title': 'Add data tables',
   'docs.quickStart.ts.step4.description':
-    'Extend the configuration with typed fields, options, and validation — with full autocompletion.',
+    'Extend the configuration with typed fields, options, and validation, with full autocompletion.',
   'docs.quickStart.ts.step5.title': 'Run your app',
   'docs.quickStart.ts.step5.description':
     'Execute index.ts with Bun. Visit http://localhost:3000 to see your app.',
@@ -329,16 +329,16 @@ export const docs: Record<string, string> = {
   'docs.quickStart.whatsNext.title': "What's next?",
   'docs.quickStart.whatsNext.description':
     'Now that your app is running, explore the schema reference to add more capabilities:',
-  'docs.quickStart.whatsNext.overview': 'Schema Overview — All 10 root properties explained',
-  'docs.quickStart.whatsNext.tables': 'Tables & Fields — 41 field types, permissions, indexes',
-  'docs.quickStart.whatsNext.theme': 'Theme — Colors, fonts, spacing, and design tokens',
-  'docs.quickStart.whatsNext.pages': 'Pages — 62 component types for server-rendered pages',
+  'docs.quickStart.whatsNext.overview': 'Schema Overview: All 10 root properties explained',
+  'docs.quickStart.whatsNext.tables': 'Tables & Fields: 41 field types, permissions, indexes',
+  'docs.quickStart.whatsNext.theme': 'Theme: Colors, fonts, spacing, and design tokens',
+  'docs.quickStart.whatsNext.pages': 'Pages: 62 component types for server-rendered pages',
   'docs.overview.header.title': 'Schema Overview',
   'docs.overview.header.description':
     'The complete reference for the Sovrium app schema. A declarative configuration object with 10 root properties.',
   'docs.overview.title': 'Schema Structure',
   'docs.overview.description':
-    'A Sovrium app is a declarative configuration object with 10 root properties. Only name is required — everything else is optional, enabling progressive complexity from a minimal app identifier to a full-stack application.',
+    'A Sovrium app is a declarative configuration object with 10 root properties. Only name is required. Everything else is optional, enabling progressive complexity from a minimal app identifier to a full-stack application.',
   'docs.overview.footnote':
     'Configuration files can be written in YAML or JSON. Run sovrium start app.yaml to launch a dev server, or sovrium build app.yaml to generate a static site.',
   'docs.overview.tip.title': 'Progressive complexity',
@@ -440,7 +440,7 @@ export const docs: Record<string, string> = {
   'docs.tables.fieldTypes.description': 'Field types are organized into 9 categories:',
   'docs.tables.fieldTypes.text': 'Text Fields',
   'docs.tables.fieldTypes.text.description':
-    'Fields for textual content — from short labels to rich formatted text and structured strings.',
+    'Fields for textual content, from short labels to rich formatted text and structured strings.',
   'docs.tables.fieldTypes.text.maxLength':
     'Maximum character count for rich-text fields. Validates on input.',
   'docs.tables.fieldTypes.text.fullTextSearch':
@@ -469,7 +469,7 @@ export const docs: Record<string, string> = {
     'Color of the progress bar. Accepts any CSS color value.',
   'docs.tables.fieldTypes.selection': 'Selection Fields',
   'docs.tables.fieldTypes.selection.description':
-    'Fields for choosing from predefined options — single or multi-select with colored labels.',
+    'Fields for choosing from predefined options: single or multi-select with colored labels.',
   'docs.tables.fieldTypes.selection.options':
     'Array of option objects defining the available choices.',
   'docs.tables.fieldTypes.selection.optionLabel': 'Display text for the option. Required.',
@@ -533,7 +533,7 @@ export const docs: Record<string, string> = {
   'docs.tables.fieldTypes.relational': 'Relational Fields',
   'docs.tables.relational.title': 'Relational Fields',
   'docs.tables.relational.description':
-    'Four field types enable cross-table relationships: relationship, lookup, rollup, and count. These form a chain — relationship defines the link, then lookup, rollup, and count derive data from it.',
+    'Four field types enable cross-table relationships: relationship, lookup, rollup, and count. These form a chain. Relationship defines the link, then lookup, rollup, and count derive data from it.',
   'docs.tables.relational.relationship.description':
     'Creates a foreign-key link to another table. Foundation for all relational features.',
   'docs.tables.relational.relationship.relatedTable':
@@ -729,7 +729,7 @@ export const docs: Record<string, string> = {
     'Any component can contain children, which can themselves contain children. This lets you build complex layouts from simple, nested building blocks.',
   'docs.pages.componentTypes.title': '62 Component Types',
   'docs.pages.componentTypes.description':
-    'Components form a recursive tree — each can have type, content, props, and children.',
+    'Components form a recursive tree. Each can have type, content, props, and children.',
   'docs.pages.componentTypes.layout': 'Layout',
   'docs.pages.componentTypes.typography': 'Typography & Text',
   'docs.pages.componentTypes.media': 'Media & Images',
@@ -764,7 +764,7 @@ export const docs: Record<string, string> = {
     'Define reusable components with $ref references and $variable substitution for DRY markup.',
   'docs.pages.screenshot.hero.alt': 'Hero section rendered by Sovrium',
   'docs.pages.screenshot.hero.caption':
-    'A hero section with heading, description, and call-to-action buttons — all from YAML config.',
+    'A hero section with heading, description, and call-to-action buttons, all from YAML config.',
   'docs.pages.screenshot.features.alt': 'Features grid rendered by Sovrium',
   'docs.pages.screenshot.features.caption':
     'A 3-column features grid using section, grid, and card components with emoji icons.',
@@ -773,7 +773,7 @@ export const docs: Record<string, string> = {
     'Built-in authentication powered by Better Auth. Configure strategies, roles, two-factor authentication, and email templates.',
   'docs.auth.basic.title': 'Basic Setup',
   'docs.auth.basic.description':
-    'Start with the simplest auth config — email and password with a default role.',
+    'Start with the simplest auth config: email and password with a default role.',
   'docs.auth.strategies.title': 'Strategies',
   'docs.auth.strategies.description':
     'Choose one or more authentication strategies to offer your users.',
@@ -852,15 +852,15 @@ export const docs: Record<string, string> = {
   'docs.languages.adding.step3.description':
     'Visit /[lang-code]/ in your browser to verify the new language renders correctly.',
   'docs.languages.screenshot.en.alt': 'English version of the app',
-  'docs.languages.screenshot.en.caption': 'English — /en/',
+  'docs.languages.screenshot.en.caption': 'English - /en/',
   'docs.languages.screenshot.fr.alt': 'French version of the app',
-  'docs.languages.screenshot.fr.caption': 'Français — /fr/',
+  'docs.languages.screenshot.fr.caption': 'Français - /fr/',
   'docs.analytics.title': 'Analytics',
   'docs.analytics.description':
     'Built-in, privacy-friendly analytics with no cookies, no external services, and full GDPR compliance. All data stays on your server.',
   'docs.analytics.howItWorks.title': 'How It Works',
   'docs.analytics.howItWorks.description':
-    'Sovrium analytics follows a simple three-step pipeline — no external services required.',
+    'Sovrium analytics follows a simple three-step pipeline. No external services required.',
   'docs.analytics.howItWorks.collect.title': 'Collect',
   'docs.analytics.howItWorks.collect.description':
     'A lightweight script records page views, sessions, referrers, and device info via /api/analytics/collect.',
@@ -872,7 +872,7 @@ export const docs: Record<string, string> = {
     'Access your analytics via the admin dashboard or API. Data stays on your server.',
   'docs.analytics.quickEnable.title': 'Quick Enable',
   'docs.analytics.quickEnable.description':
-    'Set analytics to true for sensible defaults — no configuration needed.',
+    'Set analytics to true for sensible defaults. No configuration needed.',
   'docs.analytics.booleanVsObject.title': 'Boolean vs Object',
   'docs.analytics.booleanVsObject.description':
     'analytics: true enables defaults (90-day retention, DNT respected, 30-min sessions). Use an object to override specific settings while keeping defaults for the rest.',
@@ -888,7 +888,7 @@ export const docs: Record<string, string> = {
     'Session timeout in minutes. A new session starts after this idle period. Default: 30.',
   'docs.analytics.privacy.title': 'Privacy-first analytics',
   'docs.analytics.privacy.body':
-    'Sovrium analytics are cookie-free, GDPR-compliant by default. All data stays on your server — no third-party services involved.',
+    'Sovrium analytics are cookie-free, GDPR-compliant by default. All data stays on your server. No third-party services involved.',
   'docs.analytics.details':
     'When enabled, Sovrium injects a lightweight tracking script that records page views, sessions, referrers, and device information. Analytics data is collected at /api/analytics/collect and stored locally.',
   // ── CLI Reference ──────────────────────────────────────────────────────

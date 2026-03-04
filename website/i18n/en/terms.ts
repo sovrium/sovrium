@@ -109,7 +109,7 @@ export const terms: Record<string, string> = {
   'terms.s13.item1': '• License inquiries: license@sovrium.com',
   'terms.s13.item2': '• General questions: GitHub Issues',
   'terms.s13.item3': '• Company: ESSENTIAL SERVICES, SAS au capital de 10 000 €',
-  'terms.s13.item4': '• RCS Paris — SIREN: 834 241 481',
+  'terms.s13.item4': '• RCS Paris - SIREN: 834 241 481',
   'terms.s13.item5': '• SIRET: 834 241 481 00029',
   'terms.s13.item6': '• TVA: FR04834241481',
   'terms.s13.item7': '• Address: 128 Rue La Boétie, 75008 Paris, France',

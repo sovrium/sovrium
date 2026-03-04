@@ -6,13 +6,13 @@
  */
 
 export const home: Record<string, string> = {
-  'home.meta.title': 'Sovrium — Une config. Une app complète. Contrôle total.',
+  'home.meta.title': 'Sovrium | Une config. Une app complète. Contrôle total.',
   'home.meta.description':
     'Plateforme source-available auto-hébergée : un fichier de config, une application métier complète. Propriétaire de vos données, zéro vendor lock-in.',
-  'home.meta.og.title': 'Sovrium — Une config. Une app complète. Contrôle total.',
+  'home.meta.og.title': 'Sovrium | Une config. Une app complète. Contrôle total.',
   'home.meta.og.description':
     'Plateforme source-available auto-hébergée qui transforme un fichier de config en application métier complète. 100% propriétaire de vos données, zéro dépendance fournisseur.',
-  'home.meta.twitter.title': 'Sovrium — Une config. Une app complète. Contrôle total.',
+  'home.meta.twitter.title': 'Sovrium | Une config. Une app complète. Contrôle total.',
   'home.meta.twitter.description':
     'Plateforme source-available auto-hébergée qui transforme un fichier de config en application métier complète. 100% propriétaire de vos données, zéro dépendance fournisseur.',
   'home.hero.title': 'Une config. Une app complète. Contrôle total.',
@@ -29,22 +29,22 @@ export const home: Record<string, string> = {
   'home.problem.hookStat.source': 'Productiv, Zylo 2025',
   'home.problem.lockin.title': 'Verrouillage',
   'home.problem.lockin.description':
-    'Vos données vivent dans des silos que vous ne contrôlez pas. Formats propriétaires, API fermées, zéro portabilité — votre entreprise tourne selon les règles d’un autre.',
+    'Vos données vivent dans des silos que vous ne contrôlez pas. Formats propriétaires, API fermées, zéro portabilité : votre entreprise tourne selon les règles d’un autre.',
   'home.problem.costSpiral.title': 'Spirale des coûts',
   'home.problem.costSpiral.description':
-    'La tarification par utilisateur joue contre vous. Ce qui commence à 10 €/utilisateur devient discrètement 50, puis 100 € — et vous êtes trop verrouillé pour partir.',
+    'La tarification par utilisateur joue contre vous. Ce qui commence à 10 €/utilisateur devient discrètement 50, puis 100 €, et vous êtes trop verrouillé pour partir.',
   'home.problem.platformDecay.title': 'Dégradation des plateformes',
   'home.problem.platformDecay.description':
     'Les offres gratuites rétrécissent, les paywalls s’étendent, les coûts de migration explosent. Airtable a réduit ses appels API gratuits de illimité à 1 000. Notion a supprimé son add-on IA. Ce schéma est structurel, pas accidentel.',
   'home.problem.bridge': 'Il y a une meilleure approche.',
   'home.solution.title': 'Une config. Une application complète.',
   'home.solution.description':
-    'Sovrium transforme un simple fichier de configuration en une application métier complète — authentification, base de données, API, pages et panneau d’administration inclus.',
+    'Sovrium transforme un simple fichier de configuration en une application métier complète : authentification, base de données, API, pages et panneau d’administration inclus.',
   'home.solution.code.alsoWorks': 'Lancez depuis n’importe quel format :',
   'home.useCases.title': 'Conçu pour le travail réel',
   'home.useCases.internal.title': 'Outils internes',
   'home.useCases.internal.description':
-    'CRM, inventaire, suivi de projets — conçus exactement pour le workflow de votre équipe, pas un template SaaS générique.',
+    'CRM, inventaire, suivi de projets, conçus exactement pour le workflow de votre équipe. Pas un template SaaS générique.',
   'home.useCases.portals.title': 'Portails clients',
   'home.useCases.portals.description':
     'Tableaux de bord personnalisés pour que vos clients consultent des rapports et suivent leur progression. Déployés en heures, pas en mois.',
@@ -79,7 +79,7 @@ export const home: Record<string, string> = {
   'home.gettingStarted.step3.title': 'Lancer',
   'home.gettingStarted.step4.title': 'Personnaliser',
   'home.gettingStarted.step4.description':
-    'Ajoutez des tables, pages, auth — le tout par configuration',
+    'Ajoutez des tables, pages, auth, le tout par configuration',
   'home.gettingStarted.techLine':
     'Construit avec Bun, PostgreSQL, React 19, Effect.ts, Hono, Drizzle ORM, Better Auth et Tailwind CSS.',
   'home.gettingStarted.status.title': 'Construisons ensemble',

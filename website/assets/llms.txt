@@ -1,6 +1,6 @@
 # Sovrium
 
-> A self-hosted, configuration-driven application platform. Define your entire app — data models, auth, pages, themes, analytics — in a single YAML/JSON file.
+> A self-hosted, configuration-driven application platform. Define your entire app (data models, auth, pages, themes, analytics) in a single YAML/JSON file.
 
 Sovrium turns declarative configuration into production-ready applications with built-in authentication (Better Auth), PostgreSQL database (Drizzle ORM), server-side rendered pages, and privacy-friendly analytics. No vendor lock-in, no telemetry, full source available.
 
@@ -8,7 +8,7 @@ Sovrium turns declarative configuration into production-ready applications with 
 
 - [Full LLM Reference](https://sovrium.com/llms-full.txt): Complete documentation for LLMs (~2700 lines)
 - [JSON Schema](https://sovrium.com/schemas/0.2.1/app.schema.json): Machine-readable JSON Schema (Draft-07) for validation and editor support
-- [API Reference](https://sovrium.com/en/docs/api-reference): Interactive REST API documentation (Scalar UI) — 60+ endpoints across 7 categories
+- [API Reference](https://sovrium.com/en/docs/api-reference): Interactive REST API documentation (Scalar UI), 60+ endpoints across 7 categories
 - [GitHub](https://github.com/sovrium/sovrium): Source code repository
 - [License](https://github.com/sovrium/sovrium/blob/main/LICENSE.md): Business Source License 1.1
 
@@ -16,16 +16,16 @@ Sovrium turns declarative configuration into production-ready applications with 
 
 - [Introduction](https://sovrium.com/en/docs): What is Sovrium, why use it, how it works
 - [Installation](https://sovrium.com/en/docs/installation): Prerequisites (Bun 1.3+, PostgreSQL 15+), global/project install, database setup
-- [Quick Start](https://sovrium.com/en/docs/quick-start): Two paths — YAML + CLI or TypeScript + Bun — from zero to running app
+- [Quick Start](https://sovrium.com/en/docs/quick-start): Two paths (YAML + CLI or TypeScript + Bun) from zero to running app
 - [CLI Reference](https://sovrium.com/en/docs/cli): Commands (start, build), flags (--watch, --help), configuration sources, exit codes
-- [TypeScript API](https://sovrium.com/en/docs/typescript): Programmatic usage — start(), build(), AppConfig type, full type reference
-- [Environment Variables](https://sovrium.com/en/docs/env-vars): All env vars — application, server, database, auth, SMTP, build, debug
+- [TypeScript API](https://sovrium.com/en/docs/typescript): Programmatic usage: start(), build(), AppConfig type, full type reference
+- [Environment Variables](https://sovrium.com/en/docs/env-vars): All env vars: application, server, database, auth, SMTP, build, debug
 
 ### App Schema Reference
 
 - [Schema Overview](https://sovrium.com/en/docs/overview): 10 root properties, minimal config, progressive complexity
 - [Tables & Fields](https://sovrium.com/en/docs/tables): Data models, 41 field types in 9 categories, RBAC permissions, indexes
-- [Theme](https://sovrium.com/en/docs/theme): Design tokens — colors, fonts, spacing, shadows, animations, breakpoints, borderRadius
+- [Theme](https://sovrium.com/en/docs/theme): Design tokens: colors, fonts, spacing, shadows, animations, breakpoints, borderRadius
 - [Pages & Components](https://sovrium.com/en/docs/pages): Server-rendered pages, 62 component types, SEO metadata, interactions, $ref templates
 - [Authentication](https://sovrium.com/en/docs/auth): Strategies (email/password, magic link, OAuth), roles, 2FA, email templates
 - [Languages](https://sovrium.com/en/docs/languages): Multi-language support, $t: translation syntax, RTL support

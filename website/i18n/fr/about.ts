@@ -7,13 +7,13 @@
 
 export const about: Record<string, string> = {
   // Meta
-  'about.meta.title': 'Sovrium — À propos',
+  'about.meta.title': 'Sovrium | À propos',
   'about.meta.description':
     'Les personnes et les idées derrière Sovrium. Une plateforme pilotée par la configuration pour construire des outils internes que vous possédez.',
-  'about.meta.og.title': 'Sovrium — À propos',
+  'about.meta.og.title': 'Sovrium | À propos',
   'about.meta.og.description':
     'Les personnes et les idées derrière Sovrium. Une plateforme pour construire des outils internes que vous possédez entièrement.',
-  'about.meta.twitter.title': 'Sovrium — À propos',
+  'about.meta.twitter.title': 'Sovrium | À propos',
   'about.meta.twitter.description':
     'Les personnes et les idées derrière Sovrium. Une plateforme pour construire des outils internes que vous possédez entièrement.',
 
@@ -26,19 +26,19 @@ export const about: Record<string, string> = {
   // Founder
   'about.founder.title': 'Qui construit Sovrium',
   'about.founder.bio':
-    'Fondateur solo qui construit Sovrium à temps partiel — conception du moteur de schémas, écriture du runtime et livraison de chaque version. Source-available, sans comité.',
+    'Fondateur solo qui construit Sovrium à temps partiel : conception du moteur de schémas, écriture du runtime et livraison de chaque version. Source-available, sans comité.',
   'about.team.founder.name': 'Thomas Jeanneau',
   'about.team.founder.role': 'Fondateur',
 
   // Origin Story (compressed from 5 paragraphs to 3)
   'about.origin.title': 'Pourquoi Sovrium existe',
   'about.origin.paragraph1':
-    "J'ai passé des années à construire des outils internes pour des organisations — en no-code, low-code et code. Je livrais vite. Les outils marchaient. Les clients étaient contents, au début.",
+    "J'ai passé des années à construire des outils internes pour des organisations, en no-code, low-code et code. Je livrais vite. Les outils marchaient. Les clients étaient contents, au début.",
   'about.origin.paragraph2':
-    "Avec le temps, les fissures sont apparues. Des éditeurs changeaient leurs API sans prévenir. Les coûts augmentaient de façon imprévisible. Faire communiquer cinq outils entre eux devenait un chantier de maintenance à part entière. Il n'y avait pas de versioning, pas de tests, pas de moyen propre de collaborer. Les organisations avec lesquelles je travaillais avaient une visibilité limitée sur le fonctionnement réel de leurs systèmes — et une capacité limitée à changer de cap.",
+    "Avec le temps, les fissures sont apparues. Des éditeurs changeaient leurs API sans prévenir. Les coûts augmentaient de façon imprévisible. Faire communiquer cinq outils entre eux devenait un chantier de maintenance à part entière. Il n'y avait pas de versioning, pas de tests, pas de moyen propre de collaborer. Les organisations avec lesquelles je travaillais avaient une visibilité limitée sur le fonctionnement réel de leurs systèmes, et une capacité limitée à changer de cap.",
   'about.origin.paragraph3':
-    'Sovrium est ma tentative pour résoudre ce problème. Une plateforme qui combine la rapidité du no-code avec la flexibilité du code. Pilotée par la configuration, auto-hébergée, entièrement versionnable et testable — conçue pour donner aux équipes un vrai contrôle sur les outils dont elles dépendent.',
-  'about.origin.signature': '— Thomas Jeanneau, Fondateur',
+    'Sovrium est ma tentative pour résoudre ce problème. Une plateforme qui combine la rapidité du no-code avec la flexibilité du code. Pilotée par la configuration, auto-hébergée, entièrement versionnable et testable, conçue pour donner aux équipes un vrai contrôle sur les outils dont elles dépendent.',
+  'about.origin.signature': '-- Thomas Jeanneau, Fondateur',
 
   // Principles (unified from old Values + Principles)
   'about.principles.title': 'Ce que nous défendons',
@@ -55,7 +55,7 @@ export const about: Record<string, string> = {
   'about.principles.simplicity.icon': 'sparkles',
   'about.principles.simplicity.title': 'Simplicité',
   'about.principles.simplicity.description':
-    'Les applications métier doivent être configurées, pas programmées. Un fichier de config, une commande, une plateforme — choisissez votre format, obtenez une app complète en secondes.',
+    'Les applications métier doivent être configurées, pas programmées. Un fichier de config, une commande, une plateforme. Choisissez votre format, obtenez une app complète en secondes.',
   'about.principles.minimalDeps.icon': 'settings',
   'about.principles.minimalDeps.title': 'Dépendances minimales',
   'about.principles.minimalDeps.description':
@@ -69,7 +69,7 @@ export const about: Record<string, string> = {
   'about.license.title': 'Source-available',
   'about.license.bsl':
     'Sovrium est distribué sous la Business Source License 1.1 (BSL 1.1). Vous pouvez lire, forker et auto-héberger le code librement pour un usage interne. Il se convertit automatiquement en Apache 2.0 le 1er janvier 2029.',
-  'about.license.status': 'Phase 0 — Fondations. En développement actif.',
+  'about.license.status': 'Phase 0 : Fondations. En développement actif.',
   'about.license.github': 'Voir le code source sur GitHub',
   'about.license.docs': 'Lire la documentation',
   'about.license.docs.href': '/fr/docs',

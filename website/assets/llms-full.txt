@@ -1,6 +1,6 @@
-# Sovrium — Complete Documentation for LLMs
+# Sovrium: Complete Documentation for LLMs
 
-> Sovrium is a self-hosted, configuration-driven application platform. Define your entire app — data models, authentication, pages, themes, analytics — in a single YAML or JSON file. This document is the complete reference for LLMs, covering getting started guides, the full app schema reference, and additional resources.
+> Sovrium is a self-hosted, configuration-driven application platform. Define your entire app (data models, authentication, pages, themes, analytics) in a single YAML or JSON file. This document is the complete reference for LLMs, covering getting started guides, the full app schema reference, and additional resources.
 
 **Schema Version**: 0.2.1
 **JSON Schema**: https://sovrium.com/schemas/0.2.1/app.schema.json
@@ -53,7 +53,7 @@
 
 ### What is Sovrium?
 
-Sovrium is a source-available, self-hosted platform that turns a single configuration file into a complete web application. You describe your application in a YAML or JSON file — data models, authentication, pages, themes, analytics — and Sovrium turns it into a running, full-stack web application.
+Sovrium is a source-available, self-hosted platform that turns a single configuration file into a complete web application. You describe your application in a YAML or JSON file (data models, authentication, pages, themes, analytics) and Sovrium turns it into a running, full-stack web application.
 
 No boilerplate code, no framework setup, no build pipeline. Just one file that declares what your app should be.
 
@@ -155,7 +155,7 @@ Build your first Sovrium app in minutes. From zero to a running application. Cho
 
 Sovrium supports two configuration formats. YAML is great for simplicity; TypeScript gives you full type safety and autocompletion.
 
-### Option A — YAML + CLI
+### Option A: YAML + CLI
 
 The simplest path. Install the Sovrium CLI, write a YAML config, and start the server:
 
@@ -169,7 +169,7 @@ bun add -g sovrium
 
 **Step 2: Create a config file**
 
-Create an `app.yaml` with the simplest valid configuration — just a name.
+Create an `app.yaml` with the simplest valid configuration: just a name.
 
 ```yaml
 name: my-app
@@ -212,7 +212,7 @@ sovrium start app.yaml
 
 > **Tip**: Start small with just tables. Then progressively add theme, auth, pages, and analytics as your needs grow.
 
-### Option B — TypeScript + Bun
+### Option B: TypeScript + Bun
 
 The power-user path. Create a Bun project, add Sovrium as a dependency, and write type-safe code:
 
@@ -242,7 +242,7 @@ await start({
 
 **Step 4: Add data tables**
 
-Extend the configuration with typed fields, options, and validation — with full autocompletion.
+Extend the configuration with typed fields, options, and validation, with full autocompletion.
 
 ```typescript
 import { start } from 'sovrium'
@@ -286,10 +286,10 @@ bun run index.ts
 
 ### What's next?
 
-- **Schema Overview** — All 10 root properties explained
-- **Tables & Fields** — 41 field types, permissions, indexes
-- **Theme** — Colors, fonts, spacing, and design tokens
-- **Pages** — 62 component types for server-rendered pages
+- **Schema Overview**: All 10 root properties explained
+- **Tables & Fields**: 41 field types, permissions, indexes
+- **Theme**: Colors, fonts, spacing, and design tokens
+- **Pages**: 62 component types for server-rendered pages
 
 ---
 
@@ -311,7 +311,7 @@ sovrium --help                  # Show help
 
 Sovrium has two commands. If no command is specified, `start` is used by default.
 
-**sovrium start** — Start a development server that serves your application. Running `sovrium app.yaml` is equivalent to `sovrium start app.yaml`.
+**sovrium start**: Start a development server that serves your application. Running `sovrium app.yaml` is equivalent to `sovrium start app.yaml`.
 
 ```bash
 # Start from a JSON file
@@ -331,7 +331,7 @@ sovrium start app.yaml -w
 PORT=8080 sovrium start app.yaml
 ```
 
-**sovrium build** — Generate a static site from your configuration. Produces HTML, CSS, and assets ready for deployment to any static hosting provider.
+**sovrium build**: Generate a static site from your configuration. Produces HTML, CSS, and assets ready for deployment to any static hosting provider.
 
 ```bash
 # Basic static build
@@ -348,7 +348,7 @@ SOVRIUM_OUTPUT_DIR=./public \
   sovrium build app.yaml
 ```
 
-**sovrium --help** — Display the help message with a summary of commands, options, and examples.
+**sovrium --help**: Display the help message with a summary of commands, options, and examples.
 
 ### Flags
 
@@ -361,14 +361,14 @@ SOVRIUM_OUTPUT_DIR=./public \
 
 Sovrium can load configuration from a file path or from the `APP_SCHEMA` environment variable. A file path takes precedence when both are provided.
 
-**File path** — Pass a path to a JSON or YAML configuration file as the second argument.
+**File path**: Pass a path to a JSON or YAML configuration file as the second argument.
 
 ```bash
 sovrium start app.yaml
 sovrium build config.json
 ```
 
-**Environment variable** — Set the `APP_SCHEMA` variable to provide configuration without a file. Supports inline JSON, inline YAML, or a remote URL.
+**Environment variable**: Set the `APP_SCHEMA` variable to provide configuration without a file. Supports inline JSON, inline YAML, or a remote URL.
 
 ```bash
 # Inline JSON
@@ -430,9 +430,9 @@ import type {
 
 Using Sovrium programmatically gives you advantages beyond the CLI:
 
-- **Type safety** — The `AppConfig` type provides autocomplete for every property and field type. Catch errors at compile time, not runtime.
-- **Programmatic control** — Generate configuration dynamically, compose schemas, and integrate Sovrium into existing applications.
-- **IDE integration** — Full IntelliSense in VS Code and JetBrains — hover docs, go-to-definition, and type errors.
+- **Type safety**: The `AppConfig` type provides autocomplete for every property and field type. Catch errors at compile time, not runtime.
+- **Programmatic control**: Generate configuration dynamically, compose schemas, and integrate Sovrium into existing applications.
+- **IDE integration**: Full IntelliSense in VS Code and JetBrains, with hover docs, go-to-definition, and type errors.
 
 ### start(app, options?)
 
@@ -448,7 +448,7 @@ const server = await start({
 console.log(`Server running at ${server.url}`)
 ```
 
-**StartOptions** — Optional second argument to configure the server.
+**StartOptions**: Optional second argument to configure the server.
 
 | Property | Description |
 |----------|-------------|
@@ -485,7 +485,7 @@ const server = await start(
 
 Generate a static site from a typed configuration object.
 
-**GenerateStaticOptions** — Optional second argument to control static output.
+**GenerateStaticOptions**: Optional second argument to control static output.
 
 | Property | Description |
 |----------|-------------|
@@ -552,28 +552,28 @@ The primary type for typing your configuration objects. Import it from `sovrium`
 
 Additional TypeScript types exported from the `sovrium` package. Import them with `import type { ... } from 'sovrium'`.
 
-**SimpleServer** — Returned by `start()`. A lightweight interface to the running server.
+**SimpleServer**: Returned by `start()`. A lightweight interface to the running server.
 
 | Property | Description |
 |----------|-------------|
 | `url` | Server URL including protocol and port (e.g. "http://localhost:3000"). |
 | `stop()` | Gracefully stop the server. Returns a Promise that resolves when shutdown is complete. |
 
-**PageConfig** — Configuration for a single page. Element of `AppConfig['pages']`.
+**PageConfig**: Configuration for a single page. Element of `AppConfig['pages']`.
 
-**TableConfig** — Configuration for a single data table. Element of `AppConfig['tables']`.
+**TableConfig**: Configuration for a single data table. Element of `AppConfig['tables']`.
 
-**ComponentConfig** — Reusable component template with variable placeholders. Element of `AppConfig['components']`.
+**ComponentConfig**: Reusable component template with variable placeholders. Element of `AppConfig['components']`.
 
-**ThemeConfig** — Design tokens for colors, typography, spacing, shadows, and more.
+**ThemeConfig**: Design tokens for colors, typography, spacing, shadows, and more.
 
-**AuthConfig** — Authentication strategies, roles, and plugin configuration.
+**AuthConfig**: Authentication strategies, roles, and plugin configuration.
 
-**LanguageConfig** — Multi-language support with translations and language detection.
+**LanguageConfig**: Multi-language support with translations and language detection.
 
-**AnalyticsConfig** — Built-in privacy-friendly analytics. Use `true` for defaults or an object for custom settings.
+**AnalyticsConfig**: Built-in privacy-friendly analytics. Use `true` for defaults or an object for custom settings.
 
-**GenerateStaticResult** — Returned by `build()`. Contains the output directory path and the list of generated files.
+**GenerateStaticResult**: Returned by `build()`. Contains the output directory path and the list of generated files.
 
 | Property | Description |
 |----------|-------------|
@@ -708,7 +708,7 @@ Variables for Better Auth integration. Required when the schema defines an `auth
 |----------|-------------|
 | `AUTH_SECRET` | Secret key for signing tokens and encrypting sessions. Must be a strong random string (32+ characters recommended). |
 
-**Default Admin User** — Optional variables to create a default admin user on first startup. All three must be set for the admin user to be created.
+**Default Admin User**: Optional variables to create a default admin user on first startup. All three must be set for the admin user to be created.
 
 | Variable | Description |
 |----------|-------------|
@@ -716,7 +716,7 @@ Variables for Better Auth integration. Required when the schema defines an `auth
 | `AUTH_ADMIN_PASSWORD` | Password for the default admin user. Must be at least 8 characters. |
 | `AUTH_ADMIN_NAME` | Display name for the default admin user. Optional, defaults to "Admin". |
 
-**OAuth Providers** — Credentials for each OAuth provider configured in the auth schema. Replace `{PROVIDER}` with the uppercase provider name.
+**OAuth Providers**: Credentials for each OAuth provider configured in the auth schema. Replace `{PROVIDER}` with the uppercase provider name.
 
 | Variable | Description |
 |----------|-------------|
@@ -778,7 +778,7 @@ Diagnostic and testing variables. Not needed in normal operation.
 
 ## Schema Overview
 
-A Sovrium app is a declarative configuration object with 10 root properties. Only `name` is required — everything else is optional, enabling progressive complexity from a minimal app identifier to a full-stack application.
+A Sovrium app is a declarative configuration object with 10 root properties. Only `name` is required. Everything else is optional, enabling progressive complexity from a minimal app identifier to a full-stack application.
 
 ### Minimal Valid Configuration
 
@@ -1493,9 +1493,9 @@ indexes:
 ## Table Permissions (RBAC)
 
 Three permission value formats:
-- `'all'` — everyone including unauthenticated users
-- `'authenticated'` — any logged-in user
-- `['role1', 'role2']` — array of role names (min 1)
+- `'all'`: everyone including unauthenticated users
+- `'authenticated'`: any logged-in user
+- `['role1', 'role2']`: array of role names (min 1)
 
 ### Table-Level Permissions
 
@@ -1717,9 +1717,9 @@ theme:
 Record of animation name to configuration.
 
 Values can be:
-- `boolean` — enable/disable a built-in animation
-- `string` — CSS animation value
-- `object` — full animation configuration
+- `boolean`: enable/disable a built-in animation
+- `string`: CSS animation value
+- `object`: full animation configuration
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
@@ -2344,7 +2344,7 @@ Built-in, privacy-friendly analytics with no cookies, no external services, and 
 
 ### Quick Enable
 
-Set analytics to `true` for sensible defaults — no configuration needed.
+Set analytics to `true` for sensible defaults. No configuration needed.
 
 ```yaml
 analytics: true
@@ -2453,25 +2453,25 @@ Sovrium exposes a REST API with interactive documentation via Scalar UI. The Ope
 
 ### Key Endpoints
 
-**Records** — Full CRUD with batch support:
-- `GET/POST /api/tables/{tableId}/records` — List and create records
-- `GET/PATCH/DELETE /api/tables/{tableId}/records/{recordId}` — Read, update, delete a record
-- `POST /api/tables/{tableId}/records/batch` — Batch create, update, delete
-- `POST /api/tables/{tableId}/records/upsert` — Upsert records
-- `POST /api/tables/{tableId}/records/{recordId}/restore` — Restore soft-deleted records
-- `GET /api/tables/{tableId}/trash` — List soft-deleted records
+**Records**: Full CRUD with batch support:
+- `GET/POST /api/tables/{tableId}/records`: List and create records
+- `GET/PATCH/DELETE /api/tables/{tableId}/records/{recordId}`: Read, update, delete a record
+- `POST /api/tables/{tableId}/records/batch`: Batch create, update, delete
+- `POST /api/tables/{tableId}/records/upsert`: Upsert records
+- `POST /api/tables/{tableId}/records/{recordId}/restore`: Restore soft-deleted records
+- `GET /api/tables/{tableId}/trash`: List soft-deleted records
 
 **Record Comments & History**:
-- `GET/POST /api/tables/{tableId}/records/{recordId}/comments` — List and add comments
-- `GET /api/tables/{tableId}/records/{recordId}/history` — Record change history
+- `GET/POST /api/tables/{tableId}/records/{recordId}/comments`: List and add comments
+- `GET /api/tables/{tableId}/records/{recordId}/history`: Record change history
 
 **Analytics**:
-- `POST /api/analytics/collect` — Collect page view data
-- `GET /api/analytics/overview` — Traffic overview
-- `GET /api/analytics/pages` — Page-level analytics
-- `GET /api/analytics/referrers` — Referrer sources
-- `GET /api/analytics/devices` — Device and browser breakdown
-- `GET /api/analytics/campaigns` — Campaign tracking
+- `POST /api/analytics/collect`: Collect page view data
+- `GET /api/analytics/overview`: Traffic overview
+- `GET /api/analytics/pages`: Page-level analytics
+- `GET /api/analytics/referrers`: Referrer sources
+- `GET /api/analytics/devices`: Device and browser breakdown
+- `GET /api/analytics/campaigns`: Campaign tracking
 
 Interactive explorer: https://sovrium.com/en/docs/api-reference
 
@@ -2490,7 +2490,7 @@ The Sovrium app schema is published as a JSON Schema (Draft-07) for validation, 
 
 ### Editor Integration
 
-**VS Code** — Add to `.vscode/settings.json`:
+**VS Code**: Add to `.vscode/settings.json`:
 ```json
 {
   "yaml.schemas": {
@@ -2505,7 +2505,7 @@ The Sovrium app schema is published as a JSON Schema (Draft-07) for validation, 
 }
 ```
 
-**JetBrains** (IntelliJ, WebStorm) — Go to Settings → Languages & Frameworks → Schemas and DTDs → JSON Schema Mappings, add URL with file pattern `app.yaml`.
+**JetBrains** (IntelliJ, WebStorm): Go to Settings → Languages & Frameworks → Schemas and DTDs → JSON Schema Mappings, add URL with file pattern `app.yaml`.
 
 ### Programmatic Validation
 
@@ -2689,4 +2689,4 @@ analytics:
 
 ---
 
-*Generated for Sovrium v0.2.1 — https://sovrium.com*
+*Generated for Sovrium v0.2.1 - https://sovrium.com*

@@ -17,7 +17,7 @@ export const partner: Record<string, string> = {
     'Tailor-made solutions to your software challenges. Built with Sovrium.',
   'partner.hero.title': 'Tailor-made solutions to your software challenges',
   'partner.hero.subtitle':
-    'We design, build, and maintain custom internal tools, AI-powered solutions, and automated workflows on your infrastructure. No vendor lock-in, no surprise bills — just software that works for your team.',
+    'We design, build, and maintain custom internal tools, AI-powered solutions, and automated workflows on your infrastructure. No vendor lock-in, no surprise bills. Just software that works for your team.',
   'partner.hero.cta.primary': 'Get in Touch',
   'partner.hero.cta.secondary': 'Our Methodology',
   'partner.trust.title': 'Trusted By',

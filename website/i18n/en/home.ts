@@ -6,13 +6,13 @@
  */
 
 export const home: Record<string, string> = {
-  'home.meta.title': 'Sovrium — One Config. Complete App. Full Control.',
+  'home.meta.title': 'Sovrium | One Config. Complete App. Full Control.',
   'home.meta.description':
     'Source-available, self-hosted platform that turns a single config file into a complete business application. 100% data ownership, zero vendor lock-in.',
-  'home.meta.og.title': 'Sovrium — One Config. Complete App. Full Control.',
+  'home.meta.og.title': 'Sovrium | One Config. Complete App. Full Control.',
   'home.meta.og.description':
     'Source-available, self-hosted platform that turns a single config file into a complete business application. 100% data ownership, zero vendor lock-in.',
-  'home.meta.twitter.title': 'Sovrium — One Config. Complete App. Full Control.',
+  'home.meta.twitter.title': 'Sovrium | One Config. Complete App. Full Control.',
   'home.meta.twitter.description':
     'Source-available, self-hosted platform that turns a single config file into a complete business application. 100% data ownership, zero vendor lock-in.',
   'home.hero.title': 'One Config. Complete App. Full Control.',
@@ -32,19 +32,19 @@ export const home: Record<string, string> = {
     'Your data lives in silos you don’t control. Proprietary formats, closed APIs, and zero portability mean your business runs on someone else’s terms.',
   'home.problem.costSpiral.title': 'Cost Spiral',
   'home.problem.costSpiral.description':
-    'Per-seat pricing compounds against you. What starts at $10/user quietly becomes $50, then $100 — and you’re too locked in to leave.',
+    'Per-seat pricing compounds against you. What starts at $10/user quietly becomes $50, then $100, and you’re too locked in to leave.',
   'home.problem.platformDecay.title': 'Platform Decay',
   'home.problem.platformDecay.description':
     'Free tiers shrink, paywalls expand, switching costs grow. Airtable cut free API calls from unlimited to 1,000. Notion eliminated its AI add-on. This pattern is structural, not accidental.',
   'home.problem.bridge': 'There’s a better way.',
   'home.solution.title': 'One Config. Full Application.',
   'home.solution.description':
-    'Sovrium turns a simple configuration file into a complete business application — authentication, database, API, pages, and admin panel included.',
+    'Sovrium turns a simple configuration file into a complete business application: authentication, database, API, pages, and admin panel included.',
   'home.solution.code.alsoWorks': 'Start from any format:',
   'home.useCases.title': 'Built For Real Work',
   'home.useCases.internal.title': 'Internal Tools',
   'home.useCases.internal.description':
-    'CRM, inventory, project tracking — built exactly for your team’s workflow, not a generic SaaS template.',
+    'CRM, inventory, project tracking, built exactly for your team’s workflow. Not a generic SaaS template.',
   'home.useCases.portals.title': 'Client Portals',
   'home.useCases.portals.description':
     'Branded dashboards for clients to view reports and track progress. Deploy in hours, not months.',
@@ -77,7 +77,7 @@ export const home: Record<string, string> = {
   'home.gettingStarted.step2.description': 'Define your app schema in a config file',
   'home.gettingStarted.step3.title': 'Launch',
   'home.gettingStarted.step4.title': 'Customize',
-  'home.gettingStarted.step4.description': 'Add tables, pages, auth — all through configuration',
+  'home.gettingStarted.step4.description': 'Add tables, pages, auth, all through configuration',
   'home.gettingStarted.techLine':
     'Built with Bun, PostgreSQL, React 19, Effect.ts, Hono, Drizzle ORM, Better Auth, and Tailwind CSS.',
   'home.gettingStarted.status.title': 'Build With Us',

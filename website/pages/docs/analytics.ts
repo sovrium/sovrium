@@ -89,7 +89,7 @@ export const docsAnalytics = docsPage({
           '$t:docs.analytics.quickEnable.description',
           'quick-enable'
         ),
-        codeBlock('# Boolean shorthand — enables all defaults\nanalytics: true', 'yaml'),
+        codeBlock('# Boolean shorthand - enables all defaults\nanalytics: true', 'yaml'),
         calloutTip(
           '$t:docs.analytics.booleanVsObject.title',
           '$t:docs.analytics.booleanVsObject.description'

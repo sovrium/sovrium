@@ -116,7 +116,7 @@ export const privacy: Record<string, string> = {
   'privacy.s10.item1': '• Email: privacy@sovrium.com',
   'privacy.s10.item2': '• GitHub Issues: https://github.com/sovrium/sovrium/issues',
   'privacy.s10.item3': '• Company: ESSENTIAL SERVICES, SAS au capital de 10 000 €',
-  'privacy.s10.item4': '• RCS Paris — SIREN: 834 241 481',
+  'privacy.s10.item4': '• RCS Paris - SIREN: 834 241 481',
   'privacy.s10.item5': '• SIRET: 834 241 481 00029',
   'privacy.s10.item6': '• TVA: FR04834241481',
   'privacy.s10.item7': '• Address: 128 Rue La Boétie, 75008 Paris, France',

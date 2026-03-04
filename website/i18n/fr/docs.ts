@@ -6,7 +6,7 @@
  */
 
 export const docs: Record<string, string> = {
-  'docs.banner.title': 'Sovrium v0.2.2 — Développement actif',
+  'docs.banner.title': 'Sovrium v0.2.2 - Développement actif',
   'docs.banner.body':
     'Ce projet est en cours de développement actif. Les APIs, le format de configuration et les fonctionnalités peuvent changer entre les versions.',
   'docs.sidebar.toggle': 'Menu',
@@ -225,7 +225,7 @@ export const docs: Record<string, string> = {
     'Sovrium est une plateforme source-available, auto-hébergée, qui transforme un seul fichier de configuration en une application web complète.',
   'docs.introduction.what.title': 'Qu’est-ce que Sovrium ?',
   'docs.introduction.what.description':
-    'Sovrium est une plateforme applicative pilotée par la configuration. Vous décrivez votre application dans un fichier YAML ou JSON — modèles de données, authentification, pages, thèmes, analytiques — et Sovrium la transforme en application web full-stack fonctionnelle.',
+    'Sovrium est une plateforme applicative pilotée par la configuration. Vous décrivez votre application dans un fichier YAML ou JSON (modèles de données, authentification, pages, thèmes, analytiques) et Sovrium la transforme en application web full-stack fonctionnelle.',
   'docs.introduction.what.detail':
     'Pas de code répétitif, pas de configuration de framework, pas de pipeline de build. Un seul fichier qui déclare ce que votre application doit être.',
   'docs.introduction.why.title': 'Pourquoi Sovrium ?',
@@ -294,7 +294,7 @@ export const docs: Record<string, string> = {
   'docs.quickStart.chooseApproach': 'Choisissez votre approche',
   'docs.quickStart.chooseApproach.description':
     'Sovrium supporte deux formats de configuration. Le YAML est idéal pour la simplicité ; le TypeScript offre un typage complet et l’autocomplétion.',
-  'docs.quickStart.yaml.title': 'Option A — YAML + CLI',
+  'docs.quickStart.yaml.title': 'Option A : YAML + CLI',
   'docs.quickStart.yaml.description':
     'Le chemin le plus simple. Installez le CLI Sovrium, écrivez un fichier YAML et démarrez le serveur :',
   'docs.quickStart.yaml.step1.title': 'Installer le CLI',
@@ -302,14 +302,14 @@ export const docs: Record<string, string> = {
     'Installez Sovrium globalement avec Bun pour obtenir la commande sovrium.',
   'docs.quickStart.yaml.step2.title': 'Créer un fichier de config',
   'docs.quickStart.yaml.step2.description':
-    'Créez un app.yaml avec la configuration valide la plus simple — juste un nom.',
+    'Créez un app.yaml avec la configuration valide la plus simple : juste un nom.',
   'docs.quickStart.yaml.step3.title': 'Ajouter des tables de données',
   'docs.quickStart.yaml.step3.description':
     'Définissez vos modèles de données avec des champs typés, des options et de la validation.',
   'docs.quickStart.yaml.step4.title': 'Démarrer le serveur',
   'docs.quickStart.yaml.step4.description':
     'Lancez le serveur de développement et visitez http://localhost:3000 pour voir votre application.',
-  'docs.quickStart.ts.title': 'Option B — TypeScript + Bun',
+  'docs.quickStart.ts.title': 'Option B : TypeScript + Bun',
   'docs.quickStart.ts.description':
     'Le chemin pour les utilisateurs avancés. Créez un projet Bun, ajoutez Sovrium comme dépendance et écrivez du code typé :',
   'docs.quickStart.ts.step1.title': 'Initialiser un projet',
@@ -322,7 +322,7 @@ export const docs: Record<string, string> = {
     'Ouvrez index.ts et importez la fonction start avec une configuration minimale.',
   'docs.quickStart.ts.step4.title': 'Ajouter des tables de données',
   'docs.quickStart.ts.step4.description':
-    'Enrichissez la configuration avec des champs typés, des options et de la validation — avec autocomplétion complète.',
+    'Enrichissez la configuration avec des champs typés, des options et de la validation, avec autocomplétion complète.',
   'docs.quickStart.ts.step5.title': 'Lancer votre app',
   'docs.quickStart.ts.step5.description':
     'Exécutez index.ts avec Bun. Visitez http://localhost:3000 pour voir votre application.',
@@ -336,17 +336,17 @@ export const docs: Record<string, string> = {
   'docs.quickStart.whatsNext.description':
     'Maintenant que votre application tourne, explorez la référence du schéma pour ajouter plus de fonctionnalités :',
   'docs.quickStart.whatsNext.overview':
-    'Vue d’ensemble du schéma — Les 10 propriétés racine expliquées',
-  'docs.quickStart.whatsNext.tables': 'Tables & Champs — 41 types de champs, permissions, index',
-  'docs.quickStart.whatsNext.theme': 'Thème — Couleurs, polices, espacement et jetons de design',
+    'Vue d’ensemble du schéma : Les 10 propriétés racine expliquées',
+  'docs.quickStart.whatsNext.tables': 'Tables & Champs : 41 types de champs, permissions, index',
+  'docs.quickStart.whatsNext.theme': 'Thème : Couleurs, polices, espacement et jetons de design',
   'docs.quickStart.whatsNext.pages':
-    'Pages — 62 types de composants pour des pages rendues côté serveur',
+    'Pages : 62 types de composants pour des pages rendues côté serveur',
   'docs.overview.header.title': 'Vue d’ensemble du schéma',
   'docs.overview.header.description':
     'Référence complète du schéma applicatif Sovrium. Un objet de configuration déclaratif avec 10 propriétés racine.',
   'docs.overview.title': 'Structure du schéma',
   'docs.overview.description':
-    'Une application Sovrium est un objet de configuration déclaratif avec 10 propriétés racine. Seul name est requis — tout le reste est optionnel, permettant une complexité progressive, d’un simple identifiant d’application à une application full-stack.',
+    'Une application Sovrium est un objet de configuration déclaratif avec 10 propriétés racine. Seul name est requis. Tout le reste est optionnel, permettant une complexité progressive, d’un simple identifiant d’application à une application full-stack.',
   'docs.overview.footnote':
     'Les fichiers de configuration peuvent être écrits en YAML ou JSON. Exécutez sovrium start app.yaml pour lancer un serveur de développement, ou sovrium build app.yaml pour générer un site statique.',
   'docs.overview.tip.title': 'Complexité progressive',
@@ -452,7 +452,7 @@ export const docs: Record<string, string> = {
   'docs.tables.fieldTypes.description': 'Les types de champs sont organisés en 9 catégories :',
   'docs.tables.fieldTypes.text': 'Champs texte',
   'docs.tables.fieldTypes.text.description':
-    'Champs pour le contenu textuel — des étiquettes courtes au texte riche formaté et aux chaînes structurées.',
+    'Champs pour le contenu textuel, des étiquettes courtes au texte riche formaté et aux chaînes structurées.',
   'docs.tables.fieldTypes.text.maxLength':
     'Nombre maximum de caractères pour les champs rich-text. Validé à la saisie.',
   'docs.tables.fieldTypes.text.fullTextSearch':
@@ -481,7 +481,7 @@ export const docs: Record<string, string> = {
     'Couleur de la barre de progression. Accepte toute valeur CSS de couleur.',
   'docs.tables.fieldTypes.selection': 'Champs de sélection',
   'docs.tables.fieldTypes.selection.description':
-    'Champs pour choisir parmi des options prédéfinies — sélection simple ou multiple avec étiquettes colorées.',
+    'Champs pour choisir parmi des options prédéfinies : sélection simple ou multiple avec étiquettes colorées.',
   'docs.tables.fieldTypes.selection.options': 'Tableau d’objets définissant les choix disponibles.',
   'docs.tables.fieldTypes.selection.optionLabel': 'Texte affiché pour l’option. Requis.',
   'docs.tables.fieldTypes.selection.optionColor':
@@ -544,7 +544,7 @@ export const docs: Record<string, string> = {
   'docs.tables.fieldTypes.relational': 'Champs relationnels',
   'docs.tables.relational.title': 'Champs relationnels',
   'docs.tables.relational.description':
-    'Quatre types de champs permettent les relations inter-tables : relationship, lookup, rollup et count. Ils forment une chaîne — relationship définit le lien, puis lookup, rollup et count en dérivent les données.',
+    'Quatre types de champs permettent les relations inter-tables : relationship, lookup, rollup et count. Ils forment une chaîne. Relationship définit le lien, puis lookup, rollup et count en dérivent les données.',
   'docs.tables.relational.relationship.description':
     'Crée un lien par clé étrangère vers une autre table. Fondation de toutes les fonctionnalités relationnelles.',
   'docs.tables.relational.relationship.relatedTable':
@@ -745,7 +745,7 @@ export const docs: Record<string, string> = {
     'Tout composant peut contenir des children, qui peuvent eux-mêmes contenir des children. Cela permet de construire des mises en page complexes à partir de blocs simples et imbriqués.',
   'docs.pages.componentTypes.title': '62 types de composants',
   'docs.pages.componentTypes.description':
-    'Les composants forment un arbre récursif — chacun peut avoir type, content, props et children.',
+    'Les composants forment un arbre récursif. Chacun peut avoir type, content, props et children.',
   'docs.pages.componentTypes.layout': 'Mise en page',
   'docs.pages.componentTypes.typography': 'Typographie & Texte',
   'docs.pages.componentTypes.media': 'Média & Images',
@@ -780,7 +780,7 @@ export const docs: Record<string, string> = {
     'Définissez des composants réutilisables avec des références $ref et la substitution de $variable pour un balisage DRY.',
   'docs.pages.screenshot.hero.alt': 'Section hero rendue par Sovrium',
   'docs.pages.screenshot.hero.caption':
-    'Une section hero avec titre, description et boutons d’appel à l’action — le tout depuis la config YAML.',
+    'Une section hero avec titre, description et boutons d’appel à l’action, le tout depuis la config YAML.',
   'docs.pages.screenshot.features.alt': 'Grille de fonctionnalités rendue par Sovrium',
   'docs.pages.screenshot.features.caption':
     'Une grille à 3 colonnes utilisant des composants section, grid et card avec des icônes emoji.',
@@ -789,7 +789,7 @@ export const docs: Record<string, string> = {
     'Authentification intégrée propulsée par Better Auth. Configurez les stratégies, les rôles, l’authentification à deux facteurs et les modèles d’e-mail.',
   'docs.auth.basic.title': 'Configuration de base',
   'docs.auth.basic.description':
-    'Commencez avec la config auth la plus simple — email et mot de passe avec un rôle par défaut.',
+    'Commencez avec la config auth la plus simple : email et mot de passe avec un rôle par défaut.',
   'docs.auth.strategies.title': 'Stratégies',
   'docs.auth.strategies.description':
     'Choisissez une ou plusieurs stratégies d’authentification à proposer à vos utilisateurs.',
@@ -872,15 +872,15 @@ export const docs: Record<string, string> = {
   'docs.languages.adding.step3.description':
     'Visitez /[code-langue]/ dans votre navigateur pour vérifier que la nouvelle langue s’affiche correctement.',
   'docs.languages.screenshot.en.alt': 'Version anglaise de l’application',
-  'docs.languages.screenshot.en.caption': 'English — /en/',
+  'docs.languages.screenshot.en.caption': 'English - /en/',
   'docs.languages.screenshot.fr.alt': 'Version française de l’application',
-  'docs.languages.screenshot.fr.caption': 'Français — /fr/',
+  'docs.languages.screenshot.fr.caption': 'Français - /fr/',
   'docs.analytics.title': 'Analytiques',
   'docs.analytics.description':
     'Analytiques intégrées, respectueuses de la vie privée, sans cookies, sans services externes et entièrement conformes au RGPD. Toutes les données restent sur votre serveur.',
   'docs.analytics.howItWorks.title': 'Comment ça marche',
   'docs.analytics.howItWorks.description':
-    'Les analytiques Sovrium suivent un pipeline simple en trois étapes — aucun service externe requis.',
+    'Les analytiques Sovrium suivent un pipeline simple en trois étapes. Aucun service externe requis.',
   'docs.analytics.howItWorks.collect.title': 'Collecter',
   'docs.analytics.howItWorks.collect.description':
     'Un script léger enregistre les pages vues, sessions, référents et infos appareil via /api/analytics/collect.',
@@ -892,7 +892,7 @@ export const docs: Record<string, string> = {
     'Accédez à vos analytiques via le tableau de bord admin ou l’API. Les données restent sur votre serveur.',
   'docs.analytics.quickEnable.title': 'Activation rapide',
   'docs.analytics.quickEnable.description':
-    'Activez analytics à true pour des paramètres par défaut — aucune configuration nécessaire.',
+    'Activez analytics à true pour des paramètres par défaut. Aucune configuration nécessaire.',
   'docs.analytics.booleanVsObject.title': 'Booléen vs Objet',
   'docs.analytics.booleanVsObject.description':
     'analytics: true active les paramètres par défaut (rétention 90 jours, DNT respecté, sessions de 30 min). Utilisez un objet pour personnaliser des paramètres spécifiques tout en gardant les valeurs par défaut pour le reste.',
@@ -909,7 +909,7 @@ export const docs: Record<string, string> = {
     'Délai d’expiration de session en minutes. Une nouvelle session démarre après cette période d’inactivité. Par défaut : 30.',
   'docs.analytics.privacy.title': 'Analytiques orientées vie privée',
   'docs.analytics.privacy.body':
-    'Les analytiques Sovrium sont sans cookies, conformes RGPD par défaut. Toutes les données restent sur votre serveur — aucun service tiers impliqué.',
+    'Les analytiques Sovrium sont sans cookies, conformes RGPD par défaut. Toutes les données restent sur votre serveur. Aucun service tiers impliqué.',
   'docs.analytics.details':
     'Lorsqu’activé, Sovrium injecte un script de suivi léger qui enregistre les pages vues, les sessions, les référents et les informations sur l’appareil. Les données analytiques sont collectées à /api/analytics/collect et stockées localement.',
   // ── CLI Reference ──────────────────────────────────────────────────────
