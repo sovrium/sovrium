@@ -5,12 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { ComponentTemplate } from '@/index'
+import type { ComponentConfig } from '@/index'
 
 // ─── value-card: About page principle card with icon, title, description ─────
 // Used in about.ts principles section (5 cards)
 // vars: { key: 'sovereignty' | 'transparency' | 'simplicity' | 'minimalDeps' | 'ownership' }
-export const valueCard: ComponentTemplate = {
+export const valueCard: ComponentConfig = {
   name: 'value-card',
   type: 'card',
   props: {

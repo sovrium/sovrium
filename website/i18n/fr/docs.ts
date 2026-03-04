@@ -1071,13 +1071,13 @@ export const docs: Record<string, string> = {
     'Utilisez Sovrium de manière programmatique avec TypeScript. Importez les fonctions start et build avec typage complet.',
   'docs.typescript.header.title': 'API TypeScript',
   'docs.typescript.header.description':
-    'Utilisez Sovrium comme bibliothèque dans votre projet TypeScript. Importez les fonctions start et build pour un contrôle programmatique complet avec configuration typée.',
+    'Utilisez Sovrium comme bibliothèque dans votre projet TypeScript. Importez start, build et le type AppConfig pour un contrôle programmatique complet avec configuration typée.',
   'docs.typescript.why.title': 'Pourquoi TypeScript\u00a0?',
   'docs.typescript.why.description':
     'Utiliser Sovrium de manière programmatique offre des avantages au-delà de la CLI.',
   'docs.typescript.why.point1.title': 'Sécurité des types',
   'docs.typescript.why.point1.description':
-    "Le type App fournit l'autocomplétion pour chaque propriété et type de champ. Détectez les erreurs à la compilation.",
+    "Le type AppConfig fournit l'autocomplétion pour chaque propriété et type de champ. Détectez les erreurs à la compilation.",
   'docs.typescript.why.point2.title': 'Contrôle programmatique',
   'docs.typescript.why.point2.description':
     'Générez la configuration dynamiquement, composez des schémas et intégrez Sovrium dans des applications existantes.',
@@ -1123,9 +1123,9 @@ export const docs: Record<string, string> = {
   'docs.typescript.watchMode.tip.title': 'Rechargement vs surveillance',
   'docs.typescript.watchMode.tip.body':
     'bun --watch redémarre tout le processus quand un fichier importé change. Pour les changements de configuration uniquement, le --watch de la CLI est plus efficace.',
-  'docs.typescript.appType.title': 'Type App',
+  'docs.typescript.appType.title': 'AppConfig',
   'docs.typescript.appType.description':
-    "Le type App définit la structure complète d'une configuration Sovrium. Importez-le depuis sovrium pour les annotations de type.",
+    'Le type principal pour typer vos objets de configuration JSON ou YAML. Importez-le depuis sovrium pour obtenir autocomplétion et vérification de types.',
   'docs.typescript.appType.props.name':
     "Nom de l'application. Minuscules, compatible npm (ex\u00a0: my-app, @org/app).",
   'docs.typescript.appType.props.version': 'Version SemVer (ex\u00a0: 1.0.0).',
@@ -1151,7 +1151,7 @@ export const docs: Record<string, string> = {
   // ── Type Reference ────────────────────────────────────────────────────
   'docs.typescript.typeRef.title': 'Référence des types',
   'docs.typescript.typeRef.description':
-    'Tous les types TypeScript exportés par le package sovrium. Importez-les avec import type { ... } from "sovrium".',
+    'Types TypeScript supplémentaires exportés par le package sovrium. Importez-les avec import type { ... } from "sovrium".',
 
   'docs.typescript.typeRef.simpleServer.description':
     "Retourné par start(). Interface légère vers le serveur en cours d'exécution.",
@@ -1160,43 +1160,20 @@ export const docs: Record<string, string> = {
   'docs.typescript.typeRef.simpleServer.stop':
     "Arrête le serveur proprement. Retourne une Promise qui se résout quand l'arrêt est terminé.",
 
-  'docs.typescript.typeRef.appEncoded.description':
-    'La forme brute acceptée par start() et build() avant validation Effect Schema. Structurellement identique à App mais sans les transformations du schéma.',
-  'docs.typescript.typeRef.appEncoded.tip.title': 'App vs AppEncoded',
-  'docs.typescript.typeRef.appEncoded.tip.body':
-    'Utilisez App pour annoter les objets de configuration validés. Utilisez AppEncoded pour typer les entrées brutes qui seront passées à start() ou build() pour validation.',
-
-  'docs.typescript.typeRef.page.description':
-    'Une configuration de page validée. Les pages définissent des routes, des métadonnées, des sections de mise en page et des scripts optionnels.',
-  'docs.typescript.typeRef.page.id': 'Identifiant unique optionnel pour les références internes.',
-  'docs.typescript.typeRef.page.name':
-    'Nom lisible de la page utilisé pour l\'identification (ex\u00a0: "home", "about").',
-  'docs.typescript.typeRef.page.path':
-    'Chemin URL où la page est servie (ex\u00a0: "/", "/about", "/products/pricing").',
-  'docs.typescript.typeRef.page.meta':
-    'Métadonnées SEO\u00a0: titre, description, Open Graph, Twitter Card, données structurées, hints de performance.',
-  'docs.typescript.typeRef.page.sections':
-    'Tableau de sections de contenu. Chaque section est un composant direct ou une $ref vers un template.',
-  'docs.typescript.typeRef.page.scripts':
-    'Scripts côté client\u00a0: feature flags, scripts externes, scripts inline.',
-  'docs.typescript.typeRef.page.vars':
-    'Variables au niveau de la page pour la substitution $variable dans les sections.',
-
-  'docs.typescript.typeRef.pageEncoded.description':
-    "La forme brute d'une page avant validation Effect Schema. Même relation que AppEncoded par rapport à App.",
-
-  'docs.typescript.typeRef.componentTemplate.description':
-    'Un template de composant UI réutilisable avec des placeholders $variable. Défini dans app.components[] et référencé par les pages via la syntaxe $ref.',
-  'docs.typescript.typeRef.componentTemplate.name':
-    'Identifiant unique en kebab-case (ex\u00a0: "hero-card", "feature-row").',
-  'docs.typescript.typeRef.componentTemplate.type':
-    'Type de composant\u00a0: container, flex, grid, card, text, button, heading, paragraph, etc.',
-  'docs.typescript.typeRef.componentTemplate.props':
-    'Propriétés du composant. Les valeurs peuvent contenir des placeholders $variable.',
-  'docs.typescript.typeRef.componentTemplate.children':
-    'Composants enfants imbriqués. Les enfants peuvent aussi contenir des placeholders $variable.',
-  'docs.typescript.typeRef.componentTemplate.content':
-    'Contenu textuel. Peut contenir des placeholders $variable pour la substitution dynamique.',
+  'docs.typescript.typeRef.pageConfig.description':
+    "Configuration d'une page. Élément de AppConfig['pages'].",
+  'docs.typescript.typeRef.tableConfig.description':
+    "Configuration d'une table de données. Élément de AppConfig['tables'].",
+  'docs.typescript.typeRef.componentConfig.description':
+    "Modèle de composant réutilisable avec variables. Élément de AppConfig['components'].",
+  'docs.typescript.typeRef.themeConfig.description':
+    "Jetons de design pour les couleurs, la typographie, l'espacement et les ombres.",
+  'docs.typescript.typeRef.authConfig.description':
+    "Stratégies d'authentification, rôles et plugins.",
+  'docs.typescript.typeRef.languageConfig.description':
+    'Support multilingue avec traductions et détection de langue.',
+  'docs.typescript.typeRef.analyticsConfig.description':
+    'Analytics intégrés et respectueux de la vie privée. Utilisez true pour les valeurs par défaut ou un objet pour personnaliser.',
 
   'docs.typescript.typeRef.generateStaticResult.description':
     'Retourné par build(). Contient le chemin du répertoire de sortie et la liste des fichiers générés.',
@@ -1204,18 +1181,6 @@ export const docs: Record<string, string> = {
     'Chemin absolu vers le répertoire de sortie (ex\u00a0: "./static").',
   'docs.typescript.typeRef.generateStaticResult.files':
     'Tableau des chemins de fichiers générés durant le build (HTML, CSS, assets).',
-
-  // ── Runtime Schemas ───────────────────────────────────────────────────
-  'docs.typescript.runtimeSchemas.title': "Schémas d'exécution",
-  'docs.typescript.runtimeSchemas.description':
-    "Sovrium exporte des objets Effect Schema pour la validation à l'exécution. Utilisez-les pour valider des entrées inconnues de manière programmatique.",
-  'docs.typescript.runtimeSchemas.appSchema':
-    "Effect Schema pour la configuration complète de l'application. Valide name, tables, theme, pages, auth, etc.",
-  'docs.typescript.runtimeSchemas.pageSchema':
-    "Effect Schema pour la configuration d'une page. Valide name, path, meta, sections, scripts.",
-  'docs.typescript.runtimeSchemas.tip.title': "Quand utiliser les schémas d'exécution",
-  'docs.typescript.runtimeSchemas.tip.body':
-    "Utilisez AppSchema et PageSchema quand vous devez valider une configuration provenant de sources externes (fichiers, APIs, saisie utilisateur). Pour les objets typés dans votre propre code, les types App et Page offrent la sécurité à la compilation sans surcoût à l'exécution.",
 
   'docs.typescript.examples.title': 'Exemples',
   'docs.typescript.examples.description': "Cas d'utilisation courants avec Sovrium en TypeScript.",

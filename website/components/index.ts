@@ -27,9 +27,9 @@ import {
   marqueeLogoItem,
 } from './partner-components'
 import { sovriumBadge } from './shared-components'
-import type { ComponentTemplate } from '@/index'
+import type { ComponentConfig } from '@/index'
 
-export const components: readonly ComponentTemplate[] = [
+export const components: readonly ComponentConfig[] = [
   // About page
   valueCard,
   // Docs page

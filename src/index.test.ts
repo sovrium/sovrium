@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, test, expect } from 'bun:test'
 import { start, build } from '.'
-import type { AppEncoded } from '.'
+import type { AppConfig } from '.'
 
 /**
  * Unit Tests for Programmatic API
@@ -27,7 +27,7 @@ import type { AppEncoded } from '.'
 describe('Programmatic API - start()', () => {
   test('should start server with minimal config object', async () => {
     // GIVEN: Minimal app configuration object (no file, direct TypeScript)
-    const app: AppEncoded = {
+    const app: AppConfig = {
       name: 'programmatic-test-app',
       description: 'Testing TypeScript API',
     }
@@ -51,7 +51,7 @@ describe('Programmatic API - start()', () => {
 
   test('should support custom port option', async () => {
     // GIVEN: App config with custom port via options object
-    const app: AppEncoded = {
+    const app: AppConfig = {
       name: 'custom-port-app',
       description: 'Testing custom port',
     }
@@ -77,7 +77,7 @@ describe('Programmatic API - start()', () => {
 
   test('should support custom hostname option', async () => {
     // GIVEN: App config with custom hostname
-    const app: AppEncoded = {
+    const app: AppConfig = {
       name: 'custom-host-app',
       description: 'Testing custom hostname',
     }
@@ -102,7 +102,7 @@ describe('Programmatic API - start()', () => {
     const invalidApp = {
       description: 'App without name',
       // name field intentionally omitted
-    } as unknown as AppEncoded
+    } as unknown as AppConfig
 
     // WHEN: Attempting to start server with invalid config
     // THEN: Promise rejects with validation error
@@ -111,7 +111,7 @@ describe('Programmatic API - start()', () => {
 
   test('should provide working stop() method for graceful shutdown', async () => {
     // GIVEN: Running server
-    const app: AppEncoded = {
+    const app: AppConfig = {
       name: 'shutdown-test-app',
       description: 'Testing graceful shutdown',
     }
@@ -137,7 +137,7 @@ describe('Programmatic API - start()', () => {
 
   test('should support comprehensive app configuration', async () => {
     // GIVEN: Comprehensive app config with theme, pages, metadata
-    const app: AppEncoded = {
+    const app: AppConfig = {
       name: 'full-featured-programmatic-app',
       description: 'Complete configuration test',
       version: '2.5.0',
@@ -194,7 +194,7 @@ describe('Programmatic API - start()', () => {
 
   test('should start server with default options when none provided', async () => {
     // GIVEN: App config with NO options object
-    const app: AppEncoded = {
+    const app: AppConfig = {
       name: 'default-options-app',
       description: 'Testing default port and hostname',
     }
@@ -216,7 +216,7 @@ describe('Programmatic API - start()', () => {
 
   test('should support multiple concurrent server instances', async () => {
     // GIVEN: Two different app configurations
-    const app1: AppEncoded = {
+    const app1: AppConfig = {
       name: 'embedded-app-1',
       description: 'First embedded server',
       pages: [
@@ -232,7 +232,7 @@ describe('Programmatic API - start()', () => {
       ],
     }
 
-    const app2: AppEncoded = {
+    const app2: AppConfig = {
       name: 'embedded-app-2',
       description: 'Second embedded server',
       version: '1.0.0',
@@ -286,7 +286,7 @@ describe('Programmatic API - start()', () => {
 describe('Programmatic API - build()', () => {
   test('should generate static site with minimal config object', async () => {
     // GIVEN: Minimal app configuration object (no file, direct TypeScript)
-    const app: AppEncoded = {
+    const app: AppConfig = {
       name: 'programmatic-static-app',
       description: 'Testing TypeScript static API',
       pages: [
@@ -328,7 +328,7 @@ describe('Programmatic API - build()', () => {
 
   test('should support custom output directory option', async () => {
     // GIVEN: App config with custom output directory
-    const app: AppEncoded = {
+    const app: AppConfig = {
       name: 'custom-output-app',
       description: 'Testing custom output directory',
       pages: [
@@ -366,7 +366,7 @@ describe('Programmatic API - build()', () => {
       description: 'App without name',
       pages: [],
       // name field intentionally omitted
-    } as unknown as AppEncoded
+    } as unknown as AppConfig
 
     // WHEN: Attempting to generate static site with invalid config
     // THEN: Promise rejects with validation error
@@ -375,7 +375,7 @@ describe('Programmatic API - build()', () => {
 
   test('should return complete file list in result', async () => {
     // GIVEN: App with multiple pages
-    const app: AppEncoded = {
+    const app: AppConfig = {
       name: 'multi-page-app',
       description: 'Testing file list',
       pages: [
@@ -423,7 +423,7 @@ describe('Programmatic API - build()', () => {
 
   test('should support generation options (baseUrl, sitemap, robots)', async () => {
     // GIVEN: App config with generation options
-    const app: AppEncoded = {
+    const app: AppConfig = {
       name: 'options-test-app',
       description: 'Testing generation options',
       pages: [
@@ -472,7 +472,7 @@ describe('Programmatic API - build()', () => {
 
   test('should support comprehensive app configuration', async () => {
     // GIVEN: Comprehensive app config with theme, pages, metadata
-    const app: AppEncoded = {
+    const app: AppConfig = {
       name: 'full-featured-static-app',
       description: 'Complete static generation test',
       version: '3.0.0',
@@ -530,7 +530,7 @@ describe('Programmatic API - build()', () => {
 
   test('should generate with minimal options', async () => {
     // GIVEN: App config with minimal options (just outputDir for test isolation)
-    const app: AppEncoded = {
+    const app: AppConfig = {
       name: 'default-options-static-app',
       description: 'Testing default generation options',
       pages: [
@@ -565,7 +565,7 @@ describe('Programmatic API - build()', () => {
 
   test('should support deployment-specific options', async () => {
     // GIVEN: App config with GitHub Pages deployment options
-    const app: AppEncoded = {
+    const app: AppConfig = {
       name: 'github-pages-app',
       description: 'Testing deployment options',
       pages: [
@@ -615,7 +615,7 @@ describe('Programmatic API - build()', () => {
 
   test('should support build script integration workflow', async () => {
     // GIVEN: Comprehensive build configuration
-    const app: AppEncoded = {
+    const app: AppConfig = {
       name: 'build-script-app',
       description: 'Automated build via TypeScript',
       version: '1.0.0-build',

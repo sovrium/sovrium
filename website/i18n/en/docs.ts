@@ -1042,13 +1042,13 @@ export const docs: Record<string, string> = {
     'Use Sovrium programmatically with TypeScript. Import the start and build functions with full type safety.',
   'docs.typescript.header.title': 'TypeScript API',
   'docs.typescript.header.description':
-    'Use Sovrium as a library in your TypeScript project. Import the start and build functions for full programmatic control with typed configuration.',
+    'Use Sovrium as a library in your TypeScript project. Import start, build, and the AppConfig type for full programmatic control with typed configuration.',
   'docs.typescript.why.title': 'Why TypeScript?',
   'docs.typescript.why.description':
     'Using Sovrium programmatically gives you advantages beyond the CLI.',
   'docs.typescript.why.point1.title': 'Type safety',
   'docs.typescript.why.point1.description':
-    'The App type provides autocomplete for every property and field type. Catch errors at compile time, not runtime.',
+    'The AppConfig type provides autocomplete for every property and field type. Catch errors at compile time, not runtime.',
   'docs.typescript.why.point2.title': 'Programmatic control',
   'docs.typescript.why.point2.description':
     'Generate configuration dynamically, compose schemas, and integrate Sovrium into existing applications.',
@@ -1088,9 +1088,9 @@ export const docs: Record<string, string> = {
   'docs.typescript.watchMode.tip.title': 'Reload vs watch',
   'docs.typescript.watchMode.tip.body':
     "bun --watch restarts the entire process when any imported file changes. For config-only changes, the CLI's --watch flag is more efficient.",
-  'docs.typescript.appType.title': 'App Type',
+  'docs.typescript.appType.title': 'AppConfig',
   'docs.typescript.appType.description':
-    'The App type defines the complete structure of a Sovrium configuration. Import it from sovrium for type annotations.',
+    'The primary type for typing your JSON or YAML configuration objects. Import it from sovrium to get full autocomplete and type checking.',
   'docs.typescript.appType.props.name':
     'Application name. Lowercase, npm-compatible (e.g. my-app, @org/app).',
   'docs.typescript.appType.props.version': 'SemVer version string (e.g. 1.0.0).',
@@ -1116,7 +1116,7 @@ export const docs: Record<string, string> = {
   // ── Type Reference ────────────────────────────────────────────────────
   'docs.typescript.typeRef.title': 'Type Reference',
   'docs.typescript.typeRef.description':
-    'All TypeScript types exported from the sovrium package. Import them with import type { ... } from "sovrium".',
+    'Additional TypeScript types exported from the sovrium package. Import them with import type { ... } from "sovrium".',
 
   'docs.typescript.typeRef.simpleServer.description':
     'Returned by start(). A lightweight interface to the running server.',
@@ -1125,43 +1125,20 @@ export const docs: Record<string, string> = {
   'docs.typescript.typeRef.simpleServer.stop':
     'Gracefully stop the server. Returns a Promise that resolves when shutdown is complete.',
 
-  'docs.typescript.typeRef.appEncoded.description':
-    'The raw input shape accepted by start() and build() before Effect Schema validation. Structurally identical to App but without schema transformations applied.',
-  'docs.typescript.typeRef.appEncoded.tip.title': 'App vs AppEncoded',
-  'docs.typescript.typeRef.appEncoded.tip.body':
-    'Use App when annotating validated configuration objects. Use AppEncoded when typing raw input that will be passed to start() or build() for validation.',
-
-  'docs.typescript.typeRef.page.description':
-    'A validated page configuration. Pages define routes, metadata, layout sections, and optional scripts.',
-  'docs.typescript.typeRef.page.id': 'Optional unique identifier for internal references.',
-  'docs.typescript.typeRef.page.name':
-    'Human-readable page name used for identification (e.g. "home", "about").',
-  'docs.typescript.typeRef.page.path':
-    'URL path where the page is served (e.g. "/", "/about", "/products/pricing").',
-  'docs.typescript.typeRef.page.meta':
-    'SEO metadata: title, description, Open Graph, Twitter Card, structured data, performance hints.',
-  'docs.typescript.typeRef.page.sections':
-    'Array of content sections. Each section is a direct component or a $ref to a component template.',
-  'docs.typescript.typeRef.page.scripts':
-    'Client-side scripts: feature flags, external scripts, inline scripts.',
-  'docs.typescript.typeRef.page.vars':
-    'Page-level variables for $variable substitution in sections.',
-
-  'docs.typescript.typeRef.pageEncoded.description':
-    'The raw input shape for a page before Effect Schema validation. Same relationship as AppEncoded to App.',
-
-  'docs.typescript.typeRef.componentTemplate.description':
-    'A reusable UI component template with $variable placeholders. Defined in app.components[] and referenced by pages via $ref syntax.',
-  'docs.typescript.typeRef.componentTemplate.name':
-    'Unique identifier in kebab-case (e.g. "hero-card", "feature-row").',
-  'docs.typescript.typeRef.componentTemplate.type':
-    'Component type: container, flex, grid, card, text, button, heading, paragraph, etc.',
-  'docs.typescript.typeRef.componentTemplate.props':
-    'Component properties. Values may contain $variable placeholders.',
-  'docs.typescript.typeRef.componentTemplate.children':
-    'Nested child components. Children may also contain $variable placeholders.',
-  'docs.typescript.typeRef.componentTemplate.content':
-    'Text content. May contain $variable placeholders for dynamic substitution.',
+  'docs.typescript.typeRef.pageConfig.description':
+    "Configuration for a single page. Element of AppConfig['pages'].",
+  'docs.typescript.typeRef.tableConfig.description':
+    "Configuration for a single data table. Element of AppConfig['tables'].",
+  'docs.typescript.typeRef.componentConfig.description':
+    "Reusable component template with variable placeholders. Element of AppConfig['components'].",
+  'docs.typescript.typeRef.themeConfig.description':
+    'Design tokens for colors, typography, spacing, shadows, and more.',
+  'docs.typescript.typeRef.authConfig.description':
+    'Authentication strategies, roles, and plugin configuration.',
+  'docs.typescript.typeRef.languageConfig.description':
+    'Multi-language support with translations and language detection.',
+  'docs.typescript.typeRef.analyticsConfig.description':
+    'Built-in privacy-friendly analytics. Use true for defaults or an object for custom settings.',
 
   'docs.typescript.typeRef.generateStaticResult.description':
     'Returned by build(). Contains the output directory path and the list of generated files.',
@@ -1169,18 +1146,6 @@ export const docs: Record<string, string> = {
     'Absolute path to the output directory (e.g. "./static").',
   'docs.typescript.typeRef.generateStaticResult.files':
     'Array of file paths generated during the build (HTML, CSS, assets).',
-
-  // ── Runtime Schemas ───────────────────────────────────────────────────
-  'docs.typescript.runtimeSchemas.title': 'Runtime Schemas',
-  'docs.typescript.runtimeSchemas.description':
-    'Sovrium exports Effect Schema objects for runtime validation. Use these to validate unknown input programmatically.',
-  'docs.typescript.runtimeSchemas.appSchema':
-    'Effect Schema for the full app configuration. Validates name, tables, theme, pages, auth, etc.',
-  'docs.typescript.runtimeSchemas.pageSchema':
-    'Effect Schema for a single page configuration. Validates name, path, meta, sections, scripts.',
-  'docs.typescript.runtimeSchemas.tip.title': 'When to use runtime schemas',
-  'docs.typescript.runtimeSchemas.tip.body':
-    'Use AppSchema and PageSchema when you need to validate configuration from external sources (files, APIs, user input). For typed objects in your own code, the App and Page types provide compile-time safety without runtime overhead.',
 
   'docs.typescript.examples.title': 'Examples',
   'docs.typescript.examples.description': 'Common usage patterns with Sovrium in TypeScript.',

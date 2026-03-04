@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { ComponentTemplate } from '@/index'
+import type { ComponentConfig } from '@/index'
 
 // ─── docs-nav-link: Sidebar navigation link for multi-page docs ─────────────
 // Used in docs/shared.ts sidebar (8 links per page)
@@ -13,7 +13,7 @@ import type { ComponentTemplate } from '@/index'
 // activeClass is set by docsPage() builder:
 //   Active:   'text-sovereignty-accent bg-sovereignty-gray-900 font-medium'
 //   Inactive: 'text-sovereignty-gray-400 hover:text-sovereignty-accent hover:bg-sovereignty-gray-900'
-export const docsNavLink: ComponentTemplate = {
+export const docsNavLink: ComponentConfig = {
   name: 'docs-nav-link',
   type: 'link',
   content: '$label',
@@ -29,7 +29,7 @@ export const docsNavLink: ComponentTemplate = {
 // langIcon: Lucide icon name for the language header (e.g. 'file-text', 'terminal')
 // langLabel: Display label for the language header (e.g. 'YAML', 'Terminal')
 // Shiki script upgrades [data-shiki] elements post-render; plain text is fallback
-export const docsCodeBlock: ComponentTemplate = {
+export const docsCodeBlock: ComponentConfig = {
   name: 'docs-code-block',
   type: 'div',
   props: {
@@ -80,7 +80,7 @@ export const docsCodeBlock: ComponentTemplate = {
 // Used in docs-schema.ts Root Properties section (10 cards)
 // vars: { name, type, requiredClass, description }
 // requiredClass: '' (visible) or 'hidden' (hidden)
-export const docsPropertyCard: ComponentTemplate = {
+export const docsPropertyCard: ComponentConfig = {
   name: 'docs-property-card',
   type: 'div',
   props: {
@@ -125,7 +125,7 @@ export const docsPropertyCard: ComponentTemplate = {
 // ─── docs-info-card: Titled card for feature descriptions ───────────────────
 // Used in docs-schema.ts Theme and Auth sections
 // vars: { title, description }
-export const docsInfoCard: ComponentTemplate = {
+export const docsInfoCard: ComponentConfig = {
   name: 'docs-info-card',
   type: 'div',
   props: {
@@ -149,7 +149,7 @@ export const docsInfoCard: ComponentTemplate = {
 // ─── docs-info-card-icon: Info card with a leading Lucide icon ───────────────
 // Used in introduction.ts "Why Sovrium?" section
 // vars: { iconName, title, description }
-export const docsInfoCardIcon: ComponentTemplate = {
+export const docsInfoCardIcon: ComponentConfig = {
   name: 'docs-info-card-icon',
   type: 'div',
   props: {
@@ -192,7 +192,7 @@ export const docsInfoCardIcon: ComponentTemplate = {
 // ─── docs-badge-item: Inline monospace badge for field/component types ──────
 // Used in docs-schema.ts Tables & Pages sections (100+ badges)
 // vars: { label: 'single-line-text' }
-export const docsBadgeItem: ComponentTemplate = {
+export const docsBadgeItem: ComponentConfig = {
   name: 'docs-badge-item',
   type: 'span',
   content: '$label',
@@ -204,7 +204,7 @@ export const docsBadgeItem: ComponentTemplate = {
 
 // ─── docs-callout: Tip/warning/info box with colored left border ────────────
 // vars: { iconName, title, body, borderColor, bgColor, titleColor, iconColor, textColor }
-export const docsCallout: ComponentTemplate = {
+export const docsCallout: ComponentConfig = {
   name: 'docs-callout',
   type: 'div',
   props: {
@@ -248,7 +248,7 @@ export const docsCallout: ComponentTemplate = {
 
 // ─── docs-section-header: Consistent h2 with anchor + description ───────────
 // vars: { title, description, anchor }
-export const docsSectionHeader: ComponentTemplate = {
+export const docsSectionHeader: ComponentConfig = {
   name: 'docs-section-header',
   type: 'div',
   props: { className: 'mb-6' },
@@ -272,7 +272,7 @@ export const docsSectionHeader: ComponentTemplate = {
 
 // ─── docs-step: Numbered step with circle + title + description ─────────────
 // vars: { stepNumber, title, description }
-export const docsStep: ComponentTemplate = {
+export const docsStep: ComponentConfig = {
   name: 'docs-step',
   type: 'div',
   props: { className: 'flex gap-4 mb-6' },
@@ -312,7 +312,7 @@ export const docsStep: ComponentTemplate = {
 
 // ─── docs-screenshot: Figure with lazy-loaded image + caption ────────────────
 // vars: { src, alt, caption }
-export const docsScreenshot: ComponentTemplate = {
+export const docsScreenshot: ComponentConfig = {
   name: 'docs-screenshot',
   type: 'div',
   props: { className: 'my-6' },
@@ -348,7 +348,7 @@ export const docsScreenshot: ComponentTemplate = {
 // ─── docs-property-row: Single row for property references ───────────────────
 // vars: { name, description }
 // Uses a fixed 35%/65% column split matching the propertyTable header in shared.ts.
-export const docsPropertyRow: ComponentTemplate = {
+export const docsPropertyRow: ComponentConfig = {
   name: 'docs-property-row',
   type: 'div',
   props: {

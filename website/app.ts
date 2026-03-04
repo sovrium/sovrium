@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { type App } from '@/index'
+import { type AppConfig } from '@/index'
 import { components } from './components'
 import { en } from './i18n/en'
 import { fr } from './i18n/fr'
@@ -35,7 +35,7 @@ import { partner } from './pages/partner'
 import { privacyPolicy } from './pages/privacy-policy'
 import { termsOfService } from './pages/terms-of-service'
 
-export const app: App = {
+export const app: AppConfig = {
   name: 'sovrium-website',
   theme: {
     colors: {

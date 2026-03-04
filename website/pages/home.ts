@@ -15,9 +15,9 @@ import {
   searchScript,
 } from './navbar'
 import { shikiHighlightScript, shikiCustomStyles } from './shiki'
-import type { Page } from '@/index'
+import type { PageConfig } from '@/index'
 
-export const home: Page = {
+export const home: PageConfig = {
   name: 'home',
   path: '/',
   meta: {

@@ -14,9 +14,9 @@ import {
   mobileMenuScript,
   searchScript,
 } from './navbar'
-import type { Page } from '@/index'
+import type { PageConfig } from '@/index'
 
-export const privacyPolicy: Page = {
+export const privacyPolicy: PageConfig = {
   name: 'privacy-policy',
   path: '/privacy-policy',
   meta: {

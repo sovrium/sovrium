@@ -7,7 +7,7 @@
 
 import { favicons } from './favicons'
 import { version } from './navbar'
-import type { Page } from '@/index'
+import type { PageConfig } from '@/index'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -150,7 +150,7 @@ const typographyRow = (
 
 // ─── Page ───────────────────────────────────────────────────────────────────────
 
-export const brandCharter: Page = {
+export const brandCharter: PageConfig = {
   name: 'brand-charter',
   path: '/brand-charter',
   meta: {

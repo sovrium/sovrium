@@ -5,12 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { ComponentTemplate } from '@/index'
+import type { ComponentConfig } from '@/index'
 
 // ─── sovrium-badge: Fixed "Built with Sovrium" badge ──────────────────────
 // Used across all pages as the last section
 // No vars needed (shorthand syntax: { component: 'sovrium-badge' })
-export const sovriumBadge: ComponentTemplate = {
+export const sovriumBadge: ComponentConfig = {
   name: 'sovrium-badge',
   type: 'div',
   props: {

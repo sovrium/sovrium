@@ -14,7 +14,7 @@ import {
   mobileMenuScript,
   searchScript,
 } from './navbar'
-import type { Page } from '@/index'
+import type { PageConfig } from '@/index'
 
 // ─── Static data for marquee logos (duplicated for infinite scroll effect) ─────
 
@@ -35,7 +35,7 @@ const marqueeLogos = [...allClientLogos, ...allClientLogos].map((logo) => ({
 
 // ─── Page ───────────────────────────────────────────────────────────────────────
 
-export const partner: Page = {
+export const partner: PageConfig = {
   name: 'partner',
   path: '/partner',
   meta: {

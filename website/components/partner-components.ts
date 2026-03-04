@@ -5,12 +5,12 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import type { ComponentTemplate } from '@/index'
+import type { ComponentConfig } from '@/index'
 
 // ─── testimonial-card: Partner testimonial with quote, author, role ────────
 // Used in partner.ts testimonials section (4 cards)
 // vars: { index: 1 | 2 | 3 | 4 }
-export const testimonialCard: ComponentTemplate = {
+export const testimonialCard: ComponentConfig = {
   name: 'testimonial-card',
   type: 'card',
   props: {
@@ -57,7 +57,7 @@ export const testimonialCard: ComponentTemplate = {
 // ─── process-step: Numbered process step with title and description ────────
 // Used in partner.ts process section (5 steps)
 // vars: { num: 1 | 2 | 3 | 4 | 5 }
-export const processStep: ComponentTemplate = {
+export const processStep: ComponentConfig = {
   name: 'process-step',
   type: 'div',
   props: { className: 'text-center' },
@@ -86,7 +86,7 @@ export const processStep: ComponentTemplate = {
 // ─── methodology-card: Methodology principle with title and description ────
 // Used in partner.ts methodology section (10 cards)
 // vars: { num: 1..10 }
-export const methodologyCard: ComponentTemplate = {
+export const methodologyCard: ComponentConfig = {
   name: 'methodology-card',
   type: 'card',
   props: {
@@ -120,7 +120,7 @@ export const methodologyCard: ComponentTemplate = {
 // ─── stat-card: Statistics card with number, title, description ────────────
 // Used in partner.ts stats section (3 cards)
 // vars: { key: 'clients' | 'tools' | 'hours' }
-export const statCard: ComponentTemplate = {
+export const statCard: ComponentConfig = {
   name: 'stat-card',
   type: 'card',
   props: {
@@ -149,7 +149,7 @@ export const statCard: ComponentTemplate = {
 // ─── marquee-logo-item: Client logo for marquee/carousel ──────────────────
 // Used in partner.ts trusted-by section (7 logos, duplicated for infinite scroll)
 // vars: { src: '/logos/escp.png', name: 'ESCP Business School' }
-export const marqueeLogoItem: ComponentTemplate = {
+export const marqueeLogoItem: ComponentConfig = {
   name: 'marquee-logo-item',
   type: 'div',
   props: {

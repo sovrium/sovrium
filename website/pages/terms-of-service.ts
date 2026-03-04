@@ -14,9 +14,9 @@ import {
   mobileMenuScript,
   searchScript,
 } from './navbar'
-import type { Page } from '@/index'
+import type { PageConfig } from '@/index'
 
-export const termsOfService: Page = {
+export const termsOfService: PageConfig = {
   name: 'terms-of-service',
   path: '/terms-of-service',
   meta: {

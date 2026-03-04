@@ -15,7 +15,7 @@ import {
   searchScript,
 } from '../navbar'
 import { shikiHighlightScript, shikiCustomStyles } from '../shiki'
-import type { Page } from '@/index'
+import type { PageConfig } from '@/index'
 
 // ─── Docs Sidebar Toggle Script ─────────────────────────────────────────────
 // Toggles the mobile docs sidebar (hidden by default on small screens).
@@ -807,7 +807,7 @@ interface DocsPageOptions {
   readonly toc?: readonly TocEntry[]
 }
 
-export function docsPage(options: DocsPageOptions): Page {
+export function docsPage(options: DocsPageOptions): PageConfig {
   const { activeId, path, metaTitle, metaDescription, content, toc = [] } = options
   const tocColumn = buildTocColumn(toc)
   const hasToc = tocColumn.length > 0
@@ -960,5 +960,5 @@ export function docsPage(options: DocsPageOptions): Page {
       // ── Built with Sovrium Badge ──────────────────────────────────────────
       { component: 'sovrium-badge' },
     ],
-  } as Page
+  } as PageConfig
 }

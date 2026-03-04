@@ -6,7 +6,7 @@
  */
 
 import { favicons } from '../favicons'
-import type { Page } from '@/index'
+import type { PageConfig } from '@/index'
 
 // ─── Scalar Theme Customization ─────────────────────────────────────────────
 // Custom CSS to make Scalar blend with the Sovrium dark theme.
@@ -88,7 +88,7 @@ const scalarInitScript = {
 // ─── Page Definition ────────────────────────────────────────────────────────
 // Full-page Scalar API explorer — no navbar or footer, Scalar takes 100vh.
 
-export const docsScalar: Page = {
+export const docsScalar: PageConfig = {
   name: 'docs-scalar',
   path: '/docs/scalar',
   meta: {

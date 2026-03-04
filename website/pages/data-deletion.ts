@@ -14,9 +14,9 @@ import {
   mobileMenuScript,
   searchScript,
 } from './navbar'
-import type { Page } from '@/index'
+import type { PageConfig } from '@/index'
 
-export const dataDeletion: Page = {
+export const dataDeletion: PageConfig = {
   name: 'data-deletion',
   path: '/data-deletion',
   meta: {

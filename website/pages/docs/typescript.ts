@@ -17,14 +17,20 @@ import {
 // ─── Code Snippets ──────────────────────────────────────────────────────────
 
 const importExample = [
-  "import { start, build, AppSchema, PageSchema } from 'sovrium'",
+  "import { start, build } from 'sovrium'",
   'import type {',
-  '  App, AppEncoded,',
-  '  Page, PageEncoded,',
-  '  ComponentTemplate,',
+  '  AppConfig,',
+  '  PageConfig,',
+  '  TableConfig,',
+  '  ComponentConfig,',
+  '  ThemeConfig,',
+  '  AuthConfig,',
+  '  LanguageConfig,',
+  '  AnalyticsConfig,',
   '  SimpleServer,',
   '  StartOptions,',
-  '  GenerateStaticOptions, GenerateStaticResult,',
+  '  GenerateStaticOptions,',
+  '  GenerateStaticResult,',
   "} from 'sovrium'",
 ].join('\n')
 
@@ -94,10 +100,14 @@ const watchExample = 'bun --watch index.ts'
 
 const dynamicConfigExample = [
   "import { start } from 'sovrium'",
-  "import type { App } from 'sovrium'",
+  "import type { AppConfig, PageConfig, TableConfig, ThemeConfig } from 'sovrium'",
   '',
-  '// Build configuration dynamically',
-  "const tables = ['users', 'posts', 'comments'].map((name, i) => ({",
+  '// Compose config from typed sub-configs',
+  'const theme: ThemeConfig = {',
+  "  colors: { primary: process.env.BRAND_COLOR ?? '#3b82f6' },",
+  '}',
+  '',
+  "const tables: TableConfig[] = ['users', 'posts'].map((name, i) => ({",
   '  id: i + 1,',
   '  name,',
   '  fields: [',
@@ -106,23 +116,22 @@ const dynamicConfigExample = [
   '  ],',
   '}))',
   '',
-  'const app: App = {',
+  "const pages: PageConfig[] = [{ name: 'home', path: '/', sections: [] }]",
+  '',
+  'const app: AppConfig = {',
   "  name: 'dynamic-app',",
   '  tables,',
-  '  theme: {',
-  '    colors: {',
-  "      primary: process.env.BRAND_COLOR ?? '#3b82f6',",
-  '    },',
-  '  },',
+  '  pages,',
+  '  theme,',
   '}',
   '',
   'await start(app)',
 ].join('\n')
 
-const appTypeExample = [
-  "import type { App } from 'sovrium'",
+const appConfigExample = [
+  "import type { AppConfig } from 'sovrium'",
   '',
-  'const config: App = {',
+  'const config: AppConfig = {',
   "  name: 'my-app',",
   "  version: '1.0.0',",
   "  description: 'My application',",
@@ -145,51 +154,6 @@ const simpleServerExample = [
   'await server.stop()     // graceful shutdown',
 ].join('\n')
 
-const appEncodedExample = [
-  "import type { AppEncoded } from 'sovrium'",
-  '',
-  '// AppEncoded accepts raw input before validation',
-  '// (same shape as App but without Effect Schema transformations)',
-  "const raw: AppEncoded = { name: 'my-app', tables: [/* ... */] }",
-].join('\n')
-
-const pageTypeExample = [
-  "import type { Page } from 'sovrium'",
-  '',
-  'const page: Page = {',
-  "  name: 'home',",
-  "  path: '/',",
-  '  meta: {',
-  "    lang: 'en-US',",
-  "    title: 'Welcome',",
-  "    description: 'Welcome to our platform',",
-  '  },',
-  '  sections: [',
-  "    { type: 'heading', content: 'Hello World' },",
-  '    {',
-  "      $ref: '#/components/hero',",
-  "      $vars: { title: 'Welcome', ctaLabel: 'Get Started' },",
-  '    },',
-  '  ],',
-  '  scripts: { features: { analytics: true } },',
-  "  vars: { siteName: 'Sovrium' },",
-  '}',
-].join('\n')
-
-const componentTemplateExample = [
-  "import type { ComponentTemplate } from 'sovrium'",
-  '',
-  'const heroCard: ComponentTemplate = {',
-  "  name: 'hero-card',",
-  "  type: 'card',",
-  "  props: { className: 'bg-$color' },",
-  '  children: [',
-  "    { type: 'icon', props: { name: '$icon', size: 4 } },",
-  "    { type: 'text', props: { level: 'span' }, content: '$label' },",
-  '  ],',
-  '}',
-].join('\n')
-
 const generateStaticResultExample = [
   "import { build } from 'sovrium'",
   "import type { GenerateStaticResult } from 'sovrium'",
@@ -199,22 +163,57 @@ const generateStaticResultExample = [
   'console.log(result.files.length)  // number of generated files',
 ].join('\n')
 
-const runtimeSchemaExample = [
-  "import { AppSchema, PageSchema } from 'sovrium'",
-  "import { Schema } from 'effect'",
-  '',
-  '// Validate unknown input at runtime',
-  'const app = Schema.decodeUnknownSync(AppSchema)({',
-  "  name: 'my-app',",
-  '  tables: [/* ... */],',
-  '})',
-  '',
-  '// Validate a page configuration',
-  'const page = Schema.decodeUnknownSync(PageSchema)({',
+const pageConfigExample = [
+  'const page: PageConfig = {',
   "  name: 'home',",
   "  path: '/',",
-  '  sections: [],',
-  '})',
+  "  sections: [{ type: 'heading', content: 'Welcome' }],",
+  '}',
+].join('\n')
+
+const tableConfigExample = [
+  'const table: TableConfig = {',
+  '  id: 1,',
+  "  name: 'tasks',",
+  "  fields: [{ id: 1, name: 'title', type: 'single-line-text' }],",
+  '}',
+].join('\n')
+
+const componentConfigExample = [
+  'const hero: ComponentConfig = {',
+  "  name: 'hero',",
+  "  type: 'section',",
+  "  children: [{ type: 'heading', content: '$title' }],",
+  '}',
+].join('\n')
+
+const themeConfigExample = [
+  'const theme: ThemeConfig = {',
+  "  colors: { primary: '#3b82f6' },",
+  "  fonts: { sans: 'Inter, sans-serif' },",
+  '}',
+].join('\n')
+
+const authConfigExample = [
+  'const auth: AuthConfig = {',
+  "  strategies: [{ type: 'email-password' }],",
+  "  roles: ['admin', 'member'],",
+  '}',
+].join('\n')
+
+const languageConfigExample = [
+  'const languages: LanguageConfig = {',
+  "  supported: ['en', 'fr'],",
+  "  default: 'en',",
+  '}',
+].join('\n')
+
+const analyticsConfigExample = [
+  '// Simple: just enable defaults',
+  'const analytics: AnalyticsConfig = true',
+  '',
+  '// Custom settings',
+  "const custom: AnalyticsConfig = { retentionDays: 90, excludedPaths: ['/admin'] }",
 ].join('\n')
 
 // ─── Page Definition ────────────────────────────────────────────────────────
@@ -236,20 +235,22 @@ export const docsTypescript = docsPage({
       anchor: 'build-function',
       children: [{ label: '$t:docs.typescript.build.options.title', anchor: 'build-options' }],
     },
-    { label: '$t:docs.typescript.appType.title', anchor: 'app-type' },
+    { label: '$t:docs.typescript.appType.title', anchor: 'app-config' },
     {
       label: '$t:docs.typescript.typeRef.title',
       anchor: 'type-reference',
       children: [
         { label: 'SimpleServer', anchor: 'type-simple-server' },
-        { label: 'AppEncoded', anchor: 'type-app-encoded' },
-        { label: 'Page', anchor: 'type-page' },
-        { label: 'PageEncoded', anchor: 'type-page-encoded' },
-        { label: 'ComponentTemplate', anchor: 'type-component-template' },
+        { label: 'PageConfig', anchor: 'type-page-config' },
+        { label: 'TableConfig', anchor: 'type-table-config' },
+        { label: 'ComponentConfig', anchor: 'type-component-config' },
+        { label: 'ThemeConfig', anchor: 'type-theme-config' },
+        { label: 'AuthConfig', anchor: 'type-auth-config' },
+        { label: 'LanguageConfig', anchor: 'type-language-config' },
+        { label: 'AnalyticsConfig', anchor: 'type-analytics-config' },
         { label: 'GenerateStaticResult', anchor: 'type-generate-static-result' },
       ],
     },
-    { label: '$t:docs.typescript.runtimeSchemas.title', anchor: 'runtime-schemas' },
     { label: '$t:docs.typescript.watchMode.title', anchor: 'watch-mode' },
     { label: '$t:docs.typescript.examples.title', anchor: 'examples' },
   ],
@@ -434,7 +435,7 @@ export const docsTypescript = docsPage({
       ],
     },
 
-    // ── App Type ─────────────────────────────────────────────────────────
+    // ── AppConfig ───────────────────────────────────────────────────────
     {
       type: 'div',
       props: {},
@@ -442,7 +443,7 @@ export const docsTypescript = docsPage({
         sectionHeader(
           '$t:docs.typescript.appType.title',
           '$t:docs.typescript.appType.description',
-          'app-type'
+          'app-config'
         ),
         propertyTable([
           { name: 'name', description: '$t:docs.typescript.appType.props.name' },
@@ -456,7 +457,7 @@ export const docsTypescript = docsPage({
           { name: 'components?', description: '$t:docs.typescript.appType.props.components' },
           { name: 'analytics?', description: '$t:docs.typescript.appType.props.analytics' },
         ]),
-        codeBlock(appTypeExample, 'typescript'),
+        codeBlock(appConfigExample, 'typescript'),
         calloutTip('$t:docs.typescript.appType.tip.title', '$t:docs.typescript.appType.tip.body'),
       ],
     },
@@ -484,58 +485,61 @@ export const docsTypescript = docsPage({
         ]),
         codeBlock(simpleServerExample, 'typescript'),
 
-        // AppEncoded
+        // PageConfig
         subsectionHeader(
-          'AppEncoded',
-          '$t:docs.typescript.typeRef.appEncoded.description',
-          'type-app-encoded'
+          'PageConfig',
+          '$t:docs.typescript.typeRef.pageConfig.description',
+          'type-page-config'
         ),
-        codeBlock(appEncodedExample, 'typescript'),
-        calloutTip(
-          '$t:docs.typescript.typeRef.appEncoded.tip.title',
-          '$t:docs.typescript.typeRef.appEncoded.tip.body'
-        ),
+        codeBlock(pageConfigExample, 'typescript'),
 
-        // Page
-        subsectionHeader('Page', '$t:docs.typescript.typeRef.page.description', 'type-page'),
-        propertyTable([
-          { name: 'id?', description: '$t:docs.typescript.typeRef.page.id' },
-          { name: 'name', description: '$t:docs.typescript.typeRef.page.name' },
-          { name: 'path', description: '$t:docs.typescript.typeRef.page.path' },
-          { name: 'meta?', description: '$t:docs.typescript.typeRef.page.meta' },
-          { name: 'sections', description: '$t:docs.typescript.typeRef.page.sections' },
-          { name: 'scripts?', description: '$t:docs.typescript.typeRef.page.scripts' },
-          { name: 'vars?', description: '$t:docs.typescript.typeRef.page.vars' },
-        ]),
-        codeBlock(pageTypeExample, 'typescript'),
-
-        // PageEncoded
+        // TableConfig
         subsectionHeader(
-          'PageEncoded',
-          '$t:docs.typescript.typeRef.pageEncoded.description',
-          'type-page-encoded'
+          'TableConfig',
+          '$t:docs.typescript.typeRef.tableConfig.description',
+          'type-table-config'
         ),
+        codeBlock(tableConfigExample, 'typescript'),
 
-        // ComponentTemplate
+        // ComponentConfig
         subsectionHeader(
-          'ComponentTemplate',
-          '$t:docs.typescript.typeRef.componentTemplate.description',
-          'type-component-template'
+          'ComponentConfig',
+          '$t:docs.typescript.typeRef.componentConfig.description',
+          'type-component-config'
         ),
-        propertyTable([
-          { name: 'name', description: '$t:docs.typescript.typeRef.componentTemplate.name' },
-          { name: 'type', description: '$t:docs.typescript.typeRef.componentTemplate.type' },
-          { name: 'props?', description: '$t:docs.typescript.typeRef.componentTemplate.props' },
-          {
-            name: 'children?',
-            description: '$t:docs.typescript.typeRef.componentTemplate.children',
-          },
-          {
-            name: 'content?',
-            description: '$t:docs.typescript.typeRef.componentTemplate.content',
-          },
-        ]),
-        codeBlock(componentTemplateExample, 'typescript'),
+        codeBlock(componentConfigExample, 'typescript'),
+
+        // ThemeConfig
+        subsectionHeader(
+          'ThemeConfig',
+          '$t:docs.typescript.typeRef.themeConfig.description',
+          'type-theme-config'
+        ),
+        codeBlock(themeConfigExample, 'typescript'),
+
+        // AuthConfig
+        subsectionHeader(
+          'AuthConfig',
+          '$t:docs.typescript.typeRef.authConfig.description',
+          'type-auth-config'
+        ),
+        codeBlock(authConfigExample, 'typescript'),
+
+        // LanguageConfig
+        subsectionHeader(
+          'LanguageConfig',
+          '$t:docs.typescript.typeRef.languageConfig.description',
+          'type-language-config'
+        ),
+        codeBlock(languageConfigExample, 'typescript'),
+
+        // AnalyticsConfig
+        subsectionHeader(
+          'AnalyticsConfig',
+          '$t:docs.typescript.typeRef.analyticsConfig.description',
+          'type-analytics-config'
+        ),
+        codeBlock(analyticsConfigExample, 'typescript'),
 
         // GenerateStaticResult
         subsectionHeader(
@@ -551,28 +555,6 @@ export const docsTypescript = docsPage({
           { name: 'files', description: '$t:docs.typescript.typeRef.generateStaticResult.files' },
         ]),
         codeBlock(generateStaticResultExample, 'typescript'),
-      ],
-    },
-
-    // ── Runtime Schemas ─────────────────────────────────────────────────
-    {
-      type: 'div',
-      props: {},
-      children: [
-        sectionHeader(
-          '$t:docs.typescript.runtimeSchemas.title',
-          '$t:docs.typescript.runtimeSchemas.description',
-          'runtime-schemas'
-        ),
-        propertyTable([
-          { name: 'AppSchema', description: '$t:docs.typescript.runtimeSchemas.appSchema' },
-          { name: 'PageSchema', description: '$t:docs.typescript.runtimeSchemas.pageSchema' },
-        ]),
-        codeBlock(runtimeSchemaExample, 'typescript'),
-        calloutTip(
-          '$t:docs.typescript.runtimeSchemas.tip.title',
-          '$t:docs.typescript.runtimeSchemas.tip.body'
-        ),
       ],
     },
 

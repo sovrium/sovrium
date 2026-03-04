@@ -14,9 +14,9 @@ import {
   mobileMenuScript,
   searchScript,
 } from './navbar'
-import type { Page } from '@/index'
+import type { PageConfig } from '@/index'
 
-export const about: Page = {
+export const about: PageConfig = {
   name: 'about',
   path: '/about',
   meta: {

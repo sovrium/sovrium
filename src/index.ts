@@ -28,7 +28,14 @@ import type {
   GenerateStaticResult,
 } from '@/application/use-cases/server/generate-static'
 import type { StartOptions } from '@/application/use-cases/server/start-server'
-import type { App, AppEncoded } from '@/domain/models/app'
+import type { AppEncoded } from '@/domain/models/app'
+import type { BuiltInAnalytics } from '@/domain/models/app/analytics'
+import type { Auth } from '@/domain/models/app/auth'
+import type { ComponentTemplate } from '@/domain/models/app/component/component'
+import type { Languages } from '@/domain/models/app/languages'
+import type { Page } from '@/domain/models/app/page'
+import type { Table } from '@/domain/models/app/table'
+import type { Theme } from '@/domain/models/app/theme'
 
 /**
  * Simple server interface with Promise-based methods
@@ -103,12 +110,12 @@ const toSimpleServer = (server: Readonly<ServerInstance>): SimpleServer => ({
  * })
  * ```
  */
-export const start = async (app: AppEncoded, options: StartOptions = {}): Promise<SimpleServer> => {
+export const start = async (app: AppConfig, options: StartOptions = {}): Promise<SimpleServer> => {
   // Normalize app configuration to handle shorthand formats before validation
   const normalizedApp = normalizeAppConfig(app)
 
   // Parse app configuration once to extract auth config
-  const validatedApp: App = Schema.decodeUnknownSync(AppSchema)(normalizedApp)
+  const validatedApp = Schema.decodeUnknownSync(AppSchema)(normalizedApp)
 
   const program = Effect.gen(function* () {
     // Start the server (dependencies injected via AppLayer with auth config)
@@ -173,11 +180,11 @@ export const start = async (app: AppEncoded, options: StartOptions = {}): Promis
  * ```
  */
 export const build = async (
-  app: AppEncoded,
+  app: AppConfig,
   options: GenerateStaticOptions = {}
 ): Promise<GenerateStaticResult> => {
   // Parse app configuration once to extract auth config
-  const validatedApp: App = Schema.decodeUnknownSync(AppSchema)(app)
+  const validatedApp = Schema.decodeUnknownSync(AppSchema)(app)
 
   const program = Effect.gen(function* () {
     yield* Console.log('Generating static site...')
@@ -198,12 +205,52 @@ export const build = async (
   return await Effect.runPromise(program)
 }
 
+// ============================================================================
+// Public Type Exports
+// ============================================================================
+
 /**
- * Re-export types for convenience
+ * Application configuration type for typing JSON/YAML configs in TypeScript.
+ *
+ * This is the primary type consumers need when using Sovrium as a dependency.
+ * Pass an `AppConfig` object to `start()` or `build()`.
+ *
+ * @example
+ * ```typescript
+ * import { start } from 'sovrium'
+ * import type { AppConfig } from 'sovrium'
+ *
+ * const app: AppConfig = {
+ *   name: 'my-app',
+ *   description: 'My application',
+ *   pages: [{ name: 'home', path: '/', sections: [] }]
+ * }
+ *
+ * const server = await start(app)
+ * ```
  */
+export type AppConfig = AppEncoded
+
+/** Single page configuration (element of `AppConfig['pages']`). */
+export type PageConfig = Page
+
+/** Single table configuration (element of `AppConfig['tables']`). */
+export type TableConfig = Table
+
+/** Reusable component template (element of `AppConfig['components']`). */
+export type ComponentConfig = ComponentTemplate
+
+/** Theme / design tokens configuration (`AppConfig['theme']`). */
+export type ThemeConfig = Theme
+
+/** Authentication configuration (`AppConfig['auth']`). */
+export type AuthConfig = Auth
+
+/** Multi-language configuration (`AppConfig['languages']`). */
+export type LanguageConfig = Languages
+
+/** Built-in analytics configuration (`AppConfig['analytics']`). */
+export type AnalyticsConfig = BuiltInAnalytics
+
+// Re-export function parameter and return types
 export type { StartOptions, GenerateStaticOptions, GenerateStaticResult }
-export type { App, AppEncoded } from '@/domain/models/app'
-export { AppSchema } from '@/domain/models/app'
-export type { Page, PageEncoded } from '@/domain/models/app/pages'
-export { PageSchema } from '@/domain/models/app/pages'
-export type { ComponentTemplate } from '@/domain/models/app/component/component'
