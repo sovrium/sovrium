@@ -1,0 +1,35 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "eslint/**/*.ts",
+    "scripts/**/*.ts",
+    "specs/fixtures/**/*.ts"
+  ],
+  "project": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "eslint/**/*.ts",
+    "scripts/**/*.ts",
+    "specs/fixtures/**/*.ts"
+  ],
+  "ignore": ["**/*.spec.ts"],
+  "ignoreDependencies": [
+    "tailwindcss",
+    "tw-animate-css",
+    "@hookform/resolvers",
+    "react-hook-form",
+    "@tanstack/react-query",
+    "@tanstack/react-table",
+    "@eslint/compat",
+    "@apidevtools/json-schema-ref-parser",
+    "@types/dompurify",
+    "nanoid",
+    "@tanstack/react-query-devtools",
+    "pagefind",
+    "@better-auth/drizzle-adapter"
+  ],
+  "ignoreBinaries": ["actionlint"],
+  "ignoreExportsUsedInFile": true
+}

@@ -1,0 +1,55 @@
+{
+  // ESLint language server configuration
+  "lsp": {
+    "eslint": {
+      "settings": {
+        "codeActionOnSave": {
+          "enable": true,
+          "mode": "all"
+        },
+        "format": false,
+        "run": "onType",
+        "validate": ["typescript", "typescriptreact", "javascript", "javascriptreact"]
+      }
+    },
+    "typescript-language-server": {
+      "initialization_options": {
+        "preferences": {
+          "importModuleSpecifierPreference": "non-relative",
+          "importModuleSpecifierEnding": "minimal",
+          "includeInlayParameterNameHints": "all",
+          "includeInlayParameterNameHintsWhenArgumentMatchesName": true,
+          "includeInlayFunctionParameterTypeHints": true,
+          "includeInlayVariableTypeHints": true,
+          "includeInlayPropertyDeclarationTypeHints": true,
+          "includeInlayFunctionLikeReturnTypeHints": true,
+          "includeInlayEnumMemberValueHints": true
+        }
+      }
+    }
+  },
+
+  // General editor settings
+  "format_on_save": "on",
+  "formatter": "auto",
+  "tab_size": 2,
+  "hard_tabs": false,
+  "show_whitespaces": "selection",
+  "remove_trailing_whitespace_on_save": true,
+  "ensure_final_newline_on_save": true,
+
+  // File-specific settings
+  "file_types": {
+    "TypeScript": ["ts", "mts", "cts"],
+    "TSX": ["tsx"],
+    "JavaScript": ["js", "mjs", "cjs"],
+    "JSON": ["json"]
+  },
+
+  // Terminal settings (for Bun commands)
+  "terminal": {
+    "shell": {
+      "program": "zsh"
+    }
+  }
+}
