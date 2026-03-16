@@ -1,0 +1,341 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Effect, Config } from 'effect'
+import { Hono } from 'hono'
+import { purgeOldAnalyticsData } from '@/application/use-cases/analytics/purge-old-data'
+import { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
+import { compileCSS } from '@/infrastructure/css/compiler'
+import { runMigrations } from '@/infrastructure/database/drizzle/migrate'
+import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics-repository-live'
+import {
+  initializeSchema,
+  type AuthConfigRequiredForUserFields,
+  type SchemaInitializationError,
+} from '@/infrastructure/database/schema/schema-initializer'
+import { getEmailConfigFromEffect } from '@/infrastructure/email/email-config'
+import { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
+import {
+  logDebug,
+  logError,
+  renderStartupSummary,
+  formatDuration,
+  type StartupPhase,
+} from '@/infrastructure/logging/logger'
+import { requestLogger } from '@/infrastructure/server/middleware/request-logger'
+import { createApiRoutes } from '@/infrastructure/server/route-setup/api-routes'
+import {
+  setupAuthMiddleware,
+  setupAuthRoutes,
+} from '@/infrastructure/server/route-setup/auth-routes'
+import { setupOpenApiRoutes } from '@/infrastructure/server/route-setup/openapi-routes'
+import {
+  setupPageRoutes,
+  type HonoAppConfig,
+} from '@/infrastructure/server/route-setup/page-routes'
+import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-assets'
+import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
+import type { ServerInstance } from '@/application/models/server'
+import type { PageRenderResult } from '@/application/ports/services/page-renderer'
+import type { App } from '@/domain/models/app'
+import type { SessionInfo } from '@/domain/models/app/auth/session-info'
+import type {
+  DatabaseConnectionError,
+  MigrationError,
+} from '@/infrastructure/database/drizzle/migrate'
+import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
+import type { Server } from 'bun'
+
+/**
+ * Server configuration options
+ */
+export interface ServerConfig {
+  readonly app: App
+  readonly port?: number
+  readonly hostname?: string
+  readonly publicDir?: string
+  readonly silent?: boolean
+  readonly renderPage: (
+    app: App,
+    path: string,
+    detectedLanguage?: string,
+    session?: SessionInfo
+  ) => PageRenderResult | Promise<PageRenderResult>
+  readonly renderNotFoundPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
+  readonly renderErrorPage: (app?: App, detectedLanguage?: string) => string | Promise<string>
+}
+
+/**
+ * Creates a Hono application with routes
+ *
+ * Mounts the following routes:
+ * - GET /api/* - API routes (health, tables, records) with RPC type safety
+ * - GET /api/openapi.json - Generated OpenAPI specification (application endpoints)
+ * - GET /api/auth/openapi.json - Generated OpenAPI specification (authentication endpoints)
+ * - GET /api/scalar - Unified Scalar API documentation UI (shows both API and Auth tabs)
+ * - POST/GET /api/auth/* - Better Auth authentication endpoints
+ * - GET / - Homepage
+ * - GET /assets/output.css - Compiled Tailwind CSS
+ * - GET /test/error - Test error handler (non-production only)
+ *
+ * @param config - Configuration object with app data and render functions
+ * @returns Configured Hono app instance
+ * @knip-ignore - Used by both createServer and createHonoAppForSSG
+ */
+/**
+ * Builds a getSession callback from an auth instance for page access control
+ */
+function buildGetSession(
+  authInstance: Readonly<ReturnType<typeof createAuthInstance>>
+): (headers: Headers) => Promise<SessionInfo | undefined> {
+  return async (headers) => {
+    try {
+      const session = await authInstance.api.getSession({ headers })
+      if (!session) return undefined
+      // Admin plugin adds `role` to user at runtime (not in base type)
+      const user = session.user as { id: string; role?: string }
+      return { userId: user.id, role: user.role ?? 'member' }
+    } catch {
+      return undefined
+    }
+  }
+}
+
+export function createHonoApp(config: HonoAppConfig): Readonly<Hono> {
+  const { app, renderNotFoundPage, renderErrorPage } = config
+
+  // Create auth instance once — shared between auth routes and page session extraction
+  const authInstance = app.auth ? createAuthInstance(app.auth) : undefined
+  const getSession = authInstance ? buildGetSession(authInstance) : undefined
+
+  // Inject getSession into config for page route handlers
+  const configWithSession = { ...config, getSession }
+
+  const honoApp = new Hono()
+
+  // Analytics retention cleanup middleware — purges stale page view records.
+  // Runs awaited on page requests to guarantee old data is removed before response.
+  const analyticsEnabled = app.analytics !== undefined && app.analytics !== false
+  if (analyticsEnabled) {
+    const retentionDays =
+      typeof app.analytics === 'object' ? app.analytics.retentionDays : undefined
+
+    honoApp.use('*', async (_c, next) => {
+      await Effect.runPromise(
+        purgeOldAnalyticsData(app.name, retentionDays).pipe(
+          Effect.provide(AnalyticsRepositoryLive),
+          Effect.catchAll(() => Effect.void)
+        )
+      )
+      // eslint-disable-next-line functional/no-expression-statements
+      await next()
+    })
+  }
+
+  // Request access log (debug level only, excludes /assets/*)
+  // eslint-disable-next-line functional/no-expression-statements
+  honoApp.use('*', requestLogger)
+
+  // Create base Hono app and chain API routes directly
+  // This pattern is required for Hono RPC type inference to work correctly
+  // Setup all routes by chaining the setup functions
+  const honoWithRoutes = setupPageRoutes(
+    setupStaticAssets(
+      setupAuthRoutes(
+        setupAuthMiddleware(setupOpenApiRoutes(createApiRoutes(app, honoApp), app), app),
+        app,
+        authInstance
+      ),
+      app,
+      config.publicDir
+    ),
+    configWithSession
+  )
+
+  // Add error handlers
+  return honoWithRoutes
+    .notFound(async (c) => c.html(await renderNotFoundPage(app), 404))
+    .onError(async (error, c) => {
+      logError(`[SERVER] ${c.req.method} ${c.req.path} → 500`, error)
+      return c.html(await renderErrorPage(app), 500)
+    })
+}
+
+/**
+ * Parse a port string into a valid port number, or return undefined
+ */
+const parsePort = (value: string | undefined): number | undefined => {
+  if (!value) return undefined
+  const parsed = parseInt(value, 10)
+  return !isNaN(parsed) && parsed >= 0 && parsed <= 65_535 ? parsed : undefined
+}
+
+/**
+ * Create server stop effect
+ */
+const createStopEffect = (server: ReturnType<typeof Bun.serve>): Effect.Effect<void, never> =>
+  Effect.gen(function* () {
+    logDebug('Stopping server...')
+    yield* Effect.sync(() => server.stop())
+    logDebug('Server stopped')
+  })
+
+/**
+ * Get database URL from environment configuration
+ */
+const getDatabaseUrl = (): Effect.Effect<string, never> =>
+  Config.string('DATABASE_URL').pipe(
+    Config.withDefault(''),
+    Effect.catchAll(() => Effect.succeed(''))
+  )
+
+/**
+ * Run migrations if database URL is configured
+ */
+const runMigrationsIfConfigured = (
+  databaseUrl: string
+): Effect.Effect<
+  void,
+  DatabaseConnectionError | MigrationError | SchemaInitializationError,
+  never
+> => (databaseUrl ? runMigrations(databaseUrl) : Effect.void)
+
+/**
+ * Start Bun HTTP server
+ */
+const startBunServer = (
+  honoApp: Readonly<Hono>,
+  port: number,
+  hostname: string
+): Effect.Effect<Server<undefined>, ServerCreationError, never> =>
+  Effect.try({
+    try: () =>
+      Bun.serve({
+        port,
+        hostname,
+        fetch: honoApp.fetch,
+      }),
+    catch: (error) => new ServerCreationError(error),
+  })
+
+/**
+ * Read package version from package.json
+ */
+const getPackageVersion = (): Effect.Effect<string, never> =>
+  Effect.tryPromise({
+    try: async () => {
+      const pkg = (await Bun.file(resolvePackagePath('package.json')).json()) as { version: string }
+      return pkg.version
+    },
+    catch: () => '0.0.0',
+  }).pipe(Effect.catchAll(() => Effect.succeed('0.0.0')))
+
+/**
+ * Collect startup phases from infrastructure initialization
+ */
+const collectInfraPhases = (
+  app: App
+): Effect.Effect<
+  { readonly phases: readonly StartupPhase[]; readonly cssSizeKB: number },
+  CSSCompilationError | AuthConfigRequiredForUserFields | SchemaInitializationError | Error
+> =>
+  Effect.gen(function* () {
+    // Database phase
+    const databaseUrl = yield* getDatabaseUrl()
+    const databasePhases: readonly StartupPhase[] = !databaseUrl
+      ? [{ label: 'DATABASE_URL not set (skipping database)', type: 'warning' as const }]
+      : yield* runMigrationsIfConfigured(databaseUrl).pipe(
+          Effect.flatMap(() => initializeSchema(app)),
+          Effect.map(() => [{ label: 'Database connected', type: 'success' as const }])
+        )
+
+    // SMTP check (only relevant when auth is configured)
+    const smtpPhases: readonly StartupPhase[] =
+      app.auth && getEmailConfigFromEffect().usingMailpitFallback
+        ? [
+            {
+              label: 'SMTP not configured (using Mailpit at 127.0.0.1:1025)',
+              type: 'warning' as const,
+            },
+          ]
+        : []
+
+    // CSS phase
+    const cssResult = yield* compileCSS(app)
+    const cssSizeKB = Math.round(cssResult.css.length / 1024)
+
+    return { phases: [...databasePhases, ...smtpPhases], cssSizeKB }
+  })
+
+/**
+ * Creates and starts a Bun server with Hono
+ *
+ * Collects startup phases and renders a clean summary at the end.
+ *
+ * @param config - Server configuration with app data and optional port/hostname
+ * @returns Effect that yields ServerInstance or ServerCreationError
+ */
+// @knip-ignore - Used via dynamic import in StartServer.ts
+export const createServer = (
+  config: ServerConfig
+): Effect.Effect<
+  ServerInstance,
+  | ServerCreationError
+  | CSSCompilationError
+  | AuthConfigRequiredForUserFields
+  | SchemaInitializationError
+  | Error
+> =>
+  Effect.gen(function* () {
+    const startTime = Date.now()
+
+    const {
+      app,
+      port = parsePort(Bun.env.PORT) ?? 3000,
+      hostname = Bun.env.HOSTNAME || 'localhost',
+      publicDir,
+      renderPage,
+      renderNotFoundPage,
+      renderErrorPage,
+    } = config
+
+    // Initialize infrastructure and collect phases
+    const { phases: infraPhases, cssSizeKB } = yield* collectInfraPhases(app)
+
+    // Create Hono app and start server
+    const honoApp = createHonoApp({
+      app,
+      publicDir,
+      renderPage,
+      renderNotFoundPage,
+      renderErrorPage,
+    })
+
+    const server = yield* startBunServer(honoApp, port, hostname)
+    const url = `http://${hostname}:${server.port}`
+    const durationMs = Date.now() - startTime
+
+    // Collect all phases immutably
+    const phases: readonly StartupPhase[] = [
+      ...infraPhases,
+      { label: `CSS compiled (${cssSizeKB} KB)`, type: 'success' },
+      { label: `Server ready in ${formatDuration(durationMs)}`, type: 'success' },
+    ]
+
+    // Render startup summary (suppressed during static site generation)
+    if (!config.silent) {
+      const version = yield* getPackageVersion()
+      yield* renderStartupSummary({ version, phases, url, durationMs })
+    }
+
+    return {
+      server,
+      url,
+      stop: createStopEffect(server),
+      app: honoApp,
+    }
+  })

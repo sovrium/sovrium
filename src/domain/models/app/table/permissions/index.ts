@@ -1,0 +1,167 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Schema } from 'effect'
+import { TableFieldPermissionsSchema } from './field-permission'
+import { TablePermissionSchema } from './permission'
+
+/**
+ * Table Permissions Schema
+ *
+ * Permissions for table operations using a simplified 3-format system.
+ * Each operation accepts one of:
+ * - `'all'` — Everyone (including unauthenticated users)
+ * - `'authenticated'` — Any logged-in user
+ * - `['admin', 'editor']` — Specific role names (array)
+ *
+ * Operations:
+ * - `read` — Who can view records
+ * - `comment` — Who can add comments to records
+ * - `create` — Who can create new records
+ * - `update` — Who can modify existing records
+ * - `delete` — Who can remove records
+ *
+ * Omitted operations default to deny (no access).
+ *
+ * @example Role-based permissions
+ * ```yaml
+ * permissions:
+ *   read: all
+ *   comment: authenticated
+ *   create: ['admin', 'editor']
+ *   update: ['admin', 'editor']
+ *   delete: ['admin']
+ * ```
+ *
+ * @example Minimal read-only public table
+ * ```yaml
+ * permissions:
+ *   read: all
+ * ```
+ */
+export const TablePermissionsSchema = Schema.Struct({
+  /**
+   * READ permission — who can view records from this table.
+   */
+  read: Schema.optional(TablePermissionSchema),
+
+  /**
+   * COMMENT permission — who can add comments to records.
+   */
+  comment: Schema.optional(TablePermissionSchema),
+
+  /**
+   * CREATE permission — who can create new records in this table.
+   */
+  create: Schema.optional(TablePermissionSchema),
+
+  /**
+   * UPDATE permission — who can modify existing records in this table.
+   */
+  update: Schema.optional(TablePermissionSchema),
+
+  /**
+   * DELETE permission — who can remove records from this table.
+   */
+  delete: Schema.optional(TablePermissionSchema),
+
+  /**
+   * Field-level permissions for granular column access control.
+   *
+   * Allows restricting read/write access to specific fields based on roles.
+   * Uses the same 3-format permission system as table-level operations.
+   *
+   * @example Restrict salary field to admins
+   * ```yaml
+   * fields:
+   *   - field: salary
+   *     read: ['admin', 'hr']
+   *     write: ['admin']
+   * ```
+   */
+  fields: Schema.optional(TableFieldPermissionsSchema),
+
+  /**
+   * INHERIT — inherit permissions from a parent table by name.
+   *
+   * When set, this table inherits all permissions from the specified parent table.
+   * Any explicitly defined permissions on this table take precedence over inherited ones.
+   * Circular inheritance chains are detected and rejected at configuration time.
+   *
+   * @example Inherit permissions from parent table
+   * ```yaml
+   * permissions:
+   *   inherit: articles
+   * ```
+   *
+   * @future Not yet implemented — target design for permission inheritance feature.
+   */
+  inherit: Schema.optional(
+    Schema.String.pipe(
+      Schema.nonEmptyString({ message: () => 'inherit table name must not be empty' }),
+      Schema.annotations({
+        description: 'Name of the parent table to inherit permissions from',
+      })
+    )
+  ),
+
+  /**
+   * OVERRIDE — override specific inherited permissions.
+   *
+   * Only meaningful when `inherit` is set. Allows overriding specific
+   * permission operations from the parent table while inheriting the rest.
+   *
+   * @example Override read permission from inherited parent
+   * ```yaml
+   * permissions:
+   *   inherit: articles
+   *   override:
+   *     read: ['admin']
+   * ```
+   *
+   * @future Not yet implemented — target design for permission inheritance feature.
+   */
+  override: Schema.optional(
+    Schema.Struct({
+      read: Schema.optional(TablePermissionSchema),
+      comment: Schema.optional(TablePermissionSchema),
+      create: Schema.optional(TablePermissionSchema),
+      update: Schema.optional(TablePermissionSchema),
+      delete: Schema.optional(TablePermissionSchema),
+    })
+  ),
+}).pipe(
+  Schema.annotations({
+    title: 'Table Permissions',
+    description:
+      "Permissions for table operations. Each operation accepts 'all', 'authenticated', or a role array. Omitted operations default to deny.",
+    examples: [
+      // Public read, admin-only write
+      {
+        read: 'all' as const,
+        comment: 'authenticated' as const,
+        create: ['admin'] as readonly string[],
+        update: ['admin'] as readonly string[],
+        delete: ['admin'] as readonly string[],
+      },
+      // Role-based with field restrictions
+      {
+        read: 'all' as const,
+        create: ['admin', 'editor'] as readonly string[],
+        update: ['admin', 'editor'] as readonly string[],
+        delete: ['admin'] as readonly string[],
+      },
+    ],
+  })
+)
+
+export type TablePermissions = Schema.Schema.Type<typeof TablePermissionsSchema>
+
+// Re-export sub-schemas for external use
+export * from './permission'
+export * from './field-permission'
+export * from './permission-evaluator'
