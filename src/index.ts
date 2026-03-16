@@ -1,0 +1,317 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+/**
+ * Sovrium - A Bun web framework with React SSR and Tailwind CSS
+ *
+ * This is the main entry point for Sovrium applications. It provides a simple
+ * Promise-based API for starting a web server with automatic:
+ * - React 19 server-side rendering
+ * - Tailwind CSS compilation (no build step)
+ * - Type-safe configuration validation
+ * - Graceful shutdown handling
+ */
+
+import { Console, Effect, Schema, Either } from 'effect'
+import { TreeFormatter } from 'effect/ParseResult'
+import { generateStatic as generateStaticUseCase } from '@/application/use-cases/server/generate-static'
+import { normalizeAppConfig, startServer } from '@/application/use-cases/server/start-server'
+import { AppSchema } from '@/domain/models/app'
+import { generateAppJsonSchema as generateSchema } from '@/domain/services/json-schema'
+import { createAppLayer } from '@/infrastructure/layers/app-layer'
+import { withGracefulShutdown } from '@/infrastructure/server/lifecycle'
+import type { ServerInstance } from '@/application/models/server'
+import type {
+  GenerateStaticOptions,
+  GenerateStaticResult,
+} from '@/application/use-cases/server/generate-static'
+import type { StartOptions } from '@/application/use-cases/server/start-server'
+import type { AppEncoded } from '@/domain/models/app'
+import type { BuiltInAnalytics } from '@/domain/models/app/analytics'
+import type { Auth } from '@/domain/models/app/auth'
+import type { ComponentTemplate } from '@/domain/models/app/component/component'
+import type { Languages } from '@/domain/models/app/languages'
+import type { Page } from '@/domain/models/app/page'
+import type { Table } from '@/domain/models/app/table'
+import type { Theme } from '@/domain/models/app/theme'
+
+/**
+ * Simple server interface with Promise-based methods
+ */
+export interface SimpleServer {
+  /**
+   * Server URL (e.g., "http://localhost:3000")
+   */
+  readonly url: string
+
+  /**
+   * Stop the server gracefully
+   * @returns Promise that resolves when server is stopped
+   */
+  stop: () => Promise<void>
+}
+
+/**
+ * Convert Effect-based ServerInstance to simple Promise-based interface
+ */
+const toSimpleServer = (server: Readonly<ServerInstance>): SimpleServer => ({
+  url: server.url,
+  stop: () => Effect.runPromise(server.stop),
+})
+
+/**
+ * Start an Sovrium server with automatic logging and graceful shutdown
+ *
+ * This is the main entry point for Sovrium applications. It:
+ * 1. Validates the app configuration using Effect Schema
+ * 2. Compiles Tailwind CSS dynamically using PostCSS
+ * 3. Creates a Hono web server with React SSR
+ * 4. Serves the homepage at "/" and compiled CSS at "/assets/output.css"
+ * 5. Sets up graceful shutdown handlers (SIGINT, SIGTERM)
+ * 6. Returns a simple server interface with url and stop method
+ *
+ * @param app - Application configuration with name and description
+ * @param options - Optional server configuration (port, hostname)
+ * @returns Promise that resolves to a simple server interface
+ *
+ * @example
+ * Basic usage:
+ * ```typescript
+ * import { start } from 'sovrium'
+ *
+ * const myApp = {
+ *   name: 'My App',
+ *   description: 'A simple Bun application'
+ * }
+ *
+ * // Start with default port (3000) and hostname ('localhost')
+ * const server = await start(myApp)
+ * console.log(`Server running at ${server.url}`)
+ * // Server stays alive until Ctrl+C
+ * ```
+ *
+ * @example
+ * With custom configuration:
+ * ```typescript
+ * const server = await start(myApp, {
+ *   port: 8080,
+ *   hostname: '0.0.0.0'
+ * })
+ * ```
+ *
+ * @example
+ * With error handling:
+ * ```typescript
+ * start(myApp).catch((error) => {
+ *   console.error('Failed to start server:', error)
+ *   process.exit(1)
+ * })
+ * ```
+ */
+export const start = async (app: AppConfig, options: StartOptions = {}): Promise<SimpleServer> => {
+  // Normalize app configuration to handle shorthand formats before validation
+  const normalizedApp = normalizeAppConfig(app)
+
+  // Parse app configuration once to extract auth config
+  const validatedApp = Schema.decodeUnknownSync(AppSchema)(normalizedApp)
+
+  const program = Effect.gen(function* () {
+    // Start the server (dependencies injected via AppLayer with auth config)
+    const server = yield* startServer(normalizedApp, options)
+
+    // Setup graceful shutdown in background (forked so it doesn't block)
+    yield* Effect.fork(withGracefulShutdown(server))
+
+    // Return the server instance immediately (don't wait for shutdown)
+    return server
+  }).pipe(
+    // Provide dependencies (ServerFactory + PageRenderer + Auth with app-specific config)
+    Effect.provide(createAppLayer(validatedApp.auth))
+  )
+
+  // Run the Effect program and convert to simple server interface
+  const server = await Effect.runPromise(program)
+  return toSimpleServer(server)
+}
+
+/**
+ * Build static site files from a Sovrium application
+ *
+ * This function generates static HTML files and supporting assets that can be
+ * deployed to any static hosting provider (GitHub Pages, Netlify, Vercel, etc.).
+ *
+ * @param app - Application configuration with pages, theme, etc.
+ * @param options - Optional static generation configuration
+ * @returns Promise that resolves to generation result with output directory and file list
+ *
+ * @example
+ * Basic usage:
+ * ```typescript
+ * import { build } from 'sovrium'
+ *
+ * const myApp = {
+ *   name: 'My App',
+ *   pages: [
+ *     {
+ *       name: 'home',
+ *       path: '/',
+ *       meta: { title: 'Home' },
+ *       sections: []
+ *     }
+ *   ]
+ * }
+ *
+ * const result = await build(myApp)
+ * console.log(`Generated ${result.files.length} files to ${result.outputDir}`)
+ * ```
+ *
+ * @example
+ * With options:
+ * ```typescript
+ * const result = await build(myApp, {
+ *   outputDir: './dist',
+ *   baseUrl: 'https://example.com',
+ *   generateSitemap: true,
+ *   generateRobotsTxt: true,
+ *   deployment: 'github-pages'
+ * })
+ * ```
+ */
+export const build = async (
+  app: AppConfig,
+  options: GenerateStaticOptions = {}
+): Promise<GenerateStaticResult> => {
+  // Parse app configuration once to extract auth config
+  const validatedApp = Schema.decodeUnknownSync(AppSchema)(app)
+
+  const program = Effect.gen(function* () {
+    yield* Console.log('Generating static site...')
+
+    // Generate static site (dependencies injected via AppLayer)
+    const result = yield* generateStaticUseCase(app, options)
+
+    yield* Console.log(`✅ Static site generated to ${result.outputDir}`)
+    yield* Console.log(`   Generated ${result.files.length} files`)
+
+    return result
+  }).pipe(
+    // Provide dependencies (ServerFactory + PageRenderer + Auth with app-specific config)
+    Effect.provide(createAppLayer(validatedApp.auth))
+  )
+
+  // Run the Effect program and return the result
+  return await Effect.runPromise(program)
+}
+
+// ============================================================================
+// Public Type Exports
+// ============================================================================
+
+/**
+ * Application configuration type for typing JSON/YAML configs in TypeScript.
+ *
+ * This is the primary type consumers need when using Sovrium as a dependency.
+ * Pass an `AppConfig` object to `start()` or `build()`.
+ *
+ * @example
+ * ```typescript
+ * import { start } from 'sovrium'
+ * import type { AppConfig } from 'sovrium'
+ *
+ * const app: AppConfig = {
+ *   name: 'my-app',
+ *   description: 'My application',
+ *   pages: [{ name: 'home', path: '/', sections: [] }]
+ * }
+ *
+ * const server = await start(app)
+ * ```
+ */
+export type AppConfig = AppEncoded
+
+/** Single page configuration (element of `AppConfig['pages']`). */
+export type PageConfig = Page
+
+/** Single table configuration (element of `AppConfig['tables']`). */
+export type TableConfig = Table
+
+/** Reusable component template (element of `AppConfig['components']`). */
+export type ComponentConfig = ComponentTemplate
+
+/** Theme / design tokens configuration (`AppConfig['theme']`). */
+export type ThemeConfig = Theme
+
+/** Authentication configuration (`AppConfig['auth']`). */
+export type AuthConfig = Auth
+
+/** Multi-language configuration (`AppConfig['languages']`). */
+export type LanguageConfig = Languages
+
+/** Built-in analytics configuration (`AppConfig['analytics']`). */
+export type AnalyticsConfig = BuiltInAnalytics
+
+// Re-export function parameter and return types
+export type { StartOptions, GenerateStaticOptions, GenerateStaticResult }
+
+// ============================================================================
+// Schema & Validation API
+// ============================================================================
+
+/**
+ * Generate JSON Schema for the Sovrium AppSchema.
+ *
+ * Returns a complete JSON Schema draft-07 object that describes the app
+ * configuration format. Useful for editor autocompletion, documentation,
+ * and external validation tooling.
+ *
+ * @example
+ * ```typescript
+ * import { generateAppJsonSchema } from 'sovrium'
+ *
+ * const schema = generateAppJsonSchema()
+ * console.log(JSON.stringify(schema, null, 2))
+ * ```
+ */
+export const generateAppJsonSchema = generateSchema
+
+/**
+ * Result of validating a configuration object against AppSchema.
+ */
+export type ValidateConfigResult =
+  | { readonly valid: true; readonly config: AppConfig }
+  | { readonly valid: false; readonly errors: readonly string[] }
+
+/**
+ * Validate an unknown value against the Sovrium AppSchema.
+ *
+ * Returns a discriminated union: `{ valid: true, config }` on success,
+ * or `{ valid: false, errors }` on failure.
+ *
+ * @example
+ * ```typescript
+ * import { validateConfig } from 'sovrium'
+ *
+ * const result = validateConfig({ name: 'My App' })
+ * if (result.valid) {
+ *   console.log('Config is valid:', result.config.name)
+ * } else {
+ *   console.error('Validation errors:', result.errors)
+ * }
+ * ```
+ */
+export const validateConfig = (config: unknown): ValidateConfigResult => {
+  const normalized = normalizeAppConfig(config as AppConfig)
+  const result = Schema.decodeUnknownEither(AppSchema)(normalized)
+
+  if (Either.isRight(result)) {
+    return { valid: true, config: config as AppConfig }
+  }
+
+  const formatted = TreeFormatter.formatErrorSync(result.left)
+  const errors = formatted.split('\n').filter((line) => line.trim().length > 0)
+  return { valid: false, errors }
+}
