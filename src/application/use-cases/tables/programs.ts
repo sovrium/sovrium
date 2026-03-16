@@ -1,0 +1,426 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Effect } from 'effect'
+import { TableRepository } from '@/application/ports/repositories/table-repository'
+import { SessionContextError } from '@/domain/errors'
+import { filterReadableFields } from './utils/field-read-filter'
+import { processRecords, applyPagination } from './utils/list-helpers'
+import { transformRecord } from './utils/record-transformer'
+import type { TransformedRecord } from './utils/record-transformer'
+import type { UserSession } from '@/application/ports/models/user-session'
+import type {
+  ListRecordsResponse,
+  GetRecordResponse,
+  RestoreRecordResponse,
+} from '@/domain/models/api/tables'
+import type { App } from '@/domain/models/app'
+
+// Re-export from table-operations
+export {
+  TableNotFoundError,
+  createListTablesProgram,
+  createGetTableProgram,
+  createGetPermissionsProgram,
+  listViewsProgram,
+  getViewProgram,
+  getViewRecordsProgram,
+} from './table-operations'
+
+// Re-export from batch-operations
+export {
+  batchCreateProgram,
+  batchUpdateProgram,
+  batchDeleteProgram,
+  batchRestoreProgram,
+  upsertProgram,
+} from './batch-operations'
+
+interface ListRecordsConfig {
+  readonly session: Readonly<UserSession>
+  readonly tableName: string
+  readonly app: App
+  readonly userRole: string
+  readonly filter?: {
+    readonly and?: readonly {
+      readonly field: string
+      readonly operator: string
+      readonly value: unknown
+    }[]
+  }
+  readonly includeDeleted?: boolean
+  readonly format?: 'display'
+  readonly timezone?: string
+  readonly sort?: string
+  readonly fields?: string
+  readonly limit?: number
+  readonly offset?: number
+  readonly aggregate?: {
+    readonly count?: boolean
+    readonly sum?: readonly string[]
+    readonly avg?: readonly string[]
+    readonly min?: readonly string[]
+    readonly max?: readonly string[]
+  }
+}
+
+export function createListRecordsProgram(
+  config: ListRecordsConfig
+): Effect.Effect<ListRecordsResponse, SessionContextError, TableRepository> {
+  return Effect.gen(function* () {
+    const repo = yield* TableRepository
+    const {
+      session,
+      tableName,
+      app,
+      userRole,
+      filter,
+      includeDeleted,
+      format,
+      timezone,
+      sort,
+      fields,
+      limit,
+      offset,
+      aggregate,
+    } = config
+
+    const records = yield* repo.listRecords({ session, tableName, filter, includeDeleted, sort })
+
+    const processedRecords = processRecords({
+      records,
+      app,
+      tableName,
+      userRole,
+      userId: session.userId,
+      format,
+      timezone,
+      fields,
+    })
+
+    const { paginatedRecords, pagination } = applyPagination(
+      processedRecords,
+      records.length,
+      limit,
+      offset
+    )
+
+    const aggregations = aggregate
+      ? yield* repo.computeAggregations({ session, tableName, filter, includeDeleted, aggregate })
+      : undefined
+
+    return {
+      records: [...paginatedRecords] as TransformedRecord[],
+      pagination,
+      ...(aggregations ? { aggregations } : {}),
+    }
+  })
+}
+
+interface ListTrashConfig {
+  readonly session: Readonly<UserSession>
+  readonly tableName: string
+  readonly app: App
+  readonly userRole: string
+  readonly filter?: {
+    readonly and?: readonly {
+      readonly field: string
+      readonly operator: string
+      readonly value: unknown
+    }[]
+  }
+  readonly sort?: string
+  readonly limit?: number
+  readonly offset?: number
+}
+
+/**
+ * Extract deletedBy user ID from a raw trash record.
+ * The listTrash query joins auth.user and returns deleted_by_user object.
+ * We extract only the user ID string to match the flat authorship format.
+ */
+function extractDeletedByUserId(rawRecord: Readonly<Record<string, unknown>>): string | undefined {
+  const deletedByUser = rawRecord['deleted_by_user']
+  if (!deletedByUser || typeof deletedByUser !== 'object') return undefined
+  const userObj = deletedByUser as Record<string, unknown>
+  if (!userObj['id']) return undefined
+  return String(userObj['id'])
+}
+
+export function createListTrashProgram(
+  config: ListTrashConfig
+): Effect.Effect<ListRecordsResponse, SessionContextError, TableRepository> {
+  return Effect.gen(function* () {
+    const repo = yield* TableRepository
+    const { session, tableName, app, userRole, filter, sort, limit, offset } = config
+
+    // Query soft-deleted records with session context (RLS policies apply automatically)
+    const records = yield* repo.listTrash({ session, tableName, filter, sort })
+
+    // Process records (field-level filtering, transformations)
+    const processedRecords = processRecords({
+      records,
+      app,
+      tableName,
+      userRole,
+      userId: session.userId,
+    })
+
+    // Preserve numeric IDs and attach deletedBy user object from joined query results
+    const recordsWithPreservedIds = processedRecords.map((record) => {
+      // Try to parse ID as number if it's a numeric string, otherwise keep as-is
+      const rawRecord = records.find((r) => String(r.id) === String(record.id))
+      const originalId = rawRecord?.id
+      const id = typeof originalId === 'number' ? originalId : record.id
+
+      // Extract deletedBy user ID from the raw record's join result
+      const deletedBy = rawRecord ? extractDeletedByUserId(rawRecord) : undefined
+
+      return {
+        ...record,
+        id,
+        ...(deletedBy ? { deletedBy } : {}),
+      }
+    })
+
+    // Apply pagination
+    const { paginatedRecords, pagination } = applyPagination(
+      recordsWithPreservedIds,
+      records.length,
+      limit,
+      offset
+    )
+
+    return {
+      records: [...paginatedRecords] as TransformedRecord[],
+      pagination,
+    }
+  })
+}
+
+interface GetRecordConfig {
+  readonly session: Readonly<UserSession>
+  readonly tableName: string
+  readonly recordId: string
+  readonly app: App
+  readonly userRole: string
+  readonly includeDeleted?: boolean
+}
+
+export function createGetRecordProgram(
+  config: GetRecordConfig
+): Effect.Effect<GetRecordResponse, SessionContextError, TableRepository> {
+  return Effect.gen(function* () {
+    const repo = yield* TableRepository
+    const { session, tableName, recordId, app, userRole, includeDeleted } = config
+    const { userId } = session
+
+    const record = yield* repo.getRecord(session, tableName, recordId, includeDeleted)
+    if (!record) return yield* Effect.fail(new SessionContextError('Record not found'))
+
+    const filteredRecord = filterReadableFields({ app, tableName, userRole, userId, record })
+    const transformed = transformRecord(filteredRecord, { app, tableName })
+
+    // Return flattened format (id, fields, timestamps, authorship at root level)
+    // Parse id as number to match test expectations
+    const id = typeof record.id === 'number' ? record.id : Number(record.id)
+
+    return {
+      id,
+      fields: transformed.fields,
+      createdAt: transformed.createdAt,
+      updatedAt: transformed.updatedAt,
+      ...(transformed.createdBy ? { createdBy: transformed.createdBy } : {}),
+      ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
+      ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
+    }
+  })
+}
+
+interface CreateRecordConfig {
+  readonly session: Readonly<UserSession>
+  readonly tableName: string
+  readonly fields: Readonly<Record<string, unknown>>
+  readonly app?: App
+  readonly userRole?: string
+}
+
+export function createRecordProgram(config: CreateRecordConfig) {
+  const { session, tableName, fields, app, userRole } = config
+  return Effect.gen(function* () {
+    const repo = yield* TableRepository
+
+    // Create record with session context
+    const record = yield* repo.createRecord(session, tableName, fields)
+
+    const transformed = transformRecord(record)
+
+    // Apply field-level read permissions filtering
+    // If app and userRole are provided, filter fields based on permissions
+    const filteredFields =
+      app && userRole
+        ? (() => {
+            const { userId } = session
+            const filteredRecord = filterReadableFields({
+              app,
+              tableName,
+              userRole,
+              userId,
+              record,
+            })
+
+            // Transform filtered record to get only user fields (exclude system fields)
+            const transformedFiltered = transformRecord(filteredRecord)
+            return transformedFiltered.fields
+          })()
+        : transformed.fields
+
+    // Return in format expected by tests: system fields at root, user fields nested
+    return {
+      id: transformed.id,
+      fields: filteredFields,
+      createdAt: transformed.createdAt,
+      updatedAt: transformed.updatedAt,
+      ...(transformed.createdBy ? { createdBy: transformed.createdBy } : {}),
+      ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
+      ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
+    }
+  })
+}
+
+export function updateRecordProgram(
+  session: Readonly<UserSession>,
+  tableName: string,
+  recordId: string,
+  params: {
+    readonly fields: Readonly<Record<string, unknown>>
+    readonly app?: App
+    readonly userRole?: string
+  }
+) {
+  return Effect.gen(function* () {
+    const repo = yield* TableRepository
+
+    // Update record with session context (RLS policies enforce access control)
+    const record = yield* repo.updateRecord(session, tableName, recordId, {
+      fields: params.fields,
+      app: params.app,
+    })
+
+    // Transform with app context to include table-specific fields like created_at/updated_at
+    const transformed = transformRecord(record, { app: params.app, tableName })
+
+    // Apply field-level read permissions filtering
+    // If app and userRole are provided, filter fields based on permissions
+    const filteredFields =
+      params.app && params.userRole
+        ? (() => {
+            const { userId } = session
+            const filteredRecord = filterReadableFields({
+              app: params.app!,
+              tableName,
+              userRole: params.userRole!,
+              userId,
+              record,
+            })
+
+            // Transform filtered record to get only user fields (exclude system fields)
+            const transformedFiltered = transformRecord(filteredRecord, {
+              app: params.app,
+              tableName,
+            })
+            return transformedFiltered.fields
+          })()
+        : transformed.fields
+
+    // Return in format expected by tests: system fields at root, user fields nested
+    // Preserve original ID type (number if it was number in database)
+    const originalId = record.id
+    return {
+      id: typeof originalId === 'number' ? originalId : transformed.id,
+      fields: filteredFields,
+      createdAt: transformed.createdAt,
+      updatedAt: transformed.updatedAt,
+      ...(transformed.createdBy ? { createdBy: transformed.createdBy } : {}),
+      ...(transformed.updatedBy ? { updatedBy: transformed.updatedBy } : {}),
+      ...(transformed.deletedBy ? { deletedBy: transformed.deletedBy } : {}),
+    }
+  })
+}
+
+export function restoreRecordProgram(
+  session: Readonly<UserSession>,
+  tableName: string,
+  recordId: string
+): Effect.Effect<RestoreRecordResponse, SessionContextError, TableRepository> {
+  return Effect.gen(function* () {
+    const repo = yield* TableRepository
+
+    // Restore soft-deleted record with session context
+    const record = yield* repo.restoreRecord(session, tableName, recordId)
+
+    // Handle special error marker for non-deleted records
+    if (record && '_error' in record && record._error === 'not_deleted') {
+      return yield* Effect.fail(new SessionContextError('Record is not deleted'))
+    }
+
+    if (!record) {
+      return yield* Effect.fail(new SessionContextError('Record not found'))
+    }
+
+    return {
+      success: true as const,
+      record: transformRecord(record),
+    }
+  })
+}
+
+/**
+ * Raw record retrieval program (no permission filtering)
+ * Used for internal checks like record existence verification
+ */
+export function rawGetRecordProgram(
+  session: Readonly<UserSession>,
+  tableName: string,
+  recordId: string
+): Effect.Effect<Record<string, unknown> | null, SessionContextError, TableRepository> {
+  return Effect.gen(function* () {
+    const repo = yield* TableRepository
+    return yield* repo.getRecord(session, tableName, recordId)
+  })
+}
+
+/**
+ * Delete record program
+ * Wraps Infrastructure deleteRecord for proper layer architecture
+ */
+export function deleteRecordProgram(
+  session: Readonly<UserSession>,
+  tableName: string,
+  recordId: string,
+  app?: App
+): Effect.Effect<boolean, SessionContextError, TableRepository> {
+  return Effect.gen(function* () {
+    const repo = yield* TableRepository
+    return yield* repo.deleteRecord(session, tableName, recordId, app)
+  })
+}
+
+/**
+ * Permanently delete record program
+ * Wraps Infrastructure permanentlyDeleteRecord for proper layer architecture
+ */
+export function permanentlyDeleteRecordProgram(
+  session: Readonly<UserSession>,
+  tableName: string,
+  recordId: string
+): Effect.Effect<boolean, SessionContextError, TableRepository> {
+  return Effect.gen(function* () {
+    const repo = yield* TableRepository
+    return yield* repo.permanentlyDeleteRecord(session, tableName, recordId)
+  })
+}
