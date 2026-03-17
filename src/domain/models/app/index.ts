@@ -1,0 +1,259 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Schema } from 'effect'
+import { BuiltInAnalyticsSchema } from './analytics'
+import { AuthSchema } from './auth'
+import { BUILT_IN_ROLES } from './auth/roles'
+import { ComponentsSchema } from './components'
+import { DescriptionSchema } from './description'
+import { LanguagesSchema } from './languages'
+import { NameSchema } from './name'
+import { PagesSchema } from './pages'
+import { TablesSchema } from './tables'
+import { ThemeSchema } from './theme'
+import { VersionSchema } from './version'
+
+/**
+ * Helper to extract role names from a permission value.
+ * Permissions can be 'all', 'authenticated', or an array of role names.
+ */
+const extractRolesFromPermission = (permission: unknown): readonly string[] => {
+  if (!permission) return []
+  if (typeof permission === 'string') return [] // 'all' or 'authenticated'
+  if (Array.isArray(permission)) return permission as readonly string[]
+  return []
+}
+
+/**
+ * AppSchema defines the structure of an application configuration.
+ *
+ * This schema represents the core metadata for any application built
+ * with Sovrium, including its name, optional version, and optional description.
+ *
+ * @example
+ * ```typescript
+ * const myApp = {
+ *   name: 'todo-app',
+ *   version: '1.0.0',
+ *   description: 'A simple todo list application',
+ * }
+ *
+ * const validated = Schema.decodeUnknownSync(AppSchema)(myApp)
+ * ```
+ */
+export const AppSchema = Schema.Struct({
+  /**
+   * The name of the application.
+   *
+   * Must follow npm package naming conventions:
+   * - Lowercase only
+   * - Maximum 214 characters (including scope for scoped packages)
+   * - Cannot start with a dot or underscore
+   * - Cannot contain leading/trailing spaces
+   * - Cannot contain non-URL-safe characters
+   * - Scoped packages: @scope/package-name format allowed
+   * - Can include hyphens and underscores (but not at the start)
+   */
+  name: NameSchema,
+
+  /**
+   * The version of the application (optional).
+   *
+   * Must follow Semantic Versioning (SemVer) 2.0.0 specification:
+   * - Format: MAJOR.MINOR.PATCH (e.g., 1.0.0)
+   * - No leading zeros in version components
+   * - Optional pre-release identifiers (e.g., 1.0.0-alpha)
+   * - Optional build metadata (e.g., 1.0.0+build.123)
+   */
+  version: Schema.optional(VersionSchema),
+
+  /**
+   * A description of the application (optional).
+   *
+   * Must be a single-line string:
+   * - No line breaks allowed (\n, \r, or \r\n)
+   * - No maximum length restriction
+   * - Can contain any characters except line breaks
+   * - Unicode characters and emojis are supported
+   */
+  description: Schema.optional(DescriptionSchema),
+
+  /**
+   * Data tables that define the data structure (optional).
+   *
+   * Collection of database tables that define the data structure of your application.
+   * Each table represents an entity (e.g., users, products, orders) with fields that
+   * define the schema. Tables support relationships, indexes, constraints, and various
+   * field types.
+   */
+  tables: Schema.optional(TablesSchema),
+
+  /**
+   * Design system configuration (optional).
+   *
+   * Unified design tokens for colors, typography, spacing, animations, breakpoints,
+   * shadows, and border radius. Theme applies globally to all pages via className
+   * utilities and CSS variables.
+   */
+  theme: Schema.optional(ThemeSchema),
+
+  /**
+   * Multi-language support configuration (optional).
+   *
+   * Defines supported languages, default language, translations, and i18n behavior
+   * (browser detection, persistence). Pages reference translations using $t: syntax.
+   */
+  languages: Schema.optional(LanguagesSchema),
+
+  /**
+   * Authentication configuration (optional).
+   *
+   * Enables authentication features including email/password authentication,
+   * user management, and organization support. Configure authentication providers
+   * and optional plugins (admin, organization) based on application requirements.
+   */
+  auth: Schema.optional(AuthSchema),
+
+  /**
+   * Built-in analytics configuration (optional).
+   *
+   * Enables first-party, privacy-friendly analytics tracking without cookies
+   * or external dependencies. Configure data retention, excluded paths,
+   * session timeout, and Do Not Track behavior.
+   */
+  analytics: Schema.optional(BuiltInAnalyticsSchema),
+
+  /**
+   * Reusable UI components (optional).
+   *
+   * Array of reusable component templates with variable substitution. Components are
+   * defined once at app level and referenced across pages using $ref syntax with
+   * $vars for dynamic content.
+   */
+  components: Schema.optional(ComponentsSchema),
+
+  /**
+   * Marketing and content pages (optional).
+   *
+   * Array of page configurations with server-side rendering support. Pages use a
+   * component-based system with comprehensive metadata, theming, and i18n support.
+   * Minimum of 1 page required when pages property is present.
+   */
+  pages: Schema.optional(PagesSchema),
+}).pipe(
+  Schema.annotations({
+    identifier: 'App',
+    title: 'Application Configuration',
+    description:
+      'Complete application configuration including name, version, description, and data tables. This is the root schema for Sovrium applications.',
+    examples: [
+      {
+        name: 'todo-app',
+        version: '1.0.0',
+        description: 'A simple todo list application',
+        tables: [
+          {
+            id: 1,
+            name: 'tasks',
+            fields: [
+              {
+                id: 1,
+                name: 'title',
+                type: 'single-line-text' as const,
+                required: true,
+              },
+              { id: 2, name: 'completed', type: 'checkbox' as const, required: true },
+            ],
+          },
+        ],
+      },
+      {
+        name: '@myorg/dashboard',
+        version: '2.0.0-beta.1',
+        description: 'Admin dashboard for analytics and reporting',
+      },
+      {
+        name: 'blog-system',
+      },
+    ],
+  }),
+  Schema.filter((app) => {
+    const userFieldTypes = new Set(['user', 'created-by', 'updated-by'])
+    const hasUserFields =
+      app.tables?.some((table) => table.fields.some((field) => userFieldTypes.has(field.type))) ??
+      false
+
+    if (hasUserFields && !app.auth) {
+      return 'User fields (user, created-by, updated-by) require auth configuration'
+    }
+    return true
+  }),
+  Schema.filter((app) => {
+    // Only validate role references in permissions when auth is explicitly configured.
+    // Without auth, custom role names in permissions are accepted (no validation context).
+    if (!app.auth || !app.tables || app.tables.length === 0) {
+      return true
+    }
+
+    // Build set of all valid roles: built-in + custom auth.roles
+    const customRoleNames = app.auth.roles?.map((role) => role.name) ?? []
+    const validRoles = new Set<string>([...BUILT_IN_ROLES, ...customRoleNames])
+
+    // Check all tables for invalid role references
+    const permissionKeys = ['create', 'read', 'update', 'delete', 'comment'] as const
+    const validationErrors = app.tables
+      .filter((table) => table.permissions)
+      .flatMap((table) => {
+        const tablePermissions = table.permissions as Record<string, unknown>
+        const allPermissionRoles = permissionKeys.flatMap((key) =>
+          extractRolesFromPermission(tablePermissions[key])
+        )
+        const invalidRole = allPermissionRoles.find((role) => !validRoles.has(role))
+        if (!invalidRole) return []
+        const sortedValidRoles = Array.from(validRoles).toSorted((a, b) => a.localeCompare(b))
+        return [
+          `Table '${table.name}' permissions reference undefined role '${invalidRole}'. Valid roles: ${sortedValidRoles.join(', ')}`,
+        ]
+      })
+
+    return validationErrors.length > 0 ? validationErrors[0] : true
+  })
+)
+
+/**
+ * TypeScript type inferred from AppSchema.
+ *
+ * Use this type for type-safe access to validated application data.
+ *
+ * @example
+ * ```typescript
+ * const app: App = {
+ *   name: 'my-app',
+ * }
+ * ```
+ */
+export type App = Schema.Schema.Type<typeof AppSchema>
+
+/**
+ * Encoded type of AppSchema (what goes in).
+ *
+ * In this case, it's the same as App since we don't use transformations.
+ */
+export type AppEncoded = Schema.Schema.Encoded<typeof AppSchema>
+
+// Re-export all domain model schemas and types for convenient imports
+export * from './analytics'
+export * from './name'
+export * from './version'
+export * from './description'
+export * from './tables'
+export * from './theme'
+export * from './languages'
+export * from './auth'
+export * from './components'
+export * from './pages'
