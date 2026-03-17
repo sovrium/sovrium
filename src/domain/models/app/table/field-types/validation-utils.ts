@@ -1,0 +1,168 @@
+/**
+ * Copyright (c) 2025 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Schema } from 'effect'
+
+/**
+ * Validates that min is less than or equal to max when both are specified.
+ *
+ * This validation is used by numeric field types (integer, decimal, currency, percentage)
+ * to ensure that range constraints are logically valid. Returns an error message if
+ * validation fails, or undefined if validation passes.
+ *
+ * @param field - Object containing optional min and max properties
+ * @returns Error message if min > max, undefined otherwise
+ *
+ * @example
+ * ```typescript
+ * validateMinMaxRange({ min: 0, max: 100 })  // undefined (valid)
+ * validateMinMaxRange({ min: 100, max: 10 }) // 'min cannot be greater than max'
+ * validateMinMaxRange({ min: 0 })            // undefined (only min specified)
+ * validateMinMaxRange({ max: 100 })          // undefined (only max specified)
+ * ```
+ */
+export const validateMinMaxRange = (field: {
+  readonly min?: number
+  readonly max?: number
+}): string | undefined => {
+  if (field.min !== undefined && field.max !== undefined && field.min > field.max) {
+    return 'min cannot be greater than max'
+  }
+  return undefined
+}
+
+/**
+ * Creates a reusable options array schema for select-type fields.
+ *
+ * This schema factory is used by single-select and multi-select field types
+ * to ensure consistent validation of options arrays. All select fields require
+ * at least one option to be meaningful, and option values must be unique.
+ *
+ * @param fieldType - The type of select field (for error messages)
+ * @returns Effect Schema for validating options arrays
+ *
+ * @example
+ * ```typescript
+ * // Used in single-select field
+ * const optionsSchema = createOptionsSchema('single-select')
+ * // Used in multi-select field
+ * const optionsSchema = createOptionsSchema('multi-select')
+ * ```
+ */
+export const createOptionsSchema = (fieldType: 'single-select' | 'multi-select') =>
+  Schema.Array(Schema.String).pipe(
+    Schema.minItems(1),
+    Schema.annotations({
+      title: 'Options',
+      message: () => `At least one option is required for ${fieldType} field`,
+    }),
+    Schema.filter((options) => {
+      const uniqueOptions = new Set(options)
+      return (
+        options.length === uniqueOptions.size || 'Options must be unique (duplicate option found)'
+      )
+    })
+  )
+
+/**
+ * Creates a reusable options array schema for status-type fields with complex option objects.
+ *
+ * This schema factory is used by status field type to ensure consistent validation
+ * of options arrays containing objects with value and optional color properties.
+ * Status fields require at least one option, and option values must be unique.
+ *
+ * @returns Effect Schema for validating status field options arrays
+ *
+ * @example
+ * ```typescript
+ * // Used in status field
+ * const optionsSchema = createStatusOptionsSchema()
+ * // Validates: [{ value: 'Draft', color: '#6B7280' }, { value: 'Published' }]
+ * ```
+ */
+export const createStatusOptionsSchema = () =>
+  Schema.Array(
+    Schema.Struct({
+      value: Schema.String.pipe(Schema.nonEmptyString({ message: () => 'value is required' })),
+      color: Schema.optional(
+        Schema.String.pipe(
+          Schema.pattern(/^#[0-9a-fA-F]{6}$/, {
+            message: () => 'Invalid color format - color must be a hex code (e.g., #3B82F6)',
+          }),
+          Schema.annotations({
+            description: 'Hex color code for the status',
+          })
+        )
+      ),
+    }).pipe(Schema.annotations({ title: 'Status Option' }))
+  ).pipe(
+    Schema.minItems(1, { message: () => 'at least one option required' }),
+    Schema.annotations({ title: 'Status Options' }),
+    Schema.filter((options) => {
+      const values = options.map((opt) => opt.value)
+      const uniqueValues = new Set(values)
+      return (
+        values.length === uniqueValues.size || 'Options must be unique (duplicate option found)'
+      )
+    })
+  )
+
+/**
+ * Validates that button fields have required properties based on their action type.
+ *
+ * This validation is used by button field types to ensure that action-specific
+ * properties are provided when needed. For example, buttons with action='url'
+ * must have a url property, and buttons with action='automation' must have an
+ * automation property.
+ *
+ * @param field - Object containing action and optional url/automation properties
+ * @returns Error message if validation fails, true if validation passes
+ *
+ * @example
+ * ```typescript
+ * validateButtonAction({ action: 'url', url: 'https://example.com' })  // true (valid)
+ * validateButtonAction({ action: 'url' })                              // 'url is required when action is url'
+ * validateButtonAction({ action: 'automation', automation: 'approve' }) // true (valid)
+ * validateButtonAction({ action: 'automation' })                       // 'automation is required when action is automation'
+ * validateButtonAction({ action: 'custom' })                           // true (no requirements)
+ * ```
+ */
+export const validateButtonAction = (field: {
+  readonly action: string
+  readonly url?: string
+  readonly automation?: string
+}): string | true => {
+  if (field.action === 'url' && !field.url) {
+    return 'url is required when action is url'
+  }
+  if (field.action === 'automation' && !field.automation) {
+    return 'automation is required when action is automation'
+  }
+  return true
+}
+
+/**
+ * Finds the first duplicate value in an array.
+ *
+ * This utility function is used for detecting duplicate IDs, field names, or other
+ * values that must be unique within a collection. Uses an efficient O(n) algorithm
+ * with indexOf to find the first duplicate.
+ *
+ * @param values - Array of values to check for duplicates
+ * @returns The first duplicate value found, or undefined if no duplicates exist
+ *
+ * @example
+ * ```typescript
+ * findDuplicate(['a', 'b', 'c'])        // undefined (no duplicates)
+ * findDuplicate(['a', 'b', 'a', 'c'])   // 'a' (first duplicate)
+ * findDuplicate([1, 2, 3, 2])           // 2 (works with numbers)
+ * findDuplicate(['x'])                  // undefined (single item)
+ * ```
+ */
+export const findDuplicate = <T>(values: ReadonlyArray<T>): T | undefined => {
+  return values.find((value, index) => values.indexOf(value) !== index)
+}

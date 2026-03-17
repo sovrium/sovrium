@@ -1,0 +1,65 @@
+name: Publish to npm
+
+# Triggered when Forgejo mirrors a release tag to GitHub
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Prevent parallel publishes
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    name: npm Publish (Trusted Publishing)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build for npm
+        run: bun run build
+
+      - name: Pre-publish validation
+        run: bun run prepublish-check
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          # Extract changelog from CHANGELOG.md for this version
+          VERSION="${TAG#v}"
+          NOTES=$(awk "/^## ${VERSION}/,/^## [0-9]/" CHANGELOG.md | head -n -1 | tail -n +2)
+          if [ -z "$NOTES" ]; then
+            NOTES="Release ${TAG}"
+          fi
+          gh release create "${TAG}" \
+            --title "${TAG}" \
+            --notes "$NOTES" \
+            --verify-tag
