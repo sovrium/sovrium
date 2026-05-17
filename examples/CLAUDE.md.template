@@ -1,0 +1,70 @@
+# CLAUDE.md - {{PROJECT_NAME}}
+
+## Project Overview
+
+This is a Sovrium application. Sovrium is a configuration-driven platform where your app is defined in a YAML file and validated against a typed schema.
+
+## Commands
+
+```bash
+# Start the development server
+sovrium start app.yaml
+
+# Start with watch mode (auto-reload on config changes)
+sovrium start app.yaml --watch
+
+# Validate config without starting
+sovrium validate app.yaml
+
+# Build static site
+sovrium build app.yaml
+
+# Print the full JSON Schema
+sovrium schema
+
+# Print schema to a file
+sovrium schema --output schema.json
+```
+
+## Runtime
+
+- **Runtime**: Bun (NOT Node.js)
+- **Package manager**: Bun (`bun install`, NOT npm/yarn)
+- **Config format**: YAML or JSON
+
+## Key Files
+
+- `app.yaml` -- Application configuration (tables, auth, pages, theme)
+- `CLAUDE.md` -- This file (LLM context)
+
+## LLM Documentation
+
+For AI-assisted development, fetch the official Sovrium documentation optimized for LLMs:
+
+| Resource | URL | Description |
+|----------|-----|-------------|
+| **llms.txt** | https://sovrium.com/llms.txt | Documentation index and quick reference |
+| **llms-full.txt** | https://sovrium.com/llms-full.txt | Complete documentation (~2800 lines) |
+
+Use `WebFetch("https://sovrium.com/llms-full.txt")` to load the full schema reference, configuration options, field types, and examples.
+
+### Key Schema Sections
+
+- **App metadata**: name (required), version, description
+- **Tables**: Field types (40+), relationships, permissions, soft-delete
+- **Pages**: Sections, components, SEO meta, interactions, responsive design
+- **Theme**: Colors, fonts, spacing, shadows, borderRadius, animations, breakpoints
+- **Auth**: Email/password, magic link, OAuth (8 providers), 2FA, roles
+- **Languages**: i18n with translations, browser detection, persistence
+- **Analytics**: First-party page view tracking
+- **Components**: Reusable UI templates with variable substitution
+
+## Tips
+
+- Edit `app.yaml` and restart to see changes (or use `--watch` for auto-reload)
+- Sovrium validates your config on every start -- check the error output for guidance
+- Use `sovrium validate app.yaml` for quick validation without starting the server
+- Tables require at least one field; pages require at least one section
+- Auth must be configured if you use `user`, `created-by`, or `updated-by` field types
+- Field names must follow PostgreSQL conventions: `^[a-z][a-z0-9_]*$` (underscores, not hyphens)
+- Field types use hyphens: `single-line-text`, `created-by`, `auto-number`

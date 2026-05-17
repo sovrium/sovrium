@@ -1,0 +1,16 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Schema } from 'effect'
+import { ComponentI18nSchema } from '../../i18n'
+
+/**
+ * i18n fields for components with user-facing translatable text.
+ */
+export const i18nFields = {
+  i18n: Schema.optional(ComponentI18nSchema),
+} as const

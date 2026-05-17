@@ -1,0 +1,184 @@
+name: crm-app
+version: 1.0.0
+description: A simple CRM with contacts and companies
+
+auth:
+  strategies:
+    - type: emailAndPassword
+      minPasswordLength: 8
+
+tables:
+  - id: 1
+    name: companies
+    fields:
+      - id: 1
+        name: name
+        type: single-line-text
+        required: true
+      - id: 2
+        name: industry
+        type: single-select
+        options:
+          - Technology
+          - Finance
+          - Healthcare
+          - Education
+          - Retail
+          - Other
+      - id: 3
+        name: website
+        type: url
+      - id: 4
+        name: notes
+        type: long-text
+
+  - id: 2
+    name: contacts
+    fields:
+      - id: 1
+        name: name
+        type: single-line-text
+        required: true
+      - id: 2
+        name: email
+        type: email
+        required: true
+      - id: 3
+        name: phone
+        type: phone-number
+      - id: 4
+        name: company
+        type: relationship
+        relatedTable: companies
+        relationType: many-to-one
+      - id: 5
+        name: status
+        type: single-select
+        options:
+          - Lead
+          - Active
+          - Inactive
+      - id: 6
+        name: created_by
+        type: created-by
+
+theme:
+  colors:
+    primary: '#2563eb'
+    background: '#ffffff'
+    text: '#0f172a'
+    text-secondary: '#475569'
+    border: '#e2e8f0'
+
+pages:
+  - name: sign-in
+    path: /sign-in
+    meta:
+      title: Sign In
+      description: Sign in to your CRM account
+    components:
+      - type: container
+        element: section
+        props:
+          className: py-12 px-6
+          style:
+            backgroundColor: '#f8fafc'
+        children:
+          - type: container
+            props:
+              className: max-w-md mx-auto
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-3xl font-bold mb-6 text-center
+                  style:
+                    color: '#0f172a'
+                content: Sign In
+              - type: form
+                props:
+                  id: sign-in-form
+                action:
+                  type: auth
+                  method: login
+                  strategy: email
+                  onSuccess:
+                    navigate: /
+
+  - name: home
+    path: /
+    access:
+      require: authenticated
+      redirectTo: /sign-in
+    meta:
+      title: CRM Dashboard
+      description: Manage your contacts and companies
+    components:
+      - type: container
+        element: section
+        props:
+          className: py-12 px-6
+          style:
+            backgroundColor: '#f8fafc'
+        children:
+          - type: container
+            props:
+              className: max-w-5xl mx-auto
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-4xl font-bold mb-4
+                  style:
+                    color: '#0f172a'
+                content: CRM Dashboard
+              - type: text
+                element: p
+                props:
+                  className: text-lg mb-8
+                  style:
+                    color: '#475569'
+                content: Manage your contacts and companies in one place.
+              - type: container
+                props:
+                  style:
+                    display: grid
+                    gridTemplateColumns: repeat(auto-fit, minmax(250px, 1fr))
+                    gap: 1.5rem
+                children:
+                  - type: container
+                    props:
+                      className: p-6 rounded-xl border
+                      style:
+                        backgroundColor: '#ffffff'
+                        borderColor: '#e2e8f0'
+                    children:
+                      - type: text
+                        element: h3
+                        props:
+                          className: text-lg font-semibold mb-2
+                        content: Contacts
+                      - type: text
+                        element: p
+                        props:
+                          style:
+                            color: '#475569'
+                        content: Track leads and manage relationships.
+                  - type: container
+                    props:
+                      className: p-6 rounded-xl border
+                      style:
+                        backgroundColor: '#ffffff'
+                        borderColor: '#e2e8f0'
+                    children:
+                      - type: text
+                        element: h3
+                        props:
+                          className: text-lg font-semibold mb-2
+                        content: Companies
+                      - type: text
+                        element: p
+                        props:
+                          style:
+                            color: '#475569'
+                        content: Organize accounts by company.

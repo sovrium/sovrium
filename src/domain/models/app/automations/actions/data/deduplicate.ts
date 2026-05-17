@@ -1,0 +1,42 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Schema } from 'effect'
+import { TemplateStringSchema } from '../../template'
+import { ActionBaseFields } from '../base'
+
+/**
+ * Data Deduplicate Action (type: data, operator: deduplicate)
+ *
+ * Remove duplicate items from an array based on a specified key field; the
+ * first occurrence of each key is kept.
+ */
+export const DataDeduplicateActionSchema = Schema.Struct({
+  ...ActionBaseFields,
+  type: Schema.Literal('data'),
+  operator: Schema.Literal('deduplicate'),
+  props: Schema.Struct({
+    /** Template reference to the array of items */
+    input: TemplateStringSchema.pipe(
+      Schema.annotations({ description: 'Template reference to the array of items' })
+    ),
+
+    /** Field whose value identifies duplicates */
+    key: TemplateStringSchema.pipe(
+      Schema.annotations({ description: 'Field whose value identifies duplicates' })
+    ),
+  }),
+}).pipe(
+  Schema.annotations({
+    identifier: 'DataDeduplicateAction',
+    title: 'Data Deduplicate Action',
+    description: 'Remove duplicate items from an array based on a specified key field',
+  })
+)
+
+/** @public */
+export type DataDeduplicateAction = Schema.Schema.Type<typeof DataDeduplicateActionSchema>

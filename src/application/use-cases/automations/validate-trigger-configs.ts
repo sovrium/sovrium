@@ -1,0 +1,105 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Effect } from 'effect'
+
+/**
+ * Allowed property names per trigger type.
+ *
+ * Effect Schema's lenient default for `Schema.Struct` strips unknown properties
+ * silently — meaning a typo like `roles` (instead of `requiredRole`) on a manual
+ * trigger would be ignored at decode time. To catch these mistakes at startup we
+ * inspect the *raw* trigger object before it enters the schema decoder and fail
+ * fast on any unknown property.
+ *
+ * Keep these allow-lists in sync with the corresponding *TriggerSchema* in
+ * `src/domain/models/app/automations/trigger/`.
+ *
+ * Note (do not retry): a global `Schema.decodeUnknown(AppSchema)({ onExcessProperty:
+ * 'error' })` was attempted as a more elegant alternative. It broke ~14 unrelated
+ * regression specs (badge variants, navigation-menu link components, etc.) that
+ * intentionally pass through extra properties that AppSchema strips. Per-trigger
+ * allow-lists are the surgical fix.
+ */
+const ALLOWED_TRIGGER_KEYS: Readonly<Record<string, ReadonlySet<string>>> = {
+  webhook: new Set([
+    'type',
+    'method',
+    'secret',
+    'respondImmediately',
+    'auth',
+    'response',
+    'requestSchema',
+    'querySchema',
+    'rateLimit',
+    'deduplicationKey',
+    'deduplicationWindow',
+  ]),
+  cron: new Set(['type', 'expression', 'timezone']),
+  record: new Set(['type', 'table', 'events', 'watchFields', 'condition']),
+  auth: new Set(['type', 'events']),
+  form: new Set(['type', 'form']),
+  manual: new Set(['type', 'label', 'inputSchema', 'requiredRole']),
+  'automation-call': new Set(['type', 'inputSchema']),
+  'automation-failure': new Set(['type', 'automations']),
+  comment: new Set(['type', 'table', 'events', 'when', 'filter', 'respectReadPermissions']),
+}
+
+interface RawTrigger {
+  readonly type?: unknown
+  readonly [key: string]: unknown
+}
+
+interface RawAutomation {
+  readonly name?: unknown
+  readonly trigger?: RawTrigger
+  readonly [key: string]: unknown
+}
+
+interface RawApp {
+  readonly automations?: ReadonlyArray<RawAutomation>
+  readonly [key: string]: unknown
+}
+
+/**
+ * Validate trigger configs in the raw app input by detecting unknown properties
+ * per trigger type. Runs BEFORE schema decoding so unknown fields aren't silently
+ * stripped. Schema cross-references (table existence, automation references,
+ * etc.) are still enforced by the AppSchema's `Schema.filter` chain.
+ *
+ * @param app - Raw app config (post-normalization, pre-schema-decode)
+ * @returns Effect that fails with a string describing the first unknown property,
+ *   or succeeds with `void` when every trigger only uses known properties.
+ */
+export const validateTriggerConfigs = (app: unknown): Effect.Effect<void, string> => {
+  if (typeof app !== 'object' || app === null) return Effect.void
+  const { automations } = app as RawApp
+  if (!Array.isArray(automations)) return Effect.void
+
+  const errors = automations
+    .filter(
+      (a): a is RawAutomation & { readonly trigger: RawTrigger } =>
+        typeof a === 'object' && a !== null && typeof a.trigger === 'object' && a.trigger !== null
+    )
+    .flatMap((automation) => {
+      const { trigger } = automation
+      const triggerType = typeof trigger.type === 'string' ? trigger.type : undefined
+      if (triggerType === undefined) return []
+      const allowed = ALLOWED_TRIGGER_KEYS[triggerType]
+      if (allowed === undefined) return []
+      const automationName = typeof automation.name === 'string' ? automation.name : '<unnamed>'
+      return Object.keys(trigger)
+        .filter((key) => !allowed.has(key))
+        .map(
+          (unknownKey) =>
+            `Automation '${automationName}' ${triggerType} trigger has unknown property '${unknownKey}'. Allowed properties: ${Array.from(allowed).toSorted().join(', ')}`
+        )
+    })
+
+  const firstError = errors.at(0)
+  return firstError === undefined ? Effect.void : Effect.fail(firstError)
+}

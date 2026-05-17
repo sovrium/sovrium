@@ -1,0 +1,32 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Schema } from 'effect'
+
+/**
+ * Form onError — what to show when submission fails server-side.
+ *
+ * - `toast`: transient notification.
+ * - `message`: inline message above or below the form.
+ * - `errorPage`: full error page.
+ */
+export const FormOnErrorSchema = Schema.Struct({
+  type: Schema.Literal('toast', 'message', 'errorPage'),
+  /** Body message to show. Supports `$t:` keys. */
+  message: Schema.String,
+  /** Optional title (used by `errorPage`). */
+  title: Schema.optional(Schema.String),
+  /** Toast variant (only meaningful when `type: 'toast'`). */
+  variant: Schema.optional(Schema.Literal('error', 'warning')),
+}).annotations({
+  identifier: 'FormOnError',
+  title: 'Form onError',
+  description: 'What to show when a form submission fails server-side',
+})
+
+/** @public */
+export type FormOnError = Schema.Schema.Type<typeof FormOnErrorSchema>

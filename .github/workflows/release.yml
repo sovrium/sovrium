@@ -1,0 +1,468 @@
+name: Release
+
+# Triggered when Forgejo mirrors a release tag to GitHub
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Prevent parallel releases
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  id-token: write
+  packages: write
+
+jobs:
+  # ── Create GitHub Release (entry point for all other jobs) ───
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          NOTES=$(awk "/^## ${VERSION}/,/^## [0-9]/" CHANGELOG.md | head -n -1 | tail -n +2)
+          if [ -z "$NOTES" ]; then
+            NOTES="Release ${TAG}"
+          fi
+          gh release create "${TAG}" \
+            --title "${TAG}" \
+            --notes "$NOTES" \
+            --verify-tag
+
+  # ── Publish @sovrium/types to npm ──────────────────────────
+  publish-types:
+    name: Publish @sovrium/types
+    needs: [release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build @sovrium/types
+        run: bun run build:types
+
+      - name: Patch repository URL for provenance
+        run: |
+          node -e "
+            const pkg = JSON.parse(require('fs').readFileSync('packages/types/package.json', 'utf8'));
+            if (!pkg.repository) pkg.repository = {};
+            if (typeof pkg.repository === 'object') {
+              pkg.repository.url = 'git+https://github.com/sovrium/sovrium.git';
+            }
+            require('fs').writeFileSync('packages/types/package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+      - name: Publish @sovrium/types to npm
+        run: cd packages/types && npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ── Deprecate sovrium npm package ──────────────────────────
+  deprecate-npm:
+    name: Deprecate npm package
+    needs: [release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Deprecate sovrium on npm
+        run: |
+          npm deprecate sovrium \
+            "Sovrium is now distributed as a standalone binary. Install: curl -fsSL https://raw.githubusercontent.com/sovrium/sovrium/main/scripts/install.sh | sh — Source: https://github.com/sovrium/sovrium"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        continue-on-error: true
+
+  # ── Build macOS binaries on native runners ──────────────────
+  build-binary-macos:
+    name: Build macOS Binary (${{ matrix.target }})
+    needs: [release]
+    strategy:
+      matrix:
+        include:
+          - os: macos-13
+            target: darwin-x64
+          - os: macos-14
+            target: darwin-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build binary
+        run: bun run build:binary
+
+      - name: Ad-hoc code sign (macOS)
+        run: codesign --force --sign - sovrium
+
+      - name: Package binary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          tar czf "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" sovrium
+
+      - name: Generate checksum
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          shasum -a 256 "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" > "sovrium-${VERSION}-${{ matrix.target }}.sha256"
+
+      - name: Upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release upload "${TAG}" \
+            "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" \
+            "sovrium-${VERSION}-${{ matrix.target }}.sha256" \
+            --clobber
+
+  # ── Build Linux binaries (cross-compile on ubuntu) ──────────
+  build-binary-linux:
+    name: Build Linux Binary (${{ matrix.target }})
+    needs: [release]
+    strategy:
+      matrix:
+        include:
+          - target: linux-x64
+          - target: linux-arm64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build binary
+        run: bun run build:binary -- --target ${{ matrix.target }}
+
+      - name: Package binary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          tar czf "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" "sovrium-${{ matrix.target }}"
+
+      - name: Generate checksum
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sha256sum "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" > "sovrium-${VERSION}-${{ matrix.target }}.sha256"
+
+      - name: Upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release upload "${TAG}" \
+            "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" \
+            "sovrium-${VERSION}-${{ matrix.target }}.sha256" \
+            --clobber
+
+  # ── Build Windows binary (cross-compile on ubuntu) ──────────
+  build-binary-windows:
+    name: Build Windows Binary
+    needs: [release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build binary
+        run: bun run build:binary -- --target windows-x64
+
+      - name: Package binary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          zip "sovrium-${VERSION}-windows-x64.zip" "sovrium-windows-x64.exe"
+
+      - name: Generate checksum
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sha256sum "sovrium-${VERSION}-windows-x64.zip" > "sovrium-${VERSION}-windows-x64.sha256"
+
+      - name: Upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          gh release upload "${TAG}" \
+            "sovrium-${VERSION}-windows-x64.zip" \
+            "sovrium-${VERSION}-windows-x64.sha256" \
+            --clobber
+
+  # ── Aggregate checksums after all binaries are built ────────
+  aggregate-checksums:
+    name: Aggregate Checksums
+    needs: [build-binary-macos, build-binary-linux, build-binary-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read version from tag
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Download all checksum files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          for TARGET in darwin-x64 darwin-arm64 linux-x64 linux-arm64 windows-x64; do
+            gh release download "${TAG}" \
+              --repo "${{ github.repository }}" \
+              --pattern "sovrium-${VERSION}-${TARGET}.sha256" \
+              --clobber || true
+          done
+
+      - name: Create combined checksums file
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          cat sovrium-${VERSION}-*.sha256 > "sovrium-${VERSION}-checksums.txt" 2>/dev/null || true
+          if [ -s "sovrium-${VERSION}-checksums.txt" ]; then
+            echo "Combined checksums:"
+            cat "sovrium-${VERSION}-checksums.txt"
+          else
+            echo "No checksums found to aggregate"
+            exit 0
+          fi
+
+      - name: Upload combined checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${{ steps.version.outputs.version }}"
+          if [ -s "sovrium-${VERSION}-checksums.txt" ]; then
+            gh release upload "${TAG}" \
+              "sovrium-${VERSION}-checksums.txt" \
+              --clobber
+          fi
+
+  # ── Update Homebrew tap formula ─────────────────────────────
+  update-homebrew:
+    name: Update Homebrew Formula
+    needs: [build-binary-macos, build-binary-linux, aggregate-checksums]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sovrium repo
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Read version
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate formula
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          bun run scripts/update-homebrew-formula.ts \
+            --version "${VERSION}" \
+            --output sovrium.rb
+
+      - name: Checkout homebrew-tap repo
+        uses: actions/checkout@v4
+        with:
+          repository: sovrium/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update formula and push
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p homebrew-tap/Formula
+          cp sovrium.rb homebrew-tap/Formula/sovrium.rb
+
+          cd homebrew-tap
+          git config user.name "Sovrium CI"
+          git config user.email "ci@sovrium.com"
+          git add Formula/sovrium.rb
+          git diff --cached --quiet && echo "No changes to formula" && exit 0
+          git commit -m "sovrium ${VERSION}"
+          git push
+
+  # ── Update Scoop bucket for Windows ─────────────────────────
+  update-scoop:
+    name: Update Scoop Manifest
+    needs: [build-binary-windows, aggregate-checksums]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sovrium repo
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Read version
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Scoop manifest
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          bun run scripts/update-scoop-manifest.ts \
+            --version "${VERSION}" \
+            --output sovrium.json
+
+      - name: Checkout scoop-bucket repo
+        uses: actions/checkout@v4
+        with:
+          repository: sovrium/scoop-bucket
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: scoop-bucket
+
+      - name: Update manifest and push
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p scoop-bucket/bucket
+          cp sovrium.json scoop-bucket/bucket/sovrium.json
+
+          cd scoop-bucket
+          git config user.name "Sovrium CI"
+          git config user.email "ci@sovrium.com"
+          git add bucket/sovrium.json
+          git diff --cached --quiet && echo "No changes to manifest" && exit 0
+          git commit -m "sovrium ${VERSION}"
+          git push
+
+  # ── Build and push multi-arch Docker image ──────────────────
+  build-docker:
+    name: Build Docker Image
+    needs: [release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Read version
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Linux binaries for Docker
+        run: |
+          bun run build:binary -- --target linux-x64
+          bun run build:binary -- --target linux-arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up QEMU for multi-arch
+        uses: docker/setup-qemu-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository }}:latest
