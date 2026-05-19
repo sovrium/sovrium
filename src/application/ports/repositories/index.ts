@@ -1,0 +1,62 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+export {
+  ActivityLogRepository,
+  ActivityLogDatabaseError,
+  type ActivityLog,
+} from './activity-log-repository'
+export {
+  AnalyticsRepository,
+  AnalyticsDatabaseError,
+  type PageViewInput,
+  type AnalyticsQueryParams,
+  type TimeSeriesPoint,
+  type AnalyticsSummary,
+  type TopPage,
+  type TopReferrer,
+  type BreakdownEntry,
+  type DeviceBreakdown,
+  type CampaignEntry,
+} from './analytics-repository'
+export { ActivityRepository, type ActivityHistoryEntry } from './activity-repository'
+export { AuthRepository, AuthDatabaseError } from './auth-repository'
+export { BatchRepository, type BatchValidationError, type UpsertResult } from './batch-repository'
+export {
+  CommentRepository,
+  type CommentWithUser,
+  type CommentForAuth,
+  type CommentUser,
+  type ListedComment,
+} from './comment-repository'
+export {
+  TableRepository,
+  type QueryFilter,
+  type AggregateQuery,
+  type AggregationResult,
+} from './table-repository'
+export {
+  DataSourceRepository,
+  DataSourceDatabaseError,
+  type DataSourceQueryOptions,
+} from './data-source-repository'
+export {
+  AppVersionRepository,
+  AppVersionDatabaseError,
+  type CreateAppVersionInput,
+} from './app-version-repository'
+export {
+  AppDraftRepository,
+  AppDraftDatabaseError,
+  type UpsertAppDraftInput,
+} from './app-draft-repository'
+export { BootstrapTokenRepository, BootstrapTokenDatabaseError } from './bootstrap-token-repository'
+export {
+  PreviewSessionRepository,
+  PreviewSessionDatabaseError,
+  type CreatePreviewSessionInput,
+} from './preview-session-repository'

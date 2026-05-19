@@ -1,0 +1,42 @@
+name: my-app
+version: 1.0.0
+description: My Sovrium application
+
+pages:
+  - name: home
+    path: /
+    meta:
+      title: Welcome
+    components:
+      - type: container
+        element: section
+        props:
+          className: min-h-screen flex items-center justify-center
+          style:
+            background: linear-gradient(to bottom, #f8fafc, #ffffff)
+        children:
+          - type: container
+            props:
+              className: text-center max-w-2xl mx-auto px-6
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-5xl font-bold mb-6
+                  style:
+                    color: '#0f172a'
+                content: Hello, World!
+              - type: text
+                element: p
+                props:
+                  className: text-xl mb-8
+                  style:
+                    color: '#475569'
+                content: Built with Sovrium
+              - type: button
+                props:
+                  className: px-6 py-3 rounded-lg font-semibold transition-colors
+                  style:
+                    backgroundColor: '#3b82f6'
+                    color: '#ffffff'
+                content: Get Started

@@ -1,0 +1,47 @@
+{
+  "compilerOptions": {
+    // Environment setup & latest features
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "target": "ESNext",
+    "module": "Preserve",
+    "moduleDetection": "force",
+    "jsx": "react-jsx",
+    "allowJs": true,
+
+    // Bundler mode
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+
+    // Explicit type declarations (required in TS 6 — types defaults to [])
+    "types": ["bun", "node", "react-dom", "nodemailer", "pg"],
+
+    // Best practices
+    "strict": true,
+    "skipLibCheck": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+
+    // Some stricter flags (enabled for code quality)
+    "noUnusedLocals": true,
+    "noUnusedParameters": false, // Disabled to allow incomplete test stubs in specs/
+    "noPropertyAccessFromIndexSignature": false,
+
+    // Path aliases (baseUrl deprecated in TS 7, silence for now)
+    "ignoreDeprecations": "6.0",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/specs/*": ["specs/*"]
+    },
+
+    "plugins": [
+      {
+        "name": "@effect/language-service"
+      }
+    ]
+  },
+  "exclude": ["node_modules", "dist", "tmp", "vendor"]
+}

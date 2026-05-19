@@ -1,0 +1,369 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Effect } from 'effect'
+import {
+  hasCreatePermission,
+  hasUpdatePermission,
+} from '@/application/use-cases/tables/permissions/permissions'
+import { filterReadableFields } from '@/application/use-cases/tables/utils/field-read-filter'
+import { checkForExistingRecords } from '@/infrastructure/layers/table-layer'
+import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
+import { validateRequiredFieldsForRecord } from './create-record-helpers'
+import { forbiddenCreateResponse } from './response-helpers'
+import type { App } from '@/domain/models/app'
+import type { Context } from 'hono'
+
+export async function validateUpsertRequiredFields(
+  table: NonNullable<App['tables']>[number] | undefined,
+  records: readonly { fields: Record<string, unknown> }[]
+): Promise<Array<{ record: number; field: string; error: string }>> {
+  return records.flatMap((record, index) => {
+    const missingFields = validateRequiredFieldsForRecord(table, record.fields)
+    return missingFields.map((field: string) => ({
+      record: index,
+      field,
+      error: 'Required field is missing',
+    }))
+  })
+}
+
+export function checkFieldPermissions(config: {
+  readonly app: App
+  readonly tableName: string
+  readonly userRole: string
+  readonly records: readonly { fields: Record<string, unknown> }[]
+  readonly c: Context
+}): { allowed: true } | { allowed: false; response: Response } {
+  const { app, tableName, userRole, records, c } = config
+
+  const allForbiddenFields = records
+    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
+    .filter((fields) => fields.length > 0)
+
+  if (allForbiddenFields.length > 0) {
+    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+    const firstForbiddenField = uniqueForbiddenFields[0]
+    return {
+      allowed: false,
+      response: c.json(
+        {
+          success: false,
+          message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
+          code: 'FORBIDDEN',
+        },
+        403
+      ),
+    }
+  }
+
+  return { allowed: true }
+}
+
+
+export async function checkUpsertPermissionsWithUpdateCheck(config: {
+  readonly app: App
+  readonly tableName: string
+  readonly userRole: string
+  readonly records: readonly { fields: Record<string, unknown> }[]
+  readonly fieldsToMergeOn: readonly string[]
+  readonly c: Context
+}): Promise<{ allowed: true } | { allowed: false; response: Response }> {
+  const { app, tableName, userRole, records, fieldsToMergeOn, c } = config
+  const table = app.tables?.find((t) => t.name === tableName)
+
+  const hasExistingRecords = await checkForExistingRecords(tableName, records, fieldsToMergeOn)
+
+  if (hasExistingRecords && !hasUpdatePermission(table, userRole, app.tables)) {
+    return {
+      allowed: false,
+      response: c.json(
+        {
+          success: false,
+          message: 'You do not have permission to update records in this table',
+          code: 'FORBIDDEN',
+        },
+        403
+      ),
+    }
+  }
+
+  if (!hasCreatePermission(table, userRole, app.tables)) {
+    return {
+      allowed: false,
+      response: forbiddenCreateResponse(c),
+    }
+  }
+
+  return { allowed: true }
+}
+
+export function isReadonlyFieldType(fieldType: string): boolean {
+  const readonlyTypes = new Set(['created-at', 'updated-at', 'auto-number'])
+  return readonlyTypes.has(fieldType)
+}
+
+export function validateReadonlyFields(
+  table:
+    | {
+        readonly fields: ReadonlyArray<{
+          readonly name: string
+          readonly type: string
+        }>
+      }
+    | undefined,
+  records: readonly { fields: Record<string, unknown> }[],
+  c: Context
+) {
+  const recordWithId = records.find((record) => 'id' in record.fields)
+  if (recordWithId) {
+    return c.json(
+      {
+        success: false,
+        message: "Cannot write to readonly field 'id'",
+        code: 'VALIDATION_ERROR',
+      },
+      400
+    )
+  }
+
+  if (table) {
+    const readonlyFieldNames = new Set(
+      table.fields.filter((field) => isReadonlyFieldType(field.type)).map((field) => field.name)
+    )
+
+    const attemptedReadonlyField = records
+      .flatMap((record) => Object.keys(record.fields))
+      .find((fieldName) => readonlyFieldNames.has(fieldName))
+
+    if (attemptedReadonlyField) {
+      return c.json(
+        {
+          success: false,
+          message: `Cannot write to readonly field '${attemptedReadonlyField}'`,
+          code: 'VALIDATION_ERROR',
+        },
+        400
+      )
+    }
+  }
+
+  return undefined
+}
+
+export function stripUnwritableFields<T extends { fields: Record<string, unknown> }>(
+  app: App,
+  tableName: string,
+  userRole: string,
+  records: readonly T[]
+): T[] {
+  return records.map((record) => {
+    const forbiddenFields = validateFieldWritePermissions(app, tableName, userRole, record.fields)
+    if (forbiddenFields.length === 0) {
+      return record
+    }
+
+    const filteredFields = Object.keys(record.fields).reduce<Record<string, unknown>>(
+      (acc, key) => {
+        if (!forbiddenFields.includes(key)) {
+          return { ...acc, [key]: record.fields[key] }
+        }
+        return acc
+      },
+      {}
+    )
+
+    return { ...record, fields: filteredFields } as T
+  })
+}
+
+type UpsertResponse = {
+  readonly created: number
+  readonly updated: number
+  readonly records?: ReadonlyArray<{ readonly fields: Record<string, unknown> }>
+}
+
+export function applyReadFiltering<E, R>(config: {
+  readonly program: Effect.Effect<UpsertResponse, E, R>
+  readonly app: App
+  readonly tableName: string
+  readonly userRole: string
+}): Effect.Effect<UpsertResponse, E, R> {
+  const { program, app, tableName, userRole } = config
+
+  return program.pipe(
+    Effect.map((response) => {
+      if (!response.records) return response
+
+      const filteredRecords = response.records.map(
+        (record) =>
+          ({
+            ...record,
+            fields: filterReadableFields({
+              app,
+              tableName,
+              userRole,
+              record: record.fields,
+            }),
+          }) as { readonly fields: Record<string, unknown> }
+      )
+
+      return {
+        created: response.created,
+        updated: response.updated,
+        records: filteredRecords as ReadonlyArray<{ readonly fields: Record<string, unknown> }>,
+      }
+    })
+  )
+}
+
+function createForbiddenFieldResponse(c: Context, forbiddenField: string): Response {
+  return c.json(
+    {
+      success: false,
+      message: `Cannot write to field '${forbiddenField}': insufficient permissions`,
+      code: 'FORBIDDEN',
+    },
+    403
+  )
+}
+
+function checkSingleRecordProtectedFields(config: {
+  readonly c: Context
+  readonly app: App
+  readonly tableName: string
+  readonly userRole: string
+  readonly records: readonly { fields: Record<string, unknown> }[]
+}): { success: true } | { success: false; response: Response } {
+  const { c, app, tableName, userRole, records } = config
+
+  if (records.length !== 1) {
+    return { success: true }
+  }
+
+  const allForbiddenFields = records
+    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
+    .filter((fields) => fields.length > 0)
+
+  if (allForbiddenFields.length > 0) {
+    const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+    const firstForbiddenField = uniqueForbiddenFields[0]
+    return {
+      success: false,
+      response: createForbiddenFieldResponse(c, firstForbiddenField!),
+    }
+  }
+
+  return { success: true }
+}
+
+function checkAllFieldsStripped(config: {
+  readonly c: Context
+  readonly app: App
+  readonly tableName: string
+  readonly userRole: string
+  readonly records: readonly { fields: Record<string, unknown> }[]
+  readonly strippedRecords: ReadonlyArray<{ fields: Record<string, unknown> }>
+}): { success: true } | { success: false; response: Response } {
+  const { c, app, tableName, userRole, records, strippedRecords } = config
+
+  const hasWritableFields = strippedRecords.some((record) => Object.keys(record.fields).length > 0)
+  if (hasWritableFields) {
+    return { success: true }
+  }
+
+  const allForbiddenFields = records
+    .map((record) => validateFieldWritePermissions(app, tableName, userRole, record.fields))
+    .filter((fields) => fields.length > 0)
+  const uniqueForbiddenFields = [...new Set(allForbiddenFields.flat())]
+  const firstForbiddenField = uniqueForbiddenFields[0]
+
+  return {
+    success: false,
+    response: createForbiddenFieldResponse(c, firstForbiddenField!),
+  }
+}
+
+async function checkRequiredFields(
+  table: NonNullable<App['tables']>[number] | undefined,
+  strippedRecords: ReadonlyArray<{ fields: Record<string, unknown> }>,
+  c: Context
+): Promise<{ success: true } | { success: false; response: Response }> {
+  const validationErrors = await validateUpsertRequiredFields(table, strippedRecords)
+  if (validationErrors.length === 0) {
+    return { success: true }
+  }
+
+  return {
+    success: false,
+    response: c.json(
+      {
+        success: false,
+        message: 'Validation failed: one or more records have invalid data',
+        code: 'VALIDATION_ERROR',
+        details: validationErrors,
+      },
+      400
+    ),
+  }
+}
+
+export async function validateUpsertRequest(config: {
+  readonly c: Context
+  readonly app: App
+  readonly tableName: string
+  readonly userRole: string
+  readonly records: readonly { fields: Record<string, unknown> }[]
+  readonly fieldsToMergeOn: readonly string[]
+}) {
+  const { c, app, tableName, userRole, records, fieldsToMergeOn } = config
+  const table = app.tables?.find((t) => t.name === tableName)
+
+  const singleRecordCheck = checkSingleRecordProtectedFields({
+    c,
+    app,
+    tableName,
+    userRole,
+    records,
+  })
+  if (!singleRecordCheck.success) {
+    return singleRecordCheck
+  }
+
+  const strippedRecords = stripUnwritableFields(app, tableName, userRole, records)
+
+  const stripCheck = checkAllFieldsStripped({
+    c,
+    app,
+    tableName,
+    userRole,
+    records,
+    strippedRecords,
+  })
+  if (!stripCheck.success) {
+    return stripCheck
+  }
+
+  const permissionCheck = await checkUpsertPermissionsWithUpdateCheck({
+    app,
+    tableName,
+    userRole,
+    records: strippedRecords,
+    fieldsToMergeOn,
+    c,
+  })
+  if (!permissionCheck.allowed) {
+    return { success: false as const, response: permissionCheck.response }
+  }
+
+  const requiredCheck = await checkRequiredFields(table, strippedRecords, c)
+  if (!requiredCheck.success) {
+    return { success: false as const, response: requiredCheck.response }
+  }
+
+  return { success: true as const, strippedRecords }
+}

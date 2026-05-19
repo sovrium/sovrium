@@ -1,0 +1,37 @@
+{
+  "name": "@sovrium/types",
+  "version": "0.4.8",
+  "description": "TypeScript type definitions for Sovrium app configuration",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "sovrium",
+    "types",
+    "typescript",
+    "configuration",
+    "schema"
+  ],
+  "homepage": "https://sovrium.com",
+  "bugs": {
+    "url": "https://github.com/sovrium/sovrium/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sovrium/sovrium.git",
+    "directory": "packages/types"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,96 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import {
+  collectTranslationsForKey,
+  resolveTranslationPattern,
+} from '@/presentation/translations/translation-resolver'
+import type { Languages } from '@/domain/models/app/languages'
+import type { Component } from '@/domain/models/app/pages/components'
+
+export function findFirstTranslationKey(
+  children: readonly (Component | string)[] | undefined
+): string | undefined {
+  return children
+    ?.find(
+      (child: Component | string): child is string =>
+        typeof child === 'string' && child.startsWith('$t:')
+    )
+    ?.slice(3)
+}
+
+export function extractTranslationKeyFromContent(content: string | undefined): string | undefined {
+  if (!content || typeof content !== 'string') return undefined
+  return content.startsWith('$t:') ? content.slice(3) : undefined
+}
+
+export function getCurrentLanguage(
+  currentLang: string | undefined,
+  languages: Languages | undefined
+): string {
+  return currentLang || languages?.default || 'en-US'
+}
+
+export function resolveChildTranslation(
+  child: string,
+  currentLang: string | undefined,
+  languages: Languages | undefined
+): string {
+  const lang = getCurrentLanguage(currentLang, languages)
+  return resolveTranslationPattern(child, lang, languages)
+}
+
+export function getTranslationData(
+  translationKey: string | undefined,
+  languages: Languages | undefined
+): Record<string, string> | undefined {
+  return translationKey ? collectTranslationsForKey(translationKey, languages) : undefined
+}
+
+export function substitutePropsTranslationTokens(
+  props: Record<string, unknown> | undefined,
+  currentLang: string | undefined,
+  languages: Languages | undefined
+): Record<string, unknown> | undefined {
+  if (!props || !languages) {
+    return props
+  }
+
+  const lang = getCurrentLanguage(currentLang, languages)
+
+  return Object.entries(props).reduce<Record<string, unknown>>((acc, [key, value]) => {
+    if (typeof value === 'string') {
+      return { ...acc, [key]: resolveTranslationPattern(value, lang, languages) }
+    } else if (Array.isArray(value)) {
+      return {
+        ...acc,
+        [key]: value.map((item) =>
+          item && typeof item === 'object' && !Array.isArray(item)
+            ? substitutePropsTranslationTokens(
+                item as Record<string, unknown>,
+                currentLang,
+                languages
+              )
+            : typeof item === 'string'
+              ? resolveTranslationPattern(item, lang, languages)
+              : item
+        ),
+      }
+    } else if (value && typeof value === 'object') {
+      return {
+        ...acc,
+        [key]: substitutePropsTranslationTokens(
+          value as Record<string, unknown>,
+          currentLang,
+          languages
+        ),
+      }
+    } else {
+      return { ...acc, [key]: value }
+    }
+  }, {})
+}

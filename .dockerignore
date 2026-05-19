@@ -1,0 +1,4 @@
+# Only include compiled binaries needed for Docker build
+*
+!sovrium-linux-x64
+!sovrium-linux-arm64

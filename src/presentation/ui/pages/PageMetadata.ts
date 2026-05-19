@@ -1,0 +1,125 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { resolveTranslationPattern } from '@/presentation/translations/translation-resolver'
+import type { Languages } from '@/domain/models/app/languages'
+import type { Page } from '@/domain/models/app/pages'
+import type { Theme } from '@/domain/models/app/theme'
+
+export type PageMetadata = {
+  readonly lang: string
+  readonly direction: 'ltr' | 'rtl'
+  readonly title: string
+  readonly description: string
+  readonly keywords?: string
+  readonly canonical?: string
+  readonly bodyStyle:
+    | {
+        readonly fontFamily?: string
+        readonly fontSize?: string
+        readonly lineHeight?: string
+        readonly fontStyle?: 'normal' | 'italic' | 'oblique'
+        readonly letterSpacing?: string
+        readonly textTransform?: 'none' | 'uppercase' | 'lowercase' | 'capitalize'
+      }
+    | undefined
+}
+
+function buildFontFamily(family?: string, fallback?: string): string | undefined {
+  if (!family) {
+    return undefined
+  }
+  return fallback ? `${family}, ${fallback}` : family
+}
+
+function buildBodyStyle(theme: Theme | undefined): PageMetadata['bodyStyle'] {
+  if (!theme?.fonts?.body) {
+    return undefined
+  }
+
+  const { body } = theme.fonts
+  const fontFamily = buildFontFamily(body.family, body.fallback)
+
+  return {
+    ...(fontFamily && { fontFamily }),
+    ...(body.size && { fontSize: body.size }),
+    ...(body.lineHeight && { lineHeight: body.lineHeight }),
+    ...(body.style && { fontStyle: body.style as 'normal' | 'italic' | 'oblique' }),
+    ...(body.letterSpacing && { letterSpacing: body.letterSpacing }),
+    ...(body.transform && {
+      textTransform: body.transform as 'none' | 'uppercase' | 'lowercase' | 'capitalize',
+    }),
+  }
+}
+
+function determineLanguage(
+  page: Page,
+  languages: Languages | undefined,
+  detectedLanguage: string | undefined
+): string {
+  return page.meta?.lang || detectedLanguage || languages?.default || 'en-US'
+}
+
+function determineDirection(languages: Languages | undefined, lang: string): 'ltr' | 'rtl' {
+  const langConfig = languages?.supported.find((l) => l.code === lang)
+  return langConfig?.direction || 'ltr'
+}
+
+function determineTitle(page: Page, lang: string, languages: Languages | undefined): string {
+  if (page.meta?.i18n?.[lang]?.title) {
+    return page.meta.i18n[lang].title
+  }
+
+  const rawTitle = page.meta?.title || page.name || page.path
+  return resolveTranslationPattern(rawTitle, lang, languages)
+}
+
+function determineDescription(page: Page, lang: string, languages: Languages | undefined): string {
+  if (page.meta?.i18n?.[lang]?.description) {
+    return page.meta.i18n[lang].description
+  }
+
+  const rawDescription = page.meta?.description || ''
+  return resolveTranslationPattern(rawDescription, lang, languages)
+}
+
+function determineKeywords(
+  page: Page,
+  lang: string,
+  languages: Languages | undefined
+): string | undefined {
+  if (!page.meta?.keywords) {
+    return undefined
+  }
+
+  return resolveTranslationPattern(page.meta.keywords, lang, languages)
+}
+
+export function extractPageMetadata(
+  page: Page,
+  theme: Theme | undefined,
+  languages: Languages | undefined,
+  detectedLanguage: string | undefined
+): Readonly<PageMetadata> {
+  const lang = determineLanguage(page, languages, detectedLanguage)
+  const direction = determineDirection(languages, lang)
+  const title = determineTitle(page, lang, languages)
+  const description = determineDescription(page, lang, languages)
+  const keywords = determineKeywords(page, lang, languages)
+  const canonical = page.meta?.canonical
+  const bodyStyle = buildBodyStyle(theme)
+
+  return {
+    lang,
+    direction,
+    title,
+    description,
+    keywords,
+    canonical,
+    bodyStyle,
+  }
+}

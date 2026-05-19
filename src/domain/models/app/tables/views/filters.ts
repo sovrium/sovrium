@@ -1,0 +1,51 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import { Schema } from 'effect'
+
+export const ViewFilterConditionSchema = Schema.Struct({
+  field: Schema.String,
+  operator: Schema.String,
+  value: Schema.Unknown,
+}).pipe(
+  Schema.annotations({
+    title: 'Filter Condition',
+    description: 'A single filter condition specifying field, operator, and value.',
+  })
+)
+
+export type ViewFilterCondition = Schema.Schema.Type<typeof ViewFilterConditionSchema>
+
+export type ViewFilterNode =
+  | ViewFilterCondition
+  | { readonly and: ReadonlyArray<ViewFilterNode> }
+  | { readonly or: ReadonlyArray<ViewFilterNode> }
+
+export const ViewFilterNodeSchema: Schema.Schema<ViewFilterNode> = Schema.Union(
+  ViewFilterConditionSchema,
+  Schema.Struct({
+    and: Schema.Array(Schema.suspend((): Schema.Schema<ViewFilterNode> => ViewFilterNodeSchema)),
+  }),
+  Schema.Struct({
+    or: Schema.Array(Schema.suspend((): Schema.Schema<ViewFilterNode> => ViewFilterNodeSchema)),
+  })
+).pipe(
+  Schema.annotations({
+    identifier: 'ViewFilterNode',
+    title: 'Filter Node',
+    description: 'A filter condition or a logical group (and/or) of filter nodes.',
+  })
+)
+
+export const ViewFiltersSchema = ViewFilterNodeSchema.pipe(
+  Schema.annotations({
+    title: 'View Filters',
+    description: 'Filter configuration using nested and/or groups.',
+  })
+)
+
+export type ViewFilters = Schema.Schema.Type<typeof ViewFiltersSchema>

@@ -1,0 +1,31 @@
+/**
+ * Copyright (c) 2025-2026 ESSENTIAL SERVICES
+ *
+ * This source code is licensed under the Business Source License 1.1
+ * found in the LICENSE.md file in the root directory of this source tree.
+ */
+
+import type { Context } from 'hono'
+
+export function isValidTimezone(timezone: string): boolean {
+  try {
+    Intl.DateTimeFormat('en-US', { timeZone: timezone })
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function validateTimezoneParam(timezone: string | undefined, c: Context) {
+  if (timezone && !isValidTimezone(timezone)) {
+    return c.json(
+      {
+        success: false,
+        message: `Invalid timezone: ${timezone}`,
+        code: 'VALIDATION_ERROR',
+      },
+      400
+    )
+  }
+  return undefined
+}
