@@ -21,6 +21,17 @@ export const WebhookSchema = Schema.Struct({
   ),
 
   url: Schema.String.pipe(
+    Schema.filter(
+      (value) => {
+        try {
+          const parsed = new URL(value)
+          return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+        } catch {
+          return false
+        }
+      },
+      { message: () => 'Webhook url must be a valid http(s) URL' }
+    ),
     Schema.annotations({
       title: 'Webhook URL',
       description: 'Destination URL for outgoing webhook POST requests',

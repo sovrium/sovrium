@@ -24,6 +24,7 @@ function extractDataTableProps(elementProps: Record<string, unknown>): Record<st
     showRowNumbers: elementProps.showRowNumbers,
     rowHeight: elementProps.rowHeight,
     bulkActions: elementProps.bulkActions,
+    autoSave: elementProps.autoSave,
     tableFields: elementProps.tableFields,
     fieldMeta: elementProps.fieldMeta,
     tablePermissions: elementProps.tablePermissions,
@@ -51,6 +52,32 @@ function extractGalleryProps(elementProps: Record<string, unknown>): Record<stri
     galleryCard: elementProps.galleryCard,
     emptyMessage: elementProps.emptyMessage,
     layout: elementProps.layout,
+  }
+}
+
+function extractKpiProps(elementProps: Record<string, unknown>): Record<string, unknown> {
+  return {
+    dataSource: elementProps.dataSource,
+    label: elementProps.label,
+    kpiAggregate: elementProps.kpiAggregate,
+    kpiFormat: elementProps.kpiFormat,
+    icon: elementProps.icon,
+    trend: elementProps.trend,
+    thresholds: elementProps.thresholds,
+    sparkline: elementProps.sparkline,
+  }
+}
+
+function extractTimelineProps(elementProps: Record<string, unknown>): Record<string, unknown> {
+  return {
+    dataSource: elementProps.dataSource,
+    startField: elementProps.startField,
+    endField: elementProps.endField,
+    labelField: elementProps.labelField,
+    groupBy: elementProps.groupBy,
+    colorField: elementProps.colorField,
+    defaultZoom: elementProps.defaultZoom,
+    emptyMessage: elementProps.emptyMessage,
   }
 }
 
@@ -148,6 +175,59 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
     )
   },
   chart: islandChartComponent,
+  'data-timeline': ({ elementProps }) => {
+    const islandProps = extractTimelineProps(elementProps)
+    const propsJson = JSON.stringify(islandProps)
+
+    return (
+      <div
+        data-island="data-timeline"
+        data-island-props={propsJson}
+        data-component-type="data-timeline"
+        data-testid={elementProps['data-testid'] as string | undefined}
+      >
+        {}
+        <div
+          className="w-full rounded-lg border border-gray-200 bg-white p-4"
+          aria-label="Loading timeline..."
+          role="status"
+        >
+          <div className="mb-3 h-4 w-40 animate-pulse rounded bg-gray-200" />
+          <div className="space-y-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div
+                key={`timeline-skeleton-${String(i)}`}
+                className="h-7 animate-pulse rounded bg-gray-200"
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  },
+  kpi: ({ elementProps }) => {
+    const islandProps = extractKpiProps(elementProps)
+    const propsJson = JSON.stringify(islandProps)
+
+    return (
+      <div
+        data-island="kpi"
+        data-island-props={propsJson}
+        data-component-type="kpi"
+        data-testid={elementProps['data-testid'] as string | undefined}
+      >
+        {}
+        <div
+          className="w-full rounded-lg border border-gray-200 bg-white p-4"
+          aria-label="Loading KPI..."
+          role="status"
+        >
+          <div className="mb-2 h-4 w-32 animate-pulse rounded bg-gray-200" />
+          <div className="h-8 w-24 animate-pulse rounded bg-gray-200" />
+        </div>
+      </div>
+    )
+  },
   kanban: ({ elementProps }) => {
     const islandProps = extractKanbanProps(elementProps)
     const propsJson = JSON.stringify(islandProps)
@@ -188,7 +268,9 @@ export const islandDataComponents: Partial<Record<Component['type'], ComponentRe
       <div
         data-island="data-table"
         data-island-props={propsJson}
+        data-component="data-table"
         data-component-type="data-table"
+        id={elementProps.id as string | undefined}
         data-testid={elementProps['data-testid'] as string | undefined}
       >
         {}

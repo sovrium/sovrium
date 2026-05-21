@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { quoteSqlIdentifier } from '@/domain/utils/sql-formatting'
 import {
   getExistingViews,
   getExistingMaterializedViews,
@@ -62,7 +63,7 @@ const generateOrderByClause = (sorts: View['sorts'], groupBy: View['groupBy']): 
 
 export const generateViewSQL = (table: Table, view: View): string => {
   const viewType = view.materialized ? 'MATERIALIZED VIEW' : 'VIEW'
-  const viewIdStr = String(view.id)
+  const viewIdStr = quoteSqlIdentifier(String(view.id))
 
   if (view.query) {
     return `CREATE ${viewType} ${viewIdStr} AS ${view.query}`
@@ -90,7 +91,8 @@ export const generateTableViewStatements = (table: Table): readonly string[] => 
 
 export const generateReadOnlyViewTrigger = (viewId: string | number): readonly string[] => {
   const viewIdStr = String(viewId)
-  const triggerBaseName = `${viewIdStr}_readonly`
+  const quotedViewId = quoteSqlIdentifier(viewIdStr)
+  const triggerBaseName = `${viewIdStr.replace(/[^a-z0-9_]/gi, '_')}_readonly`
 
   return [
     `CREATE OR REPLACE FUNCTION ${triggerBaseName}_insert_fn()
@@ -100,7 +102,7 @@ export const generateReadOnlyViewTrigger = (viewId: string | number): readonly s
     END;
     $$ LANGUAGE plpgsql`,
     `CREATE TRIGGER ${triggerBaseName}_insert
-    INSTEAD OF INSERT ON ${viewIdStr}
+    INSTEAD OF INSERT ON ${quotedViewId}
     FOR EACH ROW EXECUTE FUNCTION ${triggerBaseName}_insert_fn()`,
 
     `CREATE OR REPLACE FUNCTION ${triggerBaseName}_update_fn()
@@ -110,7 +112,7 @@ export const generateReadOnlyViewTrigger = (viewId: string | number): readonly s
     END;
     $$ LANGUAGE plpgsql`,
     `CREATE TRIGGER ${triggerBaseName}_update
-    INSTEAD OF UPDATE ON ${viewIdStr}
+    INSTEAD OF UPDATE ON ${quotedViewId}
     FOR EACH ROW EXECUTE FUNCTION ${triggerBaseName}_update_fn()`,
 
     `CREATE OR REPLACE FUNCTION ${triggerBaseName}_delete_fn()
@@ -120,7 +122,7 @@ export const generateReadOnlyViewTrigger = (viewId: string | number): readonly s
     END;
     $$ LANGUAGE plpgsql`,
     `CREATE TRIGGER ${triggerBaseName}_delete
-    INSTEAD OF DELETE ON ${viewIdStr}
+    INSTEAD OF DELETE ON ${quotedViewId}
     FOR EACH ROW EXECUTE FUNCTION ${triggerBaseName}_delete_fn()`,
   ]
 }
@@ -152,10 +154,10 @@ export const generateDropObsoleteViewsSQL = async (
     )
 
     const dropViewStatements = viewsToDrop.map(
-      (viewName) => `DROP VIEW IF EXISTS ${viewName} CASCADE`
+      (viewName) => `DROP VIEW IF EXISTS ${quoteSqlIdentifier(viewName)} CASCADE`
     )
     const dropMatViewStatements = matViewsToDrop.map(
-      (viewName) => `DROP MATERIALIZED VIEW IF EXISTS ${viewName} CASCADE`
+      (viewName) => `DROP MATERIALIZED VIEW IF EXISTS ${quoteSqlIdentifier(viewName)} CASCADE`
     )
 
     yield* executeSQLStatements(tx, [...dropViewStatements, ...dropMatViewStatements])
@@ -182,10 +184,10 @@ export const dropAllObsoleteViews = async (
     const matViewsToDrop = existingMatViewNames.filter((viewName) => !allSchemaViews.has(viewName))
 
     const dropViewStatements = viewsToDrop.map(
-      (viewName) => `DROP VIEW IF EXISTS ${viewName} CASCADE`
+      (viewName) => `DROP VIEW IF EXISTS ${quoteSqlIdentifier(viewName)} CASCADE`
     )
     const dropMatViewStatements = matViewsToDrop.map(
-      (viewName) => `DROP MATERIALIZED VIEW IF EXISTS ${viewName} CASCADE`
+      (viewName) => `DROP MATERIALIZED VIEW IF EXISTS ${quoteSqlIdentifier(viewName)} CASCADE`
     )
 
     if (dropViewStatements.length > 0 || dropMatViewStatements.length > 0) {

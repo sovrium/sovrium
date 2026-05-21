@@ -16,6 +16,8 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   calendar: lazy(() => import('./calendar-island')),
   gallery: lazy(() => import('./gallery-island')),
   chart: lazy(() => import('./chart-island')),
+  kpi: lazy(() => import('./kpi-island')),
+  'data-timeline': lazy(() => import('./timeline-island')),
   'search-list': lazy(() => import('./search-list-island')),
   'auth-form': AuthFormIsland,
   'crud-form': CrudFormIsland,

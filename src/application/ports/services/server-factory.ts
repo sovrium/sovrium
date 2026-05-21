@@ -14,6 +14,7 @@ import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/au
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
+import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 import type { Effect } from 'effect'
 
 
@@ -50,6 +51,7 @@ export class ServerFactory extends Context.Tag('ServerFactory')<
       | CSSCompilationError
       | AuthConfigRequiredForUserFields
       | SchemaInitializationError
+      | TransformPresetError
       | Error
     >
   }

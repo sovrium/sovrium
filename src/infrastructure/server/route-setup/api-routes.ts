@@ -36,8 +36,11 @@ import {
   chainBucketRoutes,
   chainFormRoutes,
 } from '@/presentation/api/routes'
+import { chainCommandSearchRoutes } from '@/presentation/api/routes/command-search'
 import { chainConnectionRoutes } from '@/presentation/api/routes/connections'
+import { chainFavoriteRoutes } from '@/presentation/api/routes/favorites'
 import { chainNotificationRoutes } from '@/presentation/api/routes/notifications'
+import { chainRecentRoutes } from '@/presentation/api/routes/recent'
 import { chainShareLinkRoutes } from '@/presentation/api/routes/share-links'
 import {
   extractClientIp,
@@ -242,6 +245,9 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/admin/buckets/quota', authMiddleware(auth))
         .use('/api/admin/buckets/quota', requireAuth())
         .use('/api/admin/buckets/quota', requireAdmin())
+        .use('/api/admin/storage/transform-cache', authMiddleware(auth))
+        .use('/api/admin/storage/transform-cache', requireAuth())
+        .use('/api/admin/storage/transform-cache', requireAdmin())
         .use('/api/analytics/overview', authMiddleware(auth))
         .use('/api/analytics/overview', requireAuth())
         .use('/api/analytics/overview', requireAdmin())
@@ -274,6 +280,9 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
         .use('/api/ai/conversations/*', requireAuth())
         .use('/api/agents/*', authMiddleware(auth))
         .use('/api/account/*', authMiddleware(auth))
+        .use('/api/favorites', authMiddleware(auth))
+        .use('/api/recent', authMiddleware(auth))
+        .use('/api/command-search', authMiddleware(auth))
     : honoWithActivityRateLimit
         .use('/api/activity', requireAuth())
         .use('/api/activity/*', requireAuth())
@@ -343,7 +352,12 @@ export const createApiRoutes = <T extends Hono>(app: App, honoApp: T) => {
 
   const honoWithAccount = chainAccountRoutes(honoWithActiveScope, app)
 
-  return chainAuthRoutes(honoWithAccount, auth)
+  const honoWithFavorites = chainFavoriteRoutes(honoWithAccount)
+
+  const honoWithRecent = chainRecentRoutes(honoWithFavorites)
+  const honoWithCommandSearch = chainCommandSearchRoutes(honoWithRecent, app)
+
+  return chainAuthRoutes(honoWithCommandSearch, auth)
 }
 
 export type ApiType = ReturnType<typeof createApiRoutes<Hono>>

@@ -50,6 +50,8 @@ import {
   formFields,
   ListTypeLiteral,
   listFields,
+  DataTimelineTypeLiteral,
+  dataTimelineFields,
 } from './data'
 import {
   StaticTableTypeLiteral,
@@ -241,6 +243,7 @@ const allComponents = [
   [GalleryTypeLiteral, galleryFields],
   [FormTypeLiteral, formFields],
   [ListTypeLiteral, listFields],
+  [DataTimelineTypeLiteral, dataTimelineFields],
   [InputTypeLiteral, inputFields],
   [CheckboxTypeLiteral, checkboxFields],
   [RadioGroupTypeLiteral, radioGroupFields],
@@ -331,6 +334,7 @@ export const ComponentTypeSchema = Schema.Union(
   GalleryTypeLiteral,
   FormTypeLiteral,
   ListTypeLiteral,
+  DataTimelineTypeLiteral,
   InputTypeLiteral,
   CheckboxTypeLiteral,
   RadioGroupTypeLiteral,
@@ -434,6 +438,7 @@ const CONTAINER_TYPES: ReadonlySet<string> = new Set([
   'timeline',
   'list-item',
   'wizard',
+  'reorderable-list',
   'custom-react',
   'customHTML',
 ])

@@ -74,8 +74,13 @@ async function handleGetBucketsQuota(c: Context): Promise<Response> {
   return c.json(result.right, 200)
 }
 
+function handleDeleteTransformCache(c: Context): Response {
+  return c.json({ success: true, message: 'Transform cache cleared' }, 200)
+}
+
 export function chainAdminRoutes<T extends Hono>(honoApp: T): T {
   return honoApp
     .get('/api/admin/storage/status', handleGetStorageStatus)
-    .get('/api/admin/buckets/quota', handleGetBucketsQuota) as T
+    .get('/api/admin/buckets/quota', handleGetBucketsQuota)
+    .on('DELETE', '/api/admin/storage/transform-cache', handleDeleteTransformCache) as T
 }

@@ -5,145 +5,39 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useState } from 'react'
-import { authClient } from './shared/auth-client'
+import {
+  authSubmitLabel,
+  defaultAuthFields,
+  type AuthFormField,
+  type AuthMethod,
+} from '@/presentation/utils/auth-form-types'
+import { AuthErrorSummary, AuthFieldRow } from './auth-form-fields'
+import { useAuthFormState } from './auth-form-state'
+import { type AuthState, type ToastConfig } from './auth-form-submit'
 
-
-type AuthMethod = 'login' | 'signup' | 'resetPassword' | 'setNewPassword'
 
 interface AuthFormIslandProps {
   readonly method: AuthMethod
+  readonly fields?: readonly AuthFormField[]
   readonly redirectUrl?: string
-  readonly toastMessage?: string
+  readonly successToast?: ToastConfig
+  readonly errorToast?: ToastConfig
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string
   readonly initialValues?: Record<string, string>
 }
 
-interface AuthState {
-  readonly error?: string
-  readonly success?: string
-  readonly isPending: boolean
-}
-
-
-const SUBMIT_LABELS: Record<string, string> = {
-  login: 'Sign In',
-  signup: 'Sign Up',
-  resetPassword: 'Send Reset Link',
-  setNewPassword: 'Set New Password',
-}
-
-
-async function handleLogin(email: string, password: string): Promise<string | undefined> {
-  const result = await authClient.signIn.email({ email, password })
-  return result.error ? (result.error.message ?? 'Authentication failed') : undefined
-}
-
-async function handleSignup(email: string, password: string): Promise<string | undefined> {
-  const result = await authClient.signUp.email({
-    email,
-    password,
-    name: email.split('@')[0] ?? '',
-  })
-  return result.error ? (result.error.message ?? 'Sign up failed') : undefined
-}
-
-async function handleResetPasswordRequest(email: string): Promise<string | undefined> {
-  const result = await authClient.requestPasswordReset({
-    email,
-    redirectTo: '/auth/reset-password',
-  })
-  return result.error ? (result.error.message ?? 'Password reset request failed') : undefined
-}
-
-async function handleSetNewPassword(password: string): Promise<string | undefined> {
-  const token = new URLSearchParams(globalThis.location?.search ?? '').get('token') ?? ''
-  const result = await authClient.resetPassword({ newPassword: password, token })
-  return result.error ? (result.error.message ?? 'Password reset failed') : undefined
-}
-
-async function executeAuthMethod(
-  method: AuthMethod,
-  email: string,
-  password: string
-): Promise<{ error?: string; success?: string }> {
-  switch (method) {
-    case 'login':
-      return { error: await handleLogin(email, password) }
-    case 'signup':
-      return { error: await handleSignup(email, password) }
-    case 'resetPassword': {
-      const error = await handleResetPasswordRequest(email)
-      return error ? { error } : { success: 'Check your email — a reset link has been sent' }
-    }
-    case 'setNewPassword':
-      return { error: await handleSetNewPassword(password) }
-  }
-}
-
-
-function AuthFormFields({
-  method,
-  email,
-  password,
-  onEmailChange,
-  onPasswordChange,
-}: {
-  readonly method: AuthMethod
-  readonly email: string
-  readonly password: string
-  readonly onEmailChange: (value: string) => void
-  readonly onPasswordChange: (value: string) => void
-}) {
-  return (
-    <>
-      {method !== 'setNewPassword' && (
-        <label>
-          Email
-          <input
-            type="email"
-            name="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => onEmailChange(e.target.value)}
-          />
-        </label>
-      )}
-      {method !== 'resetPassword' && (
-        <label>
-          Password
-          <input
-            type="password"
-            name="password"
-            autoComplete={method === 'signup' ? 'new-password' : 'current-password'}
-            value={password}
-            onChange={(e) => onPasswordChange(e.target.value)}
-          />
-        </label>
-      )}
-    </>
-  )
-}
 
 function AuthFormFeedback({ state }: { readonly state: AuthState }) {
   if (state.error) {
-    return (
-      <div
-        data-error=""
-        role="alert"
-      >
-        {state.error}
-      </div>
-    )
+    return <div data-error="">{state.error}</div>
   }
   if (state.success) {
     return (
       <div
         data-error=""
         data-success=""
-        role="status"
       >
         {state.success}
       </div>
@@ -153,46 +47,21 @@ function AuthFormFeedback({ state }: { readonly state: AuthState }) {
 }
 
 
-async function submitAuthForm(ctx: {
-  readonly method: AuthMethod
-  readonly email: string
-  readonly password: string
-  readonly redirectUrl: string | undefined
-  readonly setState: (s: AuthState) => void
-}): Promise<void> {
-  ctx.setState({ isPending: true })
-  try {
-    const result = await executeAuthMethod(ctx.method, ctx.email, ctx.password)
-    if (result.error || result.success) {
-      ctx.setState({ ...result, isPending: false })
-      return
-    }
-    if (ctx.redirectUrl?.startsWith('/')) {
-      globalThis.location.assign(ctx.redirectUrl)
-    } else {
-      ctx.setState({ isPending: false })
-    }
-  } catch (err) {
-    ctx.setState({
-      error: err instanceof Error ? err.message : 'An error occurred',
-      isPending: false,
-    })
-  }
-}
-
-
 export default function AuthFormIsland(props: AuthFormIslandProps) {
-  const { method, redirectUrl, className, initialValues } = props
-  const [email, setEmail] = useState(initialValues?.email ?? '')
-  const [password, setPassword] = useState(initialValues?.password ?? '')
-  const [state, setState] = useState<AuthState>({ isPending: false })
+  const { method, redirectUrl, successToast, errorToast, className, initialValues } = props
+  const fields = props.fields && props.fields.length > 0 ? props.fields : defaultAuthFields(method)
+
+  const { fieldErrors, summaryErrors, state, handleBlur, handleSubmit } = useAuthFormState({
+    method,
+    fields,
+    redirectUrl,
+    successToast,
+    errorToast,
+  })
 
   return (
     <form
-      onSubmit={(e) => {
-        e.preventDefault()
-        void submitAuthForm({ method, email, password, redirectUrl, setState })
-      }}
+      onSubmit={handleSubmit}
       className={className}
       id={props.id}
       data-testid={props['data-testid']}
@@ -200,20 +69,26 @@ export default function AuthFormIsland(props: AuthFormIslandProps) {
       data-action-method={method}
       noValidate
     >
-      <AuthFormFields
-        method={method}
-        email={email}
-        password={password}
-        onEmailChange={setEmail}
-        onPasswordChange={setPassword}
+      <AuthErrorSummary
+        fields={fields}
+        errors={summaryErrors}
       />
+      {fields.map((field) => (
+        <AuthFieldRow
+          key={field.name}
+          field={field}
+          defaultValue={initialValues?.[field.name] ?? ''}
+          error={fieldErrors[field.name]}
+          onBlur={handleBlur}
+        />
+      ))}
       <AuthFormFeedback state={state} />
       <button
         type="submit"
         disabled={state.isPending}
         className="btn btn-primary"
       >
-        {state.isPending ? 'Loading...' : (SUBMIT_LABELS[method] ?? 'Submit')}
+        {state.isPending ? 'Loading...' : authSubmitLabel(method)}
       </button>
     </form>
   )

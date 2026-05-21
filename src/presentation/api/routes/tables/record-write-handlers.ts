@@ -27,6 +27,7 @@ import {
   provideTableWithNotificationsAndAutomationsLive,
   runTableProgram,
 } from '@/infrastructure/layers/table-layer'
+import { triggerTableWebhooks } from '@/infrastructure/webhooks/table-webhook-dispatch'
 import { runEffect, validateRequest } from '@/presentation/api/utils'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import {
@@ -36,6 +37,11 @@ import {
 } from '@/presentation/api/validation'
 import { provideStorageLive } from '../buckets/effect-runner'
 import { handleRouteError } from './error-handlers'
+import {
+  checkFieldConditionReadOnly,
+  validateUpdateForbiddenFields,
+  validateUpdateReadonlyFields,
+} from './record-update-guards'
 import {
   checkTableUpdatePermissionWithRole,
   filterAllowedFieldsWithRole,
@@ -75,50 +81,6 @@ function checkCreatePermission(
     }
     return forbiddenCreateResponse(c)
   }
-  return undefined
-}
-
-function validateUpdateReadonlyFields(fields: Record<string, unknown>, c: Context) {
-  const READONLY_FIELDS = new Set(['id', 'created_at', 'updated_at'])
-  const attemptedReadonlyFields = Object.keys(fields).filter((field) => READONLY_FIELDS.has(field))
-
-  if (attemptedReadonlyFields.length > 0) {
-    const firstReadonlyField = attemptedReadonlyFields[0]!
-    return c.json(
-      {
-        success: false,
-        message: `Cannot write to readonly field '${firstReadonlyField}'`,
-        code: 'VALIDATION_ERROR',
-      },
-      400
-    )
-  }
-
-  return undefined
-}
-
-function validateUpdateForbiddenFields(
-  forbiddenFields: readonly string[],
-  c: Context
-): Response | undefined {
-  const SYSTEM_PROTECTED_FIELDS = new Set(['user_id'])
-  const attemptedForbiddenFields = forbiddenFields.filter(
-    (field) => !SYSTEM_PROTECTED_FIELDS.has(field)
-  )
-
-  if (attemptedForbiddenFields.length > 0) {
-    const firstForbiddenField = attemptedForbiddenFields[0]!
-    return c.json(
-      {
-        success: false,
-        message: `Cannot write to field '${firstForbiddenField}': insufficient permissions`,
-        code: 'FORBIDDEN',
-        field: firstForbiddenField,
-      },
-      403
-    )
-  }
-
   return undefined
 }
 
@@ -248,6 +210,20 @@ function buildCreateRecordProgram(input: {
         processEnv: process.env,
         userId: session.userId,
       })
+    ),
+    Effect.tap((record) =>
+      Effect.promise(() =>
+        triggerTableWebhooks({
+          table: app.tables?.find((t) => t.name === tableName),
+          event: 'create',
+          record: {
+            id: record.id,
+            ...record.fields,
+            createdAt: record.createdAt,
+            updatedAt: record.updatedAt,
+          },
+        })
+      )
     )
   )
 }
@@ -395,6 +371,13 @@ async function executeFormUpdate(config: {
   }
 }
 
+async function checkUpdateGates(input: UpdateGateInput): Promise<Response | undefined> {
+  const { c, table, session, tableName, recordId } = input
+  const updateGateError = await checkUpdateGateAndPredicate(input)
+  if (updateGateError) return updateGateError
+  return checkFieldConditionReadOnly({ c, table, session, tableName, recordId })
+}
+
 export async function handleUpdateRecord(c: Context, app: App) {
   const { session, tableName, userRole } = getTableContext(c)
 
@@ -408,7 +391,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
   const recordId = c.req.param('recordId')!
   const guard = await resolveGuardForTable(session, userRole, table)
 
-  const updateGateError = await checkUpdateGateAndPredicate({
+  const gateError = await checkUpdateGates({
     c,
     app,
     table,
@@ -418,7 +401,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
     recordId,
     guard,
   })
-  if (updateGateError) return updateGateError
+  if (gateError) return gateError
 
   const { allowedData, forbiddenFields } = filterAllowedFieldsWithRole(
     app,
@@ -447,6 +430,7 @@ export async function handleUpdateRecord(c: Context, app: App) {
     allowedData,
     app,
     userRole,
+    clientUpdatedAt: result.data.updatedAt,
     c,
   })
 }

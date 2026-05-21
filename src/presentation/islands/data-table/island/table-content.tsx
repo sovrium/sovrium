@@ -6,8 +6,9 @@
  */
 
 import { TableBodyRows, TableHeader, TableSummaryFooter } from '../body'
-import type { EditingCell, FieldMetaMap } from '../../hooks/use-inline-editing'
+import type { EditingCell, FieldMetaMap, SaveStatus } from '../../hooks/use-inline-editing'
 import type { TableRecord } from '../../shared/types'
+import type { InlineAutoSave } from '../body'
 import type {
   DataTableGroupBy,
   DataTableSummaryItem,
@@ -30,31 +31,16 @@ interface TableContentProps {
   readonly editingCell?: EditingCell
   readonly fieldMeta?: FieldMetaMap
   readonly tableName: string
+  readonly autoSave?: InlineAutoSave
+  readonly inlineSaveStatus?: SaveStatus
   readonly onCellDoubleClick: (rowId: string | number, field: string, currentValue: unknown) => void
   readonly onEditSave: (newValue: unknown) => Promise<void>
   readonly onEditCancel: () => void
 }
 
-export function TableContent({
-  table,
-  records,
-  allColumns,
-  isLoading,
-  striped,
-  currentRowHeight,
-  cellClass,
-  borderClass,
-  emptyMessage,
-  selectionMode,
-  groupByConfig,
-  summaryConfig,
-  editingCell,
-  fieldMeta,
-  tableName,
-  onCellDoubleClick,
-  onEditSave,
-  onEditCancel,
-}: TableContentProps) {
+export function TableContent(props: TableContentProps) {
+  const { table, records, striped, currentRowHeight, cellClass, groupByConfig, summaryConfig } =
+    props
   return (
     <div className="overflow-x-auto">
       <table
@@ -62,26 +48,26 @@ export function TableContent({
         data-striped={String(striped)}
         data-row-height={currentRowHeight}
       >
-        <TableHeader
-          headerGroups={table.getHeaderGroups()}
-          cellClass={cellClass}
-        />
+        {}
+        <TableHeader headerGroups={table.getHeaderGroups()} cellClass={cellClass} />
         <TableBodyRows
           rows={table.getRowModel().rows}
-          allColumns={allColumns}
-          isLoading={isLoading}
+          allColumns={props.allColumns}
+          isLoading={props.isLoading}
           cellClass={cellClass}
-          borderClass={borderClass}
+          borderClass={props.borderClass}
           striped={striped}
-          emptyMessage={emptyMessage}
-          selectionMode={selectionMode}
+          emptyMessage={props.emptyMessage}
+          selectionMode={props.selectionMode}
           rowModel={groupByConfig ? table.getExpandedRowModel() : undefined}
-          editingCell={editingCell}
-          fieldMeta={fieldMeta}
-          tableName={tableName}
-          onCellDoubleClick={onCellDoubleClick}
-          onEditSave={onEditSave}
-          onEditCancel={onEditCancel}
+          editingCell={props.editingCell}
+          fieldMeta={props.fieldMeta}
+          tableName={props.tableName}
+          autoSave={props.autoSave}
+          inlineSaveStatus={props.inlineSaveStatus}
+          onCellDoubleClick={props.onCellDoubleClick}
+          onEditSave={props.onEditSave}
+          onEditCancel={props.onEditCancel}
         />
         {summaryConfig && summaryConfig.length > 0 && (
           <TableSummaryFooter

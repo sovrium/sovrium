@@ -207,13 +207,26 @@ export function expandDataSourceChildren(
   }
 }
 
+function buildFavoritesButton(tableName: string, record: Record<string, unknown>): Component {
+  const recordId = record['id']
+  return {
+    type: 'favorites-button' as Component['type'],
+    entityType: 'record',
+    entityId: recordId !== undefined && recordId !== null ? String(recordId) : '',
+    tableName,
+  } as unknown as Component
+}
+
 function applySingleRecordToComponent(
   component: Component,
-  record: Record<string, unknown>
+  record: Record<string, unknown>,
+  tableName: string
 ): Component {
   const substituted = substituteRecordInComponent(component, record)
+  const existingChildren = (substituted.children ?? []) as ReadonlyArray<Component | string>
   return {
     ...substituted,
+    children: [...existingChildren, buildFavoritesButton(tableName, record)],
     props: { ...(substituted.props ?? {}), _dataSourceBound: true, _record: record },
   }
 }
@@ -244,7 +257,7 @@ async function resolveSingleMode(
     })
     const firstRecord = fallbackRecords[0]
     if (firstRecord === undefined) return SINGLE_RECORD_NOT_FOUND
-    return applySingleRecordToComponent(component, firstRecord)
+    return applySingleRecordToComponent(component, firstRecord, tableName)
   }
   const record = await db.fetchSingleRecord(
     tableName,
@@ -253,7 +266,7 @@ async function resolveSingleMode(
     requestedFields ? [...requestedFields] : undefined
   )
   if (record === undefined) return SINGLE_RECORD_NOT_FOUND
-  return applySingleRecordToComponent(component, record)
+  return applySingleRecordToComponent(component, record, tableName)
 }
 
 function checkFieldErrors(

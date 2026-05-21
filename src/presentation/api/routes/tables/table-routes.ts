@@ -20,6 +20,12 @@ import {
 import { getSessionContext, getTableContext } from '@/presentation/api/utils/context-helpers'
 import { runEffect } from '@/presentation/api/utils/run-effect'
 import { handleExportTableCsv } from './export-handlers'
+import {
+  handleGetDelivery,
+  handleListDeliveries,
+  handleRetryDelivery,
+  handleTestWebhook,
+} from './webhook-delivery-handlers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -48,6 +54,18 @@ async function handleGetTable(c: Context, app: App) {
   return runEffect(c, program)
 }
 
+function handleListWebhooks(c: Context, app: App) {
+  const { tableId } = getTableContext(c)
+  const table = app.tables?.find((t) => t.name === tableId)
+  const webhooks = (table?.webhooks ?? []).map((webhook) => ({
+    name: webhook.name,
+    url: webhook.url,
+    events: webhook.events,
+    enabled: webhook.enabled !== false,
+  }))
+  return c.json({ webhooks }, 200)
+}
+
 async function handleGetPermissions(c: Context, app: App) {
   const { tableId, userRole } = getTableContext(c)
 
@@ -64,5 +82,16 @@ export function chainTableRoutesMethods<T extends Hono>(honoApp: T, app: App) {
     .get('/api/tables', (c) => handleListTables(c, app))
     .get('/api/tables/:tableId', (c) => handleGetTable(c, app))
     .get('/api/tables/:tableId/permissions', (c) => handleGetPermissions(c, app))
+    .get('/api/tables/:tableId/webhooks', (c) => handleListWebhooks(c, app))
+    .get('/api/tables/:tableId/webhooks/:webhookName/deliveries', (c) =>
+      handleListDeliveries(c, app)
+    )
+    .get('/api/tables/:tableId/webhooks/:webhookName/deliveries/:deliveryId', (c) =>
+      handleGetDelivery(c, app)
+    )
+    .post('/api/tables/:tableId/webhooks/:webhookName/deliveries/:deliveryId/retry', (c) =>
+      handleRetryDelivery(c, app)
+    )
+    .post('/api/tables/:tableId/webhooks/:webhookName/test', (c) => handleTestWebhook(c, app))
     .get('/api/tables/:tableId/export', (c) => handleExportTableCsv(c, app))
 }

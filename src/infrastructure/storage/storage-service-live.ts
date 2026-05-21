@@ -8,7 +8,7 @@
 
 import { Effect, Layer } from 'effect'
 import { StorageService, StorageError } from '@/application/ports/services/storage-service'
-import { parseStorageEnvConfig } from '@/domain/models/env/storage'
+import { parseStorageEnvConfig, validateStorageSizeLimits } from '@/domain/models/env/storage'
 import {
   byteaUpload,
   byteaDownload,
@@ -82,6 +82,7 @@ const findMissingS3EnvVar = (): string | undefined => {
 export const StorageServiceLive = Layer.effect(
   StorageService,
   Effect.gen(function* () {
+    validateStorageSizeLimits()
     const missingS3Var = findMissingS3EnvVar()
     if (missingS3Var) {
       throw new Error(`Required env var ${missingS3Var} is missing`)

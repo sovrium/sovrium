@@ -131,6 +131,15 @@ export const DataSourceModeSchema = Schema.Literal('list', 'single', 'search').a
     "Data fetching mode: 'list' (multiple), 'single' (one record), 'search' (interactive)",
 })
 
+export const RefreshModeSchema = Schema.Literal('none', 'poll', 'realtime').annotations({
+  identifier: 'RefreshMode',
+  title: 'Refresh Mode',
+  description:
+    "Data refresh strategy: 'none' (fetch once), 'poll' (fixed interval), 'realtime' (live change events)",
+})
+
+export type RefreshMode = Schema.Schema.Type<typeof RefreshModeSchema>
+
 export const DataSourceSchema = Schema.Struct({
   table: Schema.String.annotations({
     description: 'Table name to bind to (validated against app.tables)',
@@ -207,6 +216,23 @@ export const DataSourceSchema = Schema.Struct({
       description:
         'ID of a searchInput component whose query drives this data source (cross-component binding)',
     })
+  ),
+  refreshMode: Schema.optional(
+    RefreshModeSchema.annotations({
+      description:
+        "Data refresh strategy for this binding (default: 'none'). 'poll' uses pollIntervalMs; 'realtime' subscribes to live change events.",
+    })
+  ),
+  pollIntervalMs: Schema.optional(
+    Schema.Number.pipe(
+      Schema.int(),
+      Schema.between(1000, 300_000),
+      Schema.annotations({
+        description:
+          'Polling interval in milliseconds for refreshMode: poll (min 1000, max 300000)',
+        examples: [3000, 5000, 10_000],
+      })
+    )
   ),
 }).annotations({
   identifier: 'DataSource',

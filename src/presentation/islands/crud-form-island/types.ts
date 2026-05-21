@@ -13,12 +13,27 @@ import {
   type useUpdateRecord,
   type useDeleteRecord,
 } from '../hooks/use-table-mutations'
+import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 
 export type CrudOperation = 'create' | 'update' | 'delete' | 'automation'
 
 export interface WizardStep {
   readonly label: string
   readonly fields: readonly string[]
+}
+
+export interface SuccessPageActionConfig {
+  readonly label: string
+  readonly action: 'reset' | 'navigate'
+  readonly url?: string
+}
+
+export interface SuccessPageConfig {
+  readonly title?: string
+  readonly message?: string
+  readonly actions?: readonly SuccessPageActionConfig[]
+  readonly showSummary?: boolean
+  readonly redirect?: string
 }
 
 export interface CrudFormIslandProps {
@@ -29,6 +44,9 @@ export interface CrudFormIslandProps {
   readonly recordId?: string
   readonly redirectUrl?: string
   readonly successToast?: SuccessToast
+  readonly resetOnSuccess?: boolean
+  readonly preserveFields?: readonly string[]
+  readonly successPage?: SuccessPageConfig
   readonly confirm?: boolean
   readonly confirmMessage?: string
   readonly buttonLabel?: string
@@ -42,10 +60,14 @@ export interface CrudFormIslandProps {
   readonly wizard?: readonly WizardStep[]
   readonly automationName?: string
   readonly inputData?: Record<string, unknown>
+  readonly autoSave?: AutoSaveConfig
 }
 
 export type FormState = FormBodyState & {
   readonly deleted?: boolean
+  readonly successPageShown?: {
+    readonly values: Record<string, string>
+  }
 }
 
 export interface SubmitContext {
@@ -54,8 +76,13 @@ export interface SubmitContext {
   readonly recordId?: string
   readonly redirectUrl?: string
   readonly successToast?: SuccessToast
+  readonly resetOnSuccess?: boolean
+  readonly preserveFields?: readonly string[]
+  readonly successPage?: SuccessPageConfig
   readonly values: Record<string, string>
   readonly setState: (s: FormState) => void
+  readonly resetValues: () => void
+  readonly afterReset?: () => void
   readonly createRecord: ReturnType<typeof useCreateRecord>
   readonly updateRecord: ReturnType<typeof useUpdateRecord>
   readonly deleteRecord: ReturnType<typeof useDeleteRecord>

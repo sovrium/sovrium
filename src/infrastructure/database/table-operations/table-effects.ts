@@ -6,6 +6,7 @@
  */
 
 import { Effect } from 'effect'
+import { quoteSqlIdentifier } from '@/domain/utils/sql-formatting'
 import {
   shouldUseView,
   generateLookupViewSQL,
@@ -117,10 +118,11 @@ const dropExistingView = (
   viewIdStr: string
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
+    const quotedId = quoteSqlIdentifier(viewIdStr)
     if (view.materialized) {
-      yield* executeSQL(tx, `DROP MATERIALIZED VIEW IF EXISTS ${viewIdStr} CASCADE`)
+      yield* executeSQL(tx, `DROP MATERIALIZED VIEW IF EXISTS ${quotedId} CASCADE`)
     } else {
-      yield* executeSQL(tx, `DROP VIEW IF EXISTS ${viewIdStr} CASCADE`)
+      yield* executeSQL(tx, `DROP VIEW IF EXISTS ${quotedId} CASCADE`)
     }
   })
 
@@ -142,7 +144,7 @@ const maybeRefreshMaterializedView = (
 ): Effect.Effect<void, SQLExecutionError> =>
   Effect.gen(function* () {
     if (view.materialized && view.refreshOnMigration) {
-      yield* executeSQL(tx, `REFRESH MATERIALIZED VIEW ${viewIdStr}`)
+      yield* executeSQL(tx, `REFRESH MATERIALIZED VIEW ${quoteSqlIdentifier(viewIdStr)}`)
     }
   })
 

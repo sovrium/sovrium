@@ -6,14 +6,22 @@
  */
 
 import { ImportCsvDialog } from '../import-csv-dialog'
+import { SaveStatusIndicator } from '../save-status-indicator'
 import { BulkActionBar } from './bulk-actions'
 import { FilterOverlay } from './filter-overlay'
 import { PaginationControls } from './pagination'
 import { TableContent } from './table-content'
 import { DataTableToolbarBar, SearchToolbar } from './toolbar'
+import type { SaveIndicatorSettings } from './use-island-setup'
 import type { useDataTableUiState } from './use-ui-state'
-import type { EditingCell, FieldMetaMap } from '../../hooks/use-inline-editing'
+import type {
+  EditingCell,
+  FieldMetaMap,
+  SaveStatus,
+  SaveTarget,
+} from '../../hooks/use-inline-editing'
 import type { TableRecord } from '../../shared/types'
+import type { InlineAutoSave } from '../body'
 import type {
   DataTableBulkAction,
   DataTableGroupBy,
@@ -26,6 +34,7 @@ import type {
 import type { ColumnDef, useReactTable } from '@tanstack/react-table'
 
 interface DataTableViewProps {
+  readonly containerRef?: React.Ref<HTMLDivElement>
   readonly table: ReturnType<typeof useReactTable<TableRecord>>
   readonly tableName: string
   readonly records: readonly TableRecord[]
@@ -51,6 +60,11 @@ interface DataTableViewProps {
   readonly selectedCount: number
   readonly showSearch: boolean
   readonly editingCell?: EditingCell
+  readonly autoSave?: InlineAutoSave
+  readonly saveError?: string
+  readonly saveStatus?: SaveStatus
+  readonly saveTarget?: SaveTarget
+  readonly saveIndicator?: SaveIndicatorSettings
   readonly onCellDoubleClick: (rowId: string | number, field: string, currentValue: unknown) => void
   readonly onEditSave: (newValue: unknown) => Promise<void>
   readonly onEditCancel: () => void
@@ -61,6 +75,7 @@ interface DataTableViewProps {
 }
 
 export function DataTableView({
+  containerRef,
   table,
   tableName,
   records,
@@ -86,6 +101,11 @@ export function DataTableView({
   selectedCount,
   showSearch,
   editingCell,
+  autoSave,
+  saveError,
+  saveStatus,
+  saveTarget,
+  saveIndicator,
   onCellDoubleClick,
   onEditSave,
   onEditCancel,
@@ -96,8 +116,35 @@ export function DataTableView({
 }: DataTableViewProps) {
   const showToolbar = true
 
+  const indicatorOn = saveIndicator?.show === true
+  const indicatorStatus: SaveStatus = saveStatus ?? 'idle'
+  const inlineSaveStatus =
+    indicatorOn && saveIndicator?.position === 'inline' ? indicatorStatus : undefined
+  const showToolbarIndicator = indicatorOn && saveIndicator?.position === 'toolbar'
+  const showToastIndicator = indicatorOn && saveIndicator?.position === 'toast'
+  void saveTarget
+
   return (
-    <div className="w-full overflow-hidden rounded-lg border border-gray-200 bg-white">
+    <div
+      ref={containerRef}
+      className="w-full overflow-hidden rounded-lg border border-gray-200 bg-white"
+    >
+      {showToastIndicator && indicatorStatus !== 'idle' && (
+        <div className="pointer-events-none fixed right-4 bottom-4 z-50">
+          <div className="rounded-md border border-gray-200 bg-white px-3 py-2 shadow-lg">
+            <SaveStatusIndicator status={indicatorStatus} />
+          </div>
+        </div>
+      )}
+      {saveError && (
+        <div
+          role="alert"
+          data-save-status="error"
+          className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700"
+        >
+          Error saving changes: {saveError}
+        </div>
+      )}
       {showToolbar && (
         <DataTableToolbarBar
           table={table}
@@ -120,6 +167,7 @@ export function DataTableView({
           activeFilter={ui.activeFilter}
           selectedCount={selectedCount}
           showSearch={showSearch}
+          saveStatus={showToolbarIndicator ? indicatorStatus : undefined}
         />
       )}
       {!showToolbar && showSearch && searchConfig && (
@@ -166,6 +214,8 @@ export function DataTableView({
           editingCell={editingCell}
           fieldMeta={fieldMeta}
           tableName={tableName}
+          autoSave={autoSave}
+          inlineSaveStatus={inlineSaveStatus}
           onCellDoubleClick={onCellDoubleClick}
           onEditSave={onEditSave}
           onEditCancel={onEditCancel}

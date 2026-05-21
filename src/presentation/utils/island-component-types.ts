@@ -11,6 +11,8 @@ export const ISLAND_COMPONENT_TYPES: ReadonlySet<string> = new Set([
   'calendar',
   'gallery',
   'chart',
+  'kpi',
+  'data-timeline',
   'ai-chat',
   'tabs',
   'accordion',

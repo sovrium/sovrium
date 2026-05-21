@@ -13,5 +13,7 @@ export { KpiTypeLiteral, kpiFields } from './kpi'
 export { GalleryTypeLiteral, galleryFields } from './gallery'
 export { FormTypeLiteral, formFields } from './form'
 export { ListTypeLiteral, listFields } from './list'
+export { DataTimelineTypeLiteral, dataTimelineFields, TimelineZoomSchema } from './data-timeline'
+export type { TimelineZoom } from './data-timeline'
 
 export * from './data-table/schema'

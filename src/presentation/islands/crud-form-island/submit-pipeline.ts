@@ -67,7 +67,9 @@ async function submitAutomationForm(ctx: SubmitContext): Promise<void> {
   }
 }
 
-async function executeMutation(ctx: SubmitContext): Promise<void> {
+type MutationResult = { readonly record?: Record<string, unknown> }
+
+async function executeMutation(ctx: SubmitContext): Promise<MutationResult> {
   const visibleValues = Object.fromEntries(
     Object.entries(ctx.values).filter(([key, value]) => {
       const field = ctx.fields.find((f) => f.name === key)
@@ -75,38 +77,82 @@ async function executeMutation(ctx: SubmitContext): Promise<void> {
       if (field.hidden) return true
       if (!isFieldVisible(field, ctx.values)) return false
       if (field.type === 'single-select' && value === '') return false
+      if (
+        (field.type === 'single-attachment' || field.type === 'multiple-attachments') &&
+        value.trim() === ''
+      )
+        return false
       return true
     })
   )
   switch (ctx.operation) {
-    case 'create':
-      await ctx.createRecord.mutateAsync(visibleValues)
-      break
+    case 'create': {
+      const created = await ctx.createRecord.mutateAsync(visibleValues)
+      return { record: created as Record<string, unknown> }
+    }
     case 'update':
       if (ctx.recordId) {
-        await ctx.updateRecord.mutateAsync({ recordId: ctx.recordId, fields: visibleValues })
+        const updated = await ctx.updateRecord.mutateAsync({
+          recordId: ctx.recordId,
+          fields: visibleValues,
+        })
+        return { record: updated as Record<string, unknown> }
       }
-      break
+      return {}
     case 'delete':
       if (ctx.recordId) {
         await ctx.deleteRecord.mutateAsync(ctx.recordId)
       }
-      break
+      return {}
+    default:
+      return {}
   }
 }
 
-function handleMutationSuccess(ctx: SubmitContext): void {
-  if (ctx.operation === 'delete') {
-    ctx.setState({ isPending: false, deleted: true })
-  } else {
-    ctx.setState({ isPending: false })
+function resolveRecordFields(result: MutationResult): Record<string, unknown> {
+  const record = result.record ?? {}
+  const nested = (record as { record?: Record<string, unknown> }).record
+  return nested ?? record
+}
+
+function resolveRedirectTemplate(url: string, record: Record<string, unknown>): string {
+  return url.replace(/\$record\.([a-zA-Z0-9_]+)/g, (_match, field: string) => {
+    const value = record[field]
+    return value !== undefined && value !== null ? String(value) : ''
+  })
+}
+
+function handleSuccessPage(ctx: SubmitContext, result: MutationResult): void {
+  ctx.setState({ isPending: false, successPageShown: { values: { ...ctx.values } } })
+  const redirect = ctx.successPage?.redirect
+  if (redirect?.startsWith('/')) {
+    const resolved = resolveRedirectTemplate(redirect, resolveRecordFields(result))
+    setTimeout(() => globalThis.location.assign(resolved), 800)
   }
-  if (ctx.successToast?.message) {
-    showSuccessToast(ctx.successToast)
+}
+
+function handleDefaultSuccess(ctx: SubmitContext): void {
+  ctx.setState(
+    ctx.operation === 'delete' ? { isPending: false, deleted: true } : { isPending: false }
+  )
+  if (ctx.resetOnSuccess && ctx.operation !== 'delete') {
+    ctx.resetValues()
+    ctx.afterReset?.()
   }
   if (ctx.redirectUrl?.startsWith('/')) {
     setTimeout(() => globalThis.location.assign(ctx.redirectUrl!), 500)
   }
+}
+
+function handleMutationSuccess(ctx: SubmitContext, result: MutationResult): void {
+  if (ctx.successToast?.message) {
+    showSuccessToast(ctx.successToast)
+  }
+  if (ctx.successPage && ctx.operation !== 'delete') {
+    handleSuccessPage(ctx, result)
+    return
+  }
+  handleDefaultSuccess(ctx)
 }
 
 function handleMutationError(ctx: SubmitContext, err: unknown): void {
@@ -151,11 +197,16 @@ function validateCrudInputs(ctx: SubmitContext): boolean {
 export async function submitCrudForm(ctx: SubmitContext): Promise<void> {
   ctx.setState({ isPending: true })
   if (!validateCrudInputs(ctx)) return
-  const runMutation =
-    ctx.operation === 'automation' ? () => submitAutomationForm(ctx) : () => executeMutation(ctx)
+  const runMutation: () => Promise<MutationResult> =
+    ctx.operation === 'automation'
+      ? async () => {
+          await submitAutomationForm(ctx)
+          return {}
+        }
+      : () => executeMutation(ctx)
   try {
-    await runMutation()
-    handleMutationSuccess(ctx)
+    const result = await runMutation()
+    handleMutationSuccess(ctx, result)
   } catch (err) {
     handleMutationError(ctx, err)
   }

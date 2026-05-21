@@ -1,6 +1,6 @@
 {
   "name": "@sovrium/types",
-  "version": "0.4.8",
+  "version": "0.4.10",
   "description": "TypeScript type definitions for Sovrium app configuration",
   "type": "module",
   "main": "dist/index.js",

@@ -373,6 +373,7 @@ function RenderDirectComponent({
           emptyMessage: substitutedComponent.emptyMessage,
           showRowNumbers: substitutedComponent.showRowNumbers,
           onRowClick: substitutedComponent.onRowClick,
+          autoSave: substitutedComponent.autoSave,
           tableFields: dataTableTableFields,
           fieldMeta: dataTableFieldMeta,
           tablePermissions: dataTablePermissions,
@@ -423,29 +424,54 @@ function RenderDirectComponent({
                   chartAggregate: substitutedComponent.chartAggregate,
                   emptyMessage: substitutedComponent.emptyMessage,
                 }
-              : type === 'select'
+              : type === 'kpi'
                 ? {
                     ...baseElementPropsWithType,
                     dataSource: substitutedComponent.dataSource,
-                    valueField: substitutedComponent.valueField,
-                    displayField: substitutedComponent.displayField,
+                    label: substitutedComponent.label,
+                    kpiAggregate: substitutedComponent.kpiAggregate,
+                    kpiFormat: substitutedComponent.kpiFormat,
+                    icon: substitutedComponent.icon,
+                    trend: substitutedComponent.trend,
+                    thresholds: substitutedComponent.thresholds,
+                    sparkline: substitutedComponent.sparkline,
                   }
-                : type === 'modal'
+                : type === 'data-timeline'
                   ? {
                       ...baseElementPropsWithType,
-                      id: substitutedComponent.id,
-                      title: substitutedComponent.title,
-                      sections: substitutedComponent.sections,
+                      dataSource: substitutedComponent.dataSource,
+                      startField: componentProps?.startField,
+                      endField: componentProps?.endField,
+                      labelField: componentProps?.labelField,
+                      groupBy: componentProps?.groupBy,
+                      colorField: componentProps?.colorField,
+                      defaultZoom: componentProps?.defaultZoom,
+                      emptyMessage:
+                        substitutedComponent.emptyMessage ?? componentProps?.emptyMessage,
                     }
-                  : type === 'input'
+                  : type === 'select'
                     ? {
                         ...baseElementPropsWithType,
-                        ...((substitutedComponent as { inputType?: string }).inputType !==
-                          undefined && {
-                          type: (substitutedComponent as { inputType?: string }).inputType,
-                        }),
+                        dataSource: substitutedComponent.dataSource,
+                        valueField: substitutedComponent.valueField,
+                        displayField: substitutedComponent.displayField,
                       }
-                    : baseElementPropsWithType
+                    : type === 'modal'
+                      ? {
+                          ...baseElementPropsWithType,
+                          id: substitutedComponent.id,
+                          title: substitutedComponent.title,
+                          sections: substitutedComponent.sections,
+                        }
+                      : type === 'input'
+                        ? {
+                            ...baseElementPropsWithType,
+                            ...((substitutedComponent as { inputType?: string }).inputType !==
+                              undefined && {
+                              type: (substitutedComponent as { inputType?: string }).inputType,
+                            }),
+                          }
+                        : baseElementPropsWithType
 
   const meta = componentProps?.meta as ComponentMeta | undefined
   const structuredDataScript = meta ? <StructuredDataFromComponent meta={meta} /> : undefined

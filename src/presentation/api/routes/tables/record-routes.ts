@@ -35,6 +35,7 @@ import {
   handleFormDeleteRecord,
   handleRestoreRecord,
 } from './record-handlers'
+import { handleSubscribe } from './subscribe-handlers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
 
@@ -59,6 +60,8 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
     .post('/api/tables/:tableId/records', zValidator('json', createRecordRequestSchema), (c) =>
       handleCreateRecord(c, app)
     )
+    .get('/api/tables/:tableId/subscribe/sse', (c) => handleSubscribe(c, app))
+    .get('/api/tables/:tableId/subscribe', (c) => handleSubscribe(c, app))
     .get('/api/tables/:tableId/records/:recordId', (c) => handleGetRecord(c, app))
     .patch(
       '/api/tables/:tableId/records/:recordId',

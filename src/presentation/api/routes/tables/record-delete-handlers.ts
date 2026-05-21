@@ -21,6 +21,8 @@ import {
   runTableProgram,
 } from '@/infrastructure/layers/table-layer'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
+import { evictTransformCacheForKey } from '@/infrastructure/storage/transform-cache'
+import { triggerTableWebhooks } from '@/infrastructure/webhooks/table-webhook-dispatch'
 import { getTableContext } from '@/presentation/api/utils/context-helpers'
 import { handleRestoreRecordError } from './error-handlers'
 import {
@@ -35,6 +37,22 @@ import type { App, Table } from '@/domain/models/app'
 import type { Context } from 'hono'
 
 type SessionContext = ReturnType<typeof getTableContext>['session']
+
+function fireDeleteWebhooks(
+  app: App,
+  tableName: string,
+  record: Record<string, unknown> | null,
+  skip: boolean
+): Effect.Effect<void> {
+  if (skip || !record) return Effect.void
+  return Effect.promise(() =>
+    triggerTableWebhooks({
+      table: app.tables?.find((t) => t.name === tableName),
+      event: 'delete',
+      record,
+    })
+  )
+}
 
 async function executePermanentDelete({
   session,
@@ -66,7 +84,8 @@ async function executePermanentDelete({
         processEnv: process.env,
         userId,
       })
-    })
+    }),
+    Effect.tap(({ previous, success }) => fireDeleteWebhooks(app, tableName, previous, !success))
   )
   const result = await Effect.runPromise(
     Effect.either(provideTableWithNotificationsAndAutomationsLive(program))
@@ -101,7 +120,10 @@ function buildSoftDeleteProgram(input: SoftDeletePipelineInput) {
         processEnv: process.env,
         userId,
       })
-    })
+    }),
+    Effect.tap(({ previous, result }) =>
+      fireDeleteWebhooks(app, tableName, previous, result.restrictViolation || !result.success)
+    )
   )
 }
 
@@ -230,7 +252,9 @@ async function deleteStorageFiles(keys: readonly string[]): Promise<void> {
         const storage = yield* StorageService
         yield* storage['delete'](key)
       })
-      return Effect.runPromise(Effect.either(Effect.provide(program, StorageServiceLive)))
+      return Effect.runPromise(Effect.either(Effect.provide(program, StorageServiceLive))).then(
+        () => evictTransformCacheForKey(key)
+      )
     })
   ).then(() => undefined)
 }

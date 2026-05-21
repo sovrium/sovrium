@@ -6,8 +6,10 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { SaveStatusIndicator } from '../save-status-indicator'
 import { getNonSelectColumnCount, getVisibleColumnIds, type ActiveFilter } from './export-helpers'
 import { ColumnsMenu, ExportMenu } from './toolbar-menus'
+import type { SaveStatus } from '../../hooks/use-inline-editing'
 import type { TableRecord } from '../../shared/types'
 import type {
   DataTableSearch,
@@ -73,6 +75,7 @@ interface DataTableToolbarBarProps {
   readonly activeFilter: ActiveFilter | undefined
   readonly selectedCount: number
   readonly showSearch: boolean
+  readonly saveStatus?: SaveStatus
 }
 
 export function DataTableToolbarBar({
@@ -96,6 +99,7 @@ export function DataTableToolbarBar({
   activeFilter,
   selectedCount,
   showSearch,
+  saveStatus,
 }: DataTableToolbarBarProps) {
   const onExportSelectedClick = useCallback(() => {
     const selectedIds = table
@@ -114,6 +118,7 @@ export function DataTableToolbarBar({
     <div
       role="toolbar"
       data-toolbar
+      data-testid="data-table-toolbar"
       aria-hidden={importDialogOpen || undefined}
       className="flex items-center gap-2 border-b border-gray-200 p-3"
     >
@@ -124,6 +129,7 @@ export function DataTableToolbarBar({
           onChange={setGlobalFilter}
         />
       )}
+      {saveStatus && saveStatus !== 'idle' && <SaveStatusIndicator status={saveStatus} />}
       <div className="ml-auto flex items-center gap-2">
         <button
           type="button"

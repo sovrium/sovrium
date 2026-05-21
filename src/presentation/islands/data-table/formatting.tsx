@@ -200,6 +200,7 @@ export function autoGenerateColumns(
         accessorKey: key,
         header: key,
         enableSorting: true,
+        meta: { field: key },
         ...(groupByField && key === groupByField && { enableGrouping: true }),
       }) satisfies ColumnDef<TableRecord>
   )
@@ -215,6 +216,7 @@ export function autoGenerateColumnsFromFields(
         accessorKey: field,
         header: field,
         enableSorting: true,
+        meta: { field },
         ...(groupByField && field === groupByField && { enableGrouping: true }),
       }) satisfies ColumnDef<TableRecord>
   )

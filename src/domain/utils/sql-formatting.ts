@@ -7,6 +7,13 @@
 
 export const escapeSqlString = (value: string): string => value.replace(/'/g, "''")
 
+export const quoteSqlIdentifier = (identifier: string): string => {
+  if (/^[a-z_][a-z0-9_]*$/.test(identifier)) {
+    return identifier
+  }
+  return `"${identifier.replace(/"/g, '""')}"`
+}
+
 export const formatSqlValue = (value: unknown): string => {
   if (typeof value === 'string') {
     return `'${escapeSqlString(value)}'`

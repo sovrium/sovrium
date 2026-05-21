@@ -16,6 +16,8 @@ import { buildColumns } from './columns'
 import { createRowActionHandler } from './row-actions'
 import { useDataTableInstance } from './use-table'
 import { useDataTableUiState } from './use-ui-state'
+import type { InlineAutoSave } from '../body'
+import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type {
   DataTableBulkAction,
@@ -46,6 +48,17 @@ interface IslandSetupParams {
   readonly fieldMeta: FieldMetaMap | undefined
   readonly groupByConfig: DataTableGroupBy | undefined
   readonly bordered: boolean
+  readonly autoSaveConfig: AutoSaveConfig | undefined
+}
+
+function resolveEditableFields(
+  columnConfig: readonly DataTableColumn[] | undefined
+): readonly string[] {
+  if (!columnConfig) return []
+  return columnConfig
+    .filter((col): col is Extract<DataTableColumn, { field: string }> => 'field' in col)
+    .filter((col) => col.editable === true)
+    .map((col) => col.field)
 }
 
 function shouldShowSearch(
@@ -56,6 +69,21 @@ function shouldShowSearch(
     (searchConfig && searchConfig.enabled !== false) ||
     (toolbarConfig && toolbarConfig.search)
   )
+}
+
+export interface SaveIndicatorSettings {
+  readonly show: boolean
+  readonly position: 'inline' | 'toast' | 'toolbar'
+}
+
+function resolveSaveIndicator(
+  autoSaveConfig: AutoSaveConfig | undefined
+): SaveIndicatorSettings | undefined {
+  if (!autoSaveConfig) return undefined
+  const mode = autoSaveConfig.saveMode ?? 'manual'
+  if (mode === 'manual') return undefined
+  const show = autoSaveConfig.showSaveIndicator !== false
+  return { show, position: autoSaveConfig.saveIndicatorPosition ?? 'inline' }
 }
 
 export function useDataTableIslandSetup(params: IslandSetupParams) {
@@ -72,6 +100,7 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     fieldMeta,
     groupByConfig,
     bordered,
+    autoSaveConfig,
   } = params
 
   const queryClient = useQueryClient()
@@ -100,6 +129,7 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     tableName: dataSource.table,
     fieldMeta,
     onSave: handleRefresh,
+    autoSave: autoSaveConfig,
   })
 
   const executeRowAction = createRowActionHandler({ queryClient, queryKey })
@@ -143,6 +173,30 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     [table]
   )
 
+  const editableFields = useMemo(() => resolveEditableFields(columnConfig), [columnConfig])
+  const inlineAutoSave: InlineAutoSave | undefined =
+    inlineEditing.isAutoSave || inlineEditing.isOnBlurSave
+      ? {
+          enabled: inlineEditing.isAutoSave,
+          saveOnBlur: inlineEditing.isOnBlurSave,
+          debounceMs: inlineEditing.autoSaveDebounceMs,
+          onAutoSave: inlineEditing.autoSaveEdit,
+          onTrackValue: inlineEditing.trackPendingValue,
+          onTabNext: (rowId, currentField, newValue) => {
+            void Promise.resolve(inlineEditing.autoSaveEdit(newValue)).then(() => {
+              const idx = editableFields.indexOf(currentField)
+              const nextField = idx >= 0 ? editableFields[idx + 1] : undefined
+              if (nextField !== undefined) {
+                const record = records.find((r) => String(r.id) === String(rowId))
+                inlineEditing.startEditing(rowId, nextField, record?.[nextField])
+              }
+            })
+          },
+        }
+      : undefined
+
+  const saveIndicator = resolveSaveIndicator(autoSaveConfig)
+
   return {
     ui,
     table,
@@ -153,6 +207,8 @@ export function useDataTableIslandSetup(params: IslandSetupParams) {
     isError,
     error,
     inlineEditing,
+    inlineAutoSave,
+    saveIndicator,
     handleRefresh,
     onBulkExecute,
     globalFilter: tableState.globalFilter,

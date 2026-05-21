@@ -165,6 +165,23 @@ function applyCrudUpdatePermissions(
   })
 }
 
+const buildCommandPaletteComponent = (app: App): Component => {
+  const navigablePages = (app.pages ?? [])
+    .filter((page) => typeof page.path === 'string' && !page.path.includes(':'))
+    .map((page) => ({
+      name: page.name,
+      path: page.path,
+      title:
+        typeof page.meta?.title === 'string' && page.meta.title.length > 0
+          ? page.meta.title
+          : page.name,
+    }))
+  return {
+    type: 'command-palette',
+    props: { pages: navigablePages },
+  } as unknown as Component
+}
+
 function applyPageComponentFilters(
   rawPage: Page,
   app: App,
@@ -176,11 +193,12 @@ function applyPageComponentFilters(
   const visibilityFiltered = applyVisibilityToComponents(oauthFiltered, session)
   const createPermFiltered = applyCrudCreatePermissions(visibilityFiltered, app.tables, session)
   const updatePermFiltered = applyCrudUpdatePermissions(createPermFiltered, app.tables, session)
+  const expanded = expandFormRefs(updatePermFiltered, app, {
+    ...(parentRecord !== undefined ? { parentRecord } : {}),
+  })
   return {
     ...rawPage,
-    components: expandFormRefs(updatePermFiltered, app, {
-      ...(parentRecord !== undefined ? { parentRecord } : {}),
-    }),
+    components: [...(expanded ?? []), buildCommandPaletteComponent(app)],
   }
 }
 

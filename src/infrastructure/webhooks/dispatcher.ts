@@ -9,12 +9,22 @@ import { validateOutboundUrl } from '@/infrastructure/utils/validate-outbound-ur
 import { withFetchTimeout } from '@/infrastructure/utils/with-fetch-timeout'
 import { generateSignature } from './signature'
 
+interface DeliverWebhookOptions {
+  readonly secret?: string
+  readonly extraHeaders?: Record<string, string>
+  readonly timeoutMs?: number
+}
+
+const DEFAULT_TIMEOUT_MS = 30_000
+
 export const deliverWebhook = async (
   url: string,
   event: string,
   payload: Record<string, unknown>,
-  secret?: string
+  options?: DeliverWebhookOptions
 ): Promise<Record<string, unknown>> => {
+  const secret = options?.secret
+  const extraHeaders = options?.extraHeaders
   const validation = validateOutboundUrl(url)
   if (!validation.ok) {
     return {
@@ -27,15 +37,15 @@ export const deliverWebhook = async (
   }
 
   const body = JSON.stringify(payload)
+  const signatureHeader: Record<string, string> = secret
+    ? { 'X-Webhook-Signature': await generateSignature(body, secret) }
+    : {}
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'User-Agent': 'Sovrium-Webhook/1.0',
     'X-Webhook-Event': event,
-  }
-
-  if (secret) {
-    const sig = await generateSignature(body, secret)
-    headers['X-Webhook-Signature'] = sig
+    ...signatureHeader,
+    ...(extraHeaders ?? {}),
   }
 
   const startTime = performance.now()
@@ -47,7 +57,7 @@ export const deliverWebhook = async (
       headers,
       body,
     },
-    30_000
+    options?.timeoutMs ?? DEFAULT_TIMEOUT_MS
   )
 
   const duration = performance.now() - startTime
@@ -58,5 +68,6 @@ export const deliverWebhook = async (
     responseBody,
     duration,
     success: response.status >= 200 && response.status < 300,
+    requestHeaders: headers,
   }
 }

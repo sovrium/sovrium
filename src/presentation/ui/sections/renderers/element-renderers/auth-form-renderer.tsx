@@ -6,7 +6,16 @@
  */
 
 import { type ReactElement } from 'react'
+import {
+  authSubmitLabel,
+  defaultAuthFields,
+  type AuthFormField,
+} from '@/presentation/utils/auth-form-types'
+import { buildResolvedFieldDefs } from './crud-form-field-resolver'
+import type { ResolvedFieldDef } from './crud-form-renderer'
 import type { ElementProps } from './html-element-renderer'
+import type { Component } from '@/domain/models/app/pages/components'
+import type { Tables } from '@/domain/models/app/tables'
 
 export type AuthFormAction = {
   readonly type: string
@@ -15,35 +24,56 @@ export type AuthFormAction = {
   readonly provider?: string
   readonly onSuccess?: {
     readonly navigate?: string
-    readonly toast?: { readonly message?: string }
+    readonly toast?: { readonly message?: string; readonly variant?: string }
+  }
+  readonly onError?: {
+    readonly toast?: { readonly message?: string; readonly variant?: string }
   }
 }
 
-function getAuthSubmitLabel(method: string | undefined): string {
-  switch (method) {
-    case 'signup':
-      return 'Sign Up'
-    case 'resetPassword':
-      return 'Send Reset Link'
-    case 'setNewPassword':
-      return 'Set New Password'
-    default:
-      return 'Sign In'
-  }
+function resolveInputType(field: ResolvedFieldDef): AuthFormField['inputType'] {
+  if (field.type === 'email') return 'email'
+  if (/password/i.test(field.name)) return 'password'
+  return 'text'
 }
 
-function buildIslandPropsJson(
+export function resolveAuthFormFields(
   method: string,
-  action: AuthFormAction,
-  testId: unknown,
-  id: unknown
-): string {
+  tables?: Tables,
+  component?: Component
+): readonly AuthFormField[] {
+  const dataSource = (component as { dataSource?: { table?: string } } | undefined)?.dataSource
+  const tableName = dataSource?.table
+  if (component && tableName) {
+    const resolved = buildResolvedFieldDefs(tables, tableName, component)
+    if (resolved.length > 0) {
+      return resolved.map((f) => ({
+        name: f.name,
+        label: f.displayLabel,
+        required: f.required ?? false,
+        placeholder: f.placeholder,
+        inputType: resolveInputType(f),
+      }))
+    }
+  }
+  return defaultAuthFields(method)
+}
+
+function buildIslandPropsJson(config: {
+  readonly method: string
+  readonly action: AuthFormAction
+  readonly fields: readonly AuthFormField[]
+  readonly testId: unknown
+  readonly id: unknown
+}): string {
   return JSON.stringify({
-    method,
-    redirectUrl: action.onSuccess?.navigate,
-    toastMessage: action.onSuccess?.toast?.message,
-    'data-testid': testId,
-    id,
+    method: config.method,
+    fields: config.fields,
+    redirectUrl: config.action.onSuccess?.navigate,
+    successToast: config.action.onSuccess?.toast,
+    errorToast: config.action.onError?.toast,
+    'data-testid': config.testId,
+    id: config.id,
   })
 }
 
@@ -59,11 +89,53 @@ function buildFormDataAttrs(method: string, action: AuthFormAction): Record<stri
   }
 }
 
-export function renderAuthForm(props: ElementProps, action: AuthFormAction): ReactElement {
+function renderAuthFormField(field: AuthFormField): ReactElement {
+  const autoComplete =
+    field.inputType === 'email'
+      ? 'email'
+      : field.inputType === 'password'
+        ? 'new-password'
+        : undefined
+  return (
+    <div
+      data-field={field.name}
+      key={field.name}
+    >
+      <label>
+        {field.label}
+        <input
+          type={field.inputType}
+          name={field.name}
+          autoComplete={autoComplete}
+          aria-invalid="false"
+          aria-describedby={`${field.name}-error`}
+          {...(field.placeholder && { placeholder: field.placeholder })}
+        />
+      </label>
+      <div
+        id={`${field.name}-error`}
+        hidden
+      />
+    </div>
+  )
+}
+
+export function renderAuthForm(
+  props: ElementProps,
+  action: AuthFormAction,
+  tables?: Tables,
+  component?: Component
+): ReactElement {
   const method = action.method ?? 'login'
-  const submitLabel = getAuthSubmitLabel(method)
-  const autocompletePassword = method === 'signup' ? 'new-password' : 'current-password'
-  const islandProps = buildIslandPropsJson(method, action, props['data-testid'], props.id)
+  const submitLabel = authSubmitLabel(method)
+  const fields = resolveAuthFormFields(method, tables, component)
+  const islandProps = buildIslandPropsJson({
+    method,
+    action,
+    fields,
+    testId: props['data-testid'],
+    id: props.id,
+  })
   const formDataAttrs = buildFormDataAttrs(method, action)
 
   return (
@@ -78,26 +150,13 @@ export function renderAuthForm(props: ElementProps, action: AuthFormAction): Rea
         {...props}
         {...formDataAttrs}
       >
-        {method !== 'setNewPassword' && (
-          <label>
-            Email
-            <input
-              type="email"
-              name="email"
-              autoComplete="email"
-            />
-          </label>
-        )}
-        {method !== 'resetPassword' && (
-          <label>
-            Password
-            <input
-              type="password"
-              name="password"
-              autoComplete={autocompletePassword}
-            />
-          </label>
-        )}
+        {fields.map((field) => renderAuthFormField(field))}
+        {}
+        <div
+          data-testid="error-summary"
+          role="alert"
+          hidden
+        />
         <div data-error="" />
         <button
           type="submit"

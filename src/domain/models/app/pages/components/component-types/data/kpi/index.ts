@@ -28,6 +28,16 @@ export const kpiFields = {
   ...visibilityFields,
   ...i18nFields,
   ...dataBoundFields,
+  label: Schema.optional(
+    Schema.String.annotations({
+      description: 'Descriptive text displayed above the KPI metric value',
+    })
+  ),
+  icon: Schema.optional(
+    Schema.String.annotations({
+      description: 'Lucide icon name displayed alongside the KPI metric (e.g., dollar-sign)',
+    })
+  ),
   kpiAggregate: Schema.optional(KPIAggregateSchema),
   trend: Schema.optional(KPITrendSchema),
   kpiFormat: Schema.optional(KPIFormatSchema),

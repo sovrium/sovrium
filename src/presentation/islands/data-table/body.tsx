@@ -16,7 +16,8 @@ import {
 } from '@tanstack/react-table'
 import { EditableCell } from './editable-cell'
 import { evaluateCellStyle } from './formatting'
-import type { EditingCell, FieldMetaMap } from '../hooks/use-inline-editing'
+import { SaveStatusIndicator } from './save-status-indicator'
+import type { EditingCell, FieldMetaMap, SaveStatus } from '../hooks/use-inline-editing'
 import type { TableRecord } from '../shared/types'
 import type {
   CellStyleCondition,
@@ -28,6 +29,15 @@ import type { ReactElement } from 'react'
 interface TableHeaderProps {
   readonly headerGroups: readonly HeaderGroup<TableRecord>[]
   readonly cellClass: string
+}
+
+export interface InlineAutoSave {
+  readonly enabled: boolean
+  readonly debounceMs: number
+  readonly saveOnBlur?: boolean
+  readonly onAutoSave: (newValue: unknown) => void | Promise<void>
+  readonly onTrackValue: (newValue: unknown) => void
+  readonly onTabNext: (rowId: string | number, currentField: string, newValue: unknown) => void
 }
 
 interface TableBodyRowsProps {
@@ -42,6 +52,8 @@ interface TableBodyRowsProps {
   readonly editingCell?: EditingCell
   readonly fieldMeta?: FieldMetaMap
   readonly tableName?: string
+  readonly autoSave?: InlineAutoSave
+  readonly inlineSaveStatus?: SaveStatus
   readonly onCellDoubleClick?: (rowId: string | number, field: string, value: unknown) => void
   readonly onEditSave?: (newValue: unknown) => void
   readonly onEditCancel?: () => void
@@ -109,6 +121,8 @@ interface CellContentProps {
   readonly editingCell?: EditingCell
   readonly fieldMeta?: FieldMetaMap
   readonly tableName?: string
+  readonly autoSave?: InlineAutoSave
+  readonly inlineSaveStatus?: SaveStatus
   readonly onCellDoubleClick?: (rowId: string | number, field: string, value: unknown) => void
   readonly onEditSave?: (newValue: unknown) => void
   readonly onEditCancel?: () => void
@@ -134,6 +148,8 @@ function renderCellContent({
   editingCell,
   fieldMeta,
   tableName,
+  autoSave,
+  inlineSaveStatus,
   onCellDoubleClick,
   onEditSave,
   onEditCancel,
@@ -142,17 +158,30 @@ function renderCellContent({
   const rowId = cell.row.original.id as string | number | undefined
 
   if (isEditingThisCell(editingCell, field, rowId) && field && onEditSave && onEditCancel) {
+    const autoSaveEnabled = Boolean(autoSave?.enabled)
     return {
       content: (
-        <EditableCell
-          value={editingCell!.value}
-          fieldMeta={fieldMeta?.[field]}
-          onSave={onEditSave}
-          onCancel={onEditCancel}
-          tableName={tableName}
-          recordId={rowId}
-          fieldName={field}
-        />
+        <div className="flex items-center gap-1">
+          <EditableCell
+            value={editingCell!.value}
+            fieldMeta={fieldMeta?.[field]}
+            onSave={onEditSave}
+            onCancel={onEditCancel}
+            tableName={tableName}
+            recordId={rowId}
+            fieldName={field}
+            autoSave={autoSaveEnabled}
+            autoSaveDebounceMs={autoSave?.debounceMs}
+            saveOnBlur={autoSave?.saveOnBlur === true}
+            {...(autoSave && {
+              onAutoSave: autoSave.onAutoSave,
+              onTrackValue: autoSave.onTrackValue,
+              onTabNext: (newValue: unknown) =>
+                rowId !== undefined && autoSave.onTabNext(rowId, field, newValue),
+            })}
+          />
+          {inlineSaveStatus && <SaveStatusIndicator status={inlineSaveStatus} />}
+        </div>
       ),
     }
   }
@@ -284,6 +313,8 @@ export function TableBodyRows({
   editingCell,
   fieldMeta,
   tableName,
+  autoSave,
+  inlineSaveStatus,
   onCellDoubleClick,
   onEditSave,
   onEditCancel,
@@ -335,6 +366,7 @@ export function TableBodyRows({
       {rows.map((row, rowIndex) => (
         <tr
           key={row.id}
+          data-row-id={String(row.original.id ?? row.id)}
           className={`transition-colors hover:bg-gray-50 ${
             striped && rowIndex % 2 === 1 ? 'bg-gray-50' : ''
           } ${row.getIsSelected() ? 'bg-blue-50' : ''}`}
@@ -357,6 +389,8 @@ export function TableBodyRows({
               editingCell,
               fieldMeta,
               tableName,
+              autoSave,
+              inlineSaveStatus,
               onCellDoubleClick,
               onEditSave,
               onEditCancel,

@@ -7,48 +7,12 @@
 
 
 
-import { useState } from 'react'
-import { humanizeFieldName } from '@/presentation/utils/string-utils'
 import { CodeEditorField } from '../code-editor-field'
 import { RichTextEditorField } from '../rich-text-editor-field'
+import { type ConditionRule, type FieldDef, labelOf } from './field-def'
+import { FileField } from './file-field'
 
-export type ConditionRule =
-  | {
-      readonly field: string
-      readonly operator: string
-      readonly value?: string | number | boolean
-    }
-  | { readonly or: readonly ConditionRule[] }
-  | { readonly and: readonly ConditionRule[] }
-
-export interface FieldDef {
-  readonly name: string
-  readonly type: string
-  readonly required?: boolean
-  readonly options?: readonly string[]
-  readonly language?: string
-  readonly lineNumbers?: boolean
-  readonly readOnly?: boolean
-  readonly disabled?: boolean
-  readonly tabSize?: number
-  readonly minLines?: number
-  readonly maxLines?: number
-  readonly toolbar?: readonly string[]
-  readonly placeholder?: string
-  readonly maxLength?: number
-  readonly displayLabel?: string
-  readonly defaultValue?: string | number | boolean
-  readonly hidden?: boolean
-  readonly visibleWhen?: ConditionRule
-  readonly requiredWhen?: ConditionRule
-  readonly disabledWhen?: ConditionRule
-  readonly imageBucket?: string
-  readonly accept?: string
-  readonly dropZone?: boolean
-  readonly maxFiles?: number
-  readonly maxFileSize?: number
-  readonly allowedFileTypes?: readonly string[]
-}
+export { type ConditionRule, type FieldDef, labelOf }
 
 interface FieldInputProps {
   readonly name: string
@@ -60,10 +24,6 @@ const INPUT_TYPE_MAP: Record<string, string> = {
   number: 'number',
   email: 'email',
   url: 'url',
-}
-
-export function labelOf(field: FieldDef): string {
-  return field.displayLabel ?? humanizeFieldName(field.name)
 }
 
 function TextAreaField({
@@ -204,76 +164,6 @@ function renderRichTextField(
   )
 }
 
-function validateFileSelection(files: File[], field: FieldDef): string | undefined {
-  if (field.allowedFileTypes !== undefined && field.allowedFileTypes.length > 0) {
-    const rejected = files.find((f) => !field.allowedFileTypes!.includes(f.type))
-    if (rejected) return `File type not allowed. Please upload a valid file.`
-  }
-  if (field.maxFileSize !== undefined && field.maxFileSize > 0) {
-    const oversize = files.find((f) => f.size > field.maxFileSize!)
-    if (oversize)
-      return `File size exceeds maximum of ${Math.round(field.maxFileSize / (1024 * 1024))} MB`
-  }
-  return undefined
-}
-
-function FileField({ field, multiple }: { readonly field: FieldDef; readonly multiple: boolean }) {
-  const [fileError, setFileError] = useState<string | undefined>(undefined)
-  const [inputKey, setInputKey] = useState(0)
-  const [hasValidFile, setHasValidFile] = useState(false)
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? [])
-    const error = validateFileSelection(files, field)
-    if (error !== undefined) {
-      setFileError(error)
-      setInputKey((k) => k + 1)
-      setHasValidFile(false)
-      return
-    }
-    setFileError(undefined)
-    setHasValidFile(files.length > 0)
-  }
-
-  const fileInput = (
-    <input
-      key={inputKey}
-      id={`file-${field.name}`}
-      type="file"
-      name={field.name}
-      multiple={multiple}
-      onChange={handleChange}
-      {...(field.required && { required: true })}
-      {...(field.disabled && { disabled: true })}
-      {...(field.accept !== undefined && { accept: field.accept })}
-    />
-  )
-
-  return (
-    <div key={field.name}>
-      <label htmlFor={`file-${field.name}`}>{labelOf(field)}</label>
-      {field.dropZone === true ? (
-        <div data-dropzone="true">
-          <span>Drag and drop or browse to choose a file</span>
-          {fileInput}
-        </div>
-      ) : (
-        fileInput
-      )}
-      {fileError !== undefined && <span role="alert">{fileError}</span>}
-      {hasValidFile && (
-        <div
-          role="progressbar"
-          data-testid="upload-progress"
-          aria-valuenow={100}
-          aria-valuemin={0}
-          aria-valuemax={100}
-        />
-      )}
-    </div>
-  )
-}
-
 function renderSimpleField(
   field: FieldDef,
   value: string,
@@ -339,6 +229,8 @@ export function renderField(
       <FileField
         field={field}
         multiple={false}
+        value={value}
+        onChange={onChange}
       />
     )
   if (field.type === 'multiple-attachments')
@@ -346,6 +238,8 @@ export function renderField(
       <FileField
         field={field}
         multiple={true}
+        value={value}
+        onChange={onChange}
       />
     )
   return renderSimpleField(field, value, onChange, invalid)

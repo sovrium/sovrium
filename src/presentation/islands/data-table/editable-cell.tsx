@@ -19,6 +19,12 @@ interface EditableCellProps {
   readonly tableName?: string
   readonly recordId?: string | number
   readonly fieldName?: string
+  readonly autoSave?: boolean
+  readonly autoSaveDebounceMs?: number
+  readonly saveOnBlur?: boolean
+  readonly onAutoSave?: (newValue: unknown) => void | Promise<void>
+  readonly onTrackValue?: (newValue: unknown) => void
+  readonly onTabNext?: (newValue: unknown) => void
 }
 
 
@@ -89,6 +95,12 @@ interface TextEditorProps {
   readonly tableName?: string
   readonly recordId?: string | number
   readonly fieldName?: string
+  readonly autoSave?: boolean
+  readonly autoSaveDebounceMs?: number
+  readonly saveOnBlur?: boolean
+  readonly onAutoSave?: (newValue: unknown) => void | Promise<void>
+  readonly onTrackValue?: (newValue: unknown) => void
+  readonly onTabNext?: (newValue: unknown) => void
 }
 
 function useTextEditorState(value: unknown) {
@@ -107,9 +119,131 @@ function useTextEditorState(value: unknown) {
   return { localValue, setLocalValue, inputRef, savingRef }
 }
 
-function TextEditor(props: TextEditorProps): ReactElement {
+function flushPendingEditViaBeacon(
+  tableName: string,
+  recordId: string | number,
+  fieldName: string,
+  value: string
+): void {
+  const url = `/api/tables/${encodeURIComponent(String(tableName))}/records/${encodeURIComponent(String(recordId))}`
+  void fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: { [fieldName]: value } }),
+    keepalive: true,
+  }).catch(() => {
+  })
+}
+
+function useDebouncedAutoSave(
+  props: TextEditorProps,
+  debounceMs: number,
+  onFire: (value: string) => void
+) {
+  const { tableName, recordId, fieldName } = props
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const pendingValueRef = useRef<string | undefined>(undefined)
+
+  const cancelTimer = () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = undefined
+    pendingValueRef.current = undefined
+  }
+
+  const schedule = (value: string) => {
+    pendingValueRef.current = value
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      timerRef.current = undefined
+      pendingValueRef.current = undefined
+      onFire(value)
+    }, debounceMs)
+  }
+
+  useEffect(() => {
+    const flushOnHide = () => {
+      if (timerRef.current === undefined) return
+      const pending = pendingValueRef.current
+      clearTimeout(timerRef.current)
+      timerRef.current = undefined
+      if (pending !== undefined && tableName && recordId !== undefined && fieldName) {
+        flushPendingEditViaBeacon(tableName, recordId, fieldName, pending)
+      }
+    }
+    window.addEventListener('pagehide', flushOnHide)
+    window.addEventListener('beforeunload', flushOnHide)
+    return () => {
+      window.removeEventListener('pagehide', flushOnHide)
+      window.removeEventListener('beforeunload', flushOnHide)
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [tableName, recordId, fieldName])
+
+  return { schedule, cancelTimer }
+}
+
+function AutoSaveTextEditor(props: TextEditorProps): ReactElement {
+  const { inputType, fieldName, autoSaveDebounceMs, saveOnBlur, onAutoSave, onTrackValue } = props
+  const { localValue, setLocalValue, inputRef } = useTextEditorState(props.value)
+
+  const fireAutoSave = (value: string) => void Promise.resolve(onAutoSave?.(value))
+  const { schedule, cancelTimer } = useDebouncedAutoSave(
+    props,
+    autoSaveDebounceMs ?? 500,
+    fireAutoSave
+  )
+
+  const handleChange = (next: string) => {
+    setLocalValue(next)
+    onTrackValue?.(next)
+    if (!saveOnBlur) schedule(next)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    switch (e.key) {
+      case 'Tab':
+        e.preventDefault()
+        cancelTimer()
+        if (saveOnBlur) fireAutoSave(localValue)
+        else props.onTabNext?.(localValue)
+        break
+      case 'Enter':
+        e.preventDefault()
+        cancelTimer()
+        fireAutoSave(localValue)
+        break
+      case 'Escape':
+        e.preventDefault()
+        props.onCancel()
+        break
+    }
+  }
+
+  const handleBlur = () => {
+    if (saveOnBlur) {
+      cancelTimer()
+      fireAutoSave(localValue)
+    }
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      type={inputType}
+      name={fieldName}
+      value={localValue}
+      onChange={(e) => handleChange(e.target.value)}
+      onKeyDown={handleKeyDown}
+      onBlur={handleBlur}
+      className="w-full rounded border border-blue-400 px-1 py-0.5 text-sm focus:ring-1 focus:ring-blue-500 focus:outline-none"
+    />
+  )
+}
+
+function ManualSaveTextEditor(props: TextEditorProps): ReactElement {
   const { inputType, onSave, onCancel, tableName, recordId, fieldName } = props
   const { localValue, setLocalValue, inputRef, savingRef } = useTextEditorState(props.value)
+
   const useFormSubmit = Boolean(tableName && recordId && fieldName)
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -163,29 +297,52 @@ function resolveInputType(fieldType: string): string {
 }
 
 
-export function EditableCell({
-  value,
-  fieldMeta,
-  onSave,
-  onCancel,
-  tableName,
-  recordId,
-  fieldName,
-}: EditableCellProps): ReactElement {
-  const fieldType = fieldMeta?.type ?? 'single-line-text'
+function usesAutoSaveWiring(props: EditableCellProps): boolean {
+  const implicitMode = props.autoSave === true || props.saveOnBlur === true
+  return implicitMode && Boolean(props.onAutoSave)
+}
 
-  if (SELECT_FIELD_TYPES.has(fieldType) && fieldMeta?.options && fieldMeta.options.length > 0) {
+function isSelectField(fieldMeta: FieldMeta | undefined): boolean {
+  const fieldType = fieldMeta?.type ?? 'single-line-text'
+  return (
+    SELECT_FIELD_TYPES.has(fieldType) &&
+    fieldMeta?.options !== undefined &&
+    fieldMeta.options.length > 0
+  )
+}
+
+export function EditableCell(props: EditableCellProps): ReactElement {
+  const {
+    value,
+    fieldMeta,
+    onSave,
+    onCancel,
+    tableName,
+    recordId,
+    fieldName,
+    autoSave,
+    autoSaveDebounceMs,
+    saveOnBlur,
+    onAutoSave,
+    onTrackValue,
+    onTabNext,
+  } = props
+  const fieldType = fieldMeta?.type ?? 'single-line-text'
+  const autoSaveWiring = usesAutoSaveWiring(props)
+
+  if (isSelectField(fieldMeta) && fieldMeta?.options) {
     return (
       <SelectEditor
         value={value}
         options={fieldMeta.options}
-        onSave={onSave}
+        onSave={autoSaveWiring && onAutoSave ? onAutoSave : onSave}
       />
     )
   }
 
+  const TextEditorImpl = autoSaveWiring ? AutoSaveTextEditor : ManualSaveTextEditor
   return (
-    <TextEditor
+    <TextEditorImpl
       value={value}
       inputType={resolveInputType(fieldType)}
       onSave={onSave}
@@ -193,6 +350,12 @@ export function EditableCell({
       tableName={tableName}
       recordId={recordId}
       fieldName={fieldName}
+      autoSave={autoSave}
+      autoSaveDebounceMs={autoSaveDebounceMs}
+      saveOnBlur={saveOnBlur}
+      onAutoSave={onAutoSave}
+      onTrackValue={onTrackValue}
+      onTabNext={onTabNext}
     />
   )
 }

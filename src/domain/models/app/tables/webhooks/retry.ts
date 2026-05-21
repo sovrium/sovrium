@@ -46,3 +46,33 @@ export const WebhookRetrySchema = Schema.Struct({
     description: 'Retry configuration for failed webhook deliveries.',
   })
 )
+
+export type WebhookRetry = Schema.Schema.Type<typeof WebhookRetrySchema>
+
+
+const DEFAULT_MAX_ATTEMPTS = 3
+const DEFAULT_BACKOFF = 'exponential' as const
+const DEFAULT_INITIAL_DELAY = 1000
+const DEFAULT_MAX_DELAY = 60_000
+
+export interface ResolvedRetryPolicy {
+  readonly maxAttempts: number
+  readonly backoff: 'exponential' | 'fixed'
+  readonly initialDelay: number
+  readonly maxDelay: number
+}
+
+export const resolveRetryPolicy = (retry: WebhookRetry | undefined): ResolvedRetryPolicy => ({
+  maxAttempts: retry?.maxAttempts ?? DEFAULT_MAX_ATTEMPTS,
+  backoff: retry?.backoff ?? DEFAULT_BACKOFF,
+  initialDelay: retry?.initialDelay ?? DEFAULT_INITIAL_DELAY,
+  maxDelay: retry?.maxDelay ?? DEFAULT_MAX_DELAY,
+})
+
+export const computeRetryDelay = (policy: ResolvedRetryPolicy, attemptIndex: number): number => {
+  const raw =
+    policy.backoff === 'exponential'
+      ? policy.initialDelay * 2 ** Math.max(0, attemptIndex - 1)
+      : policy.initialDelay
+  return Math.min(raw, policy.maxDelay)
+}

@@ -97,6 +97,20 @@ const readS3Env = (canonical: string, legacy: string): string | undefined => {
   return legacyValue
 }
 
+const validateStorageSizeLimitVar = (name: string): void => {
+  const raw = process.env[name]
+  if (raw === undefined || raw === '') return
+  const parsed = Number(raw)
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Invalid ${name}: expected a positive integer number of bytes, got "${raw}"`)
+  }
+}
+
+export const validateStorageSizeLimits = (): void => {
+  validateStorageSizeLimitVar('STORAGE_MAX_FILE_SIZE')
+  validateStorageSizeLimitVar('STORAGE_MAX_TOTAL_SIZE')
+}
+
 export const parseStorageEnvConfig = (): StorageEnvConfig | undefined => {
   const provider = process.env.STORAGE_PROVIDER
 

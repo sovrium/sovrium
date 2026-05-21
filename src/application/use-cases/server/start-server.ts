@@ -40,6 +40,7 @@ import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/au
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
 import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
+import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 import type { Context } from 'effect'
 
 export interface StartOptions {
@@ -167,6 +168,7 @@ export const startServer = (
   | CSSCompilationError
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
+  | TransformPresetError
   | PackageResolutionError
   | TSValidationError
   | Error,

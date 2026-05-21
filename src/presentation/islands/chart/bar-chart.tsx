@@ -9,18 +9,29 @@ import { Group } from '@visx/group'
 import { ParentSize } from '@visx/responsive'
 import { scaleBand, scaleLinear } from '@visx/scale'
 import { Bar } from '@visx/shape'
+import { formatAxisLabel, formatAxisValue } from './chart-format'
+import type { ChartAxisFormat } from './chart-format'
 import type { TableRecord } from '../shared/types'
 import type { ReactElement } from 'react'
 
-interface BarDatum {
+export interface BarDatum {
   readonly key: string
   readonly value: number
+}
+
+export interface ChartAxisDisplay {
+  readonly label?: string
+  readonly format?: ChartAxisFormat
+  readonly gridLines?: boolean
 }
 
 interface BarChartProps {
   readonly records: readonly TableRecord[]
   readonly xField: string
   readonly yField: string
+  readonly data?: readonly BarDatum[]
+  readonly xAxis?: ChartAxisDisplay
+  readonly yAxis?: ChartAxisDisplay
 }
 
 function buildBarData(
@@ -40,21 +51,80 @@ function buildBarData(
   return Object.entries(grouped).map(([key, value]) => ({ key, value }))
 }
 
-interface BarChartSvgProps extends BarChartProps {
+interface BarChartSvgProps {
+  readonly records: readonly TableRecord[]
+  readonly xField: string
+  readonly yField: string
+  readonly data?: readonly BarDatum[]
   readonly width: number
   readonly height: number
+  readonly xAxis?: ChartAxisDisplay
+  readonly yAxis?: ChartAxisDisplay
 }
 
-const MARGIN = { top: 16, right: 16, bottom: 40, left: 56 }
+const MARGIN = { top: 16, right: 16, bottom: 56, left: 72 }
+
+function GridLines({
+  ticks,
+  yScale,
+  innerWidth,
+}: {
+  readonly ticks: readonly number[]
+  readonly yScale: ReturnType<typeof scaleLinear<number>>
+  readonly innerWidth: number
+}): ReactElement {
+  return (
+    <g data-chart-grid="true">
+      {ticks.map((t) => (
+        <line
+          key={`grid-${String(t)}`}
+          x1={0}
+          x2={innerWidth}
+          y1={yScale(t)}
+          y2={yScale(t)}
+          stroke="#e5e7eb"
+          data-chart-gridline="true"
+        />
+      ))}
+    </g>
+  )
+}
+
+function ChartGridLayers({
+  xAxis,
+  yAxis,
+  ticks,
+  yScale,
+  innerWidth,
+}: {
+  readonly xAxis: ChartAxisDisplay | undefined
+  readonly yAxis: ChartAxisDisplay | undefined
+  readonly ticks: readonly number[]
+  readonly yScale: ReturnType<typeof scaleLinear<number>>
+  readonly innerWidth: number
+}): ReactElement | undefined {
+  if (!xAxis?.gridLines && !yAxis?.gridLines) return undefined
+  return (
+    <GridLines
+      ticks={ticks}
+      yScale={yScale}
+      innerWidth={innerWidth}
+    />
+  )
+}
 
 function XAxisLabels({
   data,
   xScale,
+  innerWidth,
   innerHeight,
+  axis,
 }: {
   readonly data: readonly BarDatum[]
   readonly xScale: ReturnType<typeof scaleBand<string>>
+  readonly innerWidth: number
   readonly innerHeight: number
+  readonly axis: ChartAxisDisplay | undefined
 }): ReactElement {
   const bandwidth = xScale.bandwidth()
   return (
@@ -77,22 +147,38 @@ function XAxisLabels({
             fill="#374151"
             textAnchor="middle"
           >
-            {d.key}
+            {formatAxisLabel(d.key, axis?.format)}
           </text>
         )
       })}
+      {axis?.label ? (
+        <text
+          x={innerWidth / 2}
+          y={innerHeight + 44}
+          fontSize={12}
+          fontWeight={600}
+          fill="#111827"
+          textAnchor="middle"
+          data-chart-axis-title="x"
+        >
+          {axis.label}
+        </text>
+      ) : undefined}
     </g>
   )
 }
 
 function YAxisLabels({
+  ticks,
   yScale,
   innerHeight,
+  axis,
 }: {
+  readonly ticks: readonly number[]
   readonly yScale: ReturnType<typeof scaleLinear<number>>
   readonly innerHeight: number
+  readonly axis: ChartAxisDisplay | undefined
 }): ReactElement {
-  const ticks = yScale.ticks(5)
   return (
     <g>
       <line
@@ -112,30 +198,95 @@ function YAxisLabels({
           textAnchor="end"
           dominantBaseline="central"
         >
-          {t}
+          {formatAxisValue(t, axis?.format)}
         </text>
       ))}
+      {axis?.label ? (
+        <text
+          x={-MARGIN.left + 14}
+          y={innerHeight / 2}
+          fontSize={12}
+          fontWeight={600}
+          fill="#111827"
+          textAnchor="middle"
+          transform={`rotate(-90 ${String(-MARGIN.left + 14)} ${String(innerHeight / 2)})`}
+          data-chart-axis-title="y"
+        >
+          {axis.label}
+        </text>
+      ) : undefined}
     </g>
   )
 }
 
-function BarChartSvg({ width, height, records, xField, yField }: BarChartSvgProps): ReactElement {
-  const data = buildBarData(records, xField, yField)
-  const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right)
-  const innerHeight = Math.max(0, height - MARGIN.top - MARGIN.bottom)
+function BarRects({
+  data,
+  xScale,
+  yScale,
+  innerHeight,
+}: {
+  readonly data: readonly BarDatum[]
+  readonly xScale: ReturnType<typeof scaleBand<string>>
+  readonly yScale: ReturnType<typeof scaleLinear<number>>
+  readonly innerHeight: number
+}): ReactElement {
+  return (
+    <g>
+      {data.map((d) => {
+        const barY = yScale(d.value)
+        return (
+          <Bar
+            key={`bar-${d.key}`}
+            x={xScale(d.key) ?? 0}
+            y={barY}
+            width={xScale.bandwidth()}
+            height={innerHeight - barY}
+            fill="#3b82f6"
+            data-bar-key={d.key}
+          />
+        )
+      })}
+    </g>
+  )
+}
 
+function buildScales(
+  data: readonly BarDatum[],
+  innerWidth: number,
+  innerHeight: number
+): {
+  readonly xScale: ReturnType<typeof scaleBand<string>>
+  readonly yScale: ReturnType<typeof scaleLinear<number>>
+} {
   const xScale = scaleBand<string>({
     domain: data.map((d) => d.key),
     range: [0, innerWidth],
     padding: 0.2,
   })
-
   const maxY = data.reduce((acc, d) => (d.value > acc ? d.value : acc), 0)
   const yScale = scaleLinear<number>({
     domain: [0, maxY === 0 ? 1 : maxY],
     range: [innerHeight, 0],
     nice: true,
   })
+  return { xScale, yScale }
+}
+
+function BarChartSvg({
+  width,
+  height,
+  records,
+  xField,
+  yField,
+  data: preAggregated,
+  xAxis,
+  yAxis,
+}: BarChartSvgProps): ReactElement {
+  const data = preAggregated ?? buildBarData(records, xField, yField)
+  const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right)
+  const innerHeight = Math.max(0, height - MARGIN.top - MARGIN.bottom)
+  const { xScale, yScale } = buildScales(data, innerWidth, innerHeight)
+  const yTicks = yScale.ticks(5)
 
   return (
     <svg
@@ -148,32 +299,32 @@ function BarChartSvg({ width, height, records, xField, yField }: BarChartSvgProp
         left={MARGIN.left}
         top={MARGIN.top}
       >
+        <ChartGridLayers
+          xAxis={xAxis}
+          yAxis={yAxis}
+          ticks={yTicks}
+          yScale={yScale}
+          innerWidth={innerWidth}
+        />
         <YAxisLabels
+          ticks={yTicks}
           yScale={yScale}
           innerHeight={innerHeight}
+          axis={yAxis}
         />
         <XAxisLabels
           data={data}
           xScale={xScale}
+          innerWidth={innerWidth}
+          innerHeight={innerHeight}
+          axis={xAxis}
+        />
+        <BarRects
+          data={data}
+          xScale={xScale}
+          yScale={yScale}
           innerHeight={innerHeight}
         />
-        {data.map((d) => {
-          const barX = xScale(d.key) ?? 0
-          const barY = yScale(d.value)
-          const barWidth = xScale.bandwidth()
-          const barHeight = innerHeight - barY
-          return (
-            <Bar
-              key={`bar-${d.key}`}
-              x={barX}
-              y={barY}
-              width={barWidth}
-              height={barHeight}
-              fill="#3b82f6"
-              data-bar-key={d.key}
-            />
-          )
-        })}
       </Group>
     </svg>
   )
@@ -181,7 +332,14 @@ function BarChartSvg({ width, height, records, xField, yField }: BarChartSvgProp
 
 const CHART_CONTAINER_CLASSES = 'w-full h-80'
 
-export function BarChartCanvas({ records, xField, yField }: BarChartProps): ReactElement {
+export function BarChartCanvas({
+  records,
+  xField,
+  yField,
+  data,
+  xAxis,
+  yAxis,
+}: BarChartProps): ReactElement {
   return (
     <div
       data-component="chart"
@@ -197,6 +355,9 @@ export function BarChartCanvas({ records, xField, yField }: BarChartProps): Reac
               records={records}
               xField={xField}
               yField={yField}
+              data={data}
+              xAxis={xAxis}
+              yAxis={yAxis}
             />
           )
         }}

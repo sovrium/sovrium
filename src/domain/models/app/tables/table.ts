@@ -99,7 +99,61 @@ const validateTableSchema = (table: Record<string, unknown>): ValidationError | 
   const accessError = validateAccessAndViews(table, fields, fieldNames)
   if (accessError) return accessError
 
+  const webhookError = validateWebhooks(table, fieldNames)
+  if (webhookError) return webhookError
+
   return true
+}
+
+type WebhookForValidation = {
+  readonly name: string
+  readonly payload?: {
+    readonly includeFields?: ReadonlyArray<string>
+    readonly excludeFields?: ReadonlyArray<string>
+  }
+}
+
+const validateWebhookPayloadFields = (
+  webhooks: ReadonlyArray<WebhookForValidation>,
+  fieldNames: ReadonlySet<string>
+): ValidationError | undefined => {
+  const isKnown = (field: string): boolean => field === 'id' || fieldNames.has(field)
+  const offending = webhooks.flatMap((webhook) => {
+    const selectors = [
+      ...(webhook.payload?.includeFields ?? []),
+      ...(webhook.payload?.excludeFields ?? []),
+    ]
+    return selectors
+      .filter((field) => !isKnown(field))
+      .map((field) => ({ webhook: webhook.name, field }))
+  })
+  const first = offending[0]
+  if (first) {
+    return {
+      message: `Webhook '${first.webhook}' payload references field '${first.field}' which does not exist on the table`,
+      path: ['webhooks'],
+    }
+  }
+  return undefined
+}
+
+const validateWebhooks = (
+  table: Record<string, unknown>,
+  fieldNames: ReadonlySet<string>
+): ValidationError | undefined => {
+  const webhooks = table.webhooks as ReadonlyArray<WebhookForValidation> | undefined
+  if (!webhooks || webhooks.length === 0) return undefined
+
+  const names = webhooks.map((webhook) => webhook.name)
+  const duplicate = names.find((name, index) => names.indexOf(name) !== index)
+  if (duplicate !== undefined) {
+    return {
+      message: `Duplicate webhook name '${duplicate}': webhook names must be unique within a table`,
+      path: ['webhooks'],
+    }
+  }
+
+  return validateWebhookPayloadFields(webhooks, fieldNames)
 }
 
 export const TableSchema = Schema.Struct({

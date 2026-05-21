@@ -5,18 +5,10 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/**
- * Copyright (c) 2025-2026 ESSENTIAL SERVICES
- *
- * This source code is licensed under the Business Source License 1.1
- * found in the LICENSE.md file in the root directory of this source tree.
- */
-
 export const COMING_SOON_SCHEMA_NAMES: ReadonlySet<string> = new Set([
   'AntiSpamSchema',
   'AuthTriggerSchema',
   'BaseFieldSchema',
-  'BucketPermissionsSchema',
   'CommentsComponentSchema',
   'CommentsConfigSchema',
   'ComponentSearchSchema',
@@ -58,14 +50,11 @@ export const COMING_SOON_DISCRIMINATORS: ReadonlyMap<string, ReadonlySet<string>
     'ComponentSchema',
     new Set([
       'avatar-group',
-      'kpi',
       'number-input',
       'progress',
-      'reorderable-list',
       'status-indicator',
       'tags',
       'time-picker',
-      'timeline',
       'wizard',
     ]),
   ],
@@ -73,14 +62,11 @@ export const COMING_SOON_DISCRIMINATORS: ReadonlyMap<string, ReadonlySet<string>
 
 export const COMING_SOON_TAGS: ReadonlySet<string> = new Set([
   'avatar-group',
-  'kpi',
   'number-input',
   'progress',
-  'reorderable-list',
   'status-indicator',
   'tags',
   'time-picker',
-  'timeline',
   'wizard',
 ])
 

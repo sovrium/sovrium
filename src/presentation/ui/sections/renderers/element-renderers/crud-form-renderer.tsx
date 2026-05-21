@@ -11,16 +11,30 @@ import { renderSkeletonField, renderUpdateSkeletonField } from './crud-form-skel
 import type { ElementProps } from './html-element-renderer'
 import type { Buckets } from '@/domain/models/app/buckets'
 import type { Component } from '@/domain/models/app/pages/components'
+import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type { VisibleWhenCondition } from '@/domain/models/app/pages/components/component-types/data/form'
 import type { Tables } from '@/domain/models/app/tables'
 import type { RouteParams } from '@/domain/utils/route-matcher'
+
+export type SuccessPageActionConfig = {
+  readonly label: string
+  readonly action: 'reset' | 'navigate'
+  readonly url?: string
+}
 
 export type CrudFormAction = {
   readonly type: string
   readonly operation: string
   readonly table: string
   readonly onSuccess?: {
+    readonly type?: string
     readonly navigate?: string
+    readonly preserveFields?: readonly string[]
+    readonly title?: string
+    readonly message?: string
+    readonly actions?: readonly SuccessPageActionConfig[]
+    readonly showSummary?: boolean
+    readonly redirect?: string
     readonly toast?: {
       readonly message: string
       readonly variant?: string
@@ -74,15 +88,30 @@ function buildCrudIslandProps(ctx: {
   readonly layout?: string
   readonly fieldGroups?: readonly { readonly label: string; readonly fields: readonly string[] }[]
   readonly wizard?: readonly { readonly label: string; readonly fields: readonly string[] }[]
+  readonly autoSave?: AutoSaveConfig
 }): string {
+  const { onSuccess } = ctx.action
+  const successPage =
+    onSuccess?.type === 'successPage'
+      ? {
+          title: onSuccess.title,
+          message: onSuccess.message,
+          actions: onSuccess.actions,
+          showSummary: onSuccess.showSummary,
+          redirect: onSuccess.redirect,
+        }
+      : undefined
   return JSON.stringify({
     operation: ctx.operation,
     table: ctx.action.table,
     fields: ctx.fields,
     record: ctx.record,
     recordId: ctx.recordId,
-    redirectUrl: ctx.action.onSuccess?.navigate,
-    successToast: ctx.action.onSuccess?.toast,
+    redirectUrl: onSuccess?.navigate,
+    successToast: onSuccess?.toast,
+    resetOnSuccess: onSuccess?.type === 'reset',
+    preserveFields: onSuccess?.preserveFields,
+    successPage,
     confirm: ctx.action.confirm,
     confirmMessage: ctx.action.confirmMessage,
     buttonLabel: ctx.buttonLabel,
@@ -90,9 +119,15 @@ function buildCrudIslandProps(ctx: {
     layout: ctx.layout,
     fieldGroups: ctx.fieldGroups,
     wizard: ctx.wizard,
+    autoSave: ctx.autoSave,
     'data-testid': ctx.testId,
     id: ctx.id,
   })
+}
+
+function readAutoSaveConfig(component?: Component): AutoSaveConfig | undefined {
+  const componentRecord = (component ?? {}) as Record<string, unknown>
+  return componentRecord['autoSave'] as AutoSaveConfig | undefined
 }
 
 
@@ -128,6 +163,7 @@ export function renderCrudCreateForm(
     layout,
     fieldGroups,
     wizard: wizardSteps,
+    autoSave: readAutoSaveConfig(component),
   })
 
   return (
@@ -218,6 +254,7 @@ export function renderCrudUpdateForm(
     variant: submitBtn.variant,
     layout,
     fieldGroups,
+    autoSave: readAutoSaveConfig(component),
   })
   const formAction = buildUpdateFormAction(action.table, recordId)
 

@@ -16,8 +16,10 @@ import {
   runTableProgram,
 } from '@/infrastructure/layers/table-layer'
 import { StorageServiceLive } from '@/infrastructure/storage/storage-service-live'
+import { triggerTableWebhooks } from '@/infrastructure/webhooks/table-webhook-dispatch'
 import { validateFieldWritePermissions } from '@/presentation/api/utils/field-permission-validator'
 import { handleRouteError } from './error-handlers'
+import { isStaleWrite } from './record-conflict-check'
 import { isAuthorizationError, type Session } from './utils'
 import type { App } from '@/domain/models/app'
 import type { Context } from 'hono'
@@ -198,6 +200,7 @@ async function executeUpdateNoTrigger(config: {
   if (!updateResult || Object.keys(updateResult).length === 0) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
+  await fireUpdateWebhooks(app, tableName, updateResult, oldRecord)
   if (oldRecord) {
     const replacedKeys = collectReplacedAttachmentKeys(
       oldRecord,
@@ -210,6 +213,18 @@ async function executeUpdateNoTrigger(config: {
   return c.json(updateResult, 200)
 }
 
+function staleWriteConflictResponse(c: Context): Response {
+  return c.json(
+    {
+      success: false,
+      message:
+        'The record was modified after you last read it. Reload the latest version and retry.',
+      code: 'CONFLICT',
+    },
+    409
+  )
+}
+
 export async function executeUpdate(config: {
   session: Session
   tableName: string
@@ -217,12 +232,17 @@ export async function executeUpdate(config: {
   allowedData: Record<string, unknown>
   app: App
   userRole: string
+  clientUpdatedAt?: string
   c: Context
 }): Promise<Response> {
-  const { session, tableName, recordId, allowedData, app, userRole, c } = config
+  const { session, tableName, recordId, allowedData, app, userRole, clientUpdatedAt, c } = config
 
   const rawResult = await runTableProgram(rawGetRecordProgram(session, tableName, recordId))
   const oldRecord = rawResult._tag === 'Right' && rawResult.right ? rawResult.right : undefined
+
+  if (isStaleWrite({ clientUpdatedAt, storedRecord: oldRecord })) {
+    return staleWriteConflictResponse(c)
+  }
 
   const dataWithPublishedAt = maybeApplyPublishedAtAutoSet(app, tableName, oldRecord, allowedData)
 
@@ -298,6 +318,7 @@ async function executeUpdateWithRecordTrigger(config: {
   if (!updateResult || Object.keys(updateResult).length === 0) {
     return c.json({ success: false, message: 'Resource not found', code: 'NOT_FOUND' }, 404)
   }
+  await fireUpdateWebhooks(app, tableName, updateResult, result.right.previous ?? undefined)
   return c.json(updateResult, 200)
 }
 
@@ -307,6 +328,28 @@ function extractRecordFields(updateResult: Record<string, unknown>): Record<stri
     return { id: updateResult['id'], ...(nested as Record<string, unknown>) }
   }
   return updateResult
+}
+
+function extractRecordForWebhook(updateResult: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...extractRecordFields(updateResult),
+    ...(updateResult['createdAt'] !== undefined ? { createdAt: updateResult['createdAt'] } : {}),
+    ...(updateResult['updatedAt'] !== undefined ? { updatedAt: updateResult['updatedAt'] } : {}),
+  }
+}
+
+async function fireUpdateWebhooks(
+  app: App,
+  tableName: string,
+  updateResult: Record<string, unknown>,
+  previousRecord?: Record<string, unknown> | undefined
+): Promise<void> {
+  return triggerTableWebhooks({
+    table: app.tables?.find((t) => t.name === tableName),
+    event: 'update',
+    record: extractRecordForWebhook(updateResult),
+    previousRecord,
+  })
 }
 
 async function handleUpdateError(config: {

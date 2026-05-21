@@ -27,6 +27,21 @@ function buildInitialValues(
   )
 }
 
+function buildResetValues(
+  fields: readonly FieldDef[],
+  current: Record<string, string>,
+  preserveFields: readonly string[]
+): Record<string, string> {
+  const preserved = new Set(preserveFields)
+  const cleared = buildInitialValues(fields)
+  return Object.fromEntries(
+    Object.entries(cleared).map(([name, value]) => [
+      name,
+      preserved.has(name) ? (current[name] ?? value) : value,
+    ])
+  )
+}
+
 export function useCrudFormState(props: CrudFormIslandProps) {
   const {
     operation,
@@ -36,20 +51,29 @@ export function useCrudFormState(props: CrudFormIslandProps) {
     recordId,
     redirectUrl,
     successToast,
+    resetOnSuccess,
+    preserveFields,
+    successPage,
     initialValues,
     automationName,
     inputData,
   } = props
   const [values, setValues] = useState(() => buildInitialValues(fields, record, initialValues))
   const [state, setState] = useState<FormState>({ isPending: false })
+  const resetValues = () =>
+    setValues((prev) => buildResetValues(fields, prev, preserveFields ?? []))
   const ctx: SubmitContext = {
     operation,
     fields,
     recordId,
     redirectUrl,
     successToast,
+    resetOnSuccess,
+    preserveFields,
+    successPage,
     values,
     setState,
+    resetValues,
     createRecord: useCreateRecord(table),
     updateRecord: useUpdateRecord(table),
     deleteRecord: useDeleteRecord(table),

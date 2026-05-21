@@ -7,11 +7,39 @@
 
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
+import { isFilePublic, resolveStoragePublicAccess } from '@/domain/models/env/storage-public-access'
+import {
+  buildTransformCacheKey,
+  buildTransformETag,
+} from '@/domain/services/image-transform-cache-key'
+import {
+  hasTransformParams,
+  defaultTransformParams,
+} from '@/domain/services/image-transform-params'
+import { parsePresetEnv, resolvePresetTransform } from '@/domain/services/image-transform-presets'
+import { inferMimeFromKey, isImageKey } from '@/domain/utils/mime-types'
+import {
+  applyImageTransform,
+  mimeForFormat,
+  resolveTransformOutputFormat,
+} from '@/infrastructure/storage/apply-image-transform'
+import {
+  evictTransformCacheForKey,
+  getCachedTransform,
+  setCachedTransform,
+} from '@/infrastructure/storage/transform-cache'
 import { provideStorageLive } from '@/presentation/api/routes/buckets/effect-runner'
+import {
+  createHandleBatchSign,
+  createHandleSign,
+  createHandleSignedServe,
+  createHandleSignedUpload,
+} from '@/presentation/api/routes/buckets/signed-urls'
 import { getSessionContext } from '@/presentation/api/utils/context-helpers'
 import { isNotFoundError } from '@/presentation/api/utils/error-sanitizer'
 import type { App } from '@/domain/models/app'
 import type { Bucket } from '@/domain/models/app/buckets'
+import type { TransformParams } from '@/domain/services/image-transform-params'
 import type { Context, Hono } from 'hono'
 
 function createHandleGetBucketFile(app: App) {
@@ -21,25 +49,54 @@ function createHandleGetBucketFile(app: App) {
       return c.json({ success: false, error: 'Bucket not found', code: 'NOT_FOUND' }, 404)
     }
 
-    if (!bucket.public && !getSessionContext(c)) {
-      return c.json(
-        {
-          success: false,
-          error: 'Unauthorized',
-          message: 'Authentication required',
-          code: 'UNAUTHORIZED',
-        },
-        401
-      )
-    }
-
     const key = c.req.param('filename')
     if (!key) {
       return c.json({ success: false, error: 'Missing filename', code: 'BAD_REQUEST' }, 400)
     }
 
-    return serveFileDownload(c, key)
+    const publicAccess = resolveStoragePublicAccess()
+    const isPublic = bucket.public || isFilePublic(publicAccess, key)
+    if (!isPublic && !getSessionContext(c)) {
+      return c.json(
+        {
+          success: false,
+          error: 'Forbidden',
+          message: 'A signed URL or authentication is required for this file',
+          code: 'FORBIDDEN',
+        },
+        403
+      )
+    }
+
+    return serveTransformedDownload(c, key)
   }
+}
+
+async function serveTransformedDownload(c: Context, key: string): Promise<Response> {
+  const query = c.req.query()
+  const hasPreset = query['preset'] !== undefined && query['preset'] !== ''
+  if (!hasPreset && !hasTransformParams(query)) {
+    return serveFileDownload(c, key, defaultTransformParams())
+  }
+
+  const presets = parsePresetEnv(process.env['STORAGE_TRANSFORM_PRESETS'])
+  const parsed = presets.ok
+    ? resolvePresetTransform(query, presets.presets)
+    : { ok: false as const, error: presets.error }
+  if (!parsed.ok) {
+    return c.json({ success: false, error: parsed.error, code: 'BAD_REQUEST' }, 400)
+  }
+  if (!isImageKey(key)) {
+    return c.json(
+      {
+        success: false,
+        error: 'Transform parameters can only be applied to image files',
+        code: 'BAD_REQUEST',
+      },
+      400
+    )
+  }
+  return serveFileDownload(c, key, parsed.params)
 }
 
 function buildContentDisposition(filename: string): string {
@@ -49,7 +106,58 @@ function buildContentDisposition(filename: string): string {
   return `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`
 }
 
-async function serveFileDownload(c: Context, key: string): Promise<Response> {
+const TRANSFORM_CACHE_CONTROL = 'public, max-age=31536000, immutable'
+
+function buildTransformResponse(
+  key: string,
+  cached: { readonly bytes: Uint8Array; readonly contentType: string; readonly etag: string }
+): Response {
+  const body = Uint8Array.from(cached.bytes)
+  return new Response(body, {
+    status: 200,
+    headers: {
+      'Content-Type': cached.contentType,
+      'Content-Disposition': buildContentDisposition(stripUuidPrefix(key)),
+      'Content-Security-Policy': "default-src 'none'",
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': TRANSFORM_CACHE_CONTROL,
+      ETag: cached.etag,
+    },
+  })
+}
+
+async function serveFileDownload(
+  c: Context,
+  key: string,
+  transform: TransformParams
+): Promise<Response> {
+  const acceptHeader = c.req.header('Accept')
+  const resolvedFormat = resolveTransformOutputFormat(transform, acceptHeader)
+  const cacheKey = buildTransformCacheKey(key, transform, resolvedFormat)
+  const etag = buildTransformETag(cacheKey)
+
+  if (c.req.header('If-None-Match') === etag) {
+    return c.body(
+      null,
+      304,
+      { 'Cache-Control': TRANSFORM_CACHE_CONTROL, ETag: etag }
+    )
+  }
+
+  const hit = getCachedTransform(cacheKey)
+  if (hit !== undefined) {
+    return buildTransformResponse(key, hit)
+  }
+
+  return produceTransformResponse(c, key, transform, { cacheKey, etag, acceptHeader })
+}
+
+async function produceTransformResponse(
+  c: Context,
+  key: string,
+  transform: TransformParams,
+  ctx: { readonly cacheKey: string; readonly etag: string; readonly acceptHeader?: string }
+): Promise<Response> {
   const program = Effect.gen(function* () {
     const storage = yield* StorageService
     return yield* storage.download(key)
@@ -70,18 +178,13 @@ async function serveFileDownload(c: Context, key: string): Promise<Response> {
     )
   }
 
-  const body = Uint8Array.from(result.right)
-  const mimeType = inferMimeFromKey(key)
-  const originalFilename = stripUuidPrefix(key)
-  return new Response(body, {
-    status: 200,
-    headers: {
-      'Content-Type': mimeType,
-      'Content-Disposition': buildContentDisposition(originalFilename),
-      'Content-Security-Policy': "default-src 'none'",
-      'X-Content-Type-Options': 'nosniff',
-    },
-  })
+  const transformed = await applyImageTransform(result.right, transform, ctx.acceptHeader)
+  const contentType = transformed.format ? mimeForFormat(transformed.format) : inferMimeFromKey(key)
+  const cached = { bytes: transformed.bytes, contentType, etag: ctx.etag }
+
+  setCachedTransform(ctx.cacheKey, cached)
+
+  return buildTransformResponse(key, cached)
 }
 
 function stripUuidPrefix(key: string): string {
@@ -89,28 +192,10 @@ function stripUuidPrefix(key: string): string {
   return match?.[1] ?? key
 }
 
-function inferMimeFromKey(key: string): string {
-  const ext = key.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]
-  if (!ext) return 'application/octet-stream'
-  const map: Record<string, string> = {
-    txt: 'text/plain',
-    csv: 'text/csv',
-    json: 'application/json',
-    pdf: 'application/pdf',
-    png: 'image/png',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    gif: 'image/gif',
-    svg: 'image/svg+xml',
-    webp: 'image/webp',
-  }
-  return map[ext] ?? 'application/octet-stream'
-}
-
 function resolveUploadBucket(app: App, bucketName: string | undefined): Bucket | undefined {
   const explicit = app.buckets?.find((b) => b.name === bucketName)
   if (explicit) return explicit
-  return bucketName === 'default' ? { name: 'default', public: false } : undefined
+  return bucketName === 'default' ? { name: 'default', public: !app.auth } : undefined
 }
 
 function validateUploadFilename(
@@ -127,6 +212,24 @@ function validateUploadFilename(
       error: 'Invalid filename: null bytes are not allowed',
       code: 'BAD_REQUEST',
     }
+  }
+  return undefined
+}
+
+function validateUploadPath(
+  path: string
+): { readonly error: string; readonly code: string } | undefined {
+  if (path.length === 0 || path.startsWith('/')) {
+    return { error: 'Invalid path: must be a non-empty relative path', code: 'BAD_REQUEST' }
+  }
+  if (path.includes('..') || path.includes('\\')) {
+    return {
+      error: 'Invalid path: path traversal sequences are not allowed',
+      code: 'BAD_REQUEST',
+    }
+  }
+  if (path.includes('\x00')) {
+    return { error: 'Invalid path: null bytes are not allowed', code: 'BAD_REQUEST' }
   }
   return undefined
 }
@@ -203,7 +306,8 @@ function createHandlePostBucketFile(app: App) {
       return c.json({ success: false, error: 'Bucket not found', code: 'NOT_FOUND' }, 404)
     }
 
-    const { file } = await c.req.parseBody()
+    const body = await c.req.parseBody()
+    const { file } = body
     if (!file || !(file instanceof File)) {
       return c.json({ success: false, error: 'No file provided', code: 'BAD_REQUEST' }, 400)
     }
@@ -211,6 +315,14 @@ function createHandlePostBucketFile(app: App) {
     const failure = validateUploadFile(bucket, file)
     if (failure) {
       return c.json(failure.body, failure.status)
+    }
+
+    const explicitPath = typeof body['path'] === 'string' ? body['path'] : undefined
+    if (explicitPath !== undefined) {
+      const pathError = validateUploadPath(explicitPath)
+      if (pathError) {
+        return c.json({ success: false, ...pathError }, 400)
+      }
     }
 
     if (!bucket.public && !getSessionContext(c)) {
@@ -225,15 +337,15 @@ function createHandlePostBucketFile(app: App) {
       )
     }
 
-    return persistUpload(c, file)
+    return persistUpload(c, file, explicitPath)
   }
 }
 
-async function persistUpload(c: Context, file: File): Promise<Response> {
+async function persistUpload(c: Context, file: File, explicitPath?: string): Promise<Response> {
   const arrayBuffer = await file.arrayBuffer()
   const content = new Uint8Array(arrayBuffer)
   const mimeType = file.type || 'application/octet-stream'
-  const key = `${crypto.randomUUID()}-${file.name}`
+  const key = explicitPath ?? `${crypto.randomUUID()}-${file.name}`
 
   const quotaResponse = await checkStorageQuota(c, content.length)
   if (quotaResponse) return quotaResponse
@@ -331,14 +443,20 @@ function createHandleDeleteBucketFile(app: App) {
       )
     }
 
+    evictTransformCacheForKey(key)
+
     return c.body(null, 204)
   }
 }
 
 export function chainBucketRoutes<T extends Hono>(honoApp: T, app: App): T {
   const routedApp = honoApp
-    .get('/api/buckets/:bucketName/files/:filename', createHandleGetBucketFile(app))
+    .get('/api/buckets/:bucketName/files/:filename{.+}', createHandleGetBucketFile(app))
     .post('/api/buckets/:bucketName/files', createHandlePostBucketFile(app))
-    .on('DELETE', '/api/buckets/:bucketName/files/:filename', createHandleDeleteBucketFile(app))
+    .on('DELETE', '/api/buckets/:bucketName/files/:filename{.+}', createHandleDeleteBucketFile(app))
+    .post('/api/buckets/:bucketName/sign/batch', createHandleBatchSign(app))
+    .post('/api/buckets/:bucketName/sign', createHandleSign(app))
+    .get('/api/buckets/:bucketName/signed', createHandleSignedServe(app))
+    .put('/api/buckets/:bucketName/signed', createHandleSignedUpload(app))
   return routedApp as T
 }

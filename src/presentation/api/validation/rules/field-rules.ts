@@ -8,6 +8,7 @@
 import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { hasPermission } from '@/domain/models/app/tables/permissions'
+import { inferMimeFromKey } from '@/domain/utils/mime-types'
 import {
   FieldValidationError,
   FieldPermissionError,
@@ -170,24 +171,6 @@ export function validateFieldFormats(
   })
 }
 
-function inferMimeTypeFromKey(key: string): string {
-  const ext = key.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]
-  if (!ext) return 'application/octet-stream'
-  const mimeMap: Record<string, string> = {
-    txt: 'text/plain',
-    csv: 'text/csv',
-    json: 'application/json',
-    pdf: 'application/pdf',
-    png: 'image/png',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    gif: 'image/gif',
-    svg: 'image/svg+xml',
-    webp: 'image/webp',
-  }
-  return mimeMap[ext] ?? 'application/octet-stream'
-}
-
 function isMimeTypeAllowed(mimeType: string, allowedFileTypes: readonly string[]): boolean {
   return allowedFileTypes.some((allowed) =>
     allowed.endsWith('/*') ? mimeType.startsWith(allowed.slice(0, -1)) : mimeType === allowed
@@ -232,7 +215,7 @@ const validateAllowedTypes = (
 ): FieldValidationError | undefined => {
   if (!field.allowedFileTypes || field.allowedFileTypes.length === 0) return undefined
   const allowed = field.allowedFileTypes
-  const hasInvalid = keys.some((key) => !isMimeTypeAllowed(inferMimeTypeFromKey(key), allowed))
+  const hasInvalid = keys.some((key) => !isMimeTypeAllowed(inferMimeFromKey(key), allowed))
   if (!hasInvalid) return undefined
   return new FieldValidationError(
     `Invalid file type for field '${field.name}'. Allowed file types: ${field.allowedFileTypes.join(', ')}`,
@@ -333,7 +316,7 @@ export function enrichAttachmentMetadata(
             ...acc,
             [f.name]: {
               filename: stripUuidPrefix(key),
-              mimeType: inferMimeTypeFromKey(key),
+              mimeType: inferMimeFromKey(key),
               size: content.length,
               url: `/api/buckets/default/files/${key}`,
             },

@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { SuccessPageActionSchema } from '../../forms/on-success'
 
 export const ToastVariantSchema = Schema.Literal('success', 'error', 'warning', 'info').annotations(
   {
@@ -34,11 +35,61 @@ export const ToastSchema = Schema.Struct({
   description: 'Toast notification configuration',
 })
 
+export const ActionResponseTypeSchema = Schema.Literal(
+  'navigate',
+  'reset',
+  'message',
+  'successPage'
+).annotations({
+  title: 'Action Response Type',
+  description: 'Form behavior after a successful action (navigate, reset, message, successPage)',
+})
+
 export const ActionResponseSchema = Schema.Struct({
+  type: Schema.optional(ActionResponseTypeSchema),
   navigate: Schema.optional(
     Schema.String.annotations({
       description: 'URL path to navigate to. Supports $variable references.',
       examples: ['/dashboard', '/posts/$record.slug'],
+    })
+  ),
+  preserveFields: Schema.optional(
+    Schema.Array(Schema.String).annotations({
+      description:
+        'Field names retained after a reset. Only meaningful when type is "reset". All other fields are cleared.',
+      examples: [
+        ['category', 'location'],
+        ['project', 'date'],
+      ],
+    })
+  ),
+  title: Schema.optional(
+    Schema.String.annotations({
+      description: 'Success page heading. Only meaningful when type is "successPage".',
+      examples: ['Thank you for your feedback!', 'Ticket Created'],
+    })
+  ),
+  message: Schema.optional(
+    Schema.String.annotations({
+      description: 'Success page body message. Only meaningful when type is "successPage".',
+    })
+  ),
+  actions: Schema.optional(
+    Schema.Array(SuccessPageActionSchema).annotations({
+      description: 'Success page action buttons. Only meaningful when type is "successPage".',
+    })
+  ),
+  showSummary: Schema.optional(
+    Schema.Boolean.annotations({
+      description:
+        'Render a read-only summary of submitted values on the success page. Only meaningful when type is "successPage".',
+    })
+  ),
+  redirect: Schema.optional(
+    Schema.String.annotations({
+      description:
+        'URL navigated to after the success page is shown. Supports $record.X interpolation. Only meaningful when type is "successPage".',
+      examples: ['/support/tickets/$record.id'],
     })
   ),
   toast: Schema.optional(ToastSchema),
@@ -185,5 +236,6 @@ export type AutomationAction = Schema.Schema.Type<typeof AutomationActionSchema>
 export type FilterAction = Schema.Schema.Type<typeof FilterActionSchema>
 export type NavigateAction = Schema.Schema.Type<typeof NavigateActionSchema>
 export type ActionResponse = Schema.Schema.Type<typeof ActionResponseSchema>
+export type ActionResponseType = Schema.Schema.Type<typeof ActionResponseTypeSchema>
 export type Toast = Schema.Schema.Type<typeof ToastSchema>
 export type ToastVariant = Schema.Schema.Type<typeof ToastVariantSchema>

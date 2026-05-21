@@ -6,6 +6,13 @@
  */
 
 export { WebhookAuthSchema } from './auth'
-export { WebhookPayloadSchema } from './payload'
-export { WebhookRetrySchema } from './retry'
+export { WebhookPayloadSchema, type WebhookPayload } from './payload'
+export { customizeWebhookData, type CustomizedWebhookData } from './customize-payload'
+export {
+  WebhookRetrySchema,
+  type WebhookRetry,
+  type ResolvedRetryPolicy,
+  resolveRetryPolicy,
+  computeRetryDelay,
+} from './retry'
 export { WebhookSchema, type Webhook } from './webhook'

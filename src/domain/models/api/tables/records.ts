@@ -25,10 +25,22 @@ export const createRecordRequestSchema = z.preprocess(
   })
 )
 
+const wrapUpdateBody = (input: unknown): unknown => {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) return input
+  const obj = input as Record<string, unknown>
+  if ('fields' in obj) return obj
+  const { updatedAt, ...rest } = obj
+  if (Object.keys(rest).length === 0) {
+    return updatedAt === undefined ? obj : { fields: {}, updatedAt }
+  }
+  return updatedAt === undefined ? { fields: { ...rest } } : { fields: { ...rest }, updatedAt }
+}
+
 export const updateRecordRequestSchema = z.preprocess(
-  wrapFlatFieldsBody,
+  wrapUpdateBody,
   z.object({
     fields: z.record(z.string(), fieldValueSchema).optional().default({}),
+    updatedAt: z.string().optional(),
   })
 )
 

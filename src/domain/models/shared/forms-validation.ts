@@ -170,15 +170,50 @@ const inlineConflictsSuffix = (component: Record<string, unknown>): string | und
   const hasDataSource = component['dataSource'] !== undefined
   const hasFields = component['fields'] !== undefined
   const hasFieldGroups = component['fieldGroups'] !== undefined
-  if (!hasDataSource && !hasFields && !hasFieldGroups) return undefined
+  const hasWizard = component['wizard'] !== undefined
+  if (!hasDataSource && !hasFields && !hasFieldGroups && !hasWizard) return undefined
   return [
     hasDataSource ? 'dataSource' : undefined,
     hasFields ? 'fields' : undefined,
     hasFieldGroups ? 'fieldGroups' : undefined,
+    hasWizard ? 'wizard' : undefined,
   ]
     .filter((c): c is string => c !== undefined)
     .join(', ')
 }
+
+interface WizardStepShape {
+  readonly label: string
+  readonly fields: ReadonlyArray<string>
+}
+
+const validateWizardStepFields = (pages: ReadonlyArray<PageShape>): string | undefined =>
+  pages.reduce<string | undefined>((pageAcc, page, pageIndex) => {
+    if (pageAcc !== undefined) return pageAcc
+    if (!page.components) return undefined
+    return page.components.reduce<string | undefined>((compAcc, component, componentIndex) => {
+      if (compAcc !== undefined) return compAcc
+      if (component.type !== 'form') return undefined
+      const wizard = component['wizard'] as
+        | { readonly steps?: ReadonlyArray<WizardStepShape> }
+        | undefined
+      if (wizard?.steps === undefined) return undefined
+      const formFields = component['fields'] as
+        | ReadonlyArray<{ readonly field?: string }>
+        | undefined
+      const declared = new Set(
+        (formFields ?? []).map((f) => f.field).filter((f): f is string => typeof f === 'string')
+      )
+      return wizard.steps.reduce<string | undefined>((stepAcc, wizardStep, stepIndex) => {
+        if (stepAcc !== undefined) return stepAcc
+        const unknownField = wizardStep.fields.find((name) => !declared.has(name))
+        if (unknownField !== undefined) {
+          return `pages[${pageIndex}] '${page.name}' components[${componentIndex}]: wizard.steps[${stepIndex}] '${wizardStep.label}' references unknown field '${unknownField}' which is not declared in the form's fields[]`
+        }
+        return undefined
+      }, undefined)
+    }, undefined)
+  }, undefined)
 
 const validateFormComponent = (
   locator: FormComponentLocator,
@@ -521,6 +556,7 @@ export const validateAllFormsReferences = (app: AppForFormsValidation): string |
     () => validateSubmitToTable(forms, tableNames),
     () => validateSubmitToAutomation(forms, automationNames),
     () => validatePageFormRefs(pages, formNames),
+    () => validateWizardStepFields(pages),
     () => validateTableFieldColumns(forms, tables),
     () => validateSubmitToMappingTargets(forms, tables),
     () => validateFieldNameUniqueness(forms),

@@ -19,6 +19,7 @@ import type { App } from '@/domain/models/app'
 import type { AuthConfigRequiredForUserFields } from '@/infrastructure/errors/auth-config-required-error'
 import type { SchemaInitializationError } from '@/infrastructure/errors/schema-initialization-error'
 import type { ServerCreationError } from '@/infrastructure/errors/server-creation-error'
+import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 
 type ServerFactory = Context.Tag.Service<ServerFactoryService>
 type PageRenderer = Context.Tag.Service<PageRendererService>
@@ -39,6 +40,7 @@ export const generateMultiLanguageFiles = (
   | SSGGenerationError
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
+  | TransformPresetError
   | Error,
   never
 > =>
@@ -127,6 +129,7 @@ export const generateSingleLanguageFiles = (
   | SSGGenerationError
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
+  | TransformPresetError
   | Error,
   never
 > =>

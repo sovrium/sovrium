@@ -45,3 +45,5 @@ export const WebhookPayloadSchema = Schema.Struct({
     return undefined
   })
 )
+
+export type WebhookPayload = Schema.Schema.Type<typeof WebhookPayloadSchema>

@@ -8,12 +8,37 @@
 import { useCallback, useState } from 'react'
 import { type FieldDef } from '../components/crud-form/fields'
 import { FormFields } from '../components/crud-form/layout'
-import { submitCrudForm } from './submit-pipeline'
-import { type CrudFormIslandProps, type FormState, type SubmitContext } from './types'
+import { findMissingRequiredFields, submitCrudForm } from './submit-pipeline'
+import {
+  type CrudFormIslandProps,
+  type FormState,
+  type SubmitContext,
+  type WizardStep,
+} from './types'
 
 function resolveStepFields(island: CrudFormIslandProps, step: number): readonly FieldDef[] {
   const names = new Set(island.wizard![step]?.fields ?? [])
   return island.fields.filter((f) => names.has(f.name))
+}
+
+function WizardProgress(props: {
+  readonly steps: readonly WizardStep[]
+  readonly current: number
+}) {
+  const { steps, current } = props
+  return (
+    <ol data-wizard-progress>
+      {steps.map((s, i) => (
+        <li
+          key={s.label}
+          {...(i === current && { 'aria-current': 'step' })}
+          data-wizard-step-label
+        >
+          {s.label}
+        </li>
+      ))}
+    </ol>
+  )
 }
 
 function WizardNav(props: {
@@ -54,6 +79,45 @@ function WizardNav(props: {
   )
 }
 
+function useWizardNavigation(args: {
+  readonly stepFields: readonly FieldDef[]
+  readonly values: Record<string, string>
+  readonly isLastStep: boolean
+  readonly ctx: SubmitContext
+  readonly setStep: React.Dispatch<React.SetStateAction<number>>
+}) {
+  const { stepFields, values, isLastStep, ctx, setStep } = args
+
+  const onSubmit = useCallback(
+    (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault()
+      if (isLastStep) void submitCrudForm({ ...ctx, afterReset: () => setStep(0) })
+    },
+    [isLastStep, ctx, setStep]
+  )
+
+  const onBack = useCallback(() => {
+    ctx.setState({ isPending: false })
+    setStep((s) => s - 1)
+  }, [ctx, setStep])
+
+  const onNext = useCallback(() => {
+    const missing = findMissingRequiredFields(stepFields, values)
+    if (missing.length > 0) {
+      ctx.setState({
+        fieldError: { field: missing[0]!, message: 'This field is required' },
+        invalidFields: missing,
+        isPending: false,
+      })
+      return
+    }
+    ctx.setState({ isPending: false })
+    setStep((s) => s + 1)
+  }, [stepFields, values, ctx, setStep])
+
+  return { onSubmit, onBack, onNext }
+}
+
 export function WizardCreateForm(props: {
   readonly island: CrudFormIslandProps
   readonly values: Record<string, string>
@@ -65,17 +129,13 @@ export function WizardCreateForm(props: {
   const { island, values, state, ctx, onFieldChange } = props
   const isLastStep = step === island.wizard!.length - 1
   const stepFields = resolveStepFields(island, step)
-
-  const onSubmit = useCallback(
-    (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault()
-      if (isLastStep) void submitCrudForm(ctx)
-    },
-    [isLastStep, ctx]
-  )
-
-  const onBack = useCallback(() => setStep((s) => s - 1), [])
-  const onNext = useCallback(() => setStep((s) => s + 1), [])
+  const { onSubmit, onBack, onNext } = useWizardNavigation({
+    stepFields,
+    values,
+    isLastStep,
+    ctx,
+    setStep,
+  })
 
   return (
     <form
@@ -86,6 +146,10 @@ export function WizardCreateForm(props: {
       data-action-table={island.table}
       noValidate
     >
+      <WizardProgress
+        steps={island.wizard!}
+        current={step}
+      />
       <FormFields
         fields={stepFields}
         values={values}

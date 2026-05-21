@@ -66,6 +66,8 @@ import {
 } from '@/infrastructure/server/route-setup/page-routes'
 import { setupSchemaRoutes } from '@/infrastructure/server/route-setup/schema-routes'
 import { setupStaticAssets } from '@/infrastructure/server/route-setup/static-assets'
+import { validateStoragePublicAccessEnv } from '@/infrastructure/server/validate-storage-public-access-env'
+import { validateTransformPresetEnv } from '@/infrastructure/server/validate-transform-preset-env'
 import { warnIfInsecureEnv } from '@/infrastructure/utils/env'
 import { resolvePackagePath } from '@/infrastructure/utils/package-paths'
 import type { ServerInstance } from '@/application/models/server'
@@ -77,6 +79,7 @@ import type {
   MigrationError,
 } from '@/infrastructure/database/drizzle/migrate'
 import type { CSSCompilationError } from '@/infrastructure/errors/css-compilation-error'
+import type { TransformPresetError } from '@/infrastructure/errors/transform-preset-error'
 import type { Server } from 'bun'
 
 export interface ServerConfig {
@@ -398,8 +401,7 @@ const writeLockFile = (
 
 const cleanupLockFileSync = (): void => {
   try {
-    const lockDir = process.env.SOVRIUM_LOCK_DIR || process.cwd()
-    const lockPath = `${lockDir}/.sovrium.lock`
+    const lockPath = `${process.env.SOVRIUM_LOCK_DIR || process.cwd()}/.sovrium.lock`
     const raw = readFileSync(lockPath, 'utf-8')
     const data = JSON.parse(raw) as { pid: number }
     if (data.pid === process.pid) {
@@ -454,15 +456,17 @@ export const createServer = (
   | CSSCompilationError
   | AuthConfigRequiredForUserFields
   | SchemaInitializationError
+  | TransformPresetError
   | Error
 > =>
   Effect.gen(function* () {
     const startTime = Date.now()
     warnIfInsecureEnv()
+    yield* validateTransformPresetEnv()
+    yield* validateStoragePublicAccessEnv()
     const port = config.port ?? parsePort(Bun.env.PORT) ?? 3000
     const hostname = config.hostname ?? (Bun.env.HOSTNAME || 'localhost')
-    const configHash = config.configHash ?? ''
-    const configPath = config.configPath ?? ''
+    const { configHash = '', configPath = '' } = config
 
     const {
       phases: infraPhases,

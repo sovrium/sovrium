@@ -50,6 +50,7 @@ import {
   syncForeignKeyConstraints,
 } from './schema-migration-helpers'
 import { ensureUserAccessTable } from './user-access-table'
+import { ensureWebhookDeliveriesTable } from './webhook-deliveries-table'
 import type { App } from '@/domain/models/app'
 import type { Table } from '@/domain/models/app/tables'
 
@@ -328,6 +329,10 @@ const executeMigrationSteps = (
 
     if (app.auth?.scopeTables && app.auth.scopeTables.length > 0) {
       yield* ensureUserAccessTable(tx)
+    }
+
+    if ((app.tables ?? []).some((t) => (t.webhooks ?? []).length > 0)) {
+      yield* ensureWebhookDeliveriesTable(tx)
     }
 
     yield* recordMigration(tx, app)

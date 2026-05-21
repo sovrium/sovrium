@@ -51,9 +51,9 @@ function renderCrudFormVariant(config: RenderFormConfig): ReactElement {
 }
 
 function renderAuthFormVariant(config: RenderFormConfig): ReactElement {
-  const { props, action } = config
+  const { props, action, tables, component } = config
   if (action?.type === 'auth' && action.strategy === 'oauth') return renderOAuthForm(props, action)
-  return renderAuthForm(props, action!)
+  return renderAuthForm(props, action!, tables, component)
 }
 
 export function renderForm(config: RenderFormConfig): ReactElement {

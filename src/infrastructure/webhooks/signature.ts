@@ -8,20 +8,37 @@
 
 const encoder = new TextEncoder()
 
-const getKey = async (secret: string): Promise<CryptoKey> =>
-  crypto.subtle.importKey('raw', encoder.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, [
-    'sign',
-    'verify',
-  ])
+const HASH_BY_ALGORITHM = {
+  sha256: 'SHA-256',
+  sha1: 'SHA-1',
+} as const
+
+export type HmacAlgorithm = keyof typeof HASH_BY_ALGORITHM
+
+const getKey = async (secret: string, algorithm: HmacAlgorithm = 'sha256'): Promise<CryptoKey> =>
+  crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: HASH_BY_ALGORITHM[algorithm] },
+    false,
+    ['sign', 'verify']
+  )
 
 const bufferToHex = (buffer: ArrayBuffer): string =>
   [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, '0')).join('')
 
-export const generateSignature = async (payload: string, secret: string): Promise<string> => {
-  const key = await getKey(secret)
+export const computeHmacSignature = async (
+  payload: string,
+  secret: string,
+  algorithm: HmacAlgorithm = 'sha256'
+): Promise<string> => {
+  const key = await getKey(secret, algorithm)
   const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(payload))
-  return `sha256=${bufferToHex(signature)}`
+  return `${algorithm}=${bufferToHex(signature)}`
 }
+
+export const generateSignature = async (payload: string, secret: string): Promise<string> =>
+  computeHmacSignature(payload, secret, 'sha256')
 
 export const verifySignature = async (
   payload: string,

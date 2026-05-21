@@ -138,6 +138,15 @@ export function hasCreatePermission(
   return createPermission.includes(userRole)
 }
 
+function hasAdminScopedDeleteOverride(
+  table:
+    | Readonly<{ permissions?: Readonly<{ override?: { admin?: { delete?: unknown } } }> }>
+    | undefined
+): boolean {
+  const adminOverride = table?.permissions?.override?.admin
+  return adminOverride?.delete !== undefined
+}
+
 export function hasDeletePermission(
   table:
     | Readonly<{
@@ -145,7 +154,7 @@ export function hasDeletePermission(
         permissions?: Readonly<{
           delete?: unknown
           inherit?: string
-          override?: { delete?: unknown }
+          override?: { delete?: unknown; admin?: { delete?: unknown } }
         }>
       }>
     | undefined,
@@ -153,6 +162,8 @@ export function hasDeletePermission(
   allTables?: readonly Readonly<{ name: string; permissions?: TablePermissions }>[]
 ): boolean {
   if (isAdminRole(userRole)) return true
+
+  if (hasAdminScopedDeleteOverride(table)) return false
 
   const effectivePerms = getEffectivePermissions(table, allTables) as
     | Readonly<{ delete?: unknown }>
