@@ -376,6 +376,7 @@ jobs:
           if [ -s "sovrium-${VERSION}-checksums.txt" ]; then
             gh release upload "${TAG}" \
               "sovrium-${VERSION}-checksums.txt" \
+              --repo "${{ github.repository }}" \
               --clobber
           fi
 
