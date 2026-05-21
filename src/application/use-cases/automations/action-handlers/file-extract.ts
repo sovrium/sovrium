@@ -6,6 +6,8 @@
  */
 
 
+import { htmlToTextLines } from '@/domain/utils/html-sanitization'
+
 export type ExtractTextFormat = 'plain' | 'markdown'
 
 export interface ExtractedText {
@@ -56,18 +58,7 @@ const countPdfPages = (raw: string): number => {
   return Math.max(1, typePages)
 }
 
-const htmlToText = (html: string): string =>
-  html
-    .replace(/<\s*(br|\/p|\/h[1-6]|\/div|\/li)\s*>/gi, '\n')
-    .replace(/<[^>]*>/g, '')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
-    .split(/\r?\n/)
-    .map((line) => line.replace(/\s+/g, ' ').trim())
-    .filter((line) => line !== '')
-    .join('\n')
+const htmlToText = (html: string): string => htmlToTextLines(html).join('\n')
 
 type ExtractSourceKind = 'pdf' | 'html' | 'text' | 'unknown'
 

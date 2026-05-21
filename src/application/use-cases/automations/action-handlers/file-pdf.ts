@@ -6,24 +6,9 @@
  */
 
 
-const padXrefOffset = (n: number): string => n.toString().padStart(10, '0')
+import { htmlToTextLines } from '@/domain/utils/html-sanitization'
 
-const htmlToPlainLines = (html: string): readonly string[] => {
-  const withoutTags = html
-    .replace(/<\s*(br|\/p|\/h[1-6]|\/div|\/li)\s*>/gi, '\n')
-    .replace(/<[^>]*>/g, '')
-  const decoded = withoutTags
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, ' ')
-  return decoded
-    .split(/\r?\n/)
-    .map((line) => line.replace(/\s+/g, ' ').trim())
-    .filter((line) => line !== '')
-}
+const padXrefOffset = (n: number): string => n.toString().padStart(10, '0')
 
 const escapePdfText = (text: string): string =>
   text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
@@ -40,7 +25,7 @@ const buildContentStream = (lines: readonly string[]): string => {
 }
 
 export const renderHtmlToPdf = (html: string): Uint8Array => {
-  const content = buildContentStream(htmlToPlainLines(html))
+  const content = buildContentStream(htmlToTextLines(html))
   const contentBytes = new TextEncoder().encode(content)
 
   const objects: readonly string[] = [

@@ -33,7 +33,7 @@ const TABLE_ROW_PATTERN =
   /^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*(\d)\s*\|\s*(?:(\d+|-)\s*\|\s*)?(Covered|Specified|Planned)\s*\(?(US-[A-Z0-9-]+)?\)?\s*\|\s*([^|]*?)\s*\|?\s*$/
 
 const DEPENDENCY_COMMENT_PATTERN =
-  /^<!--\s*priority:depends_on\s+((?:US-[A-Z0-9-]+(?:\s*,\s*)?)+)\s*-->$/
+  /^<!--\s*priority:depends_on\s+(US-[A-Z0-9-]+(?:\s*,\s*US-[A-Z0-9-]+)*)\s*-->$/
 
 const DOMAIN_HEADING_PATTERN = /^####\s+\d+\.\s+(.+)$/
 

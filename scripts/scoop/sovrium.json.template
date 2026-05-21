@@ -6,7 +6,7 @@
   "architecture": {
     "64bit": {
       "url": "https://github.com/sovrium/sovrium/releases/download/v{{VERSION}}/sovrium-{{VERSION}}-windows-x64.zip",
-      "hash": "{{SHA256_WINDOWS_X64}}"
+      "hash": "sha256:{{SHA256_WINDOWS_X64}}"
     }
   },
   "bin": "sovrium-windows-x64.exe",

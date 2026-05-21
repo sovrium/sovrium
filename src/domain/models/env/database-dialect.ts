@@ -32,7 +32,7 @@ export const SqliteDialectSchema = Schema.Struct({
   path: Schema.String.pipe(
     Schema.minLength(1),
     Schema.annotations({
-      description: 'SQLite database file path (SQLITE_PATH), or ":memory:"',
+      description: 'Resolved SQLite database file path, or ":memory:"',
       examples: ['./sovrium.db', ':memory:'],
     })
   ),
@@ -48,20 +48,49 @@ export const DEFAULT_SQLITE_PATH = './sovrium.db'
 
 export const SQLITE_MEMORY_PATH = ':memory:'
 
+const SQLITE_SCHEME_RE = /^(file:|sqlite:\/\/|sqlite:)/
+
+const parseSqliteUrl = (raw: string): string => {
+  if (raw === SQLITE_MEMORY_PATH) return SQLITE_MEMORY_PATH
+
+  const match = SQLITE_SCHEME_RE.exec(raw)
+  if (!match) {
+    throw new Error(
+      `Unsupported DATABASE_URL scheme: "${raw}". Use postgres://, postgresql://, ` +
+        `file:, sqlite:, or :memory:. A bare filesystem path is not accepted — ` +
+        `prefix it with file: (e.g. file:./sovrium.db).`
+    )
+  }
+
+  const strippedPath = raw.slice(match[0].length)
+  if (strippedPath === '') {
+    throw new Error(
+      `Empty path in DATABASE_URL: "${raw}". Provide a file path (e.g. file:./sovrium.db).`
+    )
+  }
+  return path.resolve(strippedPath)
+}
+
 export const parseDatabaseDialectConfig = (): DatabaseDialectConfig => {
   const databaseUrl = process.env.DATABASE_URL
-  if (databaseUrl) {
+
+  if (databaseUrl && /^postgres(ql)?:\/\//.test(databaseUrl)) {
     return Schema.decodeUnknownSync(PostgresDialectSchema)({
       dialect: 'postgres',
       databaseUrl,
     })
   }
 
-  const rawPath = process.env.SQLITE_PATH || DEFAULT_SQLITE_PATH
-  const resolvedPath = rawPath === SQLITE_MEMORY_PATH ? SQLITE_MEMORY_PATH : path.resolve(rawPath)
+  if (!databaseUrl) {
+    return Schema.decodeUnknownSync(SqliteDialectSchema)({
+      dialect: 'sqlite',
+      path: path.resolve(DEFAULT_SQLITE_PATH),
+    })
+  }
+
   return Schema.decodeUnknownSync(SqliteDialectSchema)({
     dialect: 'sqlite',
-    path: resolvedPath,
+    path: parseSqliteUrl(databaseUrl),
   })
 }
 

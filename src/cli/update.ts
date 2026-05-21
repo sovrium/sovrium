@@ -15,20 +15,40 @@ import { Effect, Console } from 'effect'
 import { withFetchTimeout } from '@/infrastructure/utils/with-fetch-timeout'
 
 const GITHUB_REPO = 'sovrium/sovrium'
+const GITHUB_API_HOST_DEFAULT = 'api.github.com'
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
 const UPDATE_CHECK_FILE = join(homedir(), '.sovrium', 'last-update-check')
 
-export const detectInstallMethod = (): 'binary' | 'npm' | 'homebrew' | 'docker' => {
+export type InstallMethod = 'binary' | 'npm' | 'homebrew' | 'docker' | 'scoop'
+
+const INSTALL_METHODS = ['binary', 'npm', 'homebrew', 'docker', 'scoop'] as const
+
+const isInstallMethod = (value: string | undefined): value is InstallMethod =>
+  value !== undefined && (INSTALL_METHODS as readonly string[]).includes(value)
+
+const isNetworkDisabled = (): boolean => process.env.SOVRIUM_DISABLE_NETWORK === '1'
+
+const githubApiHost = (): string => process.env.SOVRIUM_UPDATE_API_HOST || GITHUB_API_HOST_DEFAULT
+
+export const detectInstallMethod = (): InstallMethod => {
+  const override = process.env.SOVRIUM_INSTALL_METHOD
+  if (isInstallMethod(override)) return override
+
   if (existsSync('/.dockerenv')) return 'docker'
   if (process.env.HOMEBREW_PREFIX) return 'homebrew'
+
+  const execPathNormalized = process.execPath.replace(/\\/g, '/').toLowerCase()
+  if (execPathNormalized.includes('/scoop/apps/sovrium/')) return 'scoop'
+
   if (process.execPath.includes('node_modules') || process.execPath.includes('.bun')) return 'npm'
   return 'binary'
 }
 
 const fetchLatestVersion = async (): Promise<string | undefined> => {
+  if (isNetworkDisabled()) return undefined
   try {
     const response = await withFetchTimeout(
-      `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`,
+      `https://${githubApiHost()}/repos/${GITHUB_REPO}/releases/latest`,
       {},
       3000
     )
@@ -51,8 +71,39 @@ const isNewerVersion = (current: string, latest: string): boolean => {
   return bPat > aPat
 }
 
+const packageManagerUpdateCommand = (method: InstallMethod): readonly string[] | undefined => {
+  if (method === 'homebrew') return ['brew', 'upgrade', 'sovrium']
+  if (method === 'scoop') return ['powershell', '-NoProfile', '-Command', 'scoop update sovrium']
+  return undefined
+}
+
+const runPackageManagerUpdate = async (command: readonly string[]): Promise<void> => {
+  const display = command.join(' ')
+
+  if (process.env.SOVRIUM_UPDATE_DRY_RUN === '1') {
+    Effect.runSync(Console.log(`would run: ${display}`))
+    return
+  }
+
+  Effect.runSync(Console.log(`Updating via your package manager:\n  ${display}\n`))
+  const proc = Bun.spawn([...command], { stdout: 'inherit', stderr: 'inherit', stdin: 'inherit' })
+  const exitCode = await proc.exited
+  if (exitCode !== 0) {
+    Effect.runSync(Console.error(`\nUpdate command exited with code ${exitCode}.`))
+    process.exit(exitCode)
+  }
+}
+
 export const handleUpdateCommand = async (): Promise<void> => {
   const installMethod = detectInstallMethod()
+  const currentVersion = await getCurrentVersion()
+  Effect.runSync(Console.log(`Current version: ${currentVersion}`))
+
+  const pmCommand = packageManagerUpdateCommand(installMethod)
+  if (pmCommand) {
+    await runPackageManagerUpdate(pmCommand)
+    return
+  }
 
   if (installMethod === 'npm') {
     Effect.runSync(
@@ -65,12 +116,6 @@ export const handleUpdateCommand = async (): Promise<void> => {
     )
     return
   }
-  if (installMethod === 'homebrew') {
-    Effect.runSync(
-      Console.log('Sovrium was installed via Homebrew. Update with:\n  brew upgrade sovrium')
-    )
-    return
-  }
   if (installMethod === 'docker') {
     Effect.runSync(
       Console.log(
@@ -80,8 +125,24 @@ export const handleUpdateCommand = async (): Promise<void> => {
     return
   }
 
-  const currentVersion = await getCurrentVersion()
-  Effect.runSync(Console.log(`Current version: ${currentVersion}`))
+  if (process.platform === 'win32') {
+    Effect.runSync(
+      Console.log(
+        'Self-update of a raw Windows binary is not supported.\n' +
+          '  Install via Scoop (scoop update sovrium) or Docker, or re-download from\n' +
+          '  https://github.com/sovrium/sovrium/releases'
+      )
+    )
+    return
+  }
+
+  if (isNetworkDisabled()) {
+    Effect.runSync(
+      Console.log('Network access is disabled (SOVRIUM_DISABLE_NETWORK). Skipping update check.')
+    )
+    return
+  }
+
   Effect.runSync(Console.log('Checking for updates...'))
 
   const latestVersion = await fetchLatestVersion()
@@ -189,7 +250,9 @@ export const getCurrentVersion = async (): Promise<string> =>
       ).version
 
 export const checkForUpdatesInBackground = (currentVersion: string): void => {
-  if (detectInstallMethod() !== 'binary') return
+  const method = detectInstallMethod()
+  if (method !== 'binary' && method !== 'homebrew' && method !== 'scoop') return
+  if (isNetworkDisabled()) return
 
   try {
     if (existsSync(UPDATE_CHECK_FILE)) {

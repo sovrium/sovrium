@@ -7,8 +7,7 @@
 
 
 const env: Record<string, string> = { ...process.env } as Record<string, string>
-delete env['DATABASE_URL']
-env['SQLITE_PATH'] = './drizzle/sqlite-gen.db'
+env['DATABASE_URL'] = 'file:./drizzle/sqlite-gen.db'
 
 const proc = Bun.spawnSync(['bunx', 'drizzle-kit', 'generate'], {
   env,

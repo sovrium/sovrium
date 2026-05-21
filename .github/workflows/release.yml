@@ -100,38 +100,16 @@ jobs:
       - name: Publish @sovrium/types to npm
         run: cd packages/types && npm publish --access public
 
-  # ── Deprecate sovrium npm package ──────────────────────────
-  deprecate-npm:
-    name: Deprecate npm package
-    needs: [release]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: 'lts/*'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Deprecate sovrium on npm
-        run: |
-          npm deprecate sovrium \
-            "Sovrium is now distributed as a standalone binary. Install: curl -fsSL https://sovrium.com/install | sh — Source: https://github.com/sovrium/sovrium"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
-
   # ── Build macOS binaries on native runners ──────────────────
   build-binary-macos:
-    name: Build macOS Binary (${{ matrix.target }})
+    name: Build macOS Binaries
     needs: [release]
-    strategy:
-      matrix:
-        include:
-          - os: macos-13
-            target: darwin-x64
-          - os: macos-14
-            target: darwin-arm64
-    runs-on: ${{ matrix.os }}
+    # Both darwin arches build on ONE Apple-Silicon runner: arm64 native, x64
+    # cross-compiled via `bun build --target=bun-darwin-x64`. This removes the
+    # dependency on the retired Intel `macos-13` runner, which left the
+    # darwin-x64 job stuck in queue indefinitely and blocked every release
+    # (the publish gate needs all 5 platform assets present).
+    runs-on: macos-14
     # Cap runtime so a wedged GitHub macOS runner cannot hang the run and hold
     # the `concurrency: release` lock indefinitely.
     timeout-minutes: 45
@@ -153,18 +131,24 @@ jobs:
           VERSION=$(jq -r '.version' package.json)
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
-      - name: Build binary
-        run: bun run build:binary
+      - name: Build binaries (arm64 native + x64 cross-compile)
+        run: |
+          bun run build:binary -- --target darwin-arm64
+          bun run build:binary -- --target darwin-x64
 
       - name: Ad-hoc code sign (macOS)
-        run: codesign --force --sign - sovrium
+        run: |
+          codesign --force --sign - sovrium-darwin-arm64
+          codesign --force --sign - sovrium-darwin-x64
 
       # Release gate for issue #19: the compiled binary must serve theme-aware
-      # CSS without the native lightningcss/oxide addons. A failure here blocks
-      # the release (publish jobs depend on this job succeeding).
+      # CSS without the native lightningcss/oxide addons. Smoke-test the native
+      # arm64 build — the x64 binary is the same source cross-compiled, so this
+      # exercises the identical CSS pipeline code path. A failure blocks the
+      # release (publish jobs depend on this job succeeding).
       - name: Smoke test - binary serves compiled CSS
         run: |
-          PORT=3210 ./sovrium start examples/landing-page.yaml &
+          PORT=3210 ./sovrium-darwin-arm64 start examples/landing-page.yaml &
           SERVER_PID=$!
           CSS=""
           for _ in $(seq 1 30); do
@@ -187,26 +171,25 @@ jobs:
           fi
           echo "OK: binary served $(printf '%s' "$CSS" | wc -c) bytes of compiled CSS"
 
-      - name: Package binary
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          tar czf "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" sovrium
-
-      - name: Generate checksum
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          shasum -a 256 "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" > "sovrium-${VERSION}-${{ matrix.target }}.sha256"
-
-      - name: Upload to GitHub Release
+      - name: Package, checksum, and upload both arches
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ github.ref_name }}"
           VERSION="${{ steps.version.outputs.version }}"
-          gh release upload "${TAG}" \
-            "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" \
-            "sovrium-${VERSION}-${{ matrix.target }}.sha256" \
-            --clobber
+          for TARGET in darwin-arm64 darwin-x64; do
+            # Tar a bare `sovrium` so every platform's tarball shares the same
+            # inner name (matches the Linux rename + the Homebrew formula's
+            # `bin.install "sovrium"`).
+            cp "sovrium-${TARGET}" sovrium
+            tar czf "sovrium-${VERSION}-${TARGET}.tar.gz" sovrium
+            shasum -a 256 "sovrium-${VERSION}-${TARGET}.tar.gz" > "sovrium-${VERSION}-${TARGET}.sha256"
+            rm -f sovrium
+            gh release upload "${TAG}" \
+              "sovrium-${VERSION}-${TARGET}.tar.gz" \
+              "sovrium-${VERSION}-${TARGET}.sha256" \
+              --clobber
+          done
 
   # ── Build Linux binaries (cross-compile on ubuntu) ──────────
   build-binary-linux:
@@ -274,7 +257,11 @@ jobs:
       - name: Package binary
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          tar czf "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" "sovrium-${{ matrix.target }}"
+          # Rename to the bare `sovrium` so the tarball matches the macOS layout.
+          # The Homebrew formula (`bin.install "sovrium"`), the curl installer, and
+          # the `sovrium update` self-replace extractor all expect the bare name.
+          mv "sovrium-${{ matrix.target }}" sovrium
+          tar czf "sovrium-${VERSION}-${{ matrix.target }}.tar.gz" sovrium
 
       - name: Generate checksum
         run: |
@@ -423,6 +410,15 @@ jobs:
             --version "${VERSION}" \
             --output sovrium.rb
 
+      - name: Verify tap token is configured
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
+            echo "::error::HOMEBREW_TAP_TOKEN secret is not set — cannot push to sovrium/homebrew-tap. Configure it under repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
       - name: Checkout homebrew-tap repo
         uses: actions/checkout@v5
         with:
@@ -474,6 +470,15 @@ jobs:
           bun run scripts/update-scoop-manifest.ts \
             --version "${VERSION}" \
             --output sovrium.json
+
+      - name: Verify tap token is configured
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
+            echo "::error::HOMEBREW_TAP_TOKEN secret is not set — cannot push to sovrium/scoop-bucket. Configure it under repo Settings → Secrets and variables → Actions."
+            exit 1
+          fi
 
       - name: Checkout scoop-bucket repo
         uses: actions/checkout@v5

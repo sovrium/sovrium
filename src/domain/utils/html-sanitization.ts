@@ -72,3 +72,10 @@ export function stripHtmlToText(input: string): string {
     .replace(/&gt;/g, '>')
     .replace(/&amp;/g, '&')
 }
+
+export function htmlToTextLines(html: string): readonly string[] {
+  return stripHtmlToText(html.replace(/<\s*(br|\/p|\/h[1-6]|\/div|\/li)\s*>/gi, '\n'))
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter((line) => line !== '')
+}

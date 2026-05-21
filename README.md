@@ -203,12 +203,20 @@ The standalone binary requires neither Node nor Bun:
 # macOS / Linux — install script
 curl -fsSL https://sovrium.com/install | sh
 
-# Homebrew
+# Homebrew (macOS / Linux)
 brew install sovrium/tap/sovrium
+
+# Scoop (Windows)
+scoop bucket add sovrium https://github.com/sovrium/scoop-bucket
+scoop install sovrium
 
 # Docker
 docker pull ghcr.io/sovrium/sovrium:latest
 ```
+
+> Already installed? `sovrium update` keeps you current regardless of how you
+> installed: it self-replaces a raw binary, or delegates to `brew upgrade` /
+> `scoop update` for package-manager installs.
 
 > The `sovrium` npm package is **deprecated** — Sovrium ships as a binary.
 > Only [`@sovrium/types`](https://www.npmjs.com/package/@sovrium/types) is
